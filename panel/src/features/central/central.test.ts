@@ -37,7 +37,9 @@ describe("a hub's pages", () => {
   it("sends a hub's overview and deployment pages to the fleet, and nothing on a server or a node", () => {
     const hub = withCentral({ role: "hub", sealed: false, locked: false });
     expect(hubRedirect(hub, "/", null)).toEqual({ hub: "overview" });
-    expect(hubRedirect(hub, "/apps/new", null)).toEqual({ hub: "apps" });
+    expect(hubRedirect(hub, "/apps", null)).toEqual({ hub: "apps" });
+    // A new application starts by asking which of the fleet's servers deploys it.
+    expect(hubRedirect(hub, "/apps/new", null)).toBeNull();
     expect(hubRedirect(hub, "/settings/security", null)).toBeNull();
     // `/n/web-2/apps` is web-2's page: the router reads it as /apps with node web-2.
     expect(hubRedirect(hub, "/apps", "web-2")).toBeNull();

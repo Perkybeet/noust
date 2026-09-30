@@ -117,6 +117,12 @@ Spanish docs and of most developer tools): "Comprueba la conexión", not "Compru
 | settings | ajustes | |
 | sign in, sign out | iniciar sesión, cerrar sesión | |
 | sudo mode, "Confirm it's you" | modo sudo, "Confirma que eres tú" | |
+| account, role | cuenta, rol | "security officer" is "responsable de seguridad" |
+| passkey | llave de acceso | the name Apple, Google and Microsoft use in Spanish |
+| emergency access (the access token) | acceso de emergencia | |
+| approval, four-eyes | aprobación, cuatro ojos | "request" is "solicitud" |
+| audit log | registro de auditoría | the settings entry is "Auditoría" |
+| terms of use (the usage notice) | condiciones de uso | |
 | two-factor authentication | verificación en dos pasos | |
 | webhook, token, API token | webhook, token, token de API | |
 | server, machine | servidor, máquina | |

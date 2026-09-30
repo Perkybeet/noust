@@ -1,27 +1,31 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Boxes, Plus, Search, X } from "lucide-react";
+import { Boxes, X } from "lucide-react";
 import { useMemo } from "react";
 
 import { appsQuery } from "../../api/queries/apps";
-import { PageHeader } from "../../app/PageHeader";
 import { CommandHint } from "../../components/page/CommandHint";
+import { FilterBar } from "../../components/page/FilterBar";
+import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
-import { STATUS } from "../../components/ui/StatusPill";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { Input } from "../../components/ui/Input";
-import { Kbd } from "../../components/ui/Kbd";
+import { ICONS } from "../../components/ui/icons";
 import { Select } from "../../components/ui/Select";
+import { STATUS } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
+import { useNode } from "../../nodes/useNode";
 import { AppRowActions } from "./AppRowActions";
 import { AppsTable } from "./AppsTable";
-import { latestDeployByDomain, recentDeploysQuery, useLatestMetrics } from "./data";
+import { latestDeployByDomain, recentDeploysQuery, useLatestMetrics, useTypeName } from "./data";
 import { STATE_FILTERS, appTypes, filterApps, isFiltered } from "./filters";
 import type { AppsSearch } from "./filters";
 import { useStateTransitions } from "./useStateTransitions";
 
 const ALL = "all";
+
+/** Rows drawn while the list loads: a typical server's worth, so the footer does not jump far. */
+const SKELETON_ROWS = 8;
 
 /** A change to the filters: a key set to undefined is cleared. */
 type SearchPatch = { [K in keyof AppsSearch]?: AppsSearch[K] | undefined };
@@ -35,25 +39,30 @@ export interface AppsPageProps {
   onSearchChange: (search: AppsSearch, options?: { replace?: boolean }) => void;
 }
 
-function NewAppLink() {
+/** "New application": the page's one primary action, and the empty state's way forward. */
+function NewAppLink({ variant = "primary" }: { variant?: "primary" | "secondary" }) {
   const t = useT();
+  const Add = ICONS.add;
   return (
-    <Link to="/apps/new" className={buttonClassName("primary")}>
-      <Plus aria-hidden="true" />
+    <Link to="/apps/new" className={buttonClassName(variant)}>
+      <Add aria-hidden="true" />
       {t("apps.newApplication")}
     </Link>
   );
 }
 
 /**
- * Every application on the machine in one table: searchable with `/`, filtered by state and
- * type through the URL, each row opening its app or acting on it from its menu.
+ * Every application on the server, as a T1 list: the domain first and its state beside it,
+ * searchable with `/` and filtered by state and type through the URL, each row opening its app
+ * or acting on it from its menu. On a phone the rows are cards with the menu always in view.
  */
 export function AppsPage({ search, onSearchChange }: AppsPageProps) {
   const t = useT();
+  const { node } = useNode();
   const apps = useQuery(appsQuery());
   const deploys = useQuery(recentDeploysQuery());
   const metrics = useLatestMetrics();
+  const typeName = useTypeName();
 
   const all = useMemo(() => apps.data?.apps ?? [], [apps.data]);
   const shown = useMemo(() => filterApps(all, search), [all, search]);
@@ -69,106 +78,118 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
     if (next.type) clean.type = next.type;
     onSearchChange(clean, { replace });
   };
+  const clear = (): void => {
+    onSearchChange({});
+  };
 
   const filtered = isFiltered(search);
+  const firstUse = apps.data !== undefined && all.length === 0;
   const count =
     apps.data === undefined
-      ? null
+      ? ""
       : filtered
         ? t("apps.page.countFiltered", { shown: shown.length, total: all.length })
         : t("apps.page.count", { count: all.length });
 
-  return (
-    <>
-      <PageHeader title={t("apps.page.title")} description={t("apps.page.description")} actions={<NewAppLink />} />
+  const header = {
+    title: t("apps.page.title"),
+    description: t("apps.page.description"),
+    server: node,
+    primaryAction: <NewAppLink />,
+  };
 
-      {apps.isError && apps.data === undefined ? (
-        <ErrorBlock
-          error={apps.error}
-          title={t("apps.page.couldNotLoad")}
-          onRetry={() => void apps.refetch()}
-          retrying={apps.isRefetching}
-        />
-      ) : apps.data !== undefined && all.length === 0 ? (
+  if (apps.isError && apps.data === undefined) {
+    return (
+      <ListPage header={header}>
+        <ErrorBlock error={apps.error} title={t("apps.page.couldNotLoad")} onRetry={() => void apps.refetch()} retrying={apps.isRefetching} />
+      </ListPage>
+    );
+  }
+
+  if (firstUse) {
+    return (
+      <ListPage header={header}>
         <EmptyState
-          level={2}
+          variant="firstUse"
           icon={<Boxes />}
           title={t("apps.page.emptyTitle")}
           description={t("apps.page.emptyDescription")}
-          action={<NewAppLink />}
-          command="noust create -d example.com -s https://github.com/you/app"
-          className="py-16"
+          action={<NewAppLink variant="secondary" />}
+          command="noust create --domain example.com --source https://github.com/you/app.git"
         />
-      ) : (
-        <div className="flex flex-col gap-4">
-          <div role="search" aria-label={t("apps.page.filterLabel")} className="flex flex-wrap items-end gap-2">
-            <Input
-              type="search"
-              aria-label={t("apps.page.searchLabel")}
-              placeholder={t("apps.page.searchPlaceholder")}
-              data-page-search=""
-              value={search.q ?? ""}
-              onValueChange={(value: string) => set({ q: value }, true)}
-              icon={<Search />}
-              // The shortcut is for keyboards; a phone has no use for the hint.
-              suffix={search.q ? undefined : <Kbd className="pointer-coarse:hidden">/</Kbd>}
-              className="w-full sm:w-72"
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <Select
-              aria-label={t("apps.page.stateLabel")}
-              value={search.state ?? ALL}
-              onValueChange={(value) => set({ state: STATE_FILTERS.find((state) => state === value) })}
-              options={[
-                { value: ALL, label: t("apps.page.everyState") },
-                ...STATE_FILTERS.map((state) => ({ value: state, label: t(STATUS[state].labelKey) })),
-              ]}
-              className="min-w-36"
-            />
-            <Select
-              aria-label={t("apps.page.typeLabel")}
-              value={search.type ?? ALL}
-              onValueChange={(value) => set({ type: value === ALL ? undefined : value })}
-              options={[{ value: ALL, label: t("apps.page.everyType") }, ...types.map((type) => ({ value: type, label: type }))]}
-              className="min-w-36"
-            />
-            {filtered ? (
-              <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={() => onSearchChange({})}>
-                {t("apps.page.clearFilters")}
-              </Button>
-            ) : null}
-            <p role="status" className="ml-auto self-center text-13 text-fg-muted">
-              {count ?? ""}
-            </p>
-          </div>
+      </ListPage>
+    );
+  }
 
-          <AppsTable
-            apps={shown}
-            deploys={latest}
-            metrics={metrics}
-            caption={filtered ? t("apps.page.captionFiltered") : t("apps.page.caption")}
-            loading={apps.isPending}
-            detail="full"
-            rowActions={(app) => <AppRowActions app={app} />}
-            empty={
-              <EmptyState
-                title={t("apps.page.noMatchTitle")}
-                description={t("apps.page.noMatchDescription")}
-                action={
-                  <Button icon={<X aria-hidden="true" />} onClick={() => onSearchChange({})}>
+  return (
+    <ListPage
+      header={header}
+      filters={
+        <FilterBar
+          label={t("apps.page.filterLabel")}
+          search={{
+            value: search.q ?? "",
+            onChange: (value) => set({ q: value }, true),
+            label: t("apps.page.searchLabel"),
+            placeholder: t("apps.page.searchPlaceholder"),
+          }}
+          filters={
+            <>
+              <Select
+                aria-label={t("apps.page.stateLabel")}
+                value={search.state ?? ALL}
+                onValueChange={(value) => set({ state: STATE_FILTERS.find((state) => state === value) })}
+                options={[
+                  { value: ALL, label: t("apps.page.everyState") },
+                  ...STATE_FILTERS.map((state) => ({ value: state, label: t(STATUS[state].labelKey) })),
+                ]}
+                className="min-w-36"
+              />
+              <Select
+                aria-label={t("apps.page.typeLabel")}
+                value={search.type ?? ALL}
+                onValueChange={(value) => set({ type: value === ALL ? undefined : value })}
+                options={[{ value: ALL, label: t("apps.page.everyType") }, ...types.map((type) => ({ value: type, label: typeName(type) ?? type }))]}
+                className="min-w-36"
+              />
+            </>
+          }
+          count={count}
+          {...(filtered
+            ? {
+                actions: (
+                  <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={clear}>
                     {t("apps.page.clearFilters")}
                   </Button>
-                }
-                className="border-0 py-8"
-              />
+                ),
+              }
+            : {})}
+        />
+      }
+      // Drawn with the rows, not before: under a list of unknown length it would only be pushed
+      // down the page when they arrive.
+      {...(apps.isPending ? {} : { footer: <CommandHint command="noust list" label={t("apps.page.fromTerminal")} /> })}
+    >
+      <AppsTable
+        apps={shown}
+        deploys={latest}
+        metrics={metrics}
+        caption={filtered ? t("apps.page.captionFiltered") : t("apps.page.caption")}
+        loading={apps.isPending}
+        skeletonRows={SKELETON_ROWS}
+        rowActions={(app) => <AppRowActions app={app} />}
+        empty={
+          <EmptyState
+            variant="inline"
+            title={t("apps.page.noMatchTitle")}
+            action={
+              <Button size="sm" variant="ghost" onClick={clear}>
+                {t("apps.page.clearFilters")}
+              </Button>
             }
           />
-          {/* Drawn with the rows, not before: under a list of unknown length it would only be
-              pushed down the page when they arrive. */}
-          {apps.isPending ? null : <CommandHint command="noust list" label={t("apps.page.fromTerminal")} />}
-        </div>
-      )}
-    </>
+        }
+      />
+    </ListPage>
   );
 }

@@ -64,8 +64,11 @@ export function TabList({ "aria-label": ariaLabel, children, className }: TabLis
 export interface TabProps {
   value: string;
   children: ReactNode;
-  /** A count shown after the label, such as the number of deployments. */
-  count?: number;
+  /**
+   * A count shown after the label, such as the number of deployments. `null` while it loads:
+   * its room is kept, so the strip does not change width when the number arrives.
+   */
+  count?: number | null;
   disabled?: boolean;
 }
 
@@ -85,7 +88,14 @@ export function Tab({ value, children, count, disabled = false }: TabProps) {
       {/* A space keeps the accessible name "Deployments 12", not "Deployments12". */}
       {count !== undefined ? " " : null}
       {count !== undefined ? (
-        <span className="mono rounded-[4px] bg-bg-sunken px-1 text-12 text-fg-muted group-data-active:text-fg">{count}</span>
+        <span
+          className={cx(
+            "mono min-w-5 rounded-chip bg-bg-sunken px-1 text-center text-12 text-fg-muted group-data-active:text-fg",
+            count === null && "invisible",
+          )}
+        >
+          {count ?? 0}
+        </span>
       ) : null}
     </BaseTabs.Tab>
   );

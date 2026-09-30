@@ -20,16 +20,25 @@ export const cron: Catalog<typeof en> = {
 
   presets: {
     hourly: "Cada hora",
-    daily: "Diaria",
-    weekly: "Semanal",
-    monthly: "Mensual",
-    custom: "Personalizada",
-    dailyAt: "Cada día a las {hours}:{minutes}",
+    daily: "Cada día a las 02:00",
+    weekly: "Cada lunes a las 02:00",
+    monthly: "El día 1 de cada mes a las 02:00",
+    custom: "Expresión de calendario propia",
+  },
+
+  words: {
+    everyHour: "Cada hora, en punto",
+    everyMinutes: { one: "Cada minuto", other: "Cada {count} minutos" },
+    everyDayAt: "Cada día a las {time}",
+    workdaysAt: "De lunes a viernes a las {time}",
+    everyWeekdayAt: "Cada {weekday} a las {time}",
+    monthlyAt: "El día {day} de cada mes a las {time}",
+    custom: "Programación personalizada",
   },
 
   page: {
     title: "Cron",
-    description: "Comandos que se ejecutan con una programación, como temporizadores de systemd.",
+    description: "Comandos que el servidor ejecuta según un horario.",
     newJob: "Nueva tarea",
     loadError: "No se pudieron cargar las tareas programadas",
     filterAria: "Filtrar tareas programadas",
@@ -39,23 +48,17 @@ export const cron: Catalog<typeof en> = {
     jobsCountFiltered: "{shown} de {total} tareas",
     empty: {
       title: "Programa tu primera tarea",
-      description: "Una tarea programada ejecuta un comando con una programación: cada hora, diaria, semanal, mensual, o una expresión de calendario de systemd.",
+      description: "Una tarea programada ejecuta un comando por sí sola: cada hora, cada noche o a las horas que escribas.",
     },
-    noMatch: {
-      title: "Ninguna tarea coincide",
-      description: "Nada en esta máquina coincide con estos filtros.",
-    },
+    noMatch: "Ninguna tarea coincide con esta búsqueda.",
   },
 
   table: {
     captionAll: "Tareas programadas",
     captionFiltered: "Tareas programadas que coinciden con los filtros",
     actionsFor: "Acciones de {name}",
-    disabledReason: "Desactivada",
-    enabled: "Activada",
     disabled: "Desactivada",
     columns: {
-      state: "Estado",
       job: "Tarea",
       schedule: "Programación",
       nextRun: "Próxima ejecución",
@@ -79,27 +82,36 @@ export const cron: Catalog<typeof en> = {
   dialog: {
     titleNew: "Nueva tarea programada",
     titleEdit: "Editar {name}",
-    description: "Ejecuta un comando con una programación, como un temporizador de systemd.",
+    description: "Ejecuta un comando en este servidor por sí solo, según un horario.",
     createJob: "Crear tarea",
     saveJob: "Guardar tarea",
     previewCheckError: "No se pudo comprobar la programación.",
     checkingSchedule: "Comprobando la programación",
     noFutureRun: "Esta programación no tiene ninguna ejecución futura.",
     systemdOutputLabel: "Lo que dijo systemd",
+    nextRuns: "Próximas ejecuciones",
+    serverClock: "En el reloj del servidor ({zone}), el de la programación.",
+    serverTime: "{time} {zone}",
+    yourTime: "{time} en tu hora",
     errorCreate: "La tarea no se creó",
     errorSave: "La tarea no se guardó",
   },
 
   fields: {
     name: "Nombre",
+    nameDescription: "Da nombre a la tarea y a su temporizador, como nightly-report.",
+    nameMissing: "Escribe un nombre para la tarea.",
     command: "Comando",
-    commandDescription: "Se ejecuta como un argv, sin un shell.",
+    commandDescription: "Se ejecuta directamente, sin shell: no funcionan tuberías, && ni $VARIABLES.",
+    commandMissing: "Escribe el comando que se ejecutará.",
     schedule: "Programación",
     calendarLabel: "Expresión de calendario",
-    calendarDescription: "Una expresión OnCalendar de systemd.",
+    calendarDescription: "Con la sintaxis de calendario de systemd, en el reloj del servidor: Mon..Fri *-*-* 09:00:00 es de lunes a viernes a las 09:00; *-*-* *:0/15 es cada 15 minutos.",
+    calendarMissing: "Escribe una expresión de calendario, como *-*-* 03:30:00.",
     user: "Usuario",
-    userDescription: "Usa de forma predeterminada el usuario de servicio configurado.",
+    userDescription: "En blanco se ejecuta con el usuario de servicio de los ajustes.",
     workingDirectory: "Directorio de trabajo",
+    workingDirectoryDescription: "En blanco usa la carpeta de su aplicación, si tiene una.",
   },
 
   runsDrawer: {

@@ -1,26 +1,29 @@
-import { CircleAlert, FileCog, TriangleAlert } from "lucide-react";
-import { useId } from "react";
+import { FileCog } from "lucide-react";
 import type { ReactNode } from "react";
 
+import { Card } from "../../components/ui/Card";
 import { Checkbox } from "../../components/ui/Checkbox";
+import { ICONS } from "../../components/ui/icons";
+import { Mono } from "../../components/ui/Mono";
+import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
 import { joinList, platformName } from "./wizard";
 import type { PlatformProposal } from "./wizard";
 
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] items-baseline gap-x-3 py-1">
-      <dt className="text-12 text-fg-muted">{label}</dt>
-      <dd className="min-w-0 text-12 text-fg">{children}</dd>
+    <div className="flex min-w-0 items-baseline gap-3 py-1">
+      <dt className="w-24 shrink-0 text-12 text-fg-muted">{label}</dt>
+      <dd className="min-w-0 flex-1 text-12 text-fg">{children}</dd>
     </div>
   );
 }
 
 function Command({ argv }: { argv: string }) {
   return (
-    <code translate="no" className="block truncate text-12 text-fg" title={argv}>
+    <Mono truncate title={argv}>
       {argv}
-    </code>
+    </Mono>
   );
 }
 
@@ -41,7 +44,6 @@ export interface PlatformProposalPanelProps {
  */
 export function PlatformProposalPanel({ proposal, used, onUse, healthErrors = [] }: PlatformProposalPanelProps) {
   const t = useT();
-  const headingId = useId();
   const files = proposal.files ?? [];
   const warnings = proposal.warnings ?? [];
   const databases = proposal.databases ?? [];
@@ -63,20 +65,18 @@ export function PlatformProposalPanel({ proposal, used, onUse, healthErrors = []
           : null;
 
   return (
-    <section aria-labelledby={headingId} className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface p-4 shadow-raised">
-      <h3 id={headingId} className="flex min-w-0 items-start gap-2 text-13 font-medium text-pretty text-fg">
-        <FileCog aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-muted" />
-        <span className="min-w-0">
-          {t.rich("newApp.proposal.found", {
-            platform: platformName(proposal.platform),
-            files: (
-              <code translate="no" className="text-12">
-                {joinList(files, t.locale)}
-              </code>
-            ),
-          })}
+    <Card
+      padding="sm"
+      title={
+        <span className="flex min-w-0 items-start gap-2">
+          <FileCog aria-hidden="true" className="mt-0.5 size-icon-md shrink-0 text-fg-muted" />
+          <span className="min-w-0 text-pretty">
+            {t.rich("newApp.proposal.found", { platform: platformName(proposal.platform), files: <Mono>{joinList(files, t.locale)}</Mono> })}
+          </span>
         </span>
-      </h3>
+      }
+    >
+      <div className="flex min-w-0 flex-col gap-3">
       <Checkbox label={t("newApp.proposal.use")} description={t("newApp.proposal.useDescription")} checked={used} onCheckedChange={onUse} />
 
       {commands.length > 0 ? <p className="text-12 text-pretty text-fg-muted">{t("newApp.proposal.commandsNote")}</p> : null}
@@ -89,58 +89,49 @@ export function PlatformProposalPanel({ proposal, used, onUse, healthErrors = []
           ))}
           {health !== null ? (
             <Fact label={t("newApp.proposal.health")}>
-              <span translate="no" className="mono">
-                {health}
-              </span>
+              <Mono>{health}</Mono>
             </Fact>
           ) : null}
           {databases.length > 0 ? (
             <Fact label={t("newApp.proposal.databases")}>
-              <span translate="no" className="mono">
-                {joinList(databases, t.locale)}
-              </span>
+              <Mono>{joinList(databases, t.locale)}</Mono>
               <span className="block text-fg-muted">{t("newApp.proposal.databasesNote")}</span>
             </Fact>
           ) : null}
           {domains.length > 0 ? (
             <Fact label={t("newApp.proposal.domains")}>
-              <span translate="no" className="mono">
-                {joinList(domains, t.locale)}
-              </span>
+              <Mono>{joinList(domains, t.locale)}</Mono>
               <span className="block text-fg-muted">{t("newApp.proposal.domainsNote")}</span>
             </Fact>
           ) : null}
         </dl>
       ) : null}
       {used && healthErrors.length > 0 ? (
-        <div role="alert" className="flex items-start gap-1.5 text-13 text-pretty text-fail">
-          <CircleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-          <div className="flex min-w-0 flex-col gap-1">
-            <p>{t("newApp.proposal.healthRefused")}</p>
-            {/* The server's own words, verbatim. */}
-            {healthErrors.map((message) => (
-              <p key={message} className="mono text-12">
-                {message}
-              </p>
-            ))}
-          </div>
-        </div>
+        <Notice tone="error" live title={t("newApp.proposal.healthRefused")}>
+          {/* The server's own words, verbatim. */}
+          {healthErrors.map((message) => (
+            <p key={message}>
+              <Mono>{message}</Mono>
+            </p>
+          ))}
+        </Notice>
       ) : null}
 
       {warnings.length > 0 ? (
         <div className="flex flex-col gap-1.5">
-          <h4 className="text-12 font-medium text-fg">{t("newApp.proposal.warnings")}</h4>
+          <p className="text-12 font-medium text-fg">{t("newApp.proposal.warnings")}</p>
           {/* The server's words, verbatim: they say what has no equivalent and what to do instead. */}
-          <ul className="flex flex-col gap-1.5">
+          <ul aria-label={t("newApp.proposal.warnings")} className="flex flex-col gap-1.5">
             {warnings.map((warning) => (
               <li key={warning} className="flex items-start gap-2 text-13 text-pretty text-fg">
-                <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warn" />
+                <ICONS.warning aria-hidden="true" className="mt-0.5 size-icon-md shrink-0 text-warn" />
                 <span className="min-w-0">{warning}</span>
               </li>
             ))}
           </ul>
         </div>
       ) : null}
-    </section>
+      </div>
+    </Card>
   );
 }

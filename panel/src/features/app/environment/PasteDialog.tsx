@@ -1,14 +1,14 @@
-import { CircleAlert, TriangleAlert } from "lucide-react";
 import { useId, useMemo, useState } from "react";
 
 import { SegmentedControl } from "../../../components/page/SegmentedControl";
 import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
+import { ICONS } from "../../../components/ui/icons";
+import { Mono } from "../../../components/ui/Mono";
 import { Field } from "../../../components/ui/Field";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
-import { cx } from "../../../lib/cx";
 import type { DraftOp, EnvMap } from "./draft";
 import { nameProblem, parseDotenv, valueProblem } from "./dotenv";
 
@@ -140,14 +140,14 @@ export function PasteDialog({ open, onOpenChange, current, onStage }: PasteDialo
           </Field>
 
           <section aria-labelledby={`${formId}-preview`} className="flex min-w-0 flex-col gap-1.5">
-            <h3 id={`${formId}-preview`} className="text-13 font-medium text-fg">
+            <p id={`${formId}-preview`} className="text-13 font-medium text-fg">
               {count === 0 ? t("environment.pasteDialog.parsedHeading") : t("environment.pasteDialog.foundCount", { count })}
-            </h3>
+            </p>
             <div
               role="region"
               aria-label={t("environment.pasteDialog.previewRegionAria")}
               tabIndex={0}
-              className="flex h-60 flex-col gap-2 overflow-y-auto rounded-control border border-border bg-bg-sunken p-2 scroll-thin focus-visible:outline-2 focus-visible:outline-focus"
+              className="flex h-60 flex-col gap-2 overflow-y-auto rounded-control border border-border bg-bg-sunken p-2 scroll-thin -outline-offset-2"
             >
               {count === 0 && problems.length === 0 ? (
                 <p className="px-1 py-1 text-12 text-fg-faint">{t("environment.pasteDialog.emptyHint")}</p>
@@ -157,9 +157,9 @@ export function PasteDialog({ open, onOpenChange, current, onStage }: PasteDialo
                   {problems.map((problem, index) => (
                     <li key={index} className="flex items-start gap-1.5 text-12">
                       {problem.blocking ? (
-                        <CircleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-fail" />
+                        <ICONS.error aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0 text-fail" />
                       ) : (
-                        <TriangleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-warn" />
+                        <ICONS.warning aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0 text-warn" />
                       )}
                       <span className={problem.blocking ? "text-fg" : "text-fg-muted"}>
                         <span className="sr-only">{problem.blocking ? t("environment.pasteDialog.errorPrefix") : t("environment.pasteDialog.notePrefix")}</span>
@@ -170,18 +170,28 @@ export function PasteDialog({ open, onOpenChange, current, onStage }: PasteDialo
                 </ul>
               ) : null}
               {count > 0 ? (
-                <ul aria-label={t("environment.pasteDialog.parsedHeading")} className="divide-y divide-border rounded-[4px] border border-border bg-surface">
+                <ul aria-label={t("environment.pasteDialog.parsedHeading")} className="divide-y divide-border rounded-chip border border-border bg-surface">
                   {[...parsed.variables].map(([name, value]) => {
                     const invalid = nameProblem(name, t.locale) !== null;
                     return (
-                      <li key={name} className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-2 px-2 py-1 text-12">
-                        <span translate="no" className={cx("mono truncate", invalid ? "text-fail" : "text-fg")} title={name}>
-                          {name === "" ? t("environment.noName") : name}
+                      <li key={name} className="flex min-w-0 flex-col px-2 py-1 text-12">
+                        <span className="flex min-w-0 items-baseline justify-between gap-2">
+                          <Mono truncate title={name}>
+                            {name === "" ? t("environment.noName") : name}
+                          </Mono>
+                          {invalid ? (
+                            <span className="shrink-0 text-fail">{t("environment.tab.notValidName")}</span>
+                          ) : (
+                            <span className="shrink-0 text-fg-muted">{current.has(name) ? t("environment.pasteDialog.replaces") : t("environment.pasteDialog.new")}</span>
+                          )}
                         </span>
-                        <span className="text-fg-faint">{current.has(name) ? t("environment.pasteDialog.replaces") : t("environment.pasteDialog.new")}</span>
-                        <span translate="no" className="mono col-span-2 truncate text-fg-muted" title={value}>
-                          {value === "" ? <span className="font-sans text-fg-faint">{t("environment.empty")}</span> : value}
-                        </span>
+                        {value === "" ? (
+                          <span className="text-fg-muted">{t("environment.empty")}</span>
+                        ) : (
+                          <Mono tone="muted" truncate title={value}>
+                            {value}
+                          </Mono>
+                        )}
                       </li>
                     );
                   })}

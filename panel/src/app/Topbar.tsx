@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { CircleUser, Keyboard, LogOut, Menu, Search } from "lucide-react";
+import { Link, useRouterState } from "@tanstack/react-router";
+import { ArrowLeft, CircleUser, Keyboard, LogOut, Menu, Search } from "lucide-react";
 import { useState } from "react";
 import type { Ref } from "react";
 
@@ -13,9 +13,12 @@ import { Mono } from "../components/ui/Mono";
 import { Popover } from "../components/ui/Popover";
 import { useSignOut } from "../features/auth/useSignOut";
 import { ServerSelector } from "../nodes/ServerSelector";
+import { useReturnServer } from "../nodes/servers";
+import { useConsoleContext } from "../nodes/useNode";
 import { useT } from "../i18n";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { MachineStrip } from "./MachineStrip";
+import { returnTarget } from "./nodeRoute";
 import { modKeyLabel } from "./shortcuts";
 import { ThemeSwitch } from "./ThemeSwitch";
 import { useTheme } from "./theme";
@@ -86,6 +89,38 @@ function SessionPanel({ onOpenShortcuts }: { onOpenShortcuts: () => void }) {
   );
 }
 
+/**
+ * On the fleet's and the central's pages, the way back to the server the operator came from:
+ * the same page there when it has one (its settings from the central's), its overview
+ * otherwise. Said in words and in mono, never implied.
+ */
+function BackToServer() {
+  const t = useT();
+  const context = useConsoleContext();
+  const back = useReturnServer();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  if (context.kind === "server" || back === null) return null;
+  return (
+    <Link
+      to={returnTarget(pathname)}
+      search={{ node: back.node ?? undefined }}
+      aria-label={t("fleet.selector.backToLabel", { name: back.name })}
+      className="flex h-control-md min-w-0 shrink items-center gap-1.5 rounded-control px-2 text-13 text-fg-muted hover:bg-surface-hover hover:text-fg max-md:hidden"
+    >
+      <ArrowLeft aria-hidden="true" className="size-icon-sm shrink-0" />
+      <span className="min-w-0 truncate">
+        {t.rich("fleet.selector.backTo", {
+          name: (
+            <Mono key="name" tone="default">
+              {back.name}
+            </Mono>
+          ),
+        })}
+      </span>
+    </Link>
+  );
+}
+
 /** The bar over every page: the machine strip, search, the session, and the menu on phones. */
 export function Topbar({ onOpenPalette, onOpenShortcuts, onOpenNav, searchTriggerRef }: TopbarProps) {
   const t = useT();
@@ -93,16 +128,17 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, onOpenNav, searchTrigge
   // Left padding of 26px on wide screens: with the hostname link's own 6px, the hostname
   // starts on the same edge as the page title below it.
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-bg/85 px-4 backdrop-blur-md sm:px-6 lg:pr-6 lg:pl-6.5">
+    <header className="sticky top-0 z-sticky flex h-14 shrink-0 items-center gap-3 border-b border-border bg-bg/85 px-4 backdrop-blur-md sm:px-6 lg:pr-6 lg:pl-6.5">
       <Link
         to="/"
         aria-label={t("nav.overview.label")}
-        className="-ml-1 flex shrink-0 rounded-control p-1 focus-visible:outline-2 focus-visible:outline-focus lg:hidden"
+        className="-ml-1 flex shrink-0 rounded-control p-1 lg:hidden"
       >
         <Logo variant="icon" height={22} decorative />
       </Link>
 
       <ServerSelector />
+      <BackToServer />
 
       <MachineStrip className="flex-1" />
 
@@ -113,7 +149,7 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, onOpenNav, searchTrigge
           onClick={onOpenPalette}
           aria-haspopup="dialog"
           aria-keyshortcuts="Control+K Meta+K"
-          className="flex h-8 w-52 cursor-pointer items-center gap-2 rounded-control border border-border bg-surface pr-1.5 pl-2.5 text-13 text-fg-muted shadow-raised transition-colors duration-(--duration-fast) ease-out hover:border-border-strong/60 hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus max-md:hidden lg:w-44 xl:w-60"
+          className="flex h-control-md w-52 cursor-pointer items-center gap-2 rounded-control border border-border-strong bg-surface pr-1.5 pl-2.5 text-13 text-fg-muted shadow-raised transition-colors duration-(--duration-fast) ease-out hover:bg-surface-hover hover:text-fg max-md:hidden lg:w-44 xl:w-60"
         >
           <Search aria-hidden="true" className="size-4 shrink-0" />
           <span className="flex-1 text-left">{t("shell.search.label")}</span>

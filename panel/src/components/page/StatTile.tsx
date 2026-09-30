@@ -9,6 +9,12 @@ export interface StatTileProps {
   value: ReactNode;
   /** One line of context under the value: when, of what, compared with what. */
   detail?: ReactNode;
+  /**
+   * Lines the context may take. 2 for a row of tiles whose contexts are sentences (a
+   * dashboard's): it wraps instead of cutting, and both lines are kept from the first frame so
+   * nothing moves when the words arrive. 1 by default: cut with an ellipsis.
+   */
+  detailLines?: 1 | 2;
   /** Set the value as a system value (a commit, a port) in mono. */
   mono?: boolean;
   className?: string;
@@ -19,7 +25,7 @@ export interface StatTileProps {
  * is this doing" before the details below it do. The value uses proportional figures; mono
  * is for identifiers, not for quantities.
  */
-export function StatTile({ label, value, detail, mono = false, className }: StatTileProps) {
+export function StatTile({ label, value, detail, detailLines = 1, mono = false, className }: StatTileProps) {
   const primitive = typeof value === "string" || typeof value === "number";
   return (
     <div className={cx("flex min-w-0 flex-col gap-1.5 rounded-card border border-border bg-surface px-4 py-3.5 shadow-raised", className)}>
@@ -36,7 +42,11 @@ export function StatTile({ label, value, detail, mono = false, className }: Stat
           value
         )}
       </div>
-      {detail !== undefined ? <div className="truncate text-12 text-fg-faint">{detail}</div> : null}
+      {detail !== undefined ? (
+        <div data-slot="detail" className={cx("text-12 text-fg-faint", detailLines === 2 ? "line-clamp-2 min-h-8 text-pretty" : "truncate")}>
+          {detail}
+        </div>
+      ) : null}
     </div>
   );
 }

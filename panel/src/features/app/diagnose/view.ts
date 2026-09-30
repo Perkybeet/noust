@@ -125,3 +125,84 @@ export function verdictAnnouncement(domain: string, diagnosis: Diagnosis, locale
   const cause = diagnosis.probable_cause ?? causeFallback(diagnosis.verdict, locale);
   return translate(locale, "appPages.diagnose.announcement", { domain, verdict, cause });
 }
+
+/** Which probe explains the verdict best, first: the service before its port, the port before HTTP. */
+const CAUSE_ORDER = ["unit", "oom", "port", "http_direct", "http_nginx", "certificate", "disk", "last_deployment", "nginx_log", "journal"] as const;
+
+function statusOf(check: Check): string {
+  return check.status.trim().toLowerCase();
+}
+
+/**
+ * The check the verdict hangs on: the first that failed, in the order a cause is looked for
+ * (a stopped service explains a silent port, not the other way round), else the first that
+ * warned. Null for a healthy app.
+ */
+export function leadingCheck(checks: readonly Check[]): Check | null {
+  for (const wanted of ["fail", "warn"]) {
+    const known = CAUSE_ORDER.map((name) => checks.find((check) => check.name === name && statusOf(check) === wanted)).find(
+      (check) => check !== undefined,
+    );
+    if (known !== undefined) return known;
+    const other = checks.find((check) => statusOf(check) === wanted);
+    if (other !== undefined) return other;
+  }
+  return null;
+}
+
+/**
+ * The verdict in the product's words, above the system's: "The app stops when it starts",
+ * never "Result=exit-code" as a headline. Falls back to the sentence for no single cause.
+ */
+export function headline(diagnosis: Pick<Diagnosis, "verdict" | "checks">, locale: Locale = getLocale()): string {
+  const leading = diagnosis.verdict.trim().toLowerCase() === "healthy" ? null : leadingCheck(diagnosis.checks);
+  switch (leading?.name) {
+    case "unit":
+      return translate(locale, "appPages.diagnose.headline.unit");
+    case "oom":
+      return translate(locale, "appPages.diagnose.headline.oom");
+    case "port":
+      return translate(locale, "appPages.diagnose.headline.port");
+    case "http_direct":
+      return translate(locale, "appPages.diagnose.headline.httpDirect");
+    case "http_nginx":
+      return translate(locale, "appPages.diagnose.headline.httpNginx");
+    case "certificate":
+      return translate(locale, "appPages.diagnose.headline.certificate");
+    case "disk":
+      return translate(locale, "appPages.diagnose.headline.disk");
+    case "last_deployment":
+      return translate(locale, "appPages.diagnose.headline.lastDeployment");
+    case "nginx_log":
+      return translate(locale, "appPages.diagnose.headline.nginxLog");
+    case "journal":
+      return translate(locale, "appPages.diagnose.headline.journal");
+    default:
+      return causeFallback(diagnosis.verdict, locale);
+  }
+}
+
+/** A check that did not pass: failed, warned, or said something the console does not know. */
+export function isProblem(check: Check): boolean {
+  const status = statusOf(check);
+  return status === "fail" || status === "warn";
+}
+
+/**
+ * The checks whose output opens with the page: the one the verdict hangs on, and the journal's
+ * last lines whenever the app is not healthy, since they are what a cause usually cites. The
+ * rest stays folded, one click away.
+ */
+export function openChecks(diagnosis: Pick<Diagnosis, "verdict" | "checks">): ReadonlySet<string> {
+  const open = new Set<string>();
+  if (diagnosis.verdict.trim().toLowerCase() === "healthy") return open;
+  const leading = leadingCheck(diagnosis.checks);
+  if (leading !== null && leading.evidence.trim() !== "") open.add(leading.name);
+  else {
+    const first = diagnosis.checks.find((check) => opensByDefault(check));
+    if (first !== undefined) open.add(first.name);
+  }
+  const journal = diagnosis.checks.find((check) => check.name === "journal");
+  if (journal !== undefined && journal.evidence.trim() !== "") open.add(journal.name);
+  return open;
+}

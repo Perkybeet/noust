@@ -1,7 +1,8 @@
 /**
  * Settings > Notifications, the Email and Telegram channels, against the real backend.
  *
- * Email: the SMTP account is a form over GET/PUT /api/config/smtp. A value the configuration
+ * Each channel is set up in its drawer. Email: the SMTP account is a form over GET/PUT
+ * /api/config/smtp. A value the configuration
  * refuses lands beside its field in the server's words, and a test that reaches an SMTP server
  * this spec runs - one that refuses to relay - shows that server's own reply verbatim.
  *
@@ -13,12 +14,13 @@
  * Both write the configuration, so they run on a console server of their own.
  */
 
+import type { Page } from "@playwright/test";
 import { createServer } from "node:net";
 import type { AddressInfo, Socket } from "node:net";
 
 import { expect, expectNoA11yViolations, settle, signIn, startConsoleServer, test as base } from "./fixtures";
 import type { ConsoleServer } from "./fixtures";
-import { confirmItsYou, stillness, toastSaying } from "./settings.helpers";
+import { confirmItsYou, stillness } from "./settings.helpers";
 
 const test = base.extend<object, { consoleServer: ConsoleServer }>({
   consoleServer: [
@@ -76,6 +78,17 @@ async function refusingSmtpServer(): Promise<{ port: number; close: () => Promis
   };
 }
 
+function row(page: Page, name: string) {
+  return page.getByRole("list", { name: "Notification channels" }).getByRole("listitem").filter({ hasText: new RegExp(`^${name}`) });
+}
+
+async function openDrawer(page: Page, name: string) {
+  await row(page, name).getByRole("button", { name: new RegExp(`^(Set up|Edit) ${name}$`) }).click();
+  const drawer = page.getByRole("dialog", { name });
+  await expect(drawer).toBeVisible();
+  return drawer;
+}
+
 test("email: the SMTP account is a form, refusals land on their field, a failed test shows the server's reply", async ({
   page,
   consoleServer,
@@ -87,15 +100,15 @@ test("email: the SMTP account is a form, refusals land on their field, a failed 
   const relay = await refusingSmtpServer();
   try {
     await signIn(page, consoleServer, "/settings/notifications");
-    const email = page.getByRole("article", { name: "Email" });
+    await expect(row(page, "Email").getByText("Off", { exact: true })).toBeVisible();
+    const email = await openDrawer(page, "Email");
     const host = email.getByLabel("SMTP server");
     await expect(host).toHaveValue("");
-    await expect(email.getByText("Not configured")).toBeVisible();
     await expect(email.getByRole("button", { name: "Send test" })).toBeDisabled();
-    await expect(email.getByText("Set up the SMTP server and a recipient to test it.")).toBeVisible();
+    await expect(email.getByText("Save the SMTP server and a recipient to test it.")).toBeVisible();
     await expect(email.getByRole("radio", { name: "SSL/TLS" })).toBeChecked();
     await settle(page);
-    await expectNoA11yViolations(page, "the email form, empty");
+    await expectNoA11yViolations(page, "the email drawer, empty");
 
     // A host the configuration refuses: its words, beside the field.
     await host.fill("smtp example");
@@ -116,27 +129,30 @@ test("email: the SMTP account is a form, refusals land on their field, a failed 
     await expect(email.getByText(/^monitor\.smtp\.host is not a valid hostname: .*Use a hostname such as smtp\.example\.com\.$/)).toBeVisible();
     await expect(host).toHaveAttribute("aria-invalid", "true");
     await stillness(page);
-    await expectNoA11yViolations(page, "the email form with a refused host");
+    await expectNoA11yViolations(page, "the email drawer with a refused host");
 
-    // Fixed, it saves, and the password stays write-only.
+    // Fixed, it saves, the drawer stays for the test, and the password stays write-only.
     await host.fill("127.0.0.1");
     await email.getByRole("button", { name: "Save" }).click();
-    await expect(toastSaying(page, "Saved the email settings")).toBeVisible();
-    await expect(email.getByText("Configured")).toBeVisible();
+    await expect(email.getByRole("button", { name: "Save" })).toBeDisabled();
+    await expect(email.getByLabel(/^Password/)).toHaveValue("");
+
+    // The relay refuses the sender: its own reply, verbatim.
+    await email.getByRole("button", { name: "Send test" }).click();
+    await expect(email.getByText("The test failed. What the SMTP server said:")).toBeVisible();
+    await expect(email.locator("pre")).toContainText(RELAY_DENIED);
+    await stillness(page);
+    await expectNoA11yViolations(page, "the email channel with a failed test");
+    await email.getByRole("button", { name: "Done" }).click();
+    await expect(row(page, "Email").getByText("On", { exact: true })).toBeVisible();
+    await expect(row(page, "Email")).toContainText("To 1 recipient, through 127.0.0.1.");
+
     await page.reload();
-    const reloaded = page.getByRole("article", { name: "Email" });
+    const reloaded = await openDrawer(page, "Email");
     await expect(reloaded.getByLabel("SMTP server")).toHaveValue("127.0.0.1");
     await expect(reloaded.getByLabel("Port")).toHaveValue(String(relay.port));
     await expect(reloaded.getByRole("radio", { name: "None" })).toBeChecked();
     await expect(reloaded.getByRole("checkbox", { name: "Send notifications by email" })).toBeChecked();
-    await expect(reloaded.getByLabel(/^Password/)).toHaveValue("");
-
-    // The relay refuses the sender: its own reply, verbatim.
-    await reloaded.getByRole("button", { name: "Send test" }).click();
-    await expect(reloaded.getByText("The test failed. The SMTP server said:")).toBeVisible();
-    await expect(reloaded.locator("pre")).toContainText(RELAY_DENIED);
-    await stillness(page);
-    await expectNoA11yViolations(page, "the email channel with a failed test");
   } finally {
     await relay.close();
   }
@@ -147,15 +163,16 @@ test("telegram: the missing-minus warning is announced once the chat ID field is
   consoleServer,
 }) => {
   await signIn(page, consoleServer, "/settings/notifications");
-  const telegram = page.getByRole("article", { name: "Telegram" });
+  const telegram = await openDrawer(page, "Telegram");
+  // The hint is there before anything is typed.
+  await expect(telegram.getByText(/A group's ID is negative, and a supergroup's starts with -100/)).toBeVisible();
   const chatId = telegram.getByLabel("Chat ID");
   const warning = telegram.getByText(/without its minus sign/);
   const announcer = page.getByTestId("announcer-polite");
 
   await chatId.clear();
   await chatId.pressSequentially("1001987654321");
-  // Drawn as it is typed, so a click on Save that leaves the field never lands on a moved button,
-  // but never inside a live region: that would be read out on every digit.
+  // Drawn as it is typed, but never inside a live region: that would be read out on every digit.
   await expect(warning).toHaveText(/try -1001987654321\.$/);
   await expect(telegram.getByRole("alert")).toHaveCount(0);
   await expect(announcer).not.toContainText("minus sign");
@@ -180,7 +197,8 @@ test("telegram: finds the chats the bot has seen, fills the chat ID, and shows T
   problems.expect(/status of 403 .* \/api\/config\/notifications\/telegram$/);
   problems.expect(/status of 422 .* \/api\/config\/notifications\/telegram$/);
   await signIn(page, consoleServer, "/settings/notifications");
-  const telegram = page.getByRole("article", { name: "Telegram" });
+  const telegram = await openDrawer(page, "Telegram");
+  const save = telegram.getByRole("button", { name: "Save" });
   const find = telegram.getByRole("button", { name: "Find my chat" });
   await expect(find).toBeDisabled();
   await expect(telegram.getByText("Save the bot token first.")).toBeVisible();
@@ -188,9 +206,9 @@ test("telegram: finds the chats the bot has seen, fills the chat ID, and shows T
   // A bot nobody has written to yet: the list is empty, and says how to fill it.
   await telegram.getByLabel("Bot token", { exact: true }).fill("7000000002:console-sandbox-quiet");
   await expect(telegram.getByText("Save the new token first.")).toBeVisible();
-  await telegram.getByRole("button", { name: "Save" }).click();
+  await save.click();
   await confirmItsYou(page, consoleServer);
-  await expect(toastSaying(page, "Saved the Telegram destination")).toBeVisible();
+  await expect(save).toBeDisabled();
   await find.click();
   await expect(telegram.getByText("Your bot has not seen any chat yet.", { exact: true }).last()).toBeVisible();
   await expect(telegram.getByText("/start@your_bot_name")).toBeVisible();
@@ -199,38 +217,36 @@ test("telegram: finds the chats the bot has seen, fills the chat ID, and shows T
 
   // A chat ID Telegram would refuse: the server's words beside the field.
   await telegram.getByLabel("Chat ID").fill("1001987654321");
-  await telegram.getByRole("button", { name: "Save" }).click();
+  await save.click();
   await expect(telegram.getByText(/did you mean -1001987654321\?/)).toBeVisible();
   await expect(telegram.getByLabel("Chat ID")).toHaveAttribute("aria-invalid", "true");
 
   // A chat the bot is not in: the test shows Telegram's own description.
   await telegram.getByLabel("Chat ID").fill("-100123");
-  await telegram.getByRole("button", { name: "Save" }).click();
-  // Saved once the form has nothing left to save (earlier toasts may still be on screen).
-  await expect(telegram.getByRole("button", { name: "Save" })).toBeHidden();
+  await save.click();
+  await expect(save).toBeDisabled();
   await telegram.getByRole("button", { name: "Send test" }).click();
-  await expect(telegram.getByText("The test failed. Telegram said:")).toBeVisible();
+  await expect(telegram.getByText("The test failed. What Telegram said:")).toBeVisible();
   await expect(telegram.locator("pre")).toContainText("Bad Request: chat not found");
 
   // The bot that has seen chats: pick the group, save, and the test goes through.
   await telegram.getByLabel("Bot token", { exact: true }).fill("7000000001:console-sandbox-bot");
-  await telegram.getByRole("button", { name: "Save" }).click();
-  // Saved once the form has nothing left to save (earlier toasts may still be on screen).
-  await expect(telegram.getByRole("button", { name: "Save" })).toBeHidden();
+  await save.click();
+  await expect(save).toBeDisabled();
   await find.click();
   const chats = telegram.getByRole("list", { name: "Chats your bot has seen" });
   await expect(chats.getByRole("listitem")).toHaveCount(2);
   await expect(chats.getByText("Noust alerts")).toBeVisible();
-  await expect(chats.getByText("Supergroup")).toBeVisible();
-  await expect(chats.getByText("@ops_oncall")).toBeVisible();
+  await expect(chats.getByText(/Supergroup/)).toBeVisible();
   await stillness(page);
   await expectNoA11yViolations(page, "the chats a bot has seen");
   await chats.getByRole("button", { name: "Use Noust alerts" }).click();
   await expect(telegram.getByLabel("Chat ID")).toHaveValue("-1001987654321");
   await expect(chats.getByText("Chosen")).toBeVisible();
-  await telegram.getByRole("button", { name: "Save" }).click();
-  // Saved once the form has nothing left to save (earlier toasts may still be on screen).
-  await expect(telegram.getByRole("button", { name: "Save" })).toBeHidden();
+  await save.click();
+  await expect(save).toBeDisabled();
   await telegram.getByRole("button", { name: "Send test" }).click();
-  await expect(telegram.getByText("Test message sent through telegram.")).toBeVisible();
+  await expect(telegram.getByText("Sent a test message. Check that it arrived.")).toBeVisible();
+  await telegram.getByRole("button", { name: "Done" }).click();
+  await expect(row(page, "Telegram")).toContainText("Sends to chat -1001987654321.");
 });

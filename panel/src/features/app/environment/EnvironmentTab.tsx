@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ClipboardPaste, Eye, EyeOff, Lock, Pencil, Plus, ShieldQuestion, Trash2, Undo2, Variable } from "lucide-react";
+import { ClipboardPaste, Eye, EyeOff, Pencil, Undo2, Variable } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { request } from "../../../api/client";
@@ -9,7 +9,7 @@ import { announce } from "../../../app/Announcer";
 import { useDocumentTitle } from "../../../app/documentTitle";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { QueryState } from "../../../components/page/QueryState";
-import { Section } from "../../../components/page/Section";
+import { SaveBar } from "../../../components/page/SaveBar";
 import { appStatus } from "../../../components/page/status";
 import { Badge } from "../../../components/ui/Badge";
 import { Button } from "../../../components/ui/Button";
@@ -18,22 +18,24 @@ import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { IconButton } from "../../../components/ui/IconButton";
-import { Menu, MenuItem } from "../../../components/ui/Menu";
+import { ICONS } from "../../../components/ui/icons";
+import { Menu, MenuGroup, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
+import { Mono } from "../../../components/ui/Mono";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
 import { reportActionError } from "../../apps/useAppActions";
 import type { DraftOp, EnvDiff, EnvRow } from "./draft";
-import { applyDraft, describeCounts, diffEnv, draftRows, isMasked, summarise } from "./draft";
+import { applyDraft, diffEnv, draftRows, isMasked, summarise } from "./draft";
 import { isValidName } from "./dotenv";
 import { PasteDialog } from "./PasteDialog";
 import { ReviewDialog } from "./ReviewDialog";
-import { markFor, secrecyActionLabel, secrecyChoice, secrecyLine, secrecyMarkAnnouncement, secrecyStateLabel } from "./secrecy";
+import { markFor, secrecyActionLabel, secrecyChoice, secrecyKind, secrecyLine, secrecyMarkAnnouncement } from "./secrecy";
 import type { EnvSecrecy, SecrecyChoice } from "./secrecy";
 import { VariableDialog } from "./VariableDialog";
 import type { VariableTarget } from "./VariableDialog";
 
-/** Where the app's `.env` lives: beside the code in place, in `shared/` on releases. */
+/** Where the app's `.env` lives: beside the code in a single folder, in `shared/` with instant rollback. */
 function envFile(app: App | undefined): string {
   if (app?.path === undefined || app.path === null) return ".env";
   return app.layout === "releases" ? `${app.path}/shared/.env` : `${app.path}/.env`;
@@ -49,7 +51,7 @@ function Masked() {
   const t = useT();
   return (
     <span className="text-fg-faint">
-      <span aria-hidden="true" className="text-13 leading-none tracking-[0.08em]">
+      <span aria-hidden="true" className="text-13 leading-none tracking-widest">
         ••••••••
       </span>
       <span className="sr-only">{t("environment.tab.hidden")}</span>
@@ -60,55 +62,29 @@ function Masked() {
 const SECRECY_CHOICES: readonly SecrecyChoice[] = ["secret", "not-secret", "auto"];
 
 /**
- * The control behind "an accessible control per variable to mark it secret / not secret /
- * automatic": a menu, so its three text-labelled options are reachable and operable from the
- * keyboard, and the current choice is named rather than only coloured. A choice writes through
- * PUT /env/marks immediately - it is not part of the draft, which only ever edits values.
+ * A variable's type: secret (hidden by the server) or plain, and in a few words what decided
+ * it; the whole reason is the cell's title. A variable only in the draft is not classified yet.
  */
-function SecrecyMenu({
-  name,
-  verdict,
-  pending,
-  onMark,
-}: {
-  name: string;
-  verdict: EnvSecrecy;
-  pending: boolean;
-  onMark: (mark: boolean | null) => void;
-}) {
-  const t = useT();
-  const choice = secrecyChoice(verdict);
+function TypeCell({ row, verdict, t }: { row: EnvRow; verdict: EnvSecrecy | undefined; t: T }) {
+  if (row.current === null) return <span className="text-13 text-fg-muted">{t("environment.tab.notYetClassified")}</span>;
+  if (verdict === undefined) return null;
+  const kind = secrecyKind(verdict, t.locale);
+  const Lock = ICONS.locked;
   return (
-    <Menu
-      trigger={
-        <IconButton
-          size="sm"
-          label={t("environment.secrecy.changeAria", { name, state: secrecyStateLabel(choice, t.locale) })}
-          icon={<ShieldQuestion />}
-          disabled={pending}
-        />
-      }
-    >
-      {SECRECY_CHOICES.map((option) => (
-        <MenuItem
-          key={option}
-          disabled={option === choice}
-          onClick={() => {
-            onMark(markFor(option));
-          }}
-        >
-          {secrecyActionLabel(option, t.locale)}
-          {option === choice ? <span className="sr-only">{t("environment.secrecy.currentSrOnly")}</span> : null}
-        </MenuItem>
-      ))}
-    </Menu>
+    <span title={secrecyLine(verdict, t.locale)} className={cx("inline-flex max-w-full min-w-0 items-center gap-1.5 align-middle text-13", row.state === "removed" && "line-through")}>
+      {kind.secret ? <Lock aria-hidden="true" className="size-icon-sm shrink-0 text-fg-muted" /> : null}
+      <span className="text-fg">{kind.label}</span>
+      {/* Read as two words, drawn apart by the gap: a space the flex layout does not draw. */}
+      {kind.reason !== null ? " " : null}
+      {kind.reason !== null ? <span className="truncate text-fg-muted">{t("environment.tab.typeReason", { reason: kind.reason })}</span> : null}
+    </span>
   );
 }
 
 /**
- * The variables in an app's `.env`: masked until revealed one at a time, changed as a draft
- * (row by row, or by pasting a whole file), and written only after the change is reviewed
- * over the values the file really holds.
+ * The variables in an app's `.env`: plain values in view, secrets hidden until revealed one at
+ * a time (behind "Confirm it's you"), changed as a draft (row by row, or by pasting a whole
+ * file) that the save bar at the foot reviews and writes, over the values the file really holds.
  */
 export function EnvironmentTab({ domain }: { domain: string }) {
   const t = useT();
@@ -172,6 +148,9 @@ export function EnvironmentTab({ domain }: { domain: string }) {
     return clear?.get(row.name) ?? null;
   };
 
+  /** Whether the value is on screen without asking: a plain value, or one the draft holds. */
+  const inView = (row: EnvRow): boolean => row.draft !== null || (row.current !== null && !isMasked(row.current)) || revealed.has(row.name);
+
   const toggleReveal = async (row: EnvRow): Promise<void> => {
     if (revealed.has(row.name)) {
       setRevealed((current) => {
@@ -216,22 +195,12 @@ export function EnvironmentTab({ domain }: { domain: string }) {
     {
       id: "name",
       header: t("environment.tab.nameHeader"),
-      width: "w-[38%]",
+      width: "w-2/5",
       cell: (row) => (
         <span className="flex min-w-0 items-center gap-2">
-          <span
-            translate="no"
-            title={row.name}
-            className={cx("mono max-w-[9rem] truncate text-12 sm:max-w-[20rem]", row.state === "removed" ? "text-fg-muted line-through" : "text-fg")}
-          >
+          <Mono truncate title={row.name} tone={row.state === "removed" ? "muted" : "default"} className={cx(row.state === "removed" && "line-through")}>
             {row.name === "" ? t("environment.noName") : row.name}
-          </span>
-          {row.current !== null && isMasked(row.current) && row.state !== "added" ? (
-            <span className="inline-flex text-fg-faint" title={t("environment.tab.hiddenByServerTitle")}>
-              <Lock aria-hidden="true" className="size-3.5" />
-              <span className="sr-only">{t("environment.tab.secretSrOnly")}</span>
-            </span>
-          ) : null}
+          </Mono>
           {row.state !== "unchanged" ? <Badge>{stateBadge(t, row.state)}</Badge> : null}
           {row.state !== "removed" && !isValidName(row.name) ? <Badge tone="fail">{t("environment.tab.notValidName")}</Badge> : null}
         </span>
@@ -241,88 +210,98 @@ export function EnvironmentTab({ domain }: { domain: string }) {
       id: "value",
       header: t("environment.tab.valueHeader"),
       cell: (row) => {
-        const value = revealed.has(row.name) ? valueOf(row) : null;
-        if (value === null) return <Masked />;
-        if (value === "") return <span className="text-13 text-fg-faint">{t("environment.empty")}</span>;
-        return (
-          <span className="flex min-w-0 items-center gap-1">
-            <span
-              translate="no"
-              title={value}
-              className={cx("mono max-w-[8rem] truncate text-12 sm:max-w-[26rem]", row.state === "removed" ? "text-fg-muted line-through" : "text-fg")}
-            >
-              {value}
+        const shown = inView(row);
+        const value = shown ? valueOf(row) : null;
+        const hideable = row.state !== "removed" && row.current !== null && isMasked(row.current) && row.draft === null;
+        const reveal = hideable ? (
+          <IconButton
+            size="sm"
+            label={revealed.has(row.name) ? t("environment.tab.hideAria", { name: row.name }) : t("environment.tab.revealAria", { name: row.name })}
+            icon={revealed.has(row.name) ? <EyeOff /> : <Eye />}
+            disabled={unmask.isPending}
+            onClick={() => void toggleReveal(row)}
+          />
+        ) : null;
+        if (value === null) {
+          return (
+            <span className="inline-flex max-w-full min-w-0 items-center gap-1 align-middle">
+              <Masked />
+              {reveal}
             </span>
+          );
+        }
+        if (value === "") {
+          return (
+            <span className="inline-flex max-w-full min-w-0 items-center gap-1 align-middle">
+              <span className="text-13 text-fg-faint">{t("environment.empty")}</span>
+              {reveal}
+            </span>
+          );
+        }
+        return (
+          <span className="inline-flex max-w-full min-w-0 items-center gap-1 align-middle">
+            <Mono truncate title={value} tone={row.state === "removed" ? "muted" : "default"} className={cx("max-w-72", row.state === "removed" && "line-through")}>
+              {value}
+            </Mono>
+            {reveal}
             <CopyButton value={value} label={t("environment.tab.copyValueAria", { name: row.name })} />
           </span>
         );
       },
     },
     {
-      id: "visibility",
-      header: t("environment.tab.visibilityHeader"),
-      width: "w-56",
-      cell: (row) => {
-        // A variable just added exists only in the draft: Noust has not classified it yet, and
-        // marking it before it is even saved would set an override for a name the .env file
-        // does not hold. A removed one keeps its line, struck through, but not the control.
-        if (row.current === null) return <span className="text-13 text-fg-faint">{t("environment.tab.notYetClassified")}</span>;
-        const verdict = secrets.get(row.name);
-        if (verdict === undefined) return null;
-        const line = secrecyLine(verdict, t.locale);
-        return (
-          <span className="flex min-w-0 items-center gap-2">
-            <span
-              title={line}
-              className={cx("min-w-0 max-w-[13rem] truncate text-13", row.state === "removed" ? "text-fg-muted line-through" : "text-fg-muted")}
-            >
-              {line}
-            </span>
-            {row.state !== "removed" ? (
-              <SecrecyMenu
-                name={row.name}
-                verdict={verdict}
-                pending={mark.isPending && mark.variables.name === row.name}
-                onMark={(value) => {
-                  mark.mutate({ name: row.name, value });
-                }}
-              />
-            ) : null}
-          </span>
-        );
-      },
+      id: "type",
+      header: t("environment.tab.typeHeader"),
+      width: "w-64",
+      cell: (row) => <TypeCell row={row} verdict={secrets.get(row.name)} t={t} />,
     },
   ];
 
   const rowActions = (row: EnvRow) => {
-    const shown = revealed.has(row.name);
+    const verdict = row.current !== null && row.state !== "removed" ? secrets.get(row.name) : undefined;
+    const choice = verdict !== undefined ? secrecyChoice(verdict) : null;
     return (
-      <span className="inline-flex items-center justify-end gap-0.5">
+      <Menu align="end" trigger={<IconButton size="sm" label={t("environment.tab.actionsAria", { name: row.name })} icon={<ICONS.more />} tooltip={false} />}>
         {row.state !== "removed" ? (
-          <>
-            <IconButton
-              size="sm"
-              label={shown ? t("environment.tab.hideAria", { name: row.name }) : t("environment.tab.revealAria", { name: row.name })}
-              icon={shown ? <EyeOff /> : <Eye />}
-              disabled={unmask.isPending}
-              onClick={() => void toggleReveal(row)}
-            />
-            <IconButton size="sm" label={t("environment.tab.editAria", { name: row.name })} icon={<Pencil />} disabled={unmask.isPending} onClick={() => void edit(row)} />
-          </>
+          <MenuItem icon={<Pencil />} disabled={unmask.isPending} onClick={() => void edit(row)}>
+            {t("environment.tab.edit")}
+          </MenuItem>
         ) : null}
         {row.state === "unchanged" ? (
-          <IconButton
-            size="sm"
-            label={t("environment.tab.removeAria", { name: row.name })}
-            icon={<Trash2 />}
+          <MenuItem
+            icon={<ICONS.delete />}
             onClick={() => {
               stage([{ kind: "remove", name: row.name }], t("environment.tab.willBeRemoved", { name: row.name }));
             }}
-          />
+          >
+            {t("environment.tab.remove")}
+          </MenuItem>
         ) : (
-          <IconButton size="sm" label={t("environment.tab.undoAria", { name: row.name })} icon={<Undo2 />} onClick={() => undo(row.name)} />
+          <MenuItem icon={<Undo2 />} onClick={() => undo(row.name)}>
+            {t("environment.tab.undo")}
+          </MenuItem>
         )}
-      </span>
+        {choice !== null ? (
+          <>
+            <MenuSeparator />
+            <MenuGroup label={t("environment.secrecy.groupLabel")}>
+              {SECRECY_CHOICES.map((option) => (
+                <MenuItem
+                  key={option}
+                  disabled={option === choice || (mark.isPending && mark.variables.name === row.name)}
+                  onClick={() => {
+                    mark.mutate({ name: row.name, value: markFor(option) });
+                  }}
+                >
+                  {secrecyActionLabel(option, t.locale)}
+                  {option === choice ? " " : null}
+                  {option === choice ? <span className="sr-only">{t("environment.secrecy.currentSrOnly")}</span> : null}
+                </MenuItem>
+              ))}
+            </MenuGroup>
+          </>
+        ) : null}
+      </Menu>
     );
   };
 
@@ -331,101 +310,85 @@ export function EnvironmentTab({ domain }: { domain: string }) {
       <Button icon={<ClipboardPaste aria-hidden="true" />} onClick={() => setPasting(true)}>
         {t("environment.tab.pasteButton")}
       </Button>
-      <Button icon={<Plus aria-hidden="true" />} onClick={() => setEditing({ mode: "add" })}>
+      <Button icon={<ICONS.add aria-hidden="true" />} onClick={() => setEditing({ mode: "add" })}>
         {t("environment.addVariable")}
       </Button>
     </>
   );
 
-  // An editor, capped like a form: the value column truncates long before a wide screen's
-  // edge, and past that the row's own actions would drift away from the variable.
+  const empty = env.data !== undefined && rows.length === 0;
+
   return (
-    <div className="flex max-w-6xl flex-col gap-8">
-      <Section
-        title={t("environment.tab.title")}
-        // Two lines whatever the path's length: the sentence, then the file on a line of its
-        // own, cut short with the whole path on hover. A path that wrapped the sentence moved
-        // the table down when the app's details arrived.
-        description={
-          <>
-            <span className="block">{isStatic ? t("environment.tab.readBuild") : t("environment.tab.readRuntime")}</span>
-            <code translate="no" title={file} className="block truncate text-12 text-fg">
-              {file}
-            </code>
-          </>
+    <div className="flex flex-col gap-4">
+      {empty ? null : (
+        <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
+          <p className="max-w-measure text-13 text-pretty text-fg-muted">{isStatic ? t("environment.tab.introStatic") : t("environment.tab.introRuntime")}</p>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
+        </div>
+      )}
+      <QueryState
+        query={env}
+        label={t("environment.tab.queryLabel")}
+        skeleton={
+          <DataTable
+            caption={t("environment.tab.tableCaption", { domain })}
+            columns={columns}
+            rows={[]}
+            getRowId={(row) => row.name}
+            rowActions={rowActions}
+            density="compact"
+            mobile="cards"
+            skeletonRows={8}
+            loading
+          />
         }
-        actions={env.data !== undefined && masked.size + counts.added > 0 ? actions : undefined}
+        isEmpty={() => rows.length === 0}
+        empty={
+          <EmptyState
+            variant="firstUse"
+            level={2}
+            icon={<Variable />}
+            title={t("environment.tab.emptyTitle")}
+            description={isStatic ? t("environment.tab.emptyDescriptionStatic") : t("environment.tab.emptyDescriptionRuntime")}
+            action={actions}
+            command={`noust env show ${domain}`}
+          />
+        }
       >
-        <p className="text-13 text-fg-muted">{t("environment.tab.autoHideExplanation")}</p>
-        <QueryState
-          query={env}
-          label={t("environment.tab.queryLabel")}
-          skeleton={
-            <DataTable
-              caption={t("environment.tab.tableCaption", { domain })}
-              columns={columns}
-              rows={[]}
-              getRowId={(row) => row.name}
-              rowActions={rowActions}
-              density="compact"
-              loading
-            />
-          }
-          isEmpty={() => rows.length === 0}
-          empty={
-            <EmptyState
-              level={3}
-              icon={<Variable />}
-              title={t("environment.tab.emptyTitle")}
-              description={isStatic ? t("environment.tab.emptyDescriptionStatic") : t("environment.tab.emptyDescriptionRuntime")}
-              action={actions}
-              command={`noust env show ${domain}`}
-            />
-          }
-        >
-          {() => (
-            <div className="flex flex-col gap-3">
-              {counts.total > 0 ? (
-                <div className="flex flex-col gap-3 rounded-card border border-border bg-surface px-4 py-3 shadow-raised sm:flex-row sm:items-center sm:justify-between">
-                  <p className="text-13 text-fg">
-                    <span className="font-medium">{t("environment.tab.unsavedChanges", { count: counts.total })}</span>
-                    <span className="text-fg-muted">{`: ${t("environment.tab.unsavedDetail", { counts: describeCounts(counts, t.locale) })}`}</span>
-                  </p>
-                  <div className="flex shrink-0 items-center gap-2">
-                    <Button
-                      onClick={() => {
-                        setOps([]);
-                        announce(t("environment.tab.discardedAnnounce"));
-                      }}
-                    >
-                      {t("environment.tab.discard")}
-                    </Button>
-                    <Button variant="primary" loading={unmask.isPending && review === null} onClick={() => void openReview()}>
-                      {t("environment.tab.reviewAndSave")}
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-              <DataTable
-                caption={t("environment.tab.tableCaption", { domain })}
-                columns={columns}
-                rows={rows}
-                getRowId={(row) => row.name}
-                rowActions={rowActions}
-                density="compact"
-              />
-            </div>
-          )}
-        </QueryState>
-        {rows.length > 0 || env.data === undefined ? (
-          <p className="flex items-center gap-1.5 text-12 text-fg-muted">
-            <Lock aria-hidden="true" className="size-3.5 shrink-0 text-fg-faint" />
-            {t("environment.tab.secretsHiddenNote")}
-          </p>
-        ) : null}
-        {/* The empty state carries the same command; said once. */}
-        {rows.length > 0 || env.data === undefined ? <CommandHint command={`noust env show ${domain}`} label={t("environment.fromTerminal")} /> : null}
-      </Section>
+        {() => (
+          <DataTable
+            caption={t("environment.tab.tableCaption", { domain })}
+            columns={columns}
+            rows={rows}
+            getRowId={(row) => row.name}
+            rowActions={rowActions}
+            density="compact"
+            mobile="cards"
+          />
+        )}
+      </QueryState>
+      {empty ? null : (
+        <>
+          <SaveBar
+            changes={counts.total}
+            onDiscard={() => {
+              setOps([]);
+              announce(t("environment.tab.discardedAnnounce"));
+            }}
+            onSave={() => void openReview()}
+            saving={unmask.isPending && review === null && counts.total > 0}
+            saveLabel={t("environment.tab.reviewAndSave")}
+          />
+          {/* The empty state carries the same command; said once. */}
+          <div className="flex flex-col gap-2">
+            <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-12 text-fg-muted">
+              {t.rich("environment.tab.storedIn", { file: <Mono tone="muted">{file}</Mono> })}
+              <CopyButton value={file} label={t("environment.tab.copyPath")} />
+            </p>
+            <CommandHint command={`noust env show ${domain}`} label={t("environment.fromTerminal")} />
+          </div>
+        </>
+      )}
 
       <VariableDialog
         target={editing}
@@ -435,7 +398,6 @@ export function EnvironmentTab({ domain }: { domain: string }) {
           const adding = editing?.mode === "add";
           setEditing(null);
           stage([{ kind: "set", name, value }], adding ? t("environment.tab.willBeAdded", { name }) : t("environment.tab.willChange", { name }));
-          if (adding) setRevealed((current) => new Set(current).add(name));
         }}
       />
       <PasteDialog open={pasting} onOpenChange={setPasting} current={masked} onStage={stage} />

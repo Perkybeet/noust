@@ -1,5 +1,4 @@
-import { ChevronDown } from "lucide-react";
-
+import { Subsection } from "../../components/page/Subsection";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { useT } from "../../i18n";
@@ -16,30 +15,21 @@ export interface ResourceLimitsFieldsProps {
 }
 
 /**
- * Memory, CPU and task limits for the unit systemd will run, collapsed by default: most
- * deploys need none, and the ones that do are the exception, not the rule. An empty field is
- * no limit, exactly as `PATCH /api/apps/{domain}/limits` on the app's own Settings tab treats
- * one - the same bounds and the same words, so the two never disagree.
+ * The most the app may use of the server: memory, CPU, and processes and threads. Empty is no
+ * limit, exactly as the app's own Settings tab treats one (`PATCH /api/apps/{domain}/limits`),
+ * with the same bounds and the same words, so the two never disagree. systemd's own names for
+ * them (MemoryMax, CPUQuota, TasksMax) are left to the command line.
  */
 export function ResourceLimitsFields({ draft, cores, errors, onChange }: ResourceLimitsFieldsProps) {
   const t = useT();
   const set = (patch: Partial<LimitsDraft>): void => {
     onChange({ ...draft, ...patch });
   };
-  const invalid = errors[limitField("memory")] !== undefined || errors[limitField("cpu")] !== undefined || errors[limitField("tasks")] !== undefined;
 
   return (
-    <details open={invalid} className="group rounded-control border border-border">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 text-13 font-medium text-fg [&::-webkit-details-marker]:hidden">
-        <span>{t("newApp.limits.title")}</span>
-        <span className="flex items-center gap-1.5 text-12 font-normal text-fg-muted">
-          <span className="group-open:hidden">{t("newApp.limits.empty")}</span>
-          <span className="hidden group-open:inline">{t("newApp.limits.hide")}</span>
-          <ChevronDown aria-hidden="true" className="size-3.5 transition-transform duration-(--duration-fast) group-open:rotate-180" />
-        </span>
-      </summary>
-      <div className="grid gap-4 border-t border-border px-3 py-3 sm:grid-cols-3">
-        <Field label={t("newApp.limits.memory")} description={t("newApp.limits.memoryDescription")} error={errors[limitField("memory")]}>
+    <Subsection title={t("newApp.limits.title")} description={t("newApp.limits.description")}>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <Field label={t("newApp.limits.memory")} optional description={t("newApp.limits.memoryDescription")} error={errors[limitField("memory")]}>
           <Input
             mono
             inputMode="numeric"
@@ -52,6 +42,7 @@ export function ResourceLimitsFields({ draft, cores, errors, onChange }: Resourc
         </Field>
         <Field
           label={t("newApp.limits.cpu")}
+          optional
           description={cores === null ? t("newApp.limits.cpuDescription") : t("newApp.limits.cpuDescriptionCores", { max: String(100 * cores) })}
           error={errors[limitField("cpu")]}
         >
@@ -65,10 +56,10 @@ export function ResourceLimitsFields({ draft, cores, errors, onChange }: Resourc
             onValueChange={(value: string) => set({ cpu: value })}
           />
         </Field>
-        <Field label={t("newApp.limits.tasks")} description={t("newApp.limits.tasksDescription")} error={errors[limitField("tasks")]}>
+        <Field label={t("newApp.limits.tasks")} optional description={t("newApp.limits.tasksDescription")} error={errors[limitField("tasks")]}>
           <Input mono inputMode="numeric" autoComplete="off" placeholder={t("newApp.limits.none")} value={draft.tasks} onValueChange={(value: string) => set({ tasks: value })} />
         </Field>
       </div>
-    </details>
+    </Subsection>
   );
 }

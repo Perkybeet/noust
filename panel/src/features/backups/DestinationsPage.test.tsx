@@ -1,11 +1,32 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+
+/** A screen as wide as a desktop's: tables are tables, not the phone's card rows. */
+beforeEach(() => {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: true,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  }));
+});
+
+/** The first of several matches: the header's primary action, which an empty state repeats. */
+function first<T>(items: readonly T[]): T {
+  const [item] = items;
+  if (item === undefined) throw new Error("nothing matched");
+  return item;
+}
 
 const SFTP_FIELDS = [
   { key: "host", label: "Host", secret: false, required: true, placeholder: "", help: "SSH server address.", choices: [] },
@@ -48,10 +69,10 @@ async function destinationsRegion(): Promise<HTMLElement> {
   return screen.findByRole("region", { name: "Backup destinations" });
 }
 
-describe("DestinationsSection", () => {
+describe("the Destinations tab", () => {
   it("lists destinations with their backend, and has no accessibility violations", async () => {
     fakeBackend(baseRoutes([destination()]));
-    const { container } = renderConsole("/backups");
+    const { container } = renderConsole("/backups/destinations");
     await screen.findByRole("heading", { level: 1, name: "Backups" });
     const region = await destinationsRegion();
     expect(within(region).getByText("offsite")).toBeInTheDocument();
@@ -62,10 +83,12 @@ describe("DestinationsSection", () => {
 
   it("shows the empty state and its CLI hint when there are none yet", async () => {
     fakeBackend(baseRoutes([]));
-    renderConsole("/backups");
+    renderConsole("/backups/destinations");
     await screen.findByRole("heading", { level: 1, name: "Backups" });
-    expect(await screen.findByText("No destinations yet")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "No destinations yet" })).toBeInTheDocument();
     expect(screen.getByText("noust backup destination add <name> --type <backend>")).toBeInTheDocument();
+    // One first-use state, not a table with column headers.
+    expect(screen.queryByRole("region", { name: "Backup destinations" })).not.toBeInTheDocument();
   });
 
   it("adds a new destination, sending only the fields that were filled in", async () => {
@@ -75,9 +98,10 @@ describe("DestinationsSection", () => {
           json(201, { success: true, message: "Backup destination created: offsite", destination: destination() }),
       }),
     );
-    const { user } = renderConsole("/backups");
+    const { user } = renderConsole("/backups/destinations");
     await screen.findByRole("heading", { level: 1, name: "Backups" });
-    await user.click(await screen.findByRole("button", { name: "Add destination" }));
+    // The header's primary action; the empty state offers the same one.
+    await user.click(first(await screen.findAllByRole("button", { name: "Add destination" })));
 
     const dialog = await screen.findByRole("dialog", { name: "Add backup destination" });
     await user.type(within(dialog).getByLabelText("Name"), "offsite");
@@ -110,7 +134,7 @@ describe("DestinationsSection", () => {
         "POST /api/backup-destinations/offsite/test": () => json(200, { ok: true, entries: ["shop-example-com"] }),
       }),
     );
-    const { user } = renderConsole("/backups");
+    const { user } = renderConsole("/backups/destinations");
     const region = await destinationsRegion();
     await within(region).findByText("offsite");
 
@@ -137,15 +161,16 @@ describe("DestinationsSection", () => {
         },
       }),
     );
-    const { user } = renderConsole("/backups");
+    const { user } = renderConsole("/backups/destinations");
     const region = await destinationsRegion();
     await within(region).findByText("offsite");
 
     await user.click(within(region).getByRole("button", { name: "Actions for offsite" }));
     await user.click(await screen.findByRole("menuitem", { name: "Remove" }));
 
+    // One question, not a name to type: what was copied there stays there.
     const confirmDialog = await screen.findByRole("alertdialog", { name: "Remove offsite" });
-    await user.type(within(confirmDialog).getByRole("textbox"), "offsite");
+    expect(within(confirmDialog).queryByRole("textbox")).not.toBeInTheDocument();
     await user.click(within(confirmDialog).getByRole("button", { name: "Remove destination" }));
 
     await within(confirmDialog).findByText(/Pass --force/);
@@ -173,7 +198,7 @@ describe("DestinationsSection", () => {
           }),
       }),
     );
-    const { user } = renderConsole("/backups");
+    const { user } = renderConsole("/backups/destinations");
     const region = await destinationsRegion();
     await within(region).findByText("offsite");
 
@@ -186,7 +211,8 @@ describe("DestinationsSection", () => {
     const restoreRow = await within(browse).findByText("shop-example-com_20260101_000000");
     await user.click(within(restoreRow.closest("tr") ?? browse).getByRole("button", { name: "Restore" }));
 
-    const confirm = await screen.findByRole("alertdialog", { name: "Restore shop-example-com_20260101_000000" });
+    const confirm = await screen.findByRole("dialog", { name: "Restore from offsite" });
+    expect(within(confirm).getByText("shop-example-com_20260101_000000")).toBeInTheDocument();
     // The folder is named after the application; the target offered is its domain.
     const target = within(confirm).getByLabelText("Restore into");
     await waitFor(() => expect(target).toHaveValue("shop.example.com"));
@@ -206,9 +232,9 @@ describe("DestinationsSection", () => {
           json(201, { success: true, message: "Backup destination created: offsite", destination: destination({ encrypted: true, encryption_configured: true }) }),
       }),
     );
-    const { user } = renderConsole("/backups");
+    const { user } = renderConsole("/backups/destinations");
     await screen.findByRole("heading", { level: 1, name: "Backups" });
-    await user.click(await screen.findByRole("button", { name: "Add destination" }));
+    await user.click(first(await screen.findAllByRole("button", { name: "Add destination" })));
 
     const dialog = await screen.findByRole("dialog", { name: "Add backup destination" });
     await user.type(within(dialog).getByLabelText("Name"), "offsite");
@@ -243,7 +269,7 @@ describe("DestinationsSection", () => {
         "DELETE /api/backup-destinations/offsite": () => json(200, { success: true, message: "Backup destination removed: offsite" }),
       }),
     );
-    const { user } = renderConsole("/backups");
+    const { user } = renderConsole("/backups/destinations");
     const region = await destinationsRegion();
     await within(region).findByText("offsite");
 
@@ -259,7 +285,6 @@ describe("DestinationsSection", () => {
 
     const confirmDialog = await screen.findByRole("alertdialog", { name: "Remove offsite" });
     expect(within(confirmDialog).getByText(/readable only with the key you saved/)).toBeInTheDocument();
-    await user.type(within(confirmDialog).getByRole("textbox"), "offsite");
     await user.click(within(confirmDialog).getByRole("button", { name: "Remove destination" }));
 
     await waitFor(() => {
@@ -274,7 +299,7 @@ describe("DestinationsSection", () => {
         "POST /api/backup-destinations/offsite/show-key": () => json(200, { password: "first-passphrase", password2: "second-salt" }),
       }),
     );
-    const { user } = renderConsole("/backups");
+    const { user } = renderConsole("/backups/destinations");
     const region = await destinationsRegion();
     await within(region).findByText("offsite");
 
@@ -292,13 +317,13 @@ describe("DestinationsSection", () => {
   });
 });
 
-describe("DestinationsSection in Spanish", () => {
+describe("the Destinations tab in Spanish", () => {
   it("lists destinations, opens the add dialog and shows the encryption key dialog in Spanish, with no accessibility violations", async () => {
     fakeBackend(baseRoutes([destination({ encrypted: true, encryption_configured: true })], {
       "POST /api/backup-destinations/offsite/show-key": () => json(200, { password: "first-passphrase", password2: "second-salt" }),
     }));
     await act(() => setLocale("es"));
-    const { container, user } = renderConsole("/backups");
+    const { container, user } = renderConsole("/backups/destinations");
     await screen.findByRole("heading", { level: 1, name: "Copias de seguridad" });
     const region = await screen.findByRole("region", { name: "Destinos de copias de seguridad" });
     const offsiteRow = (await within(region).findByText("offsite")).closest("tr");
@@ -321,9 +346,9 @@ describe("DestinationsSection in Spanish", () => {
       }),
     );
     await act(() => setLocale("es"));
-    const { user } = renderConsole("/backups");
+    const { user } = renderConsole("/backups/destinations");
     await screen.findByRole("heading", { level: 1, name: "Copias de seguridad" });
-    await user.click(await screen.findByRole("button", { name: "Añadir destino" }));
+    await user.click(first(await screen.findAllByRole("button", { name: "Añadir destino" })));
     const dialog = await screen.findByRole("dialog", { name: "Añadir destino de copias de seguridad" });
     expect(within(dialog).getByText("Nombre")).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Cancelar" }));

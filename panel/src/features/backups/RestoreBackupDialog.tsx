@@ -1,15 +1,8 @@
-import { AlertDialog } from "@base-ui/react/alert-dialog";
-import { useRef, useState } from "react";
-import type { SyntheticEvent } from "react";
-
 import type { Backup } from "../../api/queries/backups";
-import { ErrorBlock } from "../../components/page/QueryState";
-import { Button } from "../../components/ui/Button";
-import { Checkbox } from "../../components/ui/Checkbox";
-import { BACKDROP, DialogFrame, MODAL_POPUP, MODAL_VIEWPORT } from "../../components/ui/Dialog";
-import { Input } from "../../components/ui/Input";
+import { RelativeTime } from "../../components/page/RelativeTime";
+import { Mono } from "../../components/ui/Mono";
 import { useT } from "../../i18n";
-import { cx } from "../../lib/cx";
+import { RestoreDialog } from "./RestoreDialog";
 import { useBackupActions } from "./useBackupActions";
 
 export interface RestoreBackupDialogProps {
@@ -18,126 +11,34 @@ export interface RestoreBackupDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-/**
- * Restores an application from one of its backups. Typing the target domain is the confirmation
- * (D5-style irreversible-action pattern, `ConfirmDialog`'s own rule): it also doubles as where
- * to restore into, since a backup may be replayed onto a different domain than it came from.
- */
+/** Restores an application from one of its backups on this server. */
 export function RestoreBackupDialog({ backup, open, onOpenChange }: RestoreBackupDialogProps) {
   const t = useT();
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [targetDomain, setTargetDomain] = useState(backup.domain);
-  const [typed, setTyped] = useState("");
-  const [restoreEnv, setRestoreEnv] = useState(true);
-  const [verifyFirst, setVerifyFirst] = useState(true);
   const { restore } = useBackupActions();
-
-  const matches = typed === targetDomain && targetDomain.trim() !== "";
-
-  const close = (next: boolean): void => {
-    if (!next && restore.isPending) return;
-    onOpenChange(next);
-    if (!next) {
-      setTargetDomain(backup.domain);
-      setTyped("");
-      setRestoreEnv(true);
-      setVerifyFirst(true);
-      restore.reset();
-    }
-  };
-
-  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    if (!matches) return;
-    restore.mutate(
-      {
-        backupId: backup.backup_id,
-        targetDomain: targetDomain === backup.domain ? undefined : targetDomain,
-        restoreEnv,
-        verify: verifyFirst,
-      },
-      { onSuccess: () => close(false) },
-    );
-  };
-
   return (
-    <AlertDialog.Root open={open} onOpenChange={(next: boolean) => close(next)}>
-      <AlertDialog.Portal>
-        <AlertDialog.Backdrop className={BACKDROP} />
-        <AlertDialog.Viewport className={MODAL_VIEWPORT}>
-          <AlertDialog.Popup className={cx(MODAL_POPUP, "sm:max-w-[480px]")}>
-            <form onSubmit={submit} className="contents">
-              <DialogFrame
-                title={t("backups.restoreDialog.title", { id: backup.backup_id })}
-                description={t("backups.restoreDialog.description")}
-                Title={AlertDialog.Title}
-                Description={AlertDialog.Description}
-                footer={
-                  <>
-                    <AlertDialog.Close render={<Button disabled={restore.isPending}>{t("backups.common.cancel")}</Button>} />
-                    <Button type="submit" variant="danger" disabled={!matches} loading={restore.isPending}>
-                      {t("backups.restoreDialog.submit")}
-                    </Button>
-                  </>
-                }
-              >
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-1.5">
-                    <label htmlFor="restore-target-domain" className="text-13 font-medium text-fg">
-                      {t("backups.restoreDialog.restoreInto")}
-                    </label>
-                    <Input
-                      id="restore-target-domain"
-                      mono
-                      value={targetDomain}
-                      onValueChange={setTargetDomain}
-                      autoComplete="off"
-                      autoCapitalize="off"
-                      spellCheck={false}
-                      disabled={restore.isPending}
-                    />
-                  </div>
-                  <Checkbox
-                    checked={restoreEnv}
-                    onCheckedChange={setRestoreEnv}
-                    label={t("backups.restoreDialog.restoreEnv.label")}
-                    description={t("backups.restoreDialog.restoreEnv.description")}
-                  />
-                  <Checkbox
-                    checked={verifyFirst}
-                    onCheckedChange={setVerifyFirst}
-                    label={t("backups.restoreDialog.verifyFirst.label")}
-                    description={t("backups.restoreDialog.verifyFirst.description")}
-                  />
-                  <div className="flex flex-col gap-1.5">
-                    <label htmlFor="restore-confirm" className="text-13 text-fg-muted">
-                      {t.rich("backups.restoreDialog.typeToConfirm", {
-                        domain: (
-                          <span translate="no" className="mono rounded-[4px] bg-bg-sunken px-1 py-0.5 text-fg select-all">
-                            {targetDomain || t("backups.restoreDialog.domainPlaceholder")}
-                          </span>
-                        ),
-                      })}
-                    </label>
-                    <Input
-                      id="restore-confirm"
-                      ref={inputRef}
-                      mono
-                      value={typed}
-                      onValueChange={setTyped}
-                      autoComplete="off"
-                      autoCapitalize="off"
-                      spellCheck={false}
-                      disabled={restore.isPending}
-                    />
-                  </div>
-                  {restore.isError ? <ErrorBlock live compact error={restore.error} title={t("backups.restoreDialog.error")} /> : null}
-                </div>
-              </DialogFrame>
-            </form>
-          </AlertDialog.Popup>
-        </AlertDialog.Viewport>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
+    <RestoreDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("backups.restoreDialog.title", { domain: backup.domain })}
+      description={t("backups.restoreDialog.description")}
+      source={t.rich("backups.restoreDialog.source", { id: <Mono tone="default">{backup.backup_id}</Mono>, when: <RelativeTime value={backup.timestamp} /> })}
+      domain={backup.domain}
+      offerVerify
+      envDescription={t("backups.restoreDialog.envFromArchive")}
+      pending={restore.isPending}
+      error={restore.error}
+      onReset={() => restore.reset()}
+      onRestore={({ targetDomain, restoreEnv, verify }) =>
+        restore.mutate(
+          {
+            backupId: backup.backup_id,
+            targetDomain: targetDomain === backup.domain ? undefined : targetDomain,
+            restoreEnv,
+            verify,
+          },
+          { onSuccess: () => onOpenChange(false) },
+        )
+      }
+    />
   );
 }

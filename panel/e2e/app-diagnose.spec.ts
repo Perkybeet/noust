@@ -22,16 +22,20 @@ test("a failed app: the verdict and its probable cause first, then every check v
   await signIn(page, consoleServer, `/apps/${FAILED}/diagnose`);
   await expect(verdict(page)).toBeVisible();
   await expect(verdict(page).locator("[data-verdict]")).not.toHaveAttribute("data-verdict", "healthy");
-  await expect(page.getByText(/^(Probable cause|No single cause)$/)).toBeVisible();
+  // Noust's reading first, in the product's words; what to do about it beside it.
+  await expect(page.getByText("Most likely", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "View logs" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Roll back…" })).toBeVisible();
 
   const checks = page.getByRole("region", { name: "Checks" });
   const rows = checks.getByRole("listitem");
-  expect(await rows.count()).toBeGreaterThan(5);
-  const unit = rows.filter({ hasText: "Service unit" });
+  const unit = rows.filter({ has: page.getByText("Service", { exact: true }) });
   await expect(unit.getByText("Failed", { exact: true })).toBeVisible();
+  // What passed is folded under one line.
+  await expect(checks.getByText(/^\d+ checks? passed/)).toBeVisible();
 
-  // Every output is the system's own, in mono, one press away.
-  const journal = rows.filter({ hasText: "Journal" });
+  // Every output is the system's own, in mono; the logs the verdict cites are in view.
+  const journal = rows.filter({ has: page.getByText("Logs", { exact: true }) });
   // Open unless it already is: a journal with errors in it is a warning, open from the start.
   if (!(await journal.locator("details").evaluate((details) => (details as HTMLDetailsElement).open))) {
     await journal.locator("summary").click();
@@ -46,7 +50,11 @@ test("a failed app: the verdict and its probable cause first, then every check v
 test("Run again asks the machine again and keeps the page", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${RUNNING}/diagnose`);
   await expect(verdict(page)).toBeVisible();
-  const unit = page.getByRole("region", { name: "Checks" }).getByRole("listitem").filter({ hasText: "Service unit" });
+  // What passed is folded under one line while something else did not pass: open it.
+  const checks = page.getByRole("region", { name: "Checks" });
+  const passed = checks.getByRole("list", { name: "Checks that passed or were skipped" });
+  if (!(await passed.isVisible())) await checks.getByText(/^\d+ checks? passed or (was|were) skipped$/).click();
+  const unit = passed.getByRole("listitem").filter({ has: page.getByText("Service", { exact: true }) });
   await expect(unit.getByText("Passed", { exact: true })).toBeVisible();
 
   const again = page.waitForResponse((response) => response.url().endsWith(`/api/apps/${RUNNING}/diagnose`) && response.ok());

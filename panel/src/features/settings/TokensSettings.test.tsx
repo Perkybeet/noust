@@ -1,5 +1,5 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
@@ -7,6 +7,20 @@ import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 
 const NOW = Date.now() / 1000;
+
+/** A screen as wide as a desktop's: tables are tables, not the phone's card rows. */
+beforeEach(() => {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: true,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  }));
+});
 
 interface Token {
   id: number;
@@ -76,7 +90,7 @@ describe("Settings > API tokens", () => {
     const table = screen.getByRole("region", { name: "API tokens" });
     const [live, expired, revoked, ...rest] = within(table).getAllByRole("row").slice(1);
     if (!live || !expired || !revoked) throw new Error("missing rows");
-    expect([live, expired, revoked, ...rest].map((row) => row.querySelector("td span[translate=no]")?.textContent)).toEqual([
+    expect([live, expired, revoked, ...rest].map((row) => row.querySelector("[translate=no]")?.textContent)).toEqual([
       "ci-deploy",
       "grafana",
       "old-script",
@@ -103,8 +117,8 @@ describe("Settings > API tokens", () => {
     await user.click(screen.getByRole("button", { name: "Create token" }));
     const dialog = await screen.findByRole("dialog", { name: "Create an API token" });
     await user.type(within(dialog).getByLabelText(/^Name/), "ci-read");
-    expect(within(dialog).getByRole("radio", { name: "Read" })).toBeChecked();
-    expect(within(dialog).getByRole("radio", { name: "Deploy" })).toHaveAccessibleDescription(/The one for CI/);
+    expect(within(dialog).getByRole("radio", { name: /^Read/ })).toBeChecked();
+    expect(within(dialog).getByRole("radio", { name: /^Deploy/ })).toHaveAccessibleDescription(/The one for CI/);
     await expectNoAxeViolations(dialog);
     await user.click(within(dialog).getByRole("button", { name: "Create token" }));
 
@@ -114,15 +128,43 @@ describe("Settings > API tokens", () => {
 
     const once = await screen.findByRole("dialog", { name: "Copy your new token" });
     expect(within(once).getByTestId("new-token")).toHaveTextContent("noust_tok_s3cr3t-value");
-    expect(within(once).getByRole("alert")).toHaveTextContent("This is the only time the token is shown");
+    expect(within(once).getByText(/This is the only time the token is shown/).closest("[role=status]")).not.toBeNull();
     expect(within(once).getByRole("button", { name: "Copy token" })).toBeInTheDocument();
-    expect(backend.callsTo("POST /api/auth/tokens").at(-1)?.body).toEqual({ name: "ci-read", scope: "read", expires_hours: 90 * 24 });
+    expect(backend.callsTo("POST /api/auth/tokens").at(-1)?.body).toEqual({ name: "ci-read", scope: "read", expires_hours: 90 * 24, allow_elevated: false });
 
     await user.click(within(once).getByRole("button", { name: "Done" }));
     await expectToast("Created token ci-read");
     expect(await screen.findByText("ci-read")).toBeInTheDocument();
     // Gone from the page: it is never shown again.
     expect(screen.queryByText("noust_tok_s3cr3t-value")).not.toBeInTheDocument();
+  });
+
+  it("sends the addresses a token is limited to, and says what its owner caps it at", { timeout: 20_000 }, async () => {
+    const backend = tokensBackend(SEEDED);
+    backend.on("GET /api/auth/roles", () =>
+      json(200, {
+        roles: { viewer: ["self", "apps.read"], admin: ["self", "apps.read", "apps.deploy", "apps.manage", "secrets.reveal"] },
+        permissions: {},
+      }),
+    );
+    const { user } = renderConsole("/settings/tokens");
+    await screen.findByText("ci-deploy");
+    await user.click(screen.getByRole("button", { name: "Create token" }));
+    const dialog = await screen.findByRole("dialog", { name: "Create an API token" });
+    await user.type(within(dialog).getByLabelText(/^Name/), "ci-lan");
+    await user.click(within(dialog).getByRole("radio", { name: /^Deploy/ }));
+    expect(await within(dialog).findByText("apps.deploy")).toBeInTheDocument();
+    await user.type(within(dialog).getByLabelText(/^Only from/), "203.0.113.0/24\n10.0.0.0/8");
+    await user.click(within(dialog).getByRole("button", { name: "Create token" }));
+    const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
+    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
+    await screen.findByRole("dialog", { name: "Copy your new token" });
+    expect(backend.callsTo("POST /api/auth/tokens").at(-1)?.body).toMatchObject({
+      name: "ci-lan",
+      scope: "deploy",
+      allowed_cidrs: ["203.0.113.0/24", "10.0.0.0/8"],
+    });
   });
 
   it("shows why a token could not be created, with the fix", { timeout: 20_000 }, async () => {
@@ -141,16 +183,14 @@ describe("Settings > API tokens", () => {
     expect(block).toHaveTextContent("An API token named 'ci-deploy' already exists");
   });
 
-  it("revokes a token once its name is typed", { timeout: 20_000 }, async () => {
+  it("revokes a token after one question: it can be made again", { timeout: 20_000 }, async () => {
     const backend = tokensBackend(SEEDED);
     const { user } = renderConsole("/settings/tokens");
     await screen.findByText("ci-deploy");
     await user.click(screen.getByRole("button", { name: "Revoke ci-deploy" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Revoke ci-deploy" });
-    const action = within(dialog).getByRole("button", { name: "Revoke token" });
-    expect(action).toBeDisabled();
-    await user.type(within(dialog).getByRole("textbox"), "ci-deploy");
-    await user.click(action);
+    expect(within(dialog).queryByRole("textbox")).toBeNull();
+    await user.click(within(dialog).getByRole("button", { name: "Revoke token" }));
     await expectToast("Revoked token ci-deploy");
     expect(backend.callsTo("DELETE /api/auth/tokens/1")).toHaveLength(1);
     await waitFor(() => {
@@ -172,7 +212,7 @@ describe("Settings > API tokens in Spanish", () => {
     tokensBackend(tokens);
     const { container } = renderConsole("/settings/tokens");
     await screen.findByText("es-active");
-    expect(screen.getByRole("region", { name: "Tokens para automatización" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Tokens emitidos" })).toBeInTheDocument();
     const table = screen.getByRole("region", { name: "Tokens de API" });
     expect(within(table).getByText("Activo")).toBeInTheDocument();
     expect(within(table).getByText("Caducado")).toBeInTheDocument();
@@ -187,8 +227,8 @@ describe("Settings > API tokens in Spanish", () => {
     const { user } = renderConsole("/settings/tokens");
     await user.click(await screen.findByRole("button", { name: "Crear token" }));
     const dialog = await screen.findByRole("dialog", { name: "Crear un token de API" });
-    expect(within(dialog).getByRole("radio", { name: "Lectura" })).toBeChecked();
-    expect(within(dialog).getByRole("radio", { name: "Despliegue" })).toHaveAccessibleDescription(/El indicado para CI/);
+    expect(within(dialog).getByRole("radio", { name: /^Lectura/ })).toBeChecked();
+    expect(within(dialog).getByRole("radio", { name: /^Despliegue/ })).toHaveAccessibleDescription(/El de CI/);
     await expectNoAxeViolations(dialog);
   });
 });

@@ -6,10 +6,19 @@ import { useT } from "../i18n";
 import { cx } from "../lib/cx";
 import type { TabItem } from "./nav";
 
+export interface LinkTab extends TabItem {
+  params?: Record<string, string>;
+  /**
+   * A count after the label (backups, certificates). `null` while it loads: the room is kept,
+   * so the strip does not change width, and every tab after it does not move, when it arrives.
+   */
+  count?: number | null;
+}
+
 export interface LinkTabsProps {
   /** Names the set for assistive technology: "Application sections". */
   label: string;
-  tabs: readonly (TabItem & { params?: Record<string, string> })[];
+  tabs: readonly LinkTab[];
   className?: string;
 }
 
@@ -40,6 +49,17 @@ export function LinkTabs({ label, tabs, className }: LinkTabsProps) {
               )}
             >
               {t(tab.label)}
+              {tab.count !== undefined ? (
+                // The same count as the Tabs primitive's, so both kinds of tab strip read alike.
+                <span
+                  className={cx(
+                    "mono ml-1.5 min-w-5 rounded-chip bg-bg-sunken px-1 text-center text-12 text-fg-muted group-data-[status=active]:text-fg",
+                    tab.count === null && "invisible",
+                  )}
+                >
+                  {tab.count ?? 0}
+                </span>
+              ) : null}
               <span
                 aria-hidden="true"
                 className="absolute inset-x-2.5 bottom-0 h-0.5 rounded-pill bg-transparent group-data-[status=active]:bg-accent-fg"

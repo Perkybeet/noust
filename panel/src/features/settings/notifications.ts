@@ -26,6 +26,10 @@ export interface ChannelField {
   label: string;
   /** Secrets are write-only: masked while typed and never read back. */
   secret: boolean;
+  /** The field that gives the channel somewhere to send: without it, nothing is sent. */
+  destination?: true;
+  /** Left empty, the channel still sends: the field only adds something. */
+  optional?: true;
   placeholder: string;
   /** Help shown under the field regardless of what is typed: format, consequence, default. */
   description?: string;
@@ -58,7 +62,7 @@ export interface ChannelSpec {
 export const CHANNEL_IDS: readonly ChannelId[] = ["webhook", "slack", "discord", "telegram", "email"];
 
 const CHANNEL_FIELD_KEYS: Readonly<Record<ChannelId, readonly string[]>> = {
-  webhook: ["webhook_url"],
+  webhook: ["webhook_url", "secret"],
   slack: ["webhook_url"],
   discord: ["webhook_url"],
   telegram: ["bot_token", "chat_id"],
@@ -77,7 +81,17 @@ export function channels(t: T): readonly ChannelSpec[] {
           key: "webhook_url",
           label: t("settings.notifications.channels.webhook.endpointUrlLabel"),
           secret: true,
+          destination: true,
           placeholder: "https://hooks.example.com/noust",
+          description: t("settings.notifications.channels.webhook.endpointUrlDescription"),
+        },
+        {
+          key: "secret",
+          label: t("settings.notifications.channels.webhook.secretLabel"),
+          secret: true,
+          optional: true,
+          placeholder: "",
+          description: t("settings.notifications.channels.webhook.secretDescription"),
         },
       ],
     },
@@ -90,7 +104,9 @@ export function channels(t: T): readonly ChannelSpec[] {
           key: "webhook_url",
           label: t("settings.notifications.channels.slack.webhookUrlLabel"),
           secret: true,
-          placeholder: "https://hooks.slack.com/services/...",
+          destination: true,
+          placeholder: "https://hooks.slack.com/services/…",
+          description: t("settings.notifications.channels.slack.webhookUrlDescription"),
         },
       ],
     },
@@ -103,7 +119,9 @@ export function channels(t: T): readonly ChannelSpec[] {
           key: "webhook_url",
           label: t("settings.notifications.channels.discord.webhookUrlLabel"),
           secret: true,
-          placeholder: "https://discord.com/api/webhooks/...",
+          destination: true,
+          placeholder: "https://discord.com/api/webhooks/…",
+          description: t("settings.notifications.channels.discord.webhookUrlDescription"),
         },
       ],
     },
@@ -112,7 +130,14 @@ export function channels(t: T): readonly ChannelSpec[] {
       label: t("settings.notifications.telegram.label"),
       description: t("settings.notifications.telegram.description"),
       fields: [
-        { key: "bot_token", label: t("settings.notifications.telegram.botTokenLabel"), secret: true, placeholder: "123456789:AAH..." },
+        {
+          key: "bot_token",
+          label: t("settings.notifications.telegram.botTokenLabel"),
+          secret: true,
+          destination: true,
+          placeholder: "123456789:AAH…",
+          description: t("settings.notifications.telegram.botTokenDescription"),
+        },
         {
           key: "chat_id",
           label: t("settings.notifications.telegram.chatIdLabel"),
@@ -136,37 +161,89 @@ export interface EventSpec {
   kind: string;
   label: string;
   description: string;
-  /** Set when this version of Noust never sends the event, so the switch changes nothing yet. */
-  unsent?: true;
+  /** Ships switched off (noust.core.notifications.model.OFF_BY_DEFAULT): on only when asked for. */
+  offByDefault?: true;
 }
 
-/** The event kinds, in the notifier's order (noust.core.notifier.EVENT_KINDS). */
+/** The event kinds, in the notifier's order (noust.core.notifications.model.EVENT_KINDS). */
 export const EVENT_KINDS: readonly string[] = [
   "deploy_started",
   "deploy_success",
   "deploy_failed",
   "deploy_rolled_back",
+  "restore_success",
+  "restore_failed",
   "cert_expiring",
   "unit_failed",
   "disk_threshold",
   "backup_failed",
+  "backup_success",
+  "node_unreachable",
+  "node_recovered",
+  "node_host_key_changed",
+  "server_rebooted",
+  "server_back",
+  "approval_requested",
+  "approval_decided",
 ];
 
-const UNSENT_EVENTS: ReadonlySet<string> = new Set(["cert_expiring"]);
+/**
+ * Kinds that are off unless the file turns them on: one message per deploy attempt, and a
+ * daily heartbeat for every backup that went right. The notifier reads a missing kind as on,
+ * except these (noust.core.notifier, `default = kind not in OFF_BY_DEFAULT`).
+ */
+export const OFF_BY_DEFAULT: ReadonlySet<string> = new Set(["deploy_started", "backup_success"]);
 
-/** The events, translated, in the notifier's order, described by who sends them. */
+export type EventGroupId = "deploys" | "backups" | "server" | "fleet" | "approvals";
+
+/** The events by what they are about, in the order an operator looks for them. */
+export const EVENT_GROUPS: readonly { id: EventGroupId; kinds: readonly string[] }[] = [
+  { id: "deploys", kinds: ["deploy_failed", "deploy_rolled_back", "deploy_success", "deploy_started"] },
+  { id: "backups", kinds: ["backup_failed", "restore_failed", "restore_success", "backup_success"] },
+  { id: "server", kinds: ["unit_failed", "disk_threshold", "cert_expiring", "server_rebooted", "server_back"] },
+  { id: "fleet", kinds: ["node_unreachable", "node_host_key_changed", "node_recovered"] },
+  { id: "approvals", kinds: ["approval_requested", "approval_decided"] },
+];
+
+/** `deploy_rolled_back` is `deployRolledBack` in the catalog. */
+function camel(kind: string): string {
+  return kind.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
+}
+
+/** One event, translated, with whether it ships off. */
+export function eventSpec(t: T, kind: string): EventSpec {
+  const key = camel(kind) as EventCatalogKey;
+  const spec: EventSpec = {
+    kind,
+    label: t(`settings.notifications.events.kinds.${key}.label`),
+    description: t(`settings.notifications.events.kinds.${key}.description`),
+  };
+  return OFF_BY_DEFAULT.has(kind) ? { ...spec, offByDefault: true } : spec;
+}
+
+type EventCatalogKey =
+  | "deployStarted"
+  | "deploySuccess"
+  | "deployFailed"
+  | "deployRolledBack"
+  | "restoreSuccess"
+  | "restoreFailed"
+  | "certExpiring"
+  | "unitFailed"
+  | "diskThreshold"
+  | "backupFailed"
+  | "backupSuccess"
+  | "nodeUnreachable"
+  | "nodeRecovered"
+  | "nodeHostKeyChanged"
+  | "serverRebooted"
+  | "serverBack"
+  | "approvalRequested"
+  | "approvalDecided";
+
+/** The events, translated, in the notifier's order. */
 export function events(t: T): readonly EventSpec[] {
-  const specs: readonly Omit<EventSpec, "unsent">[] = [
-    { kind: "deploy_started", label: t("settings.notifications.events.deployStarted.label"), description: t("settings.notifications.events.deployStarted.description") },
-    { kind: "deploy_success", label: t("settings.notifications.events.deploySuccess.label"), description: t("settings.notifications.events.deploySuccess.description") },
-    { kind: "deploy_failed", label: t("settings.notifications.events.deployFailed.label"), description: t("settings.notifications.events.deployFailed.description") },
-    { kind: "deploy_rolled_back", label: t("settings.notifications.events.deployRolledBack.label"), description: t("settings.notifications.events.deployRolledBack.description") },
-    { kind: "cert_expiring", label: t("settings.notifications.events.certExpiring.label"), description: t("settings.notifications.events.certExpiring.description") },
-    { kind: "unit_failed", label: t("settings.notifications.events.unitFailed.label"), description: t("settings.notifications.events.unitFailed.description") },
-    { kind: "disk_threshold", label: t("settings.notifications.events.diskThreshold.label"), description: t("settings.notifications.events.diskThreshold.description") },
-    { kind: "backup_failed", label: t("settings.notifications.events.backupFailed.label"), description: t("settings.notifications.events.backupFailed.description") },
-  ];
-  return specs.map((spec) => (UNSENT_EVENTS.has(spec.kind) ? { ...spec, unsent: true } : spec));
+  return EVENT_KINDS.map((kind) => eventSpec(t, kind));
 }
 
 export interface SmtpFacts {
@@ -224,8 +301,9 @@ export function readNotificationSettings(config: ConsoleConfig["config"]): Notif
   }
   const eventValues: Record<string, boolean> = {};
   for (const kind of EVENT_KINDS) {
-    // The notifier treats an event missing from the file as on (events.get(kind, True)).
-    eventValues[kind] = eventsBlock[kind] !== false;
+    // What the notifier does with a kind the file does not name: on, but for the few that ship off.
+    const stored = eventsBlock[kind];
+    eventValues[kind] = typeof stored === "boolean" ? stored : !OFF_BY_DEFAULT.has(kind);
   }
   const port = smtp["port"];
   const language = text(block, "language");
@@ -245,9 +323,9 @@ export function readNotificationSettings(config: ConsoleConfig["config"]): Notif
   };
 }
 
-/** Whether a channel has a destination: one of its secret fields is a stored "***". */
+/** Whether a channel has somewhere to send: its destination is stored ("***" for a secret one). */
 export function isChannelConfigured(spec: ChannelSpec, stored: Readonly<Record<string, string>>): boolean {
-  return spec.fields.some((field) => field.secret && stored[field.key] === REDACTED);
+  return spec.fields.some((field) => field.destination === true && (field.secret ? stored[field.key] === REDACTED : (stored[field.key] ?? "") !== ""));
 }
 
 /**

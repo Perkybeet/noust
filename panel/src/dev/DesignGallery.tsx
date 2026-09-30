@@ -5,7 +5,10 @@ import type { ThemeChoice } from "../app/theme";
 import { Logo } from "../components/brand/Logo";
 import { Components } from "./Components";
 import { Foundations } from "./Foundations";
+import { Kit } from "./Kit";
 import { PageKit } from "./PageKit";
+import { Patterns } from "./Patterns";
+import { Templates } from "./Templates";
 
 const NAV: { title: string; links: [string, string][] }[] = [
   {
@@ -13,9 +16,39 @@ const NAV: { title: string; links: [string, string][] }[] = [
     links: [
       ["colour", "Colour"],
       ["state", "State language"],
-      ["type", "Type"],
-      ["space", "Space and shape"],
-      ["elevation", "Elevation"],
+      ["viz", "Chart series"],
+      ["type", "Type roles"],
+      ["space", "Space"],
+      ["shape", "Shape"],
+      ["sizes", "Controls and layers"],
+      ["widths", "Widths"],
+      ["icons", "Icons"],
+      ["elevation", "Elevation and motion"],
+    ],
+  },
+  {
+    title: "Templates",
+    links: [
+      ["t1", "T1 List"],
+      ["t2", "T2 Detail"],
+      ["t3", "T3 Settings"],
+      ["t4", "T4 Dashboard"],
+      ["t5", "T5 Wizard"],
+      ["t6", "T6 File editor"],
+      ["t7", "T7 Access"],
+      ["t-empty", "First use"],
+    ],
+  },
+  {
+    title: "Components (3.1)",
+    links: [
+      ["page-header", "Page header"],
+      ["notice", "Notice"],
+      ["job-progress", "Job progress"],
+      ["filter-bar", "Filter bar"],
+      ["empty", "Empty states"],
+      ["card-kit", "Card and subsection"],
+      ["friction", "Confirmation friction"],
     ],
   },
   {
@@ -33,6 +66,20 @@ const NAV: { title: string; links: [string, string][] }[] = [
       ["chart", "Chart"],
       ["logs", "Log viewer"],
       ["logo", "Logo"],
+    ],
+  },
+  {
+    title: "Patterns",
+    links: [
+      ["p-state", "Showing state"],
+      ["p-actions", "Actions"],
+      ["p-errors", "Errors"],
+      ["p-empty", "Empty and loading"],
+      ["p-forms", "Forms"],
+      ["p-tables", "Tables"],
+      ["p-notify", "Notifications"],
+      ["p-fleet", "Which server"],
+      ["p-content", "Words"],
     ],
   },
   {
@@ -73,7 +120,7 @@ export function DesignGallery() {
 
   return (
     <div className="min-h-dvh bg-bg text-fg">
-      <header className="sticky top-0 z-30 border-b border-border bg-bg/85 backdrop-blur-md">
+      <header className="sticky top-0 z-sticky border-b border-border bg-bg/85 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-[1320px] items-center justify-between gap-4 px-6 max-sm:px-4">
           <div className="flex items-center gap-3">
             <Logo variant="wordmark" height={16} />
@@ -110,12 +157,16 @@ export function DesignGallery() {
             <h1 className="display text-32 text-fg">A precision instrument for one machine</h1>
             <p className="mt-3 text-16 text-pretty text-fg-muted">
               The console is dense where the operator works and generous where they decide. Surfaces are achromatic;
-              colour is spent only on state and on what can be acted on.
+              colour is spent only on state, on what can be acted on, and on a chart&apos;s series. This page is the
+              executable form of docs/DESIGN.md: change the system here first.
             </p>
           </div>
           <Foundations />
+          <Templates />
+          <Kit />
           <Components />
           <PageKit />
+          <Patterns />
         </main>
       </div>
     </div>

@@ -174,9 +174,15 @@ export function totpCode(secret: string, now: number = Date.now()): string {
  */
 export async function signIn(page: Page, server: ConsoleServer, next?: string): Promise<void> {
   if (!page.url().includes("/login")) {
-    await page.goto(next === undefined ? "/login" : `/login?next=${encodeURIComponent(next)}`);
+    // The access token is emergency access since accounts (3.1): `with=token` opens on it.
+    await page.goto(next === undefined ? "/login?with=token" : `/login?with=token&next=${encodeURIComponent(next)}`);
   }
-  await page.getByLabel("Access token").fill(server.token);
+  // A page reached some other way opens on an account's sign-in: the token is one link away.
+  const token = page.getByLabel("Access token");
+  const emergency = page.getByRole("button", { name: "Emergency access" });
+  await expect(token.or(emergency)).toBeVisible();
+  if (!(await token.isVisible())) await emergency.click();
+  await token.fill(server.token);
   await page.getByRole("button", { name: "Sign in" }).click();
   if (server.totpSecret !== null) {
     const code = page.getByLabel("Two-factor code");
@@ -185,7 +191,14 @@ export async function signIn(page: Page, server: ConsoleServer, next?: string): 
     await page.getByRole("button", { name: "Verify" }).click();
   }
   await expect(page).not.toHaveURL(/\/login/);
+  // A server with no accounts yet offers to create the first ones after every sign-in with
+  // the token (3.1); the suite's server has none, and goes on to the page it asked for.
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  if (new URL(page.url()).pathname === "/setup") {
+    await page.getByRole("button", { name: "Not now" }).click();
+    await expect(page).not.toHaveURL(/\/setup/);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  }
 }
 
 /**

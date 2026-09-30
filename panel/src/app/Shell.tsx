@@ -5,11 +5,14 @@ import type { MouseEvent } from "react";
 import { Drawer } from "../components/ui/Drawer";
 import { useT } from "../i18n";
 import { NodeNotice } from "../nodes/NodeNotice";
+import { PageServerContext } from "../nodes/pageServer";
+import { useHasFleet, useServerList } from "../nodes/servers";
+import { useConsoleContext } from "../nodes/useNode";
 import { useServerEvents } from "../realtime/events";
 import { CommandPalette } from "./CommandPalette";
 import { ErrorBoundary } from "./ErrorBoundary";
 import { focusPageTitle } from "./focus";
-import { NAV_GROUPS, SETTINGS_ITEM } from "./nav";
+import { FLEET_ITEM, NAV_GROUPS, SETTINGS_ITEM } from "./nav";
 import { RenameNotice } from "./RenameNotice";
 import { useKeyboardShortcuts } from "./shortcuts";
 import type { KeyBinding } from "./shortcuts";
@@ -31,7 +34,7 @@ function SkipLink() {
     <a
       href="#main"
       onClick={skip}
-      className="fixed top-2 left-2 z-[70] -translate-y-[200%] rounded-control bg-surface-raised px-3 py-2 text-13 font-medium text-fg opacity-0 shadow-overlay focus:translate-y-0 focus:opacity-100 focus-visible:outline-2 focus-visible:outline-focus"
+      className="fixed top-2 left-2 z-skip -translate-y-[200%] rounded-control bg-surface-raised px-3 py-2 text-13 font-medium text-fg opacity-0 shadow-overlay focus:translate-y-0 focus:opacity-100"
     >
       {t("shell.skipToContent")}
     </a>
@@ -39,6 +42,19 @@ function SkipLink() {
 }
 
 const APP_PATH = /^\/apps\/([^/]+)(?:\/|$)/;
+
+/**
+ * The server every page is about, when the console holds a fleet: the page header says it above
+ * the title and a confirmation names it, for every page at once. None on the fleet's and the
+ * central's own pages, which are no one server's, and none on a lone server.
+ */
+function usePageServerName(): string | null {
+  const context = useConsoleContext();
+  const hasFleet = useHasFleet();
+  const { hostname } = useServerList();
+  if (!hasFleet || context.kind !== "server") return null;
+  return context.node ?? hostname;
+}
 
 /**
  * The frame around every signed-in page: sidebar, topbar with the machine strip, the page,
@@ -59,6 +75,7 @@ export function Shell() {
   const [menuNavigated, setMenuNavigated] = useState(false);
 
   useServerEvents();
+  const pageServer = usePageServerName();
 
   useEffect(
     () =>
@@ -101,7 +118,7 @@ export function Shell() {
     const go = (to: string) => () => {
       void navigate({ to });
     };
-    const navShortcuts = [...NAV_GROUPS.flat(), SETTINGS_ITEM].flatMap((item) =>
+    const navShortcuts = [...NAV_GROUPS.flat(), FLEET_ITEM, SETTINGS_ITEM].flatMap((item) =>
       item.shortcut ? [{ keys: item.shortcut.keys, description: t(item.shortcut.description), run: go(item.to) }] : [],
     );
     return [
@@ -155,15 +172,16 @@ export function Shell() {
           }}
         />
         <main id="main" tabIndex={-1} className="flex-1 outline-none">
-          {/* Data pages use a wide screen: tables and charts earn the room. Prose keeps its
-              reading measure (Section and DangerZone cap it in ch), and forms, wizards and
-              dialogs keep caps of their own. */}
-          <div className="mx-auto w-full max-w-[1600px] px-4 pt-6 pb-16 sm:px-6 lg:px-8 lg:pt-8">
-            <RenameNotice />
-            <NodeNotice />
-            <ErrorBoundary resetKey={pathname}>
-              <Outlet />
-            </ErrorBoundary>
+          {/* The shell caps the page at --width-page (L-1); each template sets its own inner
+              grid from the width tokens, so a header and its content always share edges. */}
+          <div className="mx-auto w-full max-w-page px-4 pt-6 pb-16 sm:px-6 lg:px-8 lg:pt-8">
+            <PageServerContext value={pageServer}>
+              <RenameNotice />
+              <NodeNotice />
+              <ErrorBoundary resetKey={pathname}>
+                <Outlet />
+              </ErrorBoundary>
+            </PageServerContext>
           </div>
         </main>
       </div>

@@ -1,159 +1,56 @@
-import { useQuery } from "@tanstack/react-query";
-import { Download, Play, RotateCw, Square } from "lucide-react";
-import type { ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
 
 import type { Engine } from "../../api/queries/databases";
-import { enginesQuery } from "../../api/queries/databases";
-import type { Job } from "../../api/queries/jobs";
-import { QueryState } from "../../components/page/QueryState";
-import { Section } from "../../components/page/Section";
-import { Button } from "../../components/ui/Button";
+import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
-import { StatusGlyph } from "../../components/ui/StatusPill";
-import type { Status } from "../../components/ui/StatusPill";
+import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
+import { ICONS } from "../../components/ui/icons";
+import { Tooltip } from "../../components/ui/Tooltip";
 import { useT } from "../../i18n";
-import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
-import { useEngineActions, useEngineJob } from "./useEngineActions";
+import { engineState, sortEngines, supportText, supportView } from "./engines";
+import { TEXT_LINK } from "./ui";
 
-interface EngineView {
-  state: Status;
-  label: string;
-  tone: string;
-}
-
-function viewOf(engine: Engine, installing: boolean, t: T): EngineView {
-  if (installing) return { state: "deploying", label: t("databases.engines.installing"), tone: "text-warn" };
-  if (!engine.installed) return { state: "unknown", label: t("databases.engines.notInstalled"), tone: "text-fg-faint" };
-  return engine.running
-    ? { state: "running", label: t("databases.engines.running"), tone: "text-ok" }
-    : { state: "stopped", label: t("databases.engines.stopped"), tone: "text-idle" };
-}
-
-function EngineTile({ engine }: { engine: Engine }) {
+/**
+ * The engines in one line above the databases: each one's state, version and, when its
+ * version has left upstream support, a warning; the Engines tab one click away. Infrastructure
+ * the operator glances at, below what they came for.
+ */
+export function EnginesStrip({ engines }: { engines: readonly Engine[] | undefined }) {
   const t = useT();
-  const { install, start, stop, restart } = useEngineActions();
-  const job = useEngineJob(engine.name);
-  const installing = job.running !== null;
-  const view = viewOf(engine, installing, t);
-
-  let actions: ReactNode;
-  if (installing) {
-    actions = null;
-  } else if (!engine.installed) {
-    actions = (
-      <Button
-        size="sm"
-        icon={<Download aria-hidden="true" />}
-        loading={install.isPending}
-        onClick={() =>
-          install.mutate(engine.name, {
-            onSuccess: (result) => {
-              job.track(result.job as Job);
-            },
-          })
-        }
-      >
-        {t("databases.engines.install")}
-      </Button>
-    );
-  } else if (engine.running) {
-    actions = (
-      <>
-        <Button size="sm" icon={<Square aria-hidden="true" />} loading={stop.isPending} onClick={() => stop.mutate(engine.name)}>
-          {t("databases.engines.stop")}
-        </Button>
-        <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={restart.isPending} onClick={() => restart.mutate(engine.name)}>
-          {t("databases.engines.restart")}
-        </Button>
-      </>
-    );
-  } else {
-    actions = (
-      <Button size="sm" icon={<Play aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate(engine.name)}>
-        {t("databases.engines.start")}
-      </Button>
-    );
-  }
-
+  const Warning = ICONS.warning;
   return (
-    <div className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface px-4 py-3.5 shadow-raised">
-      <div className="min-w-0">
-        <p className="truncate text-14 font-medium text-fg">{engine.display_name}</p>
-        <p className={cx("mt-1 flex items-center gap-1.5 text-12", view.tone)}>
-          <StatusGlyph state={view.state} size={10} />
-          {view.label}
-        </p>
-      </div>
-      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-12">
-        <div className="flex flex-col gap-0.5">
-          <dt className="text-fg-faint">{t("databases.engines.version")}</dt>
-          <dd translate="no" className="mono truncate text-fg">
-            {engine.installed ? (engine.version ?? t("databases.engines.unknownVersion")) : "-"}
-          </dd>
-        </div>
-        <div className="flex flex-col gap-0.5">
-          <dt className="text-fg-faint">{t("databases.engines.port")}</dt>
-          <dd translate="no" className="mono text-fg">
-            {engine.port}
-          </dd>
-        </div>
-      </dl>
-      <div className="mt-auto flex flex-wrap items-center gap-2 pt-1 empty:hidden">{actions}</div>
-    </div>
-  );
-}
-
-/** Four tiles with the loaded tile's lines: name and state, version and port, the actions. */
-function EnginesSkeleton() {
-  return (
-    <div aria-hidden="true" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="flex flex-col gap-3 rounded-card border border-border bg-surface px-4 py-3.5 shadow-raised">
-          <div className="flex flex-col gap-1">
-            <div className="flex h-5 items-center">
-              <Skeleton className="h-3.5 w-24" />
-            </div>
-            <div className="flex h-4 items-center">
-              <Skeleton className="h-3 w-16" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-x-3">
-            {[0, 1].map((column) => (
-              <div key={column} className="flex flex-col gap-0.5">
-                <div className="flex h-4 items-center">
-                  <Skeleton className="h-2.5 w-12" />
-                </div>
-                <div className="flex h-4 items-center">
-                  <Skeleton className="h-3 w-14" />
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="pt-1">
-            <Skeleton className="h-7 w-20" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** Every engine Noust can manage, installed or not, with what its unit can be told to do. */
-export function EnginesStrip() {
-  const t = useT();
-  const engines = useQuery(enginesQuery());
-  return (
-    <Section title={t("databases.engines.title")} description={t("databases.engines.description")}>
-      <QueryState query={engines} label={t("databases.queryLabels.engines")} skeleton={<EnginesSkeleton />}>
-        {(data) => (
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            {data.engines.map((engine) => (
-              <EngineTile key={engine.name} engine={engine} />
-            ))}
-          </div>
-        )}
-      </QueryState>
-    </Section>
+    <nav aria-label={t("databases.strip.label")} className="flex min-w-0 flex-wrap items-center gap-x-5 gap-y-1.5 text-13">
+      {engines === undefined ? (
+        <span aria-hidden="true" className="flex h-5 items-center gap-5">
+          <Skeleton className="h-3 w-32" />
+          <Skeleton className="h-3 w-32" />
+          <Skeleton className="h-3 w-24" />
+        </span>
+      ) : (
+        sortEngines(engines).map((engine) => {
+          const { state, label } = engineState(engine);
+          const support = supportView(engine.support);
+          return (
+            <span key={engine.name} className="flex min-w-0 items-center gap-1.5">
+              <StatusGlyph state={state} size={10} className={stateTextClass(state)} />
+              <span className="font-medium text-fg">{engine.display_name}</span>
+              {engine.installed && engine.version ? <Mono tone="muted">{engine.version}</Mono> : null}
+              <span className={cx("text-fg-muted", !engine.installed && "text-fg-faint")}>{t(label)}</span>
+              {support?.warn && engine.support ? (
+                <Tooltip content={supportText(t, engine.support)}>
+                  <Link to="/databases/engines" aria-label={supportText(t, engine.support) ?? ""} className="inline-flex rounded-chip text-warn">
+                    <Warning aria-hidden="true" className="size-icon-sm" />
+                  </Link>
+                </Tooltip>
+              ) : null}
+            </span>
+          );
+        })
+      )}
+      <Link to="/databases/engines" className={TEXT_LINK}>
+        {t("databases.strip.manage")}
+      </Link>
+    </nav>
   );
 }

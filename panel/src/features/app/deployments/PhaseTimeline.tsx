@@ -49,7 +49,7 @@ interface NodeLook {
 function look(t: T, state: PhaseState, afterFailure: boolean): NodeLook {
   switch (state) {
     case "done":
-      return { node: "border-transparent bg-ok-soft text-ok", glyph: <Check aria-hidden="true" className="size-4" strokeWidth={2.5} />, word: t("appPages.deployments.phaseTimeline.done") };
+      return { node: "border-transparent bg-ok-soft text-ok", glyph: <Check aria-hidden="true" className="size-icon-md" />, word: t("appPages.deployments.phaseTimeline.done") };
     case "running":
       return { node: "border-transparent bg-warn-soft text-warn", glyph: <StatusGlyph state="deploying" size={16} />, word: t("appPages.deployments.phaseTimeline.inProgress") };
     case "failed":
@@ -58,14 +58,14 @@ function look(t: T, state: PhaseState, afterFailure: boolean): NodeLook {
       return { node: "border-border bg-surface text-idle", glyph: <StatusGlyph state="stopped" size={14} />, word: t("appPages.deployments.phaseTimeline.waiting") };
     case "unrecorded":
       return {
-        node: "border-dashed border-border-strong bg-surface text-fg-faint",
-        glyph: <Minus aria-hidden="true" className="size-3.5" />,
+        node: "border-border-strong bg-surface text-fg-faint",
+        glyph: <Minus aria-hidden="true" className="size-icon-sm" />,
         word: afterFailure ? t("appPages.deployments.phaseTimeline.notReached") : t("appPages.deployments.phaseTimeline.notInLog"),
       };
     case "not_applicable":
       return {
-        node: "border-dashed border-border bg-surface text-fg-faint",
-        glyph: <Minus aria-hidden="true" className="size-3.5" />,
+        node: "border-border bg-surface text-fg-faint",
+        glyph: <Minus aria-hidden="true" className="size-icon-sm" />,
         word: t("appPages.deployments.phaseTimeline.notApplicable"),
       };
   }
@@ -96,13 +96,12 @@ export function PhaseTimeline({ phases, outcome, className }: PhaseTimelineProps
         const duration = phase.seconds !== null && REACHED.has(phase.state) ? (phase.seconds < 1 ? "<1s" : formatDuration(phase.seconds, t.locale)) : null;
         return (
           <li key={phase.key} data-phase={phase.key} data-state={phase.state} className="relative flex min-w-0 flex-col items-center gap-2 text-center">
+            {/* The line to the next phase, from this node's centre to the next one's: the nodes,
+                drawn after it, cover its ends. Solid once the next phase was reached. */}
             {next ? (
               <span
                 aria-hidden="true"
-                className={cx(
-                  "absolute top-[15px] left-[calc(50%+1.25rem)] w-[calc(100%-2.5rem)]",
-                  REACHED.has(next.state) ? "h-0.5 rounded-pill bg-border-strong" : "border-t-2 border-dashed border-border",
-                )}
+                className={cx("absolute top-4 left-1/2 h-0.5 w-full -translate-y-1/2 rounded-pill", REACHED.has(next.state) ? "bg-border-strong" : "bg-border")}
               />
             ) : null}
             <span
@@ -116,7 +115,7 @@ export function PhaseTimeline({ phases, outcome, className }: PhaseTimelineProps
                 {phaseLabel(t, phase.key)}
               </span>
               {duration !== null ? (
-                <span className="mono text-12 text-fg-muted">
+                <span className="text-12 text-fg-muted tabular-nums">
                   <span className="sr-only">{`${word}, `}</span>
                   {duration}
                 </span>

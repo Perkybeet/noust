@@ -1,7 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
-import { Check, Search, TriangleAlert } from "lucide-react";
-import { useId, useRef, useState } from "react";
-import type { SyntheticEvent } from "react";
+import { Search } from "lucide-react";
+import { useRef, useState } from "react";
 
 import { announce } from "../../app/Announcer";
 import { findTelegramChats, patchConfig, saveTelegramSettings } from "../../api/queries/config";
@@ -9,12 +8,14 @@ import type { TelegramChat } from "../../api/queries/config";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
+import { ICONS } from "../../components/ui/icons";
 import { Input } from "../../components/ui/Input";
-import { toast } from "../../components/ui/toast";
+import { Mono } from "../../components/ui/Mono";
 import { useT } from "../../i18n";
-import { ChannelHeader, DirtyActions, SecretInput, TestButton, TestOutcome, useChannelTest, useRefreshConfig } from "./channelParts";
+import { ChannelDrawer, ChannelRow, SecretInput, testReasonFor, useChannelTest, useRefreshConfig } from "./channelParts";
 import { splitConfigErrors } from "./formErrors";
 import { REDACTED, channelValue, channels, telegramChatIdWarning, telegramChatName, telegramChatType } from "./notifications";
+import { FormFailure } from "./SettingsForm";
 
 type TelegramField = "bot_token" | "chat_id";
 const FIELDS: readonly TelegramField[] = ["bot_token", "chat_id"];
@@ -28,19 +29,8 @@ const CONFIG_KEYS: Readonly<Record<string, TelegramField>> = {
  * knows a chat once someone has written in it with the bot there, so an empty answer explains
  * how to make one appear instead of just saying "none".
  */
-function ChatFinder({
-  tokenSaved,
-  tokenTyped,
-  chatId,
-  onPick,
-}: {
-  tokenSaved: boolean;
-  tokenTyped: boolean;
-  chatId: string;
-  onPick: (chat: TelegramChat) => void;
-}) {
+function ChatFinder({ tokenSaved, tokenTyped, chatId, onPick }: { tokenSaved: boolean; tokenTyped: boolean; chatId: string; onPick: (chat: TelegramChat) => void }) {
   const t = useT();
-  const reasonId = useId();
   const find = useMutation({ mutationFn: findTelegramChats });
   const reason = !tokenSaved && !tokenTyped
     ? t("settings.notifications.telegram.findChatNeedsToken")
@@ -57,16 +47,13 @@ function ChatFinder({
           icon={<Search aria-hidden="true" />}
           loading={find.isPending}
           disabled={reason !== undefined}
-          {...(reason !== undefined ? { "aria-describedby": reasonId } : {})}
           onClick={() => {
             find.mutate();
           }}
         >
           {t("settings.notifications.telegram.findChat")}
         </Button>
-        <span id={reasonId} className="text-12 text-fg-faint">
-          {reason ?? t("settings.notifications.telegram.findChatHint")}
-        </span>
+        <span className="text-12 text-fg-muted">{reason ?? t("settings.notifications.telegram.findChatHint")}</span>
       </div>
       {/* The count is announced; the list itself is read on demand. */}
       <p role="status" className="sr-only">
@@ -80,15 +67,7 @@ function ChatFinder({
       {chats?.length === 0 ? (
         <div className="flex flex-col gap-1 rounded-control border border-border bg-bg-sunken px-3 py-2 text-13 text-fg-muted">
           <p className="font-medium text-fg">{t("settings.notifications.telegram.noChatsSeen")}</p>
-          <p className="text-pretty">
-            {t.rich("settings.notifications.telegram.noChatsHint", {
-              command: (
-                <code translate="no" className="mono rounded-[4px] bg-surface px-1 text-12 text-fg">
-                  /start@your_bot_name
-                </code>
-              ),
-            })}
-          </p>
+          <p className="text-pretty">{t.rich("settings.notifications.telegram.noChatsHint", { command: <Mono key="command">/start@your_bot_name</Mono> })}</p>
         </div>
       ) : null}
       {chats !== undefined && chats.length > 0 ? (
@@ -104,15 +83,13 @@ function ChatFinder({
                   </span>
                   <span className="text-12 text-fg-muted">
                     {telegramChatType(chat.type, t.locale)}
-                    {chat.title && chat.username ? <span translate="no">{` · @${chat.username}`}</span> : null}
+                    {" · "}
+                    <Mono tone="muted">{chat.id}</Mono>
                   </span>
                 </div>
-                <span translate="no" className="mono shrink-0 text-12 text-fg-muted">
-                  {chat.id}
-                </span>
                 {chosen ? (
-                  <span className="flex h-7 shrink-0 items-center gap-1.5 px-2 text-12 text-fg">
-                    <Check aria-hidden="true" className="size-3.5 text-ok" />
+                  <span className="flex h-control-sm shrink-0 items-center gap-1.5 px-2 text-12 text-fg">
+                    <ICONS.copied aria-hidden="true" className="size-icon-sm" />
                     {t("settings.notifications.telegram.chosen")}
                   </span>
                 ) : (
@@ -140,118 +117,121 @@ function ChatFinder({
  * Telegram: a bot token and the chat it posts to. Saved through PUT
  * /api/config/notifications/telegram, which refuses a chat ID Telegram would refuse and names the
  * field; an empty token keeps the stored one. Removing it blanks the token through the generic
- * PATCH, which is the one write that can.
+ * PATCH, which is the one write that can. A test shows Telegram's own description of a refusal.
  */
 export function TelegramChannel({ stored }: { stored: Readonly<Record<string, string>> }) {
   const t = useT();
   const spec = channels(t).find((candidate) => candidate.id === "telegram");
   const refresh = useRefreshConfig();
-  const headingId = useId();
+  const test = useChannelTest("telegram");
+  const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<Partial<Record<TelegramField, string>>>({});
   const [edited, setEdited] = useState<ReadonlySet<TelegramField>>(new Set());
   // The chat ID the "missing minus" warning was last announced for, cleared by an edit. The
-  // warning is drawn as the ID is typed (so it never moves the Save button under a click that
-  // leaves the field) but is not a live region: its text holds the ID, so a live region would
-  // be read out again on every digit. It is announced once, when the field is left with it.
+  // warning is drawn as the ID is typed but is not a live region: its text holds the ID, so it
+  // would be read out again on every digit. It is announced once, when the field is left.
   const announcedFor = useRef<string | null>(null);
-  const test = useChannelTest("telegram");
 
   const tokenSaved = stored["bot_token"] === REDACTED;
+  const storedChat = stored["chat_id"] ?? "";
   const typedToken = (draft.bot_token ?? "").trim();
-  const chatId = draft.chat_id ?? stored["chat_id"] ?? "";
-  const dirty = typedToken !== "" || (draft.chat_id !== undefined && draft.chat_id.trim() !== (stored["chat_id"] ?? ""));
-  const configured = tokenSaved;
+  const chatId = draft.chat_id ?? storedChat;
+  const dirty = typedToken !== "" || (draft.chat_id !== undefined && draft.chat_id.trim() !== storedChat);
+  const on = tokenSaved && storedChat !== "";
 
   const save = useMutation({
-    mutationFn: () => saveTelegramSettings({ bot_token: typedToken, chat_id: chatId.trim() }),
-    onSuccess: async () => {
+    mutationFn: async () => {
+      await saveTelegramSettings({ bot_token: typedToken, chat_id: chatId.trim() });
+      await refresh();
+    },
+    onSuccess: () => {
       setDraft({});
       test.reset();
-      await refresh();
-      toast.success(t("settings.notifications.telegram.savedToast"));
     },
     onSettled: () => {
       setEdited(new Set());
     },
   });
-  const remove = useMutation({
-    mutationFn: () => {
-      if (spec === undefined) return Promise.resolve(undefined);
-      return patchConfig("notifications.channels.telegram", channelValue(spec, stored, {}, new Set(["bot_token"])));
-    },
-    onSuccess: async () => {
-      setDraft({});
-      test.reset();
-      save.reset();
-      await refresh();
-      toast.success(t("settings.notifications.telegram.removedToast"));
-    },
-  });
-  const pending = save.isPending || remove.isPending;
   const split = splitConfigErrors(save.error, FIELDS, CONFIG_KEYS);
   const errorOf = (name: TelegramField): string | undefined => (edited.has(name) ? undefined : split.fields[name]);
-
   const set = (name: TelegramField, value: string): void => {
     setDraft((current) => ({ ...current, [name]: value }));
     setEdited((current) => new Set([...current, name]));
   };
-
-  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    if (dirty && !pending) save.mutate();
+  const reset = (): void => {
+    setDraft({});
+    setEdited(new Set());
+    save.reset();
   };
 
-  const testReason = !configured
-    ? t("settings.notifications.channels.testReasonNotConfigured")
-    : dirty
-      ? t("settings.notifications.channels.testReasonDirty")
-      : undefined;
   const warning = telegramChatIdWarning(chatId, t.locale);
   const tokenField = spec?.fields.find((field) => field.key === "bot_token");
   const chatField = spec?.fields.find((field) => field.key === "chat_id");
+  const label = t("settings.notifications.telegram.label");
 
   return (
-    <article aria-labelledby={headingId} className="flex min-w-0 flex-col gap-3 px-5 py-4">
-      <ChannelHeader
-        id={headingId}
-        label={t("settings.notifications.telegram.label")}
+    <>
+      <ChannelRow
+        label={label}
         description={spec?.description ?? ""}
-        configured={configured}
-        actions={
-          <>
-            {configured || remove.isPending ? (
-              <Button
-                size="sm"
-                variant="ghost"
-                disabled={save.isPending}
-                loading={remove.isPending}
-                onClick={() => {
-                  remove.mutate();
-                }}
-              >
-                {t("settings.notifications.channels.removeDestination")}
-              </Button>
-            ) : null}
-            <TestButton test={test} disabled={dirty || !configured} reason={testReason} />
-          </>
+        on={on}
+        configured={tokenSaved}
+        detail={
+          !tokenSaved
+            ? undefined
+            : storedChat === ""
+              ? t("settings.notifications.telegram.noChatYet")
+              : t.rich("settings.notifications.telegram.sendsTo", { chat: <Mono key="chat">{storedChat}</Mono> })
         }
+        test={test}
+        testSource="Telegram"
+        onOpen={() => {
+          setOpen(true);
+        }}
       />
-      <form noValidate onSubmit={submit} className="flex min-w-0 flex-col gap-3">
-        {split.form !== null ? <ErrorBlock live compact error={split.form} title={t("settings.notifications.telegram.saveErrorTitle")} /> : null}
-        {remove.isError ? <ErrorBlock live compact error={remove.error} title={t("settings.notifications.telegram.removeFailed")} /> : null}
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
-          <Field label={tokenField?.label ?? t("settings.notifications.telegram.botTokenLabel")} error={errorOf("bot_token")}>
-            <SecretInput
-              label={tokenField?.label ?? t("settings.notifications.telegram.botTokenLabel")}
-              placeholder={tokenField?.placeholder ?? ""}
-              value={draft.bot_token ?? ""}
-              configured={tokenSaved}
-              disabled={pending}
-              onChange={(next) => {
-                set("bot_token", next);
-              }}
-            />
-          </Field>
+      <ChannelDrawer
+        open={open}
+        onOpenChange={setOpen}
+        title={label}
+        description={spec?.description ?? ""}
+        dirty={dirty}
+        saving={save.isPending}
+        onSubmit={() => {
+          save.mutate();
+        }}
+        onDiscard={reset}
+        test={test}
+        testSource="Telegram"
+        testReason={testReasonFor(t, tokenSaved, dirty)}
+        remove={
+          tokenSaved && spec !== undefined
+            ? {
+                label: t("settings.notifications.channels.remove"),
+                title: t("settings.notifications.channels.removeTitle", { label }),
+                description: t("settings.notifications.channels.removeDescription", { label }),
+                run: async () => {
+                  await patchConfig("notifications.channels.telegram", channelValue(spec, stored, {}, new Set(["bot_token"])));
+                  await refresh();
+                  test.reset();
+                },
+              }
+            : undefined
+        }
+      >
+        <FormFailure error={split.form} title={t("settings.notifications.telegram.saveErrorTitle")} />
+        <Field label={tokenField?.label ?? t("settings.notifications.telegram.botTokenLabel")} description={tokenField?.description} error={errorOf("bot_token")}>
+          <SecretInput
+            label={tokenField?.label ?? t("settings.notifications.telegram.botTokenLabel")}
+            placeholder={tokenField?.placeholder ?? ""}
+            value={draft.bot_token ?? ""}
+            configured={tokenSaved}
+            disabled={save.isPending}
+            onChange={(next) => {
+              set("bot_token", next);
+            }}
+          />
+        </Field>
+        <div className="flex min-w-0 flex-col gap-3">
           <Field label={chatField?.label ?? t("settings.notifications.telegram.chatIdLabel")} description={chatField?.description} error={errorOf("chat_id")}>
             <Input
               mono
@@ -259,7 +239,7 @@ export function TelegramChannel({ stored }: { stored: Readonly<Record<string, st
               spellCheck={false}
               placeholder={chatField?.placeholder}
               value={chatId}
-              disabled={pending}
+              disabled={save.isPending}
               onValueChange={(next: string) => {
                 announcedFor.current = null;
                 set("chat_id", next);
@@ -270,36 +250,23 @@ export function TelegramChannel({ stored }: { stored: Readonly<Record<string, st
                 announce(warning);
               }}
             />
-            {warning !== null ? (
-              <p className="flex items-start gap-1.5 text-13 text-warn">
-                <TriangleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
-                <span>{warning}</span>
-              </p>
-            ) : null}
           </Field>
+          {warning !== null ? (
+            <p className="flex items-start gap-1.5 text-13 text-fg">
+              <ICONS.warning aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0 text-warn" />
+              <span>{warning}</span>
+            </p>
+          ) : null}
+          <ChatFinder
+            tokenSaved={tokenSaved}
+            tokenTyped={typedToken !== ""}
+            chatId={chatId}
+            onPick={(chat) => {
+              set("chat_id", String(chat.id));
+            }}
+          />
         </div>
-        <ChatFinder
-          tokenSaved={tokenSaved}
-          tokenTyped={typedToken !== ""}
-          chatId={chatId}
-          onPick={(chat) => {
-            set("chat_id", String(chat.id));
-          }}
-        />
-        <DirtyActions
-          dirty={dirty}
-          pending={save.isPending}
-          onDiscard={() => {
-            setDraft({});
-            setEdited(new Set());
-            save.reset();
-          }}
-          note={t("settings.notifications.channels.testNote")}
-        />
-      </form>
-      <div role="status" className="min-w-0 empty:hidden">
-        <TestOutcome result={test.data} error={test.error} source="Telegram" />
-      </div>
-    </article>
+      </ChannelDrawer>
+    </>
   );
 }

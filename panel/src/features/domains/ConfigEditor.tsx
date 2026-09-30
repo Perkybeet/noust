@@ -23,6 +23,8 @@ export interface ConfigEditorProps {
   /** A line the web server objected to, marked in the gutter. */
   errorLine?: number | null;
   disabled?: boolean;
+  /** Its size: the file editor template gives it the screen's height. */
+  className?: string;
   ref?: Ref<ConfigEditorHandle>;
 }
 
@@ -31,7 +33,7 @@ export interface ConfigEditorProps {
  * so a web server's "in site.conf:57" can be found. Tab keeps its usual meaning (the next
  * control); nothing here traps the keyboard.
  */
-export function ConfigEditor({ value, onChange, label, describedBy, errorLine = null, disabled = false, ref }: ConfigEditorProps) {
+export function ConfigEditor({ value, onChange, label, describedBy, errorLine = null, disabled = false, className, ref }: ConfigEditorProps) {
   const textarea = useRef<HTMLTextAreaElement>(null);
   const gutter = useRef<HTMLDivElement>(null);
   const lines = value.split("\n").length;
@@ -48,19 +50,17 @@ export function ConfigEditor({ value, onChange, label, describedBy, errorLine = 
   }));
 
   return (
-    // The frame has the height and is what resizes; the gutter and the text fill it, and the
-    // gutter follows the text's scroll, so a number always sits beside its line.
-    <div className={cx("flex h-[26rem] min-h-40 min-w-0 resize-y overflow-hidden sm:h-[34rem]", CONTROL_FRAME)}>
+    // The frame has the height; the gutter and the text fill it, and the gutter follows the
+    // text's scroll, so a number always sits beside its line.
+    <div className={cx("flex min-h-40 min-w-0 overflow-hidden", CONTROL_FRAME, className)}>
       <div
         ref={gutter}
         aria-hidden="true"
+        // design-exception: mono-utility the gutter's numbers share the text's grid, line for line
         className="mono shrink-0 overflow-hidden border-r border-border bg-bg-sunken py-2 text-right text-12 leading-5 text-fg-faint select-none"
       >
         {Array.from({ length: lines }, (_, index) => (
-          <div
-            key={index}
-            className={cx("px-2.5", index + 1 === errorLine && "bg-fail-soft font-medium text-fail")}
-          >
+          <div key={index} className={cx("px-2.5", index + 1 === errorLine && "bg-fail-soft font-medium text-fail")}>
             {index + 1}
           </div>
         ))}
@@ -82,6 +82,7 @@ export function ConfigEditor({ value, onChange, label, describedBy, errorLine = 
         autoComplete="off"
         autoCorrect="off"
         translate="no"
+        // design-exception: mono-utility the whole surface is a system file, not a value in running text
         className="mono block h-full w-full min-w-0 resize-none overflow-auto bg-transparent px-3 py-2 text-12 leading-5 whitespace-pre text-fg outline-none scroll-thin disabled:cursor-not-allowed"
       />
     </div>

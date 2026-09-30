@@ -1,6 +1,10 @@
-import { CircleCheck, FolderOpen, GitBranch, GitCommitHorizontal, TriangleAlert } from "lucide-react";
+import { FolderOpen, GitBranch, GitCommitHorizontal } from "lucide-react";
 
 import { Badge } from "../../components/ui/Badge";
+import { Card } from "../../components/ui/Card";
+import { ICONS } from "../../components/ui/icons";
+import { Mono } from "../../components/ui/Mono";
+import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
 import { formatCount } from "../../lib/format";
 import { Suggestion } from "./Suggestion";
@@ -9,18 +13,18 @@ import type { AppTypeOption, Inspection } from "./wizard";
 
 function Command({ step, argv, none }: { step: string; argv: string | null; none: string }) {
   return (
-    <div className="grid grid-cols-[4.5rem_minmax(0,1fr)] items-baseline gap-x-3 py-1 sm:grid-cols-[5rem_minmax(0,1fr)]">
-      <dt className="text-12 text-fg-muted">{step}</dt>
-      <dd className="min-w-0">
+    <div className="flex min-w-0 items-baseline gap-3 py-1">
+      <dt className="w-16 shrink-0 text-12 text-fg-muted">{step}</dt>
+      <dd className="min-w-0 flex-1">
         {argv === null || argv === "" ? (
-          <span className="text-12 text-fg-faint">{none}</span>
+          <span className="text-12 text-fg-muted">{none}</span>
         ) : (
-          <code translate="no" className="block truncate text-12 text-fg" title={argv}>
+          <Mono truncate title={argv}>
             <span aria-hidden="true" className="text-fg-faint select-none">
               ${" "}
             </span>
             {argv}
-          </code>
+          </Mono>
         )}
       </dd>
     </div>
@@ -37,29 +41,24 @@ function Verdict({ inspection }: { inspection: Inspection }) {
   const verdict = inspection.verdict ?? null;
   const suggestion = inspection.suggestion ?? null;
   if (verdict === null && suggestion === null) return null;
-  const blocked = inspection.compatible === false;
+  const body = (
+    <div className="flex min-w-0 flex-col gap-1.5">
+      {verdict !== null ? <p className="text-pretty text-fg">{verdict}</p> : null}
+      {suggestion !== null ? <Suggestion text={suggestion} /> : null}
+    </div>
+  );
+  if (inspection.compatible === false) {
+    return (
+      <Notice tone="warning">
+        <span className="sr-only">{`${t("newApp.readout.notDeployable")} `}</span>
+        {body}
+      </Notice>
+    );
+  }
   return (
-    <div
-      className={
-        blocked
-          ? "flex items-start gap-2.5 rounded-control border border-warn/40 bg-warn-soft px-3 py-2.5"
-          : "flex items-start gap-2.5"
-      }
-    >
-      {blocked ? (
-        <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warn" />
-      ) : inspection.compatible === true ? (
-        <CircleCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ok" />
-      ) : null}
-      <div className="flex min-w-0 flex-col gap-1.5">
-        {verdict !== null ? (
-          <p className="text-13 text-pretty text-fg">
-            {blocked ? <span className="sr-only">{`${t("newApp.readout.notDeployable")} `}</span> : null}
-            {verdict}
-          </p>
-        ) : null}
-        {suggestion !== null ? <Suggestion text={suggestion} /> : null}
-      </div>
+    <div className="flex items-start gap-2.5 text-13">
+      {inspection.compatible === true ? <ICONS.success aria-hidden="true" className="mt-0.5 size-icon-md shrink-0 text-ok" /> : null}
+      {body}
     </div>
   );
 }
@@ -77,72 +76,70 @@ export function InspectionReadout({ inspection, types, source }: { inspection: I
   const others = inspection.detected_types.slice(1);
 
   return (
-    <section aria-label={t("newApp.readout.label")} className="overflow-hidden rounded-card border border-border bg-surface shadow-raised">
-      <header className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-4 py-3">
-        <span className="flex min-w-0 flex-1 basis-64 items-center gap-2">
-          {local ? (
-            <FolderOpen aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />
-          ) : (
-            <GitBranch aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />
-          )}
-          <code translate="no" className="truncate text-12 text-fg" title={source}>
-            {source}
-          </code>
-        </span>
-        <span className="flex flex-wrap items-center gap-1.5">
-          {inspection.branch ? (
-            <Badge mono>
-              <GitBranch aria-hidden="true" className="size-3" />
-              <span className="sr-only">{t("newApp.readout.branch", { branch: inspection.branch })}</span>
-              <span aria-hidden="true">{inspection.branch}</span>
-            </Badge>
-          ) : null}
-          {inspection.commit ? (
-            <Badge mono>
-              <GitCommitHorizontal aria-hidden="true" className="size-3" />
-              <span className="sr-only">{t("newApp.readout.commit", { commit: inspection.commit })}</span>
-              <span aria-hidden="true">{inspection.commit}</span>
-            </Badge>
-          ) : inspection.detected_types.length > 0 ? (
-            <span className="text-12 text-fg-faint">{t("newApp.readout.notGit")}</span>
-          ) : null}
-        </span>
-      </header>
-      {inspection.detected_types.length === 0 ? (
-        <p className="px-4 py-3 text-13 text-pretty text-fg">{t("newApp.readout.noType")}</p>
-      ) : (
-        <div className="flex flex-col gap-3 px-4 py-3">
-          <Verdict inspection={inspection} />
-          <p className="text-13 text-pretty text-fg">
-            {inspection.package_manager
-              ? t.rich("newApp.readout.looksLikeUsing", {
-                  type: typeName(types, inspection.app_type),
-                  manager: (
-                    <code translate="no" className="text-12">
-                      {inspection.package_manager}
-                    </code>
-                  ),
-                })
-              : t("newApp.readout.looksLike", { type: typeName(types, inspection.app_type) })}
-            {/* The verdict names the other types itself, with what choosing one would mean. */}
-            {others.length > 0 && !inspection.verdict ? (
-              <span className="text-fg-muted">
-                {` ${t("newApp.readout.alsoMatches", { types: joinList(others.map((type) => typeName(types, type)), t.locale) })}`}
-              </span>
+    <Card padding="none" as="div" className="overflow-hidden">
+      <div aria-label={t("newApp.readout.label")} role="group" className="flex min-w-0 flex-col">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-4 py-3">
+          <span className="flex min-w-0 flex-1 basis-64 items-center gap-2">
+            {local ? (
+              <FolderOpen aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
+            ) : (
+              <GitBranch aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
+            )}
+            <Mono truncate title={source}>
+              {source}
+            </Mono>
+          </span>
+          <span className="flex flex-wrap items-center gap-1.5">
+            {inspection.branch ? (
+              <Badge mono>
+                <GitBranch aria-hidden="true" className="size-icon-xs" />
+                <span className="sr-only">{t("newApp.readout.branch", { branch: inspection.branch })}</span>
+                <span aria-hidden="true">{inspection.branch}</span>
+              </Badge>
             ) : null}
-          </p>
-          <dl className="flex flex-col rounded-control border border-border bg-bg-sunken px-3 py-1.5">
-            <Command step={t("newApp.readout.install")} argv={inspection.install_command.join(" ")} none={t("newApp.readout.nothingToInstall")} />
-            <Command step={t("newApp.readout.build")} argv={inspection.build_command.join(" ")} none={t("newApp.readout.nothingToBuild")} />
-            <Command step={t("newApp.readout.start")} argv={inspection.start_command} none={t("newApp.readout.noProcess")} />
-          </dl>
-          <p className="text-12 text-fg-muted">
-            {keys.length === 0
-              ? t("newApp.readout.noExample")
-              : t("newApp.readout.variables", { count: keys.length, required: formatCount(required, t.locale), secrets: formatCount(secrets, t.locale) })}
-          </p>
+            {inspection.commit ? (
+              <Badge mono>
+                <GitCommitHorizontal aria-hidden="true" className="size-icon-xs" />
+                <span className="sr-only">{t("newApp.readout.commit", { commit: inspection.commit })}</span>
+                <span aria-hidden="true">{inspection.commit}</span>
+              </Badge>
+            ) : inspection.detected_types.length > 0 ? (
+              <span className="text-12 text-fg-muted">{t("newApp.readout.notGit")}</span>
+            ) : null}
+          </span>
         </div>
-      )}
-    </section>
+        {inspection.detected_types.length === 0 ? (
+          <p className="px-4 py-3 text-13 text-pretty text-fg">{t("newApp.readout.noType")}</p>
+        ) : (
+          <div className="flex flex-col gap-3 px-4 py-3">
+            <Verdict inspection={inspection} />
+            <p className="text-13 text-pretty text-fg">
+              {inspection.package_manager
+                ? t.rich("newApp.readout.looksLikeUsing", {
+                    type: typeName(types, inspection.app_type),
+                    manager: <Mono>{inspection.package_manager}</Mono>,
+                  })
+                : t("newApp.readout.looksLike", { type: typeName(types, inspection.app_type) })}
+              {/* The verdict names the other types itself, with what choosing one would mean. */}
+              {others.length > 0 && !inspection.verdict ? (
+                <span className="text-fg-muted">
+                  {` ${t("newApp.readout.alsoMatches", { types: joinList(others.map((type) => typeName(types, type)), t.locale) })}`}
+                </span>
+              ) : null}
+            </p>
+            <dl className="flex flex-col rounded-control border border-border bg-bg-sunken px-3 py-1.5">
+              <Command step={t("newApp.readout.install")} argv={inspection.install_command.join(" ")} none={t("newApp.readout.nothingToInstall")} />
+              <Command step={t("newApp.readout.build")} argv={inspection.build_command.join(" ")} none={t("newApp.readout.nothingToBuild")} />
+              <Command step={t("newApp.readout.start")} argv={inspection.start_command} none={t("newApp.readout.noProcess")} />
+            </dl>
+            <p className="text-12 text-fg-muted">
+              {keys.length === 0
+                ? t("newApp.readout.noExample")
+                : t("newApp.readout.variables", { count: keys.length, required: formatCount(required, t.locale), secrets: formatCount(secrets, t.locale) })}
+            </p>
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }

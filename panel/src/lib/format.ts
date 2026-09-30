@@ -204,6 +204,11 @@ export function formatClock(date: Date, locale: Locale = getLocale()): string {
   return dateFormat(locale, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(date);
 }
 
+/** The same clock to the second, "14:05:32": for readings a few seconds apart. */
+export function formatClockSeconds(date: Date, locale: Locale = getLocale()): string {
+  return dateFormat(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(date);
+}
+
 /**
  * A moment in words, to the second: "Sep 25, 2026, 14:32:05" ("25 sept 2026, 14:32:05"), for
  * assistive technology. Explicit fields rather than `dateStyle`/`timeStyle`, which cannot be

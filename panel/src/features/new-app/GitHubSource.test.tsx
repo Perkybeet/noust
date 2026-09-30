@@ -145,7 +145,7 @@ describe("the new-app wizard, from GitHub", () => {
     await expectNoAxeViolations(document.body);
 
     await user.click(screen.getByRole("button", { name: "Inspect source" }));
-    await screen.findByRole("heading", { level: 2, name: "Review" });
+    await screen.findByRole("heading", { level: 2, name: "Address" });
     expect(backend.callsTo("POST /api/apps/inspect").at(-1)?.body).toEqual({
       source: "github:acme/storefront",
       branch: "staging",
@@ -153,6 +153,10 @@ describe("the new-app wizard, from GitHub", () => {
     });
 
     await user.type(screen.getByLabelText("Domain"), "storefront.example.com");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { level: 2, name: "Configuration" });
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { level: 2, name: "Variables" });
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(await screen.findByRole("button", { name: "Deploy storefront.example.com" }));
     await waitFor(() => {
@@ -170,7 +174,8 @@ describe("the new-app wizard, from GitHub", () => {
     const { backend, harness } = wizard(STATUS);
     await screen.findByRole("combobox", { name: "Repository" });
     await harness.user.click(screen.getByRole("button", { name: "Inspect source" }));
-    expect(await screen.findByText("Choose a repository.")).toBeInTheDocument();
+    // Said by Continue, and on the picker it points at.
+    expect(await screen.findAllByText("Choose a repository.")).toHaveLength(2);
     expect(backend.callsTo("POST /api/apps/inspect")).toHaveLength(0);
   });
 
@@ -195,7 +200,7 @@ describe("the new-app wizard, from GitHub", () => {
     expect(field).toHaveValue("");
     await user.type(field, "https://gitlab.com/acme/api.git");
     await user.click(screen.getByRole("button", { name: "Inspect source" }));
-    await screen.findByRole("heading", { level: 2, name: "Review" });
+    await screen.findByRole("heading", { level: 2, name: "Address" });
     expect(backend.callsTo("POST /api/apps/inspect").at(-1)?.body).toEqual({ source: "https://gitlab.com/acme/api.git" });
   });
 

@@ -177,4 +177,101 @@ describe("DataTable", () => {
     );
     expect(screen.getByRole("columnheader", { name: "Acciones" })).toBeInTheDocument();
   });
+
+  describe("as card rows on a phone", () => {
+    interface Row {
+      domain: string;
+      state: string;
+      kind: string;
+    }
+    const rows: Row[] = [
+      { domain: "shop.example.com", state: "Running", kind: "Next.js" },
+      { domain: "api.example.com", state: "Failed", kind: "FastAPI" },
+    ];
+    const columns: Column<Row>[] = [
+      { id: "domain", header: "Application", cell: (row) => row.domain },
+      { id: "state", header: "State", cell: (row) => row.state, card: "status" },
+      { id: "kind", header: "Type", cell: (row) => row.kind },
+    ];
+
+    function wide(matches: boolean): void {
+      vi.stubGlobal("matchMedia", (query: string) => ({
+        matches,
+        media: query,
+        onchange: null,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+        dispatchEvent: () => false,
+      }));
+    }
+
+    it("turns each row into a card under 640px: state, name, the rest, and its actions always in view", () => {
+      wide(false);
+      render(
+        <DataTable
+          mobile="cards"
+          caption="Applications"
+          columns={columns}
+          rows={rows}
+          getRowId={(row) => row.domain}
+          rowActions={(row) => <IconButton label={`Actions for ${row.domain}`} icon={<span />} />}
+        />,
+      );
+      expect(screen.queryByRole("table")).not.toBeInTheDocument();
+      const list = screen.getByRole("list", { name: "Applications" });
+      const cards = within(list).getAllByRole("listitem");
+      expect(cards).toHaveLength(2);
+      const first = cards[0];
+      if (!first) throw new Error("no card");
+      expect(first).toHaveTextContent("Running");
+      expect(first).toHaveTextContent("shop.example.com");
+      expect(first).toHaveTextContent("Type: Next.js");
+      expect(within(first).getByRole("button", { name: "Actions for shop.example.com" })).toBeInTheDocument();
+    });
+
+    it("opens a row from its name, as the table does", async () => {
+      wide(false);
+      const onRowActivate = vi.fn();
+      render(
+        <DataTable mobile="cards" caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} onRowActivate={onRowActivate} />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: "api.example.com" }));
+      expect(onRowActivate).toHaveBeenCalledWith(rows[1]);
+    });
+
+    it("stays a table from 640px", () => {
+      wide(true);
+      render(<DataTable mobile="cards" caption="Applications" columns={columns} rows={rows} getRowId={(row) => row.domain} />);
+      expect(screen.getByRole("table")).toBeInTheDocument();
+      expect(screen.queryByRole("list")).not.toBeInTheDocument();
+    });
+
+    it("keeps its shape while loading and shows the empty state when there is nothing", () => {
+      wide(false);
+      const { rerender } = render(
+        <DataTable mobile="cards" caption="Applications" columns={columns} rows={[]} getRowId={(row) => row.domain} loading skeletonRows={3} />,
+      );
+      expect(screen.getByRole("list", { name: "Applications" })).toHaveAttribute("aria-busy", "true");
+      rerender(<DataTable mobile="cards" caption="Applications" columns={columns} rows={[]} getRowId={(row) => row.domain} empty={<p>Nothing here</p>} />);
+      expect(screen.getByText("Nothing here")).toBeInTheDocument();
+    });
+
+    it("has no accessibility violations", async () => {
+      wide(false);
+      const { container } = render(
+        <DataTable
+          mobile="cards"
+          caption="Applications"
+          columns={columns}
+          rows={rows}
+          getRowId={(row) => row.domain}
+          onRowActivate={() => undefined}
+          rowActions={(row) => <IconButton label={`Actions for ${row.domain}`} icon={<span />} />}
+        />,
+      );
+      await expectNoAxeViolations(container);
+    });
+  });
 });

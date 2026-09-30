@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Download, ShieldCheck, ShieldOff, TriangleAlert } from "lucide-react";
+import { ShieldOff, Smartphone } from "lucide-react";
 import { useId, useRef, useState } from "react";
-import type { RefObject, SyntheticEvent } from "react";
+import type { SyntheticEvent } from "react";
 
 import {
   authKeys,
@@ -12,29 +12,25 @@ import {
   sessionQuery,
   twoFactorQuery,
 } from "../../api/queries/auth";
-import type { TwoFactorEnrollment, TwoFactorStatus } from "../../api/queries/auth";
+import type { SessionInfo, TwoFactorEnrollment, TwoFactorStatus } from "../../api/queries/auth";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { Section } from "../../components/page/Section";
 import { Button } from "../../components/ui/Button";
-import { Checkbox } from "../../components/ui/Checkbox";
-import { CopyButton } from "../../components/ui/CopyButton";
-import { CopyTextButton } from "../../components/ui/CopyTextButton";
+import { Card } from "../../components/ui/Card";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
+import { ICONS } from "../../components/ui/icons";
 import { Input } from "../../components/ui/Input";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { stateTextClass } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { downloadText } from "../../lib/clipboard";
 import { cx } from "../../lib/cx";
 import { reportActionError } from "../apps/useAppActions";
+import { BackupCodesDialog } from "../auth/BackupCodes";
+import { TotpSetup } from "../auth/TotpSetup";
 import { splitErrors } from "./formErrors";
-import { QrCode } from "./QrCode";
-import { backupCodesFile, groupSecret } from "./security";
-import { SettingsSection } from "./SettingsForm";
-
-/** How many backup codes a confirmed enrolment issues (noust.web.auth.BACKUP_CODE_COUNT). */
-const BACKUP_CODES = 8;
 
 /** Low enough that the operator should plan for new ones. */
 const FEW_CODES = 2;
@@ -162,137 +158,31 @@ export function EnrollDialog({ open, enrollment, onClose }: EnrollDialogProps) {
       }
     >
       {enrollment !== null ? (
-        <ol className="flex flex-col gap-6">
-          <li className="flex flex-col gap-3">
-            <p className="text-14 font-medium text-fg">{t("settings.security.twoFactor.enroll.step1")}</p>
-            <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-              <QrCode value={enrollment.uri} label={t("settings.security.twoFactor.enroll.qrLabel", { hostname })} />
-              <div className="flex min-w-0 flex-col gap-3">
-                <div className="flex min-w-0 flex-col gap-1">
-                  <span className="text-13 text-fg-muted">{t("settings.security.twoFactor.enroll.cannotScan")}</span>
-                  <div className="flex min-w-0 items-center gap-1 rounded-control border border-border bg-bg-sunken py-1 pr-1 pl-3">
-                    <code translate="no" data-testid="totp-secret" className="min-w-0 flex-1 text-14 tracking-wide break-words text-fg select-all">
-                      {groupSecret(enrollment.secret)}
-                    </code>
-                    <CopyButton value={enrollment.secret} label={t("settings.security.twoFactor.enroll.copyKey")} />
-                  </div>
-                </div>
-                <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-4 gap-y-1 text-13">
-                  <dt className="text-fg-muted">{t("settings.security.twoFactor.enroll.account")}</dt>
-                  <dd translate="no" className="mono text-12 text-fg">
-                    Noust:{hostname}
-                  </dd>
-                  <dt className="text-fg-muted">{t("settings.security.twoFactor.enroll.type")}</dt>
-                  <dd className="text-fg">{t("settings.security.twoFactor.enroll.typeValue")}</dd>
-                </dl>
-              </div>
-            </div>
-          </li>
-          <li className="flex flex-col gap-3">
-            <p className="text-14 font-medium text-fg">{t("settings.security.twoFactor.enroll.step2")}</p>
-            <form id={formId} noValidate onSubmit={submit}>
-              <Field label={t("settings.security.twoFactor.enroll.codeLabel")} error={codeError.fields.code}>
-                <Input
-                  ref={codeRef}
-                  mono
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  spellCheck={false}
-                  maxLength={8}
-                  placeholder={t("settings.security.twoFactor.enroll.codePlaceholder")}
-                  value={code}
-                  onValueChange={(value: string) => {
-                    setCode(value);
-                    if (confirm.isError) confirm.reset();
-                  }}
-                  className="w-40"
-                />
-              </Field>
-            </form>
+        <TotpSetup uri={enrollment.uri} secret={enrollment.secret}>
+          <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-3">
+            <Field label={t("settings.security.twoFactor.enroll.codeLabel")} error={codeError.fields.code}>
+              <Input
+                ref={codeRef}
+                mono
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                spellCheck={false}
+                maxLength={8}
+                placeholder={t("settings.security.twoFactor.enroll.codePlaceholder")}
+                value={code}
+                onValueChange={(value: string) => {
+                  setCode(value);
+                  if (confirm.isError) confirm.reset();
+                }}
+                className="w-40"
+              />
+            </Field>
             {codeError.form !== null ? (
               <ErrorBlock live compact error={codeError.form} title={t("settings.security.twoFactor.enroll.codeErrorTitle")} />
             ) : null}
-          </li>
-        </ol>
+          </form>
+        </TotpSetup>
       ) : null}
-    </Dialog>
-  );
-}
-
-// ---------------------------------------------------------------------------------------
-// Backup codes, shown once
-
-interface BackupCodesDialogProps {
-  open: boolean;
-  codes: readonly string[];
-  hostname: string;
-  description: string;
-  saved: boolean;
-  /** The operator tried to close without ticking the box: say why they cannot yet. */
-  nudge: boolean;
-  savedRef: RefObject<HTMLDivElement | null>;
-  onSavedChange: (saved: boolean) => void;
-  onOpenChange: (open: boolean) => void;
-}
-
-/**
- * A set of backup codes, the only time it is shown: copy, download, and a box to tick before
- * the dialog lets go, since closing it loses the codes for good. Used when two-factor is turned
- * on and when a new set replaces the old one.
- */
-function BackupCodesDialog({ open, codes, hostname, description, saved, nudge, savedRef, onSavedChange, onOpenChange }: BackupCodesDialogProps) {
-  const t = useT();
-  return (
-    <Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      size="md"
-      title={t("settings.security.twoFactor.backupCodes.title")}
-      description={description}
-      footer={
-        <Button
-          variant="primary"
-          disabled={!saved}
-          onClick={() => {
-            onOpenChange(false);
-          }}
-        >
-          {t("settings.shared.done")}
-        </Button>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <ul aria-label={t("settings.security.twoFactor.backupCodes.listLabel")} className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-control border border-border bg-bg-sunken px-4 py-3">
-          {codes.map((backup) => (
-            <li key={backup} translate="no" className="mono text-14 tracking-wide text-fg select-all">
-              {backup}
-            </li>
-          ))}
-        </ul>
-        <div className="flex flex-wrap items-center gap-2">
-          <CopyTextButton value={codes.join("\n")} size="sm">
-            {t("settings.security.twoFactor.backupCodes.copyCodes")}
-          </CopyTextButton>
-          <Button
-            size="sm"
-            icon={<Download aria-hidden="true" />}
-            onClick={() => {
-              downloadText(`noust-backup-codes-${hostname}.txt`, backupCodesFile(codes, hostname, t.locale));
-            }}
-          >
-            {t("settings.security.twoFactor.backupCodes.downloadAsText")}
-          </Button>
-        </div>
-        <div ref={savedRef} className={cx("rounded-control border p-3", nudge ? "border-warn/50 bg-warn-soft" : "border-transparent")}>
-          <Checkbox label={t("settings.security.twoFactor.backupCodes.savedCheckbox")} checked={saved} onCheckedChange={onSavedChange} />
-          {nudge ? (
-            <p role="alert" className="mt-2 flex items-start gap-2 text-13 text-fg">
-              <TriangleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-warn" />
-              {t("settings.security.twoFactor.backupCodes.nudge")}
-            </p>
-          ) : null}
-        </div>
-      </div>
     </Dialog>
   );
 }
@@ -471,23 +361,18 @@ function DisableDialog({ open, onClose }: { open: boolean; onClose: () => void }
 
 // ---------------------------------------------------------------------------------------
 
-function Status({ t, status }: { t: T; status: TwoFactorStatus }) {
+function Status({ t, status, account }: { t: T; status: TwoFactorStatus; account: boolean }) {
   if (status.enabled) {
     const few = status.backup_codes_remaining <= FEW_CODES;
     return (
       <div className="flex min-w-0 items-start gap-3">
-        <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-ok" />
+        <Smartphone aria-hidden="true" className="mt-0.5 size-icon-lg shrink-0 text-fg-muted" />
         <div className="flex min-w-0 flex-col gap-0.5">
           <p className="text-14 font-medium text-fg">{t("settings.security.twoFactor.status.onTitle")}</p>
-          <p className="text-13 text-fg-muted">{t("settings.security.twoFactor.status.onDescription")}</p>
-          <p className={cx("mt-1 flex items-center gap-1.5 text-13", few ? "text-warn" : "text-fg-muted")}>
-            {few ? <TriangleAlert aria-hidden="true" className="size-3.5" /> : null}
-            <span className="tabular-nums">
-              {t("settings.security.twoFactor.status.codesLeft", {
-                left: String(status.backup_codes_remaining),
-                total: String(BACKUP_CODES),
-              })}
-            </span>
+          <p className="text-13 text-fg-muted">{account ? t("auth.security.factorOnAccount") : t("settings.security.twoFactor.status.onDescription")}</p>
+          <p className="mt-1 flex items-center gap-1.5 text-13 text-fg-muted">
+            {few ? <ICONS.warning aria-hidden="true" className={cx("size-icon-sm", stateTextClass("warning"))} /> : null}
+            <span className="tabular-nums">{t("auth.security.codesLeft", { count: status.backup_codes_remaining })}</span>
           </p>
           {few ? <p className="text-13 text-fg-muted">{t("settings.security.twoFactor.status.codesLow")}</p> : null}
         </div>
@@ -496,22 +381,46 @@ function Status({ t, status }: { t: T; status: TwoFactorStatus }) {
   }
   return (
     <div className="flex min-w-0 items-start gap-3">
-      <ShieldOff aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-idle" />
+      <ShieldOff aria-hidden="true" className="mt-0.5 size-icon-lg shrink-0 text-fg-muted" />
       <div className="flex min-w-0 flex-col gap-0.5">
         <p className="text-14 font-medium text-fg">{t("settings.security.twoFactor.status.offTitle")}</p>
-        <p className="text-13 text-fg-muted">{t("settings.security.twoFactor.status.offDescription")}</p>
-        {status.pending ? (
-          <p className="mt-1 text-13 text-fg-muted">{t("settings.security.twoFactor.status.pending")}</p>
-        ) : null}
+        <p className="text-13 text-fg-muted">{account ? t("auth.security.factorOffAccount") : t("settings.security.twoFactor.status.offDescription")}</p>
+        {status.pending ? <p className="mt-1 text-13 text-fg-muted">{t("settings.security.twoFactor.status.pending")}</p> : null}
       </div>
     </div>
   );
 }
 
-/** Two-factor authentication: its state, and turning it on or off. */
-export function TwoFactorSection() {
+function StatusSkeleton({ t }: { t: T }) {
+  return (
+    <div aria-busy="true" className="flex gap-3">
+      <span className="sr-only">{t("settings.shared.loading", { label: t("settings.security.twoFactor.loadingLabel") })}</span>
+      {/* The "On" state's lines, the one a hardened console shows: state, meaning, codes left. */}
+      <Skeleton className="mt-0.5 size-5" />
+      <div aria-hidden="true" className="flex flex-1 flex-col gap-0.5">
+        <div className="flex h-5 items-center">
+          <Skeleton className="h-3.5 w-16" />
+        </div>
+        <div className="flex h-5 items-center">
+          <Skeleton className="h-3 w-72 max-w-full" />
+        </div>
+        <div className="mt-1 flex h-5 items-center">
+          <Skeleton className="h-3 w-40" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Two-factor authentication with an authenticator app: its state, turning it on or off, and
+ * the backup codes. For a person it is their own account's; for the access token, the
+ * console's own factor.
+ */
+export function TwoFactorSection({ session }: { session?: SessionInfo | undefined }) {
   const t = useT();
   const query = useQuery(twoFactorQuery());
+  const account = session?.account !== null && session?.account !== undefined;
   const [enrollment, setEnrollment] = useState<TwoFactorEnrollment | null>(null);
   const [enrolling, setEnrolling] = useState(false);
   const [disabling, setDisabling] = useState(false);
@@ -531,39 +440,27 @@ export function TwoFactorSection() {
   let body;
   if (status !== undefined) {
     body = (
-      <div className="flex flex-col gap-4 rounded-card border border-border bg-surface p-5 shadow-raised sm:flex-row sm:items-start sm:justify-between">
-        <Status t={t} status={status} />
-        <div className="flex shrink-0 flex-wrap gap-2">
-          {status.enabled ? (
-            <>
-              <Button
-                onClick={() => {
-                  setRegenerating(true);
-                }}
-              >
-                {t("settings.security.twoFactor.newBackupCodes")}
+      <Card>
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <Status t={t} status={status} account={account} />
+          <div className="flex shrink-0 flex-wrap gap-2">
+            {status.enabled ? (
+              <>
+                <Button size="sm" onClick={() => setRegenerating(true)}>
+                  {t("settings.security.twoFactor.newBackupCodes")}
+                </Button>
+                <Button size="sm" onClick={() => setDisabling(true)}>
+                  {t("settings.security.twoFactor.turnOff")}
+                </Button>
+              </>
+            ) : (
+              <Button size="sm" loading={enroll.isPending} onClick={() => enroll.mutate()}>
+                {t("settings.security.twoFactor.setUp")}
               </Button>
-              <Button
-                onClick={() => {
-                  setDisabling(true);
-                }}
-              >
-                {t("settings.security.twoFactor.turnOff")}
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="primary"
-              loading={enroll.isPending}
-              onClick={() => {
-                enroll.mutate();
-              }}
-            >
-              {t("settings.security.twoFactor.setUp")}
-            </Button>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      </Card>
     );
   } else if (query.isError) {
     body = (
@@ -576,29 +473,16 @@ export function TwoFactorSection() {
     );
   } else {
     body = (
-      <div aria-busy="true" className="flex gap-3 rounded-card border border-border bg-surface p-5 shadow-raised">
-        <span className="sr-only">{t("settings.shared.loading", { label: t("settings.security.twoFactor.loadingLabel") })}</span>
-        {/* The "On" state's lines, the one a hardened console shows: state, meaning, codes left. */}
-        <Skeleton className="mt-0.5 size-5" />
-        <div aria-hidden="true" className="flex flex-1 flex-col gap-0.5">
-          <div className="flex h-5 items-center">
-            <Skeleton className="h-3.5 w-16" />
-          </div>
-          <div className="flex h-5 items-center">
-            <Skeleton className="h-3 w-72 max-w-full" />
-          </div>
-          <div className="mt-1 flex h-5 items-center">
-            <Skeleton className="h-3 w-40" />
-          </div>
-        </div>
-      </div>
+      <Card>
+        <StatusSkeleton t={t} />
+      </Card>
     );
   }
 
   return (
-    <SettingsSection
+    <Section
       title={t("settings.security.twoFactor.title")}
-      description={t("settings.security.twoFactor.description")}
+      description={account ? t("auth.security.factorDescriptionAccount") : t("settings.security.twoFactor.description")}
     >
       {body}
       <EnrollDialog
@@ -627,6 +511,6 @@ export function TwoFactorSection() {
           }}
         />
       ) : null}
-    </SettingsSection>
+    </Section>
   );
 }

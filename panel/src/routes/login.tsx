@@ -7,12 +7,15 @@ import { safeNext } from "../features/auth/session";
 export interface LoginSearch {
   next?: string;
   reason?: "expired";
+  /** `token` opens on emergency access. */
+  with?: "token";
 }
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): LoginSearch => ({
     ...(typeof search["next"] === "string" ? { next: search["next"] } : {}),
     ...(search["reason"] === "expired" ? { reason: "expired" as const } : {}),
+    ...(search["with"] === "token" ? { with: "token" as const } : {}),
   }),
   beforeLoad: async ({ context, search }) => {
     // An unreachable server is shown on the page itself, with the form still usable.
@@ -26,6 +29,6 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginRoute() {
-  const { next, reason } = Route.useSearch();
-  return <LoginPage next={safeNext(next)} expired={reason === "expired"} />;
+  const { next, reason, with: method } = Route.useSearch();
+  return <LoginPage next={safeNext(next)} expired={reason === "expired"} {...(method === "token" ? { initialMode: "token" as const } : {})} />;
 }

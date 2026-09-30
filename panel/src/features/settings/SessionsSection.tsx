@@ -5,19 +5,22 @@ import { useState } from "react";
 import { isApiError } from "../../api/client";
 import { authKeys, revokeOtherSessions, revokeSession, sessionsQuery } from "../../api/queries/auth";
 import type { ActiveSession } from "../../api/queries/auth";
-import { QueryState } from "../../components/page/QueryState";
+import { ErrorBlock, QueryState } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
+import { Section } from "../../components/page/Section";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { Dialog } from "../../components/ui/Dialog";
-import { SystemOutput } from "../../components/ui/SystemOutput";
+import { Mono } from "../../components/ui/Mono";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 import { RowAction } from "./RowAction";
-import { SettingsSection } from "./SettingsForm";
+
+/** How many sessions show before "Show all": the recent ones are the ones to check. */
+const RECENT = 5;
 
 /** How many sessions the server reports revoked, from `POST /api/auth/sessions/revoke-others`'s own words. */
 function countRevoked(message: string): number | null {
@@ -48,7 +51,8 @@ export function SessionsSection() {
 
   const others = (query.data?.sessions ?? []).filter((session) => !session.is_current);
   const [confirming, setConfirming] = useState(false);
-  const [failure, setFailure] = useState<{ hint: string; detail: string } | null>(null);
+  const [showAll, setShowAll] = useState(false);
+  const [failure, setFailure] = useState<unknown>(null);
 
   const revokeOthers = useMutation({
     mutationFn: revokeOtherSessions,
@@ -62,10 +66,7 @@ export function SessionsSection() {
       // The one credential this cannot apply to: a Bearer or the master token, which never
       // had a browser tab of its own. The backend answers a bare 400 with no hint of its own.
       if (isApiError(error) && error.status === 400) {
-        setFailure({
-          hint: t("settings.security.sessions.tokenCredentialHint"),
-          detail: error.detail,
-        });
+        setFailure(error);
         return;
       }
       setConfirming(false);
@@ -85,14 +86,20 @@ export function SessionsSection() {
       header: t("settings.security.sessions.columnSession"),
       cell: (session) => (
         <span className="flex items-center gap-2">
-          <span translate="no" className="mono text-12">
+          <Mono tone="default" className="text-12">
             {session.sid_prefix}
-          </span>
+          </Mono>
           {session.is_current ? <Badge>{t("settings.security.sessions.thisBrowser")}</Badge> : null}
         </span>
       ),
     },
-    { id: "address", header: t("settings.security.sessions.columnAddress"), mono: true, hideBelow: "sm", cell: (session) => session.client_ip },
+    {
+      id: "address",
+      header: t("settings.security.sessions.columnAddress"),
+      hideBelow: "sm",
+      mono: true,
+      cell: (session) => session.client_ip,
+    },
     {
       id: "signed-in",
       header: t("settings.security.sessions.columnSignedIn"),
@@ -116,10 +123,7 @@ export function SessionsSection() {
   ];
 
   return (
-    <SettingsSection
-      title={t("settings.security.sessions.title")}
-      description={t("settings.security.sessions.description")}
-    >
+    <Section title={t("settings.security.sessions.title")} description={t("settings.security.sessions.description")}>
       <div className="flex min-w-0 flex-col gap-3">
         <QueryState
           query={query}
@@ -146,7 +150,8 @@ export function SessionsSection() {
             <DataTable
               caption={t("settings.security.sessions.tableCaption")}
               columns={columns}
-              rows={data.sessions}
+              // Newest activity first; beyond the recent few, the rest wait behind "Show all".
+              rows={[...data.sessions].sort((a, b) => b.last_seen - a.last_seen).slice(0, showAll ? undefined : RECENT)}
               getRowId={(session) => session.sid_prefix}
               density="compact"
               rowActions={(session) =>
@@ -167,9 +172,16 @@ export function SessionsSection() {
         </QueryState>
         {query.data !== undefined ? (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-13 text-fg-muted tabular-nums">
-              {t("settings.security.sessions.activeCount", { count: query.data.active_sessions })}
-            </p>
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-13 text-fg-muted tabular-nums">
+                {t("settings.security.sessions.activeCount", { count: query.data.active_sessions })}
+              </p>
+              {query.data.sessions.length > RECENT ? (
+                <Button size="sm" variant="ghost" onClick={() => setShowAll((value) => !value)}>
+                  {showAll ? t("auth.security.showRecent") : t("auth.security.showAllSessions", { count: query.data.sessions.length })}
+                </Button>
+              ) : null}
+            </div>
             <Button
               icon={<LogOut aria-hidden="true" />}
               disabled={others.length === 0}
@@ -212,15 +224,10 @@ export function SessionsSection() {
           }
         >
           {failure !== null ? (
-            <div role="alert" className="flex flex-col gap-2 rounded-control border border-fail/30 bg-fail-soft p-3">
-              <p className="text-13 font-medium text-fail">{failure.hint}</p>
-              <SystemOutput label={t("settings.security.sessions.serverSaidLabel")} maxHeight="max-h-40">
-                {failure.detail}
-              </SystemOutput>
-            </div>
+            <ErrorBlock live compact error={failure} title={t("settings.security.sessions.revokeOthersFailed")} hint={t("settings.security.sessions.tokenCredentialHint")} />
           ) : undefined}
         </Dialog>
       </div>
-    </SettingsSection>
+    </Section>
   );
 }

@@ -9,6 +9,7 @@ import type { BodyOf, ResponseOf } from "../../api/client";
 import { getLocale } from "../../app/locale";
 import { translate } from "../../i18n";
 import type { Locale, PlainKey } from "../../i18n";
+import { typeName } from "../apps/data";
 import { draftOf, parseLimits } from "../app/settings/limits";
 import type { LimitsDraft } from "../app/settings/limits";
 import { domainProblem, normalizeDomain } from "../domains/names";
@@ -20,13 +21,69 @@ export type CreateAppBody = BodyOf<"/api/apps", "post">;
 export type AppTypeOption = ResponseOf<"/api/apps/types", "get">["types"][number];
 export type PlatformProposal = NonNullable<Inspection["platform_proposal"]>;
 
-export type Step = "source" | "review" | "deploy";
+// ---------------------------------------------------------------------------------------
+// The steps
 
-export const STEPS: readonly { id: Step; label: PlainKey }[] = [
-  { id: "source", label: "newApp.steps.source" },
-  { id: "review", label: "newApp.steps.review" },
-  { id: "deploy", label: "newApp.steps.deploy" },
-];
+/**
+ * Where an application starts from: code (a repository, a directory, a GitHub App repository),
+ * a recipe, or another server's export. It decides which steps there are.
+ */
+export type StartKind = "code" | "recipe" | "import";
+
+/**
+ * Every step the wizard can show, in no particular order: `WIZARD_STEPS` orders them per start.
+ *
+ * Adding a step (a "Server" step that chooses which server of the fleet deploys it, say): add
+ * its id here, its label to `STEP_LABELS` (and `newApp.steps` in both catalogs), its place in
+ * each `WIZARD_STEPS` list, the fields it owns to `FIELD_STEP` when it validates any, and its
+ * case in NewAppWizard's `stepView`, which says its title, its content and what it still needs.
+ */
+export type Step = "server" | "source" | "address" | "configure" | "variables" | "database" | "deploy";
+
+export const WIZARD_STEPS: Readonly<Record<StartKind, readonly Step[]>> = {
+  code: ["source", "address", "configure", "variables", "deploy"],
+  // A recipe and an export bring their own type, commands and settings: nothing to configure.
+  recipe: ["source", "address", "variables", "deploy"],
+  import: ["source", "address", "variables", "deploy"],
+};
+
+export const STEP_LABELS: Readonly<Record<Step, PlainKey>> = {
+  // Only on a fleet, first: which server deploys it (ServerStep.tsx).
+  server: "fleet.newApp.step",
+  source: "newApp.steps.source",
+  address: "newApp.steps.address",
+  configure: "newApp.steps.configure",
+  variables: "newApp.steps.variables",
+  // Only for code, when an engine runs here: a database for it (databases/wizard/DatabaseStep.tsx).
+  database: "databases.wizard.step",
+  deploy: "newApp.steps.deploy",
+};
+
+/** The step after `step` for a start (or in `order`, the steps shown), or null on the last one. */
+export function nextStep(kind: StartKind, step: Step, order: readonly Step[] = WIZARD_STEPS[kind]): Step | null {
+  return order[order.indexOf(step) + 1] ?? null;
+}
+
+/** The step before `step` for a start (or in `order`, the steps shown), or null on the first one. */
+export function previousStep(kind: StartKind, step: Step, order: readonly Step[] = WIZARD_STEPS[kind]): Step | null {
+  const at = order.indexOf(step);
+  return at > 0 ? (order[at - 1] ?? null) : null;
+}
+
+/**
+ * Which step asks for a field of the review's errors (`reviewProblems`, `recipeProblems`,
+ * `importProblems`, or a refusal's), by its name or its prefix.
+ */
+export function stepOfField(field: string): Step {
+  if (field === "domain" || field === "includeWww" || field === "ssl" || field === "source") return "address";
+  if (field.startsWith("env:") || field.startsWith("env-name:") || field.startsWith("secret:")) return "variables";
+  return "configure";
+}
+
+/** The errors that belong to one step, in the order they were found. */
+export function errorsOf(errors: Readonly<Record<string, string>>, step: Step): [string, string][] {
+  return Object.entries(errors).filter(([field]) => stepOfField(field) === step);
+}
 
 /** A list of names as the language joins them: "Node.js and Vite", "Node.js y Vite". */
 export function joinList(items: readonly string[], locale: Locale = getLocale()): string {
@@ -139,14 +196,7 @@ export function manualInspection(source: SourceForm): Inspection {
 // ---------------------------------------------------------------------------------------
 // The review
 
-/**
- * The registry's display name (`DISPLAY_NAME`) for a type, from `GET /api/apps/types` - the
- * one source of truth for what Noust can deploy (`available_types`). Falls back to the raw
- * identifier while the list has not loaded yet, or for a type the wizard has not seen.
- */
-export function typeName(types: readonly AppTypeOption[], type: string): string {
-  return types.find((entry) => entry.type === type)?.name ?? type;
-}
+export { typeName };
 
 /**
  * Every type the operator can choose, the detected ones first in the order the registry
@@ -574,8 +624,9 @@ const REVIEW_FIELDS: Readonly<Record<string, string>> = {
 
 /**
  * Where a refusal of `POST /api/apps` sends the operator: to the step holding the fields a 422
- * names, to the domain for a clash or a bad domain, to the port for a port the machine refuses,
- * to the source when the source is the problem. Anything else stays on the Deploy step.
+ * names (the first of them), to the address for a clash or a bad domain, to the configuration
+ * for a port the machine refuses, to the source when the source is the problem. Anything else
+ * stays on the Deploy step.
  */
 export function refusalOf(error: unknown): Refusal | null {
   if (!isApiError(error)) return null;
@@ -588,10 +639,11 @@ export function refusalOf(error: unknown): Refusal | null {
       else review[REVIEW_FIELDS[name] ?? name] = message;
     }
     if (Object.keys(source).length > 0) return { step: "source", fields: source };
-    return { step: "review", fields: review };
+    const first = Object.keys(review)[0];
+    return { step: first === undefined ? "deploy" : stepOfField(first), fields: review };
   }
-  if (error.status === 409 || error.error === "domainerror") return { step: "review", fields: { domain: error.detail } };
-  if (error.error === "porterror") return { step: "review", fields: { port: error.detail } };
+  if (error.status === 409 || error.error === "domainerror") return { step: "address", fields: { domain: error.detail } };
+  if (error.error === "porterror") return { step: "configure", fields: { port: error.detail } };
   if (error.error === "sourceerror") return { step: "source", fields: { source: error.detail } };
   return null;
 }

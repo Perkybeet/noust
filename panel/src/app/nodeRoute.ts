@@ -9,8 +9,15 @@
  * `navigate()` and every tab keeps the operator on the server they are on, typed as before,
  * with no feature aware of it. Leaving a node is an explicit `node: undefined`.
  *
- * Some pages are the central's only (its settings, the fleet, the GitHub callback, sign-in):
- * they never carry a node, in either direction.
+ * Every page belongs to one of three contexts, and the address says which (`contextOf`):
+ *
+ * - **a server**: every page of a server, this one's at `/...` and a node's at `/n/<node>/...`;
+ * - **all servers**: the Fleet (`/fleet/...`), the whole fleet at once;
+ * - **this central**: what belongs to the central whatever server is selected - its servers,
+ *   accounts, security, tokens and seal, and the GitHub callback.
+ *
+ * The last two never carry a node, in either direction; the server the operator came from is
+ * remembered apart (nodes/lastServer.ts), so leaving them goes back to it.
  */
 
 import type { LocationRewrite } from "@tanstack/react-router";
@@ -18,8 +25,32 @@ import type { LocationRewrite } from "@tanstack/react-router";
 /** The search parameter the router keeps the selected server in. */
 export const NODE_SEARCH_KEY = "node";
 
-/** Pages that belong to the central whatever server is selected: they never carry a node. */
-export const CENTRAL_ONLY_PATHS: readonly string[] = ["/settings", "/fleet", "/servers", "/integrations", "/login", "/__design"];
+/** The pages of the whole fleet at once ("All servers"). */
+export const FLEET_PATHS: readonly string[] = ["/fleet"];
+
+/**
+ * The central's own pages ("This central"): its settings that no server can hold for it, and
+ * the GitHub App's fixed callback. A node refuses a central on its sign-in, tokens and
+ * two-factor on purpose, so these can never be a node's.
+ */
+export const CENTRAL_PATHS: readonly string[] = [
+  "/settings/servers",
+  "/settings/central",
+  "/settings/accounts",
+  "/settings/security",
+  "/settings/tokens",
+  "/settings/approvals",
+  "/settings/audit",
+  "/settings/compliance",
+  "/integrations",
+  "/servers",
+];
+
+/** Pages outside any server: signing in and the design gallery. */
+const UNSCOPED_PATHS: readonly string[] = ["/login", "/welcome", "/setup", "/invite", "/__design"];
+
+/** Pages that never carry a node: the fleet's, the central's and those outside any server. */
+export const CENTRAL_ONLY_PATHS: readonly string[] = [...FLEET_PATHS, ...CENTRAL_PATHS, ...UNSCOPED_PATHS];
 
 const NODE_PATH = /^\/n\/([^/]+)(\/.*)?$/;
 
@@ -27,9 +58,39 @@ function under(pathname: string, prefix: string): boolean {
   return pathname === prefix || pathname.startsWith(`${prefix}/`);
 }
 
-/** True for a console path that is the central's only (`/settings/security`, `/fleet`). */
+/** True for a console path that never carries a node (`/settings/security`, `/fleet`). */
 export function isCentralOnlyPath(pathname: string): boolean {
   return CENTRAL_ONLY_PATHS.some((prefix) => under(pathname, prefix));
+}
+
+/** Which of the three contexts a page is in. */
+export type ConsoleContext = { kind: "server"; node: string | null } | { kind: "fleet" } | { kind: "central" };
+
+/**
+ * The context of a page, from the router's pathname (without `/n/...`) and the node it names:
+ * the fleet's pages are "All servers", the central's own "This central", every other page a
+ * server's (this one's when `node` is null).
+ */
+export function contextOf(pathname: string, node: string | null): ConsoleContext {
+  if (FLEET_PATHS.some((prefix) => under(pathname, prefix))) return { kind: "fleet" };
+  if (isCentralOnlyPath(pathname)) return { kind: "central" };
+  return { kind: "server", node };
+}
+
+/** Called with the node an old `/n/<node>/<central page>` address named, as it is dropped. */
+let onDroppedNode: ((node: string) => void) | null = null;
+
+/**
+ * Tells the rewrite what to do with the node an address named on a page that cannot carry
+ * one: remember it, so that leaving the page goes back to that server. Returns a function that
+ * restores the previous listener.
+ */
+export function onNodeDropped(listener: ((node: string) => void) | null): () => void {
+  const previous = onDroppedNode;
+  onDroppedNode = listener;
+  return () => {
+    onDroppedNode = previous;
+  };
 }
 
 function decodeSegment(value: string): string | null {
@@ -114,6 +175,8 @@ export const nodeRewrite: LocationRewrite = {
     url.pathname = rest;
     if (isCentralOnlyPath(rest)) {
       url.searchParams.delete(NODE_SEARCH_KEY);
+      // The operator was on that server: the page they return to from here is its own.
+      onDroppedNode?.(node);
     } else {
       // Quoted as JSON, so the router's search parser keeps a name like "123" a string.
       url.searchParams.set(NODE_SEARCH_KEY, JSON.stringify(node));
@@ -133,13 +196,22 @@ export const nodeRewrite: LocationRewrite = {
  * Where switching to another server lands, from the page the operator is on: the same page
  * when it is one every server has (`/apps` becomes `/n/web-2/apps`), the server's overview
  * when it is about one thing that the other server may not have (an application, a
- * database) or a page of the central's only.
+ * database) or a page of the fleet's or the central's.
  *
  * @param pathname The router's pathname (without `/n/...`).
  * @param routeId The id of the deepest matched route, such as `/_console/apps/$domain/logs`.
  */
 export function switchTarget(pathname: string, routeId: string | undefined): string {
-  if (isCentralOnlyPath(pathname)) return "/";
+  if (isCentralOnlyPath(pathname)) return returnTarget(pathname);
   if (routeId === undefined || routeId.includes("$") || routeId === "__root__") return "/";
   return pathname;
+}
+
+/**
+ * The page of a server that stands for a fleet or central page, for going back to the server
+ * the operator came from: its own settings from the central's settings, its overview from
+ * anywhere else.
+ */
+export function returnTarget(pathname: string): string {
+  return under(pathname, "/settings") ? "/settings" : "/";
 }

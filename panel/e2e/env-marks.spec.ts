@@ -27,8 +27,14 @@ function row(page: Page, name: string) {
     .filter({ has: page.getByText(name, { exact: true }) });
 }
 
+/** A variable's row menu: its edits, and whether it is a secret. */
 function trigger(page: Page, name: string) {
-  return page.getByRole("button", { name: new RegExp(`^Change whether ${name} is treated as a secret`) });
+  return page.getByRole("button", { name: `Actions for ${name}` });
+}
+
+/** The Type cell of a variable's row: "Secret" or "Plain", a few words why, the whole reason as its title. */
+function kind(page: Page, name: string) {
+  return row(page, name).getByRole("cell").nth(2);
 }
 
 async function csrf(page: Page): Promise<Record<string, string>> {
@@ -49,23 +55,19 @@ test("says why each value is hidden, and marks one secret, not secret or automat
   await expect(table(page)).toBeVisible();
 
   // Each verdict in words: the operator's marks, and the classifier's reasons.
-  await expect(row(page, "ANALYTICS_TOKEN")).toContainText("Shown: marked not secret by you");
-  await expect(row(page, "SMTP_HOST")).toContainText("Hidden: marked secret by you");
-  await expect(row(page, "DATABASE_URL")).toContainText("Hidden: the URL carries credentials");
-  await expect(row(page, "JWT_SECRET")).toContainText("Hidden: its name suggests a secret");
-  await expect(row(page, "FEATURE_FLAGS")).toContainText("Shown: nothing about it looks like a secret");
-  // The current choice is named, not only implied by the line beside it.
-  await expect(trigger(page, "ANALYTICS_TOKEN")).toHaveAccessibleName(/\(now always shown\)$/);
-  await expect(trigger(page, "SMTP_HOST")).toHaveAccessibleName(/\(now always hidden\)$/);
-  await expect(trigger(page, "FEATURE_FLAGS")).toHaveAccessibleName(/\(now decided automatically\)$/);
+  await expect(kind(page, "ANALYTICS_TOKEN")).toHaveText("Plain (marked by you)");
+  await expect(kind(page, "SMTP_HOST")).toHaveText("Secret (marked by you)");
+  await expect(kind(page, "DATABASE_URL")).toHaveText("Secret (the URL has a password)");
+  await expect(kind(page, "JWT_SECRET")).toHaveText("Secret (by its name)");
+  await expect(kind(page, "FEATURE_FLAGS")).toHaveText("Plain");
+  // The whole reason is there too, as each cell's title.
+  await expect(kind(page, "JWT_SECRET").locator("[title]")).toHaveAttribute("title", "Hidden: its name suggests a secret");
   await settle(page);
   await expectNoA11yViolations(page, "the environment tab with marks");
 
-  // A value marked not secret comes from the server in clear: revealing it asks nothing.
-  await page.getByRole("button", { name: "Reveal the value of ANALYTICS_TOKEN" }).click();
+  // A value marked not secret comes from the server in clear, in view, without asking.
   await expect(row(page, "ANALYTICS_TOKEN")).toContainText("G-8XK2M4PQ7L");
-  await expect(page.getByRole("dialog", { name: "Confirm it's you" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Hide the value of ANALYTICS_TOKEN" }).click();
+  await expect(page.getByRole("button", { name: "Reveal the value of ANALYTICS_TOKEN" })).toHaveCount(0);
 
   // Mark a plain variable secret: the menu names the current choice and offers the other two.
   await trigger(page, "FEATURE_FLAGS").click();
@@ -75,33 +77,32 @@ test("says why each value is hidden, and marks one secret, not secret or automat
   await stillness(page);
   await expectNoA11yViolations(page, "the secrecy menu");
   const put = page.waitForRequest((request) => request.method() === "PUT" && request.url().endsWith(`/api/apps/${DOMAIN}/env/marks`));
-  await page.getByRole("menuitem", { name: "Treat as secret" }).click();
+  await page.getByRole("menuitem", { name: "Yes, always hide it" }).click();
   expect((await put).postDataJSON()).toMatchObject({ marks: { FEATURE_FLAGS: true } });
   // The menu fades out under the dialog; measured mid-fade, its text reads as low contrast.
   await expect(page.getByRole("menu")).toHaveCount(0);
   await stillness(page);
   await expectNoA11yViolations(page, "the confirmation before a mark");
   await confirmItsYou(page, consoleServer);
-  await expect(row(page, "FEATURE_FLAGS")).toContainText("Hidden: marked secret by you");
-  await expect(trigger(page, "FEATURE_FLAGS")).toHaveAccessibleName(/\(now always hidden\)$/);
+  await expect(kind(page, "FEATURE_FLAGS")).toHaveText("Secret (marked by you)");
 
   // Mark the seeded secret as not secret: its value is shown in the listing.
   await trigger(page, "SMTP_HOST").click();
-  await page.getByRole("menu", { name: /SMTP_HOST/ }).getByRole("menuitem", { name: "Treat as not secret" }).click();
-  await expect(row(page, "SMTP_HOST")).toContainText("Shown: marked not secret by you");
+  await page.getByRole("menu", { name: /SMTP_HOST/ }).getByRole("menuitem", { name: "No, always show it" }).click();
+  await expect(kind(page, "SMTP_HOST")).toHaveText("Plain (marked by you)");
 
   // Back to automatic: the name decides again, and hides the analytics id.
   await trigger(page, "ANALYTICS_TOKEN").click();
   await page.getByRole("menu", { name: /ANALYTICS_TOKEN/ }).getByRole("menuitem", { name: "Decide automatically" }).click();
-  await expect(row(page, "ANALYTICS_TOKEN")).toContainText("Hidden: its name suggests a secret");
+  await expect(kind(page, "ANALYTICS_TOKEN")).toHaveText("Secret (by its name)");
   await settle(page);
   await expectNoA11yViolations(page, "the environment tab after marking");
 
   // The server holds every mark: a fresh load reads the same.
   await page.reload();
-  await expect(row(page, "FEATURE_FLAGS")).toContainText("Hidden: marked secret by you");
-  await expect(row(page, "SMTP_HOST")).toContainText("Shown: marked not secret by you");
-  await expect(row(page, "ANALYTICS_TOKEN")).toContainText("Hidden: its name suggests a secret");
+  await expect(kind(page, "FEATURE_FLAGS")).toHaveText("Secret (marked by you)");
+  await expect(kind(page, "SMTP_HOST")).toHaveText("Plain (marked by you)");
+  await expect(kind(page, "ANALYTICS_TOKEN")).toHaveText("Secret (by its name)");
   // The listing follows the marks: a secret comes masked, a value marked not secret in clear.
   const listing = (await (await page.request.get(`/api/apps/${DOMAIN}/env`)).json()) as { variables: Record<string, string> };
   expect(listing.variables.FEATURE_FLAGS).toBe("***");

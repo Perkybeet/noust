@@ -90,14 +90,12 @@ export function useServiceActions(name: string) {
   const enable = useVerb("enable");
   const disable = useVerb("disable");
 
+  // Silent: the unit file page says it was saved, with the restart that applies it, where the
+  // operator is looking.
   const updateConfig = useMutation({
     mutationFn: (config: string) => request("put", "/api/services/{name}/config", { params: { name }, body: { config } }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: serviceKeys.config(name) });
-      const locale = getLocale();
-      toast.success(translate(locale, "services.actions.unitSaved", { name }), {
-        description: translate(locale, "services.actions.unitSavedHint"),
-      });
     },
   });
 

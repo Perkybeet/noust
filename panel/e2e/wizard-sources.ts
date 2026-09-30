@@ -51,16 +51,38 @@ export async function typedSource(page: Page) {
 }
 
 /**
- * Inspects a source from the wizard's first step and waits for the Review step, confirming
- * it's the operator when the session is not in sudo mode yet.
+ * Inspects a source from the wizard's first step and waits for the next one, Address,
+ * confirming it's the operator when the session is not in sudo mode yet.
  */
 export async function inspectSource(page: Page, server: ConsoleServer, problems: PageProblems, source: string): Promise<void> {
   problems.expect(INSPECT_NEEDS_SUDO);
   await (await typedSource(page)).fill(source);
   await page.getByRole("button", { name: "Inspect source" }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
-  const review = page.getByRole("heading", { level: 2, name: "Review" });
-  await expect(confirm.or(review)).toBeVisible();
+  const address = page.getByRole("heading", { level: 2, name: "Address" });
+  await expect(confirm.or(address)).toBeVisible();
   if (await confirm.isVisible()) await confirmItsYou(page, server);
-  await expect(review).toBeFocused();
+  await expect(address).toBeFocused();
+}
+
+/** Presses the wizard's Continue and waits for the step it leads to, focused. */
+export async function continueTo(page: Page, step: "Address" | "Configuration" | "Variables" | "Database" | "Deploy"): Promise<void> {
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  const target = page.getByRole("heading", { level: 2, name: step });
+  if (step === "Deploy") {
+    // A code start on a server with a database engine running asks about a database first
+    // (databases/wizard/DatabaseStep.tsx); "No database", its default, goes on unchanged.
+    const database = page.getByRole("heading", { level: 2, name: "Database" });
+    await expect(database.or(target)).toBeVisible();
+    if (await database.isVisible()) await page.getByRole("button", { name: "Continue", exact: true }).click();
+  }
+  await expect(target).toBeFocused();
+}
+
+/** The storefront's variables that have no value to fall back on, filled in or generated. */
+export async function fillStorefrontVariables(page: Page): Promise<void> {
+  await page.getByLabel(/^DATABASE_URL/).fill("postgres://storefront@localhost/storefront");
+  for (const name of ["NEXTAUTH_SECRET", "STRIPE_SECRET_KEY", "SMTP_PASSWORD"]) {
+    await page.getByRole("button", { name: `Generate ${name}` }).click();
+  }
 }

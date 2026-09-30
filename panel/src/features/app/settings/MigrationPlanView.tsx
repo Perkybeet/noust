@@ -1,15 +1,14 @@
-import { TriangleAlert } from "lucide-react";
-
 import type { MigrationPlan } from "../../../api/queries/apps";
 import { getLocale } from "../../../app/locale";
 import type { Locale } from "../../../app/locale";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
+import { Notice } from "../../../components/ui/Notice";
 import { useT } from "../../../i18n";
 import { translate } from "../../../i18n/translate";
 import { formatBytes } from "../../../lib/format";
 
-/** How the paths kept in shared/ were chosen, as the plan's `persistent_source` says. */
+/** How the folders kept in shared/ were chosen, as the plan's `persistent_source` says. */
 function persistentSourceHint(source: string, locale: Locale): string {
   if (source === "git") return translate(locale, "appSettings.migrationPlan.persistentSourceGit");
   if (source === "explicit") return translate(locale, "appSettings.migrationPlan.persistentSourceExplicit");
@@ -17,7 +16,7 @@ function persistentSourceHint(source: string, locale: Locale): string {
   return source;
 }
 
-/** The rows of a plan, in the order the migration does them. */
+/** The rows of a plan, in the order the move does them. */
 export function planItems(plan: MigrationPlan, locale: Locale = getLocale()): KeyValueItem[] {
   const fileCount = translate(locale, "appSettings.migrationPlan.fileCount", { count: plan.files });
   const items: KeyValueItem[] = [
@@ -82,31 +81,24 @@ export function planItems(plan: MigrationPlan, locale: Locale = getLocale()): Ke
   return items;
 }
 
-/** One of the plan's warnings, verbatim: what to read before going ahead. */
-export function PlanWarning({ children }: { children: string }) {
-  return (
-    <div className="flex items-start gap-2.5 rounded-control border border-warn/40 bg-warn-soft px-3 py-2.5">
-      <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warn" />
-      <p className="min-w-0 text-13 text-pretty break-words text-fg">{children}</p>
-    </div>
-  );
-}
-
 /**
- * What migrating an in-place app to releases would do, read from the disk: the warnings first,
- * then each change in the order it happens.
+ * What moving an in-place app onto releases would do, read from the disk: the warnings first,
+ * verbatim, then each change in the order it happens.
  */
 export function MigrationPlanView({ plan }: { plan: MigrationPlan }) {
   const t = useT();
   return (
     <div className="flex min-w-0 flex-col gap-3">
       {plan.warnings.length > 0 ? (
-        <div className="flex flex-col gap-2">
-          <h4 className="sr-only">{t("appSettings.migrationPlan.warningsHeading")}</h4>
+        <ul aria-label={t("appSettings.migrationPlan.warningsLabel")} className="flex flex-col gap-2">
           {plan.warnings.map((warning) => (
-            <PlanWarning key={warning}>{warning}</PlanWarning>
+            <li key={warning}>
+              <Notice tone="warning">
+                <span className="break-words">{warning}</span>
+              </Notice>
+            </li>
           ))}
-        </div>
+        </ul>
       ) : null}
       <KeyValueList items={planItems(plan, t.locale)} />
     </div>

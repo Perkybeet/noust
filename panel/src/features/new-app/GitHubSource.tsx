@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { CircleAlert, FolderGit2, GitBranch, Globe, Lock, Search } from "lucide-react";
+import { FolderGit2, GitBranch, Globe, Lock, Search } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 
@@ -9,12 +8,17 @@ import type { GitHubRepository, GitHubStatus } from "../../api/queries/github";
 import { announce } from "../../app/Announcer";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { EmptyState } from "../../components/ui/EmptyState";
 import { ExternalLink } from "../../components/ui/ExternalLink";
 import { Field } from "../../components/ui/Field";
+import { ICONS } from "../../components/ui/icons";
 import { Input } from "../../components/ui/Input";
+import { Mono } from "../../components/ui/Mono";
 import { Select } from "../../components/ui/Select";
 import type { SelectOption } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { splitFullName } from "../settings/github/github";
@@ -41,12 +45,12 @@ function Visibility({ repository }: { repository: Pick<GitHubRepository, "privat
   const t = useT();
   return repository.private ? (
     <span className="flex shrink-0 items-center gap-1 text-12 text-fg-muted">
-      <Lock aria-hidden="true" className="size-3" />
+      <Lock aria-hidden="true" className="size-icon-xs" />
       {t("newApp.github.private")}
     </span>
   ) : (
     <span className="flex shrink-0 items-center gap-1 text-12 text-fg-muted">
-      <Globe aria-hidden="true" className="size-3" />
+      <Globe aria-hidden="true" className="size-icon-xs" />
       {t("newApp.github.public")}
     </span>
   );
@@ -150,15 +154,8 @@ function RepositoryPicker({
           ref={input}
         />
       </Field>
-      <div
-        id={listId}
-        role="listbox"
-        aria-label={t("newApp.github.repositories")}
-        className={cx(
-          "max-h-72 min-h-0 overflow-y-auto rounded-card border border-border bg-surface p-1 shadow-raised scroll-thin",
-          matches.length === 0 && "hidden",
-        )}
-      >
+      <Card padding="none" className={cx("overflow-hidden", matches.length === 0 && "hidden")}>
+      <div id={listId} role="listbox" aria-label={t("newApp.github.repositories")} className="max-h-72 min-h-0 overflow-y-auto p-1 scroll-thin">
         {matches.map((repository, position) => {
           const selected = repository === activeRepository;
           const [owner, name] = repository.full_name.split("/");
@@ -187,27 +184,30 @@ function RepositoryPicker({
                 selected && "bg-surface-active",
               )}
             >
-              <FolderGit2 aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />
-              <span translate="no" className="mono min-w-0 flex-1 truncate text-12">
-                <span className="text-fg-muted">{`${owner ?? ""}/`}</span>
-                {name}
+              <FolderGit2 aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
+              <span className="min-w-0 flex-1 truncate">
+                <Mono tone="muted">{`${owner ?? ""}/`}</Mono>
+                <Mono>{name ?? ""}</Mono>
               </span>
               <Visibility repository={repository} />
               {repository.default_branch ? (
-                <span translate="no" className="mono hidden shrink-0 items-center gap-1 text-12 text-fg-muted sm:flex">
-                  <GitBranch aria-hidden="true" className="size-3" />
+                <span className="hidden shrink-0 items-center gap-1 text-12 text-fg-muted sm:flex">
+                  <GitBranch aria-hidden="true" className="size-icon-xs" />
                   <span className="sr-only">{t("newApp.github.defaultBranchOf", { branch: repository.default_branch })}</span>
-                  <span aria-hidden="true">{repository.default_branch}</span>
+                  <span aria-hidden="true">
+                    <Mono tone="muted">{repository.default_branch}</Mono>
+                  </span>
                 </span>
               ) : null}
             </div>
           );
         })}
       </div>
+      </Card>
       {matches.length === 0 ? (
-        <p role="status" className="rounded-card border border-dashed border-border px-4 py-6 text-center text-13 text-fg-muted">
-          {query.trim() === "" ? t("newApp.github.noneYet") : t("newApp.github.noMatch", { query: query.trim() })}
-        </p>
+        <div role="status">
+          <EmptyState variant="inline" title={query.trim() === "" ? t("newApp.github.noneYet") : t("newApp.github.noMatch", { query: query.trim() })} />
+        </div>
       ) : null}
       {onCancel !== null ? (
         <div>
@@ -329,17 +329,19 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
 
   if (!installed) {
     return (
-      <div className="flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface p-4 shadow-raised">
-        <p className="text-13 text-pretty text-fg">{t("newApp.github.notInstalled")}</p>
-        <div className="flex flex-wrap items-center gap-3">
-          <ExternalLink href={status.install_url} button="primary">
-            {t("newApp.github.install")}
-          </ExternalLink>
-          <Link to="/settings/integrations" className="rounded-[4px] text-13 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus">
-            {t("newApp.github.integrations")}
-          </Link>
+      <Card padding="sm">
+        <div className="flex min-w-0 flex-col gap-3">
+          <p className="text-13 text-pretty text-fg">{t("newApp.github.notInstalled")}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <ExternalLink href={status.install_url} button="secondary">
+              {t("newApp.github.install")}
+            </ExternalLink>
+            <TextLink to="/settings/integrations" size="ui">
+              {t("newApp.github.integrations")}
+            </TextLink>
+          </div>
         </div>
-      </div>
+      </Card>
     );
   }
 
@@ -386,12 +388,9 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
         <p className="text-12 text-pretty text-fg-muted">
           {t.rich("newApp.github.missing", {
             link: (
-              <Link
-                to="/settings/integrations"
-                className="rounded-[4px] font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
-              >
+              <TextLink to="/settings/integrations">
                 {t("newApp.github.manage")}
-              </Link>
+              </TextLink>
             ),
           })}
         </p>
@@ -403,19 +402,23 @@ export function GitHubSource({ status, form, errors, onChange, disabled }: GitHu
     <div className="flex min-w-0 flex-col gap-6">
       <div className="flex min-w-0 flex-col gap-1.5">
         <span className="text-13 font-medium text-fg">{t("newApp.github.repository")}</span>
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-border bg-surface px-3 py-2 shadow-raised">
-          <FolderGit2 aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />
-          <code translate="no" className="min-w-0 flex-1 truncate text-12 text-fg" title={fullName}>
-            {fullName}
-          </code>
-          {listed !== undefined ? <Visibility repository={listed} /> : null}
-          <Button ref={change} size="sm" variant="ghost" onClick={() => setChanging(true)} disabled={disabled}>
-            {t("newApp.github.change")}
-          </Button>
-        </div>
+        <Card padding="none">
+          <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
+            <FolderGit2 aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
+            <span className="min-w-0 flex-1 truncate">
+              <Mono truncate title={fullName}>
+                {fullName}
+              </Mono>
+            </span>
+            {listed !== undefined ? <Visibility repository={listed} /> : null}
+            <Button ref={change} size="sm" variant="ghost" onClick={() => setChanging(true)} disabled={disabled}>
+              {t("newApp.github.change")}
+            </Button>
+          </div>
+        </Card>
         {errors.source !== undefined ? (
           <p role="alert" className="flex items-start gap-1.5 text-13 text-fail">
-            <CircleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+            <ICONS.error aria-hidden="true" className="mt-0.5 size-icon-sm shrink-0" />
             <span>{errors.source}</span>
           </p>
         ) : null}

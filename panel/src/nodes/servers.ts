@@ -7,9 +7,11 @@ import { useQuery } from "@tanstack/react-query";
 
 import { sessionQuery } from "../api/queries/auth";
 import type { Status } from "../components/ui/StatusPill";
+import { centralOf } from "../features/central/central";
 import { nodeStatus, nodesQuery } from "../features/fleet/nodes";
 import type { NodeRecord, NodeStatus } from "../features/fleet/nodes";
 import type { PlainKey } from "../i18n";
+import { useLastServer } from "./lastServer";
 
 export type { NodeRecord, NodeStatus };
 
@@ -72,4 +74,39 @@ export function compareVersions(node: string | null | undefined, local: string |
     if (difference !== 0) return difference;
   }
   return 0;
+}
+
+/**
+ * Whether this console holds a fleet: a central with servers, or a hub (whose whole purpose
+ * is one). Only then are there three contexts to tell apart, and the server named everywhere.
+ */
+export function useHasFleet(): boolean {
+  const { nodes } = useServerList();
+  const { data: session } = useQuery(sessionQuery());
+  return nodes.length > 0 || centralOf(session).role === "hub";
+}
+
+export interface ReturnServer {
+  /** The node's name, or null for this server. */
+  node: string | null;
+  /** What to call it: the node's name, or this server's hostname. */
+  name: string;
+}
+
+/**
+ * The server the fleet's and the central's pages lead back to: the one this tab was last on,
+ * while the central still knows it; this server otherwise. Null on a hub that has not been on
+ * a server yet: its own pages are the fleet's, so there is nothing to go back to.
+ */
+export function useReturnServer(): ReturnServer | null {
+  const last = useLastServer();
+  const servers = useServerList();
+  const { data: session } = useQuery(sessionQuery());
+  const hub = centralOf(session).role === "hub";
+  const here: ReturnServer | null = hub ? null : { node: null, name: servers.hostname ?? "" };
+  const node = last?.node ?? null;
+  if (node === null) return here;
+  // A server the central forgot (removed, renamed) is not somewhere to go back to.
+  if (servers.loaded && !servers.nodes.some((candidate) => candidate.name === node)) return here;
+  return { node, name: node };
 }

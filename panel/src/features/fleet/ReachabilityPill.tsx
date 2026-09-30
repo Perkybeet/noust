@@ -2,7 +2,12 @@ import { StatusPill } from "../../components/ui/StatusPill";
 import type { Status } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { PlainKey } from "../../i18n";
-import type { Reachability } from "./useFleet";
+
+/**
+ * Whether a server answers, as the central last recorded it. `locked` is the central's own
+ * state: with its secrets sealed it cannot open any tunnel, whatever the server would say.
+ */
+export type Reachability = "reachable" | "unreachable" | "refused" | "unknown" | "locked";
 
 /**
  * Each reachability told three ways, like every state: answering is green, not answering (or

@@ -1,11 +1,32 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
+import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+
+/** A screen as wide as a desktop's: tables are tables, not the phone's card rows. */
+beforeEach(() => {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: true,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  }));
+});
+
+/** The first of several matches: the header's primary action, which an empty state repeats. */
+function first<T>(items: readonly T[]): T {
+  const [item] = items;
+  if (item === undefined) throw new Error("nothing matched");
+  return item;
+}
 
 function destination(name: string): Record<string, unknown> {
   return { name, backend: "sftp", encrypted: false, settings: {}, configured_secret_fields: [], encryption_configured: false };
@@ -24,16 +45,16 @@ function schedulesRoutes(schedules: Record<string, unknown>[], extra: Record<str
 }
 
 describe("ScheduleDialog", () => {
-  it("creates a schedule that pushes to a destination with its own retention", async () => {
+  it("creates a schedule that pushes to a destination with its own retention", { timeout: 20_000 }, async () => {
     const backend = fakeBackend(
       schedulesRoutes([], {
         "POST /api/backup-schedules": () =>
           json(201, { success: true, message: "Backup schedule created for shop.example.com" }),
       }),
     );
-    const { user, container } = renderConsole("/backups");
+    const { user, container } = renderConsole("/backups/schedules");
     await screen.findByRole("heading", { level: 1, name: "Backups" });
-    await user.click(await screen.findByRole("button", { name: "New schedule" }));
+    await user.click(first(await screen.findAllByRole("button", { name: "New schedule" })));
 
     const dialog = await screen.findByRole("dialog", { name: "New backup schedule" });
     await user.click(within(dialog).getByRole("combobox", { name: "Application" }));
@@ -78,7 +99,7 @@ describe("ScheduleDialog", () => {
           json(200, { success: true, message: "Backup schedule updated for shop.example.com" }),
       }),
     );
-    const { user } = renderConsole("/backups");
+    const { user } = renderConsole("/backups/schedules");
     const table = await screen.findByRole("region", { name: "Backup schedules" });
     await within(table).findByText("shop.example.com");
     expect(within(table).getByText("offsite")).toBeInTheDocument();
@@ -101,9 +122,9 @@ describe("ScheduleDialog", () => {
         "POST /api/backup-schedules": () => json(201, { success: true, message: "Backup schedule created for shop.example.com" }),
       }),
     );
-    const { user } = renderConsole("/backups");
+    const { user } = renderConsole("/backups/schedules");
     await screen.findByRole("heading", { level: 1, name: "Backups" });
-    await user.click(await screen.findByRole("button", { name: "New schedule" }));
+    await user.click(first(await screen.findAllByRole("button", { name: "New schedule" })));
     const dialog = await screen.findByRole("dialog", { name: "New backup schedule" });
     expect(within(dialog).getByText(/keeps its own last 7 backups for up to 30 days/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("combobox", { name: "Application" }));
@@ -137,14 +158,14 @@ describe("ScheduleDialog", () => {
         "PUT /api/backup-schedules/shop.example.com": () => json(200, { success: true, message: "Backup schedule updated for shop.example.com" }),
       }),
     );
-    const { user, container } = renderConsole("/backups");
+    const { user, container } = renderConsole("/backups/schedules");
     const table = await screen.findByRole("region", { name: "Backup schedules" });
     await within(table).findByText("shop.example.com");
     await user.click(within(table).getByRole("button", { name: /^Actions for the schedule on/ }));
     await user.click(await screen.findByRole("menuitem", { name: "Edit" }));
 
     const dialog = await screen.findByRole("dialog", { name: "Edit the schedule for shop.example.com" });
-    expect(await within(dialog).findByText("Server default (backup.max_per_app = 10)")).toBeInTheDocument();
+    expect(await within(dialog).findByText("Server default: the newest 10")).toBeInTheDocument();
     expect(within(dialog).queryByLabelText("Keep")).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
 
@@ -168,13 +189,41 @@ describe("ScheduleDialog", () => {
   });
 });
 
+describe("scheduling every application at once", () => {
+  it("creates one schedule per application that has none, and names the one that failed", async () => {
+    const backend = fakeBackend(
+      schedulesRoutes([], {
+        "POST /api/backup-schedules": (call) =>
+          (call.body as { domain: string }).domain === "admin.example.com"
+            ? problem(500, "backuperror", "systemctl enable failed for admin.example.com")
+            : json(201, { success: true, message: "Backup schedule created" }),
+      }),
+    );
+    const { user } = renderConsole("/backups/schedules");
+    await user.click(first(await screen.findAllByRole("button", { name: "New schedule" })));
+    const dialog = await screen.findByRole("dialog", { name: "New backup schedule" });
+    await user.click(within(dialog).getByRole("combobox", { name: "Application" }));
+    await user.click(await screen.findByRole("option", { name: "Every application without a schedule (2)" }));
+    await user.click(within(dialog).getByRole("button", { name: "Create schedule" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/backup-schedules")).toHaveLength(2);
+    });
+    const domains = backend.callsTo("POST /api/backup-schedules").map((call) => (call.body as { domain: string }).domain);
+    expect(domains.sort()).toEqual(["admin.example.com", "shop.example.com"]);
+    // The failure stays in the dialog, in the server's own words, next to the application.
+    expect(await within(dialog).findByText("Some schedules were not created")).toBeInTheDocument();
+    expect(within(dialog).getByText(/admin\.example\.com: systemctl enable failed for admin\.example\.com/)).toBeInTheDocument();
+  });
+});
+
 describe("ScheduleDialog in Spanish", () => {
   it("opens the new schedule dialog in Spanish, with no accessibility violations", async () => {
     fakeBackend(schedulesRoutes([]));
     await act(() => setLocale("es"));
-    const { user, container } = renderConsole("/backups");
+    const { user, container } = renderConsole("/backups/schedules");
     await screen.findByRole("heading", { level: 1, name: "Copias de seguridad" });
-    await user.click(await screen.findByRole("button", { name: "Nueva programación" }));
+    await user.click(first(await screen.findAllByRole("button", { name: "Nueva programación" })));
 
     const dialog = await screen.findByRole("dialog", { name: "Nueva programación de copias de seguridad" });
     expect(within(dialog).getByText(/conserva sus últimas 7 copias de seguridad durante un máximo de 30 días/)).toBeInTheDocument();

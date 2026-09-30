@@ -13,7 +13,7 @@ import type { CronJobList } from "../../api/queries/cron";
 import { getLocale } from "../../app/locale";
 import type { Locale } from "../../app/locale";
 import { translate } from "../../i18n";
-import { parseTimestamp } from "../../lib/format";
+import { formatClock, parseTimestamp } from "../../lib/format";
 
 export type CronJob = CronJobList["jobs"][number];
 
@@ -62,17 +62,50 @@ export function runStatus(result: string | null | undefined, locale: Locale = ge
   return { state: "failed", label: translate(locale, "cron.status.failed"), detail: word };
 }
 
+const SYSTEMD_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
+const TIME = "(\\d{1,2}):(\\d{2})(?::00)?";
+const EVERY_HOUR = /^\*-\*-\* \*:00(?::00)?$/;
+const EVERY_MINUTES = /^\*-\*-\* \*:0{0,2}\/(\d{1,2})(?::00)?$/;
+const EVERY_DAY = new RegExp(`^\\*-\\*-\\* ${TIME}$`);
+const WORKDAYS = new RegExp(`^Mon\\.\\.Fri \\*-\\*-\\* ${TIME}$`);
+const ONE_DAY = new RegExp(`^(${SYSTEMD_DAYS.join("|")}) \\*-\\*-\\* ${TIME}$`);
+const MONTHLY = new RegExp(`^\\*-\\*-(\\d{1,2}) ${TIME}$`);
+
+function clock(hours: string | undefined, minutes: string | undefined): string {
+  return `${(hours ?? "").padStart(2, "0")}:${minutes ?? "00"}`;
+}
+
+/** A systemd day name ("Mon") as the language writes it in a sentence ("Monday", "lunes"). */
+function weekdayName(day: string, locale: Locale): string {
+  // 2024-01-01 was a Monday: the index into the week is the offset from it.
+  const date = new Date(Date.UTC(2024, 0, 1 + SYSTEMD_DAYS.indexOf(day as (typeof SYSTEMD_DAYS)[number])));
+  return new Intl.DateTimeFormat(locale, { weekday: "long", timeZone: "UTC" }).format(date);
+}
+
 /**
- * A schedule in words: the preset's name, or for an expression the one shape worth naming
- * ("*-*-* 03:30:00" is every day at 03:30); anything else is "Custom", with the expression
- * itself shown beside it.
+ * A schedule in plain words, read from the calendar expression systemd normalised: "Every day
+ * at 02:00", "Every Monday at 02:00", "Every 15 minutes". A shape it does not recognise is
+ * called a custom schedule, with the expression itself shown beside it by the caller. Times are
+ * the server's clock, as the timer reads them.
  */
-export function scheduleWords(schedule: string, onCalendar: string, locale: Locale = getLocale()): string {
-  const trimmed = schedule.trim().toLowerCase();
-  if (trimmed !== "custom" && SCHEDULE_VALUES.includes(trimmed as Schedule)) return presetLabel(trimmed as Schedule, locale);
-  const daily = /^\*-\*-\*\s+(\d{1,2}):(\d{2})(?::00)?$/.exec(onCalendar.trim());
-  if (daily) return translate(locale, "cron.presets.dailyAt", { hours: (daily[1] ?? "").padStart(2, "0"), minutes: daily[2] ?? "" });
-  return translate(locale, "cron.presets.custom");
+export function calendarWords(schedule: string, onCalendar: string, locale: Locale = getLocale()): string {
+  const calendar = onCalendar.trim().replace(/\s+/g, " ");
+  if (EVERY_HOUR.test(calendar)) return translate(locale, "cron.words.everyHour");
+  const minutes = EVERY_MINUTES.exec(calendar);
+  if (minutes) return translate(locale, "cron.words.everyMinutes", { count: Number(minutes[1]) });
+  const daily = EVERY_DAY.exec(calendar);
+  if (daily) return translate(locale, "cron.words.everyDayAt", { time: clock(daily[1], daily[2]) });
+  const workdays = WORKDAYS.exec(calendar);
+  if (workdays) return translate(locale, "cron.words.workdaysAt", { time: clock(workdays[1], workdays[2]) });
+  const oneDay = ONE_DAY.exec(calendar);
+  if (oneDay) return translate(locale, "cron.words.everyWeekdayAt", { weekday: weekdayName(oneDay[1] ?? "Mon", locale), time: clock(oneDay[2], oneDay[3]) });
+  const monthly = MONTHLY.exec(calendar);
+  if (monthly) return translate(locale, "cron.words.monthlyAt", { day: Number(monthly[1]), time: clock(monthly[2], monthly[3]) });
+  // With no expression to read, the preset it was made from says it; an expression of another
+  // shape is not guessed at from its preset.
+  const preset = schedule.trim().toLowerCase();
+  if (calendar === "" && preset !== "custom" && SCHEDULE_VALUES.includes(preset as Schedule)) return presetLabel(preset as Schedule, locale);
+  return translate(locale, "cron.words.custom");
 }
 
 export interface CronSearch {
@@ -101,23 +134,45 @@ export function filterJobs(jobs: readonly CronJob[], search: CronSearch): CronJo
   return jobs.filter((job) => `${job.name} ${job.command}`.toLowerCase().includes(needle));
 }
 
+const OFFSET = /(?:Z|([+-])(\d{2}):?(\d{2}))$/;
+
+export interface RunTimes {
+  /** The run on the server's clock, the one the calendar expression is written in: "Wed, Sep 30, 02:00". */
+  server: string;
+  /** That clock's zone: "UTC", "UTC+02:00". */
+  zone: string;
+  /** The same moment on the reader's own clock ("04:00"), when it reads differently. */
+  local: string | null;
+}
+
+function pad(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
 /**
- * One of the preview's next runs, in full: unambiguous regardless of the reader's own zone,
- * the way a next-run list should read next to the relative time the rest of the console uses.
- * Falls back to the raw value on anything `parseTimestamp` cannot place in time.
+ * One of the preview's next runs, as the server's clock reads it and, when the reader's clock
+ * differs, as theirs does: the calendar expression is in server time, so that is what the
+ * preview leads with. The preview is computed by `systemd-analyze` with an explicit offset in
+ * each timestamp; one the console cannot place in time is returned as it came.
  */
-export function absoluteWithOffset(value: string, locale: Locale = getLocale()): string {
+export function runTimes(value: string, locale: Locale = getLocale()): RunTimes {
   const date = parseTimestamp(value);
-  if (date === null) return value;
-  // Explicit fields, not `dateStyle`/`timeStyle`: mixed with `timeZoneName` those throw
-  // ("Invalid option") on the ICU build this ships with, even though both are valid alone.
-  return new Intl.DateTimeFormat(locale, {
-    year: "numeric",
+  const offset = OFFSET.exec(value.trim());
+  if (date === null || offset === null) return { server: value, zone: "", local: null };
+  const minutes = offset[1] === undefined ? 0 : (offset[1] === "-" ? -1 : 1) * (Number(offset[2]) * 60 + Number(offset[3]));
+  // The server's wall clock, drawn as if it were UTC so the reader's own zone plays no part.
+  const wall = new Date(date.getTime() + minutes * 60_000);
+  const server = new Intl.DateTimeFormat(locale, {
+    weekday: "short",
     month: "short",
     day: "numeric",
-    hour: "numeric",
+    hour: "2-digit",
     minute: "2-digit",
-    second: "2-digit",
-    timeZoneName: "shortOffset",
-  }).format(date);
+    hourCycle: "h23",
+    timeZone: "UTC",
+  }).format(wall);
+  const zone = minutes === 0 ? "UTC" : `UTC${minutes < 0 ? "-" : "+"}${pad(Math.floor(Math.abs(minutes) / 60))}:${pad(Math.abs(minutes) % 60)}`;
+  // getTimezoneOffset is minutes behind UTC; the server's offset is minutes ahead of it.
+  const local = -date.getTimezoneOffset() === minutes ? null : formatClock(date, locale);
+  return { server, zone, local };
 }

@@ -26,6 +26,46 @@ describe("Card", () => {
     expect(screen.getByRole("contentinfo")).toContainElement(screen.getByRole("button", { name: "Save" }));
   });
 
+  it("titles with the subsection role, never a loose semibold", () => {
+    render(<Card title="Resources">x</Card>);
+    const heading = screen.getByRole("heading", { name: "Resources" });
+    expect(heading).toHaveClass("title", "text-14");
+    expect(heading).not.toHaveClass("font-semibold");
+  });
+
+  it.each([
+    ["md", "p-5"],
+    ["sm", "p-4"],
+  ] as const)("pads its body %s", (padding, utility) => {
+    render(
+      <Card padding={padding}>
+        <p>Body</p>
+      </Card>,
+    );
+    expect(screen.getByText("Body").parentElement).toHaveClass(utility);
+  });
+
+  it("renders as the element the context needs: a list item in a list of cards", () => {
+    render(
+      <ul>
+        <Card as="li">
+          <p>One</p>
+        </Card>
+      </ul>,
+    );
+    expect(screen.getByRole("listitem")).toHaveTextContent("One");
+  });
+
+  it("marks a card that is itself a link or button target on hover", () => {
+    const { container } = render(<Card interactive>x</Card>);
+    expect(container.firstElementChild).toHaveClass("hover:border-border-strong");
+  });
+
+  it("uses no alpha on a token for its footer", () => {
+    render(<Card footer={<span>Foot</span>}>x</Card>);
+    expect(screen.getByText("Foot").parentElement?.className).not.toMatch(/\/\d+/);
+  });
+
   it("has no accessibility violations", async () => {
     const { container } = render(
       <main>

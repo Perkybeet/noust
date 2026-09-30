@@ -1,5 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { CircleCheck, Minus, Pencil, Plus } from "lucide-react";
+import { Minus, Pencil, Plus } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -7,6 +7,8 @@ import { request } from "../../../api/client";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
+import { ICONS } from "../../../components/ui/icons";
+import { Mono } from "../../../components/ui/Mono";
 import { Switch } from "../../../components/ui/Switch";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
@@ -17,9 +19,9 @@ import { describeCounts } from "./draft";
 import { nameProblem } from "./dotenv";
 
 function kindOf(t: T, kind: EnvChange["kind"]): { label: string; icon: ReactNode } {
-  if (kind === "added") return { label: t("environment.added"), icon: <Plus aria-hidden="true" className="size-3.5" /> };
-  if (kind === "changed") return { label: t("environment.changed"), icon: <Pencil aria-hidden="true" className="size-3.5" /> };
-  return { label: t("environment.removed"), icon: <Minus aria-hidden="true" className="size-3.5" /> };
+  if (kind === "added") return { label: t("environment.added"), icon: <Plus aria-hidden="true" className="size-icon-sm" /> };
+  if (kind === "changed") return { label: t("environment.changed"), icon: <Pencil aria-hidden="true" className="size-icon-sm" /> };
+  return { label: t("environment.removed"), icon: <Minus aria-hidden="true" className="size-icon-sm" /> };
 }
 
 function Value({ value, shown, struck = false }: { value: string | null; shown: boolean; struck?: boolean }) {
@@ -28,18 +30,18 @@ function Value({ value, shown, struck = false }: { value: string | null; shown: 
   if (!shown) {
     return (
       <span className="text-fg-faint">
-        <span aria-hidden="true" className="text-13 leading-none tracking-[0.08em]">
+        <span aria-hidden="true" className="text-13 leading-none tracking-widest">
           ••••••••
         </span>
         <span className="sr-only">{t("environment.reviewDialog.hiddenSrOnly")}</span>
       </span>
     );
   }
-  if (value === "") return <span className="text-fg-faint">{t("environment.empty")}</span>;
+  if (value === "") return <span className="text-fg-muted">{t("environment.empty")}</span>;
   return (
-    <span translate="no" title={value} className={cx("mono min-w-0 truncate", struck ? "text-fg-muted line-through" : "text-fg")}>
+    <Mono truncate title={value} tone={struck ? "muted" : "default"} className={cx("min-w-0", struck && "line-through")}>
       {value}
-    </span>
+    </Mono>
   );
 }
 
@@ -48,15 +50,17 @@ function ChangeRow({ change, shown }: { change: EnvChange; shown: boolean }) {
   const kind = kindOf(t, change.kind);
   return (
     <li className="flex flex-col gap-1 px-3 py-2">
-      <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] items-center gap-x-3 gap-y-1 sm:grid-cols-[6.5rem_minmax(0,14rem)_minmax(0,1fr)]">
-        <span className="flex items-center gap-1.5 text-12 text-fg-muted">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="flex w-24 shrink-0 items-center gap-1.5 text-12 text-fg-muted">
           {kind.icon}
           {kind.label}
         </span>
-        <span translate="no" title={change.name} className="mono truncate text-12 font-medium text-fg">
-          {change.name}
+        <span className="w-56 max-w-full min-w-0 shrink-0 font-medium">
+          <Mono truncate title={change.name}>
+            {change.name}
+          </Mono>
         </span>
-        <span className="col-span-2 flex min-w-0 items-center gap-2 text-12 sm:col-span-1">
+        <span className="flex min-w-0 flex-1 basis-48 items-center gap-2 text-12">
           {change.kind === "changed" ? (
             <>
               <Value value={change.before} shown={shown} struck />
@@ -163,7 +167,7 @@ export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }:
         }
       >
         <p className="flex items-center gap-2 text-13 text-fg">
-          <CircleCheck aria-hidden="true" className="size-4 shrink-0 text-ok" />
+          <ICONS.success aria-hidden="true" className="size-icon-md shrink-0 text-ok" />
           {`${describeCounts(counts, t.locale)}.`}
         </p>
       </Dialog>
@@ -179,11 +183,7 @@ export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }:
       size="lg"
       title={t("environment.reviewDialog.title")}
       description={t.rich("environment.reviewDialog.description", {
-        file: (
-          <code translate="no" className="text-13 break-all">
-            {file}
-          </code>
-        ),
+        file: <Mono className="break-all">{file}</Mono>,
       })}
       footer={
         <>
@@ -228,7 +228,7 @@ export function ReviewDialog({ domain, file, isStatic, diff, onClose, onSaved }:
             role="region"
             aria-label={t("environment.reviewDialog.changesRegionAria")}
             tabIndex={0}
-            className="max-h-[min(22rem,38vh)] overflow-y-auto rounded-control border border-border bg-bg-sunken scroll-thin focus-visible:outline-2 focus-visible:outline-focus"
+            className="max-h-80 overflow-y-auto rounded-control border border-border bg-bg-sunken scroll-thin -outline-offset-2"
           >
             <ul className="divide-y divide-border">
               {changes.map((change) => (

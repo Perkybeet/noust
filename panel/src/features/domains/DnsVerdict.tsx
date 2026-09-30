@@ -1,7 +1,8 @@
-import { Check, TriangleAlert, X } from "lucide-react";
+import { Check, X } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { DnsCheck } from "../../api/queries/domains";
+import { ICONS } from "../../components/ui/icons";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
@@ -80,7 +81,7 @@ export function DnsVerdict({ check, className }: { check: DnsCheck; className?: 
       data-verdict={verdict}
       className={cx(
         "flex min-w-0 flex-col gap-3 rounded-card border p-3",
-        verdict === "here" ? "border-ok/30 bg-ok-soft/40" : "border-warn/30 bg-warn-soft/40",
+        verdict === "here" ? "border-ok-border bg-ok-soft" : "border-warn-border bg-warn-soft",
         className,
       )}
     >
@@ -88,7 +89,7 @@ export function DnsVerdict({ check, className }: { check: DnsCheck; className?: 
         {verdict === "here" ? (
           <StatusGlyph state="running" className="text-ok" />
         ) : (
-          <TriangleAlert aria-hidden="true" className="size-4 shrink-0 text-warn" />
+          <ICONS.warning aria-hidden="true" className="size-icon-md shrink-0 text-warn" />
         )}
         <span className="min-w-0 break-words">{heading}</span>
       </p>

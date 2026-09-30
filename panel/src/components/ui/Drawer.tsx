@@ -51,14 +51,14 @@ export function Drawer({
       {trigger !== undefined ? <BaseDrawer.Trigger render={trigger} /> : null}
       <BaseDrawer.Portal>
         <BaseDrawer.Backdrop className={BACKDROP} />
-        <BaseDrawer.Viewport className="fixed inset-0 z-50 flex justify-end">
+        <BaseDrawer.Viewport className="fixed inset-0 z-overlay flex justify-end">
           <BaseDrawer.Popup
             {...(finalFocus !== undefined ? { finalFocus } : {})}
             className={cx(
               "flex h-dvh w-full flex-col border-l border-border bg-surface-raised text-fg shadow-overlay outline-none",
               "[transform:translateX(var(--drawer-swipe-movement-x))] transition-transform duration-(--duration-base) ease-out",
               "data-starting-style:[transform:translateX(100%)] data-ending-style:[transform:translateX(100%)] data-swiping:duration-0",
-              size === "md" ? "sm:max-w-[480px]" : "sm:max-w-[720px]",
+              size === "md" ? "sm:max-w-drawer-md" : "sm:max-w-drawer-lg",
             )}
           >
             <header className="flex items-start gap-4 border-b border-border px-5 py-4">
@@ -72,7 +72,7 @@ export function Drawer({
                 render={<IconButton label={t("common.dialog.close")} icon={<X />} size="sm" tooltip={false} className="-mr-2" />}
               />
             </header>
-            <BaseDrawer.Content className="min-h-0 flex-1 overflow-y-auto px-5 py-4 scroll-thin">{children}</BaseDrawer.Content>
+            <BaseDrawer.Content className="min-h-0 flex-1 overflow-y-auto px-5 py-4 scroll-thin scroll-stable">{children}</BaseDrawer.Content>
             {footer !== undefined ? (
               <footer className="flex items-center justify-end gap-2 border-t border-border bg-bg-sunken px-5 py-3">
                 {footer}

@@ -33,6 +33,26 @@ describe("StatusPill", () => {
     for (const svg of container.querySelectorAll("svg")) expect(svg).toHaveAttribute("aria-hidden", "true");
   });
 
+  it("draws queued as a still, dashed ring: waiting is not work in progress", () => {
+    const { container } = render(<StatusPill state="queued" />);
+    expect(screen.getByText("Queued")).toHaveClass("text-warn");
+    const glyph = container.querySelector("svg[data-glyph]");
+    expect(glyph).toHaveAttribute("data-glyph", "dashed");
+    expect(glyph).not.toHaveClass("animate-spin");
+  });
+
+  it("spins only the deploying arc", () => {
+    const { container } = render(
+      <div>
+        {STATES.map((state) => (
+          <StatusPill key={state} state={state} />
+        ))}
+      </div>,
+    );
+    const spinning = [...container.querySelectorAll("svg.animate-spin")].map((svg) => svg.getAttribute("data-glyph"));
+    expect(spinning).toEqual(["arc"]);
+  });
+
   it("uses a colour per state tone", () => {
     render(<StatusPill state="running" />);
     expect(screen.getByText("Running")).toHaveClass("text-ok");

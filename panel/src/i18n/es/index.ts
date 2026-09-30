@@ -3,13 +3,17 @@
  * ../en/index.ts. Loaded on demand as its own chunk: nothing here ships to an English reader.
  */
 
+export { accounts } from "./accounts";
 export { activity } from "./activity";
 export { appPages } from "./appPages";
+export { approvals } from "./approvals";
 export { apps } from "./apps";
 export { appSettings } from "./appSettings";
+export { audit } from "./audit";
 export { auth } from "./auth";
 export { backups } from "./backups";
 export { common } from "./common";
+export { compliance } from "./compliance";
 export { cron } from "./cron";
 export { databases } from "./databases";
 export { domains } from "./domains";

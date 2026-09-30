@@ -111,6 +111,8 @@ export function parseHubArea(value: unknown): HubArea | "overview" | undefined {
 export function hubRedirect(session: SessionInfo, pathname: string, node: string | null): { hub: HubArea | "overview" } | null {
   // A server's own pages (`/n/web-2/apps`) are that server's: a hub only lacks its own.
   if (node !== null || centralOf(session).role !== "hub") return null;
+  // A new application starts by asking which of the fleet's servers deploys it.
+  if (pathname === "/apps/new") return null;
   if (pathname === "/") return { hub: "overview" };
   const area = hubAreaOf(pathname);
   return area === null ? null : { hub: area };

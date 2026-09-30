@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { causeFallback, checkLabel, checkStatus, opensByDefault, tally, verdictAnnouncement, verdictView } from "./view";
+import { causeFallback, checkLabel, checkStatus, headline, leadingCheck, openChecks, opensByDefault, tally, verdictAnnouncement, verdictView } from "./view";
 
 const CHECK = { name: "port", status: "fail", summary: "Nothing is listening on port 3000", evidence: "" };
 
@@ -60,5 +60,28 @@ describe("what is said", () => {
     expect(verdictAnnouncement("shop.example.com", { domain: "shop.example.com", verdict: "down", probable_cause: "Port mismatch.", checks: [] })).toBe(
       "shop.example.com: Down. Port mismatch.",
     );
+  });
+});
+
+describe("the headline", () => {
+  const check = (name: string, status: string, evidence = "") => ({ name, status, summary: "", evidence });
+
+  it("hangs on the service before its port, and the port before HTTP", () => {
+    const checks = [check("http_direct", "fail"), check("port", "fail"), check("unit", "fail", "Result=exit-code")];
+    expect(leadingCheck(checks)?.name).toBe("unit");
+    expect(headline({ verdict: "down", checks })).toBe("The app stops when it starts");
+    expect(headline({ verdict: "down", checks: [check("http_direct", "fail"), check("port", "fail")] })).toBe("Nothing answers on the app's port");
+  });
+
+  it("falls back to a warning, then to the sentence for no single cause", () => {
+    expect(headline({ verdict: "degraded", checks: [check("unit", "ok"), check("certificate", "warn")] })).toBe("HTTPS is not working for this domain");
+    expect(headline({ verdict: "degraded", checks: [check("unit", "ok")] })).toMatch(/do not point to one cause/);
+    expect(headline({ verdict: "healthy", checks: [check("journal", "warn")] })).toMatch(/answers as it should/);
+  });
+
+  it("opens the check it hangs on and the logs it cites, and nothing on a healthy app", () => {
+    const checks = [check("unit", "ok", "ActiveState=active"), check("port", "fail", "LISTEN 3001"), check("journal", "ok", "EADDRINUSE")];
+    expect([...openChecks({ verdict: "down", checks })].sort()).toEqual(["journal", "port"]);
+    expect(openChecks({ verdict: "healthy", checks })).toEqual(new Set());
   });
 });

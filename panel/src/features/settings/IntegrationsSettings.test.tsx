@@ -45,6 +45,8 @@ function integrations(status: GitHubStatus, extra: Record<string, RouteHandler> 
   const backend = fakeBackend({
     ...signedInRoutes(),
     "GET /api/integrations/github": () => json(200, current.status),
+    "GET /api/config": () =>
+      json(200, { config: { web: { hooks_url: status.hooks_url === null ? "" : "https://hooks.example.com" } }, path: "/etc/noust/config.yaml", writable: true }),
     "POST /api/auth/elevate": () => {
       elevated = true;
       return json(200, { elevated_until: new Date(Date.now() + 600_000).toISOString() });
@@ -97,11 +99,14 @@ describe("Settings > Integrations", () => {
     expect(screen.getByText(/A preview deployment for every pull request/)).toBeInTheDocument();
     expect(screen.getByText(/private key is kept on this server/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Organization/)).toBeInTheDocument();
-    // No public hooks address: why GitHub cannot deliver, and the command that fixes it.
-    expect(screen.getByText("Not reachable from GitHub")).toBeInTheDocument();
+    // The state first, then the steps: creating the App is the one to do now.
+    expect(screen.getByText("Not connected")).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: /steps/i })).toHaveTextContent("Create the App");
+    // No public hooks address: why code hosts cannot deliver, and the command that fixes it.
+    expect(screen.getByText("Not set")).toBeInTheDocument();
     expect(screen.getAllByText("noust web expose-hooks hooks.example.com").length).toBeGreaterThan(0);
     // Nothing to remove yet.
-    expect(screen.queryByRole("button", { name: "Remove GitHub App" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More actions for GitHub" })).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 
@@ -178,9 +183,11 @@ describe("Settings > Integrations", () => {
     expect(within(personal).getByText("All repositories")).toBeInTheDocument();
 
     expect(screen.getByText("Noust web-01")).toBeInTheDocument();
-    expect(screen.getByText("424242")).toBeInTheDocument();
+    expect(screen.getByText("Connected")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Install on another account/ })).toHaveAttribute("href", CONFIGURED.install_url);
-    expect(screen.getByText("Receiving events")).toBeInTheDocument();
+    expect(screen.getByText("Receiving pushes")).toBeInTheDocument();
+    // Every step is done: no stepper left.
+    expect(screen.queryByText("Create the App")).not.toBeInTheDocument();
     expect(screen.getByText("https://hooks.example.com/hooks/github")).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
@@ -188,14 +195,16 @@ describe("Settings > Integrations", () => {
   it("asks to install the App when it has no installation yet", async () => {
     integrations({ ...CONFIGURED, installations: [] });
     renderConsole("/settings/integrations");
-    expect(await screen.findByText("Next: install the App")).toBeInTheDocument();
+    expect(await screen.findByText("Setting up")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Install it on an account" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Install on GitHub/ })).toHaveAttribute("href", CONFIGURED.install_url);
   });
 
   it("explains an inactive webhook, with where to switch it on", async () => {
     integrations({ ...CONFIGURED, hooks_active: false });
     renderConsole("/settings/integrations");
-    expect(await screen.findByText("Inactive on GitHub")).toBeInTheDocument();
+    expect(await screen.findByText("Not switched on at GitHub")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Let GitHub reach this server" })).toBeInTheDocument();
     expect(screen.getByText(/tick Active/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Open the App's settings on GitHub/ })).toHaveAttribute("href", CONFIGURED.settings_url);
   });
@@ -204,8 +213,9 @@ describe("Settings > Integrations", () => {
     integrations({ ...CONFIGURED, hooks_url: null, hooks_active: false });
     renderConsole("/settings/integrations");
     expect(await screen.findByText("Not reachable from GitHub")).toBeInTheDocument();
-    expect(screen.getByText(/does not expose one yet/)).toBeInTheDocument();
-    expect(screen.getByText("noust web expose-hooks hooks.example.com")).toBeInTheDocument();
+    // Said once for every code host, and again in GitHub's own step, each with the command.
+    expect(screen.getAllByText(/does not expose one yet/)).toHaveLength(2);
+    expect(screen.getAllByText("noust web expose-hooks hooks.example.com")).toHaveLength(2);
   });
 
   it("syncs the installations from GitHub", async () => {
@@ -213,7 +223,7 @@ describe("Settings > Integrations", () => {
       "POST /api/integrations/github/installations/sync": () => json(200, { items: CONFIGURED.installations, total: 2 }),
     });
     const { user } = renderConsole("/settings/integrations");
-    await user.click(await screen.findByRole("button", { name: "Sync installations" }));
+    await user.click(await screen.findByRole("button", { name: "Sync" }));
     await expectToast("Synced 2 installations from GitHub");
     expect(backend.callsTo("POST /api/integrations/github/installations/sync")).toHaveLength(1);
     await waitFor(() => {
@@ -224,10 +234,10 @@ describe("Settings > Integrations", () => {
   it("removes the App once its name is typed, and says where to delete it on GitHub", { timeout: 20_000 }, async () => {
     const backend = integrations(CONFIGURED);
     const { user } = renderConsole("/settings/integrations");
-    await user.click(await screen.findByRole("button", { name: "Remove GitHub App" }));
+    await user.click(await screen.findByRole("button", { name: "More actions for GitHub" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Remove GitHub App" }));
     const dialog = await screen.findByRole("alertdialog", { name: "Remove Noust web-01" });
-    expect(dialog).toHaveTextContent("private key, webhook secret and installations are deleted here");
-    expect(within(dialog).getByRole("link", { name: /the App's settings on GitHub/ })).toHaveAttribute("href", CONFIGURED.settings_url);
+    expect(dialog).toHaveTextContent("Deletes the App's private key, its webhook secret and the list of installations");
     const action = within(dialog).getByRole("button", { name: "Remove GitHub App" });
     expect(action).toBeDisabled();
     await user.type(within(dialog).getByRole("textbox"), "Noust web-01");
@@ -248,7 +258,8 @@ describe("Settings > Integrations in Spanish", () => {
     const { container } = renderConsole("/settings/integrations");
     expect(await screen.findByRole("button", { name: "Crear GitHub App" })).toBeInTheDocument();
     expect(screen.getByText(/Repositorios privados, clonados con tokens de corta duración/)).toBeInTheDocument();
-    expect(screen.getByText("No accesible desde GitHub")).toBeInTheDocument();
+    expect(screen.getByText("Sin conectar")).toBeInTheDocument();
+    expect(screen.getByText("Sin definir")).toBeInTheDocument();
     expect(screen.getAllByText("noust web expose-hooks hooks.example.com").length).toBeGreaterThan(0);
     await expectNoAxeViolations(container);
   });
@@ -262,6 +273,6 @@ describe("Settings > Integrations in Spanish", () => {
     if (!acme) throw new Error("missing row");
     expect(within(acme).getByText("Organización")).toBeInTheDocument();
     expect(within(acme).getByText("Repositorios seleccionados")).toBeInTheDocument();
-    expect(screen.getByText("Recibiendo eventos")).toBeInTheDocument();
+    expect(screen.getByText("Recibiendo push")).toBeInTheDocument();
   });
 });

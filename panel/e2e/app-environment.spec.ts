@@ -52,7 +52,8 @@ test("a messy .env pasted in is saved as exactly what EnvManager reads from it",
   await expect(paste).toBeHidden();
   // Noust sets PORT itself, and the backend refuses a save that adds or changes it; the
   // operator keeps the app's own before saving, which also proves a staged change can be undone.
-  await page.getByRole("button", { name: "Undo the change to PORT" }).click();
+  await page.getByRole("button", { name: "Actions for PORT" }).click();
+  await page.getByRole("menuitem", { name: "Undo the change" }).click();
   const { port } = (await (await page.request.get(`/api/apps/${domain}`)).json()) as { port: number };
 
   await page.getByRole("button", { name: "Review and save" }).click();
@@ -74,7 +75,7 @@ test("a messy .env pasted in is saved as exactly what EnvManager reads from it",
 
   // The file on disk now reads back as the pasted map: what the table shows comes from it.
   await expect(table(page, domain).getByRole("cell", { name: "GREETING", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Reveal the value of GREETING" }).click();
+  // A plain value is in view without asking.
   await expect(table(page, domain).getByText("hola # not a comment", { exact: true })).toBeVisible();
   await expect(table(page, domain).getByRole("cell", { name: "SESSION_SECRET", exact: true })).toHaveCount(0);
 });

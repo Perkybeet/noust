@@ -9,83 +9,20 @@ export const servers = {
     },
   },
 
-  /** The row of the machine the console runs on, among the servers it manages. */
-  thisServer: "This server",
-  hubBadge: "Hub",
-
   reachability: {
     locked: "Locked",
   },
 
   // -------------------------------------------------------------------------------------
-  // The Fleet page
+  // What a hub says on the Fleet, and a server not read yet
 
   fleet: {
-    title: "Fleet",
-    description: "Every server this central manages, side by side: whether it answers, what it runs and what needs you.",
-    addServer: "Add a server",
-    manageServers: "Manage servers",
-    serversTitle: "Servers",
-    serversDescription: "Readings refresh every 15 seconds; applications, certificates and units every minute.",
-    tableCaption: "Servers of this fleet",
-    loadingLabel: "the fleet",
-    column: {
-      server: "Server",
-      reachability: "Reachability",
-      version: "Version",
-      cpu: "CPU",
-      memory: "Memory",
-      disk: "Disk",
-      apps: "Applications",
-      units: "Units",
-      certificates: "Certificates",
-      lastSeen: "Last seen",
-    },
-    versionMismatch: "Other version",
-    versionMismatchLabel: "Runs {version}; this central runs {central}",
-    appsRunning: { one: "{count} running", other: "{count} running" },
-    appsFailed: { one: "{count} failed", other: "{count} failed" },
-    unitsFailed: { one: "{count} failed", other: "{count} failed" },
-    unitsNoneFailed: "None failed",
-    certsExpiring: { one: "{count} expiring", other: "{count} expiring" },
-    certsNoneExpiring: "None expiring",
     notRead: "Not read",
-    now: "Now",
-    never: "Never",
-    hubNoApps: "Deploys nothing",
-    open: "Open {name}",
-    empty: {
-      title: "No servers in this fleet yet",
-      description:
-        "A fleet is several Noust servers run from one console, this central's. The central reaches each server through an SSH tunnel to its console, with a key that can forward that one port and nothing else, and drives it through its own API.",
-      action: "Add a server",
-    },
     hub: {
       title: "This central deploys nothing itself",
       description:
-        "It is a hub: applications, sites, certificates, databases and backups live on the servers it manages. Pick a server below to open them there.",
+        "It is a hub: applications, sites, certificates, databases and backups live on the servers it manages. Open one from its row, or choose it above.",
       noServers: "Add a server first: a hub's applications all live on its servers.",
-    },
-    attention: {
-      title: "Needs attention",
-      description: "Problems on every server, worst first. Each opens on the server it is about.",
-      allClear: { one: "Nothing needs attention on the {count} server.", other: "Nothing needs attention on any of the {count} servers." },
-      onServer: "On {server}",
-      unreachable: "The central cannot reach this server",
-      refused: "This server refused the central's token",
-      unreachableFix:
-        "Check that the server is up and answers SSH at {address}, and that its host key has not changed. What ssh said:",
-      refusedFix:
-        "The server no longer accepts this central's fleet token. Run noust fleet authorize on it again, then remove and add it here with the new join code.",
-      machineFailed: "Could not read this server's machine",
-      unchecked: "Could not check its {source}:",
-      sources: {
-        apps: "applications",
-        deploys: "deployments",
-        certificates: "certificates",
-        units: "units",
-      },
-      testAgain: "Test again",
     },
   },
 
@@ -101,9 +38,10 @@ export const servers = {
     tableCaption: "Servers this central manages",
     column: {
       name: "Name",
-      address: "SSH address",
+      address: "Tunnel account and address",
       status: "Status",
       version: "Version",
+      access: "This central may",
       lastSeen: "Last seen",
     },
     addServer: "Add a server",
@@ -147,42 +85,63 @@ export const servers = {
 
   add: {
     title: "Add a server",
-    stepOf: "Step {step} of {total}",
+    description: "This central never logs in to it: the server authorizes this central, once, from its own terminal.",
     steps: {
       authorize: "Authorize",
       join: "Join",
       result: "Result",
     },
-    progressLabel: "Progress",
-    stepDone: "{name}, done",
-    stepCurrent: "{name}, current step",
-    stepTodo: "{name}, not yet",
     cancel: "Cancel",
     back: "Back",
-    next: "I ran it: next",
+    next: "I ran it: continue",
     done: "Done",
     name: {
       label: "Name",
       description: "How this console will call the server: 1 to 32 lower-case letters, digits and dashes, such as web-2.",
       invalid: "Use 1 to 32 lower-case letters, digits and dashes, starting and ending with a letter or digit.",
       showCommand: "Show the command",
+      again: "Show it again",
       keyFailed: "Could not prepare the central's key",
     },
+    access: {
+      label: "This central may",
+      description: "The most this central may do on it. The server enforces it, whatever this central asks.",
+      adminHint: "Deploy, configure and delete, as on the server itself",
+      deployHint: "Operate, update and roll back its applications",
+      readHint: "See everything, change nothing",
+    },
     authorize: {
+      whereTitle: "Run it on the other server: the one you are adding",
+      where: "Not here on {central}. Open a terminal on the server you are adding, as root, and run the command below there.",
       intro: "On {name}, as root, run this command. It prints a join code on one line: copy it for the next step.",
       commandLabel: "Command to run on {name}",
       copy: "Copy command",
+      missing: "Name the server and show its command first.",
       safeTitle: "Why this is safe",
       safeBody:
-        "The key in this command can only forward {name}'s console port to this central. It cannot open a shell or run anything on {name}, and {name} can revoke it at any time with noust fleet deauthorize. The central talks to {name} only through its API, with a token {name} issues and can revoke.",
+        "The key in this command can only forward {name}'s console port to this central, from an account with no shell (noust-tunnel). It cannot run anything on {name}, and {name} can revoke it at any time with noust fleet deauthorize. The central talks to {name} only through its API, with a token {name} issues and can revoke.",
     },
     join: {
       intro: "Paste what the command printed on {name}, and where the central reaches its SSH.",
       codeLabel: "Join code",
-      codeDescription: "It carries a token for {name}'s console: treat it like a password. It is sent once and not shown again.",
+      codeDescription: "It starts with noust-join:v1: and carries a token for {name}'s console: treat it like a password. It is sent once and not shown again.",
+      problem: {
+        empty: "Paste the join code the command printed on the server.",
+        apiToken: "That is an API token, not a join code. The join code is the line noust fleet authorize printed on the server, starting with noust-join:v1:.",
+        consoleToken:
+          "That looks like a console access token (noust_…), not a join code. The join code is the line noust fleet authorize printed on the server, starting with noust-join:v1:.",
+        newer: "This join code is from a newer Noust than this central. Update Noust on this central, then paste it again.",
+        wrongPrefix: "A join code starts with noust-join:v1:. Copy the whole line noust fleet authorize printed on the server.",
+        unreadable: "This starts like a join code but does not read as one: copy the whole line again, without cutting it.",
+      },
+      summaryTitle: "Join code read",
+      summary: "For {node}: its tunnel account {user} on SSH port {port}, its console on port {console}, Noust {version}.",
+      otherCentral: "This code was made for the central {central}, not for this one ({name}). The server would refuse it.",
+      otherKey: "This code was made for another key than the one this central showed in the first step. Run the command from the first step again.",
+      rootAccount: "This server lets the central in as root. A dedicated tunnel account (noust-tunnel, the default) is safer: run the command again without --ssh-user root.",
       addressLabel: "SSH address",
-      addressDescription:
-        "As user@host or user@host:port, such as root@web2.example.com. The user and port default to the ones in the join code.",
+      addressDescription: "The server's host name or address. The account and port come from the join code; add them as user@host:port only to change them.",
+      addressDescriptionFrom: "The server's host name or address. The central connects as {user} on port {port}, from the join code.",
       addressInvalid: "Write it as host, user@host or user@host:port.",
       submit: "Add server",
       elevationNote: "Adding a server asks you to confirm it's you.",
@@ -192,7 +151,9 @@ export const servers = {
       addedBody: "The central pinned its host key, opened the tunnel and checked the token.",
       status: "Status",
       version: "Version",
-      address: "SSH address",
+      tunnel: "Tunnel account and address",
+      access: "This central may",
+      accessUnknown: "Not published yet",
       notReported: "Not reported yet",
       open: "Open {name}",
       failedTitle: "Could not add {name}",
@@ -222,6 +183,34 @@ export const servers = {
     bannerDescription: "Its servers are out of reach until you unlock its sealed secrets.",
     bannerAction: "Unlock",
     dialogTitle: "Unlock this central",
+  },
+
+  // -------------------------------------------------------------------------------------
+  // Settings > Central
+
+  central: {
+    documentTitle: "Central settings",
+    fromTerminal: "From a terminal on the central",
+    identity: {
+      title: "This central",
+      description: "The Noust that manages the fleet, and what it does itself.",
+      name: "Name",
+      role: "Role",
+      roleServer: "Manages servers and deploys applications itself",
+      roleHub: "A hub: manages servers, deploys nothing itself",
+      servers: "Servers",
+      serverCount: { one: "{count} server", other: "{count} servers" },
+    },
+    seal: {
+      title: "Sealed secrets",
+      description: "The keys and tokens that reach your servers, encrypted with a passphrase that is stored nowhere.",
+      locked: "Locked",
+      unlocked: "Unlocked",
+      notSealed: "Not sealed",
+      unlockedBody: "Sealed, and unlocked since this central last started: its servers are within reach. After a restart it asks for the passphrase again.",
+      notSealedBody:
+        "The keys and tokens are protected by the machine's own file permissions only. Seal them to keep them unreadable if this machine's disk is copied.",
+    },
   },
 
   // -------------------------------------------------------------------------------------

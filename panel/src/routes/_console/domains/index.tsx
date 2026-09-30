@@ -1,25 +1,26 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { DomainsPage } from "../../../features/domains/DomainsPage";
-import { validateDomainsSearch } from "../../../features/domains/search";
+import { CertificatesPage } from "../../../features/domains/CertificatesPage";
+import { validateCertificatesSearch } from "../../../features/domains/search";
 
 /**
- * Certificates and sites, machine-wide. The open tab is a search param (`/domains?tab=sites`), and
- * so is the certificates' filter a link opens them with (`/domains?q=example.com`).
+ * Every certificate on the machine, the first of the Domains and certificates tabs. Its filter
+ * is a search param (`/domains?q=example.com`, the link a health report or an alert opens);
+ * 3.0's `?tab=sites` goes to the sites' own address.
  */
 export const Route = createFileRoute("/_console/domains/")({
-  validateSearch: validateDomainsSearch,
-  component: DomainsRoute,
+  validateSearch: validateCertificatesSearch,
+  beforeLoad: ({ search }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    if (search.tab === "sites") throw redirect({ to: "/domains/sites", replace: true });
+  },
+  component: CertificatesRoute,
 });
 
-function DomainsRoute() {
-  const { tab = "certificates", q } = Route.useSearch();
+function CertificatesRoute() {
+  const search = Route.useSearch();
   const navigate = Route.useNavigate();
   return (
-    <DomainsPage
-      tab={tab}
-      {...(q !== undefined ? { filter: q } : {})}
-      onTabChange={(next) => void navigate({ search: next === "certificates" ? {} : { tab: next } })}
-    />
+    <CertificatesPage search={search} onSearchChange={(next, options) => void navigate({ search: next, replace: options?.replace ?? false })} />
   );
 }

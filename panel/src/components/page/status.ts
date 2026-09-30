@@ -77,8 +77,9 @@ export function appStatus(status: string | null | undefined, locale: Locale = ge
  * same state language as applications.
  */
 const DEPLOY_STATES: Readonly<Record<string, KnownState>> = {
-  queued: { state: "deploying", labelKey: "common.deployState.queued", attention: false },
-  pending: { state: "deploying", labelKey: "common.deployState.queued", attention: false },
+  // Waiting is not work: a still glyph, so a queue of ten does not look like ten deploys.
+  queued: { state: "queued", labelKey: "common.deployState.queued", attention: false },
+  pending: { state: "queued", labelKey: "common.deployState.queued", attention: false },
   running: { state: "deploying", labelKey: "common.deployState.inProgress", attention: false },
   success: { state: "running", labelKey: "common.deployState.succeeded", attention: false },
   completed: { state: "running", labelKey: "common.deployState.succeeded", attention: false },
@@ -101,7 +102,8 @@ export const STATE_RANK: Readonly<Record<Status, number>> = {
   unknown: 1,
   warning: 2,
   deploying: 3,
-  running: 4,
-  static: 5,
-  stopped: 6,
+  queued: 4,
+  running: 5,
+  static: 6,
+  stopped: 7,
 };

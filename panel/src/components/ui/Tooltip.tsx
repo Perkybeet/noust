@@ -33,7 +33,7 @@ export function Tooltip({ content, shortcut, side = "top", children, disabled = 
     <BaseTooltip.Root disabled={disabled}>
       <BaseTooltip.Trigger render={children} />
       <BaseTooltip.Portal>
-        <BaseTooltip.Positioner side={side} sideOffset={6} className="z-50">
+        <BaseTooltip.Positioner side={side} sideOffset={6} className="z-overlay">
           <BaseTooltip.Popup
             className={`flex max-w-72 items-center gap-2 rounded-control bg-fg px-2 py-1 text-12 font-medium text-bg shadow-overlay ${POPUP_MOTION}`}
           >

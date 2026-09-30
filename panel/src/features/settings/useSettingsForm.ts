@@ -1,8 +1,8 @@
 import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
-import type { SyntheticEvent } from "react";
 
-import { splitErrors } from "./formErrors";
+import type { FormPart } from "../app/settings/formParts";
+import { splitConfigErrors, splitErrors } from "./formErrors";
 
 export type FormValues = Record<string, string | boolean>;
 
@@ -14,10 +14,18 @@ export interface SettingsFormOptions<V extends FormValues> {
   /** The form's only field: a refusal that names no field is then about it. */
   soleField?: keyof V & string;
   /**
+   * Dotted configuration key to the field it is about: a typed endpoint answers a value
+   * `Config.set` refuses with a 400 whose message starts with the key (`web.public_url must
+   * be...`), and that message then goes beside its field.
+   */
+  configKeys?: Readonly<Record<string, keyof V & string>>;
+  /**
    * Writes the values. It resolves once the server accepted them and the cached answer holds
    * the saved values, so the form never flashes back to the old ones.
    */
   save: (values: V) => Promise<void>;
+  /** Whether the write is behind sudo mode: every configuration write is. */
+  elevated?: boolean;
 }
 
 export interface SettingsForm<V extends FormValues> {
@@ -28,17 +36,33 @@ export interface SettingsForm<V extends FormValues> {
   dirty: boolean;
   pending: boolean;
   fieldErrors: Partial<Record<keyof V & string, string>>;
+  /** A refusal that names no field of this form: shown above its fields, verbatim. */
   formError: unknown;
-  submit: (event: SyntheticEvent<HTMLFormElement>) => void;
   discard: () => void;
+  /** This form as one part of its subsection's save bar (features/app/settings/formParts). */
+  part: FormPart;
+}
+
+/** Two values of a field are the same when they read the same: a typed value is trimmed. */
+function same(a: string | boolean | undefined, b: string | boolean | undefined): boolean {
+  if (typeof a === "string" && typeof b === "string") return a.trim() === b.trim();
+  return a === b;
 }
 
 /**
- * One section of settings as a form: the operator's edits over the server's values, what is
- * dirty, the save, and the server's verdict placed beside each field. The server is the one
- * that validates; nothing here second-guesses it.
+ * One group of settings as a form: the operator's edits over the server's values, what is
+ * dirty, and the server's verdict placed beside each field. A subsection holds several of them
+ * (each written by its own endpoint) and saves them together from its one SaveBar through
+ * `part`. The server is the one that validates; nothing here second-guesses it.
  */
-export function useSettingsForm<V extends FormValues>({ server, names, soleField, save }: SettingsFormOptions<V>): SettingsForm<V> {
+export function useSettingsForm<V extends FormValues>({
+  server,
+  names,
+  soleField,
+  configKeys,
+  save,
+  elevated = true,
+}: SettingsFormOptions<V>): SettingsForm<V> {
   const [draft, setDraft] = useState<Partial<V>>({});
   // A field's error is hidden once it is edited: the message is about the value that was sent.
   const [edited, setEdited] = useState<ReadonlySet<string>>(new Set());
@@ -53,13 +77,19 @@ export function useSettingsForm<V extends FormValues>({ server, names, soleField
   });
 
   const values: V | undefined = server === undefined ? undefined : { ...server, ...draft };
-  const changed = server === undefined ? [] : names.filter((name) => name in draft && draft[name] !== server[name]);
-  const split = splitErrors(mutation.error, names, soleField);
+  const changed = server === undefined ? [] : names.filter((name) => name in draft && !same(draft[name], server[name]));
+  const split = configKeys === undefined ? splitErrors(mutation.error, names, soleField) : splitConfigErrors(mutation.error, names, configKeys);
   const fieldErrors: Partial<Record<keyof V & string, string>> = {};
   for (const name of names) {
     const message = split.fields[name];
     if (message !== undefined && !edited.has(name)) fieldErrors[name] = message;
   }
+
+  const discard = (): void => {
+    setDraft({});
+    setEdited(new Set());
+    mutation.reset();
+  };
 
   return {
     values,
@@ -72,15 +102,16 @@ export function useSettingsForm<V extends FormValues>({ server, names, soleField
     pending: mutation.isPending,
     fieldErrors,
     formError: split.form,
-    submit: (event) => {
-      event.preventDefault();
-      if (values === undefined || mutation.isPending || changed.length === 0) return;
-      mutation.mutate(values);
-    },
-    discard: () => {
-      setDraft({});
-      setEdited(new Set());
-      mutation.reset();
+    discard,
+    part: {
+      changes: changed.length,
+      elevated,
+      check: () => true,
+      save: async () => {
+        if (values === undefined) return;
+        await mutation.mutateAsync(values);
+      },
+      discard,
     },
   };
 }

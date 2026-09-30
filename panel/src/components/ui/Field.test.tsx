@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
+import { Button } from "./Button";
 import { Field } from "./Field";
 import { Input } from "./Input";
 
@@ -85,5 +86,18 @@ describe("Field", () => {
       </Field>,
     );
     expect(screen.getByText("Opcional")).toBeInTheDocument();
+  });
+
+  it("puts a button that acts on the control beside it, aligned with the control, not the label", () => {
+    render(
+      <Field label="Repository" action={<Button>Inspect</Button>}>
+        <Input />
+      </Field>,
+    );
+    const input = screen.getByRole("textbox", { name: "Repository" });
+    const button = screen.getByRole("button", { name: "Inspect" });
+    const row = input.closest("[data-field-row]");
+    expect(row).not.toBeNull();
+    expect(row).toContainElement(button);
   });
 });

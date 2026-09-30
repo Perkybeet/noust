@@ -38,7 +38,7 @@ export function Popover({
     >
       <BasePopover.Trigger render={trigger} openOnHover={openOnHover} />
       <BasePopover.Portal>
-        <BasePopover.Positioner side={side} align={align} sideOffset={6} className="z-50">
+        <BasePopover.Positioner side={side} align={align} sideOffset={6} className="z-overlay">
           <BasePopover.Popup
             className={cx(
               "w-80 max-w-[calc(100vw-2rem)] rounded-card border border-border bg-surface-raised p-4 text-fg shadow-overlay outline-none",

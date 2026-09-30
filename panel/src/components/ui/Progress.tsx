@@ -1,7 +1,9 @@
 import { Meter as BaseMeter } from "@base-ui/react/meter";
 import { Progress as BaseProgress } from "@base-ui/react/progress";
 
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
+import { StatusGlyph } from "./StatusPill";
 
 export interface ProgressProps {
   /** Percent complete, 0-100; null when the total is not known yet. */
@@ -13,7 +15,7 @@ export interface ProgressProps {
   className?: string;
 }
 
-/** How far a task with a known end has got: an upload, a restore, a build step. */
+/** How far a task with a known end has got: an upload, a restore, a build step. Amber: work in progress. */
 export function Progress({ value, label, showValue = true, className }: ProgressProps) {
   return (
     <BaseProgress.Root value={value} className={cx("flex min-w-0 flex-col gap-1.5", className)}>
@@ -26,7 +28,7 @@ export function Progress({ value, label, showValue = true, className }: Progress
       <BaseProgress.Track className="relative h-1.5 overflow-hidden rounded-pill bg-surface-active">
         <BaseProgress.Indicator
           className={cx(
-            "block h-full rounded-pill bg-accent transition-[width] duration-(--duration-base) ease-out",
+            "block h-full rounded-pill bg-warn transition-[width] duration-(--duration-base) ease-out",
             "data-indeterminate:w-2/5 data-indeterminate:animate-indeterminate",
             "motion-reduce:data-indeterminate:w-full motion-reduce:data-indeterminate:opacity-40",
           )}
@@ -51,7 +53,9 @@ export interface MeterProps {
 
 /**
  * A level within a known range: CPU, memory, disk. The fill is neutral until the level is a
- * problem, then takes the state colour, and the value is always printed.
+ * problem, then takes the state colour and, beside the value, the state's glyph and a word
+ * ("High", "Critical"): colour is never the only signal (WCAG 1.4.1). The value is always
+ * printed. In the small size the word is kept for screen readers only.
  */
 export function Meter({
   value,
@@ -66,7 +70,9 @@ export function Meter({
   const level = ratio >= thresholds.fail ? "fail" : ratio >= thresholds.warn ? "warn" : "normal";
   const fill = { normal: "bg-fg-muted", warn: "bg-warn", fail: "bg-fail" }[level];
   const track = { normal: "bg-surface-active", warn: "bg-warn-soft", fail: "bg-fail-soft" }[level];
+  const t = useT();
   const text = valueText ?? `${String(Math.round(ratio * 100))}%`;
+  const levelWord = level === "fail" ? t("common.meter.critical") : level === "warn" ? t("common.meter.high") : null;
   return (
     <BaseMeter.Root
       value={value}
@@ -78,7 +84,15 @@ export function Meter({
         <BaseMeter.Label className={cx("truncate text-fg-muted", size === "sm" ? "text-12" : "text-13")}>
           {label}
         </BaseMeter.Label>
-        <span className={cx("mono text-fg", size === "sm" ? "text-12" : "text-13")}>{text}</span>
+        <span className={cx("flex shrink-0 items-center gap-1", size === "sm" ? "text-12" : "text-13")}>
+          {level !== "normal" ? (
+            <StatusGlyph state={level === "fail" ? "failed" : "warning"} size={size === "sm" ? 10 : 12} className={level === "fail" ? "text-fail" : "text-warn"} />
+          ) : null}
+          {levelWord !== null ? (
+            <span className={cx(size === "sm" ? "sr-only" : "font-medium", level === "fail" ? "text-fail" : "text-warn")}>{levelWord}</span>
+          ) : null}
+          <span className="mono text-fg">{text}</span>
+        </span>
       </div>
       <BaseMeter.Track
         data-level={level}

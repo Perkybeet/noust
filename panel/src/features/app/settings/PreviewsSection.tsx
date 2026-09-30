@@ -1,51 +1,61 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { ExternalLink, GitPullRequest, Globe, KeyRound, TriangleAlert, Webhook } from "lucide-react";
-import { useEffect, useId, useRef, useState } from "react";
+import { GitPullRequest, Globe, Webhook } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 
 import { isApiError, request } from "../../../api/client";
 import type { ResponseOf } from "../../../api/client";
 import { ElevationCancelledError } from "../../../api/errors";
 import { appKeys } from "../../../api/queries/apps";
-import type { App } from "../../../api/queries/apps";
 import { isJobFinished, useFollowedJob } from "../../../api/queries/jobs";
 import type { Job } from "../../../api/queries/jobs";
 import { previewsKey, previewsQuery } from "../../../api/queries/previews";
 import type { Preview, Previews, PreviewSettings } from "../../../api/queries/previews";
+import { announce } from "../../../app/Announcer";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { useNow } from "../../../components/page/clock";
 import { RelativeTime } from "../../../components/page/RelativeTime";
+import { SaveBar } from "../../../components/page/SaveBar";
 import { Section } from "../../../components/page/Section";
 import { SegmentedControl } from "../../../components/page/SegmentedControl";
+import { Subsection } from "../../../components/page/Subsection";
 import { Button } from "../../../components/ui/Button";
+import { Card } from "../../../components/ui/Card";
 import { Checkbox } from "../../../components/ui/Checkbox";
-import { Dialog } from "../../../components/ui/Dialog";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import { EmptyState } from "../../../components/ui/EmptyState";
+import { ExternalLink } from "../../../components/ui/ExternalLink";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
+import { Mono } from "../../../components/ui/Mono";
+import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
-import { toast } from "../../../components/ui/toast";
+import { TextLink } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
 import { formatCount, parseTimestamp } from "../../../lib/format";
+import { useNode } from "../../../nodes/useNode";
 import { appNameOf, previewParentOf } from "../../apps/data";
 import { reportActionError } from "../../apps/useAppActions";
 import { splitErrors } from "../../settings/formErrors";
 import { useConfirmItsYou } from "../useDeleteApp";
-import { LINK, PANEL } from "./panel";
+import { useSaveBar } from "./formParts";
 import {
   MAX_PREVIEWS_MAX,
   MAX_PREVIEWS_MIN,
   PREVIEW_FIELDS,
   lifetime,
   parsePreviewDraft,
+  previewChanges,
   previewDraftOf,
   previewFieldOf,
   previewStatus,
   samePreviewDraft,
 } from "./previews";
 import type { PreviewDraft, PreviewErrors, PreviewField, TtlUnit } from "./previews";
+import { SettingState } from "./SettingState";
+import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
 
 type Disabled = ResponseOf<"/api/apps/{domain}/previews/settings", "delete">;
 
@@ -53,12 +63,12 @@ type Disabled = ResponseOf<"/api/apps/{domain}/previews/settings", "delete">;
 function Need({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
     <li className="flex items-start gap-2.5">
-      <span aria-hidden="true" className="mt-0.5 flex shrink-0 text-fg-faint [&_svg]:size-4">
+      <span aria-hidden="true" className="mt-0.5 flex shrink-0 text-fg-muted [&_svg]:size-icon-md">
         {icon}
       </span>
       <div className="flex min-w-0 flex-col gap-0.5 text-13">
         <p className="font-medium text-fg">{title}</p>
-        <div className="text-pretty text-fg-muted">{children}</div>
+        <p className="text-pretty text-fg-muted">{children}</p>
       </div>
     </li>
   );
@@ -71,48 +81,46 @@ function Need({ icon, title, children }: { icon: ReactNode; title: string; child
 function Needs({ domain, base }: { domain: string; base: string | null }) {
   const t = useT();
   const shownBase = base ?? t("appSettings.previews.baseDomainUnset");
-  const example = `pr-12-${appNameOf(domain)}.${shownBase}`;
   return (
     <div className="flex flex-col gap-3">
-      <ul aria-label={t("appSettings.previews.needsLabel")} className="flex flex-col gap-3">
+      <ul aria-label={t("appSettings.previews.needsLabel")} className="grid gap-3 sm:grid-cols-2">
         <Need icon={<Globe />} title={t("appSettings.previews.needWildcardTitle")}>
-          <p>
-            {t.rich("appSettings.previews.needWildcardBody", {
-              record: <code translate="no" className="text-12 text-fg">{`*.${shownBase}`}</code>,
-              example: (
-                <code translate="no" className="text-12 break-all text-fg">
-                  {example}
-                </code>
-              ),
-            })}
-          </p>
+          {t.rich("appSettings.previews.needWildcardBody", {
+            record: <Mono>{`*.${shownBase}`}</Mono>,
+            example: <Mono className="break-all">{`pr-12-${appNameOf(domain)}.${shownBase}`}</Mono>,
+          })}
         </Need>
         <Need icon={<Webhook />} title={t("appSettings.previews.needPrTitle")}>
-          <p>{t("appSettings.previews.needPrBody")}</p>
+          {t("appSettings.previews.needPrBody")}
         </Need>
       </ul>
-      <div className="flex items-start gap-2.5 rounded-control border border-warn/40 bg-warn-soft px-3 py-2.5">
-        <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warn" />
-        <div className="flex min-w-0 flex-col gap-1 text-13 text-pretty">
-          <p className="flex items-center gap-1.5 font-medium text-fg">
-            <KeyRound aria-hidden="true" className="size-3.5 shrink-0 text-fg-muted" />
-            {t("appSettings.previews.secretsWarningTitle")}
-          </p>
-          <p className="text-fg">{t("appSettings.previews.secretsWarningBody1")}</p>
-          <p className="text-fg">{t("appSettings.previews.secretsWarningBody2")}</p>
-        </div>
-      </div>
+      <Notice tone="warning" title={t("appSettings.previews.secretsWarningTitle")}>
+        {t("appSettings.previews.secretsWarningBody")}
+      </Notice>
     </div>
   );
 }
 
 /**
  * The settings previews run under: where they answer, how many may exist at once and how long
- * one lives without a push. Saving the first time is what turns previews on; turning them off
- * is a separate, confirmed action, because it removes every preview there is.
+ * one lives without a push. Off, the form's own button turns them on with its values; on, its
+ * changes are saved from the save bar, and turning them off is a separate, confirmed action,
+ * because it removes every preview there is.
  */
-function PreviewSettingsForm({ domain, settings, previews }: { domain: string; settings: PreviewSettings | null; previews: readonly Preview[] }) {
+function PreviewSettingsForm({
+  domain,
+  settings,
+  previews,
+  children,
+}: {
+  domain: string;
+  settings: PreviewSettings | null;
+  previews: readonly Preview[];
+  /** What follows the form in the subsection (the list, the command), before the save bar. */
+  children: ReactNode;
+}) {
   const t = useT();
+  const { node } = useNode();
   const queryClient = useQueryClient();
   const confirmItsYou = useConfirmItsYou();
   const followed = useFollowedJob();
@@ -133,7 +141,6 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
   }
 
   const parsed = parsePreviewDraft(draft, t.locale);
-  const dirty = !enabled || !samePreviewDraft(draft, current);
 
   const save = useMutation({
     mutationFn: () => {
@@ -145,31 +152,10 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
       setTouched({});
       // What was saved, as the backend stored it: the names listed once, in its spelling.
       setDraft(previewDraftOf(result));
+      setBaseline(previewDraftOf(result));
       queryClient.setQueryData<Previews>(previewsKey(domain), (known) => (known ? { ...known, enabled: true, settings: result } : known));
       void queryClient.invalidateQueries({ queryKey: previewsKey(domain) });
-      // The toast is announced; saying it again would read it twice.
-      toast.success(enabled ? t("appSettings.previews.savedSettingsToast", { domain }) : t("appSettings.previews.turnedOnToast", { domain }));
-    },
-  });
-
-  const disable = useMutation({
-    mutationFn: () => request("delete", "/api/apps/{domain}/previews/settings", { params: { domain } }),
-    onSuccess: (result: Disabled) => {
-      setConfirmOff(false);
-      if (result.job_id) followed.follow(result.job_id);
-      queryClient.setQueryData<Previews>(previewsKey(domain), (known) => (known ? { ...known, enabled: false, settings: null } : known));
-      void queryClient.invalidateQueries({ queryKey: previewsKey(domain) });
-      toast.success(
-        t("appSettings.previews.turnedOffToast", { domain }),
-        result.removing.length > 0
-          ? {
-              description: t("appSettings.previews.removingList", {
-                count: t("appSettings.previews.previewCount", { count: result.removing.length }),
-                list: result.removing.join(", "),
-              }),
-            }
-          : undefined,
-      );
+      if (!enabled) announce(t("appSettings.previews.turnedOnToast", { domain }));
     },
   });
 
@@ -194,8 +180,7 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
       formError = null;
     }
   }
-  const errorOf = (field: PreviewField): string | undefined =>
-    (submitted || touched[field] ? parsed.errors[field] : undefined) ?? serverFields[field];
+  const errorOf = (field: PreviewField): string | undefined => (submitted || touched[field] ? parsed.errors[field] : undefined) ?? serverFields[field];
 
   const edit = (field: Exclude<keyof PreviewDraft, "unit" | "allow_bots">) => (value: string) => {
     setDraft((previous) => ({ ...previous, [field]: value }));
@@ -205,10 +190,35 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
     setTouched((previous) => ({ ...previous, [field]: true }));
   };
 
-  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
+  const bar = useSaveBar(
+    [
+      enabled
+        ? {
+            changes: previewChanges(draft, current),
+            elevated: true,
+            check: () => {
+              setSubmitted(true);
+              return parsed.values !== null;
+            },
+            save: async () => {
+              await save.mutateAsync();
+            },
+            discard: () => {
+              setDraft(current);
+              setTouched({});
+              setSubmitted(false);
+              save.reset();
+            },
+          }
+        : null,
+    ],
+    t("appSettings.previews.notSavedFor", { domain }),
+  );
+
+  const turnOn = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
     setSubmitted(true);
-    if (parsed.values === null || !dirty || save.isPending) return;
+    if (parsed.values === null || save.isPending) return;
     // Sudo mode is asked for up front rather than on the refusal, so the save is one request.
     confirmItsYou().then(
       () => {
@@ -221,7 +231,6 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
   };
 
   const turnOff = (): void => {
-    disable.reset();
     confirmItsYou().then(
       () => {
         setConfirmOff(true);
@@ -239,195 +248,150 @@ function PreviewSettingsForm({ domain, settings, previews }: { domain: string; s
   ];
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
-      <Field
-        label={t("appSettings.previews.baseDomainLabel")}
-        description={
-          draft.base_domain.trim() !== "" ? (
-            t.rich("appSettings.previews.baseDomainWildcardHint", {
-              record: <code translate="no" className="text-12">{`*.${draft.base_domain.trim().replace(/^\*\./, "")}`}</code>,
-            })
-          ) : (
-            t("appSettings.previews.baseDomainDescription")
-          )
+    <>
+      <Card
+        title={t("appSettings.previews.settingsTitle")}
+        actions={
+          enabled ? (
+            <Button size="sm" variant="ghost" onClick={turnOff}>
+              {t("appSettings.previews.turnOff")}
+            </Button>
+          ) : undefined
         }
-        error={errorOf("base_domain")}
       >
-        <Input
-          mono
-          autoComplete="off"
-          autoCapitalize="off"
-          spellCheck={false}
-          placeholder={t("appSettings.previews.baseDomainPlaceholder")}
-          value={draft.base_domain}
-          onValueChange={edit("base_domain")}
-          onBlur={blur("base_domain")}
-        />
-      </Field>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          label={t("appSettings.previews.atMostLabel")}
-          description={t("appSettings.previews.atMostDescription", { min: MAX_PREVIEWS_MIN, max: MAX_PREVIEWS_MAX })}
-          error={errorOf("max_previews")}
-        >
-          <Input
-            mono
-            inputMode="numeric"
-            autoComplete="off"
-            suffix={t("appSettings.previews.previewsSuffix")}
-            value={draft.max_previews}
-            onValueChange={edit("max_previews")}
-            onBlur={blur("max_previews")}
-          />
-        </Field>
-        <div className="flex min-w-0 items-start gap-2">
-          <Field
-            label={t("appSettings.previews.removedAfterLabel")}
-            description={t("appSettings.previews.removedAfterDescription")}
-            error={errorOf("ttl_hours")}
-            className="min-w-0 flex-1"
-          >
-            <Input
-              mono
-              inputMode="numeric"
-              autoComplete="off"
-              value={draft.ttl_hours}
-              onValueChange={edit("ttl_hours")}
-              onBlur={blur("ttl_hours")}
-            />
-          </Field>
-          <SegmentedControl<TtlUnit>
-            label={t("appSettings.previews.ttlUnitLabel")}
-            options={ttlUnits}
-            value={draft.unit}
-            onValueChange={(unit) => {
-              setDraft((previous) => ({ ...previous, unit }));
+        <form id="preview-settings" onSubmit={enabled ? (event) => { event.preventDefault(); bar.onSave(); } : turnOn} noValidate className="flex flex-col gap-5">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field
+              label={t("appSettings.previews.baseDomainLabel")}
+              description={
+                draft.base_domain.trim() !== ""
+                  ? t.rich("appSettings.previews.baseDomainWildcardHint", { record: <Mono>{`*.${draft.base_domain.trim().replace(/^\*\./, "")}`}</Mono> })
+                  : t("appSettings.previews.baseDomainDescription")
+              }
+              error={errorOf("base_domain")}
+            >
+              <Input
+                mono
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                placeholder={t("appSettings.previews.baseDomainPlaceholder")}
+                value={draft.base_domain}
+                onValueChange={edit("base_domain")}
+                onBlur={blur("base_domain")}
+              />
+            </Field>
+            <Field
+              label={t("appSettings.previews.neverCopiedLabel")}
+              description={t("appSettings.previews.neverCopiedDescription")}
+              error={errorOf("exclude_env")}
+            >
+              <Input
+                mono
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                placeholder={t("appSettings.previews.neverCopiedPlaceholder")}
+                value={draft.exclude_env}
+                onValueChange={edit("exclude_env")}
+                onBlur={blur("exclude_env")}
+              />
+            </Field>
+            <Field
+              label={t("appSettings.previews.atMostLabel")}
+              description={t("appSettings.previews.atMostDescription", { min: MAX_PREVIEWS_MIN, max: MAX_PREVIEWS_MAX })}
+              error={errorOf("max_previews")}
+            >
+              <Input
+                mono
+                inputMode="numeric"
+                autoComplete="off"
+                suffix={t("appSettings.previews.previewsSuffix")}
+                value={draft.max_previews}
+                onValueChange={edit("max_previews")}
+                onBlur={blur("max_previews")}
+              />
+            </Field>
+            <div className="flex min-w-0 items-start gap-2">
+              <Field
+                label={t("appSettings.previews.removedAfterLabel")}
+                description={t("appSettings.previews.removedAfterDescription")}
+                error={errorOf("ttl_hours")}
+                className="min-w-0 flex-1"
+              >
+                <Input mono inputMode="numeric" autoComplete="off" value={draft.ttl_hours} onValueChange={edit("ttl_hours")} onBlur={blur("ttl_hours")} />
+              </Field>
+              <SegmentedControl<TtlUnit>
+                label={t("appSettings.previews.ttlUnitLabel")}
+                options={ttlUnits}
+                value={draft.unit}
+                onValueChange={(unit) => {
+                  setDraft((previous) => ({ ...previous, unit }));
+                  if (save.isError) save.reset();
+                }}
+                className="mt-6 h-control-md"
+              />
+            </div>
+          </div>
+          <Checkbox
+            label={t("appSettings.previews.allowBotsLabel")}
+            description={t("appSettings.previews.allowBotsDescription")}
+            checked={draft.allow_bots}
+            onCheckedChange={(allow_bots) => {
+              setDraft((previous) => ({ ...previous, allow_bots }));
               if (save.isError) save.reset();
             }}
-            className="mt-6 h-8"
           />
-        </div>
-      </div>
-
-      <Field
-        label={t("appSettings.previews.neverCopiedLabel")}
-        description={t("appSettings.previews.neverCopiedDescription")}
-        error={errorOf("exclude_env")}
-      >
-        <Input
-          mono
-          autoComplete="off"
-          autoCapitalize="off"
-          spellCheck={false}
-          placeholder={t("appSettings.previews.neverCopiedPlaceholder")}
-          value={draft.exclude_env}
-          onValueChange={edit("exclude_env")}
-          onBlur={blur("exclude_env")}
-        />
-      </Field>
-      <Checkbox
-        label={t("appSettings.previews.allowBotsLabel")}
-        description={t("appSettings.previews.allowBotsDescription")}
-        checked={draft.allow_bots}
-        onCheckedChange={(allow_bots) => {
-          setDraft((previous) => ({ ...previous, allow_bots }));
-          if (save.isError) save.reset();
-        }}
-      />
-
-      {save.isError && formError !== null ? <ErrorBlock live compact error={formError} title={t("appSettings.previews.saveFailed")} /> : null}
-      {removalFailed ? (
-        <ErrorBlock
-          live
-          compact
-          error={{ detail: job.error ?? t("appSettings.jobFailedSilently") }}
-          title={t("appSettings.previews.someNotRemoved")}
-          hint={t("appSettings.previews.someNotRemovedHint")}
-        />
-      ) : null}
-
-      <div className="flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-        {settings !== null ? (
-          <div className="flex min-w-0 flex-col gap-0.5 text-12 text-fg-muted">
-            <p>
+          {save.isError && formError !== null ? <ErrorBlock live compact error={formError} title={t("appSettings.previews.saveFailed")} /> : null}
+          {removalFailed ? (
+            <ErrorBlock
+              live
+              compact
+              error={{ detail: job.error ?? t("appSettings.jobFailedSilently") }}
+              title={t("appSettings.previews.someNotRemoved")}
+              hint={t("appSettings.previews.someNotRemovedHint")}
+            />
+          ) : null}
+          {enabled ? (
+            <p className="text-12 text-pretty text-fg-muted">
               {t("appSettings.previews.nowSummary", {
                 count: t("appSettings.previews.previewCount", { count: settings.max_previews }),
                 domain: settings.base_domain,
                 lifetime: lifetime(settings.ttl_hours, t.locale),
               })}
             </p>
-            <p>
-              {settings.exclude_env.length > 0 ? (
-                <>
-                  {t.rich("appSettings.previews.neverCopiedNow", {
-                    list: (
-                      <span translate="no" className="mono break-all text-fg">
-                        {settings.exclude_env.join(", ")}
-                      </span>
-                    ),
-                  })}
-                  {" "}
-                </>
-              ) : (
-                <>
-                  {t("appSettings.previews.everyVariableCopied")}
-                  {" "}
-                </>
-              )}
-              {settings.allow_bots ? t("appSettings.previews.botsGetPreviews") : t("appSettings.previews.botsGetNone")}
-            </p>
-          </div>
-        ) : (
-          <p className="text-12 text-fg-muted">{t("appSettings.previews.noPreviewsAtAll")}</p>
-        )}
-        <div className="flex shrink-0 flex-wrap items-center gap-2">
-          {enabled ? (
-            <Button variant="ghost" onClick={turnOff}>
-              {t("appSettings.previews.turnOff")}
-            </Button>
-          ) : null}
-          <Button type="submit" variant="primary" disabled={!dirty} loading={save.isPending}>
-            {enabled ? t("appSettings.save") : t("appSettings.previews.turnOn")}
-          </Button>
-        </div>
-      </div>
-
-      <Dialog
+          ) : (
+            <div>
+              <Button type="submit" loading={save.isPending}>
+                {t("appSettings.previews.turnOn")}
+              </Button>
+            </div>
+          )}
+        </form>
+      </Card>
+      <ConfirmDialog
         open={confirmOff}
-        onOpenChange={(next) => {
-          if (!next && !disable.isPending) setConfirmOff(false);
-        }}
-        size="sm"
+        onOpenChange={setConfirmOff}
+        friction="simple"
+        server={node}
         title={t("appSettings.previews.turnOffConfirmTitle", { domain })}
         description={
           live.length > 0
-            ? t("appSettings.previews.turnOffConfirmWithLive", { count: t("appSettings.previews.previewCount", { count: live.length }) })
+            ? t("appSettings.previews.turnOffConfirmWithLive", { count: t("appSettings.previews.previewCount", { count: live.length }), list: live.map((preview) => preview.domain).join(", ") })
             : t("appSettings.previews.turnOffConfirmNoLive")
         }
-        footer={
-          <>
-            <Button disabled={disable.isPending} onClick={() => setConfirmOff(false)}>
-              {t("appSettings.cancel")}
-            </Button>
-            <Button variant="danger" loading={disable.isPending} onClick={() => disable.mutate()}>
-              {t("appSettings.previews.turnOff")}
-            </Button>
-          </>
-        }
-      >
-        {disable.isError ? (
-          <ErrorBlock live compact error={disable.error} title={t("appSettings.previews.notTurnedOff")} />
-        ) : live.length > 0 ? (
-          <ul aria-label={t("appSettings.previews.previewsRemovedList")} className="flex flex-col gap-1">
-            {live.map((preview) => (
-              <li key={preview.number} translate="no" className="mono text-12 break-all text-fg">
-                {preview.domain}
-              </li>
-            ))}
-          </ul>
-        ) : undefined}
-      </Dialog>
-    </form>
+        actionLabel={t("appSettings.previews.turnOff")}
+        onConfirm={async () => {
+          const result: Disabled = await request("delete", "/api/apps/{domain}/previews/settings", { params: { domain } });
+          if (result.job_id) followed.follow(result.job_id);
+          queryClient.setQueryData<Previews>(previewsKey(domain), (known) => (known ? { ...known, enabled: false, settings: null } : known));
+          void queryClient.invalidateQueries({ queryKey: previewsKey(domain) });
+          announce(t("appSettings.previews.turnedOffToast", { domain }));
+        }}
+      />
+      {children}
+      {enabled ? <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} /> : null}
+    </>
   );
 }
 
@@ -438,17 +402,13 @@ function Expiry({ value }: { value: string }) {
   // The clock every time label shares, stepping each minute: enough to flip the word on time.
   const now = useNow(() => 60_000);
   const past = date !== null && date.getTime() <= now;
-  return (
-    <span>
-      {past ? t("appSettings.previews.expired") : t("appSettings.previews.expires")}
-      <RelativeTime value={value} className="text-fg" />
-    </span>
-  );
+  return <span>{t.rich(past ? "appSettings.previews.expired" : "appSettings.previews.expires", { time: <RelativeTime value={value} className="text-fg" /> })}</span>;
 }
 
 /** One pull request's preview: where it answers, its state, when it goes, and removing it now. */
 function PreviewRow({ domain, preview }: { domain: string; preview: Preview }) {
   const t = useT();
+  const { node } = useNode();
   const queryClient = useQueryClient();
   const confirmItsYou = useConfirmItsYou();
   const followed = useFollowedJob();
@@ -456,17 +416,8 @@ function PreviewRow({ domain, preview }: { domain: string; preview: Preview }) {
   const [confirming, setConfirming] = useState(false);
   const number = String(preview.number);
 
-  const remove = useMutation({
-    mutationFn: () => request("delete", "/api/apps/{domain}/previews/{number}", { params: { domain, number: preview.number } }),
-    onSuccess: (result) => {
-      setConfirming(false);
-      followed.follow(result.job as Job);
-      void queryClient.invalidateQueries({ queryKey: previewsKey(domain) });
-    },
-  });
-
   const job = followed.job;
-  const removing = remove.isPending || (job !== null && !isJobFinished(job)) || preview.status === "removing";
+  const removing = (job !== null && !isJobFinished(job)) || preview.status === "removing";
   const removalFailed = job !== null && isJobFinished(job) && job.status !== "completed";
 
   useEffect(() => {
@@ -474,13 +425,12 @@ function PreviewRow({ domain, preview }: { domain: string; preview: Preview }) {
     notifiedRef.current = job.id;
     void queryClient.invalidateQueries({ queryKey: previewsKey(domain) });
     void queryClient.invalidateQueries({ queryKey: appKeys.list, exact: true });
-    if (job.status === "completed") toast.success(t("appSettings.previews.removedOfPr", { number }));
+    if (job.status === "completed") announce(t("appSettings.previews.removedOfPr", { number }));
   }, [job, domain, number, queryClient, t]);
 
   const view = removing && preview.status !== "removing" ? previewStatus("removing", t.locale) : previewStatus(preview.status, t.locale);
 
   const start = (): void => {
-    remove.reset();
     followed.dismiss();
     confirmItsYou().then(
       () => {
@@ -493,48 +443,30 @@ function PreviewRow({ domain, preview }: { domain: string; preview: Preview }) {
   };
 
   return (
-    <li className="flex min-w-0 flex-col gap-3 px-4 py-3">
+    <li className="flex min-w-0 flex-col gap-3 px-5 py-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <StatusPill state={view.state} label={view.label} size="sm" />
             <span className="flex items-center gap-1.5 text-14 font-medium text-fg">
-              <GitPullRequest aria-hidden="true" className="size-4 shrink-0 text-fg-faint" />
+              <GitPullRequest aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
               {`#${number}`}
             </span>
-            <span translate="no" className="mono min-w-0 text-12 break-all text-fg-muted">
+            <Mono tone="muted" className="min-w-0 break-all">
               {preview.branch}
-            </span>
+            </Mono>
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-            <Link to="/apps/$domain" params={{ domain: preview.domain }} translate="no" className={`${LINK} break-all`}>
+            <TextLink to="/apps/$domain" params={{ domain: preview.domain }} translate="no" size="ui" className="break-all">
               {preview.domain}
-            </Link>
-            <a
-              href={preview.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={t("appSettings.previews.openPreviewAria", { number })}
-              className="inline-flex items-center gap-1 rounded-[4px] text-13 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
-            >
+            </TextLink>
+            <ExternalLink href={preview.url} label={t("appSettings.previews.openPreviewAria", { number })}>
               {t("appSettings.previews.openPreview")}
-              <ExternalLink aria-hidden="true" className="size-3.5 shrink-0" />
-            </a>
+            </ExternalLink>
           </div>
           <p className="flex flex-wrap gap-x-3 gap-y-0.5 text-12 text-fg-muted">
-            {preview.head_sha ? (
-              <span>
-                {t("appSettings.previews.commitLabel")}
-                <span translate="no" className="mono text-fg">
-                  {preview.head_sha.slice(0, 7)}
-                </span>
-              </span>
-            ) : null}
-            {preview.repository ? (
-              <span translate="no">{`${preview.provider} ${preview.repository}`}</span>
-            ) : (
-              <span translate="no">{preview.provider}</span>
-            )}
+            {preview.head_sha ? <span>{t.rich("appSettings.previews.commit", { commit: <Mono>{preview.head_sha.slice(0, 7)}</Mono> })}</span> : null}
+            <span translate="no">{preview.repository ? `${preview.provider} ${preview.repository}` : preview.provider}</span>
             <Expiry value={preview.expires_at} />
           </p>
         </div>
@@ -553,135 +485,122 @@ function PreviewRow({ domain, preview }: { domain: string; preview: Preview }) {
           hint={t("appSettings.previews.pushAgainHint")}
         />
       ) : null}
-      {removalFailed ? (
-        <ErrorBlock live compact error={{ detail: job.error ?? t("appSettings.jobFailedSilently") }} title={t("appSettings.previews.previewNotRemoved", { number })} />
-      ) : null}
+      {removalFailed ? <ErrorBlock live compact error={{ detail: job.error ?? t("appSettings.jobFailedSilently") }} title={t("appSettings.previews.previewNotRemoved", { number })} /> : null}
 
-      <Dialog
+      <ConfirmDialog
         open={confirming}
-        onOpenChange={(next) => {
-          if (!next && !remove.isPending) setConfirming(false);
-        }}
-        size="sm"
+        onOpenChange={setConfirming}
+        friction="simple"
+        server={node}
         title={t("appSettings.previews.removeConfirmTitle", { number })}
         description={t("appSettings.previews.removeConfirmDescription", { domain: preview.domain })}
-        footer={
-          <>
-            <Button disabled={remove.isPending} onClick={() => setConfirming(false)}>
-              {t("appSettings.cancel")}
-            </Button>
-            <Button variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}>
-              {t("appSettings.previews.removePreview")}
-            </Button>
-          </>
-        }
-      >
-        {remove.isError ? <ErrorBlock live compact error={remove.error} title={t("appSettings.previews.previewNotRemovedGeneric")} /> : undefined}
-      </Dialog>
+        actionLabel={t("appSettings.previews.removePreview")}
+        onConfirm={async () => {
+          const result = await request("delete", "/api/apps/{domain}/previews/{number}", { params: { domain, number: preview.number } });
+          followed.follow(result.job as Job);
+          void queryClient.invalidateQueries({ queryKey: previewsKey(domain) });
+        }}
+      />
     </li>
   );
 }
 
 function PreviewList({ domain, data }: { domain: string; data: Previews }) {
   const t = useT();
-  const headingId = useId();
   const max = data.settings?.max_previews ?? null;
   return (
-    <section aria-labelledby={headingId} className="flex min-w-0 flex-col gap-3">
-      <div className="flex flex-wrap items-baseline gap-x-2">
-        <h3 id={headingId} className="text-14 font-medium text-fg">
-          {t("appSettings.previews.previewsHeading")}
-        </h3>
-        <span className="text-12 text-fg-muted">
-          {max !== null
-            ? t("appSettings.previews.ofAtMost", { count: formatCount(data.total), max: formatCount(max) })
-            : t("appSettings.previews.previewCount", { count: data.total })}
-        </span>
-      </div>
+    <Subsection
+      title={t("appSettings.previews.previewsHeading")}
+      description={
+        max !== null
+          ? t("appSettings.previews.ofAtMost", { count: formatCount(data.total), max: formatCount(max) })
+          : t("appSettings.previews.previewCount", { count: data.total })
+      }
+    >
       {data.previews.length === 0 ? (
-        <p className={`${PANEL} px-4 py-4 text-13 text-fg-muted`}>
-          {data.enabled ? t("appSettings.previews.noPreviewsAtAllOn") : t("appSettings.previews.noPreviewsAtAllOff")}
-        </p>
+        <EmptyState variant="inline" title={data.enabled ? t("appSettings.previews.noPreviewsAtAllOn") : t("appSettings.previews.noPreviewsAtAllOff")} />
       ) : (
-        <ul aria-labelledby={headingId} className={`${PANEL} flex flex-col divide-y divide-border`}>
-          {data.previews.map((preview) => (
-            <PreviewRow key={preview.number} domain={domain} preview={preview} />
-          ))}
-        </ul>
+        <Card padding="none">
+          <ul aria-label={t("appSettings.previews.previewsHeading")} className="flex flex-col divide-y divide-border">
+            {data.previews.map((preview) => (
+              <PreviewRow key={preview.number} domain={domain} preview={preview} />
+            ))}
+          </ul>
+        </Card>
       )}
-    </section>
+    </Subsection>
   );
 }
 
 /**
- * Pull request previews: a short-lived copy of the app for each pull request opened against its
- * repository, at a name of its own, removed when the pull request closes or after a while
- * without a push. What they need (a wildcard record, pull request events) and what they get
- * (the app's secrets and databases) is said before they can be turned on.
+ * Previews: a short-lived copy of the app for each pull request opened against its repository,
+ * at a name of its own, removed when the pull request closes or after a while without a push.
+ * What they need (a wildcard record, pull request events) and what they get (the app's secrets
+ * and databases) is said before they can be turned on.
  */
-export function PreviewsSection({ app }: { app: App }) {
+export function PreviewsSettings() {
   const t = useT();
+  const app = useSettingsApp();
   const domain = app.domain;
+  useSubsectionTitle("appSettings.nav.previews", domain);
   const parent = previewParentOf(app);
   const previews = useQuery({ ...previewsQuery(domain), enabled: parent === null });
 
   if (parent !== null) {
     return (
       <Section title={t("appSettings.previews.title")}>
-        <div className={`${PANEL} flex flex-col gap-1 px-4 py-4 text-13`}>
-          <p className="text-fg">
-            {t.rich("appSettings.previews.previewOfParent", {
-              parent: (
-                <Link to="/apps/$domain/settings" params={{ domain: parent }} translate="no" className={LINK}>
-                  {parent}
-                </Link>
-              ),
-            })}
-          </p>
-          <p className="text-pretty text-fg-muted">{t("appSettings.previews.noOwnPreviews")}</p>
-        </div>
+        <Card>
+          <div className="flex flex-col gap-1 text-13">
+            <p className="text-fg">
+              {t.rich("appSettings.previews.previewOfParent", {
+                parent: (
+                  <TextLink to="/apps/$domain/settings/previews" params={{ domain: parent }} translate="no" size="ui">
+                    {parent}
+                  </TextLink>
+                ),
+              })}
+            </p>
+            <p className="text-pretty text-fg-muted">{t("appSettings.previews.noOwnPreviews")}</p>
+          </div>
+        </Card>
       </Section>
     );
   }
 
   const data = previews.data;
   const settings = data?.settings ?? null;
-
+  const hint = <CommandHint command={`noust preview enable ${domain} --domain previews.example.com --max 3 --ttl 7d`} label={t("appSettings.fromTerminal")} />;
   return (
-    <Section title={t("appSettings.previews.title")} description={t("appSettings.previews.description")}>
-      <div className={`${PANEL} flex flex-col gap-5 px-4 py-4 sm:px-5`}>
-        {previews.isPending ? (
-          <div aria-busy="true" className="flex flex-col gap-3">
-            <span className="sr-only">{t("appSettings.previews.loading")}</span>
-            <Skeleton className="h-4 w-48" />
-            <Skeleton className="h-24 w-full rounded-control" />
-          </div>
-        ) : previews.isError || data === undefined ? (
-          <ErrorBlock
-            compact
-            error={previews.error}
-            title={t("appSettings.previews.readFailed")}
-            onRetry={() => void previews.refetch()}
-            retrying={previews.isRefetching}
-          />
-        ) : (
-          <>
-            <div className="flex items-center gap-3">
-              <GitPullRequest aria-hidden="true" className="size-4 shrink-0 text-fg-faint" />
-              {data.enabled ? (
-                <StatusPill state="running" label={t("appSettings.previews.on")} size="sm" />
-              ) : (
-                <StatusPill state="stopped" label={t("appSettings.previews.off")} size="sm" />
-              )}
-              <p className="text-13 text-fg-muted">{data.enabled ? t("appSettings.previews.getsPreview") : t("appSettings.previews.getsNoPreview")}</p>
-            </div>
+    <Section
+      title={t("appSettings.previews.title")}
+      description={t("appSettings.previews.description")}
+      badge={data !== undefined ? <SettingState on={data.enabled} label={data.enabled ? t("appSettings.previews.on") : t("appSettings.previews.off")} /> : undefined}
+    >
+      {previews.isPending ? (
+        <div aria-busy="true" className="flex flex-col gap-4">
+          <span className="sr-only">{t("appSettings.previews.loading")}</span>
+          <Skeleton className="h-24 w-full rounded-card" />
+          <Skeleton className="h-48 w-full rounded-card" />
+        </div>
+      ) : previews.isError || data === undefined ? (
+        <ErrorBlock error={previews.error} title={t("appSettings.previews.readFailed")} onRetry={() => void previews.refetch()} retrying={previews.isRefetching} />
+      ) : (
+        <>
+          {/* What previews need is the way in: once they are on, only what they get stays said. */}
+          {data.enabled ? (
+            <Notice tone="warning" title={t("appSettings.previews.secretsWarningTitle")}>
+              {t("appSettings.previews.secretsWarningBody")}
+            </Notice>
+          ) : (
             <Needs domain={domain} base={settings?.base_domain ?? null} />
-            <PreviewSettingsForm domain={domain} settings={settings} previews={data.previews} />
-          </>
-        )}
-      </div>
-      {data !== undefined && (data.enabled || data.previews.length > 0) ? <PreviewList domain={domain} data={data} /> : null}
-      <CommandHint command={`noust preview enable ${domain} --domain previews.example.com --max 3 --ttl 7d`} label={t("appSettings.fromTerminal")} />
+          )}
+          <PreviewSettingsForm domain={domain} settings={settings} previews={data.previews}>
+            {data.enabled || data.previews.length > 0 ? <PreviewList domain={domain} data={data} /> : null}
+            {hint}
+          </PreviewSettingsForm>
+        </>
+      )}
+      {data === undefined ? hint : null}
     </Section>
   );
 }

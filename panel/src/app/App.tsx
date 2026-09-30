@@ -7,6 +7,7 @@ import { fetchOnEntryNode, nodeQueryKeyHash } from "../api/nodeScope";
 import { jobKeys, keepFinishedJob } from "../api/queries/jobs";
 import { ToastProvider } from "../components/ui/Toast";
 import { TooltipProvider } from "../components/ui/Tooltip";
+import { ApprovalDialog } from "../features/approvals/ApprovalDialog";
 import { ElevateDialog } from "../features/auth/ElevateDialog";
 import { Announcer } from "./Announcer";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -53,6 +54,7 @@ export function App({ router, queryClient }: { router: AppRouter; queryClient: Q
               <RouterProvider router={router} />
             </ErrorBoundary>
             <ElevateDialog />
+            <ApprovalDialog />
             <Announcer />
           </ToastProvider>
         </TooltipProvider>

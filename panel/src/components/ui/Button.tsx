@@ -29,9 +29,9 @@ const VARIANTS: Record<ButtonVariant, string> = {
 };
 
 const SIZES: Record<ButtonSize, string> = {
-  sm: "h-7 gap-1.5 px-2.5 text-13 [&_svg]:size-3.5",
-  md: "h-8 gap-2 px-3 text-13 [&_svg]:size-4",
-  lg: "h-10 gap-2 px-4 text-14 [&_svg]:size-4",
+  sm: "h-control-sm gap-1.5 px-2.5 text-13 [&_svg]:size-icon-sm",
+  md: "h-control-md gap-2 px-3 text-13 [&_svg]:size-icon-md",
+  lg: "h-control-lg gap-2 px-4 text-14 [&_svg]:size-icon-md",
 };
 
 /** The class string of a button, for elements that must look like one (links, triggers). */
@@ -78,6 +78,8 @@ export function Button({
       disabled={disabled || loading}
       focusableWhenDisabled={loading}
       aria-busy={loading || undefined}
+      // Read by the design contract (one primary per view) and by the gallery.
+      data-variant={variant}
       className={buttonClassName(variant, size, className)}
     >
       {loading ? <Spinner size={size === "sm" ? 14 : 16} /> : icon}

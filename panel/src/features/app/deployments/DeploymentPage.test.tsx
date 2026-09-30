@@ -6,7 +6,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { FakeWebSocket, fakeBackend, json, problem } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
-import { TAB_DOMAIN, appRoutes } from "../testRoutes";
+import { TAB_DOMAIN, appRoutes, screenWidth } from "../testRoutes";
 
 const FAILED = {
   id: 20,
@@ -52,6 +52,7 @@ async function pageAt(
   extra: Record<string, RouteHandler> = {},
   app: Record<string, unknown> = {},
 ) {
+  screenWidth(1440);
   const backend = fakeBackend(
     appRoutes(app, {
       "GET /api/deployments": () => json(200, { items: [FAILED], total: 1, next_before_id: null }),
@@ -196,7 +197,7 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
     );
     await user.click(await screen.findByRole("button", { name: "Rebuild this commit" }));
     const dialog = await screen.findByRole("dialog", { name: "Rebuild commit a94c0e2?" });
-    expect(within(dialog).getByText(/is still on disk and is not the one serving, it is activated in seconds/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/is still on disk and is not the one live, it is switched to in seconds/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Rebuild" }));
     expect(backend.calls.some((call) => call.method === "POST" && call.path === `/api/apps/${TAB_DOMAIN}/deployments/20/rebuild`)).toBe(true);
     // Never the plain update the header's Update runs.
@@ -277,12 +278,12 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
       },
       { layout: "releases" },
     );
-    await user.click(await screen.findByRole("button", { name: "Roll back to this" }));
-    const dialog = await screen.findByRole("dialog", { name: "Roll back to deployment 20?" });
-    expect(within(dialog).getByText(/Release 20260916-182823-a94c0e2 is activated in seconds/)).toBeInTheDocument();
-    await user.click(within(dialog).getByRole("button", { name: "Roll back" }));
+    await user.click(await screen.findByRole("button", { name: "Go back to this version" }));
+    const dialog = await screen.findByRole("dialog", { name: "Go back to deployment 20?" });
+    expect(within(dialog).getByText(/Version 20260916-182823-a94c0e2 is switched to in seconds/)).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Go back" }));
     expect(backend.calls.some((call) => call.method === "POST" && call.path === `/api/apps/${TAB_DOMAIN}/deployments/20/rollback`)).toBe(true);
-    expect(await screen.findByText("Rolled back to deployment 20.", {}, { timeout: 4_000 })).toBeInTheDocument();
+    expect(await screen.findByText("Went back to deployment 20.", {}, { timeout: 4_000 })).toBeInTheDocument();
   });
 
   it("says an in-place rollback restores the deployment's snapshot, after a backup of the current state", async () => {
@@ -290,12 +291,12 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
       [`GET /api/deployments/${String(FAILED.id)}`]: () =>
         json(200, { ...FAILED, status: "success", error: null, snapshot_backup: "app_20260920_101500", rollback_available: true }),
     });
-    await user.click(await screen.findByRole("button", { name: "Roll back to this" }));
-    const dialog = await screen.findByRole("dialog", { name: "Roll back to deployment 20?" });
+    await user.click(await screen.findByRole("button", { name: "Go back to this version" }));
+    const dialog = await screen.findByRole("dialog", { name: "Go back to deployment 20?" });
     expect(within(dialog).getByText(/restored from backup app_20260920_101500.*A backup of the current state is taken first/)).toBeInTheDocument();
   });
 
-  it("says why a deployment cannot be gone back to, and offers the other versions instead", async () => {
+  it("offers nothing to go back to on a deployment that cannot be, and leaves the other versions to the header", async () => {
     const { user } = await pageAt(
       20,
       {
@@ -313,11 +314,13 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
       },
       { layout: "releases" },
     );
-    expect(await screen.findByText("Can't roll back to this deployment: Deployment 20 did not finish serving anything to go back to.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Roll back to this" })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Roll back…" }));
+    await screen.findByRole("button", { name: "Rebuild this commit" });
+    expect(screen.queryByRole("button", { name: "Go back to this version" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/did not finish serving anything/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Roll back…" }));
     const chooser = await screen.findByRole("dialog", { name: `Roll back ${TAB_DOMAIN}` });
-    expect(await within(chooser).findByRole("radio", { name: /20260916-182823-9f2c41a/ })).toBeInTheDocument();
+    expect(await within(chooser).findByRole("button", { name: "Go back to 20260916-182823-9f2c41a" })).toBeInTheDocument();
   });
 
   it("says Health does not apply to a static site, instead of that it is missing from the log", async () => {
@@ -344,7 +347,7 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
     expect(within(health).queryByText("Not in the log")).not.toBeInTheDocument();
     // Measured from the log alone: seven seconds, never an hour of time-zone offset.
     expect(within(phases).getByText("7.0s")).toBeInTheDocument();
-    expect(screen.getByText(/Health does not apply: a static site is served as files/)).toBeInTheDocument();
+    expect(screen.getByText(/The startup check does not apply: a static site is served as files/)).toBeInTheDocument();
   });
 
   it("says plainly when there is no such deployment", async () => {

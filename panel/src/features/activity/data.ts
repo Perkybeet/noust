@@ -33,6 +33,8 @@ export interface AuditRow {
   id: string;
   timestamp: string;
   entry: AuditEntry;
+  /** A sign-in that went through the second factor: the "asked for the code" step before it is folded into it. */
+  secondFactor?: boolean;
 }
 
 export type ActivityRow = JobRow | AuditRow;
@@ -115,6 +117,45 @@ export function withoutRequestEchoes(rows: readonly ActivityRow[]): ActivityRow[
   });
 }
 
+/** How long after asking for the second factor a sign-in from the same address still answers it. */
+const SECOND_FACTOR_WINDOW_MS = 10 * 60_000;
+
+/** A sign-in that stopped to ask for the second factor: the first half of a normal two-factor sign-in. */
+export function isSecondFactorAsk(entry: AuditEntry): boolean {
+  return entry.action === "auth.login" && entry.result !== "success" && entry.result !== "ok" && /second factor/i.test(entry.detail ?? "");
+}
+
+function succeeded(entry: AuditEntry): boolean {
+  return entry.result === "success" || entry.result === "ok";
+}
+
+/**
+ * One row per two-factor sign-in, not two: the "second factor required" step is dropped when
+ * a sign-in from the same address succeeded within minutes of it, and that sign-in says it
+ * went through the second factor. An ask nobody answered stays, as what it was.
+ */
+export function foldSecondFactor(rows: readonly ActivityRow[]): ActivityRow[] {
+  const asks = rows.filter((row): row is AuditRow => row.kind === "audit" && isSecondFactorAsk(row.entry));
+  if (asks.length === 0) return [...rows];
+  const signIns = rows.filter((row): row is AuditRow => row.kind === "audit" && row.entry.action === "auth.login" && succeeded(row.entry));
+  const answered = new Set<string>();
+  const confirmed = new Set<string>();
+  for (const ask of asks) {
+    const at = timeValue(ask.timestamp);
+    const match = signIns.find(
+      (row) =>
+        !confirmed.has(row.id) &&
+        (row.entry.client_ip ?? null) === (ask.entry.client_ip ?? null) &&
+        timeValue(row.timestamp) >= at &&
+        timeValue(row.timestamp) - at <= SECOND_FACTOR_WINDOW_MS,
+    );
+    if (match === undefined) continue;
+    answered.add(ask.id);
+    confirmed.add(match.id);
+  }
+  return rows.filter((row) => !answered.has(row.id)).map((row) => (row.kind === "audit" && confirmed.has(row.id) ? { ...row, secondFactor: true } : row));
+}
+
 export function mergeActivity({ jobs, jobsComplete, entries, auditComplete, actor }: MergeInput): MergedActivity {
   const lastJob = jobs.at(-1);
   const jobFloor = jobsComplete || lastJob === undefined ? Number.NEGATIVE_INFINITY : timeValue(jobTimestamp(lastJob));
@@ -122,7 +163,7 @@ export function mergeActivity({ jobs, jobsComplete, entries, auditComplete, acto
   const auditFloor = auditComplete || lastEntry === undefined ? Number.NEGATIVE_INFINITY : timeValue(lastEntry.timestamp);
   const cutoff = Math.max(jobFloor, auditFloor);
 
-  const rows = withoutRequestEchoes([...jobs.map(toJobRow), ...entries.map(toAuditRow)])
+  const rows = foldSecondFactor(withoutRequestEchoes([...jobs.map(toJobRow), ...entries.map(toAuditRow)]))
     .filter((row) => timeValue(row.timestamp) >= cutoff)
     .filter((row) => actor === undefined || rowActor(row) === actor)
     .sort((a, b) => timeValue(b.timestamp) - timeValue(a.timestamp));
@@ -197,6 +238,61 @@ const AUDIT_ACTION_LABELS: Readonly<Record<string, PlainKey>> = {
   "hooks.secret.disable": "activity.auditAction.hooksSecretDisable",
   "hooks.secret.mint": "activity.auditAction.hooksSecretMint",
   "ws.connect": "activity.auditAction.wsConnect",
+  "auth.unlock": "activity.auditAction.authUnlock",
+  "auth.break_glass": "activity.auditAction.authBreakGlass",
+  "auth.session.timeout": "activity.auditAction.authSessionTimeout",
+  "auth.passkey.login": "activity.auditAction.authPasskeyLogin",
+  "auth.token.denied": "activity.auditAction.authTokenDenied",
+  "http.denied.permission": "activity.auditAction.httpDeniedPermission",
+  "apps.create": "activity.auditAction.appsCreate",
+  "apps.update": "activity.auditAction.appsUpdate",
+  "apps.deploy": "activity.auditAction.appsDeploy",
+  "apps.rollback": "activity.auditAction.appsRollback",
+  "apps.delete": "activity.auditAction.appsDelete",
+  "apps.restart": "activity.auditAction.appsRestart",
+  "apps.start": "activity.auditAction.appsStart",
+  "apps.stop": "activity.auditAction.appsStop",
+  "apps.limits": "activity.auditAction.appsLimits",
+  "sites.create": "activity.auditAction.sitesCreate",
+  "sites.update": "activity.auditAction.sitesUpdate",
+  "sites.delete": "activity.auditAction.sitesDelete",
+  "sites.enable": "activity.auditAction.sitesEnable",
+  "sites.disable": "activity.auditAction.sitesDisable",
+  "certs.create": "activity.auditAction.certsCreate",
+  "certs.renew": "activity.auditAction.certsRenew",
+  "certs.delete": "activity.auditAction.certsDelete",
+  "certs.revoke": "activity.auditAction.certsRevoke",
+  "cron.create": "activity.auditAction.cronCreate",
+  "cron.update": "activity.auditAction.cronUpdate",
+  "cron.delete": "activity.auditAction.cronDelete",
+  "cron.run": "activity.auditAction.cronRun",
+  "cron.enable": "activity.auditAction.cronEnable",
+  "cron.disable": "activity.auditAction.cronDisable",
+  "backups.create": "activity.auditAction.backupsCreate",
+  "backups.delete": "activity.auditAction.backupsDelete",
+  "backups.restore": "activity.auditAction.backupsRestore",
+  "backups.verify": "activity.auditAction.backupsVerify",
+  "backups.push": "activity.auditAction.backupsPush",
+  "backup.schedule.create": "activity.auditAction.backupScheduleCreate",
+  "backup.schedule.update": "activity.auditAction.backupScheduleUpdate",
+  "backup.schedule.delete": "activity.auditAction.backupScheduleDelete",
+  "backup.destination.create": "activity.auditAction.backupDestinationCreate",
+  "backup.destination.update": "activity.auditAction.backupDestinationUpdate",
+  "backup.destination.delete": "activity.auditAction.backupDestinationDelete",
+  "backup.destination.key": "activity.auditAction.backupDestinationKey",
+  "services.create": "activity.auditAction.servicesCreate",
+  "services.delete": "activity.auditAction.servicesDelete",
+  "services.start": "activity.auditAction.servicesStart",
+  "services.stop": "activity.auditAction.servicesStop",
+  "services.restart": "activity.auditAction.servicesRestart",
+  "db.create": "activity.auditAction.dbCreate",
+  "db.drop": "activity.auditAction.dbDrop",
+  "config.change": "activity.auditAction.configChange",
+  "user.create": "activity.auditAction.userCreate",
+  "user.role_change": "activity.auditAction.userRoleChange",
+  "system.update": "activity.auditAction.systemUpdate",
+  "server.update": "activity.auditAction.serverUpdate",
+  "server.reboot": "activity.auditAction.serverReboot",
 };
 
 /**
@@ -230,6 +326,33 @@ export function resourceOf(row: ActivityRow): string | null {
   return row.kind === "job" ? jobResource(row.job) : (row.entry.resource ?? null);
 }
 
+/** API paths whose next segment names the thing acted on: an app, a site, a certificate... */
+const OBJECT_PATHS = /^\/api\/(?:apps|sites|certs|cron|services|backups|backup-destinations|backup-schedules|nodes|previews)\/([^/?#]+)/;
+/** Segments under those paths that are endpoints of the collection, not one of its objects. */
+const NOT_OBJECTS: ReadonlySet<string> = new Set(["preview", "templates", "backends", "reload", "renew-all", "storage", "import"]);
+const DATABASE_PATH = /^\/api\/databases\/[^/]+\/([^/?#]+)/;
+
+/**
+ * What an action was done to, as the operator names it: `shop.example.com` for
+ * `/api/apps/shop.example.com/restart`, a database's name, a site's. A path that names no
+ * object (a sign-in's `/api/auth/login`: the console itself) has none; any other resource is
+ * shown as recorded. The raw value always stays in reach, in the title.
+ */
+export function resourceWords(row: ActivityRow): { object: string | null; raw: string | null } {
+  const raw = resourceOf(row);
+  if (row.kind === "job" || raw === null) return { object: raw, raw };
+  const object = OBJECT_PATHS.exec(raw) ?? DATABASE_PATH.exec(raw);
+  if (object?.[1] !== undefined && !NOT_OBJECTS.has(object[1])) {
+    try {
+      return { object: decodeURIComponent(object[1]), raw };
+    } catch {
+      return { object: object[1], raw };
+    }
+  }
+  if (raw.startsWith("/api/auth") || raw.startsWith("/ws/") || raw.startsWith("/events")) return { object: null, raw };
+  return { object: raw, raw };
+}
+
 /** A row's free-text context: a job's description, or an audit entry's detail. */
 export function detailOf(row: ActivityRow): string | null {
   if (row.kind === "job") return row.job.description || row.job.name || null;
@@ -247,6 +370,7 @@ const AUDIT_RESULT_STATUS: Readonly<Record<string, { state: StatusView["state"];
   denied: { state: "failed", key: "activity.auditResult.denied", attention: true },
   failure: { state: "failed", key: "activity.auditResult.failure", attention: true },
   locked: { state: "failed", key: "activity.auditResult.locked", attention: true },
+  warning: { state: "warning", key: "activity.auditResult.warning", attention: true },
 };
 
 /** Maps an audit entry's result to the same state language as an app's or a job's status. */
@@ -267,7 +391,10 @@ export function auditResultStatus(t: T, result: string): StatusView {
 
 /** A row's result, whichever source it came from, in the app/deploy/job state language. */
 export function resultView(t: T, row: ActivityRow): StatusView {
-  return row.kind === "job" ? deployStatus(row.job.status, t.locale) : auditResultStatus(t, row.entry.result);
+  if (row.kind === "job") return deployStatus(row.job.status, t.locale);
+  // Not a failure: the first step of every two-factor sign-in, left alone when nobody answered it.
+  if (isSecondFactorAsk(row.entry)) return { state: "stopped", label: t("activity.auditResult.askedSecondFactor"), attention: false };
+  return auditResultStatus(t, row.entry.result);
 }
 
 export interface ActorWords {
@@ -296,10 +423,87 @@ export function describeActor(t: T, actor: string): ActorWords {
   return { label: short === "" ? t("activity.actor.browserSession") : t("activity.actor.session", { short }), raw: actor };
 }
 
+type AuditActor = NonNullable<AuditEntry["who"]>;
+
+/**
+ * An actor the 3.1 audit log describes in full (`who`): an account by its name, a token by
+ * its own, a command at the terminal by the login that typed it, an operator acting through a
+ * central by both. The recorded label stays the raw value.
+ */
+export function describeWho(t: T, who: AuditActor, raw: string): ActorWords {
+  const name = who.name ?? who.id ?? null;
+  switch (who.kind) {
+    case "master":
+      return { label: t("activity.actor.masterToken"), raw };
+    case "anonymous":
+      return { label: t("activity.actor.anonymous"), raw };
+    case "token": {
+      const token = name?.replace(/^token:/, "") ?? "";
+      return { label: token === "" ? t("activity.actor.apiToken") : t("activity.actor.namedToken", { name: token }), raw };
+    }
+    case "cli":
+      return { label: name === null ? t("activity.actor.terminalUnknown") : t("activity.actor.terminal", { name }), raw };
+    case "fleet": {
+      const central = who.via?.replace(/^fleet:/, "") ?? null;
+      if (name !== null && central !== null) return { label: t("activity.actor.throughCentral", { name, central }), raw };
+      return { label: name ?? central ?? raw, raw };
+    }
+    case "system":
+      return { label: t("activity.actor.system"), raw };
+    default:
+      return { label: name ?? raw, raw };
+  }
+}
+
 /** A row's actor, worded - "Not recorded" for a job queued before jobs carried one. */
 export function actorWords(t: T, row: ActivityRow): ActorWords {
+  if (row.kind === "audit" && row.entry.who !== null && row.entry.who !== undefined) return describeWho(t, row.entry.who, row.entry.actor);
   const raw = rowActor(row);
   return raw === null ? { label: t("activity.actor.notRecorded"), raw: "-" } : describeActor(t, raw);
+}
+
+/** Where an audited action came from: the address or terminal the actor used, when recorded. */
+export function actorSource(row: ActivityRow): string | null {
+  if (row.kind !== "audit") return null;
+  return row.entry.who?.source ?? row.entry.client_ip ?? null;
+}
+
+// ---------------------------------------------------------------------------------------
+// Which rows a view shows: operations (what was done to the server and its applications),
+// sign-ins and access, or everything.
+
+/** Categories of the audit catalog (`noust.core.audit.catalog`) that change something. */
+const OPERATION_CATEGORIES: ReadonlySet<string> = new Set(["change", "config", "account"]);
+/** Categories about who got in, who was refused, and who saw a secret. */
+const ACCESS_CATEGORIES: ReadonlySet<string> = new Set(["access", "denial", "read"]);
+
+/**
+ * An audit entry's category: the catalog's own since 3.1; before it, the sign-in family is
+ * recognised by its action (every `auth.*` and socket event), and the rest changed something.
+ */
+export function auditCategory(entry: AuditEntry): string {
+  if (entry.category !== null && entry.category !== undefined && entry.category !== "") return entry.category;
+  if (entry.action.startsWith("auth.") || entry.action.startsWith("ws.")) return "access";
+  return "change";
+}
+
+/** Whether a row belongs to a view: jobs are operations; audit entries go by their category. */
+export function inKind(row: ActivityRow, kind: ActivitySearch["kind"]): boolean {
+  if (kind === "all") return true;
+  if (row.kind === "job") return kind === undefined;
+  const category = auditCategory(row.entry);
+  return kind === "access" ? ACCESS_CATEGORIES.has(category) : OPERATION_CATEGORIES.has(category);
+}
+
+/** Whether a row matches free text, against what it shows and what the backend recorded. */
+export function matchesText(row: ActivityRow, text: string, words: readonly string[] = []): boolean {
+  const needle = text.trim().toLowerCase();
+  if (needle === "") return true;
+  const recorded =
+    row.kind === "job"
+      ? [row.job.name, row.job.description, row.job.type, row.job.actor ?? "", jobResource(row.job) ?? ""]
+      : [row.entry.action, row.entry.actor, row.entry.resource ?? "", row.entry.detail ?? "", row.entry.client_ip ?? "", row.entry.who?.name ?? ""];
+  return [...recorded, ...words].some((value) => value.toLowerCase().includes(needle));
 }
 
 // ---------------------------------------------------------------------------------------
@@ -327,17 +531,19 @@ const AUDIT_RESULT_WORDS: Readonly<Record<string, PlainKey>> = {
 };
 
 export interface ActivitySearch {
-  kind?: "jobs" | "audit";
-  /** A job status or an audit result, whichever `kind` allows. */
+  /** The view: operations when absent, sign-ins and access, or everything. */
+  kind?: "access" | "all";
+  /** A job status or an audit result, whichever the view allows. */
   result?: string;
+  /** Free text, matched against what each row shows and what the backend recorded. */
+  q?: string;
   /** The exact actor value: `master`, `token:<name>`, `webhook`, `anonymous` or a session id. */
   actor?: string;
 }
 
-/** Whether a result value means anything under a kind: a job status when jobs are shown, an audit result when audit entries are. */
+/** Whether a result value means anything in a view: sign-ins have no jobs, so no job status. */
 export function resultValidFor(result: string, kind: ActivitySearch["kind"]): boolean {
-  if (kind === "jobs") return JOB_STATUSES.has(result);
-  if (kind === "audit") return AUDIT_RESULTS.has(result);
+  if (kind === "access") return AUDIT_RESULTS.has(result);
   return JOB_STATUSES.has(result) || AUDIT_RESULTS.has(result);
 }
 
@@ -347,26 +553,19 @@ export interface ResultOption {
 }
 
 /**
- * The Result filter's options for a kind: both vocabularies when everything is shown (prefixed
- * so "Failed" the job status and "Failed" the audit result are not offered as one confusing
- * entry), just the relevant one once `kind` narrows it.
+ * The Result filter's options for a view: both vocabularies where jobs and audited actions mix
+ * (prefixed, so "Failed" the job status and "Failed" the audit result are not offered as one
+ * confusing entry), the audit's alone for sign-ins.
  */
 export function resultOptions(t: T, kind: ActivitySearch["kind"]): ResultOption[] {
-  const both = kind === undefined;
-  const jobs =
-    kind !== "audit"
-      ? Object.entries(JOB_RESULT_WORDS).map(([value, key]) => ({
-          value,
-          label: both ? t("activity.jobResultPrefix", { label: t(key) }) : t(key),
-        }))
-      : [];
-  const audit =
-    kind !== "jobs"
-      ? Object.entries(AUDIT_RESULT_WORDS).map(([value, key]) => ({
-          value,
-          label: both ? t("activity.actionResultPrefix", { label: t(key) }) : t(key),
-        }))
-      : [];
+  const both = kind !== "access";
+  const jobs = both
+    ? Object.entries(JOB_RESULT_WORDS).map(([value, key]) => ({ value, label: t("activity.jobResultPrefix", { label: t(key) }) }))
+    : [];
+  const audit = Object.entries(AUDIT_RESULT_WORDS).map(([value, key]) => ({
+    value,
+    label: both ? t("activity.actionResultPrefix", { label: t(key) }) : t(key),
+  }));
   return [...jobs, ...audit];
 }
 
@@ -376,19 +575,25 @@ function text(value: unknown): string | undefined {
   return trimmed === "" ? undefined : trimmed.slice(0, 200);
 }
 
+/**
+ * The page's search params. 3.0's `kind=jobs` and `kind=audit` still open: jobs are the
+ * operations view now, and the audit log alone is everything.
+ */
 export function validateActivitySearch(search: Record<string, unknown>): ActivitySearch {
   const kindRaw = text(search["kind"]);
-  const kind = kindRaw === "jobs" || kindRaw === "audit" ? kindRaw : undefined;
+  const kind = kindRaw === "access" || kindRaw === "all" ? kindRaw : kindRaw === "audit" ? "all" : undefined;
   const resultRaw = text(search["result"]);
   const result = resultRaw !== undefined && resultValidFor(resultRaw, kind) ? resultRaw : undefined;
+  const q = text(search["q"]);
   const actor = text(search["actor"]);
   return {
     ...(kind !== undefined ? { kind } : {}),
     ...(result !== undefined ? { result } : {}),
+    ...(q !== undefined ? { q } : {}),
     ...(actor !== undefined ? { actor } : {}),
   };
 }
 
 export function isFiltered(search: ActivitySearch): boolean {
-  return search.kind !== undefined || search.result !== undefined || search.actor !== undefined;
+  return search.kind !== undefined || search.result !== undefined || search.q !== undefined || search.actor !== undefined;
 }

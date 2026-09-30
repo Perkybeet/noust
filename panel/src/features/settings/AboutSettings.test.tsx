@@ -12,6 +12,7 @@ function aboutRoutes(version: Record<string, unknown>): Record<string, RouteHand
     ...signedInRoutes(),
     "GET /api/system/version": () => json(200, version),
     "GET /api/config": () => json(200, { config: {}, path: "/etc/noust/config.yaml", writable: true }),
+    "GET /api/system/update": () => json(200, { current_version: "2.0.0", method: "apt", supported: true }),
   };
 }
 
@@ -27,16 +28,28 @@ describe("Settings > About", () => {
       }),
     );
     const { container } = renderConsole("/settings/about");
-    const version = await screen.findByRole("region", { name: "Version and updates" });
-    expect(await within(version).findByText("Version 2.1.0 is available")).toBeInTheDocument();
+    const version = await screen.findByRole("region", { name: "Version" });
+    expect(await within(version).findByText("Version 2.1.0 can be installed")).toBeInTheDocument();
     expect(within(version).getByText("2.0.0")).toBeInTheDocument();
     expect(within(version).getByText("pip install --upgrade wasm-cli")).toBeInTheDocument();
     expect(within(version).getByRole("link", { name: /What is new in 2.1.0/ })).toHaveAttribute(
       "href",
       "https://github.com/Perkybeet/wasm/releases/tag/v2.1.0",
     );
+    // How this server updates, the rename, and the licence.
+    expect(await screen.findByText("the apt repository")).toBeInTheDocument();
+    expect(screen.getByText("Noust was called WASM")).toBeInTheDocument();
+    expect(screen.getByText("AGPL-3.0-or-later")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Source code/ })).toHaveAttribute("href", "https://github.com/Perkybeet/noust");
     expect(screen.getByText("noust config show")).toBeInTheDocument();
     await expectNoAxeViolations(container);
+  });
+
+  it("says when checking for new versions is off, and where to turn it on", async () => {
+    fakeBackend(aboutRoutes({ current_version: "3.1.0", has_update: false, status: "disabled" }));
+    renderConsole("/settings/about");
+    expect(await screen.findByText("Checking for new versions is off")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "General settings" })).toHaveAttribute("href", "/settings");
   });
 
   it("does not turn an unsafe release_url into a link", async () => {
@@ -50,7 +63,7 @@ describe("Settings > About", () => {
       }),
     );
     renderConsole("/settings/about");
-    expect(await screen.findByText("Version 2.1.0 is available")).toBeInTheDocument();
+    expect(await screen.findByText("Version 2.1.0 can be installed")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /What is new in/ })).not.toBeInTheDocument();
   });
 
@@ -67,7 +80,7 @@ describe("Settings > About", () => {
       }),
     );
     renderConsole("/settings/about");
-    const version = await screen.findByRole("region", { name: "Version and updates" });
+    const version = await screen.findByRole("region", { name: "Version" });
     expect(await within(version).findByText("Version 2.3.0 is on the way")).toBeInTheDocument();
     expect(within(version).getByText(/the package for this server is not available yet/)).toBeInTheDocument();
     expect(within(version).queryByText(/sudo apt update/)).not.toBeInTheDocument();
@@ -79,7 +92,7 @@ describe("Settings > About", () => {
       aboutRoutes({ current_version: "2.1.0", latest_version: "2.1.0", has_update: false, update_command: null, release_url: null }),
     );
     const { user } = renderConsole("/settings/about");
-    expect(await screen.findByText("Up to date. 2.1.0 is the latest release.")).toBeInTheDocument();
+    expect(await screen.findByText("Up to date: 2.1.0 is the newest version.")).toBeInTheDocument();
 
     backend.on("GET /api/system/version", () =>
       json(200, { current_version: "2.1.0", latest_version: null, has_update: false, update_command: null, release_url: null }),
@@ -103,8 +116,8 @@ describe("Settings > About in Spanish", () => {
       }),
     );
     const { container } = renderConsole("/settings/about");
-    const version = await screen.findByRole("region", { name: "Versión y actualizaciones" });
-    expect(await within(version).findByText("La versión 2.1.0 está disponible")).toBeInTheDocument();
+    const version = await screen.findByRole("region", { name: "Versión" });
+    expect(await within(version).findByText("Se puede instalar la versión 2.1.0")).toBeInTheDocument();
     expect(within(version).getByRole("link", { name: /Novedades de 2.1.0/ })).toHaveAttribute(
       "href",
       "https://github.com/Perkybeet/wasm/releases/tag/v2.1.0",

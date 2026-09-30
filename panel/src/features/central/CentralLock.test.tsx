@@ -44,8 +44,8 @@ describe("a sealed central", () => {
   it("shows the lock screen after sign-in, refuses a wrong passphrase, and opens with the right one", { timeout: 30_000 }, async () => {
     const backend = sealedCentral();
     const { user, container } = renderConsole("/");
-    expect(await screen.findByRole("heading", { level: 1, name: "This central is locked" })).toBeInTheDocument();
-    expect(screen.getByText(/nothing reaches the servers/)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "This console is locked" })).toBeInTheDocument();
+    expect(screen.getByText(/a passphrase that is not stored anywhere/)).toBeInTheDocument();
     // The machine is named first, so a passphrase is never typed into the wrong one.
     expect(screen.getByText("web-01")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { level: 1, name: "Overview" })).not.toBeInTheDocument();
@@ -53,8 +53,9 @@ describe("a sealed central", () => {
 
     const field = screen.getByLabelText("Passphrase");
     expect(field).toHaveAttribute("type", "password");
+    // The title takes focus on arrival (T7), for a screen reader to start from.
     await waitFor(() => {
-      expect(field).toHaveFocus();
+      expect(screen.getByRole("heading", { level: 1, name: "This console is locked" })).toHaveFocus();
     });
     await user.type(field, "wrong one");
     await user.click(screen.getByRole("button", { name: "Unlock" }));
@@ -104,18 +105,18 @@ describe("a sealed central", () => {
     await waitFor(() => {
       expect(screen.queryByText("Its servers are out of reach until you unlock its sealed secrets.")).not.toBeInTheDocument();
     });
-    const table = screen.getByRole("region", { name: "Servers of this fleet" });
-    expect(await within(table).findByText("7.5%")).toBeInTheDocument();
+    const servers = await screen.findByRole("list", { name: "The fleet's servers at a glance" });
+    expect(await within(servers).findByText("web-2")).toBeInTheDocument();
   });
 
   it("speaks Spanish on the lock screen, with no accessibility violations", { timeout: 20_000 }, async () => {
     sealedCentral();
     const { container } = renderConsole("/");
-    await screen.findByRole("heading", { level: 1, name: "This central is locked" });
+    await screen.findByRole("heading", { level: 1, name: "This console is locked" });
     await act(async () => {
       await setLocale("es");
     });
-    expect(await screen.findByRole("heading", { level: 1, name: "Esta central está bloqueada" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Esta consola está bloqueada" })).toBeInTheDocument();
     expect(screen.getByLabelText("Frase de paso")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Continuar sin desbloquear" })).toBeInTheDocument();
     await expectNoAxeViolations(container, { page: true });

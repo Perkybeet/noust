@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { loadCatalog } from "../../i18n";
 import type { CronJob } from "./data";
-import { filterJobs, isFiltered, runStatus, scheduleWords, validateCronSearch } from "./data";
+import { calendarWords, filterJobs, isFiltered, runStatus, runTimes, validateCronSearch } from "./data";
 
 function job(name: string, command: string): CronJob {
   return {
@@ -62,12 +62,38 @@ describe("filterJobs", () => {
   });
 });
 
-describe("scheduleWords", () => {
-  it("names a preset, a daily time, and calls anything else custom", () => {
-    expect(scheduleWords("daily", "*-*-* 02:00:00")).toBe("Daily");
-    expect(scheduleWords("custom", "*-*-* 03:30:00")).toBe("Every day at 03:30");
-    expect(scheduleWords("custom", "*-*-* 3:05")).toBe("Every day at 03:05");
-    expect(scheduleWords("custom", "Mon..Fri *-*-* 09:00:00")).toBe("Custom");
+describe("calendarWords", () => {
+  it("says the shapes an operator writes in words, and names anything else by its preset or as custom", () => {
+    expect(calendarWords("daily", "*-*-* 02:00:00")).toBe("Every day at 02:00");
+    expect(calendarWords("custom", "*-*-* 3:05")).toBe("Every day at 03:05");
+    expect(calendarWords("hourly", "*-*-* *:00:00")).toBe("Every hour, on the hour");
+    expect(calendarWords("custom", "*-*-* *:00/15:00")).toBe("Every 15 minutes");
+    expect(calendarWords("custom", "*-*-* *:0/1")).toBe("Every minute");
+    expect(calendarWords("weekly", "Mon *-*-* 02:00:00")).toBe("Every Monday at 02:00");
+    expect(calendarWords("custom", "Mon..Fri *-*-* 09:00:00")).toBe("Monday to Friday at 09:00");
+    expect(calendarWords("monthly", "*-*-01 02:00:00")).toBe("On day 1 of every month at 02:00");
+    expect(calendarWords("custom", "Sat,Sun *-*-* 04:00:00")).toBe("Custom schedule");
+    // Nothing to read: the preset it was made from says it.
+    expect(calendarWords("weekly", "")).toBe("Every Monday at 02:00");
+    expect(calendarWords("custom", "*-01,07-01 00:00:00")).toBe("Custom schedule");
+  });
+});
+
+describe("runTimes", () => {
+  it("leads with the server's clock, the one the schedule is written in", () => {
+    const run = runTimes("2026-09-30T02:00:00+00:00");
+    expect(run.server).toBe("Wed, Sep 30, 02:00");
+    expect(run.zone).toBe("UTC");
+  });
+
+  it("names a server clock that is not UTC by its offset", () => {
+    const run = runTimes("2026-09-30T02:00:00+02:00");
+    expect(run.server).toBe("Wed, Sep 30, 02:00");
+    expect(run.zone).toBe("UTC+02:00");
+  });
+
+  it("keeps what it cannot place in time as it came", () => {
+    expect(runTimes("Wed 2026-09-30 02:00:00 CEST")).toEqual({ server: "Wed 2026-09-30 02:00:00 CEST", zone: "", local: null });
   });
 });
 
@@ -81,8 +107,9 @@ describe("in Spanish", () => {
 
   it("translates the schedule words", async () => {
     await loadCatalog("es");
-    expect(scheduleWords("daily", "*-*-* 02:00:00", "es")).toBe("Diaria");
-    expect(scheduleWords("custom", "*-*-* 03:30:00", "es")).toBe("Cada día a las 03:30");
-    expect(scheduleWords("custom", "Mon..Fri *-*-* 09:00:00", "es")).toBe("Personalizada");
+    expect(calendarWords("daily", "*-*-* 02:00:00", "es")).toBe("Cada día a las 02:00");
+    expect(calendarWords("weekly", "Mon *-*-* 02:00:00", "es")).toBe("Cada lunes a las 02:00");
+    expect(calendarWords("custom", "Mon..Fri *-*-* 09:00:00", "es")).toBe("De lunes a viernes a las 09:00");
+    expect(calendarWords("custom", "*-01,07-01 00:00:00", "es")).toBe("Programación personalizada");
   });
 });

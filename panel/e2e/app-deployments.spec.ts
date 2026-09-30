@@ -91,13 +91,13 @@ test("the history pages by keyset, links each deploy to its page, and passes axe
   await expect(first).toHaveAttribute("href", new RegExp(`/apps/${RELEASES_APP.replace(/\./g, "\\.")}/deployments/\\d+$`));
 
   const older = page.waitForRequest((request) => request.url().includes("/api/deployments?") && request.url().includes("before_id="));
-  await page.getByRole("button", { name: "Load older deploys" }).click();
+  await page.getByRole("button", { name: "Load more" }).click();
   expect(new URL((await older).url()).searchParams.get("domain")).toBe(RELEASES_APP);
-  await expect(page.getByRole("button", { name: "Load older deploys" })).toBeHidden();
+  await expect(page.getByRole("button", { name: "Load more" })).toBeHidden();
   expect(await table.getByRole("row").count()).toBeGreaterThan(11);
 
-  const releases = page.getByRole("list", { name: `Releases of ${RELEASES_APP}, newest first` });
-  await expect(releases.getByText("Serving", { exact: true })).toBeVisible();
+  const releases = page.getByRole("list", { name: `Versions of ${RELEASES_APP}, newest first` });
+  await expect(releases.getByText("Live", { exact: true })).toBeVisible();
   await expect(releases.getByText("Removed from disk")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "an app's deployments");
@@ -134,29 +134,31 @@ test("a failed deploy says where it stopped, the fix above and the error verbati
 
 test("a release app rolls back to an earlier release in seconds, and forward again", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${RELEASES_APP}/deployments`);
-  const releases = page.getByRole("list", { name: `Releases of ${RELEASES_APP}, newest first` });
-  const serving = releases.getByRole("listitem").filter({ has: page.getByText("Serving", { exact: true }) });
-  const before = (await serving.locator(".mono").first().textContent()) ?? "";
+  const releases = page.getByRole("list", { name: `Versions of ${RELEASES_APP}, newest first` });
+  const serving = releases.getByRole("listitem").filter({ has: page.getByText("Live", { exact: true }) });
+  // Each version's id is its second line, in full in its title.
+  const idOf = async (row: ReturnType<typeof releases.getByRole>): Promise<string> => (await row.locator("[title]").first().getAttribute("title")) ?? "";
+  const before = await idOf(serving);
 
-  // The newest release that is not serving and still on disk: the one to go back to.
-  const target = releases.getByRole("listitem").filter({ has: page.getByRole("button", { name: /Roll back to this/ }) }).first();
-  const targetId = (await target.locator(".mono").first().textContent()) ?? "";
-  await target.getByRole("button", { name: /Roll back to this/ }).click();
-  const dialog = page.getByRole("dialog", { name: "Roll back to this release?" });
+  // The newest version that is not live and still on disk: the one to go back to.
+  const target = releases.getByRole("listitem").filter({ has: page.getByRole("button", { name: /Go back to this version/ }) }).first();
+  const targetId = await idOf(target);
+  await target.getByRole("button", { name: /Go back to this version/ }).click();
+  const dialog = page.getByRole("alertdialog", { name: "Go back to this version?" });
   await expect(dialog).toBeVisible();
   await expectNoA11yViolations(page, "the rollback confirmation");
   const activated = page.waitForResponse((response) => response.url().endsWith(`/releases/${targetId}/activate`));
-  await dialog.getByRole("button", { name: "Roll back" }).click();
+  await dialog.getByRole("button", { name: "Go back to this version" }).click();
   expect((await activated).status()).toBe(200);
   await expect(dialog).toBeHidden();
-  await expect(serving.locator(".mono").first()).toHaveText(targetId);
+  await expect(serving.locator("[title]").first()).toHaveAttribute("title", targetId);
 
   // Forward again, so the worker's machine is as it was for the next test.
-  await releases.getByRole("listitem").filter({ hasText: before }).getByRole("button", { name: /Activate/ }).click();
-  const forward = page.getByRole("dialog", { name: "Activate this release?" });
-  await forward.getByRole("button", { name: "Activate" }).click();
+  await releases.getByRole("listitem").filter({ has: page.locator(`[title="${before}"]`) }).getByRole("button", { name: /Switch to this version/ }).click();
+  const forward = page.getByRole("alertdialog", { name: "Switch to this version?" });
+  await forward.getByRole("button", { name: "Switch to this version" }).click();
   await expect(forward).toBeHidden();
-  await expect(serving.locator(".mono").first()).toHaveText(before);
+  await expect(serving.locator("[title]").first()).toHaveAttribute("title", before);
 });
 
 test("an update streams its build log live and flips to success", async ({ page, consoleServer }) => {
@@ -201,7 +203,7 @@ test("rebuilding a deploy's commit says what it does first, then follows the job
 
   await page.getByRole("button", { name: "Rebuild this commit" }).click();
   const dialog = page.getByRole("dialog", { name: "Rebuild commit 19d3f6e?" });
-  await expect(dialog.getByText(/If a release built from 19d3f6e is still on disk and is not the one serving, it is activated in seconds/)).toBeVisible();
+  await expect(dialog.getByText(/If a version built from 19d3f6e is still on disk and is not the one live, it is switched to in seconds/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the rebuild confirmation");
 
@@ -221,30 +223,32 @@ test("a release app goes back to a deployment through its own endpoint, and forw
   const id = await deployment(page, RELEASES_APP, seededOnDisk);
   await page.goto(`/apps/${RELEASES_APP}/deployments/${String(id)}`);
 
-  await page.getByRole("button", { name: "Roll back to this" }).click();
-  const dialog = page.getByRole("dialog", { name: `Roll back to deployment ${String(id)}?` });
-  await expect(dialog.getByText(/is activated in seconds and the app restarts/)).toBeVisible();
+  await page.getByRole("button", { name: "Go back to this version" }).click();
+  const dialog = page.getByRole("dialog", { name: `Go back to deployment ${String(id)}?` });
+  await expect(dialog.getByText(/is switched to in seconds and the app restarts/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the rollback-to-a-deployment confirmation");
   const queued = page.waitForResponse((response) => response.url().endsWith(`/api/apps/${RELEASES_APP}/deployments/${String(id)}/rollback`));
-  await dialog.getByRole("button", { name: "Roll back", exact: true }).click();
+  await dialog.getByRole("button", { name: "Go back", exact: true }).click();
   expect((await queued).status()).toBe(202);
-  await expect(page.getByText(`Rolled back to deployment ${String(id)}.`)).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText(`Went back to deployment ${String(id)}.`)).toBeVisible({ timeout: 30_000 });
   expect(await serving(page, RELEASES_APP)).toMatch(/-19d3f6e$/);
 
   // Forward again, so the worker's machine is as it was for the next test.
   await activate(page, RELEASES_APP, before);
 });
 
-test("the deploy that is live says why it cannot be gone back to, and offers the other versions", async ({ page, consoleServer }) => {
+test("the deploy that is live offers nothing to go back to; the header lists the other versions", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${RELEASES_APP}/deployments`);
   const live = await serving(page, RELEASES_APP);
   const id = await deployment(page, RELEASES_APP, (row) => row.release_id === live);
   await page.goto(`/apps/${RELEASES_APP}/deployments/${String(id)}`);
-  await expect(page.getByText(`Can't roll back to this deployment: Release ${live} is already live.`)).toBeVisible();
-  await page.getByRole("button", { name: "Roll back…" }).click();
+  await expect(page.getByRole("button", { name: "Rebuild this commit" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Go back to this version" })).toHaveCount(0);
+  await page.locator("main header").filter({ has: page.getByRole("heading", { level: 1 }) }).getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Roll back…" }).click();
   const chooser = page.getByRole("dialog", { name: `Roll back ${RELEASES_APP}` });
-  await expect(chooser.getByRole("radio").first()).toBeVisible();
+  await expect(chooser.getByRole("button", { name: /^Go back to / }).first()).toBeVisible();
   await chooser.getByRole("button", { name: "Cancel" }).click();
   await expect(chooser).toBeHidden();
 });
@@ -256,8 +260,8 @@ test("an in-place deploy whose snapshot still exists offers to go back to it", a
   const restorable = rows.find((row) => row.rollback_available && row.snapshot_backup !== null);
   if (!restorable?.snapshot_backup) throw new Error(`no seeded deployment of ${LIVE_APP} has a snapshot`);
   await page.goto(`/apps/${LIVE_APP}/deployments/${String(restorable.id)}`);
-  await page.getByRole("button", { name: "Roll back to this" }).click();
-  const dialog = page.getByRole("dialog", { name: `Roll back to deployment ${String(restorable.id)}?` });
+  await page.getByRole("button", { name: "Go back to this version" }).click();
+  const dialog = page.getByRole("dialog", { name: `Go back to deployment ${String(restorable.id)}?` });
   await expect(dialog.getByText(new RegExp(`restored from backup ${restorable.snapshot_backup}.*A backup of the current state is taken first`))).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "an in-place rollback to a deployment");
@@ -275,7 +279,7 @@ test.describe("in a browser five and a half hours from the server", () => {
     await page.goto(`/apps/${STATIC_APP}/deployments/${String(id)}`);
     await expect(phase(page, "health")).toHaveAttribute("data-state", "not_applicable");
     await expect(phase(page, "health")).toContainText("Not applicable");
-    await expect(page.getByText(/Health does not apply: a static site is served as files/)).toBeVisible();
+    await expect(page.getByText(/The startup check does not apply: a static site is served as files/)).toBeVisible();
     // Activating to the last line: four seconds, whatever zone the browser is in.
     await expect(phase(page, "activate")).toContainText("4.0s");
     await expect(phase(page, "fetch")).toContainText("6.0s");
@@ -289,8 +293,8 @@ test("an in-place app offers its backups to roll back to", async ({ page, consol
   const points = page.getByRole("list", { name: `Backups of ${LIVE_APP}, newest first` });
   // Two seeded, and one more for every update a test in this worker ran before.
   await expect(points.getByRole("listitem").nth(1)).toBeVisible();
-  await points.getByRole("button", { name: /Roll back to this/ }).first().click();
-  const dialog = page.getByRole("dialog", { name: "Roll back to this backup?" });
+  await points.getByRole("button", { name: /Go back to this version/ }).first().click();
+  const dialog = page.getByRole("alertdialog", { name: "Go back to this backup?" });
   await expect(dialog).toBeVisible();
   await expectNoA11yViolations(page, "the backup rollback confirmation");
   // Not confirmed: the worker's app keeps its files.

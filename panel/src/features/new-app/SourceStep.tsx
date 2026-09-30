@@ -1,21 +1,20 @@
-import { Archive, FolderGit2, FolderOpen, GitBranch, Search, TriangleAlert, X } from "lucide-react";
-import { Link } from "@tanstack/react-router";
-import type { ReactNode, Ref, SyntheticEvent } from "react";
+import { Archive, FolderGit2, FolderOpen, GitBranch, X } from "lucide-react";
+import type { ReactNode, SyntheticEvent } from "react";
 
 import type { GitHubStatus } from "../../api/queries/github";
-
+import { isApiError } from "../../api/client";
 import { CommandHint } from "../../components/page/CommandHint";
+import { JobProgress } from "../../components/page/JobProgress";
+import { ErrorBlock } from "../../components/page/QueryState";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import type { SegmentedOption } from "../../components/page/SegmentedControl";
-import { isApiError } from "../../api/client";
-import { ErrorBlock } from "../../components/page/QueryState";
 import { useNow } from "../../components/page/clock";
 import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
-import { Skeleton } from "../../components/ui/Skeleton";
-import { Spinner } from "../../components/ui/Spinner";
+import { Notice } from "../../components/ui/Notice";
 import { SystemOutput } from "../../components/ui/SystemOutput";
+import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { PlainKey } from "../../i18n";
 import { GitHubSource } from "./GitHubSource";
@@ -31,39 +30,10 @@ const KIND_ICON: Record<SourceKind, ReactNode> = {
   unknown: <FolderGit2 />,
 };
 
-/** How long the inspection has been running, in whole seconds, so a slow clone reads as alive. */
-function Elapsed({ since }: { since: number }) {
-  const now = useNow(() => 1000);
-  const t = useT();
-  const seconds = Math.max(0, Math.floor((now - since) / 1000));
-  return <span className="mono text-12 text-fg-faint">{t("newApp.source.elapsed", { seconds: String(seconds) })}</span>;
-}
+/** The source form: Enter in one of its fields does what the wizard's Continue does. */
+const SOURCE_FORM = "new-app-source";
 
-/** The shape of the Review step, while the source is fetched and read. */
-function ReviewSkeleton() {
-  return (
-    <div aria-hidden="true" className="flex flex-col gap-4 rounded-card border border-border bg-surface p-4 shadow-raised">
-      <div className="flex items-center gap-3">
-        <Skeleton className="h-4 w-4 rounded-[4px]" />
-        <Skeleton className="h-3 w-64 max-w-full" />
-      </div>
-      <div className="flex flex-col gap-2.5 rounded-control bg-bg-sunken p-3">
-        {["w-32", "w-44", "w-36"].map((width) => (
-          <div key={width} className="flex items-center gap-4">
-            <Skeleton className="h-3 w-12" />
-            <Skeleton className={`h-3 ${width}`} />
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Skeleton className="h-8" />
-        <Skeleton className="h-8" />
-      </div>
-    </div>
-  );
-}
-
-/** What the inspection is doing, said once: there is no streamed progress, so no steps are made up. */
+/** What the inspection is doing, said once: there is no streamed progress, so no step is made up. */
 const READING: Readonly<Record<SourceKind, PlainKey>> = {
   github: "newApp.source.reading.github",
   git: "newApp.source.reading.git",
@@ -76,6 +46,40 @@ const READING: Readonly<Record<SourceKind, PlainKey>> = {
 const VERDICT_ERRORS: ReadonlySet<string> = new Set(["validationerror", "deploymenterror"]);
 
 /**
+ * The inspection while it runs: what it is reading and for how long, the three things it does
+ * with what it fetches, and a way to stop it. The inspection is one request, so the list says
+ * what happens, never which part of it is done.
+ */
+function Inspecting({ source, branch, since, onCancel }: { source: string; branch: string; since: number; onCancel: () => void }) {
+  const t = useT();
+  const kind = sourceKind(source);
+  const local = kind === "local";
+  const now = useNow(() => 1000);
+  const seconds = Math.max(0, Math.floor((now - since) / 1000));
+  const step = !local && branch !== "" ? t("newApp.source.atBranchStep", { source, branch }) : source;
+  return (
+    <div className="flex flex-col gap-3">
+      <JobProgress
+        state="running"
+        title={t(READING[kind])}
+        step={step}
+        description={t("newApp.source.elapsed", { seconds: String(seconds) })}
+        action={
+          <Button size="sm" variant="ghost" icon={<X aria-hidden="true" />} onClick={onCancel}>
+            {t("newApp.source.cancel")}
+          </Button>
+        }
+      />
+      <ol aria-label={t("newApp.source.whatHappensLabel")} className="flex list-decimal flex-col gap-1 pl-5 text-13 text-pretty text-fg-muted marker:text-fg-muted">
+        <li>{t(local ? "newApp.source.phaseCopy" : "newApp.source.phaseFetch")}</li>
+        <li>{t("newApp.source.phaseDetect")}</li>
+        <li>{t("newApp.source.phaseVariables")}</li>
+      </ol>
+    </div>
+  );
+}
+
+/**
  * The inspection's verdict on a source it could read but not classify: what it found (a lone
  * Dockerfile, a Rust project, projects in subdirectories) as the backend said it, what would
  * make it deployable - often a file to add, shown as one - and anything a tool printed,
@@ -83,26 +87,23 @@ const VERDICT_ERRORS: ReadonlySet<string> = new Set(["validationerror", "deploym
  */
 function VerdictFailure({ failure, source, onManual }: { failure: { detail: string; hint: string | null; output: string | null }; source: string; onManual: () => void }) {
   const t = useT();
-  const title = t("newApp.source.cannotDeploy", { source });
   return (
-    <div role="alert" className="flex min-w-0 flex-col gap-3 rounded-card border border-warn/40 bg-warn-soft/50 p-4">
-      <div className="flex items-start gap-2">
-        <TriangleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warn" />
-        <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-13 font-medium text-fg">{title}</p>
-          <p className="text-13 text-pretty text-fg">{failure.detail}</p>
-        </div>
+    <Notice
+      tone="warning"
+      live
+      title={t("newApp.source.cannotDeploy", { source })}
+      action={<Button size="sm" onClick={onManual}>{t("newApp.source.chooseType")}</Button>}
+    >
+      <div className="flex min-w-0 flex-col gap-2">
+        <p className="text-fg">{failure.detail}</p>
+        {failure.hint !== null ? <Suggestion text={failure.hint} /> : null}
+        {failure.output !== null && failure.output.trim() !== "" ? (
+          <SystemOutput label={t("newApp.source.cannotDeployOutput", { source })} maxHeight="max-h-48" className="rounded-control border border-border bg-surface px-3 py-2">
+            {failure.output}
+          </SystemOutput>
+        ) : null}
       </div>
-      {failure.hint !== null ? <Suggestion text={failure.hint} className="pl-6" /> : null}
-      {failure.output !== null && failure.output.trim() !== "" ? (
-        <SystemOutput label={t("newApp.source.cannotDeployOutput", { source })} maxHeight="max-h-48" className="rounded-control border border-border bg-surface px-3 py-2">
-          {failure.output}
-        </SystemOutput>
-      ) : null}
-      <div className="pl-6">
-        <Button onClick={onManual}>{t("newApp.source.chooseType")}</Button>
-      </div>
-    </div>
+    </Notice>
   );
 }
 
@@ -115,7 +116,6 @@ function InspectFailure({ failure, source, onManual }: { failure: unknown; sourc
   const t = useT();
   // For a repository read through the GitHub App, the usual cause is the installation, not a key.
   const fetchHint = t(sourceKind(source) === "github" ? "newApp.source.githubFetchHint" : "newApp.source.fetchHint");
-  let block: ReactNode;
   if (isApiError(failure) && failure.error === "sourceerror") {
     // The short sentence (failure.detail) is already on the field, next to what it complains
     // about; this block is for what the tool itself printed - git's own words, verbatim, when
@@ -124,54 +124,23 @@ function InspectFailure({ failure, source, onManual }: { failure: unknown; sourc
     const printed = failure.output ?? failure.hint;
     if (printed === null) return null;
     const fix = failure.output !== null ? (failure.hint ?? fetchHint) : fetchHint;
-    block = <ErrorBlock live error={{ detail: printed }} title={t("newApp.source.fetchReported", { source })} hint={fix} />;
-  } else if (isApiError(failure) && VERDICT_ERRORS.has(failure.error) && failure.status === 400) {
-    block = <VerdictFailure failure={failure} source={source} onManual={onManual} />;
-  } else if (isApiError(failure) && failure.error === "deploymenterror") {
+    return <ErrorBlock live error={{ detail: printed }} title={t("newApp.source.fetchReported", { source })} hint={fix} />;
+  }
+  if (isApiError(failure) && VERDICT_ERRORS.has(failure.error) && failure.status === 400) {
+    return <VerdictFailure failure={failure} source={source} onManual={onManual} />;
+  }
+  if (isApiError(failure) && failure.error === "deploymenterror") {
     // An older backend answered an unclassified source 500 deploymenterror.
-    block = (
-      <>
+    return (
+      <div className="flex flex-col gap-3">
         <ErrorBlock live error={failure} title={t("newApp.source.couldNotTell", { source })} />
         <div>
           <Button onClick={onManual}>{t("newApp.source.chooseType")}</Button>
         </div>
-      </>
+      </div>
     );
-  } else {
-    block = <ErrorBlock live error={failure} title={t("newApp.source.couldNotInspect", { source })} hint={fetchHint} />;
   }
-  return (
-    <div className="flex flex-col gap-3">
-      {block}
-    </div>
-  );
-}
-
-export interface SourceStepProps {
-  form: SourceForm;
-  errors: SourceErrors;
-  onChange: (form: SourceForm) => void;
-  onSubmit: () => void;
-  /** The inspection in flight, and when it started. */
-  inspecting: { since: number } | null;
-  onCancel: () => void;
-  /** Why the last inspection failed, verbatim. */
-  failure: unknown;
-  /** An inspection of exactly this source is already in hand: continuing needs no new one. */
-  inspected: boolean;
-  onInspectAgain: () => void;
-  /** Go on without detection: the operator chooses the type. */
-  onManual: () => void;
-  headingRef: Ref<HTMLHeadingElement>;
-  /** This server's GitHub integration; null while unknown or when it could not be read. */
-  github: GitHubStatus | null;
-  /** Where the source comes from: a repository the GitHub App reaches, or typed. */
-  mode: SourceMode;
-  onModeChange: (mode: SourceMode) => void;
-  /** What stands in the step's place when the application starts from a recipe. */
-  recipes: ReactNode;
-  /** What stands in the step's place when the application is imported from an export. */
-  importer: ReactNode;
+  return <ErrorBlock live error={failure} title={t("newApp.source.couldNotInspect", { source })} hint={fetchHint} />;
 }
 
 /** Where the application comes from: code (GitHub, or a typed source), a recipe, or an export. */
@@ -184,16 +153,34 @@ const MODES: readonly { value: SourceMode; label: PlainKey }[] = [
   { value: "import", label: "newApp.modes.import" },
 ];
 
-const INTRO: Readonly<Record<SourceMode, PlainKey>> = {
-  github: "newApp.source.intro",
-  manual: "newApp.source.intro",
-  recipe: "newApp.source.introRecipe",
-  import: "newApp.source.introImport",
-};
+export interface SourceStepProps {
+  form: SourceForm;
+  errors: SourceErrors;
+  onChange: (form: SourceForm) => void;
+  /** Enter in a field: the same as the wizard's Continue. */
+  onSubmit: () => void;
+  /** The inspection in flight, and when it started. */
+  inspecting: { since: number } | null;
+  onCancel: () => void;
+  /** Why the last inspection failed, verbatim. */
+  failure: unknown;
+  /** Go on without detection: the operator chooses the type. */
+  onManual: () => void;
+  /** This server's GitHub integration; null while unknown or when it could not be read. */
+  github: GitHubStatus | null;
+  /** Where the source comes from: a repository the GitHub App reaches, or typed. */
+  mode: SourceMode;
+  onModeChange: (mode: SourceMode) => void;
+  /** What stands in the step's place when the application starts from a recipe. */
+  recipes: ReactNode;
+  /** What stands in the step's place when the application is imported from an export. */
+  importer: ReactNode;
+}
 
 /**
  * Step one: where the code is. Noust fetches it into a throwaway checkout and reads it, so the
- * next step proposes real commands, a real port and the variables the project declares.
+ * next steps propose real commands, a real port and the variables the project declares. Or a
+ * recipe, or another server's export. The wizard's own bar has Continue; Enter does the same.
  */
 export function SourceStep({
   form,
@@ -203,10 +190,7 @@ export function SourceStep({
   inspecting,
   onCancel,
   failure,
-  inspected,
-  onInspectAgain,
   onManual,
-  headingRef,
   github,
   mode,
   onModeChange,
@@ -230,13 +214,6 @@ export function SourceStep({
 
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h2 ref={headingRef} tabIndex={-1} className="title text-18 text-fg outline-none">
-          {t("newApp.source.heading")}
-        </h2>
-        <p className="text-14 text-pretty text-fg-muted">{t(INTRO[mode])}</p>
-      </header>
-
       <SegmentedControl label={t("newApp.modes.label")} options={modes} value={mode} onValueChange={onModeChange} className="max-w-full flex-wrap self-start" />
 
       {mode === "recipe" ? (
@@ -244,7 +221,7 @@ export function SourceStep({
       ) : mode === "import" ? (
         importer
       ) : (
-        <form onSubmit={submit} noValidate className="flex flex-col gap-6">
+        <form id={SOURCE_FORM} onSubmit={submit} noValidate className="flex flex-col gap-5">
           {mode === "github" && github?.configured === true ? (
             <GitHubSource status={github} form={form} errors={errors} onChange={onChange} disabled={busy} />
           ) : (
@@ -258,12 +235,9 @@ export function SourceStep({
                       {`${t(SOURCE_WORDS[kind])} `}
                       {t.rich("newApp.source.githubPrompt", {
                         link: (
-                          <Link
-                            to="/settings/integrations"
-                            className="rounded-[4px] font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
-                          >
+                          <TextLink to="/settings/integrations">
                             {t("newApp.source.connect")}
-                          </Link>
+                          </TextLink>
                         ),
                       })}
                     </>
@@ -286,13 +260,7 @@ export function SourceStep({
               </Field>
 
               {local ? null : (
-                <Field
-                  label={t("newApp.source.branch")}
-                  optional
-                  error={errors.branch}
-                  description={t("newApp.source.branchDescription")}
-                  className="sm:max-w-80"
-                >
+                <Field label={t("newApp.source.branch")} optional error={errors.branch} description={t("newApp.source.branchDescription")} className="sm:max-w-80">
                   <Input
                     mono
                     icon={<GitBranch />}
@@ -309,46 +277,8 @@ export function SourceStep({
             </>
           )}
 
-          <div className="flex flex-wrap items-center gap-2">
-            {inspected && !busy ? (
-              <>
-                <Button type="submit" variant="primary">
-                  {t("newApp.source.continue")}
-                </Button>
-                <Button variant="ghost" onClick={onInspectAgain}>
-                  {t("newApp.source.inspectAgain")}
-                </Button>
-              </>
-            ) : (
-              <Button type="submit" variant="primary" icon={<Search aria-hidden="true" />} loading={busy}>
-                {t("newApp.source.inspect")}
-              </Button>
-            )}
-            {busy ? (
-              <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={onCancel}>
-                {t("newApp.source.cancel")}
-              </Button>
-            ) : null}
-          </div>
-
-          {busy ? (
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1">
-                <p role="status" className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-13 text-fg">
-                  <Spinner size={14} className="text-warn" />
-                  <span>{t(READING[kind])}</span>
-                  <code translate="no" className="min-w-0 truncate text-12 text-fg-muted" title={shown}>
-                    {shown}
-                  </code>
-                  {!local && form.branch.trim() !== "" ? <span className="text-fg-muted">{t("newApp.source.atBranch", { branch: form.branch.trim() })}</span> : null}
-                  <Elapsed since={inspecting.since} />
-                </p>
-                <p className="text-12 text-pretty text-fg-muted">
-                  {t(local ? "newApp.source.readsLocal" : "newApp.source.readsRemote")}
-                </p>
-              </div>
-              <ReviewSkeleton />
-            </div>
+          {inspecting !== null ? (
+            <Inspecting source={shown} branch={form.branch.trim()} since={inspecting.since} onCancel={onCancel} />
           ) : failure !== null && failure !== undefined ? (
             <InspectFailure failure={failure} source={shown} onManual={onManual} />
           ) : null}

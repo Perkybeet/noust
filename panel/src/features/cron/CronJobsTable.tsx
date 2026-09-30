@@ -1,3 +1,4 @@
+import { CirclePause } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { RelativeTime } from "../../components/page/RelativeTime";
@@ -9,18 +10,7 @@ import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { parseTimestamp } from "../../lib/format";
 import type { CronJob } from "./data";
-import { runStatus, scheduleWords } from "./data";
-
-function Nothing({ reason }: { reason: string }) {
-  return (
-    <>
-      <span aria-hidden="true" className="text-fg-faint">
-        -
-      </span>
-      <span className="sr-only">{reason}</span>
-    </>
-  );
-}
+import { calendarWords, runStatus } from "./data";
 
 export interface CronJobsTableProps {
   jobs: readonly CronJob[];
@@ -32,39 +22,55 @@ export interface CronJobsTableProps {
   className?: string;
 }
 
-/** Every cron job: its schedule in words and as written, its next run and its last result. */
+/**
+ * Every cron job: its name and command, how its last run ended (its state), its schedule in
+ * words and as written, and its next run. Whether a job is enabled is a setting, not a state:
+ * a disabled one says so, neutrally, where its next run would be.
+ */
 export function CronJobsTable({ jobs, caption, loading = false, empty, onRowActivate, rowActions, className }: CronJobsTableProps) {
   const t = useT();
   const columns: Column<CronJob>[] = [
     {
-      id: "enabled",
-      header: t("cron.table.columns.state"),
-      width: "w-24",
-      // On a phone the next run says it instead ("Disabled" when there is none).
-      hideBelow: "sm",
-      cell: (row) => (
-        <StatusPill state={row.enabled ? "running" : "stopped"} label={row.enabled ? t("cron.table.enabled") : t("cron.table.disabled")} appearance="inline" size="sm" />
-      ),
-      sortValue: (row) => (row.enabled ? 0 : 1),
-    },
-    {
       id: "name",
       header: t("cron.table.columns.job"),
       cell: (row) => (
-        <span translate="no" className="mono font-medium text-fg">
-          {row.name}
+        <span className="flex min-w-0 flex-col">
+          <Mono className="font-medium">{row.name}</Mono>
+          <Mono tone="faint" truncate title={row.command} className="max-w-80 text-12 font-normal">
+            {row.command}
+          </Mono>
         </span>
       ),
       sortValue: (row) => row.name,
     },
     {
+      id: "last_result",
+      header: t("cron.table.columns.lastResult"),
+      width: "w-40",
+      card: "status",
+      cell: (row) => {
+        const view = runStatus(row.last_result);
+        return (
+          <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+            <StatusPill state={view.state} label={view.label} appearance="inline" size="sm" />
+            {view.detail !== undefined ? (
+              <Mono tone="faint" className="text-12">
+                {view.detail}
+              </Mono>
+            ) : null}
+          </span>
+        );
+      },
+      sortValue: (row) => STATE_RANK[runStatus(row.last_result).state],
+    },
+    {
       id: "schedule",
       header: t("cron.table.columns.schedule"),
-      hideBelow: "sm",
       cell: (row) => (
-        <span className="flex flex-col">
-          <span className="text-fg-muted">{scheduleWords(row.schedule, row.on_calendar)}</span>
-          <Mono tone="faint" truncate className="text-12">
+        <span className="inline-flex min-w-0 flex-col align-top">
+          <span className="text-fg">{calendarWords(row.schedule, row.on_calendar, t.locale)}</span>
+          {/* The expression as written, beside its words on a desktop; a phone's card keeps the words. */}
+          <Mono tone="faint" truncate className="text-12 max-sm:hidden">
             {row.on_calendar}
           </Mono>
         </span>
@@ -74,30 +80,23 @@ export function CronJobsTable({ jobs, caption, loading = false, empty, onRowActi
     {
       id: "next_run",
       header: t("cron.table.columns.nextRun"),
-      width: "w-40",
-      cell: (row) =>
-        row.enabled ? <RelativeTime value={row.next_run} fallback={row.next_run} /> : <Nothing reason={t("cron.table.disabledReason")} />,
-      sortValue: (row) => parseTimestamp(row.next_run)?.getTime() ?? null,
-    },
-    {
-      id: "last_result",
-      header: t("cron.table.columns.lastResult"),
       width: "w-36",
-      cell: (row) => {
-        const view = runStatus(row.last_result);
-        return (
-          <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
-            <StatusPill state={view.state} label={view.label} appearance="inline" size="sm" />
-            {view.detail !== undefined ? <span className="mono text-12 text-fg-faint">{view.detail}</span> : null}
+      cell: (row) =>
+        row.enabled ? (
+          <RelativeTime value={row.next_run} fallback={row.next_run} />
+        ) : (
+          <span className="inline-flex items-center gap-1.5 text-fg-muted">
+            <CirclePause aria-hidden="true" className="size-icon-sm" />
+            {t("cron.table.disabled")}
           </span>
-        );
-      },
-      sortValue: (row) => STATE_RANK[runStatus(row.last_result).state],
+        ),
+      sortValue: (row) => (row.enabled ? (parseTimestamp(row.next_run)?.getTime() ?? null) : null),
     },
   ];
 
   return (
     <DataTable
+      mobile="cards"
       columns={columns}
       rows={jobs}
       getRowId={(row) => row.name}

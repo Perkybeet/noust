@@ -1,18 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { ServicesPage } from "../../../features/services/ServicesPage";
 import { validateServicesSearch } from "../../../features/services/data";
 
-/** Every systemd unit Noust manages. The search box is a search param: `/services?q=worker`. */
+/** Services moved under Server in 3.1: the old address keeps working, filters and all. */
 export const Route = createFileRoute("/_console/services/")({
   validateSearch: validateServicesSearch,
-  component: ServicesRoute,
+  beforeLoad: ({ search }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/server/services", search, replace: true });
+  },
 });
-
-function ServicesRoute() {
-  const search = Route.useSearch();
-  const navigate = Route.useNavigate();
-  return (
-    <ServicesPage search={search} onSearchChange={(next, options) => void navigate({ search: next, replace: options?.replace ?? false })} />
-  );
-}

@@ -107,3 +107,39 @@ export function secrecyMarkAnnouncement(name: string, mark: boolean | null, loca
   if (mark === false) return translate(locale, "environment.secrecy.announceShown", { name });
   return translate(locale, "environment.secrecy.announceAuto", { name });
 }
+
+export interface SecrecyKind {
+  /** Whether the server hides the value. */
+  secret: boolean;
+  /** "Secret" or "Plain": the variable's type, as the table's Type column names it. */
+  label: string;
+  /** Why, in a few words ("by its name", "marked by you"); null for a plain value nothing marked. */
+  reason: string | null;
+}
+
+/**
+ * A variable's type in the table: secret or plain, and in a few words what decided it. The full
+ * sentence (`secrecyLine`) is the cell's title.
+ */
+export function secrecyKind(verdict: EnvSecrecy, locale: Locale = getLocale()): SecrecyKind {
+  const label = translate(locale, verdict.secret ? "environment.secrecy.typeSecret" : "environment.secrecy.typePlain");
+  let reason: string | null;
+  switch (verdict.reason) {
+    case "marked secret":
+    case "marked not secret":
+      reason = translate(locale, "environment.secrecy.shortMarked");
+      break;
+    case "name":
+      reason = translate(locale, "environment.secrecy.shortName");
+      break;
+    case "url credentials":
+      reason = translate(locale, "environment.secrecy.shortUrlCredentials");
+      break;
+    case "plain":
+      reason = null;
+      break;
+    default:
+      reason = verdict.reason.startsWith("value: ") ? translate(locale, "environment.secrecy.shortValue") : verdict.reason;
+  }
+  return { secret: verdict.secret, label, reason };
+}

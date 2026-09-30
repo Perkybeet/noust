@@ -1,44 +1,40 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { bindT } from "../../i18n";
 import { expectNoAxeViolations } from "../../test/axe";
-import type { ChartMarker, MarkerPlot } from "./Chart";
-import {
-  Chart,
-  continuing,
-  formatChartTime,
-  markersInRange,
-  needsDateFormat,
-  positionMarkers,
-  readoutWords,
-  valueAxisSize,
-  visibleBounds,
-  zoomStep,
-} from "./Chart";
+import type { ChartData, ChartMarker, ChartProps, ChartWindow, MarkerPlot } from "./Chart";
+import { Chart, ChartGroup, ChartSkeleton, continuing, placeCard, positionMarkers, readoutWords, truthLine, valueAxisSize } from "./Chart";
+import { formatChartTime } from "./chart/time";
 
-// uPlot draws on a canvas, which jsdom does not implement; the wrapper's contract is the
-// accessible summary, the readout, the table, the marker overlay and the lifecycle of the
-// plot, all testable without pixels. The fake plot below implements just enough of uPlot's
-// own geometry (`bbox`, `valToPos`, `posToVal`, the x scale) and hooks (`draw`, `setCursor`,
-// `setSelect`) for the chart to position markers, read the cursor and zoom for real.
+// uPlot draws on a canvas, which jsdom does not implement; the chart's contract is the
+// accessible summary, the readout row and card, the hatched history's words, the markers, the
+// group's shared moment, the dialog and the lifecycle of the plot, all testable without pixels.
+// The fake plot implements just enough of uPlot: its geometry (`bbox`, `valToPos`, `posToVal`),
+// the x scale taken from the chart's own `range` function, and its hooks.
 interface FakePlot {
-  options: Record<string, unknown>;
-  data: unknown;
-  scales: { x: { min?: number; max?: number } };
-  cursor: { idx: number | null };
+  options: {
+    scales: { x: { range: () => [number, number] } };
+    series: { gaps?: (u: unknown, i: number, i0: number, i1: number) => [number, number][] }[];
+    axes: { size?: (u: unknown, values: string[]) => number; values?: (u: unknown, splits: number[]) => string[] }[];
+  };
+  data: (number | null)[][];
+  scales: { x: { min?: number; max?: number }; y: { min?: number; max?: number } };
+  cursor: { idx: number | null; left: number; top: number; _lock?: boolean };
   select: { left: number; top: number; width: number; height: number };
   bbox: { left: number; top: number; width: number; height: number };
   destroy: () => void;
-  setData: (d: unknown) => void;
+  setData: ReturnType<typeof vi.fn>;
   setScale: ReturnType<typeof vi.fn>;
   setCursor: ReturnType<typeof vi.fn>;
   setSelect: ReturnType<typeof vi.fn>;
-  valToPos: (val: number, scale?: string) => number;
-  /** Fires one of the plot's hooks, as uPlot would. */
-  fire: (hook: "draw" | "setCursor" | "setSelect") => void;
+  redraw: ReturnType<typeof vi.fn>;
+  valToPos: (val: number, scale?: string, canvas?: boolean) => number;
+  posToVal: (pos: number, scale?: string) => number;
+  fire: (hook: "draw" | "setCursor" | "setSelect" | "drawClear") => void;
 }
 
 const plots = vi.hoisted(() => [] as FakePlot[]);
@@ -49,20 +45,25 @@ vi.mock("uplot", () => {
   function build(options: Record<string, unknown>, initialData: unknown) {
     let current = initialData as number[][];
     const hooks = (options["hooks"] ?? {}) as Record<string, ((u: unknown) => void)[] | undefined>;
-    const scales = { x: { min: current[0]?.[0], max: current[0]?.at(-1) } };
-    const span = () => {
-      const min = scales.x.min ?? 0;
-      const max = scales.x.max ?? min + 1;
-      return { min, max };
+    const scaleOptions = options["scales"] as { x: { range: () => [number, number] }; y: { range: () => [number, number] } };
+    const scales = { x: {} as { min?: number; max?: number }, y: {} as { min?: number; max?: number } };
+    const rescale = (): void => {
+      const [min, max] = scaleOptions.x.range();
+      scales.x = { min, max };
+      const [ymin, ymax] = scaleOptions.y.range();
+      scales.y = { min: ymin, max: ymax };
     };
-    const valToPos = (val: number): number => {
-      const { min, max } = span();
+    const valToPos = (val: number, scale = "x"): number => {
+      const s = scale === "y" ? scales.y : scales.x;
+      const min = s.min ?? 0;
+      const max = s.max ?? min + 1;
       const frac = max > min ? (val - min) / (max - min) : 0;
-      return bbox.left + frac * bbox.width;
+      return scale === "y" ? bbox.height - frac * bbox.height : frac * bbox.width;
     };
     const posToVal = (pos: number): number => {
-      const { min, max } = span();
-      return min + ((pos - bbox.left) / bbox.width) * (max - min);
+      const min = scales.x.min ?? 0;
+      const max = scales.x.max ?? min + 1;
+      return min + (pos / bbox.width) * (max - min);
     };
     const ctx = {
       save: vi.fn(),
@@ -71,7 +72,12 @@ vi.mock("uplot", () => {
       moveTo: vi.fn(),
       lineTo: vi.fn(),
       stroke: vi.fn(),
+      rect: vi.fn(),
+      clip: vi.fn(),
+      fillRect: vi.fn(),
       setLineDash: vi.fn(),
+      measureText: (text: string) => ({ width: text.length * 7 }),
+      font: "",
     };
     const fire = (hook: string): void => {
       (hooks[hook] ?? []).forEach((fn) => {
@@ -84,28 +90,46 @@ vi.mock("uplot", () => {
       bbox,
       ctx,
       scales,
-      cursor: { idx: null as number | null },
+      cursor: { idx: null as number | null, left: -10, top: -10 },
       select: { left: 0, top: 0, width: 0, height: 0 },
-      valToPos: (val: number) => valToPos(val),
-      posToVal: (pos: number) => posToVal(pos),
+      valToPos,
+      posToVal,
       destroy: vi.fn(),
       setSize: vi.fn(),
       redraw: vi.fn(),
-      setCursor: vi.fn(),
+      setCursor: vi.fn((opts: { left: number; top: number }, fireHook?: boolean) => {
+        plot.cursor.left = opts.left;
+        plot.cursor.top = opts.top;
+        const times = current[0] ?? [];
+        if (opts.left < 0) plot.cursor.idx = null;
+        else {
+          const at = posToVal(opts.left);
+          let best = 0;
+          times.forEach((t, i) => {
+            if (Math.abs(t - at) < Math.abs((times[best] ?? 0) - at)) best = i;
+          });
+          plot.cursor.idx = best;
+        }
+        if (fireHook !== false) fire("setCursor");
+      }),
       setSelect: vi.fn(),
-      setScale: vi.fn((_key: string, next: { min: number; max: number }) => {
-        scales.x = { min: next.min, max: next.max };
+      setScale: vi.fn(() => {
+        rescale();
+        fire("drawClear");
         fire("draw");
       }),
       setData: vi.fn((next: unknown) => {
         current = next as number[][];
         plot.data = current;
-        scales.x = { min: current[0]?.[0], max: current[0]?.at(-1) };
+        rescale();
+        fire("drawClear");
         fire("draw");
       }),
       fire,
     };
     plots.push(plot as unknown as FakePlot);
+    rescale();
+    fire("drawClear");
     fire("draw");
     return plot;
   }
@@ -117,188 +141,30 @@ vi.mock("uplot", () => {
   return { default: ctor };
 });
 
-const T0 = Date.UTC(2026, 8, 25, 14, 0) / 1000;
+const T0 = new Date(2026, 8, 25, 14, 0).getTime() / 1000;
 const TIMES = [T0, T0 + 60, T0 + 120];
+const percent = (v: number): string => `${String(v)}%`;
 
 beforeEach(() => {
   plots.length = 0;
 });
 
-function Example() {
+function Example(props: Partial<ChartProps>) {
   return (
     <Chart
       title="CPU"
       description="Last 3 minutes"
       timestamps={TIMES}
       series={[{ label: "shop.example.com", values: [12, 48, 30] }]}
-      formatValue={(v) => `${String(v)}%`}
+      formatValue={percent}
       yRange={[0, 100]}
+      resolution="1-minute averages"
+      cell="1-minute average"
+      step={60}
+      {...props}
     />
   );
 }
-
-describe("Chart", () => {
-  it("is an image with a written summary of every series", () => {
-    render(<Example />);
-    const image = screen.getByRole("img");
-    expect(image).toHaveAccessibleName(
-      "CPU, last 3 minutes. shop.example.com: latest 30%, low 12%, high 48%.",
-    );
-  });
-
-  it("draws the data with uPlot and destroys the plot when it goes", () => {
-    const { unmount } = render(<Example />);
-    expect(plots.length).toBeGreaterThan(0);
-    const plot = pagePlot();
-    expect(plot.data).toEqual([TIMES, [12, 48, 30]]);
-    unmount();
-    expect(plot.destroy).toHaveBeenCalled();
-  });
-
-  it("shows the latest value of each series in the legend", () => {
-    render(<Example />);
-    expect(within(screen.getByRole("list", { name: "Series" })).getByText("30%")).toBeInTheDocument();
-  });
-
-  it("turns into a table of the same numbers, newest first", async () => {
-    render(<Example />);
-    const toggle = screen.getByRole("button", { name: "View as table" });
-    expect(toggle).toHaveAttribute("aria-pressed", "false");
-    await userEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-pressed", "true");
-    expect(screen.queryByRole("img")).not.toBeInTheDocument();
-    const table = screen.getByRole("table", { name: "CPU, newest first" });
-    const rows = within(table).getAllByRole("row").slice(1);
-    expect(rows.map((row) => within(row).getAllByRole("cell")[1]?.textContent)).toEqual(["30%", "48%", "12%"]);
-    await userEvent.click(toggle);
-    expect(screen.getByRole("img")).toBeInTheDocument();
-  });
-
-  it("has no accessibility violations as a chart or as a table", async () => {
-    const { container } = render(<Example />);
-    await expectNoAxeViolations(container);
-    await userEvent.click(screen.getByRole("button", { name: "View as table" }));
-    await expectNoAxeViolations(container);
-  });
-
-  it("speaks Spanish once the language switches", async () => {
-    await act(async () => {
-      await setLocale("es");
-    });
-    render(<Example />);
-    expect(screen.getByRole("img")).toHaveAccessibleName(
-      "CPU, last 3 minutes. shop.example.com: último 30%, mínimo 12%, máximo 48%.",
-    );
-    const toggle = screen.getByRole("button", { name: "Ver como tabla" });
-    await userEvent.click(toggle);
-    expect(screen.getByRole("table", { name: "CPU, más recientes primero" })).toBeInTheDocument();
-  });
-});
-
-describe("Chart markers", () => {
-  const inRange: ChartMarker = {
-    at: T0 + 60,
-    label: "Deploy 25, succeeded, 14:01",
-    state: "running",
-    href: "https://noust.example.com/deploys/25",
-  };
-  const outOfRange: ChartMarker = {
-    at: T0 - 600,
-    label: "Deploy 9, failed, 13:50",
-    state: "failed",
-    href: "https://noust.example.com/deploys/9",
-  };
-
-  function WithMarkers({ markers }: { markers: readonly ChartMarker[] }) {
-    return (
-      <Chart
-        title="CPU"
-        timestamps={TIMES}
-        series={[{ label: "shop.example.com", values: [12, 48, 30] }]}
-        formatValue={(v) => `${String(v)}%`}
-        markers={markers}
-      />
-    );
-  }
-
-  it("draws an in-range marker as a focusable link with its full accessible name", () => {
-    render(<WithMarkers markers={[inRange]} />);
-    const link = screen.getByRole("link", { name: inRange.label });
-    expect(link).toHaveAttribute("href", "https://noust.example.com/deploys/25");
-  });
-
-  it("does not draw a marker outside the time range", () => {
-    render(<WithMarkers markers={[outOfRange]} />);
-    expect(screen.queryByRole("link", { name: outOfRange.label })).not.toBeInTheDocument();
-  });
-
-  it("mentions how many markers are in view in the accessible summary", () => {
-    render(<WithMarkers markers={[inRange, outOfRange]} />);
-    expect(screen.getByRole("img")).toHaveAccessibleName(/1 marker in view\.$/);
-  });
-
-  it("says zero markers when none of them fall in the range", () => {
-    render(<WithMarkers markers={[outOfRange]} />);
-    expect(screen.getByRole("img")).toHaveAccessibleName(/0 markers in view\.$/);
-  });
-
-  it("says nothing about markers when the prop is not used", () => {
-    render(<Example />);
-    expect(screen.getByRole("img")).not.toHaveAccessibleName(/marker/);
-  });
-
-  it("uses renderMarker to wrap the affordance, keeping Chart free of a router", () => {
-    const marker: ChartMarker = {
-      at: T0 + 60,
-      label: "Deploy 25, succeeded, 14:01",
-      state: "running",
-      renderMarker: (m, children, linkProps) => (
-        <button type="button" data-testid="custom-marker" aria-label={m.label} className={linkProps.className} style={linkProps.style}>
-          {children}
-        </button>
-      ),
-    };
-    render(<WithMarkers markers={[marker]} />);
-    expect(screen.getByTestId("custom-marker")).toHaveAccessibleName(marker.label);
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
-  });
-
-  it("falls back to a real, natively focusable control with neither href nor renderMarker", () => {
-    const marker: ChartMarker = { at: T0 + 60, label: "Release 9, unlinked", state: "stopped" };
-    render(<WithMarkers markers={[marker]} />);
-    expect(screen.getByRole("button", { name: "Release 9, unlinked" })).toBeInTheDocument();
-  });
-
-  it("falls back to an aria-disabled control rather than a link for an href that is not http(s)", () => {
-    const marker: ChartMarker = {
-      at: T0 + 60,
-      label: "Deploy 25, succeeded, 14:01",
-      state: "running",
-      href: "javascript:alert(1)",
-    };
-    render(<WithMarkers markers={[marker]} />);
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
-    const button = screen.getByRole("button", { name: marker.label });
-    expect(button).toHaveAttribute("aria-disabled", "true");
-  });
-
-  it("keeps markers in the table view so they do not vanish for screen reader users", async () => {
-    render(<WithMarkers markers={[inRange, outOfRange]} />);
-    await userEvent.click(screen.getByRole("button", { name: "View as table" }));
-    // Listed below the table itself (not inside its scrolling region, so a sighted user
-    // never has to scroll a small box to find them) but still reachable in the document.
-    expect(screen.getByRole("region", { name: "CPU data" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: inRange.label })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: outOfRange.label })).not.toBeInTheDocument();
-  });
-
-  it("has no accessibility violations with markers, as a chart or as a table", async () => {
-    const { container } = render(<WithMarkers markers={[inRange, outOfRange]} />);
-    await expectNoAxeViolations(container);
-    await userEvent.click(screen.getByRole("button", { name: "View as table" }));
-    await expectNoAxeViolations(container);
-  });
-});
 
 /** The plot on the page: the first one built (the enlarged chart builds its own). */
 function pagePlot(): FakePlot {
@@ -307,64 +173,182 @@ function pagePlot(): FakePlot {
   return plot;
 }
 
-/** Puts uPlot's cursor on a sample (null: the pointer left) and fires its hook. */
+/** Puts uPlot's cursor on a cell (null: the pointer left) and fires its hook, as a mouse does. */
 function hover(plot: FakePlot, idx: number | null): void {
   act(() => {
     plot.cursor.idx = idx;
+    plot.cursor.left = idx === null ? -10 : 100;
+    plot.cursor.top = 40;
     plot.fire("setCursor");
   });
 }
 
-function readoutTime(): HTMLElement {
-  const time = document.querySelector<HTMLElement>("[data-readout-time]");
+function readoutTime(scope: HTMLElement = document.body): HTMLElement {
+  const time = scope.querySelector<HTMLElement>("[data-readout-time]");
   if (time === null) throw new Error("the readout has no time");
   return time;
 }
 
+function card(scope: HTMLElement = document.body): HTMLElement {
+  const found = scope.querySelector<HTMLElement>("[data-chart-card]");
+  if (found === null) throw new Error("no readout card");
+  return found;
+}
+
+describe("Chart", () => {
+  it("is an image with a written summary: the window, what a point is, and each series", () => {
+    render(<Example />);
+    expect(screen.getByRole("img")).toHaveAccessibleName(
+      `CPU, last 3 minutes, 1-minute averages. shop.example.com: latest 30%, average 30%, peak 48% at ${formatChartTime(T0 + 60, false)}.`,
+    );
+  });
+
+  it("says the average and the peak under its title, and what it is measured against", () => {
+    render(<Example ceiling={100} />);
+    expect(document.querySelector("[data-chart-stats]")).toHaveTextContent(`Average 30% of 100% · peak 48% at ${formatChartTime(T0 + 60, false)}`);
+  });
+
+  it("draws the data with uPlot and destroys the plot when it goes", () => {
+    const { unmount } = render(<Example />);
+    const plot = pagePlot();
+    expect(plot.data).toEqual([TIMES, [12, 48, 30]]);
+    unmount();
+    expect(plot.destroy).toHaveBeenCalled();
+  });
+
+  it("spans exactly the window asked for, whatever part of it has readings", () => {
+    // A day asked for, with readings only in its last three minutes.
+    const domain: ChartWindow = [T0 - 86_400 + 120, T0 + 120];
+    render(<Example domain={domain} />);
+    const plot = pagePlot();
+    expect(plot.options.scales.x.range()).toEqual([domain[0], domain[1]]);
+    expect(plot.scales.x).toEqual({ min: domain[0], max: domain[1] });
+    const image = screen.getByRole("img");
+    expect(image).toHaveAttribute("data-domain-from", String(domain[0]));
+    expect(image).toHaveAttribute("data-domain-to", String(domain[1]));
+  });
+
+  it("keeps the window after a refresh with new readings", () => {
+    const domain: ChartWindow = [T0 - 3_600, T0 + 120];
+    const { rerender } = render(<Example domain={domain} />);
+    rerender(<Example domain={domain} series={[{ label: "shop.example.com", values: [12, 48, 31] }]} />);
+    expect(pagePlot().scales.x).toEqual({ min: domain[0], max: domain[1] });
+  });
+
+  it("names the stretch before history began, on the plot and in its summary", () => {
+    const times = Array.from({ length: 60 }, (_, i) => T0 + i * 60);
+    const values = times.map((_, i) => (i >= 50 ? 10 + i : null));
+    render(<Example timestamps={times} series={[{ label: "CPU", values }]} domain={[T0, T0 + 59 * 60]} firstSampleAt={T0 + 50 * 60} />);
+    const since = formatChartTime(T0 + 50 * 60, false);
+    expect(screen.getByText(`No history before ${since}`)).toBeInTheDocument();
+    expect(screen.getByRole("img")).toHaveAccessibleName(new RegExp(`No history before ${since}\\.$`));
+  });
+
+  it("says a hole is a hole when history began before it", () => {
+    const times = Array.from({ length: 60 }, (_, i) => T0 + i * 60);
+    const values = times.map((_, i) => (i >= 50 ? 5 : null));
+    render(<Example timestamps={times} series={[{ label: "CPU", values }]} domain={[T0, T0 + 59 * 60]} firstSampleAt={T0 - 86_400} />);
+    expect(screen.getByText(`No readings before ${formatChartTime(T0 + 50 * 60, false)}`)).toBeInTheDocument();
+  });
+
+  it("says when the window has no reading at all, in the plot's place and height", () => {
+    render(<Example series={[{ label: "CPU", values: [null, null, null] }]} empty="Noust was not recording then." />);
+    expect(screen.getByText("Noust was not recording then.")).toBeInTheDocument();
+    expect(document.querySelector("[data-chart-stats]")).toHaveTextContent("No readings in this window");
+  });
+
+  it("breaks the line only at a hole of two cells or more", () => {
+    render(<Example timestamps={[T0, T0 + 60, T0 + 120, T0 + 180, T0 + 240, T0 + 300]} series={[{ label: "CPU", values: [1, null, 2, null, null, 3] }]} />);
+    const plot = pagePlot();
+    const gaps = plot.options.series[1]?.gaps?.(plot, 1, 0, 5) ?? [];
+    expect(gaps).toHaveLength(1);
+    const [from, to] = gaps[0] ?? [0, 0];
+    expect(from).toBe(Math.round(plot.valToPos(T0 + 120, "x", true)));
+    expect(to).toBe(Math.round(plot.valToPos(T0 + 300, "x", true)));
+  });
+
+  it("has no accessibility violations", async () => {
+    const { container } = render(<Example />);
+    await expectNoAxeViolations(container);
+  });
+
+  it("speaks Spanish once the language switches", async () => {
+    await act(async () => {
+      await setLocale("es");
+    });
+    render(<Example resolution="medias de 1 min" />);
+    expect(screen.getByRole("img")).toHaveAccessibleName(
+      `CPU, last 3 minutes, medias de 1 min. shop.example.com: último 30 %, media 30 %, pico 48 % (${formatChartTime(T0 + 60, false, "es")}).`.replaceAll(" %", "%"),
+    );
+    expect(screen.getByRole("button", { name: "Ampliar CPU" })).toBeInTheDocument();
+  });
+
+  it("has a skeleton exactly the shape of the chart, saying what loads", () => {
+    render(<ChartSkeleton title="CPU" height={120} />);
+    expect(screen.getByText("Loading the CPU chart")).toBeInTheDocument();
+  });
+});
+
 describe("Chart readout", () => {
-  it("shows the latest values when nothing is hovered", () => {
+  it("shows the newest values when nothing is hovered, and no card", () => {
     render(<Example />);
     expect(readoutTime()).toHaveTextContent("Latest");
     expect(within(screen.getByRole("list", { name: "Series" })).getByText("30%")).toBeInTheDocument();
+    expect(card()).toHaveAttribute("data-chart-card", "hidden");
   });
 
-  it("follows uPlot's cursor: the hovered sample's time and every series' value", () => {
+  it("follows the cursor in the row and in a card beside it", () => {
     render(<Example />);
     hover(pagePlot(), 1);
-    const series = screen.getByRole("list", { name: "Series" });
-    expect(within(series).getByText("48%")).toBeInTheDocument();
-    expect(within(series).queryByText("30%")).not.toBeInTheDocument();
-    // The clock on screen, the full moment for assistive technology, the ISO one in markup.
+    expect(within(screen.getByRole("list", { name: "Series" })).getByText("48%")).toBeInTheDocument();
     const time = readoutTime().querySelector("time");
     expect(time).toHaveAttribute("dateTime", new Date((T0 + 60) * 1000).toISOString());
-    expect(time?.querySelector('[aria-hidden="true"]')).toHaveTextContent(formatChartTime(T0 + 60, false));
-    expect(time?.querySelector(".sr-only")?.textContent).toMatch(/\d{4}/);
+    const floating = card();
+    expect(floating).toHaveAttribute("data-chart-card", "floating");
+    expect(floating).toHaveAttribute("aria-hidden", "true");
+    expect(floating).toHaveTextContent("1-minute average");
+    expect(floating).toHaveTextContent("48%");
   });
 
-  it("goes back to the latest value when the cursor leaves", () => {
+  it("puts each cell's peak in the card beside its average", () => {
+    render(<Example series={[{ label: "CPU", values: [12, 48, 30], peaks: [20, 92, 30] }]} />);
+    hover(pagePlot(), 1);
+    expect(card()).toHaveTextContent("Peak92%");
+  });
+
+  it("says in the card when a moment has no reading", () => {
+    render(<Example series={[{ label: "CPU", values: [12, null, 30] }]} />);
+    hover(pagePlot(), 1);
+    expect(card()).toHaveTextContent("No reading: nothing was recorded at this moment.");
+    expect(within(screen.getByRole("list", { name: "Series" })).getByText("–")).toBeInTheDocument();
+  });
+
+  it("lets Escape put the card away without moving the pointer or the focus (WCAG 1.4.13)", () => {
+    render(<Example />);
+    hover(pagePlot(), 1);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(card()).toHaveAttribute("data-chart-card", "hidden");
+    // The row, which does not depend on the card, still says the moment.
+    expect(within(screen.getByRole("list", { name: "Series" })).getByText("48%")).toBeInTheDocument();
+  });
+
+  it("goes back to the newest values when the cursor leaves", () => {
     render(<Example />);
     hover(pagePlot(), 0);
-    expect(within(screen.getByRole("list", { name: "Series" })).getByText("12%")).toBeInTheDocument();
     hover(pagePlot(), null);
     expect(readoutTime()).toHaveTextContent("Latest");
-    expect(within(screen.getByRole("list", { name: "Series" })).getByText("30%")).toBeInTheDocument();
+    expect(card()).toHaveAttribute("data-chart-card", "hidden");
   });
 
-  it("formats every series with the chart's formatter, and a gap as a dash", () => {
-    render(
-      <Chart
-        title="Network"
-        timestamps={TIMES}
-        series={[
-          { label: "In", values: [1, null, 3] },
-          { label: "Out", values: [4, 5, 6] },
-        ]}
-        formatValue={(v) => `${String(v)} KB/s`}
-      />,
-    );
-    hover(pagePlot(), 1);
-    const items = within(screen.getByRole("list", { name: "Series" })).getAllByRole("listitem");
-    expect(items.map((item) => item.textContent)).toEqual(["In-", "Out5 KB/s"]);
+  it("places the card beside the cursor, and flips it left near the right edge", () => {
+    const area = { left: 40, top: 8, width: 400, height: 144 };
+    const size = { width: 160, height: 60 };
+    const host = { width: 440, height: 160 };
+    expect(placeCard({ left: 100, top: 20 }, area, size, host)).toEqual({ x: 152, y: 40 });
+    const flipped = placeCard({ left: 380, top: 20 }, area, size, host);
+    expect(flipped.x).toBe(40 + 380 - 12 - 160);
+    const low = placeCard({ left: 100, top: 140 }, area, size, host);
+    expect(low.y).toBe(8 + 140 - 12 - 60);
   });
 });
 
@@ -373,117 +357,165 @@ describe("Chart keyboard", () => {
     render(<Example />);
     const chart = screen.getByRole("application", { name: "CPU" });
     expect(chart).toHaveAttribute("tabindex", "0");
-    expect(chart).toHaveAccessibleDescription(/Left and right arrow keys/);
+    expect(chart).toHaveAccessibleDescription(/Page Up and Page Down/);
   });
 
-  it("steps sample by sample, jumps to the ends and clears with Escape", async () => {
+  it("steps cell by cell and ten at a time, jumps to the ends and clears with Escape", async () => {
     const user = userEvent.setup();
-    render(<Example />);
+    const times = Array.from({ length: 30 }, (_, i) => T0 + i * 60);
+    render(<Example timestamps={times} series={[{ label: "CPU", values: times.map((_, i) => i) }]} />);
     const series = () => within(screen.getByRole("list", { name: "Series" }));
     screen.getByRole("application", { name: "CPU" }).focus();
-
-    await user.keyboard("{ArrowLeft}");
-    // From nothing, the first step lands on the newest sample, the one already shown.
-    expect(readoutTime()).toHaveTextContent(formatChartTime(T0 + 120, false));
-    await user.keyboard("{ArrowLeft}");
-    expect(series().getByText("48%")).toBeInTheDocument();
-    await user.keyboard("{Home}");
-    expect(series().getByText("12%")).toBeInTheDocument();
-    await user.keyboard("{ArrowLeft}");
-    expect(series().getByText("12%")).toBeInTheDocument();
-    await user.keyboard("{ArrowRight}");
-    expect(series().getByText("48%")).toBeInTheDocument();
     await user.keyboard("{End}");
-    expect(series().getByText("30%")).toBeInTheDocument();
-    expect(readoutTime()).not.toHaveTextContent("Latest");
+    expect(series().getByText("29%")).toBeInTheDocument();
+    await user.keyboard("{PageUp}");
+    expect(series().getByText("19%")).toBeInTheDocument();
+    await user.keyboard("{ArrowLeft}");
+    expect(series().getByText("18%")).toBeInTheDocument();
+    await user.keyboard("{PageDown}");
+    expect(series().getByText("28%")).toBeInTheDocument();
+    await user.keyboard("{Home}");
+    expect(series().getByText("0%")).toBeInTheDocument();
     await user.keyboard("{Escape}");
     expect(readoutTime()).toHaveTextContent("Latest");
   });
 
-  it("moves uPlot's own cursor onto the sample", async () => {
+  it("keeps the reading on screen with Enter, until Escape", async () => {
     const user = userEvent.setup();
     render(<Example />);
     screen.getByRole("application", { name: "CPU" }).focus();
-    await user.keyboard("{Home}");
-    const plot = pagePlot();
-    expect(plot.setCursor).toHaveBeenLastCalledWith(expect.objectContaining({ left: plot.valToPos(T0, "x") }));
+    await user.keyboard("{Home}{Enter}");
+    expect(card()).toHaveAttribute("data-chart-card", "pinned");
     await user.keyboard("{Escape}");
-    expect(plot.setCursor).toHaveBeenLastCalledWith({ left: -10, top: -10 });
+    expect(card()).toHaveAttribute("data-chart-card", "hidden");
   });
 
-  it("says the sample in a polite live region, in the chart's own words", async () => {
+  it("says each reading in a polite live region, with the peak and a gap in words", async () => {
     const user = userEvent.setup();
-    render(<Example />);
+    render(<Example series={[{ label: "CPU", values: [12, null, 30], peaks: [31, null, 30] }]} />);
     screen.getByRole("application", { name: "CPU" }).focus();
     await user.keyboard("{Home}");
     const status = screen.getByRole("status");
     expect(status).toHaveAttribute("aria-live", "polite");
     await waitFor(() => {
-      expect(status).toHaveTextContent(`${formatChartTime(T0, false)}, shop.example.com 12%`);
+      expect(status).toHaveTextContent(`${formatChartTime(T0, false)}, CPU 12%, peak 31%`);
     });
+    expect(readoutWords("14:01", [{ label: "CPU", values: [12, null], peaks: [31, null] }], 1, percent, bindT("en"))).toBe("14:01, CPU no reading");
+  });
+});
+
+describe("Chart group", () => {
+  function Pair() {
+    return (
+      <ChartGroup>
+        <Chart title="CPU" timestamps={TIMES} series={[{ label: "CPU", values: [12, 48, 30] }]} formatValue={percent} />
+        <Chart title="Memory" timestamps={TIMES} series={[{ label: "Used", values: [1, 2, 3] }]} formatValue={(v) => `${String(v)} GB`} />
+      </ChartGroup>
+    );
+  }
+
+  it("marks the same moment in every chart of the group; only the one under the pointer shows a card", () => {
+    render(<Pair />);
+    const [cpu, memory] = plots;
+    if (cpu === undefined || memory === undefined) throw new Error("two plots");
+    hover(cpu, 1);
+    expect(memory.setCursor).toHaveBeenLastCalledWith({ left: memory.valToPos(T0 + 60, "x"), top: -10 }, false);
+    const [cpuFigure, memoryFigure] = screen.getAllByRole("figure");
+    if (cpuFigure === undefined || memoryFigure === undefined) throw new Error("two figures");
+    expect(within(memoryFigure).getByText("2 GB")).toBeInTheDocument();
+    expect(card(cpuFigure)).toHaveAttribute("data-chart-card", "floating");
+    expect(card(memoryFigure)).toHaveAttribute("data-chart-card", "hidden");
+    hover(cpu, null);
+    expect(memory.setCursor).toHaveBeenLastCalledWith({ left: -10, top: -10 }, false);
+    expect(readoutTime(memoryFigure)).toHaveTextContent("Latest");
   });
 
-  it("throttles the announcements: a held key says the newest sample, not every one", () => {
-    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
-    try {
-      render(<Example />);
-      const chart = screen.getByRole("application", { name: "CPU" });
-      const status = screen.getByRole("status");
-      act(() => {
-        chart.focus();
-      });
-      const press = (key: string) => {
-        act(() => {
-          chart.dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
-        });
-      };
-      press("Home");
-      act(() => {
-        vi.advanceTimersByTime(0);
-      });
-      expect(status).toHaveTextContent(/12%$/);
-      press("ArrowRight");
-      press("ArrowRight");
-      // Inside the window: nothing new yet.
-      act(() => {
-        vi.advanceTimersByTime(100);
-      });
-      expect(status).toHaveTextContent(/12%$/);
-      act(() => {
-        vi.advanceTimersByTime(400);
-      });
-      expect(status).toHaveTextContent(/30%$/);
-    } finally {
-      vi.useRealTimers();
-    }
+  it("follows the keyboard too, not only the mouse", async () => {
+    const user = userEvent.setup();
+    render(<Pair />);
+    const memory = plots[1];
+    if (memory === undefined) throw new Error("two plots");
+    screen.getByRole("application", { name: "CPU" }).focus();
+    await user.keyboard("{Home}");
+    expect(memory.setCursor).toHaveBeenLastCalledWith({ left: memory.valToPos(T0, "x"), top: -10 }, false);
+  });
+
+  it("gives every chart of the group the widest value axis", () => {
+    render(<Pair />);
+    const [cpu, memory] = plots;
+    const size = (plot: FakePlot | undefined, labels: string[]) => plot?.options.axes[1]?.size?.(plot, labels) ?? 0;
+    const narrow = size(cpu, ["0%", "50%"]);
+    const wide = size(memory, ["1000.5 GB"]);
+    expect(wide).toBeGreaterThan(narrow);
+    expect(size(cpu, ["0%", "50%"])).toBe(wide);
+  });
+});
+
+describe("Chart markers", () => {
+  const inRange: ChartMarker = { at: T0 + 60, label: "Deploy 25, succeeded, 14:01", state: "running", href: "https://noust.example.com/deploys/25" };
+  const outOfRange: ChartMarker = { at: T0 - 600, label: "Deploy 9, failed, 13:50", state: "failed", href: "https://noust.example.com/deploys/9" };
+
+  it("draws an in-range marker as a focusable link with its full accessible name, and no other", () => {
+    render(<Example markers={[inRange, outOfRange]} />);
+    expect(screen.getByRole("link", { name: inRange.label })).toHaveAttribute("href", "https://noust.example.com/deploys/25");
+    expect(screen.queryByRole("link", { name: outOfRange.label })).not.toBeInTheDocument();
+    expect(screen.getByRole("img")).toHaveAccessibleName(/1 marker in view\.$/);
+  });
+
+  it("uses renderMarker to wrap the affordance, keeping Chart free of a router", () => {
+    const marker: ChartMarker = {
+      at: inRange.at,
+      label: inRange.label,
+      state: inRange.state,
+      renderMarker: (m, children, linkProps) => (
+        <button type="button" data-testid="custom-marker" aria-label={m.label} className={linkProps.className} style={linkProps.style}>
+          {children}
+        </button>
+      ),
+    };
+    render(<Example markers={[marker]} />);
+    expect(screen.getByTestId("custom-marker")).toHaveAccessibleName(marker.label);
+  });
+
+  it("falls back to an aria-disabled control rather than a link for an href that is not http(s)", () => {
+    render(<Example markers={[{ ...inRange, href: "javascript:alert(1)" }]} />);
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: inRange.label })).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("positions markers from uPlot's own geometry", () => {
+    const plot: MarkerPlot = { valToPos: (v) => v - T0, bbox: { left: 80, top: 16, width: 800, height: 288 } };
+    expect(positionMarkers(plot, [inRange], 2)).toEqual([{ marker: inRange, left: 40 + 60, top: 8 }]);
   });
 });
 
 describe("Chart expanded", () => {
-  function Expandable({ onRange }: { onRange?: (value: string) => void }) {
+  const TEN = Array.from({ length: 10 }, (_, i) => T0 + i * 60);
+  const TEN_DOMAIN: ChartWindow = [T0, T0 + 540];
+
+  function Expandable({ zoomed }: { zoomed?: boolean }) {
+    const [zoom, setZoom] = useState<ChartWindow | null>(null);
+    const fine: ChartData = { timestamps: [T0, T0 + 5, T0 + 10], series: [{ label: "shop.example.com", values: [40, 41, 42] }], domain: [T0, T0 + 10], step: 5, resolution: "a reading every 5 seconds" };
     return (
       <Chart
         title="CPU"
         description="Last 3 minutes"
-        timestamps={TIMES}
-        series={[{ label: "shop.example.com", values: [12, 48, 30] }]}
-        formatValue={(v) => `${String(v)}%`}
+        timestamps={TEN}
+        series={[{ label: "shop.example.com", values: [12, 48, 30, 5, 6, 7, 8, 9, 10, 11] }]}
+        formatValue={percent}
+        domain={TEN_DOMAIN}
+        step={60}
+        resolution="1-minute averages"
         yRange={[0, 100]}
-        rangeSelector={{
-          value: "1h",
-          control: (
-            <button type="button" onClick={() => onRange?.("24h")}>
-              Range stand-in
-            </button>
-          ),
-        }}
+        rangeSelector={{ value: "1h", control: <button type="button">Range stand-in</button> }}
+        {...(zoomed ? { zoom: { value: zoom, onChange: setZoom, data: zoom === null ? undefined : fine } } : {})}
       />
     );
   }
 
-  async function expand() {
+  async function expand(zoomed = false) {
     const user = userEvent.setup();
-    render(<Expandable />);
+    render(<Expandable zoomed={zoomed} />);
     await user.click(screen.getByRole("button", { name: "Expand CPU" }));
     const dialog = await screen.findByRole("dialog", { name: "CPU" });
     const plot = plots.at(-1);
@@ -491,246 +523,80 @@ describe("Chart expanded", () => {
     return { user, dialog, plot };
   }
 
-  it("opens a large dialog with the same series, the page's range and the readout", async () => {
+  it("opens large with the page's range, the sentence of what it shows and the readout", async () => {
     const { dialog, plot } = await expand();
     expect(dialog).toHaveAccessibleDescription("Last 3 minutes");
     expect(within(dialog).getByRole("button", { name: "Range stand-in" })).toBeInTheDocument();
-    expect(plot.data).toEqual([TIMES, [12, 48, 30]]);
-    expect(within(dialog).getByRole("img")).toHaveAccessibleName("CPU, last 3 minutes. shop.example.com: latest 30%, low 12%, high 48%.");
+    expect(dialog.querySelector("[data-truth]")).toHaveTextContent(truthLine(bindT("en"), TEN_DOMAIN, "1-minute averages", null));
     hover(plot, 0);
     expect(within(within(dialog).getByRole("list", { name: "Series" })).getByText("12%")).toBeInTheDocument();
   });
 
-  it("zooms to a dragged stretch of the time axis and resets", async () => {
+  it("has the numbers as a table in a tab of the same height, newest first, with a summary", async () => {
+    const { user, dialog } = await expand();
+    await user.click(within(dialog).getByRole("tab", { name: "Data" }));
+    const table = within(dialog).getByRole("table", { name: "CPU, newest first" });
+    const rows = within(table).getAllByRole("row").slice(1);
+    expect(rows.map((row) => within(row).getAllByRole("cell")[1]?.textContent)).toEqual(["11%", "10%", "9%", "8%", "7%", "6%", "5%", "30%", "48%", "12%"]);
+    expect(within(dialog).getByText("Peak").parentElement).toHaveTextContent("Peak 48%");
+    expect(within(dialog).getByRole("region", { name: "CPU data" })).toHaveAttribute("tabindex", "0");
+  });
+
+  it("zooms by stretching the page's readings when the page reads nothing again, and resets", async () => {
     const { user, dialog, plot } = await expand();
     const reset = within(dialog).getByRole("button", { name: "Reset zoom" });
     expect(reset).toBeDisabled();
-    // Drag from the first sample to the second: two samples, enough for a line.
     act(() => {
-      plot.select = { left: plot.valToPos(T0), top: 0, width: plot.valToPos(T0 + 60) - plot.valToPos(T0), height: 100 };
+      plot.select = { left: plot.valToPos(T0), top: 0, width: plot.valToPos(T0 + 180) - plot.valToPos(T0), height: 100 };
       plot.fire("setSelect");
     });
     await waitFor(() => {
-      expect(plot.setScale).toHaveBeenLastCalledWith("x", { min: T0, max: T0 + 60 });
+      expect(plot.scales.x).toEqual({ min: T0, max: T0 + 180 });
     });
-    expect(plot.setSelect).toHaveBeenCalledWith({ left: 0, top: 0, width: 0, height: 0 }, false);
     expect(reset).toBeEnabled();
     await user.click(reset);
     expect(reset).toBeDisabled();
-    expect(plot.scales.x).toEqual({ min: T0, max: T0 + 120 });
+    expect(plot.scales.x).toEqual({ min: T0, max: T0 + 540 });
   });
 
-  it("ignores a drag that covers fewer than two samples", async () => {
-    const { dialog, plot } = await expand();
+  it("reads a zoomed stretch again through the page, and says the finer step", async () => {
+    const { dialog, plot } = await expand(true);
     act(() => {
-      plot.select = { left: plot.valToPos(T0 + 10), top: 0, width: 20, height: 100 };
+      plot.select = { left: plot.valToPos(T0), top: 0, width: plot.valToPos(T0 + 180) - plot.valToPos(T0), height: 100 };
       plot.fire("setSelect");
     });
-    expect(plot.setScale).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(dialog.querySelector("[data-truth]")).toHaveTextContent("a reading every 5 seconds");
+    });
+    const latest = plots.at(-1);
+    expect(latest?.data[1]).toEqual([40, 41, 42]);
+  });
+
+  it("zooms without dragging, for anyone who cannot drag (WCAG 2.5.7)", async () => {
+    const { user, dialog } = await expand();
+    await user.click(within(dialog).getByRole("button", { name: "Zoom in" }));
+    expect(within(dialog).getByRole("button", { name: "Reset zoom" })).toBeEnabled();
+    await user.click(within(dialog).getByRole("button", { name: "Zoom out" }));
     expect(within(dialog).getByRole("button", { name: "Reset zoom" })).toBeDisabled();
   });
 
-  it("shows the enlarged chart as a table too", async () => {
-    const { user, dialog } = await expand();
-    await user.click(within(dialog).getByRole("button", { name: "View as table" }));
-    const table = within(dialog).getByRole("table", { name: "CPU, newest first" });
-    expect(within(table).getAllByRole("row")).toHaveLength(4);
-  });
-
-  it("closes with Escape and gives focus back to Expand", async () => {
-    const { user } = await expand();
-    await user.keyboard("{Escape}");
-    await waitFor(() => {
-      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    });
-    expect(screen.getByRole("button", { name: "Expand CPU" })).toHaveFocus();
-  });
-
-  it("has no accessibility violations, as a chart and as a table", async () => {
+  it("has no accessibility violations, on the chart and on the data", async () => {
     const { user, dialog } = await expand();
     await expectNoAxeViolations(dialog);
-    await user.click(within(dialog).getByRole("button", { name: "View as table" }));
+    await user.click(within(dialog).getByRole("tab", { name: "Data" }));
     await expectNoAxeViolations(dialog);
   });
 });
 
-describe("readoutWords", () => {
-  const en = bindT("en");
-
-  it("says the moment, then each series with its formatted value", () => {
-    const local = new Date(2026, 8, 25, 14, 32).getTime() / 1000;
-    const words = readoutWords(local, false, [{ label: "CPU", values: [12.4] }], 0, (v) => `${String(v)}%`, en);
-    expect(words).toBe("14:32, CPU 12.4%");
+describe("Chart helpers", () => {
+  it("continues a description after the title", () => {
+    expect(continuing("Last hour.")).toBe("last hour");
+    expect(continuing("CPU of one core")).toBe("CPU of one core");
   });
 
-  it("says a gap in words", () => {
-    expect(readoutWords(T0, false, [{ label: "In", values: [null] }], 0, String, en)).toMatch(/In no reading$/);
-  });
-});
-
-describe("visibleBounds", () => {
-  it("is every index without a window, and the indices inside one with it", () => {
-    expect(visibleBounds(TIMES, null)).toEqual([0, 2]);
-    expect(visibleBounds(TIMES, [T0 + 30, T0 + 120])).toEqual([1, 2]);
-    expect(visibleBounds(TIMES, [T0 + 200, T0 + 300])).toBeNull();
-    expect(visibleBounds([], null)).toBeNull();
-  });
-});
-
-describe("zoomStep", () => {
-  const minutes = Array.from({ length: 61 }, (_, i) => T0 + i * 60);
-
-  it("halves the span around the middle, then doubles it back to all of it", () => {
-    const first = zoomStep(minutes, null, "in");
-    expect(first).toEqual([T0 + 900, T0 + 2700]);
-    expect(zoomStep(minutes, first, "out")).toBeNull();
-  });
-
-  it("stays inside the data when zooming out near an end", () => {
-    expect(zoomStep(minutes, [T0, T0 + 600], "out")).toEqual([T0, T0 + 1200]);
-  });
-
-  it("stops zooming in at a handful of samples", () => {
-    const narrow = [T0, T0 + 180] as const;
-    expect(zoomStep(minutes, narrow, "in")).toBe(narrow);
-  });
-});
-
-describe("valueAxisSize", () => {
-  // A canvas that measures 6.6px per character, like 11px JetBrains Mono.
-  const ctx = { font: "", measureText: (text: string) => ({ width: text.length * 6.6 }) } as unknown as CanvasRenderingContext2D;
-
-  it("fits the widest label, so a long unit is never clipped", () => {
-    expect(valueAxisSize({ ctx }, ["0 B/s", "386 KB/s", "771 KB/s"])).toBe(Math.ceil(8 * 6.6 + 12));
-    expect(ctx.font).toContain("JetBrains Mono");
-  });
-
-  it("keeps a minimum width for short labels and before the first draw", () => {
-    expect(valueAxisSize({ ctx }, ["0%", "50%"])).toBe(40);
-    expect(valueAxisSize({ ctx }, null)).toBe(40);
-  });
-});
-
-describe("needsDateFormat", () => {
-  const DAY = 86_400;
-
-  it("stays a clock under about two days", () => {
-    expect(needsDateFormat([T0, T0 + 3_600, T0 + 2 * DAY - 60])).toBe(false);
-  });
-
-  it("wants a date once the span passes about two days", () => {
-    expect(needsDateFormat([T0, T0 + 7 * DAY])).toBe(true);
-  });
-
-  it("wants a date for a short span that crosses local midnight", () => {
-    const before = new Date(2026, 8, 25, 23, 30).getTime() / 1000;
-    const after = new Date(2026, 8, 26, 0, 30).getTime() / 1000;
-    expect(needsDateFormat([before, after])).toBe(true);
-  });
-
-  it("stays a clock with fewer than two points", () => {
-    expect(needsDateFormat([T0])).toBe(false);
-    expect(needsDateFormat([])).toBe(false);
-  });
-});
-
-describe("formatChartTime", () => {
-  // Built from local Date fields, like formatChartTime itself: the string it produces is
-  // then independent of the machine's own time zone.
-  const local = new Date(2026, 8, 25, 14, 0).getTime() / 1000;
-
-  it("prints a bare 24-hour clock without a date", () => {
-    expect(formatChartTime(local, false)).toBe("14:00");
-  });
-
-  it("prints the date and the clock with a date", () => {
-    expect(formatChartTime(local, true)).toBe("Sep 25 14:00");
-  });
-
-  it("prints the bare date at a tick that lands exactly on local midnight", () => {
-    const midnight = new Date(2026, 8, 25, 0, 0).getTime() / 1000;
-    expect(formatChartTime(midnight, true)).toBe("Sep 25");
-  });
-  it("writes the date in the language it is given", () => {
-    const midnight = new Date(2026, 8, 25, 0, 0).getTime() / 1000;
-    expect(formatChartTime(local, false, "es")).toBe("14:00");
-    expect(formatChartTime(local, true, "es")).toBe("25 sept 14:00");
-    expect(formatChartTime(midnight, true, "es")).toBe("25 sept");
-  });
-});
-
-describe("Chart in Spanish", () => {
-  // Local fields, so the text does not depend on the machine's time zone; over two days apart,
-  // so the readout, the axis and the table carry a date.
-  const start = new Date(2026, 8, 25, 14, 0).getTime() / 1000;
-  const days = [start, start + 86_400, start + 3 * 86_400];
-
-  it("dates the readout, the axis and the table in Spanish", async () => {
-    await act(() => setLocale("es"));
-    render(
-      <Chart
-        title="CPU"
-        description="Últimos 7 días"
-        timestamps={days}
-        series={[{ label: "shop.example.com", values: [12, 48, 30] }]}
-        formatValue={(v) => `${String(v)} %`}
-        yRange={[0, 100]}
-      />,
-    );
-    hover(pagePlot(), 1);
-    const time = readoutTime().querySelector("time");
-    expect(time?.querySelector('[aria-hidden="true"]')).toHaveTextContent("26 sept 14:00");
-    expect(time?.querySelector(".sr-only")).toHaveTextContent("26 sept 2026, 14:00:00");
-
-    const axes = pagePlot().options["axes"] as { values: (u: unknown, splits: number[]) => string[] }[];
-    expect(axes[0]?.values(null, [start])).toEqual(["25 sept 14:00"]);
-  });
-});
-
-describe("markersInRange", () => {
-  const markers: ChartMarker[] = [
-    { at: 100, label: "a", state: "running" },
-    { at: 200, label: "b", state: "running" },
-    { at: 300, label: "c", state: "running" },
-  ];
-
-  it("keeps markers within the bounds, inclusive", () => {
-    expect(markersInRange(markers, 100, 200).map((m) => m.label)).toEqual(["a", "b"]);
-  });
-
-  it("drops everything when the range is empty or inverted", () => {
-    expect(markersInRange(markers, 500, 600)).toEqual([]);
-    expect(markersInRange(markers, 300, 100)).toEqual([]);
-  });
-});
-
-describe("positionMarkers", () => {
-  // canvasPixels doubles the value (a stand-in for a pxRatio of 2); CSS pixels pass it through.
-  const plot: MarkerPlot = {
-    bbox: { left: 80, top: 20, width: 200, height: 100 },
-    valToPos: (value, _scale, canvasPixels) => (canvasPixels ? value * 2 : value),
-  };
-
-  it("places each marker at its x, offset by the plot area's own left and top", () => {
-    const markers: ChartMarker[] = [{ at: 50, label: "mid", state: "running" }];
-    const [position] = positionMarkers(plot, markers, 2);
-    // bbox is in canvas pixels; a pxRatio of 2 halves it to the CSS-pixel offset (40, 10).
-    expect(position).toEqual({ marker: markers[0], left: 40 + 50, top: 10 });
-  });
-
-  it("returns one position per marker, in order", () => {
-    const markers: ChartMarker[] = [
-      { at: 0, label: "start", state: "running" },
-      { at: 100, label: "end", state: "running" },
-    ];
-    expect(positionMarkers(plot, markers, 2).map((p) => p.marker.label)).toEqual(["start", "end"]);
-  });
-});
-
-describe("continuing", () => {
-  it("reads a description on after the title without shouting or doubling the full stop", () => {
-    expect(continuing("Last 24 hours. Percent of one CPU.")).toBe("last 24 hours. Percent of one CPU");
-    expect(continuing("Last hour, of 20 GB")).toBe("last hour, of 20 GB");
-    expect(continuing("CPU of the unit")).toBe("CPU of the unit");
+  it("sizes the value axis to its widest label, never below the minimum", () => {
+    const ctx = { font: "", measureText: (text: string) => ({ width: text.length * 7 }) } as unknown as CanvasRenderingContext2D;
+    expect(valueAxisSize({ ctx }, ["1 KB/s", "771 KB/s"])).toBe(8 * 7 + 12);
+    expect(valueAxisSize({ ctx }, [])).toBe(40);
   });
 });

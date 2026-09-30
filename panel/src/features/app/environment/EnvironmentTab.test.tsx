@@ -6,6 +6,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
 import type { RecordedCall, RouteHandler } from "../../../test/fakes";
+import { screenWidth } from "../testRoutes";
 
 const DOMAIN = "shop.example.com";
 const ENV_PATH = `/api/apps/${DOMAIN}/env`;
@@ -47,6 +48,7 @@ function envRoute(
 }
 
 async function environmentTab(extra: Record<string, RouteHandler> = {}) {
+  screenWidth(1440);
   const backend = fakeBackend({
     ...signedInRoutes(),
     "GET /api/certs": () => json(200, { certificates: [], total: 0 }),
@@ -62,19 +64,24 @@ async function environmentTab(extra: Record<string, RouteHandler> = {}) {
   return { ...harness, backend };
 }
 
+/** Opens a variable's row menu, "Actions for NAME", and chooses one of its items. */
+async function rowAction(user: ReturnType<typeof renderConsole>["user"], name: string, item: string): Promise<void> {
+  await user.click(screen.getByRole("button", { name: `Actions for ${name}` }));
+  await user.click(await screen.findByRole("menuitem", { name: item }));
+}
+
 function unmaskCalls(calls: RecordedCall[]): RecordedCall[] {
   return calls.filter((call) => call.method === "GET" && call.path === ENV_PATH && call.search.get("unmask") === "true");
 }
 
 describe("the environment tab", () => {
-  it("masks every value until it is revealed, and reads secrets in clear only when asked", async () => {
+  it("shows plain values, masks secrets until revealed, and reads them in clear only when asked", async () => {
     const { user, backend } = await environmentTab();
     const table = screen.getByRole("table", { name: `Environment variables of ${DOMAIN}` });
-    expect(within(table).getAllByText("Hidden")).toHaveLength(3);
-    expect(within(table).queryByText("production")).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "Reveal the value of NODE_ENV" }));
-    expect(await within(table).findByText("production")).toBeInTheDocument();
+    // A plain value is in view: it is not a secret, so hiding it would only say it is one.
+    expect(within(table).getByText("production")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Reveal the value of NODE_ENV" })).not.toBeInTheDocument();
+    expect(within(table).getAllByText("Hidden")).toHaveLength(2);
     expect(unmaskCalls(backend.calls)).toHaveLength(0);
 
     await user.click(screen.getByRole("button", { name: "Reveal the value of SESSION_SECRET" }));
@@ -123,20 +130,31 @@ describe("the environment tab", () => {
       },
     });
 
-    expect(screen.getByText(/Noust hides a value automatically/)).toBeInTheDocument();
+    expect(screen.getByText(/Values that look like secrets are hidden/)).toBeInTheDocument();
     const table = screen.getByRole("table", { name: `Environment variables of ${DOMAIN}` });
-    expect(within(table).getByText("Shown: nothing about it looks like a secret")).toBeInTheDocument();
-    expect(within(table).getByText("Hidden: the URL carries credentials")).toBeInTheDocument();
-    expect(within(table).getByText("Hidden: its name suggests a secret")).toBeInTheDocument();
+    const typeOf = (name: string): HTMLElement => {
+      const row = within(table).getByText(name, { exact: true }).closest("tr");
+      if (!row) throw new Error(`no row for ${name}`);
+      return within(row).getAllByRole("cell")[2] ?? row;
+    };
+    expect(typeOf("NODE_ENV")).toHaveTextContent(/^Plain$/);
+    expect(typeOf("DATABASE_URL")).toHaveTextContent("Secret (the URL has a password)");
+    expect(typeOf("SESSION_SECRET")).toHaveTextContent("Secret (by its name)");
+    // The whole reason is the cell's title.
+    expect(typeOf("SESSION_SECRET").querySelector("[title]")).toHaveAttribute("title", "Hidden: its name suggests a secret");
 
-    await user.click(screen.getByRole("button", { name: "Change whether SESSION_SECRET is treated as a secret (now decided automatically)" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Treat as not secret" }));
+    await user.click(screen.getByRole("button", { name: "Actions for SESSION_SECRET" }));
+    // The current choice is named, and cannot be chosen again.
+    expect(await screen.findByRole("menuitem", { name: "Decide automatically (current)" })).toHaveAttribute("aria-disabled", "true");
+    await user.click(screen.getByRole("menuitem", { name: "No, always show it" }));
 
     await waitFor(() => {
       expect(backend.callsTo(`PUT ${MARKS_PATH}`)).toHaveLength(1);
     });
     expect(backend.callsTo(`PUT ${MARKS_PATH}`)[0]?.body).toEqual({ marks: { SESSION_SECRET: false } });
-    expect(await within(table).findByText("Shown: marked not secret by you")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(typeOf("SESSION_SECRET")).toHaveTextContent("Plain (marked by you)");
+    });
   });
 
   it("asks to confirm it's you before changing a mark, then applies it", async () => {
@@ -160,13 +178,12 @@ describe("the environment tab", () => {
       },
     });
 
-    await user.click(screen.getByRole("button", { name: "Change whether NODE_ENV is treated as a secret (now decided automatically)" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Treat as secret" }));
+    await rowAction(user, "NODE_ENV", "Yes, always hide it");
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
     await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
     await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
 
-    expect(await screen.findByText("Hidden: marked secret by you")).toBeInTheDocument();
+    expect(await screen.findByTitle("Hidden: marked secret by you")).toHaveTextContent("Secret (marked by you)");
   });
 
   it("stages a pasted file, reviews it over the real values, saves exactly that map and offers a restart", async () => {
@@ -213,7 +230,7 @@ describe("the environment tab", () => {
     await user.type(within(dialog).getByLabelText("Name"), "API_URL");
     await user.type(within(dialog).getByLabelText("Value"), "https://api.example.com");
     await user.click(within(dialog).getByRole("button", { name: "Add variable" }));
-    await user.click(await screen.findByRole("button", { name: "Remove NODE_ENV" }));
+    await rowAction(user, "NODE_ENV", "Remove");
     expect(screen.getByText("2 unsaved changes")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Review and save" }));
@@ -249,7 +266,7 @@ describe("the environment tab", () => {
       [`PUT ${ENV_PATH}`]: () =>
         problem(422, "validation_error", "Environment variable 'NOTE' contains a tab"),
     });
-    await user.click(screen.getByRole("button", { name: "Edit NODE_ENV" }));
+    await rowAction(user, "NODE_ENV", "Edit");
     const dialog = await screen.findByRole("dialog", { name: "Edit NODE_ENV" });
     const value = within(dialog).getByLabelText("Value");
     await user.clear(value);
@@ -260,6 +277,24 @@ describe("the environment tab", () => {
     await user.click(within(review).getByRole("button", { name: "Save changes" }));
     expect(await within(review).findByText("Environment variable 'NOTE' contains a tab")).toBeInTheDocument();
     expect(within(review).getByText("The environment was not saved")).toBeInTheDocument();
+  });
+
+  it("keeps the save bar in place from the first frame, and names the file it writes", async () => {
+    await environmentTab();
+    expect(screen.getByRole("region", { name: "Unsaved changes" })).toHaveTextContent("No unsaved changes");
+    expect(screen.getByRole("button", { name: "Review and save" })).toBeDisabled();
+    expect(screen.getByText(/^Stored in/)).toBeInTheDocument();
+  });
+
+  it("draws each variable as a card on a phone, its menu in view", async () => {
+    fakeBackend({ ...signedInRoutes(), [`GET ${ENV_PATH}`]: envRoute() });
+    const { user } = renderConsole(`/apps/${DOMAIN}/environment`);
+    await waitFor(() => {
+      expect(within(screen.getByRole("list", { name: `Environment variables of ${DOMAIN}` })).getAllByRole("listitem")).toHaveLength(3);
+    });
+    const list = screen.getByRole("list", { name: `Environment variables of ${DOMAIN}` });
+    await user.click(within(list).getByRole("button", { name: "Actions for NODE_ENV" }));
+    expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
   });
 
   it("invites a first variable when the file is empty", async () => {
@@ -276,7 +311,8 @@ describe("the environment tab", () => {
   // axe over the whole tab takes seconds when the suite runs every file at once.
   it("has no accessibility violations", { timeout: 20_000 }, async () => {
     const { user } = await environmentTab();
-    await user.click(screen.getByRole("button", { name: "Reveal the value of NODE_ENV" }));
+    await user.click(screen.getByRole("button", { name: "Reveal the value of SESSION_SECRET" }));
+    await screen.findByText("s3cr3t-value");
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
@@ -290,7 +326,8 @@ describe("the environment tab", () => {
       await act(() => setLocale("es"));
 
       const table = screen.getByRole("table", { name: `Variables de entorno de ${DOMAIN}` });
-      expect(within(table).getAllByText("Oculto")).toHaveLength(3);
+      expect(within(table).getAllByText("Oculto")).toHaveLength(2);
+      expect(within(table).getAllByText("Secreto")).toHaveLength(2);
       expect(screen.getByRole("button", { name: "Pegar .env" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Añadir variable" })).toBeInTheDocument();
       await expectNoAxeViolations(screen.getByRole("main"));

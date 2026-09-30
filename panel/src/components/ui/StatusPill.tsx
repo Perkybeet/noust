@@ -4,9 +4,9 @@ import { useT } from "../../i18n";
 import type { PlainKey } from "../../i18n";
 import { cx } from "../../lib/cx";
 
-export type Status = "running" | "deploying" | "warning" | "failed" | "stopped" | "static" | "unknown";
+export type Status = "running" | "deploying" | "queued" | "warning" | "failed" | "stopped" | "static" | "unknown";
 
-type Glyph = "dot" | "arc" | "triangle" | "cross" | "ring" | "square" | "question";
+type Glyph = "dot" | "arc" | "dashed" | "triangle" | "cross" | "ring" | "square" | "question";
 type Tone = "ok" | "warn" | "fail" | "idle";
 
 interface StatusSpec {
@@ -23,6 +23,9 @@ interface StatusSpec {
 export const STATUS: Record<Status, StatusSpec> = {
   running: { labelKey: "common.statusPill.running", tone: "ok", glyph: "dot" },
   deploying: { labelKey: "common.statusPill.deploying", tone: "warn", glyph: "arc" },
+  // Amber like the work it is waiting for, but a still, dashed ring: nothing is being done yet,
+  // and a spinning arc would say that something is.
+  queued: { labelKey: "common.statusPill.queued", tone: "warn", glyph: "dashed" },
   // Amber like work in progress, but still: something to look at (an expiring certificate, a
   // health check that warns), which a spinning arc would misread as "busy".
   warning: { labelKey: "common.statusPill.warning", tone: "warn", glyph: "triangle" },
@@ -66,6 +69,9 @@ export function StatusGlyph({ state, size = 12, className }: { state: Status; si
     >
       {glyph === "dot" && <circle cx="6" cy="6" r="3.5" fill="currentColor" />}
       {glyph === "ring" && <circle cx="6" cy="6" r="3.25" stroke="currentColor" strokeWidth="1.5" />}
+      {glyph === "dashed" && (
+        <circle cx="6" cy="6" r="3.75" stroke="currentColor" strokeWidth="1.5" strokeDasharray="2.1 1.83" strokeLinecap="round" />
+      )}
       {glyph === "square" && <rect x="2.75" y="2.75" width="6.5" height="6.5" rx="1" fill="currentColor" />}
       {glyph === "arc" && (
         <path d="M6 2.25A3.75 3.75 0 1 1 2.25 6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />

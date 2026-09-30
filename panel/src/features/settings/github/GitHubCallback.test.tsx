@@ -78,7 +78,7 @@ describe("the GitHub callback", () => {
       { code: "a1b2c3d4", state: "1e5" },
     ]);
     // The install step is what Integrations shows next.
-    expect(await screen.findByText("Next: install the App")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Install it on an account" })).toBeInTheDocument();
   });
 
   it("records an installation and returns to Integrations", { timeout: 20_000 }, async () => {

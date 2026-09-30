@@ -1,6 +1,7 @@
 import { useNavigate } from "@tanstack/react-router";
-import { CircleArrowUp, History, MoreHorizontal, Play, RotateCw, Square, Trash2 } from "lucide-react";
+import { CircleArrowUp, History, Play, RotateCw, Square, Stethoscope } from "lucide-react";
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 import { ElevationCancelledError } from "../../api/errors";
 import type { App } from "../../api/queries/apps";
@@ -8,64 +9,90 @@ import type { Job } from "../../api/queries/jobs";
 import { appStatus } from "../../components/page/status";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
-import { Dialog } from "../../components/ui/Dialog";
-import { IconButton } from "../../components/ui/IconButton";
-import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
-import { toast } from "../../components/ui/toast";
+import { ICONS } from "../../components/ui/icons";
+import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { SM_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
 import { useT } from "../../i18n";
+import { useNode } from "../../nodes/useNode";
 import { hasUnit } from "../apps/AppRowActions";
 import { NothingNewDialog } from "../apps/NothingNewDialog";
 import { reportActionError, useAppActions } from "../apps/useAppActions";
+import { DeleteAppDialog } from "./DeleteAppDialog";
 import { RollbackDialog } from "./RollbackDialog";
-import { useConfirmItsYou, useDeleteApp } from "./useDeleteApp";
+import { useConfirmItsYou } from "./useDeleteApp";
 
-export interface AppActionsProps {
-  app: App;
-  /** A job on this app is queued or running: Update waits for it. */
-  busy: boolean;
-  onJobQueued: (job: Job) => void;
+export interface AppHeaderActions {
+  /** Restart, beside the primary action from the small breakpoint up. */
+  secondaryActions?: ReactNode;
+  /** Update: the one primary action of every tab of the app. */
+  primaryAction?: ReactNode;
+  /** Everything else, behind "More actions": start or stop, roll back, and delete, last. */
+  overflow?: ReactNode;
+  /** The dialogs those actions open, rendered by the layout beside the page. */
+  dialogs?: ReactNode;
 }
 
 /**
- * The app's actions in its header: Restart and Update (the primary action) as buttons, the
- * rest in a menu. On a phone everything folds into the one menu. Stopping asks first; Delete
- * asks for the domain to be typed; both go through "Confirm it's you" in the API client when
- * the session is not elevated.
+ * The app's actions, in the header's slots: Update the primary, Restart beside it, the rest in
+ * the overflow menu (Diagnose among them) with Delete last after a separator. On a phone Update stays in view beside
+ * "More actions" and Restart moves into the menu. Stopping asks once; deleting asks for the
+ * domain to be typed, after "Confirm it's you" when the session is not in sudo mode.
  */
-export function AppActions({ app, busy, onJobQueued }: AppActionsProps) {
+export function useAppHeaderActions(
+  domain: string,
+  app: App | undefined,
+  { busy, onJobQueued }: { busy: boolean; onJobQueued: (job: Job) => void },
+): AppHeaderActions {
   const t = useT();
-  const domain = app.domain;
-  const navigate = useNavigate();
+  const { node } = useNode();
+  const wide = useMediaQuery(SM_UP);
   const { restart, start, stop, update, rebuildAnyway, nothingNew, dismissNothingNew } = useAppActions(domain, { onJobQueued });
-  const remove = useDeleteApp(domain);
   const confirmItsYou = useConfirmItsYou();
+  const navigate = useNavigate();
   const [confirmStop, setConfirmStop] = useState(false);
   const [rollbackOpen, setRollbackOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
+  // Nothing to act on until the app is read: the header keeps its place meanwhile.
+  if (app === undefined) return {};
   const unit = hasUnit(app);
   const running = appStatus(app.status).state === "running";
+  const Delete = ICONS.delete;
 
-  const unitItem = unit ? (
-    running ? (
-      <MenuItem icon={<Square />} disabled={stop.isPending} onClick={() => setConfirmStop(true)}>
-        {t("appPages.actions.stop")}
-      </MenuItem>
-    ) : (
-      <MenuItem icon={<Play />} disabled={start.isPending} onClick={() => start.mutate()}>
-        {t("appPages.actions.start")}
-      </MenuItem>
-    )
-  ) : null;
+  const restartButton = (
+    <Button icon={<RotateCw aria-hidden="true" />} loading={restart.isPending} onClick={() => restart.mutate()}>
+      {t("appPages.actions.restart")}
+    </Button>
+  );
 
-  const rest = (
+  const overflow = (
     <>
+      {unit && !wide ? (
+        <MenuItem icon={<RotateCw />} disabled={restart.isPending} onClick={() => restart.mutate()}>
+          {t("appPages.actions.restart")}
+        </MenuItem>
+      ) : null}
+      {unit ? (
+        running ? (
+          <MenuItem icon={<Square />} disabled={stop.isPending} onClick={() => setConfirmStop(true)}>
+            {t("appPages.actions.stop")}
+          </MenuItem>
+        ) : (
+          <MenuItem icon={<Play />} disabled={start.isPending} onClick={() => start.mutate()}>
+            {t("appPages.actions.start")}
+          </MenuItem>
+        )
+      ) : null}
       <MenuItem icon={<History />} onClick={() => setRollbackOpen(true)}>
-        {t("appPages.common.rollBack")}
+        {t("appPages.actions.rollBackEllipsis")}
+      </MenuItem>
+      {/* Off the tab strip (eight tabs at most), one click away from every tab. */}
+      <MenuItem icon={<Stethoscope />} onClick={() => void navigate({ to: "/apps/$domain/diagnose", params: { domain } })}>
+        {t("appPages.actions.diagnose")}
       </MenuItem>
       <MenuSeparator />
       <MenuItem
-        icon={<Trash2 />}
+        icon={<Delete />}
         destructive
         onClick={() => {
           // Sudo mode first, so "Confirm it's you" never opens on top of the typed confirmation.
@@ -84,72 +111,27 @@ export function AppActions({ app, busy, onJobQueued }: AppActionsProps) {
     </>
   );
 
-  return (
+  const dialogs = (
     <>
-      <div className="hidden items-center gap-2 sm:flex">
-        {unit ? (
-          <Button icon={<RotateCw aria-hidden="true" />} loading={restart.isPending} onClick={() => restart.mutate()}>
-            {t("appPages.actions.restart")}
-          </Button>
-        ) : null}
-        <Button
-          variant="primary"
-          icon={<CircleArrowUp aria-hidden="true" />}
-          loading={update.isPending || busy}
-          onClick={() => update.mutate()}
-        >
-          {t("appPages.actions.update")}
-        </Button>
-        <Menu align="end" trigger={<IconButton variant="secondary" label={t("appPages.actions.moreActions")} icon={<MoreHorizontal />} tooltip={false} />}>
-          {unitItem}
-          {rest}
-        </Menu>
-      </div>
-
-      <div className="sm:hidden">
-        <Menu
-          align="end"
-          trigger={<IconButton variant="secondary" label={t("appPages.actions.moreActionsFor", { domain })} icon={<MoreHorizontal />} tooltip={false} />}
-        >
-          <MenuItem icon={<CircleArrowUp />} disabled={update.isPending || busy} onClick={() => update.mutate()}>
-            {t("appPages.actions.update")}
-          </MenuItem>
-          {unit ? (
-            <MenuItem icon={<RotateCw />} disabled={restart.isPending} onClick={() => restart.mutate()}>
-              {t("appPages.actions.restart")}
-            </MenuItem>
-          ) : null}
-          {unitItem}
-          {rest}
-        </Menu>
-      </div>
-
-      <Dialog
+      <ConfirmDialog
         open={confirmStop}
         onOpenChange={setConfirmStop}
-        size="sm"
+        friction="simple"
+        server={node}
         title={t("appPages.actions.stopTitle", { domain })}
         description={t("appPages.actions.stopDescription")}
-        footer={
-          <>
-            <Button onClick={() => setConfirmStop(false)}>{t("appPages.common.cancel")}</Button>
-            <Button
-              variant="danger"
-              loading={stop.isPending}
-              onClick={() =>
-                stop.mutate(undefined, {
-                  onSettled: () => {
-                    setConfirmStop(false);
-                  },
-                })
-              }
-            >
-              {t("appPages.actions.stopApplication")}
-            </Button>
-          </>
+        actionLabel={t("appPages.actions.stopApplication")}
+        // The outcome, success or failure, is the toast's: the dialog waits for it, then closes.
+        onConfirm={() =>
+          new Promise<void>((resolve) => {
+            stop.mutate(undefined, {
+              onSettled: () => {
+                resolve();
+              },
+            });
+          })
         }
       />
-
       <NothingNewDialog
         domain={domain}
         refusal={nothingNew}
@@ -157,23 +139,19 @@ export function AppActions({ app, busy, onJobQueued }: AppActionsProps) {
         onRebuild={() => rebuildAnyway.mutate()}
         onClose={dismissNothingNew}
       />
-
       <RollbackDialog domain={domain} layout={app.layout} open={rollbackOpen} onOpenChange={setRollbackOpen} onJobQueued={onJobQueued} />
-
-      <ConfirmDialog
-        open={deleteOpen}
-        onOpenChange={setDeleteOpen}
-        title={t("appPages.actions.deleteTitle", { domain })}
-        description={t("appPages.actions.deleteDescription")}
-        confirmText={domain}
-        actionLabel={t("appPages.actions.deleteApplication")}
-        onConfirm={async () => {
-          await remove.mutateAsync({ removeFiles: true, removeSsl: true });
-          // The page is about to go; the toast is what stays to say the job is on its way.
-          toast.info(t("appPages.actions.deletionQueued", { domain }), { description: t("appPages.actions.deletionQueuedDescription") });
-          void navigate({ to: "/apps" });
-        }}
-      />
+      <DeleteAppDialog app={app} open={deleteOpen} onOpenChange={setDeleteOpen} />
     </>
   );
+
+  return {
+    ...(unit && wide ? { secondaryActions: restartButton } : {}),
+    primaryAction: (
+      <Button variant="primary" icon={<CircleArrowUp aria-hidden="true" />} loading={update.isPending || busy} onClick={() => update.mutate()}>
+        {t("appPages.actions.update")}
+      </Button>
+    ),
+    overflow,
+    dialogs,
+  };
 }

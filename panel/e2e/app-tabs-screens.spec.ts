@@ -45,6 +45,11 @@ interface Screen {
 }
 
 const SCREENS: readonly Screen[] = [
+  { name: "overview", path: () => "/apps/shop.example.net" },
+  { name: "overview-releases", path: () => "/apps/tienda.example.org" },
+  // Broken: the status banner says why above every tab.
+  { name: "overview-failed", path: () => "/apps/clientes.example.com" },
+  { name: "overview-static", path: () => "/apps/bodas.example.com" },
   { name: "deployments-releases", path: () => "/apps/tienda.example.org/deployments" },
   { name: "deployments-inplace", path: () => "/apps/pedidos.example.org/deployments" },
   {
@@ -63,13 +68,15 @@ const SCREENS: readonly Screen[] = [
   },
   { name: "logs", path: () => "/apps/tienda.example.org/logs" },
   { name: "logs-failed-unit", path: () => "/apps/clientes.example.com/logs" },
+  { name: "logs-static", path: () => "/apps/bodas.example.com/logs" },
   { name: "metrics-24h", path: () => "/apps/tienda.example.org/metrics" },
   { name: "metrics-7d", path: () => "/apps/tienda.example.org/metrics?range=7d" },
   { name: "environment", path: () => "/apps/pedidos.example.org/environment" },
+  { name: "domains", path: () => "/apps/shop.example.net/domains" },
   { name: "diagnose", path: () => "/apps/tienda.example.org/diagnose" },
   { name: "diagnose-down", path: () => "/apps/clientes.example.com/diagnose" },
-  { name: "settings-releases", path: () => "/apps/tienda.example.org/settings" },
-  { name: "settings-inplace", path: () => "/apps/pedidos.example.org/settings" },
+  { name: "settings-releases", path: () => "/apps/tienda.example.org/settings/deploys" },
+  { name: "settings-inplace", path: () => "/apps/pedidos.example.org/settings/deploys" },
 ];
 
 test.describe("app tabs @screens", () => {

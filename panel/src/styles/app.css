@@ -46,7 +46,14 @@
   --color-fail-strong: var(--fail-strong);
   --color-idle: var(--idle);
   --color-idle-soft: var(--idle-soft);
+  --color-ok-border: var(--ok-border);
+  --color-warn-border: var(--warn-border);
+  --color-fail-border: var(--fail-border);
+  --color-idle-border: var(--idle-border);
+  --color-viz-1: var(--viz-1);
+  --color-viz-2: var(--viz-2);
   --color-focus: var(--focus);
+  --color-selection: var(--selection);
   --color-match: var(--match);
   --color-ansi-blue: var(--ansi-blue);
   --color-ansi-magenta: var(--ansi-magenta);
@@ -68,9 +75,35 @@
   --text-32: var(--fs-32);
   --text-32--line-height: var(--lh-32);
 
+  --radius-chip: var(--radius-chip);
   --radius-control: var(--radius-control);
   --radius-card: var(--radius-card);
   --radius-pill: var(--radius-pill);
+
+  /* Named sizes: h-control-md, size-icon-sm, max-w-measure, w-dialog-md... */
+  --spacing-control-sm: var(--control-sm);
+  --spacing-control-md: var(--control-md);
+  --spacing-control-lg: var(--control-lg);
+  --spacing-icon-xs: var(--icon-xs);
+  --spacing-icon-sm: var(--icon-sm);
+  --spacing-icon-md: var(--icon-md);
+  --spacing-icon-lg: var(--icon-lg);
+  --spacing-icon-xl: var(--icon-xl);
+  --spacing-editor: var(--height-editor);
+  --container-measure: var(--measure);
+  --container-measure-help: var(--measure-help);
+  --container-page: var(--width-page);
+  --container-wizard: var(--width-wizard);
+  --container-settings-nav: var(--width-settings-nav);
+  --container-settings: var(--width-settings);
+  --container-auth: var(--width-auth);
+  --container-dialog-sm: var(--width-dialog-sm);
+  --container-dialog-md: var(--width-dialog-md);
+  --container-dialog-lg: var(--width-dialog-lg);
+  --container-dialog-xl: var(--width-dialog-xl);
+  --container-drawer-md: var(--width-drawer-md);
+  --container-drawer-lg: var(--width-drawer-lg);
+  --container-search: var(--width-search);
 
   --shadow-raised: var(--shadow-raised);
   --shadow-overlay: var(--shadow-overlay);
@@ -128,6 +161,9 @@
     text-rendering: optimizeLegibility;
     font-synthesis: none;
     scrollbar-color: var(--border-strong) transparent;
+    /* The scrollbar's room is always kept, so a short tab after a long one (or a dialog that
+       locks scrolling) does not slide the page sideways by the scrollbar's width. */
+    scrollbar-gutter: stable;
   }
 
   body {
@@ -205,6 +241,43 @@
   font-variant-ligatures: none;
   font-feature-settings: "calt" 0;
   font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* Named stacking layers (tokens.css): z-sticky < z-backdrop < z-overlay < z-toast < z-skip. */
+@utility z-sticky {
+  z-index: var(--z-sticky);
+}
+@utility z-backdrop {
+  z-index: var(--z-backdrop);
+}
+@utility z-overlay {
+  z-index: var(--z-overlay);
+}
+@utility z-toast {
+  z-index: var(--z-toast);
+}
+@utility z-skip {
+  z-index: var(--z-skip);
+}
+
+/* An inner scroll box whose content grows and shrinks (a dialog body, a drawer) keeps its
+   scrollbar's room too, for the same reason as the page. */
+@utility scroll-stable {
+  scrollbar-gutter: stable;
+}
+
+/* A state rail: the 2px left edge that marks a row or a log line with a state. */
+@utility state-rail-ok {
+  box-shadow: inset 2px 0 0 var(--ok);
+}
+@utility state-rail-warn {
+  box-shadow: inset 2px 0 0 var(--warn);
+}
+@utility state-rail-fail {
+  box-shadow: inset 2px 0 0 var(--fail);
+}
+@utility state-rail-idle {
+  box-shadow: inset 2px 0 0 var(--idle);
 }
 
 @utility scroll-thin {

@@ -8,35 +8,22 @@ import { RelativeTime } from "../../components/page/RelativeTime";
 import { STATE_RANK, appStatus, deployStatus } from "../../components/page/status";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
-import { STATUS, StatusGlyph } from "../../components/ui/StatusPill";
+import { EmptyCell } from "../../components/ui/EmptyCell";
+import { Mono } from "../../components/ui/Mono";
+import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { cx } from "../../lib/cx";
 import { formatBytes, formatPercent, parseTimestamp } from "../../lib/format";
-import type { AppInfo, Deployment } from "./data";
-import { appReading, deployMoment, previewParentOf, readsApps } from "./data";
-
-const TONE_TEXT = { ok: "text-ok", warn: "text-warn", fail: "text-fail", idle: "text-idle" } as const;
-
-/** A table cell with nothing to report: a dash on screen, the reason for screen readers. */
-function Nothing({ reason }: { reason: string }) {
-  return (
-    <>
-      <span aria-hidden="true" className="text-fg-faint">
-        -
-      </span>
-      <span className="sr-only">{reason}</span>
-    </>
-  );
-}
+import type { AppInfo, Deployment, LastDeployment } from "./data";
+import { appReading, deployMoment, lastDeployOf, previewParentOf, readsApps, useTypeName } from "./data";
 
 /** A deployment's outcome as a glyph and when it happened, for dense rows. */
-export function DeployMoment({ deploy }: { deploy: Deployment }) {
+export function DeployMoment({ deploy }: { deploy: Pick<Deployment, "status" | "finished_at"> & { started_at?: string | null } }) {
   const t = useT();
   const view = deployStatus(deploy.status, t.locale);
   return (
     <span className="inline-flex items-center gap-1.5">
-      <StatusGlyph state={view.state} size={10} className={TONE_TEXT[STATUS[view.state].tone]} />
+      <StatusGlyph state={view.state} size={10} className={stateTextClass(view.state)} />
       <span className="sr-only">{`${view.label}, `}</span>
       <RelativeTime value={deployMoment(deploy)} className="text-fg-muted" />
     </span>
@@ -53,21 +40,19 @@ export function AppName({ t, app }: { t: T; app: AppInfo }) {
     <Link
       to="/apps/$domain"
       params={{ domain: app.domain }}
-      className="-mx-1 rounded-[4px] px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
+      title={app.domain}
+      className="-mx-1 block max-w-full truncate rounded-chip px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2"
     >
       {app.domain}
     </Link>
   );
   if (parent === null) return link;
   return (
-    <span className="flex min-w-0 flex-col items-start">
+    <span className="flex max-w-full min-w-0 flex-col items-start">
       {link}
-      <span className="inline-flex items-center gap-1 text-12 text-fg-muted">
-        <GitPullRequest aria-hidden="true" className="size-3 shrink-0 text-fg-faint" />
-        <span>
-          {t("apps.table.previewOf")}
-          <span translate="no">{parent}</span>
-        </span>
+      <span className="inline-flex max-w-full min-w-0 items-center gap-1 text-12 text-fg-muted">
+        <GitPullRequest aria-hidden="true" className="size-icon-xs shrink-0 text-fg-faint" />
+        <span className="truncate">{t.rich("apps.table.previewOf", { parent: <Mono tone="muted">{parent}</Mono> })}</span>
       </span>
     </span>
   );
@@ -75,55 +60,40 @@ export function AppName({ t, app }: { t: T; app: AppInfo }) {
 
 interface Row {
   app: AppInfo;
-  deploy: Deployment | undefined;
+  deploy: LastDeployment | Deployment | null;
   cpu: number | null;
   memory: number | null;
 }
 
 export interface AppsTableProps {
   apps: readonly AppInfo[];
-  /** The newest deploy of each domain (latestDeployByDomain). */
+  /** The newest deploy of each domain (latestDeployByDomain), when the page read the history. */
   deploys: ReadonlyMap<string, Deployment>;
   metrics: MetricsSnapshot | undefined;
   caption: string;
   loading?: boolean;
+  /** How many rows to draw while loading: the count the page expects, so nothing jumps. */
+  skeletonRows?: number;
   /** Shown in place of rows when there are none. */
   empty?: ReactNode;
-  /** A per-row menu; the list offers one, the overview does not. */
+  /** A per-row menu; the list offers one. On a phone it stays in view on every card. */
   rowActions?: (app: AppInfo) => ReactNode;
-  /** `full` adds the port, for the applications list. */
-  detail?: "summary" | "full";
   className?: string;
 }
 
 /**
- * Every application with its state, type, last deploy and, when the collector reads them, its
- * CPU and memory now. The domain is a link to the app, so it opens in a new tab like any
- * other link.
+ * Every application, identity first: its domain (a link to it, so it opens in a new tab like
+ * any other link), its state, its type by the name people know it by, its last deploy and, when
+ * the collector reads them, its CPU and memory now. On a phone each row is a card with its
+ * actions always in view.
  */
-export function AppsTable({
-  apps,
-  deploys,
-  metrics,
-  caption,
-  loading = false,
-  empty,
-  rowActions,
-  detail = "summary",
-  className,
-}: AppsTableProps) {
+export function AppsTable({ apps, deploys, metrics, caption, loading = false, skeletonRows, empty, rowActions, className }: AppsTableProps) {
   const t = useT();
-  const rows: Row[] = apps.map((app) => ({ app, deploy: deploys.get(app.domain), ...appReading(metrics, app.domain) }));
+  const typeName = useTypeName();
+  const rows: Row[] = apps.map((app) => ({ app, deploy: lastDeployOf(app, deploys), ...appReading(metrics, app.domain) }));
   const withReadings = readsApps(metrics);
 
   const columns: Column<Row>[] = [
-    {
-      id: "state",
-      header: t("apps.table.columnState"),
-      width: "w-32",
-      cell: (row) => <AppStatePill status={row.app.status} appearance="inline" size="sm" />,
-      sortValue: (row) => STATE_RANK[appStatus(row.app.status).state],
-    },
     {
       id: "domain",
       header: t("apps.table.columnApplication"),
@@ -131,35 +101,29 @@ export function AppsTable({
       sortValue: (row) => row.app.domain,
     },
     {
+      id: "state",
+      header: t("apps.table.columnState"),
+      width: "w-32",
+      card: "status",
+      cell: (row) => <AppStatePill status={row.app.status} appearance="inline" size="sm" />,
+      sortValue: (row) => STATE_RANK[appStatus(row.app.status).state],
+    },
+    {
       id: "type",
       header: t("apps.table.columnType"),
-      mono: true,
       width: "w-36",
       hideBelow: "sm",
-      cell: (row) =>
-        row.app.app_type ? <span className="text-fg-muted">{row.app.app_type}</span> : <Nothing reason={t("apps.table.unknownType")} />,
-      sortValue: (row) => row.app.app_type ?? null,
+      cell: (row) => {
+        const name = typeName(row.app.app_type);
+        return name === null ? <EmptyCell reason={t("apps.table.unknownType")} /> : <span className="text-fg-muted">{name}</span>;
+      },
+      sortValue: (row) => typeName(row.app.app_type),
     },
-    ...(detail === "full"
-      ? [
-          {
-            id: "port",
-            header: t("apps.table.columnPort"),
-            mono: true,
-            width: "w-24",
-            align: "end",
-            hideBelow: "md",
-            cell: (row: Row) =>
-              row.app.port ? <span className="text-fg-muted">{row.app.port}</span> : <Nothing reason={t("apps.table.noPort")} />,
-            sortValue: (row: Row) => row.app.port ?? null,
-          } satisfies Column<Row>,
-        ]
-      : []),
     {
       id: "deploy",
       header: t("apps.table.columnLastDeploy"),
       width: "w-40",
-      cell: (row) => (row.deploy ? <DeployMoment deploy={row.deploy} /> : <Nothing reason={t("apps.table.noRecentDeploy")} />),
+      cell: (row) => (row.deploy ? <DeployMoment deploy={row.deploy} /> : <EmptyCell reason={t("apps.table.noRecentDeploy")} />),
       sortValue: (row) => {
         const moment = row.deploy ? parseTimestamp(deployMoment(row.deploy)) : null;
         return moment === null ? null : -moment.getTime();
@@ -172,8 +136,10 @@ export function AppsTable({
             header: t("apps.table.columnCpu"),
             align: "end",
             mono: true,
+            width: "w-24",
             hideBelow: "md",
-            cell: (row) => (row.cpu === null ? <Nothing reason={t("apps.table.noReading")} /> : formatPercent(row.cpu)),
+            card: "hidden",
+            cell: (row) => (row.cpu === null ? <EmptyCell reason={t("apps.table.noReading")} /> : formatPercent(row.cpu, t.locale)),
             sortValue: (row) => row.cpu,
           },
           {
@@ -181,8 +147,10 @@ export function AppsTable({
             header: t("apps.table.columnMemory"),
             align: "end",
             mono: true,
+            width: "w-28",
             hideBelow: "md",
-            cell: (row) => (row.memory === null ? <Nothing reason={t("apps.table.noReading")} /> : formatBytes(row.memory)),
+            card: "hidden",
+            cell: (row) => (row.memory === null ? <EmptyCell reason={t("apps.table.noReading")} /> : formatBytes(row.memory, t.locale)),
             sortValue: (row) => row.memory,
           },
         ] satisfies Column<Row>[])
@@ -196,10 +164,12 @@ export function AppsTable({
       getRowId={(row) => row.app.domain}
       caption={caption}
       loading={loading}
+      {...(skeletonRows !== undefined ? { skeletonRows } : {})}
       {...(empty !== undefined ? { empty } : {})}
       {...(rowActions ? { rowActions: (row: Row) => rowActions(row.app) } : {})}
       defaultSort={{ column: "domain", direction: "ascending" }}
-      className={cx(className)}
+      mobile="cards"
+      {...(className !== undefined ? { className } : {})}
     />
   );
 }

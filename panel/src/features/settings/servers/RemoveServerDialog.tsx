@@ -7,6 +7,7 @@ import { Dialog } from "../../../components/ui/Dialog";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
+import { fleetKeys } from "../../fleet/data";
 import { centralNameFrom, nodeKeyQuery, nodeKeys, removeNode } from "../../fleet/nodes";
 import type { NodeRemoved } from "../../fleet/nodes";
 
@@ -55,7 +56,7 @@ export function RemoveServerDialog({ name, open, onOpenChange }: RemoveServerDia
         actionLabel={t("servers.settings.removeDialog.action")}
         onConfirm={async () => {
           const result = await removeNode(name, true);
-          queryClient.removeQueries({ queryKey: ["fleet", name] });
+          void queryClient.invalidateQueries({ queryKey: fleetKeys.all });
           void queryClient.invalidateQueries({ queryKey: nodeKeys.all });
           // What the central did is worth reading (a token it could not revoke, the command
           // to finish on the server); with nothing to say, a toast is enough.

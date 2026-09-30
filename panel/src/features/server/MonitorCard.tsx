@@ -1,16 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
-import { CircleCheck, Mail, TriangleAlert, X } from "lucide-react";
+import { Mail } from "lucide-react";
 
 import { monitorConfigQuery, monitorStatusQuery, observationsQuery } from "../../api/queries/monitor";
 import type { MonitorStatus } from "../../api/queries/monitor";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
-import { Section } from "../../components/page/Section";
+import { Subsection } from "../../components/page/Subsection";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
 import { IconButton } from "../../components/ui/IconButton";
+import { ICONS } from "../../components/ui/icons";
+import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
-import { StatusPill } from "../../components/ui/StatusPill";
+import { StatusGlyph, StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { useMonitorActions } from "./useMonitorActions";
@@ -37,22 +40,21 @@ function ObservationRow({
   onAcknowledge: () => void;
   pending: boolean;
 }) {
+  const state = severity === "warning" ? "warning" : "unknown";
   return (
     <li className="flex items-start justify-between gap-3 py-2.5">
       <div className="flex min-w-0 items-start gap-2.5">
-        <TriangleAlert aria-hidden="true" className={`mt-0.5 size-3.5 shrink-0 ${severity === "warning" ? "text-warn" : "text-fg-faint"}`} />
+        <StatusGlyph state={state} size={12} className={`mt-1 shrink-0 ${severity === "warning" ? "text-warn" : "text-fg-faint"}`} />
         <div className="flex min-w-0 flex-col gap-0.5">
           <p className="text-13 text-fg">
-            <span translate="no" className="mono font-medium">
-              {process}
-            </span>
+            <Mono>{process}</Mono>
             <span className="text-fg-faint">{t("server.monitor.pidSignal", { pid, signal })}</span>
           </p>
           {detail ? <p className="text-12 text-fg-muted">{detail}</p> : null}
           <RelativeTime value={when} className="text-12 text-fg-faint" />
         </div>
       </div>
-      <IconButton label={t("server.monitor.acknowledgeAria", { process })} icon={<X />} size="sm" disabled={pending} onClick={onAcknowledge} />
+      <IconButton label={t("server.monitor.acknowledgeAria", { process })} icon={<ICONS.dismiss />} size="sm" disabled={pending} onClick={onAcknowledge} />
     </li>
   );
 }
@@ -81,7 +83,7 @@ function UnitRow({ t, status }: { t: T; status: MonitorStatus }) {
       </div>
       <div className="flex items-center gap-2">
         {!status.installed ? (
-          <Button size="sm" variant="primary" loading={install.isPending} onClick={() => install.mutate()}>
+          <Button size="sm" loading={install.isPending} onClick={() => install.mutate()}>
             {t("server.monitor.install")}
           </Button>
         ) : (
@@ -123,7 +125,7 @@ export function MonitorCard() {
   const { testEmail, acknowledge } = useMonitorActions();
 
   return (
-    <Section
+    <Card level={2}
       title={t("server.monitor.title")}
       description={t("server.monitor.description")}
       actions={
@@ -133,13 +135,14 @@ export function MonitorCard() {
           </Button>
         ) : undefined
       }
+      padding="sm"
     >
       {status.isError && status.data === undefined ? (
         <ErrorBlock compact error={status.error} title={t("server.monitor.couldNotReadStatus")} onRetry={() => void status.refetch()} />
       ) : status.data === undefined ? (
         <Skeleton className="h-24 w-full rounded-card" />
       ) : (
-        <div className="flex flex-col gap-4 rounded-card border border-border bg-surface px-4 py-3.5 shadow-raised">
+        <div className="flex flex-col gap-4">
           <UnitRow t={t} status={status.data} />
 
           {config.data ? (
@@ -149,15 +152,14 @@ export function MonitorCard() {
             </p>
           ) : null}
 
-          <div>
-            <h3 className="mb-1 text-13 font-medium text-fg">{t("server.monitor.openFindings")}</h3>
+          <Subsection title={t("server.monitor.openFindings")}>
             {observations.isError && observations.data === undefined ? (
               <ErrorBlock compact error={observations.error} title={t("server.monitor.couldNotLoadFindings")} onRetry={() => void observations.refetch()} />
             ) : observations.data === undefined ? (
               <Skeleton className="h-12 w-full" />
             ) : observations.data.observations.length === 0 ? (
               <p className="flex items-center gap-2 text-13 text-fg-muted">
-                <CircleCheck aria-hidden="true" className="size-3.5 text-ok" />
+                <ICONS.success aria-hidden="true" className="size-icon-sm text-ok" />
                 {t("server.monitor.nothingOpen")}
               </p>
             ) : (
@@ -180,9 +182,9 @@ export function MonitorCard() {
                 ))}
               </ul>
             )}
-          </div>
+          </Subsection>
         </div>
       )}
-    </Section>
+    </Card>
   );
 }

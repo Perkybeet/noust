@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Ban } from "lucide-react";
-import { useId } from "react";
 import type { ReactNode } from "react";
 
 import { recipesQuery } from "../../api/queries/recipes";
@@ -8,6 +7,8 @@ import type { RecipeSummary } from "../../api/queries/recipes";
 import { CommandHint } from "../../components/page/CommandHint";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { EmptyState } from "../../components/ui/EmptyState";
 import { ExternalLink } from "../../components/ui/ExternalLink";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
@@ -23,25 +24,22 @@ function hostOf(url: string): string {
 
 function RecipeCard({ recipe, opening, disabled, onChoose }: { recipe: RecipeSummary; opening: boolean; disabled: boolean; onChoose: () => void }) {
   const t = useT();
-  const titleId = useId();
   const database = recipe.database ?? null;
   const needs = [...(database !== null ? [t("newApp.recipes.database", { engine: database })] : []), ...recipe.requires];
   return (
-    <li
-      aria-labelledby={titleId}
-      className={
-        recipe.available
-          ? "flex min-w-0 flex-col gap-3 rounded-card border border-border bg-surface p-4 shadow-raised"
-          : "flex min-w-0 flex-col gap-3 rounded-card border border-dashed border-border bg-bg-sunken p-4"
-      }
-    >
-      <div className="flex min-w-0 flex-col gap-1">
-        <h3 id={titleId} translate="no" className="flex items-center gap-2 text-14 font-medium text-fg">
-          <BookOpen aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />
+    <Card
+      as="li"
+      padding="sm"
+      title={
+        <span translate="no" className="flex items-center gap-2">
+          <BookOpen aria-hidden="true" className="size-icon-md shrink-0 text-fg-muted" />
           {recipe.title}
-        </h3>
-        <p className="text-13 text-pretty text-fg-muted">{recipe.description}</p>
-      </div>
+        </span>
+      }
+      description={recipe.description}
+      className="h-full"
+    >
+      <div className="flex h-full min-w-0 flex-col gap-3">
       {needs.length > 0 ? (
         <div className="flex flex-col gap-1">
           <span className="text-12 font-medium text-fg">{t("newApp.recipes.needs")}</span>
@@ -55,7 +53,7 @@ function RecipeCard({ recipe, opening, disabled, onChoose }: { recipe: RecipeSum
       {recipe.available ? null : (
         <div className="flex flex-col gap-1">
           <span className="flex items-center gap-1.5 text-12 font-medium text-fg">
-            <Ban aria-hidden="true" className="size-3.5 shrink-0 text-fg-muted" />
+            <Ban aria-hidden="true" className="size-icon-sm shrink-0 text-fg-muted" />
             {t("newApp.recipes.unavailable")}
           </span>
           {recipe.unavailable_reason ? <p className="text-12 text-pretty text-fg-muted">{recipe.unavailable_reason}</p> : null}
@@ -66,12 +64,13 @@ function RecipeCard({ recipe, opening, disabled, onChoose }: { recipe: RecipeSum
           {hostOf(recipe.homepage)}
         </ExternalLink>
         {recipe.available ? (
-          <Button size="sm" variant="primary" loading={opening} disabled={disabled && !opening} onClick={onChoose}>
+          <Button size="sm" loading={opening} disabled={disabled && !opening} onClick={onChoose}>
             {t("newApp.recipes.use", { title: recipe.title })}
           </Button>
         ) : null}
       </div>
-    </li>
+      </div>
+    </Card>
   );
 }
 
@@ -90,7 +89,6 @@ export interface RecipeGalleryProps {
 export function RecipeGallery({ opening, failure, onChoose }: RecipeGalleryProps) {
   const t = useT();
   const recipes = useQuery(recipesQuery());
-  const listId = useId();
 
   let body: ReactNode;
   if (recipes.data === undefined) {
@@ -105,10 +103,10 @@ export function RecipeGallery({ opening, failure, onChoose }: RecipeGalleryProps
       </div>
     );
   } else if (recipes.data.items.length === 0) {
-    body = <p className="rounded-card border border-dashed border-border px-4 py-6 text-center text-13 text-fg-muted">{t("newApp.recipes.empty")}</p>;
+    body = <EmptyState variant="inline" title={t("newApp.recipes.empty")} />;
   } else {
     body = (
-      <ul aria-labelledby={listId} className="grid gap-3 sm:grid-cols-2">
+      <ul aria-label={t("newApp.recipes.label")} className="grid gap-3 sm:grid-cols-2">
         {recipes.data.items.map((recipe) => (
           <RecipeCard
             key={recipe.name}
@@ -124,9 +122,6 @@ export function RecipeGallery({ opening, failure, onChoose }: RecipeGalleryProps
 
   return (
     <div className="flex flex-col gap-4">
-      <h3 id={listId} className="sr-only">
-        {t("newApp.recipes.label")}
-      </h3>
       {failure !== null ? <ErrorBlock live error={failure.error} title={failure.title} /> : null}
       {body}
       <CommandHint command="noust recipe list" label={t("newApp.source.terminal")} />

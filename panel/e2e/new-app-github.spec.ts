@@ -9,6 +9,7 @@
 
 import { forgetApp } from "./apps-cleanup";
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
+import { continueTo } from "./wizard-sources";
 
 test("a repository and branch chosen from GitHub reach the inspection and the deploy with their installation", async ({ page, consoleServer, problems }) => {
   test.setTimeout(240_000);
@@ -57,21 +58,22 @@ test("a repository and branch chosen from GitHub reach the inspection and the de
     github_installation_id: 61000001,
   });
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
-  const review = page.getByRole("heading", { level: 2, name: "Review" });
-  await expect(confirm.or(review)).toBeVisible();
+  const address = page.getByRole("heading", { level: 2, name: "Address" });
+  await expect(confirm.or(address)).toBeVisible();
   if (await confirm.isVisible()) await confirmItsYou(page, consoleServer);
-  await expect(review).toBeFocused();
+  await expect(address).toBeFocused();
 
-  const found = page.getByRole("region", { name: "What Noust found" });
-  await expect(found.getByText(/^Noust can deploy this as Next\.js/)).toBeVisible();
   await page.getByLabel("Domain", { exact: true }).fill(domain);
   await expect(page.getByText(`${domain} points here`)).toBeVisible();
+  await continueTo(page, "Configuration");
+  const found = page.getByRole("group", { name: "What Noust found" });
+  await expect(found.getByText(/^Noust can deploy this as Next\.js/)).toBeVisible();
+  await continueTo(page, "Variables");
   await page.getByLabel(/^DATABASE_URL/).fill("postgres://landing@localhost/landing");
   for (const name of ["NEXTAUTH_SECRET", "STRIPE_SECRET_KEY", "SMTP_PASSWORD"]) {
     await page.getByRole("button", { name: `Generate ${name}` }).click();
   }
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { level: 2, name: "Deploy" })).toBeFocused();
+  await continueTo(page, "Deploy");
   await stillness(page);
   await expectNoA11yViolations(page, "the deploy step of a GitHub source");
 

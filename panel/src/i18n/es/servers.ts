@@ -11,90 +11,19 @@ export const servers: Catalog<typeof en> = {
     },
   },
 
-  thisServer: "Este servidor",
-  hubBadge: "Hub",
-
   reachability: {
     locked: "Bloqueado",
   },
 
-  // -------------------------------------------------------------------------------------
-  // La página Flota
-
   fleet: {
-    title: "Flota",
-    description: "Todos los servidores que gestiona esta central, uno junto a otro: si responden, qué ejecutan y qué necesita tu atención.",
-    addServer: "Añadir un servidor",
-    manageServers: "Gestionar servidores",
-    serversTitle: "Servidores",
-    serversDescription: "Las lecturas se actualizan cada 15 segundos; las aplicaciones, los certificados y las unidades, cada minuto.",
-    tableCaption: "Servidores de esta flota",
-    loadingLabel: "la flota",
-    column: {
-      server: "Servidor",
-      reachability: "Alcance",
-      version: "Versión",
-      cpu: "CPU",
-      memory: "Memoria",
-      disk: "Disco",
-      apps: "Aplicaciones",
-      units: "Unidades",
-      certificates: "Certificados",
-      lastSeen: "Visto por última vez",
-    },
-    versionMismatch: "Otra versión",
-    versionMismatchLabel: "Ejecuta {version}; esta central ejecuta {central}",
-    appsRunning: { one: "{count} en marcha", other: "{count} en marcha" },
-    appsFailed: { one: "{count} fallida", other: "{count} fallidas" },
-    unitsFailed: { one: "{count} fallida", other: "{count} fallidas" },
-    unitsNoneFailed: "Ninguna fallida",
-    certsExpiring: { one: "{count} a punto de caducar", other: "{count} a punto de caducar" },
-    certsNoneExpiring: "Ninguno a punto de caducar",
     notRead: "Sin leer",
-    now: "Ahora",
-    never: "Nunca",
-    hubNoApps: "No despliega nada",
-    open: "Abrir {name}",
-    empty: {
-      title: "Aún no hay servidores en esta flota",
-      description:
-        "Una flota son varios servidores Noust gestionados desde una sola consola, la de esta central. La central llega a cada servidor por un túnel SSH hasta su consola, con una clave que solo puede reenviar ese puerto, y lo maneja a través de su propia API.",
-      action: "Añadir un servidor",
-    },
     hub: {
-      title: "Esta central no despliega nada",
+      title: "Esta central no despliega nada por sí misma",
       description:
-        "Es un hub: las aplicaciones, los sitios, los certificados, las bases de datos y las copias de seguridad viven en los servidores que gestiona. Elige un servidor abajo para abrirlos allí.",
-      noServers: "Añade primero un servidor: todas las aplicaciones de un hub viven en sus servidores.",
-    },
-    attention: {
-      title: "Requiere atención",
-      description: "Los problemas de todos los servidores, los más graves primero. Cada uno se abre en el servidor al que pertenece.",
-      allClear: {
-        one: "Nada requiere atención en el único servidor.",
-        other: "Nada requiere atención en ninguno de los {count} servidores.",
-      },
-      onServer: "En {server}",
-      unreachable: "La central no puede llegar a este servidor",
-      refused: "Este servidor rechazó el token de la central",
-      unreachableFix:
-        "Comprueba que el servidor está en marcha y responde por SSH en {address}, y que su clave de host no ha cambiado. Lo que dijo ssh:",
-      refusedFix:
-        "El servidor ya no acepta el token de flota de esta central. Vuelve a ejecutar noust fleet authorize en él y, después, quítalo y añádelo aquí con el nuevo código de unión.",
-      machineFailed: "No se pudo leer la máquina de este servidor",
-      unchecked: "No se pudo comprobar {source}:",
-      sources: {
-        apps: "sus aplicaciones",
-        deploys: "sus despliegues",
-        certificates: "sus certificados",
-        units: "sus unidades",
-      },
-      testAgain: "Probar de nuevo",
+        "Es un hub: las aplicaciones, los sitios, los certificados, las bases de datos y las copias están en los servidores que gestiona. Abre uno desde su fila, o elígelo arriba.",
+      noServers: "Añade primero un servidor: todas las aplicaciones de un hub están en sus servidores.",
     },
   },
-
-  // -------------------------------------------------------------------------------------
-  // Ajustes > Servidores
 
   settings: {
     documentTitle: "Ajustes de servidores",
@@ -105,9 +34,10 @@ export const servers: Catalog<typeof en> = {
     tableCaption: "Servidores que gestiona esta central",
     column: {
       name: "Nombre",
-      address: "Dirección SSH",
+      address: "Cuenta y dirección del túnel",
       status: "Estado",
       version: "Versión",
+      access: "Esta central puede",
       lastSeen: "Visto por última vez",
     },
     addServer: "Añadir un servidor",
@@ -151,53 +81,80 @@ export const servers: Catalog<typeof en> = {
 
   add: {
     title: "Añadir un servidor",
-    stepOf: "Paso {step} de {total}",
+    description: "Esta central nunca inicia sesión en él: el servidor autoriza a esta central, una vez, desde su propia terminal.",
     steps: {
       authorize: "Autorizar",
       join: "Unir",
       result: "Resultado",
     },
-    progressLabel: "Progreso",
-    stepDone: "{name}, hecho",
-    stepCurrent: "{name}, paso actual",
-    stepTodo: "{name}, pendiente",
     cancel: "Cancelar",
     back: "Atrás",
-    next: "Ya lo ejecuté: siguiente",
+    next: "Ya lo ejecuté: continuar",
     done: "Hecho",
     name: {
       label: "Nombre",
       description: "Cómo llamará esta consola al servidor: de 1 a 32 letras minúsculas, dígitos y guiones, como web-2.",
       invalid: "Usa de 1 a 32 letras minúsculas, dígitos y guiones, empezando y terminando por una letra o un dígito.",
       showCommand: "Mostrar la orden",
+      again: "Mostrarla de nuevo",
       keyFailed: "No se pudo preparar la clave de la central",
     },
+    access: {
+      label: "Esta central puede",
+      description: "Lo máximo que esta central puede hacer en él. Lo aplica el servidor, pida lo que pida esta central.",
+      adminHint: "Desplegar, configurar y borrar, como en el propio servidor",
+      deployHint: "Operar, actualizar y volver atrás sus aplicaciones",
+      readHint: "Verlo todo, no cambiar nada",
+    },
     authorize: {
+      whereTitle: "Ejecútala en el otro servidor: el que estás añadiendo",
+      where: "No aquí en {central}. Abre una terminal en el servidor que añades, como root, y ejecuta allí la orden de abajo.",
       intro: "En {name}, como root, ejecuta esta orden. Imprime un código de unión en una línea: cópialo para el paso siguiente.",
       commandLabel: "Orden para ejecutar en {name}",
-      copy: "Copiar orden",
+      copy: "Copiar la orden",
+      missing: "Primero ponle nombre al servidor y muestra su orden.",
       safeTitle: "Por qué es seguro",
       safeBody:
-        "La clave de esta orden solo puede reenviar el puerto de la consola de {name} a esta central. No puede abrir una shell ni ejecutar nada en {name}, y {name} puede revocarla cuando quiera con noust fleet deauthorize. La central solo habla con {name} a través de su API, con un token que {name} emite y puede revocar.",
+        "La clave de esta orden solo puede reenviar el puerto de la consola de {name} a esta central, desde una cuenta sin shell (noust-tunnel). No puede ejecutar nada en {name}, y {name} puede revocarla cuando quiera con noust fleet deauthorize. La central habla con {name} solo a través de su API, con un token que {name} emite y puede revocar.",
     },
     join: {
       intro: "Pega lo que imprimió la orden en {name} y dónde llega la central a su SSH.",
       codeLabel: "Código de unión",
-      codeDescription: "Lleva un token para la consola de {name}: trátalo como una contraseña. Se envía una vez y no se vuelve a mostrar.",
+      codeDescription:
+        "Empieza por noust-join:v1: y lleva un token para la consola de {name}: trátalo como una contraseña. Se envía una vez y no se vuelve a mostrar.",
+      problem: {
+        empty: "Pega el código de unión que imprimió la orden en el servidor.",
+        apiToken:
+          "Eso es un token de API, no un código de unión. El código de unión es la línea que imprimió noust fleet authorize en el servidor y empieza por noust-join:v1:.",
+        consoleToken:
+          "Eso parece un token de acceso a la consola (noust_…), no un código de unión. El código de unión es la línea que imprimió noust fleet authorize en el servidor y empieza por noust-join:v1:.",
+        newer: "Este código de unión es de un Noust más nuevo que esta central. Actualiza Noust en esta central y vuelve a pegarlo.",
+        wrongPrefix: "Un código de unión empieza por noust-join:v1:. Copia la línea entera que imprimió noust fleet authorize en el servidor.",
+        unreadable: "Empieza como un código de unión pero no se lee como tal: vuelve a copiar la línea entera, sin cortarla.",
+      },
+      summaryTitle: "Código de unión leído",
+      summary: "Para {node}: su cuenta de túnel {user} en el puerto SSH {port}, su consola en el puerto {console}, Noust {version}.",
+      otherCentral: "Este código se hizo para la central {central}, no para esta ({name}). El servidor lo rechazaría.",
+      otherKey: "Este código se hizo para otra clave distinta de la que mostró esta central en el primer paso. Vuelve a ejecutar la orden del primer paso.",
+      rootAccount:
+        "Este servidor deja entrar a la central como root. Una cuenta de túnel propia (noust-tunnel, la predeterminada) es más segura: vuelve a ejecutar la orden sin --ssh-user root.",
       addressLabel: "Dirección SSH",
       addressDescription:
-        "Como usuario@host o usuario@host:puerto, por ejemplo root@web2.example.com. El usuario y el puerto son por defecto los del código de unión.",
+        "El nombre o la dirección del servidor. La cuenta y el puerto salen del código de unión; añádelos como usuario@host:puerto solo para cambiarlos.",
+      addressDescriptionFrom: "El nombre o la dirección del servidor. La central se conecta como {user} en el puerto {port}, según el código de unión.",
       addressInvalid: "Escríbela como host, usuario@host o usuario@host:puerto.",
       submit: "Añadir servidor",
       elevationNote: "Añadir un servidor te pide confirmar que eres tú.",
     },
     result: {
-      addedTitle: "{name} ya forma parte de la flota",
+      addedTitle: "{name} ya es parte de la flota",
       addedBody: "La central fijó su clave de host, abrió el túnel y comprobó el token.",
       status: "Estado",
       version: "Versión",
-      address: "Dirección SSH",
-      notReported: "Aún no la ha comunicado",
+      tunnel: "Cuenta y dirección del túnel",
+      access: "Esta central puede",
+      accessUnknown: "Aún sin publicar",
+      notReported: "Aún sin informar",
       open: "Abrir {name}",
       failedTitle: "No se pudo añadir {name}",
       twoFactorLink: "Configurar la verificación en dos pasos",
@@ -226,6 +183,32 @@ export const servers: Catalog<typeof en> = {
     bannerDescription: "Sus servidores están fuera de alcance hasta que desbloquees sus secretos sellados.",
     bannerAction: "Desbloquear",
     dialogTitle: "Desbloquear esta central",
+  },
+
+  central: {
+    documentTitle: "Ajustes de la central",
+    fromTerminal: "Desde una terminal en la central",
+    identity: {
+      title: "Esta central",
+      description: "El Noust que gestiona la flota, y lo que hace por sí mismo.",
+      name: "Nombre",
+      role: "Rol",
+      roleServer: "Gestiona servidores y despliega aplicaciones por sí misma",
+      roleHub: "Un hub: gestiona servidores, no despliega nada por sí mismo",
+      servers: "Servidores",
+      serverCount: { one: "{count} servidor", other: "{count} servidores" },
+    },
+    seal: {
+      title: "Secretos sellados",
+      description: "Las claves y los tokens que llegan a tus servidores, cifrados con una frase de paso que no se guarda en ningún sitio.",
+      locked: "Bloqueada",
+      unlocked: "Desbloqueada",
+      notSealed: "Sin sellar",
+      unlockedBody:
+        "Sellados y desbloqueados desde el último arranque de esta central: sus servidores están a su alcance. Tras reiniciarse pide de nuevo la frase de paso.",
+      notSealedBody:
+        "Las claves y los tokens solo los protegen los permisos de archivo de la máquina. Séllalos para que no se puedan leer si alguien copia el disco de esta máquina.",
+    },
   },
 
   // -------------------------------------------------------------------------------------

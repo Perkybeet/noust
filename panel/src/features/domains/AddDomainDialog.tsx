@@ -8,13 +8,13 @@ import { dnsCheckQuery } from "../../api/queries/domains";
 import type { AppDomainChange } from "../../api/queries/domains";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button } from "../../components/ui/Button";
+import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { cx } from "../../lib/cx";
 import { DnsVerdict } from "./DnsVerdict";
 import { dnsVerdict } from "./dns";
 import { domainProblem, normalizeDomain } from "./names";
@@ -30,35 +30,13 @@ function kinds(t: T): readonly { value: AddableKind; label: string; description:
 
 function KindChoice({ app, value, onChange }: { app: string; value: AddableKind; onChange: (kind: AddableKind) => void }) {
   const t = useT();
-  const name = useId();
-  const KINDS = kinds(t);
   return (
-    <fieldset className="flex flex-col gap-2">
-      <legend className="mb-1.5 text-13 font-medium text-fg">{t("domains.addDomainDialog.roleLegend")}</legend>
-      <div className="grid gap-2 sm:grid-cols-2">
-        {KINDS.map((kind) => (
-          <label
-            key={kind.value}
-            className={cx(
-              "grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] content-start items-start gap-x-2.5 gap-y-0.5 rounded-control border px-3 py-2.5",
-              "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-focus",
-              value === kind.value ? "border-accent bg-accent-soft" : "border-border hover:bg-surface-hover",
-            )}
-          >
-            <input
-              type="radio"
-              name={name}
-              value={kind.value}
-              checked={value === kind.value}
-              onChange={() => onChange(kind.value)}
-              className="row-span-2 mt-0.5 size-4 shrink-0 accent-accent"
-            />
-            <span className="text-13 font-medium text-fg">{kind.label}</span>
-            <span className="col-start-2 text-12 text-pretty text-fg-muted">{kind.description(app)}</span>
-          </label>
-        ))}
-      </div>
-    </fieldset>
+    <ChoiceCards
+      legend={t("domains.addDomainDialog.roleLegend")}
+      options={kinds(t).map((kind) => ({ value: kind.value, label: kind.label, description: kind.description(app) }))}
+      value={value}
+      onValueChange={onChange}
+    />
   );
 }
 

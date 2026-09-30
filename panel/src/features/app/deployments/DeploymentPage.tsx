@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { ChevronLeft, FileX } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
@@ -16,18 +15,24 @@ import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section } from "../../../components/page/Section";
 import { useAnnounceChange } from "../../../components/page/useAnnounceChange";
 import { Button } from "../../../components/ui/Button";
+import { Card } from "../../../components/ui/Card";
 import { CopyButton } from "../../../components/ui/CopyButton";
+import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { LogViewer } from "../../../components/ui/LogViewer";
 import type { LogLine } from "../../../components/ui/LogViewer";
+import { Mono } from "../../../components/ui/Mono";
+import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
+import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { StatusPill } from "../../../components/ui/StatusPill";
+import { TextLink } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatBytes, formatDuration, parseTimestamp } from "../../../lib/format";
 import { hasUnit } from "../../apps/AppRowActions";
 import { buildLogEvents, jobEvents, logClockText, logSpan, mergeEvents, useLogLines } from "./buildLog";
-import { DeploymentActions } from "./DeploymentActions";
+import { useDeploymentActions } from "./DeploymentActions";
 import { PhaseTimeline, phaseDoing } from "./PhaseTimeline";
 import { currentPhase, logClockOffset, outcomeOf, timeline } from "./phases";
 import type { PhaseKey, PhaseView } from "./phases";
@@ -40,9 +45,6 @@ const RUNNING = new Set(["queued", "running"]);
 const DEFAULT_TAIL = 512 * 1024;
 /** Bytes asked for when the operator wants the whole log. */
 const WHOLE_LOG = 64 * 1024 * 1024;
-
-const LINK =
-  "rounded-[4px] text-13 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus";
 
 /** What went wrong, by the phase it stopped in, above the system's own words. */
 function failureWords(t: T, phase: PhaseView | null): { title: string; hint: string } {
@@ -73,8 +75,8 @@ function Elapsed({ deployment, t }: { deployment: Deployment; t: T }) {
       <>{started === null ? t("appPages.deployments.page.running") : t("appPages.deployments.page.runningFor", { duration: formatDuration(Math.max(0, (now - started.getTime()) / 1000), t.locale) })}</>
     );
   }
-  if (deployment.duration_s === null || deployment.duration_s === undefined) return <span className="text-fg-faint">{t("appPages.common.notRecorded")}</span>;
-  return <span className="mono text-12">{formatDuration(deployment.duration_s, t.locale)}</span>;
+  if (deployment.duration_s === null || deployment.duration_s === undefined) return <EmptyCell reason={t("appPages.common.notRecorded")} />;
+  return <Mono>{formatDuration(deployment.duration_s, t.locale)}</Mono>;
 }
 
 function Fact({ term, children }: { term: string; children: ReactNode }) {
@@ -91,18 +93,16 @@ function Facts({ deployment, t }: { deployment: Deployment; t: T }) {
   const trigger = triggerWords(t, deployment.triggered_by);
   const TriggerIcon = trigger.icon;
   return (
-    <dl className="grid grid-cols-2 gap-x-6 gap-y-4 rounded-card border border-border bg-surface px-4 py-3.5 shadow-raised sm:grid-cols-4">
+    <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
       <Fact term={t("appPages.deployments.fields.commit")}>
         {commit ? (
           <div className="flex min-w-0 flex-col gap-1">
             <div className="flex min-w-0 items-center gap-1.5">
-              <span translate="no" className="mono text-12">
-                {commit}
-              </span>
+              <Mono>{commit}</Mono>
               {deployment.git_branch ? (
-                <span translate="no" className="mono truncate text-12 text-fg-muted">
+                <Mono tone="muted" truncate>
                   {deployment.git_branch}
-                </span>
+                </Mono>
               ) : null}
               <CopyButton value={deployment.git_commit ?? commit} label={t("appPages.deployments.page.copyCommit")} className="-my-1" />
             </div>
@@ -117,7 +117,7 @@ function Facts({ deployment, t }: { deployment: Deployment; t: T }) {
         )}
       </Fact>
       <Fact term={t("appPages.deployments.fields.startedBy")}>
-        <TriggerIcon aria-hidden="true" className="size-3.5 shrink-0 text-fg-muted" />
+        <TriggerIcon aria-hidden="true" className="size-icon-sm shrink-0 text-fg-muted" />
         {trigger.label}
       </Fact>
       <Fact term={t("appPages.deployments.fields.started")}>
@@ -144,8 +144,8 @@ function useBuildLog(deployment: Deployment) {
 
 const LOG_ROW_PX = 20;
 const LOG_CHROME_PX = 60;
-/** The smaller of the usual frames (26rem): a log taller than this gets the usual frame and scrolls. */
-const LOG_FRAME_PX = 416;
+/** The smallest the usual frame gets (24rem, `h-editor`): a log taller than this gets it and scrolls. */
+const LOG_FRAME_PX = 384;
 
 function LogSection({
   domain,
@@ -190,7 +190,7 @@ function LogSection({
       {log.isError && log.data === undefined ? (
         <ErrorBlock error={log.error} title={t("appPages.deployments.page.logLoadError")} onRetry={() => void log.refetch()} retrying={log.isRefetching} />
       ) : log.data === undefined ? (
-        <div aria-busy="true" className="h-[26rem] rounded-card border border-border bg-bg-sunken p-4 lg:h-[34rem]">
+        <div aria-busy="true" className="h-editor rounded-card border border-border bg-bg-sunken p-4">
           <span className="sr-only">{t("appPages.deployments.page.loadingBuildLog")}</span>
           <div aria-hidden="true" className="flex flex-col gap-2.5">
             {["w-2/3", "w-1/2", "w-3/4", "w-2/5", "w-3/5", "w-1/3"].map((width) => (
@@ -199,13 +199,9 @@ function LogSection({
           </div>
         </div>
       ) : missing !== null && shown.length === 0 && !running ? (
-        <div className="flex flex-col gap-2 rounded-card border border-dashed border-border px-4 py-4">
-          <p className="flex items-center gap-2 text-13 font-medium text-fg">
-            <FileX aria-hidden="true" className="size-4 text-fg-faint" />
-            {t("appPages.deployments.page.noBuildLog")}
-          </p>
-          <pre className="text-12 whitespace-pre-wrap text-fg-muted">{missing}</pre>
-        </div>
+        <Notice title={t("appPages.deployments.page.noBuildLog")}>
+          <SystemOutput label={t("appPages.deployments.page.noBuildLogWhy")}>{missing}</SystemOutput>
+        </Notice>
       ) : fitted !== null ? (
         // A finished deploy with a short log: the viewer is as tall as what it holds.
         <LogViewer
@@ -217,7 +213,7 @@ function LogSection({
           emptyMessage={t("appPages.deployments.page.logEmpty")}
         />
       ) : (
-        <div className="h-[26rem] lg:h-[34rem]">
+        <div className="h-editor">
           <LogViewer
             lines={shown}
             height="fill"
@@ -240,7 +236,7 @@ function PageSkeleton({ t }: { t: T }) {
         <Skeleton className="h-6 w-56" />
         <Skeleton className="h-16 w-full rounded-card" />
         <Skeleton className="h-20 w-full rounded-card" />
-        <Skeleton className="h-[26rem] w-full rounded-card" />
+        <Skeleton className="h-editor w-full rounded-card" />
       </div>
     </div>
   );
@@ -248,10 +244,10 @@ function PageSkeleton({ t }: { t: T }) {
 
 function Back({ domain, t }: { domain: string; t: T }) {
   return (
-    <Link to="/apps/$domain/deployments" params={{ domain }} className={`${LINK} inline-flex items-center gap-1 self-start`}>
-      <ChevronLeft aria-hidden="true" className="size-4" />
+    <TextLink to="/apps/$domain/deployments" params={{ domain }} size="ui" className="inline-flex items-center gap-1 self-start">
+      <ChevronLeft aria-hidden="true" className="size-icon-md" />
       {t("appPages.deployments.page.allDeployments")}
-    </Link>
+    </TextLink>
   );
 }
 
@@ -260,6 +256,7 @@ function Deploy({ domain, deployment, t }: { domain: string; deployment: Deploym
   const outcome = outcomeOf(deployment.status);
   const { log, lines, setTail } = useBuildLog(deployment);
   const job = useDeploymentJob(deployment);
+  const actions = useDeploymentActions(domain, deployment);
   const app = useQuery(appQuery(domain));
   const now = useNow(() => (running ? 1_000 : 3_600_000));
   // A static site is served as files: nothing answers a health check, so it has none.
@@ -293,40 +290,43 @@ function Deploy({ domain, deployment, t }: { domain: string; deployment: Deploym
   const failure = outcome === "failed" ? failureWords(t, current) : null;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4">
-        <Back domain={domain} t={t} />
-        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
-          <div className="flex min-w-0 flex-wrap items-center gap-3">
-            <h2 className="title text-18 text-fg">{t("appPages.deployments.page.heading", { id: String(deployment.id) })}</h2>
+    <div className="flex flex-col gap-4">
+      <Back domain={domain} t={t} />
+      <Section
+        title={t("appPages.deployments.page.heading", { id: String(deployment.id) })}
+        badge={
+          <span className="flex items-center gap-2">
             <DeployStatePill status={deployment.status} />
             {job.socket === "reconnecting" ? <StatusPill state="deploying" label={t("appPages.common.reconnecting")} appearance="inline" size="sm" /> : null}
+          </span>
+        }
+        {...(actions.buttons !== null ? { actions: actions.buttons } : {})}
+      >
+        {actions.outcome}
+        <Card padding="none">
+          <div className="px-4 py-3.5">
+            <Facts deployment={deployment} t={t} />
           </div>
-          <DeploymentActions domain={domain} deployment={deployment} />
-        </div>
-      </div>
-
-      <Facts deployment={deployment} t={t} />
-
-      <div className="rounded-card border border-border bg-surface px-3 py-5 shadow-raised sm:px-6">
-        <PhaseTimeline phases={phases} outcome={outcome} />
-        {staticSite ? (
-          <p className="mt-4 border-t border-border pt-3 text-center text-12 text-pretty text-fg-muted">{t("appPages.deployments.page.staticHealthNote")}</p>
+          <div className="border-t border-border px-3 py-5 sm:px-6">
+            <PhaseTimeline phases={phases} outcome={outcome} />
+            {staticSite ? (
+              <p className="mt-4 border-t border-border pt-3 text-center text-12 text-pretty text-fg-muted">{t("appPages.deployments.page.staticHealthNote")}</p>
+            ) : null}
+          </div>
+        </Card>
+        {failure !== null ? (
+          <div className="flex flex-col gap-2">
+            <ErrorBlock
+              error={{ detail: deployment.error ?? t("appPages.deployments.page.noRecordedReason") }}
+              title={failure.title}
+              hint={failure.hint}
+            />
+            <TextLink to="/apps/$domain/diagnose" params={{ domain }} size="ui" className="self-start">
+              {t("appPages.deployments.page.diagnoseThisApp")}
+            </TextLink>
+          </div>
         ) : null}
-      </div>
-
-      {failure !== null ? (
-        <div className="flex flex-col gap-2">
-          <ErrorBlock
-            error={{ detail: deployment.error ?? t("appPages.deployments.page.noRecordedReason") }}
-            title={failure.title}
-            hint={failure.hint}
-          />
-          <Link to="/apps/$domain/diagnose" params={{ domain }} className={`${LINK} self-start`}>
-            {t("appPages.deployments.page.diagnoseThisApp")}
-          </Link>
-        </div>
-      ) : null}
+      </Section>
 
       <LogSection
         domain={domain}
@@ -339,6 +339,7 @@ function Deploy({ domain, deployment, t }: { domain: string; deployment: Deploym
         }}
         t={t}
       />
+      {actions.dialogs}
     </div>
   );
 }
@@ -364,11 +365,11 @@ export function DeploymentPage({ domain, id }: { domain: string; id: string }) {
       <div className="flex flex-col gap-4">
         <Back domain={domain} t={t} />
         <EmptyState
+          variant="firstUse"
           level={2}
           icon={<FileX />}
           title={t("appPages.deployments.page.notFoundTitle", { id })}
           description={t("appPages.deployments.page.notFoundDescription")}
-          className="py-12"
         />
       </div>
     );
@@ -391,17 +392,17 @@ export function DeploymentPage({ domain, id }: { domain: string; id: string }) {
       <div className="flex flex-col gap-4">
         <Back domain={domain} t={t} />
         <EmptyState
+          variant="firstUse"
           level={2}
           icon={<FileX />}
           title={t("appPages.deployments.page.wrongAppTitle", { id, domain })}
           description={t.rich("appPages.deployments.page.wrongAppDescription", {
             owner: (
-              <Link to="/apps/$domain/deployments/$id" params={{ domain: owner, id }} className={LINK}>
+              <TextLink to="/apps/$domain/deployments/$id" params={{ domain: owner, id }} size="ui">
                 {owner}
-              </Link>
+              </TextLink>
             ),
           })}
-          className="py-12"
         />
       </div>
     );

@@ -1,8 +1,13 @@
 /**
- * The overview against the real backend and its seeded machine: the failed app under Needs
- * attention linking to its page, the machine charts and their range, the applications and
- * the recent deploys. Runs in both themes; every test fails on a CSP violation or a console
- * error through the `problems` fixture.
+ * The Overview against the real backend and its seeded machine: six key figures linking to
+ * where they come from, what needs attention (the server's list, in its own words, with where
+ * each thing is fixed), the activity timeline, the machine's charts over exactly the window
+ * asked for, and the first steps of an empty server. Both themes; every test fails on a CSP
+ * violation or a console error through the `problems` fixture.
+ *
+ * The seeded server has no history but what its collector has recorded since it started: a
+ * young history, so the 24-hour window is 24 hours of axis with a few minutes of readings, the
+ * case the old seed of thirty days hid.
  */
 
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
@@ -10,12 +15,28 @@ import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures
 /** The app the seed fails: its newest deploy failed with npm's own words. */
 const FAILED = "clientes.example.com";
 
-test("a failed app is under Needs attention, in its own words, and links to its page", async ({ page, consoleServer }) => {
+test("six key figures sit at the top, each a link to where it comes from", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer);
+  const figures = page.getByRole("region", { name: "Key figures" });
+  await expect(figures.getByRole("link")).toHaveCount(6);
+  await expect(figures.getByRole("link", { name: /^Applications: \d+ running, \d+ failed/ })).toHaveAttribute("href", "/apps");
+  await expect(figures.getByRole("link", { name: /^Deploys today/ })).toHaveAttribute("href", "/activity");
+  await expect(figures.getByRole("link", { name: /^Certificates: \d+, 1 expiring/ })).toHaveAttribute("href", "/domains");
+  await expect(figures.getByRole("link", { name: /^Backups in the last 24 hours/ })).toBeVisible();
+  await expect(figures.getByRole("link", { name: /^Disk: \d+% free/ })).toBeVisible();
+  await expect(figures.getByRole("link", { name: /^Operating system updates/ })).toBeVisible();
+  // Above the fold at 1440: the figures, and the start of what needs attention.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const attention = page.getByRole("region", { name: "Needs attention" });
+  const box = await attention.boundingBox();
+  expect(box?.y ?? 9_999).toBeLessThan(900);
+});
+
+test("a failed app is under Needs attention, in its own words, with where it is fixed", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer);
   await expect(page).toHaveURL(/\/$/);
-
-  const attention = page.getByRole("region", { name: /^Needs attention/ });
-  const item = attention.getByRole("listitem").filter({ has: page.getByRole("link", { name: FAILED, exact: true }) });
+  const attention = page.getByRole("region", { name: "Needs attention" });
+  const item = attention.getByRole("listitem").filter({ has: page.getByRole("link", { name: FAILED, exact: true }) }).first();
   await expect(item).toBeVisible();
   await expect(item.getByText("Last deploy failed")).toBeVisible();
   // Verbatim, not paraphrased: the first line of the error the deploy recorded.
@@ -25,85 +46,78 @@ test("a failed app is under Needs attention, in its own words, and links to its 
     "href",
     new RegExp(`^/apps/${FAILED.replace(/\./g, "\\.")}/deployments/\\d+$`),
   );
-
+  // The failed unit that is no app's, and the certificate about to expire, are there too.
+  await expect(attention.getByRole("link", { name: "queue-worker", exact: true })).toHaveAttribute("href", "/services/queue-worker");
+  await expect(attention.getByText(/^Certificate expires in \d+ days$/)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the overview");
 
   await item.getByRole("link", { name: FAILED, exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/apps/${FAILED.replace(/\./g, "\\.")}$`));
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(FAILED);
 });
 
-test("the expiring certificate and the failed unit are named too", async ({ page, consoleServer }) => {
+test("what happened lately is a timeline with its own link to all of it", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer);
-  const attention = page.getByRole("region", { name: /^Needs attention/ });
-  // The seed's example.com certificate expires in twelve days.
-  const cert = attention.getByRole("listitem").filter({ has: page.getByRole("link", { name: "example.com", exact: true }) });
-  await expect(cert.getByText(/^Certificate expires in \d+ days$/)).toBeVisible();
-
-  // A failed app names its own unit; each failed Noust unit beyond those is named and links to it.
-  const services = (await (await page.request.get("/api/services")).json()) as {
-    services: { name: string; managed: boolean; active_state?: string | null }[];
-  };
-  const apps = (await (await page.request.get("/api/apps")).json()) as { apps: { unit?: string | null }[] };
-  const appUnits = new Set(apps.apps.map((app) => app.unit));
-  const orphans = services.services.filter((unit) => unit.managed && unit.active_state === "failed" && !appUnits.has(unit.name));
-  expect(orphans.length, "the seed has a failed unit that belongs to no app").toBeGreaterThan(0);
-  for (const unit of orphans) {
-    await expect(attention.getByRole("link", { name: unit.name, exact: true })).toHaveAttribute("href", `/services/${unit.name}`);
-    const item = attention.getByRole("listitem").filter({ has: page.getByRole("link", { name: unit.name, exact: true }) });
-    await expect(item.getByText("The unit has failed")).toBeVisible();
-  }
+  const activity = page.getByRole("group", { name: "Recent activity, newest first" });
+  await expect(activity.getByRole("listitem").first()).toBeVisible();
+  await expect(activity.locator("time").first()).toHaveAttribute("datetime", /^\d{4}-\d{2}-\d{2}T/);
+  await expect(page.getByRole("link", { name: "All activity" })).toHaveAttribute("href", "/activity");
 });
 
-test("the machine, the applications and the recent deploys fill in from the API", async ({ page, consoleServer }) => {
+test("the charts span the window asked for, whatever part of it has history, and say so", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer);
-
   const machine = page.getByRole("region", { name: "Machine" });
-  await expect(machine.getByRole("radio", { name: "1h" })).toHaveAttribute("aria-checked", "true");
-  // A chart, or the collecting state while the fresh server has fewer than two samples.
-  for (const title of ["CPU", "Memory", "Network", "Disk"]) {
-    await expect(machine.getByText(title, { exact: true }).first()).toBeVisible();
-  }
+  await expect(machine.getByRole("radio", { name: "24h" })).toHaveAttribute("aria-checked", "true");
+  const cpu = machine.getByRole("img", { name: /^CPU, last 24 hours/ });
+  await expect(cpu).toBeVisible();
+  const span = async () => {
+    const from = Number(await cpu.getAttribute("data-domain-from"));
+    const to = Number(await cpu.getAttribute("data-domain-to"));
+    return to - from;
+  };
+  // A server a few minutes old: the axis is still a whole day, and says where history begins.
+  expect(await span()).toBeGreaterThanOrEqual(86_400 - 120);
+  const truth = machine.locator("[data-truth]");
+  await expect(truth).toHaveText(/^Showing .+, 1-minute averages\. History since .+\.$/);
+  await expect(machine.getByText(/^No history before \d{2}:\d{2}$/).first()).toBeVisible();
 
-  const apps = page.getByRole("region", { name: "Applications on this machine" });
-  // Every seeded app, and the header row.
-  const total = ((await (await page.request.get("/api/apps")).json()) as { total: number }).total;
-  await expect(apps.getByRole("row")).toHaveCount(total + 1);
-  const failedRow = apps.getByRole("row").filter({ has: page.getByRole("link", { name: FAILED, exact: true }) });
-  // The state cell, not the last deploy's "Failed, 2m ago" beside it.
-  await expect(failedRow.getByRole("cell", { name: "Failed", exact: true })).toHaveCount(1);
-
-  // The newest deploys, as the API has them now: other tests in this worker deploy too.
-  const recent = page.getByRole("region", { name: "Recent deployments, newest first" });
-  const history = (await (await page.request.get("/api/deployments?limit=8")).json()) as { items: { domain: string }[] };
-  await expect(recent.getByRole("row")).toHaveCount(history.items.length + 1);
-  const newest = history.items[0];
-  if (newest === undefined) throw new Error("the seed has deployments");
-  await expect(recent.getByRole("row").nth(1).getByRole("link", { name: newest.domain, exact: true })).toBeVisible();
-});
-
-test("the chart range is part of the URL", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer);
-  const range = page.getByRole("radiogroup", { name: "Time range" });
-  await range.getByRole("radio", { name: "24h" }).click();
-  await expect(page).toHaveURL(/\/\?window=24h$/);
-  await expect(page.getByText("Last 24 hours").first()).toBeVisible();
+  // Another range is another window: the URL, the axis and the sentence all follow.
+  await machine.getByRole("radio", { name: "1h" }).click();
+  await expect(page).toHaveURL(/\/\?window=1h$/);
+  const hour = machine.getByRole("img", { name: /^CPU, last hour/ });
+  await expect(hour).toBeVisible();
+  await expect(truth).toHaveText(/a reading every 5 seconds/);
+  const from = Number(await hour.getAttribute("data-domain-from"));
+  const to = Number(await hour.getAttribute("data-domain-to"));
+  expect(to - from).toBeGreaterThanOrEqual(3_600 - 10);
+  expect(to - from).toBeLessThanOrEqual(3_600 + 10);
 
   await page.reload();
-  await expect(page.getByRole("radio", { name: "24h" })).toHaveAttribute("aria-checked", "true");
-  // Arrow keys move the choice, as in any radio group; a week is its own window.
-  await page.getByRole("radio", { name: "24h" }).focus();
+  await expect(page.getByRole("radio", { name: "1h" })).toHaveAttribute("aria-checked", "true");
+  await machine.getByRole("radio", { name: "1h" }).focus();
   await page.keyboard.press("ArrowRight");
-  await expect(page).toHaveURL(/\/\?window=7d$/);
-  await expect(page.getByText(/^Last 7 days/).first()).toBeVisible();
+  await expect(page).not.toHaveURL(/window=/);
 });
 
-test("on a phone the page never scrolls sideways; wide tables scroll inside themselves", async ({ page, consoleServer }) => {
+test("says history is recorded only while the console runs, and the command that fixes it", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer);
+  const machine = page.getByRole("region", { name: "Machine" });
+  await expect(machine.getByText("History is recorded only while the console runs")).toBeVisible();
+  await expect(machine.getByText("noust monitor enable")).toBeVisible();
+});
+
+test("the quick actions are behind More actions", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer);
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Renew certificates" }).click();
+  await expect(page).toHaveURL(/\/domains/);
+});
+
+test("on a phone the page never scrolls sideways, and state comes first", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, consoleServer);
-  const total = ((await (await page.request.get("/api/apps")).json()) as { total: number }).total;
-  await expect(page.getByRole("region", { name: "Applications on this machine" }).getByRole("row")).toHaveCount(total + 1);
+  await expect(page.getByRole("region", { name: "Key figures" }).getByRole("link")).toHaveCount(6);
+  await expect(page.getByRole("region", { name: "Machine" }).getByRole("img", { name: /^CPU/ })).toBeVisible();
   await settle(page);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);

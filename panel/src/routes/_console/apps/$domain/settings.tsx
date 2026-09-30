@@ -1,12 +1,19 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Outlet, createFileRoute, useMatch } from "@tanstack/react-router";
 
-import { SettingsTab } from "../../../../features/app/settings/SettingsTab";
+import { AppSettingsLayout } from "../../../../features/app/settings/AppSettingsLayout";
 
+/** An application's settings: one subsection per URL, beside the list of them (T3). */
 export const Route = createFileRoute("/_console/apps/$domain/settings")({
-  component: AppSettingsTab,
+  component: AppSettingsRoute,
 });
 
-function AppSettingsTab() {
+function AppSettingsRoute() {
   const { domain } = Route.useParams();
-  return <SettingsTab domain={domain} />;
+  // On a phone the index is the list of subsections; wider, it shows General beside it.
+  const index = useMatch({ from: "/_console/apps/$domain/settings/", shouldThrow: false }) !== undefined;
+  return (
+    <AppSettingsLayout domain={domain} index={index}>
+      <Outlet />
+    </AppSettingsLayout>
+  );
 }

@@ -1,10 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
-import { useId } from "react";
 
 import { backupStorageQuery } from "../../api/queries/backups";
 import { CommandHint } from "../../components/page/CommandHint";
-import { StatusGlyph } from "../../components/ui/StatusPill";
+import { Mono } from "../../components/ui/Mono";
+import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
+
+/** Whether the storage report found backups outside the backup directory. */
+export function useMisplacedBackups(): boolean {
+  const storage = useQuery(backupStorageQuery());
+  return (storage.data?.misplaced ?? []).length > 0;
+}
 
 /**
  * Backups Noust found outside the configured backup directory - in the old default one, or
@@ -15,56 +21,26 @@ import { useT } from "../../i18n";
 export function MisplacedBackupsNotice() {
   const t = useT();
   const storage = useQuery(backupStorageQuery());
-  const headingId = useId();
   const misplaced = storage.data?.misplaced ?? [];
   if (storage.data === undefined || misplaced.length === 0) return null;
   const total = misplaced.reduce((sum, found) => sum + found.count, 0);
 
   return (
-    <section aria-labelledby={headingId} className="flex min-w-0 flex-col gap-3 rounded-card border border-warn/40 bg-warn-soft/40 px-4 py-3.5">
-      <div className="flex items-start gap-2">
-        <StatusGlyph state="warning" className="mt-1 text-warn" />
-        <div className="flex min-w-0 flex-col gap-1">
-          <h2 id={headingId} className="text-14 font-semibold text-fg">
-            {t("backups.misplaced.heading", { count: total })}
-          </h2>
-          <p className="max-w-[72ch] text-13 text-pretty text-fg-muted">
-            {t.rich("backups.misplaced.intro", {
-              path: (
-                <span translate="no" className="mono text-12 text-fg">
-                  {storage.data.path}
-                </span>
-              ),
-            })}
-          </p>
-        </div>
+    <Notice tone="warning" title={t("backups.misplaced.heading", { count: total })}>
+      <div className="flex min-w-0 flex-col gap-3">
+        <p className="max-w-measure">{t.rich("backups.misplaced.intro", { path: <Mono tone="default">{storage.data.path}</Mono> })}</p>
+        <ul className="flex min-w-0 flex-col gap-2">
+          {misplaced.map((found) => (
+            <li key={found.directory} className="flex min-w-0 flex-col gap-1">
+              <p className="text-fg">
+                {t.rich("backups.misplaced.foundIn", { count: found.count, directory: <Mono tone="default">{found.directory}</Mono> })}
+              </p>
+              <CommandHint command={found.command} label={t("backups.misplaced.importLabel")} />
+            </li>
+          ))}
+        </ul>
+        <p className="text-12">{t.rich("backups.misplaced.dryRunHint", { flag: <Mono tone="default">--dry-run</Mono> })}</p>
       </div>
-      <ul className="flex min-w-0 flex-col gap-3 pl-6">
-        {misplaced.map((found) => (
-          <li key={found.directory} className="flex min-w-0 flex-col gap-1.5">
-            <p className="text-13 text-fg">
-              {t.rich("backups.misplaced.foundIn", {
-                count: found.count,
-                directory: (
-                  <span translate="no" className="mono text-12">
-                    {found.directory}
-                  </span>
-                ),
-              })}
-            </p>
-            <CommandHint command={found.command} label={t("backups.misplaced.importLabel")} />
-          </li>
-        ))}
-      </ul>
-      <p className="pl-6 text-12 text-fg-muted">
-        {t.rich("backups.misplaced.dryRunHint", {
-          flag: (
-            <code translate="no" className="mono text-fg">
-              --dry-run
-            </code>
-          ),
-        })}
-      </p>
-    </section>
+    </Notice>
   );
 }

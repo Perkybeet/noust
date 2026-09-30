@@ -9,10 +9,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { queryOptions } from "@tanstack/react-query";
-import { Info } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { api } from "../api/client";
+import { Notice } from "../components/ui/Notice";
 import { useT } from "../i18n";
 import { cx } from "../lib/cx";
 import { useServerList } from "./servers";
@@ -110,18 +110,13 @@ export function useNodeCapability(capability: string): NodeCapability {
 export function NotAvailableOnNode({ node, version, className }: { node: string; version: string | null; className?: string }) {
   const t = useT();
   return (
-    <section
-      aria-labelledby="not-on-node-title"
-      className={cx("flex max-w-[72ch] items-start gap-3 rounded-card border border-border bg-surface-raised px-4 py-3.5", className)}
+    <Notice
+      variant="banner"
+      title={version === null ? t("fleet.capability.notAvailableNoVersion", { node }) : t("fleet.capability.notAvailable", { node, version })}
+      className={cx("max-w-measure", className)}
     >
-      <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-muted" />
-      <div className="flex min-w-0 flex-col gap-1">
-        <h2 id="not-on-node-title" className="text-14 font-medium text-fg">
-          {version === null ? t("fleet.capability.notAvailableNoVersion", { node }) : t("fleet.capability.notAvailable", { node, version })}
-        </h2>
-        <p className="text-13 text-pretty text-fg-muted">{t("fleet.capability.explanation", { node })}</p>
-      </div>
-    </section>
+      {t("fleet.capability.explanation", { node })}
+    </Notice>
   );
 }
 

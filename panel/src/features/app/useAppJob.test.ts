@@ -22,18 +22,28 @@ const DOMAIN = "shop.example.net";
 
 describe("jobWords", () => {
   it("names each job the way the header says it, in English by default", () => {
-    expect(jobWords("update", DOMAIN)).toEqual({ running: "Updating", failed: `Update of ${DOMAIN} failed` });
-    expect(jobWords("rollback", DOMAIN)).toEqual({ running: "Rolling back", failed: `Rollback of ${DOMAIN} failed` });
-    expect(jobWords("restore", DOMAIN)).toEqual({ running: "Restoring", failed: `Restore of ${DOMAIN} failed` });
-    expect(jobWords("migrate", DOMAIN)).toEqual({ running: "Migrating", failed: `Migration of ${DOMAIN} failed` });
-    expect(jobWords("push", DOMAIN)).toEqual({ running: "Copying", failed: `Copy of ${DOMAIN} failed` });
-    expect(jobWords("zero_downtime", DOMAIN)).toEqual({ running: "Switching", failed: `Zero-downtime mode of ${DOMAIN} failed` });
-    expect(jobWords("something_new", DOMAIN)).toEqual({ running: "Working", failed: `Job of ${DOMAIN} failed` });
+    expect(jobWords("update", DOMAIN)).toEqual({ running: "Updating", title: `Updating ${DOMAIN}`, failed: `Update of ${DOMAIN} failed` });
+    expect(jobWords("rollback", DOMAIN)).toEqual({ running: "Rolling back", title: `Rolling ${DOMAIN} back`, failed: `Rollback of ${DOMAIN} failed` });
+    expect(jobWords("restore", DOMAIN)).toEqual({ running: "Restoring", title: `Restoring ${DOMAIN}`, failed: `Restore of ${DOMAIN} failed` });
+    expect(jobWords("migrate", DOMAIN)).toMatchObject({ running: "Migrating", failed: `Migration of ${DOMAIN} failed` });
+    expect(jobWords("push", DOMAIN)).toMatchObject({ running: "Copying", failed: `Copy of ${DOMAIN} failed` });
+    expect(jobWords("zero_downtime", DOMAIN)).toMatchObject({ running: "Switching", failed: `Zero-downtime mode of ${DOMAIN} failed` });
+    expect(jobWords("sandbox_test", DOMAIN)).toEqual({
+      running: "Testing a build",
+      title: `Testing a sandboxed build of ${DOMAIN}`,
+      failed: `The sandboxed test build of ${DOMAIN} failed`,
+    });
+    expect(jobWords("something_new", DOMAIN)).toEqual({ running: "Working", title: `Working on ${DOMAIN}`, failed: `Job of ${DOMAIN} failed` });
   });
 
   it("names each job in Spanish when asked", async () => {
     await loadCatalog("es");
-    expect(jobWords("update", DOMAIN, "es")).toEqual({ running: "Actualizando", failed: `La actualización de ${DOMAIN} falló` });
+    expect(jobWords("update", DOMAIN, "es")).toEqual({
+      running: "Actualizando",
+      title: `Actualizando ${DOMAIN}`,
+      failed: `La actualización de ${DOMAIN} falló`,
+    });
+    expect(jobWords("sandbox_test", DOMAIN, "es")).toMatchObject({ title: `Probando una compilación aislada de ${DOMAIN}` });
   });
 });
 

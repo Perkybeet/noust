@@ -42,8 +42,8 @@ describe("the shell", () => {
       FakeEventSource.latest().emit("machine", { ...MACHINE, hostname: "web-02", units: { running: 9, failed: 3, stopped: 2 } });
     });
     expect(await within(strip).findByText("web-02")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Services 3 failed" })).toBeInTheDocument();
-    expect(within(strip).getByRole("link", { name: "Noust units: 9 running, 3 failed, 2 stopped" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Server 3 failed" })).toBeInTheDocument();
+    expect(within(strip).getByRole("link", { name: "Noust's services: 9 running, 3 failed, 2 stopped" })).toBeInTheDocument();
   });
 
   it("sends an anonymous visitor to sign in, remembering where they were going", async () => {
@@ -135,9 +135,10 @@ describe("keyboard", () => {
 
   it("keeps focus on a tab when moving between an app's sections", async () => {
     const { user } = await shellAt("/apps/shop.example.com");
-    const logs = screen.getByRole("link", { name: "Logs" });
+    // The tabs come with the app's details, so that a banner above them never pushes them down.
+    const logs = await screen.findByRole("link", { name: "Logs" });
     await user.click(logs);
-    await screen.findByRole("region", { name: "Journal of shop.example.com" });
+    await screen.findByRole("region", { name: "Logs of shop.example.com" });
     expect(screen.getByRole("link", { name: "Logs" })).toHaveFocus();
     expect(screen.getByRole("link", { name: "Logs" })).toHaveAttribute("aria-current", "page");
   });

@@ -23,6 +23,18 @@ describe("StatTile", () => {
     expect(screen.getByText("Running")).toBeInTheDocument();
   });
 
+  it("lets a long context wrap to a second line, whose room is kept from the first frame", () => {
+    const { container } = render(<StatTile label="Disk" value="61%" detail="Full in about 507 days, at the rate of the last 30" detailLines={2} />);
+    const detail = container.querySelector("[data-slot='detail']");
+    expect(detail).toHaveClass("line-clamp-2", "min-h-8");
+    expect(detail).not.toHaveClass("truncate");
+  });
+
+  it("keeps a short context to one line by default", () => {
+    const { container } = render(<StatTile label="Disk" value="61%" detail="Of 80 GiB" />);
+    expect(container.querySelector("[data-slot='detail']")).toHaveClass("truncate");
+  });
+
   it("has no accessibility violations", async () => {
     const { container } = render(
       <div>

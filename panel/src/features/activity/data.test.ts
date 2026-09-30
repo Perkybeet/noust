@@ -4,16 +4,22 @@ import { bindT } from "../../i18n/useT";
 import type { AuditEntry, ActivityJob } from "./data";
 import {
   actionWords,
+  actorSource,
   actorWords,
   auditActionLabel,
+  auditCategory,
   auditResultStatus,
   describeActor,
+  inKind,
   isFiltered,
   jobActionLabel,
+  matchesText,
   mergeActivity,
   resourceOf,
+  resourceWords,
   resultOptions,
   resultValidFor,
+  resultView,
   rowActor,
   validateActivitySearch,
 } from "./data";
@@ -58,6 +64,7 @@ function entry(overrides: Partial<AuditEntry> = {}): AuditEntry {
     client_ip: "203.0.113.1",
     resource: "/api/auth/login",
     detail: null,
+    sensitive: false,
     ...overrides,
   };
 }
@@ -66,7 +73,7 @@ describe("jobActionLabel", () => {
   it("translates every JobType to a sentence-case word", () => {
     expect(jobActionLabel(t, "deploy")).toBe("Deploy");
     expect(jobActionLabel(t, "cert_renew")).toBe("Renew certificate");
-    expect(jobActionLabel(t, "migrate")).toBe("Migrate to releases");
+    expect(jobActionLabel(t, "migrate")).toBe("Turn on instant rollback");
     expect(jobActionLabel(t, "push")).toBe("Copy backup to destination");
     expect(jobActionLabel(t, "zero_downtime")).toBe("Zero-downtime mode");
   });
@@ -249,24 +256,23 @@ describe("mergeActivity", () => {
 });
 
 describe("resultValidFor / resultOptions", () => {
-  it("accepts a job status only under jobs or no kind", () => {
-    expect(resultValidFor("failed", "jobs")).toBe(true);
+  it("accepts a job status wherever jobs are shown, and not among sign-ins", () => {
     expect(resultValidFor("failed", undefined)).toBe(true);
-    expect(resultValidFor("failed", "audit")).toBe(false);
+    expect(resultValidFor("failed", "all")).toBe(true);
+    expect(resultValidFor("failed", "access")).toBe(false);
   });
 
-  it("accepts an audit result only under audit or no kind", () => {
-    expect(resultValidFor("denied", "audit")).toBe(true);
+  it("accepts an audit result in every view", () => {
+    expect(resultValidFor("denied", "access")).toBe(true);
     expect(resultValidFor("denied", undefined)).toBe(true);
-    expect(resultValidFor("denied", "jobs")).toBe(false);
   });
 
-  it("offers only the relevant vocabulary once kind narrows it", () => {
-    expect(resultOptions(t, "jobs").map((o) => o.value)).not.toContain("denied");
-    expect(resultOptions(t, "audit").map((o) => o.value)).not.toContain("failed");
+  it("offers the audit's vocabulary alone among sign-ins", () => {
+    expect(resultOptions(t, "access").map((o) => o.value)).not.toContain("failed");
+    expect(resultOptions(t, "access").find((o) => o.value === "denied")?.label).toBe("Denied");
   });
 
-  it("prefixes both vocabularies when everything is shown, so the same word is not offered twice unlabelled", () => {
+  it("prefixes both vocabularies where jobs and actions mix, so the same word is not offered twice unlabelled", () => {
     const options = resultOptions(t, undefined);
     expect(options.find((o) => o.value === "failed")?.label).toBe("Job: Failed");
     expect(options.find((o) => o.value === "failure")?.label).toBe("Action: Failed");
@@ -274,19 +280,22 @@ describe("resultValidFor / resultOptions", () => {
 });
 
 describe("validateActivitySearch", () => {
-  it("keeps a known kind, a result valid for it, and any actor", () => {
-    expect(validateActivitySearch({ kind: "jobs", result: "failed", actor: "master" })).toEqual({
-      kind: "jobs",
+  it("keeps a known view, a result valid for it, the search and any actor", () => {
+    expect(validateActivitySearch({ kind: "all", result: "failed", q: " deploy ", actor: "master" })).toEqual({
+      kind: "all",
       result: "failed",
+      q: "deploy",
       actor: "master",
     });
   });
 
-  it("drops a result that does not apply to the given kind, instead of failing", () => {
-    expect(validateActivitySearch({ kind: "jobs", result: "denied" })).toEqual({ kind: "jobs" });
+  it("drops a result that does not apply to the view, instead of failing", () => {
+    expect(validateActivitySearch({ kind: "access", result: "failed" })).toEqual({ kind: "access" });
   });
 
-  it("drops an unknown kind", () => {
+  it("opens 3.0's views: jobs are operations now, and the audit log alone is everything", () => {
+    expect(validateActivitySearch({ kind: "jobs" })).toEqual({});
+    expect(validateActivitySearch({ kind: "audit" })).toEqual({ kind: "all" });
     expect(validateActivitySearch({ kind: "everything" })).toEqual({});
   });
 });
@@ -295,7 +304,105 @@ describe("isFiltered", () => {
   it("is false with nothing set and true with any filter", () => {
     expect(isFiltered({})).toBe(false);
     expect(isFiltered({ actor: "master" })).toBe(true);
-    expect(isFiltered({ kind: "audit" })).toBe(true);
+    expect(isFiltered({ kind: "access" })).toBe(true);
+    expect(isFiltered({ q: "shop" })).toBe(true);
+  });
+});
+
+describe("views", () => {
+  const rows = (entries: AuditEntry[], jobs: ActivityJob[] = []) =>
+    mergeActivity({ jobs, jobsComplete: true, entries, auditComplete: true }).rows;
+
+  it("reads an entry's category from the catalog, and before 3.1 from its action", () => {
+    expect(auditCategory(entry({ category: "change", action: "apps.restart" }))).toBe("change");
+    expect(auditCategory(entry({ action: "auth.login" }))).toBe("access");
+    expect(auditCategory(entry({ action: "ws.connect" }))).toBe("access");
+    expect(auditCategory(entry({ action: "apps.env.update" }))).toBe("change");
+  });
+
+  it("opens on operations: jobs and changes, not sign-ins", () => {
+    const all = rows(
+      [
+        entry({ action: "auth.login", category: "access", timestamp: "2026-09-25T10:03:00+00:00" }),
+        entry({ action: "apps.restart", category: "change", resource: "/api/apps/shop.example.com/restart", timestamp: "2026-09-25T10:02:00+00:00" }),
+        entry({ action: "auth.scope", category: "denial", timestamp: "2026-09-25T10:01:00+00:00" }),
+        entry({ action: "apps.env.reveal", category: "read", timestamp: "2026-09-25T09:59:00+00:00" }),
+      ],
+      [job({ id: "j", started_at: "2026-09-25T10:00:00Z" })],
+    );
+    const actions = (kind: "access" | "all" | undefined) =>
+      all.filter((row) => inKind(row, kind)).map((row) => (row.kind === "job" ? "job" : row.entry.action));
+    expect(actions(undefined)).toEqual(["apps.restart", "job"]);
+    expect(actions("access")).toEqual(["auth.login", "auth.scope", "apps.env.reveal"]);
+    expect(actions("all")).toHaveLength(5);
+  });
+
+  it("finds a row by what it shows or what was recorded", () => {
+    const [row] = rows([entry({ action: "apps.restart", resource: "/api/apps/shop.example.com/restart" })]);
+    if (row === undefined) throw new Error("no row");
+    expect(matchesText(row, "SHOP.example")).toBe(true);
+    expect(matchesText(row, "reinició", ["Reinició una aplicación"])).toBe(true);
+    expect(matchesText(row, "blog")).toBe(false);
+    expect(matchesText(row, "")).toBe(true);
+  });
+});
+
+describe("a two-factor sign-in", () => {
+  const ask = (timestamp: string, ip = "203.0.113.1") =>
+    entry({ action: "auth.login", result: "failure", detail: "second factor required but not presented", timestamp, client_ip: ip, actor: "anonymous" });
+  const signIn = (timestamp: string, ip = "203.0.113.1") => entry({ action: "auth.login", result: "success", timestamp, client_ip: ip });
+
+  it("is one row, the sign-in, which says it went through the code", () => {
+    const { rows } = mergeActivity({
+      jobs: [],
+      jobsComplete: true,
+      entries: [signIn("2026-09-25T10:00:30+00:00"), ask("2026-09-25T10:00:00+00:00")],
+      auditComplete: true,
+    });
+    const row = only(rows);
+    expect(row.kind === "audit" && row.secondFactor).toBe(true);
+    expect(resultView(t, row).state).toBe("running");
+  });
+
+  it("keeps an ask nobody answered, as a step and not a failure", () => {
+    const { rows } = mergeActivity({
+      jobs: [],
+      jobsComplete: true,
+      entries: [signIn("2026-09-25T10:00:30+00:00", "198.51.100.9"), ask("2026-09-25T10:00:00+00:00")],
+      auditComplete: true,
+    });
+    expect(rows).toHaveLength(2);
+    const unanswered = rows.find((row) => row.kind === "audit" && row.entry.result === "failure");
+    if (unanswered === undefined) throw new Error("no ask");
+    expect(resultView(t, unanswered)).toEqual({ state: "stopped", label: "Asked for the code", attention: false });
+  });
+});
+
+describe("resourceWords / who", () => {
+  const one = (overrides: Partial<AuditEntry>) =>
+    only(mergeActivity({ jobs: [], jobsComplete: true, entries: [entry(overrides)], auditComplete: true }).rows);
+
+  it("names what an action was done to, not the API path", () => {
+    expect(resourceWords(one({ action: "apps.restart", resource: "/api/apps/shop.example.com/restart" }))).toEqual({
+      object: "shop.example.com",
+      raw: "/api/apps/shop.example.com/restart",
+    });
+    expect(resourceWords(one({ action: "db.drop", resource: "/api/databases/postgresql/shop" })).object).toBe("shop");
+    // An endpoint of a collection is not one of its objects.
+    expect(resourceWords(one({ action: "api.post", resource: "/api/cron/preview" })).object).toBe("/api/cron/preview");
+    // A sign-in is done to the console itself: no object.
+    expect(resourceWords(one({ resource: "/api/auth/login" })).object).toBeNull();
+    // Anything else is shown as it was recorded.
+    expect(resourceWords(one({ action: "config.change", resource: "backup.max_per_app" })).object).toBe("backup.max_per_app");
+  });
+
+  it("names the person behind an action when the log records them", () => {
+    const account = one({ actor: "ana", who: { kind: "user", name: "ana", role: "admin", source: "203.0.113.8" } });
+    expect(actorWords(t, account)).toEqual({ label: "ana", raw: "ana" });
+    expect(actorSource(account)).toBe("203.0.113.8");
+    expect(actorWords(t, one({ actor: "cli:yago", who: { kind: "cli", name: "yago" } })).label).toBe("yago at the terminal");
+    expect(actorWords(t, one({ actor: "hq on behalf of ana", who: { kind: "fleet", name: "ana", via: "fleet:hq" } })).label).toBe("ana, through hq");
+    expect(actorWords(t, one({ actor: "token:ci", who: { kind: "token", name: "token:ci" } })).label).toBe('Token "ci"');
   });
 });
 
@@ -306,6 +413,7 @@ describe("withoutRequestEchoes", () => {
     resource,
     actor: "anonymous",
     result: "ok",
+    sensitive: false,
   });
   const rows = (entries: AuditEntry[]) => mergeActivity({ jobs: [], jobsComplete: true, entries, auditComplete: true }).rows;
 

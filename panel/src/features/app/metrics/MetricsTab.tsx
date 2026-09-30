@@ -1,202 +1,122 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { ChartLine } from "lucide-react";
-import type { ReactNode } from "react";
+import { useMemo } from "react";
 
 import { appQuery } from "../../../api/queries/apps";
-import type { App } from "../../../api/queries/apps";
 import { deploymentsQuery } from "../../../api/queries/deployments";
-import { metricSeriesQuery } from "../../../api/queries/metrics";
+import { appMetricsStatusQuery } from "../../../api/queries/metrics";
+import type { AppMetricsStatus, MetricsReason } from "../../../api/queries/metrics";
 import { useDocumentTitle } from "../../../app/documentTitle";
-import { useNow } from "../../../components/page/clock";
+import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Section } from "../../../components/page/Section";
 import { SegmentedControl } from "../../../components/page/SegmentedControl";
-import { appStatus, deployStatus } from "../../../components/page/status";
-import { Chart } from "../../../components/ui/Chart";
+import { deployStatus } from "../../../components/page/status";
+import { Subsection } from "../../../components/page/Subsection";
+import { Card } from "../../../components/ui/Card";
+import { ChartGroup, ChartSkeleton } from "../../../components/ui/Chart";
 import type { ChartMarker } from "../../../components/ui/Chart";
+import { formatChartTime, momentNeedsDate } from "../../../components/ui/chart/time";
 import { EmptyState } from "../../../components/ui/EmptyState";
-import { Skeleton } from "../../../components/ui/Skeleton";
-import { STATUS, StatusGlyph } from "../../../components/ui/StatusPill";
+import { Mono } from "../../../components/ui/Mono";
+import { Notice } from "../../../components/ui/Notice";
+import { StatusGlyph, stateTextClass } from "../../../components/ui/StatusPill";
+import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
-import type { T, PlainKey } from "../../../i18n";
+import type { PlainKey, T } from "../../../i18n";
 import { cx } from "../../../lib/cx";
-import { formatBytes, formatPercent, parseTimestamp } from "../../../lib/format";
+import { formatBytes, formatCount, formatPercent, parseTimestamp } from "../../../lib/format";
 import { appLimits } from "../../apps/data";
-import { alignSeries, resolutionCategory } from "../../overview/series";
-import { RANGES, clip, momentWords, rangeSpec, rangeWords, sentence, summarise } from "./ranges";
-import type { MetricRange, Points } from "./ranges";
+import { CollectorNotice, TruthLine, collectorReasonText } from "../../overview/HistoryStatus";
+import { MetricChart } from "../../overview/MetricChart";
+import { prepareRead, useMetricsRead } from "../../overview/metricsData";
+import type { SeriesSpec } from "../../overview/metricsData";
+import { RANGES } from "../../overview/ranges";
+import type { MetricRange } from "../../overview/ranges";
 
 const CHART_HEIGHT = 180;
 
-const TONE_TEXT = { ok: "text-ok", warn: "text-warn", fail: "text-fail", idle: "text-idle" } as const;
+interface ReasonKeys {
+  title: PlainKey;
+  description: PlainKey;
+  /** What to do, leading into the command when there is one. */
+  fix?: PlainKey;
+}
+
+/** Every reason the backend gives, with the console's words for it. */
+const REASONS: Readonly<Record<string, ReasonKeys>> = {
+  static: { title: "appPages.metrics.reason.static.title", description: "appPages.metrics.reason.static.description" },
+  php_fpm_missing: { title: "appPages.metrics.reason.php_fpm_missing.title", description: "appPages.metrics.reason.php_fpm_missing.description", fix: "appPages.metrics.reason.php_fpm_missing.fix" },
+  stopped: { title: "appPages.metrics.reason.stopped.title", description: "appPages.metrics.reason.stopped.description", fix: "appPages.metrics.reason.stopped.fix" },
+  failed: { title: "appPages.metrics.reason.failed.title", description: "appPages.metrics.reason.failed.description", fix: "appPages.metrics.reason.failed.fix" },
+  starting: { title: "appPages.metrics.reason.starting.title", description: "appPages.metrics.reason.starting.description" },
+  unit_missing: { title: "appPages.metrics.reason.unit_missing.title", description: "appPages.metrics.reason.unit_missing.description", fix: "appPages.metrics.reason.unit_missing.fix" },
+  cgroup_v1: { title: "appPages.metrics.reason.cgroup_v1.title", description: "appPages.metrics.reason.cgroup_v1.description", fix: "appPages.metrics.reason.cgroup_v1.fix" },
+  accounting_off: { title: "appPages.metrics.reason.accounting_off.title", description: "appPages.metrics.reason.accounting_off.description", fix: "appPages.metrics.reason.accounting_off.fix" },
+  cgroup_missing: { title: "appPages.metrics.reason.cgroup_missing.title", description: "appPages.metrics.reason.cgroup_missing.description", fix: "appPages.metrics.reason.cgroup_missing.fix" },
+  compose_docker_unavailable: { title: "appPages.metrics.reason.compose_docker_unavailable.title", description: "appPages.metrics.reason.compose_docker_unavailable.description", fix: "appPages.metrics.reason.compose_docker_unavailable.fix" },
+  compose_cgroup_unreadable: { title: "appPages.metrics.reason.compose_cgroup_unreadable.title", description: "appPages.metrics.reason.compose_cgroup_unreadable.description", fix: "appPages.metrics.reason.compose_cgroup_unreadable.fix" },
+  access_log_missing: { title: "appPages.metrics.reason.access_log_missing.title", description: "appPages.metrics.reason.access_log_missing.description", fix: "appPages.metrics.reason.access_log_missing.fix" },
+};
+
+/** A reason in the console's words; one it does not know keeps Noust's own sentence. */
+export function reasonWords(t: T, reason: Pick<MetricsReason, "code" | "message">): { title: string; description: string } {
+  const known = REASONS[reason.code];
+  if (known) return { title: t(known.title), description: t(known.description) };
+  return { title: t("appPages.metrics.reason.other.title"), description: `${t("appPages.metrics.reason.other.description")} ${reason.message}` };
+}
+
+const COMMAND = /^(?:noust|systemctl|journalctl|docker)\s[^\s]/;
+
+/**
+ * The command that fixes a reason, verbatim: the backend's fix when it is one, the command at
+ * the end of its sentence ("Redeploy it: noust app update example.com"), or the one the reason
+ * itself names (the service to edit, Docker's own view).
+ */
+export function fixCommand(reason: Pick<MetricsReason, "code" | "fix" | "params">): string | null {
+  const unit = reason.params?.["unit"];
+  if (reason.code === "accounting_off" && typeof unit === "string" && unit !== "") return `systemctl edit ${unit}`;
+  if (reason.code === "compose_cgroup_unreadable") return "docker stats";
+  const fix = reason.fix?.trim() ?? "";
+  if (COMMAND.test(fix) && !fix.endsWith(".")) return fix;
+  const tail = /:\s+((?:noust|systemctl|journalctl|docker)\s[^()]+?)\.?$/.exec(fix);
+  return tail?.[1] ?? null;
+}
+
+/**
+ * How to fix a reason: the console's words leading into the command (verbatim, copyable), and
+ * the system's own words when it said something.
+ */
+function ReasonDetail({ t, reason }: { t: T; reason: MetricsReason }) {
+  const known = REASONS[reason.code];
+  const command = fixCommand(reason);
+  const lead = known?.fix !== undefined ? t(known.fix) : command !== null ? t("appPages.metrics.fixLabel") : (reason.fix ?? null);
+  if (lead === null && command === null && !reason.evidence) return null;
+  return (
+    <div className="flex min-w-0 flex-col items-start gap-2 text-left">
+      {command !== null ? (
+        <CommandHint {...(lead !== null ? { label: lead } : {})} command={command} />
+      ) : lead !== null ? (
+        <p className="max-w-measure text-13 text-pretty text-fg-muted">{lead}</p>
+      ) : null}
+      {reason.evidence ? <SystemOutput label={t("appPages.metrics.evidenceLabel")}>{reason.evidence}</SystemOutput> : null}
+    </div>
+  );
+}
 
 /** One deploy in the range: what the chart's markers and the list below the charts both say. */
 interface DeployMark {
   id: number;
-  /** Unix seconds. */
   at: number;
   status: string;
-  /** When, as short as the range allows: "19:42", "Sep 25, 19:42". */
   when: string;
-  /** Everything, for assistive technology and the tooltip: "Deploy 25, succeeded, Sep 25, 19:42". */
   label: string;
 }
 
-interface ChartSpec {
-  key: "cpu" | "memory";
-  title: string;
-  metric: (domain: string) => string;
-  format: (value: number, locale: T["locale"]) => string;
-  limit: (app: App) => number | null;
-  /** What the value is, beside the title. */
-  unit: string;
-}
-
-function charts(t: T): readonly ChartSpec[] {
-  return [
-    {
-      key: "cpu",
-      title: t("appPages.common.cpu"),
-      metric: (domain) => `app.${domain}.cpu.percent`,
-      format: formatPercent,
-      limit: (app) => appLimits(app).cpu,
-      unit: t("appPages.metrics.unitCpu"),
-    },
-    {
-      key: "memory",
-      title: t("appPages.common.memory"),
-      metric: (domain) => `app.${domain}.mem.bytes`,
-      format: formatBytes,
-      limit: (app) => appLimits(app).memory,
-      unit: t("appPages.metrics.unitMemory"),
-    },
-  ];
-}
-
-function Frame({ children }: { children: ReactNode }) {
-  return <div className="min-w-0 rounded-card border border-border bg-surface p-4 shadow-raised">{children}</div>;
-}
-
-/**
- * Shaped like the chart that replaces it, block for block: the caption (36px), the readout
- * (16px), the plot, and the summary sentence under its rule. The page below stays put when
- * the data lands.
- */
-function ChartSkeleton({ title, t }: { title: string; t: T }) {
-  return (
-    <Frame>
-      <div aria-busy="true">
-        <span className="sr-only">{t("appPages.metrics.loadingChart", { title })}</span>
-        <div aria-hidden="true" className="flex flex-col gap-3">
-          <div className="flex h-9 flex-col justify-center gap-1.5">
-            <Skeleton className="h-3.5 w-24" />
-            <Skeleton className="h-3 w-64 max-w-full" />
-          </div>
-          <div className="flex h-4 items-center">
-            <Skeleton className="h-3 w-32" />
-          </div>
-          <Skeleton className="h-45 w-full rounded-control" />
-          <div className="flex h-7 items-end border-t border-border">
-            <Skeleton className="h-3 w-80 max-w-full" />
-          </div>
-        </div>
-      </div>
-    </Frame>
-  );
-}
-
-/** One metric of the app over the range, with its limit as a second line and its deploys marked. */
-function MetricChart({
-  spec,
-  app,
-  range,
-  markers,
-  now,
-  onRangeChange,
-  t,
-}: {
-  spec: ChartSpec;
-  app: App;
-  range: MetricRange;
-  markers: readonly ChartMarker[];
-  now: number;
-  onRangeChange: (range: MetricRange) => void;
-  t: T;
-}) {
-  const detail = rangeSpec(range);
-  const words = rangeWords(range, t.locale);
-  const series = useQuery({
-    ...metricSeriesQuery(spec.metric(app.domain), detail.window),
-    refetchInterval: range === "1h" ? 30_000 : 5 * 60_000,
-    // A new range keeps the previous one on screen until it arrives, so an enlarged chart
-    // whose range is changed stays open instead of dropping back to a skeleton.
-    placeholderData: keepPreviousData,
-  });
-
-  if (series.isError && series.data === undefined) {
-    return (
-      <Frame>
-        <ErrorBlock compact error={series.error} title={t("appPages.metrics.chartLoadError", { title: spec.title })} onRetry={() => void series.refetch()} />
-      </Frame>
-    );
-  }
-  if (series.data === undefined) return <ChartSkeleton title={spec.title} t={t} />;
-
-  const points: Points = clip(series.data.points, range, now);
-  const summary = summarise(points);
-  const limit = spec.limit(app);
-  if (summary === null) {
-    return (
-      <Frame>
-        <div className="flex flex-col gap-1">
-          <h3 className="text-13 font-medium text-fg">{spec.title}</h3>
-          <p className="text-13 text-fg-muted">{t(NO_READINGS[range])}</p>
-        </div>
-      </Frame>
-    );
-  }
-
-  const aligned = alignSeries([points]);
-  const values = aligned.values[0] ?? [];
-  // A limit far above the readings would flatten them against the axis; drawn only when the
-  // app comes near it, and always said in the summary.
-  const drawLimit = limit !== null && summary.peak >= limit / 3;
-  const lines = [
-    { label: spec.title, values },
-    ...(drawLimit ? [{ label: t("appPages.metrics.limitLabel"), values: values.map(() => limit) }] : []),
-  ];
-
-  const format = (value: number) => spec.format(value, t.locale);
-  const category = resolutionCategory(series.data.resolution);
-  const spacing = category === "minute" ? t("appPages.metrics.minuteAverages") : category === "hour" ? t("appPages.metrics.hourlyAverages") : null;
-
-  return (
-    <Frame>
-      <div className="flex flex-col gap-3">
-        <Chart
-          title={spec.title}
-          description={`${[words, spacing].filter((part) => part !== null).join(", ")}. ${spec.unit}.`}
-          timestamps={aligned.timestamps}
-          series={lines}
-          formatValue={format}
-          height={CHART_HEIGHT}
-          markers={markers}
-          rangeSelector={{ value: range, control: <RangeControl range={range} onRangeChange={onRangeChange} t={t} /> }}
-        />
-        <p className="border-t border-border pt-3 text-12 text-pretty text-fg-muted" data-summary="">
-          <span className="sr-only">{`${spec.title}: `}</span>
-          {sentence(summary, range, format, limit, t.locale)}
-        </p>
-      </div>
-    </Frame>
-  );
-}
-
-/** The deploys in the range, in words: what the marks on the charts are. */
 function DeployList({ domain, marks, t }: { domain: string; marks: readonly DeployMark[]; t: T }) {
   return (
-    <Section title={t("appPages.metrics.deploysInRangeTitle")} level={3}>
+    <Subsection title={t("appPages.metrics.deploysInRangeTitle")}>
       {marks.length === 0 ? (
         <p className="text-13 text-fg-muted">{t("appPages.metrics.noDeploysInRange")}</p>
       ) : (
@@ -208,14 +128,14 @@ function DeployList({ domain, marks, t }: { domain: string; marks: readonly Depl
                 <Link
                   to="/apps/$domain/deployments/$id"
                   params={{ domain, id: String(mark.id) }}
-                  className="flex h-7 items-center gap-1.5 rounded-pill border border-border bg-surface px-2.5 text-12 text-fg hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-focus"
+                  aria-label={mark.label}
+                  className="flex h-7 items-center gap-1.5 rounded-pill border border-border bg-surface px-2.5 text-12 text-fg hover:bg-surface-hover"
                 >
-                  <span className={cx("flex", TONE_TEXT[STATUS[view.state].tone])}>
+                  <span className={cx("flex", stateTextClass(view.state))}>
                     <StatusGlyph state={view.state} size={10} />
                   </span>
-                  <span className="sr-only">{mark.label}</span>
                   <span aria-hidden="true" className="flex items-baseline gap-1.5">
-                    <span className="mono">{`#${String(mark.id)}`}</span>
+                    <Mono>{`#${String(mark.id)}`}</Mono>
                     <span className="text-fg-muted">{mark.when}</span>
                   </span>
                 </Link>
@@ -224,18 +144,9 @@ function DeployList({ domain, marks, t }: { domain: string; marks: readonly Depl
           })}
         </ul>
       )}
-    </Section>
+    </Subsection>
   );
 }
-
-
-/** A sentence per range: "in the last hour" is not a lowercased "Last hour" in every language. */
-const NO_READINGS: Readonly<Record<MetricRange, PlainKey>> = {
-  "1h": "appPages.metrics.noReadings.1h",
-  "24h": "appPages.metrics.noReadings.24h",
-  "7d": "appPages.metrics.noReadings.7d",
-  "30d": "appPages.metrics.noReadings.30d",
-};
 
 export interface MetricsTabProps {
   domain: string;
@@ -243,7 +154,6 @@ export interface MetricsTabProps {
   onRangeChange: (range: MetricRange) => void;
 }
 
-/** The one range control, on the section and again in an enlarged chart. */
 function RangeControl({ range, onRangeChange, t }: Pick<MetricsTabProps, "range" | "onRangeChange"> & { t: T }) {
   return (
     <SegmentedControl
@@ -255,79 +165,58 @@ function RangeControl({ range, onRangeChange, t }: Pick<MetricsTabProps, "range"
   );
 }
 
+/** The roles this kind of application has charts for, in the order they are drawn. */
+function rolesOf(status: AppMetricsStatus | undefined): { unit: string[]; traffic: string[] } {
+  const series: Record<string, string> = status?.series ?? {};
+  return {
+    unit: ["cpu", "memory"].filter((role) => series[role] !== undefined),
+    traffic: ["requests", "errors_5xx"].filter((role) => series[role] !== undefined),
+  };
+}
+
 /**
- * The app's CPU and memory over the last hour, day, week or month, against its limits, with its
- * deploys marked. Each chart has a sentence that says what it shows and a table of its numbers.
+ * An application's CPU and memory (or, for a static site, its requests and server errors) over
+ * the page's range, against its limits, with its deploys marked; and when nothing is measured,
+ * why, and what fixes it.
  */
 export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
   const t = useT();
   useDocumentTitle(t("appPages.metrics.documentTitle", { domain }), 1);
   const app = useQuery(appQuery(domain));
+  const status = useQuery(appMetricsStatusQuery(domain));
   const deploys = useQuery(deploymentsQuery({ domain, limit: 200 }));
-  // One clock for both charts and the marks: the range ends at the same instant for all.
-  const now = Math.floor(useNow(() => 60_000) / 1000);
 
-  if (app.data === undefined) {
-    return app.isError ? null : (
-      <div className="grid gap-4 xl:grid-cols-2">
-        <ChartSkeleton title={t("appPages.common.cpu")} t={t} />
-        <ChartSkeleton title={t("appPages.common.memory")} t={t} />
-      </div>
-    );
-  }
+  const roles = rolesOf(status.data);
+  const traffic = roles.unit.length === 0 && roles.traffic.length > 0;
+  const shownRoles = traffic ? roles.traffic : roles.unit;
+  const metrics = shownRoles.map((role) => status.data?.series?.[role] ?? "");
+  const read = useMetricsRead(metrics, range, status.data !== undefined);
+  const prepared = useMemo(() => (read.data === undefined ? undefined : prepareRead(read.data, t)), [read.data, t]);
+  const control = <RangeControl range={range} onRangeChange={onRangeChange} t={t} />;
 
-  // A site of the static type has no process even when a unit was left behind for it.
-  if (appStatus(app.data.status).state === "static" || app.data.app_type === "static") {
-    return (
-      <EmptyState
-        level={2}
-        icon={<ChartLine />}
-        title={t("appPages.metrics.staticTitle")}
-        description={t("appPages.metrics.staticDescription")}
-        action={
-          <Link to="/" className="rounded-[4px] text-13 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus">
-            {t("appPages.metrics.machineOverview")}
-          </Link>
-        }
-        className="py-16"
-      />
-    );
-  }
+  const hasReadings = prepared !== undefined && [...prepared.byMetric.values()].some((series) => series.values.some((value) => value !== null));
+  const reason: MetricsReason | null = (traffic ? status.data?.traffic.reason : status.data?.reason) ?? null;
+  const collector = read.data?.collector ?? status.data?.collector;
 
-  // A Compose stack's unit only starts it; the containers live in Docker's own cgroups,
-  // which Noust does not sample, so charts here would read near zero and mislead.
-  if (app.data.app_type === "docker-compose") {
-    return (
-      <EmptyState
-        level={2}
-        icon={<ChartLine />}
-        title={t("appPages.metrics.dockerTitle")}
-        description={t("appPages.metrics.dockerDescription")}
-        action={
-          <Link to="/" className="rounded-[4px] text-13 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus">
-            {t("appPages.metrics.machineOverview")}
-          </Link>
-        }
-        className="py-16"
-      />
-    );
-  }
+  const marks = useMemo((): DeployMark[] => {
+    if (read.data === undefined) return [];
+    const window: [number, number] = [read.data.from, read.data.to];
+    const withDate = momentNeedsDate(window);
+    return (deploys.data?.items ?? [])
+      .flatMap((deploy) => {
+        const at = parseTimestamp(deploy.started_at);
+        if (at === null) return [];
+        const seconds = Math.floor(at.getTime() / 1000);
+        if (seconds < window[0] || seconds > window[1]) return [];
+        const when = formatChartTime(seconds, withDate, t.locale);
+        const state = deployStatus(deploy.status, t.locale).label.toLowerCase();
+        return [{ id: deploy.id, at: seconds, status: deploy.status, when, label: t("appPages.metrics.deployMarkLabel", { id: String(deploy.id), status: state, when }) }];
+      })
+      .sort((a, b) => a.at - b.at);
+  }, [deploys.data, read.data, t]);
 
-  const from = now - rangeSpec(range).seconds;
-  const marks: DeployMark[] = (deploys.data?.items ?? []).flatMap((deploy) => {
-    const at = parseTimestamp(deploy.started_at);
-    if (at === null) return [];
-    const seconds = Math.floor(at.getTime() / 1000);
-    if (seconds <= from || seconds > now) return [];
-    const status = deployStatus(deploy.status, t.locale).label.toLowerCase();
-    const when = momentWords(seconds, range, t.locale);
-    return [{ id: deploy.id, at: seconds, status: deploy.status, when, label: t("appPages.metrics.deployMarkLabel", { id: String(deploy.id), status, when }) }];
-  });
-  marks.sort((a, b) => a.at - b.at);
-
-  // The chart draws each mark itself: a hairline and a focusable state glyph linking to the
-  // deploy. Chart does not import the router, so the link is built here and handed in.
-  const chartMarkers: ChartMarker[] = marks.map((mark) => ({
+  // The chart draws each mark itself; Chart does not import the router, so the link is built here.
+  const markers: ChartMarker[] = marks.map((mark) => ({
     at: mark.at,
     label: mark.label,
     state: deployStatus(mark.status).state,
@@ -336,35 +225,155 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
         to="/apps/$domain/deployments/$id"
         params={{ domain, id: String(mark.id) }}
         aria-label={marker.label}
-        className={linkProps.className}
-        style={linkProps.style}
+        // The marker's state colour as a utility, rather than the kit's inline style.
+        className={cx(linkProps.className, stateTextClass(marker.state))}
       >
         {children}
       </Link>
     ),
   }));
 
-  return (
-    <Section
-      title={t("appPages.metrics.mainTitle")}
-      description={t("appPages.metrics.mainDescription")}
-      actions={<RangeControl range={range} onRangeChange={onRangeChange} t={t} />}
-    >
+  if (status.isError && status.data === undefined) {
+    return (
+      <ErrorBlock error={status.error} title={t("appPages.metrics.statusLoadError")} onRetry={() => void status.refetch()} retrying={status.isRefetching} />
+    );
+  }
+
+  const limits = app.data === undefined ? { cpu: null, memory: null } : appLimits(app.data);
+  const locale = t.locale;
+  const specs: { role: string; title: string; series: SeriesSpec[]; format: (value: number) => string; limit: { value: number; label: string } | null }[] = shownRoles.map((role) => {
+    const metric = status.data?.series?.[role] ?? "";
+    switch (role) {
+      case "cpu":
+        return {
+          role,
+          title: t("appPages.common.cpu"),
+          series: [{ metric, label: t("appPages.common.cpu") }],
+          format: (value: number) => formatPercent(value, locale),
+          limit: limits.cpu === null ? null : { value: limits.cpu, label: t("appPages.metrics.limitLabel", { value: formatPercent(limits.cpu, locale) }) },
+        };
+      case "memory":
+        return {
+          role,
+          title: t("appPages.common.memory"),
+          series: [{ metric, label: t("appPages.common.memory") }],
+          format: (value: number) => formatBytes(value, locale),
+          limit: limits.memory === null ? null : { value: limits.memory, label: t("appPages.metrics.limitLabel", { value: formatBytes(limits.memory, locale) }) },
+        };
+      case "requests":
+        return {
+          role,
+          title: t("appPages.metrics.requests"),
+          series: [{ metric, label: t("appPages.metrics.requests") }],
+          format: (value: number) => t("appPages.metrics.perMinute", { value: formatCount(Math.round(value), locale) }),
+          limit: null,
+        };
+      default:
+        return {
+          role,
+          title: t("appPages.metrics.errors5xx"),
+          series: [{ metric, label: t("appPages.metrics.errors5xx"), state: "failed" as const }],
+          format: (value: number) => t("appPages.metrics.perMinute", { value: formatCount(Math.round(value), locale) }),
+          limit: null,
+        };
+    }
+  });
+
+  const charts = (
+    <ChartGroup>
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-        {charts(t).map((spec) => (
+        {specs.map((spec) => (
           <MetricChart
-            key={spec.key}
-            spec={spec}
-            app={app.data}
+            key={spec.role}
+            title={spec.title}
             range={range}
-            markers={chartMarkers}
-            now={now}
-            onRangeChange={onRangeChange}
-            t={t}
+            series={spec.series}
+            read={read}
+            prepared={prepared}
+            format={spec.format}
+            limit={spec.limit}
+            markers={markers}
+            height={CHART_HEIGHT}
+            rangeControl={control}
+            couldNotLoad={t("appPages.metrics.chartLoadError", { title: spec.title })}
           />
         ))}
       </div>
-      <DeployList domain={domain} marks={marks} t={t} />
+    </ChartGroup>
+  );
+
+  if (status.data === undefined) {
+    return (
+      <Section title={t("appPages.metrics.mainTitle")} description={<TruthLine read={undefined} range={range} reading />} actions={control}>
+        <div className="grid min-w-0 gap-4 xl:grid-cols-2" aria-busy="true">
+          {[t("appPages.common.cpu"), t("appPages.common.memory")].map((name) => (
+            <Card key={name} padding="sm" as="div">
+              <ChartSkeleton title={name} height={CHART_HEIGHT} />
+            </Card>
+          ))}
+        </div>
+      </Section>
+    );
+  }
+
+  if (shownRoles.length === 0) {
+    // Nothing of this application can be measured: say why, instead of drawing empty charts.
+    const words = reason ? reasonWords(t, reason) : { title: t("appPages.metrics.reason.other.title"), description: "" };
+    return (
+      <div data-metrics-reason={reason?.code ?? ""}>
+        <EmptyState
+          variant="firstUse"
+          level={2}
+          icon={<ChartLine />}
+          title={words.title}
+          description={words.description}
+          {...(reason ? { action: <ReasonDetail t={t} reason={reason} /> } : {})}
+        />
+      </div>
+    );
+  }
+
+  // No reading in the whole window: why, instead of empty charts. The plan's reason first (the
+  // service is stopped, accounting is off...), then the collector's (nothing records at all).
+  const collectorReason = collector !== undefined && !collector.recording ? (collector.reason ?? null) : null;
+  const emptyBecause = prepared !== undefined && !hasReadings ? (reason ?? collectorReason) : null;
+
+  return (
+    <Section
+      title={traffic ? t("appPages.metrics.trafficTitle") : t("appPages.metrics.mainTitle")}
+      description={<TruthLine read={read.data} range={range} reading={read.isPlaceholderData} />}
+      actions={control}
+    >
+      {emptyBecause !== null ? (
+        <div data-metrics-reason={emptyBecause.code}>
+          <EmptyState
+            variant="firstUse"
+            level={3}
+            icon={<ChartLine />}
+            title={emptyBecause === collectorReason ? t("overview.history.notRecordingTitle") : reasonWords(t, emptyBecause).title}
+            description={emptyBecause === collectorReason ? collectorReasonText(t, emptyBecause) : reasonWords(t, emptyBecause).description}
+            action={<ReasonDetail t={t} reason={emptyBecause} />}
+          />
+        </div>
+      ) : (
+        <>
+          {reason !== null && hasReadings ? (
+            <div data-metrics-reason={reason.code}>
+              <Notice tone={reason.code === "starting" ? "info" : "warning"} title={reasonWords(t, reason).title}>
+                <div className="flex flex-col gap-2">
+                  <p>{`${reasonWords(t, reason).description} ${t("appPages.metrics.earlierStay")}`}</p>
+                  <ReasonDetail t={t} reason={reason} />
+                </div>
+              </Notice>
+            </div>
+          ) : (
+            <CollectorNotice collector={collector} />
+          )}
+          {charts}
+          {!traffic ? <p className="text-12 text-pretty text-fg-faint">{t("appPages.metrics.cpuNote")}</p> : null}
+          <DeployList domain={domain} marks={marks} t={t} />
+        </>
+      )}
     </Section>
   );
 }

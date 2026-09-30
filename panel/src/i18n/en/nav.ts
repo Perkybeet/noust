@@ -5,6 +5,22 @@ export const nav = {
     appSections: "Application sections",
     settingsSections: "Settings sections",
   },
+  /** The sidebar's headings on a fleet: every server at once, then the server on screen. */
+  groups: {
+    fleet: "Fleet",
+    server: "Server",
+  },
+  /** Settings split by whose they are, on a fleet (features/settings/SettingsShell.tsx). */
+  settingsGroups: {
+    serverLabel: "Server",
+    central: "Central {name}",
+    serverDescription: "How Noust runs on {name}. These follow the server you choose.",
+    centralDescription: "These are the central's, {name}: they stay the same whichever server you choose.",
+    nodeNoteTitle: "Sign-in, two-factor and API tokens of {node} are managed on {node}",
+    nodeNote:
+      "{node} refuses this central on them on purpose: a central that was taken over could otherwise lock you out of every server. Sign in to the console of {node}, or run these on {node}:",
+    nodeNoteCommands: "On {node}",
+  },
   /** After a destination's name, for assistive technology: "Services 1 failed". */
   failed: { one: "{count} failed", other: "{count} failed" },
   overview: { label: "Overview", keywords: "home dashboard health", goTo: "Go to overview" },
@@ -24,7 +40,6 @@ export const nav = {
     metrics: { label: "Metrics", keywords: "cpu memory charts" },
     environment: { label: "Environment", keywords: "env variables secrets" },
     domains: { label: "Domains", keywords: "certificate ssl www" },
-    diagnose: { label: "Diagnose", keywords: "down why broken health" },
     settings: { label: "Settings", keywords: "webhook source build port delete" },
   },
   settingsTabs: {
@@ -42,5 +57,6 @@ export const nav = {
     },
     tokens: { label: "API tokens", keywords: "automation ci scope", command: "API tokens" },
     about: { label: "About", keywords: "version update", command: "About settings" },
+    central: { label: "Central", keywords: "seal passphrase unlock hub role fleet", command: "This central's settings" },
   },
 } as const;

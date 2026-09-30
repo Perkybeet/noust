@@ -1,26 +1,32 @@
 /**
- * Settings > General against the real backend: every typed section loads, a value the server
- * refuses comes back beside its field in the server's own words, and a fixed value saves.
- * Every settings page passes axe and the CSP and console gates, in both themes.
+ * The server's settings (General, Notifications, Integrations, About) against the real
+ * backend: every one is a T3 subsection that loads without anything still busy and passes
+ * axe, and General is one form with one save bar - a value the server refuses comes back
+ * beside its field in the server's own words while the rest of the save goes through.
  */
 
+import type { Page } from "@playwright/test";
+
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
-import { expectAccessibleToast, holdToast, stillness } from "./settings.helpers";
+import { confirmItsYou, stillness } from "./settings.helpers";
 
 const PAGES = [
-  { path: "/settings", heading: "Applications directory", title: /^General settings/ },
-  { path: "/settings/security", heading: "Two-factor authentication", title: /^Security settings/ },
-  { path: "/settings/notifications", heading: "Where alerts go", title: /^Notifications settings/ },
-  { path: "/settings/tokens", heading: "Tokens for automation", title: /^API tokens/ },
-  { path: "/settings/about", heading: "Version and updates", title: /^About/ },
+  { path: "/settings", heading: "This server", title: /^General settings/ },
+  { path: "/settings/notifications", heading: "Channels", title: /^Notifications settings/ },
+  { path: "/settings/integrations", heading: "GitHub", title: /^Integrations/ },
+  { path: "/settings/about", heading: "Version", title: /^About/ },
 ] as const;
 
-test("every settings page loads its sections and passes axe", async ({ page, consoleServer }) => {
+function saveBar(page: Page) {
+  return page.getByRole("region", { name: "Unsaved changes" });
+}
+
+test("every server settings page loads its sections and passes axe", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/settings");
   const tabs = page.getByRole("navigation", { name: "Settings sections" });
   for (const entry of PAGES) {
     await page.goto(entry.path);
-    await expect(page.getByRole("heading", { level: 2, name: entry.heading })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: entry.heading, exact: true })).toBeVisible();
     await expect(page).toHaveTitle(entry.title);
     await expect(tabs.locator('a[aria-current="page"]')).toHaveCount(1);
     // Nothing still loading when axe looks.
@@ -30,68 +36,68 @@ test("every settings page loads its sections and passes axe", async ({ page, con
   }
 });
 
-test("a refused value is shown beside its field, verbatim; the fixed value saves", async ({ page, consoleServer, problems }) => {
-  // Saving configuration is sudo mode (D5): the first write of the session asks to confirm it's you.
-  problems.expect(/status of 403 .* \/api\/config\/backup$/);
+test("General saves from one bar; a refused value stays beside its field, verbatim", async ({ page, consoleServer, problems }) => {
+  // Saving configuration is sudo mode: the bar asks "Confirm it's you" before the first write.
   problems.expect(/status of 422 .* \/api\/config\/backup$/);
   problems.expect(/status of 400 .* \/api\/config\/apps-directory$/);
   await signIn(page, consoleServer, "/settings");
-  const backups = page.getByRole("region", { name: "Backups" });
-  const retention = backups.getByLabel("Backups kept per application");
+  const name = page.getByLabel("Server name");
+  const retention = page.getByLabel("Backups kept per app");
   await expect(retention).toHaveValue(/^\d+$/);
   const original = await retention.inputValue();
-  const save = backups.getByRole("button", { name: "Save changes" });
-  await expect(save).toBeDisabled();
+  await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();
+  await expect(saveBar(page).getByRole("button", { name: "Save" })).toBeDisabled();
 
+  await name.fill("web-e2e");
   await retention.fill("500");
-  await expect(backups.getByText("Unsaved changes")).toBeVisible();
-  await expect(backups.getByText("noust config set backup.max_per_app 500")).toBeVisible();
-  await save.click();
+  await expect(saveBar(page).getByText("2 unsaved changes")).toBeVisible();
+  await stillness(page);
+  await expectNoA11yViolations(page, "General with unsaved changes");
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
 
-  const elevate = page.getByRole("dialog", { name: "Confirm it's you" });
-  await expect(elevate).toBeVisible();
-  await expectNoA11yViolations(page, "the elevation dialog");
-  await elevate.getByLabel("Authentication code").fill(consoleServer.secondFactor());
-  const refused = page.waitForResponse((response) => response.url().endsWith("/api/config/backup") && response.request().method() === "PUT");
-  await elevate.getByRole("button", { name: "Confirm" }).click();
-  expect((await refused).status()).toBe(422);
-  await expect(elevate).toBeHidden();
+  await confirmItsYou(page, consoleServer);
 
-  // pydantic's words, whichever major version the server runs.
-  const message = backups.getByText(/less than or equal to 100/);
-  await expect(message).toBeVisible();
+  // The name was saved; the count was refused in pydantic's words, beside it.
+  await expect(page.getByText(/less than or equal to 100/)).toBeVisible();
   await expect(retention).toHaveAttribute("aria-invalid", "true");
   await expect(retention).toHaveAccessibleDescription(/less than or equal to 100/);
+  await expect(saveBar(page).getByText("1 unsaved change")).toBeVisible();
+  const saved = (await (await page.request.get("/api/config")).json()) as { config: { server?: { name?: string } } };
+  expect(saved.config.server?.name).toBe("web-e2e");
   await stillness(page);
-  await expectNoA11yViolations(page, "a section with a refused value");
+  await expectNoA11yViolations(page, "a refused value");
 
-  // A path the configuration's own rule refuses (a 400 with no field): beside the one field
-  // of its section, with the server's fix.
-  const directory = page.getByRole("region", { name: "Applications directory" });
-  const input = directory.getByLabel("Directory");
-  const originalDirectory = await input.inputValue();
-  await input.fill("relative/apps");
-  await directory.getByRole("button", { name: "Save changes" }).click();
-  await expect(directory.getByText(/apps_directory must be an absolute path Got 'relative\/apps'/)).toBeVisible();
-  await expect(input).toHaveAttribute("aria-invalid", "true");
-  await directory.getByRole("button", { name: "Discard" }).click();
-  await expect(input).toHaveValue(originalDirectory);
-
+  // A path the configuration's own rule refuses (a 400 with no field): beside its one field.
+  const directory = page.getByLabel("Applications folder");
+  const originalDirectory = await directory.inputValue();
+  await directory.fill("relative/apps");
   await retention.fill("12");
-  await expect(message).toBeHidden();
-  await save.click();
-  await holdToast(page, "Saved the backup settings");
-  await expect(save).toBeDisabled();
-  await stillness(page);
-  await expectNoA11yViolations(page, "a page with a success toast");
-  await expectAccessibleToast(page, "Saved the backup settings", "polite");
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText(/apps_directory must be an absolute path/)).toBeVisible();
+  await expect(directory).toHaveAttribute("aria-invalid", "true");
+  await saveBar(page).getByRole("button", { name: "Discard" }).click();
+  await expect(directory).toHaveValue(originalDirectory);
+  await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();
 
-  // The server holds it: a fresh load shows the saved value.
+  // The server holds what was saved.
   await page.reload();
-  await expect(page.getByRole("region", { name: "Backups" }).getByLabel("Backups kept per application")).toHaveValue("12");
+  await expect(page.getByLabel("Backups kept per app")).toHaveValue("12");
+  await expect(page.getByLabel("Server name")).toHaveValue("web-e2e");
 
   // Leave the worker's server as it was.
-  await page.getByRole("region", { name: "Backups" }).getByLabel("Backups kept per application").fill(original);
-  await page.getByRole("region", { name: "Backups" }).getByRole("button", { name: "Save changes" }).click();
-  await expect(page.getByRole("region", { name: "Backups" }).getByRole("button", { name: "Save changes" })).toBeDisabled();
+  await page.getByLabel("Backups kept per app").fill(original);
+  await page.getByLabel("Server name").fill("");
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
+  await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();
+});
+
+test("on a phone each subsection is its own page, with its way back", async ({ page, consoleServer }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await signIn(page, consoleServer, "/settings/notifications");
+  await expect(page.getByRole("heading", { level: 2, name: "Channels", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "All sections" })).toBeVisible();
+  const width = await page.evaluate(() => document.documentElement.scrollWidth);
+  expect(width).toBeLessThanOrEqual(390);
+  await settle(page);
+  await expectNoA11yViolations(page, "notifications on a phone");
 });

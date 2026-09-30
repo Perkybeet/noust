@@ -74,7 +74,7 @@ export function Select<V extends string = string>({
           "focus-visible:border-focus focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-focus",
           "data-disabled:cursor-not-allowed data-disabled:bg-bg-sunken data-disabled:opacity-60",
           "data-popup-open:border-fg-faint",
-          size === "sm" ? "h-7" : "h-8",
+          size === "sm" ? "h-control-sm" : "h-control-md",
           className,
         )}
       >
@@ -87,7 +87,7 @@ export function Select<V extends string = string>({
         </BaseSelect.Icon>
       </BaseSelect.Trigger>
       <BaseSelect.Portal>
-        <BaseSelect.Positioner sideOffset={4} alignItemWithTrigger={false} className="z-50 outline-none">
+        <BaseSelect.Positioner sideOffset={4} alignItemWithTrigger={false} className="z-overlay outline-none">
           <BaseSelect.Popup
             className={cx(
               "max-h-(--available-height) min-w-(--anchor-width) overflow-y-auto rounded-card border border-border bg-surface-raised p-1 text-fg shadow-overlay outline-none scroll-thin",

@@ -23,6 +23,11 @@ export interface FieldProps {
    * labelable elements (Select, a Switch group): the label becomes a div wired by aria.
    */
   nativeLabel?: boolean;
+  /**
+   * A button that acts on the control (Inspect, Browse, Generate), set beside the control and
+   * aligned with it rather than with the label, so nobody pushes it down with a magic margin.
+   */
+  action?: ReactNode;
   children: ReactNode;
   className?: string;
 }
@@ -36,6 +41,7 @@ export function Field({
   disabled = false,
   name,
   nativeLabel = true,
+  action,
   children,
   className,
 }: FieldProps) {
@@ -56,7 +62,14 @@ export function Field({
         <span>{label}</span>
         {optional ? <span className="text-12 font-normal text-fg-faint">{t("common.field.optional")}</span> : null}
       </BaseField.Label>
-      {children}
+      {action !== undefined ? (
+        <div data-field-row="" className="flex min-w-0 items-start gap-2">
+          <div className="min-w-0 flex-1">{children}</div>
+          <div className="flex shrink-0 items-center">{action}</div>
+        </div>
+      ) : (
+        children
+      )}
       {description !== undefined ? (
         <BaseField.Description className="text-12 text-fg-muted">{description}</BaseField.Description>
       ) : null}

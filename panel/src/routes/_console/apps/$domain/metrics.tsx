@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 import { MetricsTab } from "../../../../features/app/metrics/MetricsTab";
-import { DEFAULT_RANGE, isRange } from "../../../../features/app/metrics/ranges";
-import type { MetricRange } from "../../../../features/app/metrics/ranges";
+import { DEFAULT_RANGE, isRange } from "../../../../features/overview/ranges";
+import type { MetricRange } from "../../../../features/overview/ranges";
 
 interface MetricsSearch {
   /** The charts' time range; the last 24 hours when absent. */

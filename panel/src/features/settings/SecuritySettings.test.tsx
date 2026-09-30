@@ -1,4 +1,5 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import { setLocale } from "../../app/locale";
@@ -48,6 +49,16 @@ function securityRoutes(twoFactor: { enabled: boolean }, extra: Record<string, R
     "GET /api/auth/2fa": () => json(200, { enabled: twoFactor.enabled, pending: false, backup_codes_remaining: twoFactor.enabled ? 8 : 0 }),
     "GET /api/auth/sessions": () => json(200, SESSIONS),
     "GET /api/config": () => json(200, CONFIG),
+    "GET /api/auth/passkeys": () =>
+      json(200, { passkeys: [], availability: { supported: false, reason: "ip_address", detail: "Passkeys do not work on an address such as 127.0.0.1", hint: "Open the console by its name." }, allow_synced: true }),
+    "GET /api/approvals/policy": () => json(200, { enabled: false, approvers: ["security"], request_hours: 24, execute_minutes: 30, reason_required: false, rules: [] }),
+    "GET /api/ens/profile": () =>
+      json(200, {
+        profile: "standard",
+        baseline: [
+          { key: "auth.session.idle_minutes", description: "Idle timeout", standard_value: "30", ens_value: "15", measures: ["mp.eq.2"] },
+        ],
+      }),
     ...extra,
   };
 }
@@ -104,13 +115,13 @@ describe("Settings > Security", () => {
 
     // Closing before saving them says why it did not close.
     await user.keyboard("{Escape}");
-    expect(await within(codesDialog).findByRole("alert")).toHaveTextContent("They cannot be shown again");
+    expect(await within(codesDialog).findByText(/They cannot be shown again/)).toBeInTheDocument();
     expect(screen.getByRole("dialog", { name: "Save your backup codes" })).toBeInTheDocument();
 
     await user.click(within(codesDialog).getByRole("checkbox", { name: "I have saved these codes somewhere safe" }));
     await user.click(done);
     await expectToast("Turned on two-factor authentication");
-    expect(await screen.findByText("8 of 8 backup codes left")).toBeInTheDocument();
+    expect(await screen.findByText("8 backup codes left")).toBeInTheDocument();
     expect(backend.callsTo("POST /api/auth/2fa/confirm").map((call) => call.body)).toEqual([{ code: "000000" }, { code: "123456" }]);
   });
 
@@ -267,15 +278,35 @@ describe("Settings > Security", () => {
     expect(screen.getByRole("dialog", { name: "Sign out other sessions?" })).toBeInTheDocument();
   });
 
-  it("states the lockout policy as configured", async () => {
+  it("states the security profile and the limits the server enforces, read-only", async () => {
     fakeBackend(securityRoutes({ enabled: true }));
     renderConsole("/settings/security");
-    const policy = await screen.findByRole("region", { name: "Lockout policy" });
-    expect(await within(policy).findByText("5")).toBeInTheDocument();
-    expect(within(policy).getByText("15 minutes")).toBeInTheDocument();
+    const policy = await screen.findByRole("region", { name: "Security profile" });
+    expect(await within(policy).findByText("Standard", { selector: "dd *, dd" })).toBeInTheDocument();
+    expect(await within(policy).findByText("5 failed attempts lock it for 15 minutes")).toBeInTheDocument();
     expect(within(policy).getByText("120 requests a minute")).toBeInTheDocument();
-    expect(within(policy).getByText("12 hours")).toBeInTheDocument();
     expect(within(policy).getByText("Any address")).toBeInTheDocument();
+    expect(within(policy).getByText("Off")).toBeInTheDocument();
+    await userEvent.click(within(policy).getByRole("button", { name: "Show what the profile fixes" }));
+    expect(await within(policy).findByText("auth.session.idle_minutes")).toBeInTheDocument();
+    expect(within(policy).queryByRole("textbox")).toBeNull();
+  });
+
+  it("says why passkeys do not work from here instead of hiding them", async () => {
+    fakeBackend(securityRoutes({ enabled: true }));
+    renderConsole("/settings/security");
+    const passkeys = await screen.findByRole("region", { name: "Passkeys" });
+    expect(await within(passkeys).findByText("Passkeys do not work from this page")).toBeInTheDocument();
+    expect(within(passkeys).getByText(/Browsers only offer passkeys to a site with a name/)).toBeInTheDocument();
+    expect(within(passkeys).getByText("Passkeys do not work on an address such as 127.0.0.1")).toBeInTheDocument();
+    expect(within(passkeys).queryByRole("button", { name: "Add a passkey" })).toBeNull();
+  });
+
+  it("names the access token for what it is when it is who signed in", async () => {
+    fakeBackend(securityRoutes({ enabled: true }));
+    renderConsole("/settings/security");
+    const account = await screen.findByRole("region", { name: "Your account" });
+    expect(within(account).getByText("Signed in with the access token")).toBeInTheDocument();
   });
 });
 
@@ -290,8 +321,8 @@ describe("Settings > Security in Spanish", () => {
     expect(screen.getByRole("button", { name: "Desactivar" })).toBeInTheDocument();
     const sessions = screen.getByRole("region", { name: "Sesiones iniciadas" });
     expect(within(sessions).getByText("Este navegador")).toBeInTheDocument();
-    const policy = await screen.findByRole("region", { name: "Política de bloqueo" });
-    expect(within(policy).getByText("15 minutos")).toBeInTheDocument();
+    const policy = await screen.findByRole("region", { name: "Perfil de seguridad" });
+    expect(await within(policy).findByText("5 intentos fallidos la bloquean durante 15 minutos")).toBeInTheDocument();
     expect(within(policy).getByText("120 solicitudes por minuto")).toBeInTheDocument();
     expect(within(policy).getByText("Cualquier dirección")).toBeInTheDocument();
     await expectNoAxeViolations(container);

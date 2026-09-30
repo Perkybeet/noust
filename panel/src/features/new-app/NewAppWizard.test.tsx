@@ -98,7 +98,22 @@ async function inspect(user: ReturnType<typeof renderConsole>["user"], source = 
   await screen.findByRole("heading", { level: 1, name: "New application" });
   await user.type(screen.getByLabelText("Repository or directory"), source);
   await user.click(screen.getByRole("button", { name: "Inspect source" }));
-  return screen.findByRole("heading", { level: 2, name: "Review" });
+  return screen.findByRole("heading", { level: 2, name: "Address" });
+}
+
+/** From the Address step to Variables, through Configuration, with the domain typed. */
+async function toVariables(user: ReturnType<typeof renderConsole>["user"], domain: string) {
+  await user.type(screen.getByLabelText("Domain"), domain);
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  await screen.findByRole("heading", { level: 2, name: "Configuration" });
+  await user.click(screen.getByRole("button", { name: "Continue" }));
+  return screen.findByRole("heading", { level: 2, name: "Variables" });
+}
+
+/** The required variables of the fixture, filled in. */
+async function fillRequired(user: ReturnType<typeof renderConsole>["user"]) {
+  await user.type(screen.getByLabelText(/^DATABASE_URL/), "x");
+  await user.type(screen.getByLabelText(/^NEXTAUTH_SECRET/), "y");
 }
 
 describe("the new-app wizard", () => {
@@ -108,25 +123,39 @@ describe("the new-app wizard", () => {
     const heading = await inspect(user);
     expect(heading).toHaveFocus();
     expect(backend.callsTo("POST /api/apps/inspect")[0]?.body).toEqual({ source: "/var/www/src/storefront" });
-
-    // What was found, shown as it will run; the type is a choice, its labels from GET /api/apps/types.
-    expect(screen.getByText("npm ci")).toBeInTheDocument();
-    expect(screen.getByText("npm run build")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Deploy as" })).toHaveTextContent("Next.js");
+    // The stepper says where the operator is, in words.
+    const steps = screen.getByRole("list", { name: "Steps" });
+    expect(within(steps).getByText("Source: done")).toBeInTheDocument();
+    expect(within(steps).getByText("Address: current step")).toBeInTheDocument();
     // The source is not asked again.
     expect(screen.queryByLabelText("Repository or directory")).not.toBeInTheDocument();
-    // shop.example.com holds 3000 in the fake machine, so the next free port is proposed.
-    expect(screen.getByLabelText("Port")).toHaveValue("3001");
 
     await user.type(screen.getByLabelText("Domain"), "storefront.example.com");
     // Where it points, checked as it is typed.
     await screen.findByText("storefront.example.com points here", {}, { timeout: 2_000 });
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    // What was found, shown as it will run; the type is a choice, its labels from GET /api/apps/types.
+    expect(await screen.findByRole("heading", { level: 2, name: "Configuration" })).toHaveFocus();
+    expect(screen.getByText("npm ci")).toBeInTheDocument();
+    expect(screen.getByText("npm run build")).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "App type" })).toHaveTextContent("Next.js");
+    // shop.example.com holds 3000 in the fake machine, so the next free port is proposed.
+    expect(screen.getByLabelText("Port")).toHaveValue("3001");
+    // What most deploys leave alone is folded, and says what it is set to.
+    expect(screen.getByText("Advanced").closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByText("Instant rollback, nginx")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    await screen.findByRole("heading", { level: 2, name: "Variables" });
     await user.type(screen.getByLabelText(/^DATABASE_URL/), "postgres://db/storefront");
     const secret = screen.getByLabelText(/^NEXTAUTH_SECRET/);
     expect(secret).toHaveAttribute("type", "password");
     await user.click(screen.getByRole("button", { name: "Generate NEXTAUTH_SECRET" }));
     expect((secret as HTMLInputElement).value).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    await expectNoAxeViolations(document.body);
+    // A variable that already has a value is folded under one line.
+    expect(screen.getByText("1 more variable, with a value already")).toBeInTheDocument();
+    await expectNoAxeViolations(screen.getByRole("main"));
 
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Deploy" })).toHaveFocus();
@@ -162,28 +191,57 @@ describe("the new-app wizard", () => {
     });
   });
 
-  it("keeps the required variables and the domain from being skipped", async () => {
+  it("never disables Continue: it says what is missing, and takes the operator to it", async () => {
     const { harness } = wizard();
-    await inspect(harness.user);
-    await harness.user.type(screen.getByLabelText("Domain"), "shop.example.com");
-    await harness.user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByText(/shop\.example\.com is already deployed/)).toBeInTheDocument();
-    expect(screen.getAllByText(".env.example gives it no value, so the app expects one.")).toHaveLength(2);
-    expect(screen.getByRole("heading", { level: 2, name: "Review" })).toBeInTheDocument();
+    const { user } = harness;
+    await screen.findByRole("heading", { level: 1, name: "New application" });
+    const next = screen.getByRole("button", { name: "Inspect source" });
+    expect(next).toBeEnabled();
+    await user.click(next);
+    expect(await screen.findAllByText("Enter a Git URL or a path on this server.")).toHaveLength(2);
+    await waitFor(() => {
+      expect(screen.getByLabelText("Repository or directory")).toHaveFocus();
+    });
+
+    await user.type(screen.getByLabelText("Repository or directory"), "/var/www/src/storefront");
+    await user.click(screen.getByRole("button", { name: "Inspect source" }));
+    await screen.findByRole("heading", { level: 2, name: "Address" });
+    await user.type(screen.getByLabelText("Domain"), "shop.example.com");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    // A domain already deployed here: said on the field and by Continue, and the field takes focus.
+    expect(await screen.findAllByText(/shop\.example\.com is already deployed/)).toHaveLength(2);
+    await waitFor(() => {
+      expect(screen.getByLabelText("Domain")).toHaveFocus();
+    });
+    expect(screen.getByRole("heading", { level: 2, name: "Address" })).toBeInTheDocument();
   });
 
-  it("sends a domain the server refuses back to its field on the Review step", async () => {
+  it("keeps the required variables from being skipped", async () => {
+    const { harness } = wizard();
+    const { user } = harness;
+    await inspect(user);
+    await toVariables(user, "storefront.example.com");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    // Each field says why; the bar counts them and names the first.
+    expect(await screen.findAllByText(".env.example gives it no value, so the app expects one.")).toHaveLength(2);
+    expect(screen.getByText("2 fields need a fix before you continue, starting with DATABASE_URL.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Variables" })).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^DATABASE_URL/)).toHaveFocus();
+    });
+  });
+
+  it("sends a domain the server refuses back to its field on the Address step", async () => {
     const { harness } = wizard({
       "POST /api/apps": () => problem(409, "conflict", "Application already exists: storefront.example.com"),
     });
     const { user } = harness;
     await inspect(user);
-    await user.type(screen.getByLabelText("Domain"), "storefront.example.com");
-    await user.type(screen.getByLabelText(/^DATABASE_URL/), "x");
-    await user.type(screen.getByLabelText(/^NEXTAUTH_SECRET/), "y");
+    await toVariables(user, "storefront.example.com");
+    await fillRequired(user);
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(await screen.findByRole("button", { name: "Deploy storefront.example.com" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "Review" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Address" })).toBeInTheDocument();
     expect(screen.getByText("Application already exists: storefront.example.com")).toBeInTheDocument();
   });
 
@@ -202,9 +260,16 @@ describe("the new-app wizard", () => {
     expect(detail.closest("[role=alert]")).not.toBeNull();
     expect(screen.getByText("Nothing under the fetched source matches a registered application type.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Choose the type yourself" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "Review" })).toBeInTheDocument();
+    await screen.findByRole("heading", { level: 2, name: "Address" });
+    await user.type(screen.getByLabelText("Domain"), "odd.example.com");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findByRole("heading", { level: 2, name: "Configuration" })).toBeInTheDocument();
     expect(screen.getByText(/No type recognised this source/)).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Deploy as" })).toHaveTextContent("Choose a type");
+    expect(screen.getByRole("combobox", { name: "App type" })).toHaveTextContent("Choose a type");
+    // No type yet: Continue says so instead of moving on.
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findAllByText(/Choose the app type/)).not.toHaveLength(0);
+    expect(screen.getByRole("heading", { level: 2, name: "Configuration" })).toBeInTheDocument();
   });
 
   it("says what Noust found and that it can deploy it, in the backend's words", async () => {
@@ -218,7 +283,9 @@ describe("the new-app wizard", () => {
         }),
     });
     await inspect(harness.user);
-    const found = screen.getByRole("region", { name: "What Noust found" });
+    await harness.user.type(screen.getByLabelText("Domain"), "storefront.example.com");
+    await harness.user.click(screen.getByRole("button", { name: "Continue" }));
+    const found = await screen.findByRole("group", { name: "What Noust found" });
     expect(within(found).getByText(/Noust can deploy this as Next\.js\. It also looks like Node\.js/)).toBeInTheDocument();
     // Said once: the verdict already names the other types.
     expect(within(found).queryByText(/It also matches/)).not.toBeInTheDocument();
@@ -237,10 +304,12 @@ describe("the new-app wizard", () => {
         }),
     });
     await inspect(harness.user);
-    const found = screen.getByRole("region", { name: "What Noust found" });
+    await harness.user.type(screen.getByLabelText("Domain"), "storefront.example.com");
+    await harness.user.click(screen.getByRole("button", { name: "Continue" }));
+    const found = await screen.findByRole("group", { name: "What Noust found" });
     expect(within(found).getByText(/this server does not have python3/)).toBeInTheDocument();
     expect(within(found).getByText("Not deployable as it is:", { exact: false })).toBeInTheDocument();
-    expect(within(found).getByText("noust setup init").tagName).toBe("CODE");
+    expect(within(found).getByText("noust setup init")).toHaveAttribute("translate", "no");
     await expectNoAxeViolations(found);
   });
 
@@ -257,7 +326,7 @@ describe("the new-app wizard", () => {
     await user.type(screen.getByLabelText("Repository or directory"), "https://github.com/acme/api.git");
     await user.click(screen.getByRole("button", { name: "Inspect source" }));
     const detail = await screen.findByText("The repository has a Dockerfile but no Compose file.");
-    expect(detail.closest("[role=alert]")).not.toBeNull();
+    expect(detail.closest("[role=status]")).not.toBeNull();
     expect(screen.getByText("Noust cannot deploy https://github.com/acme/api.git as it is")).toBeInTheDocument();
     // The compose file keeps its indentation: it is shown as the file it is.
     const file = screen.getByText((_, element) => element?.tagName === "PRE" && element.textContent === compose);
@@ -267,7 +336,7 @@ describe("the new-app wizard", () => {
     expect(screen.getByLabelText("Repository or directory")).not.toHaveAttribute("aria-invalid", "true");
     await expectNoAxeViolations(container);
     await user.click(screen.getByRole("button", { name: "Choose the type yourself" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "Review" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Address" })).toBeInTheDocument();
   });
 
   it("says honestly what it is doing while it inspects, and Cancel stops the request", async () => {
@@ -292,9 +361,13 @@ describe("the new-app wizard", () => {
     const reading = await screen.findByText("Reading the repository…");
     expect(reading.closest("[role=status]")).not.toBeNull();
     expect(screen.getByText(/Cancel stops it on the server too/)).toBeInTheDocument();
-    // No invented steps: nothing claims to be cloning, installing or detecting.
+    // What the inspection does, said as a list; no part of it claims to be done or in progress.
+    const phases = screen.getByRole("list", { name: "What the inspection does" });
+    expect(within(phases).getAllByRole("listitem")).toHaveLength(3);
     expect(screen.queryByText(/Cloning|Detecting|Installing/)).not.toBeInTheDocument();
 
+    // The wizard's own Continue is busy while it reads; Cancel stops it.
+    expect(screen.getByRole("button", { name: "Inspect source" })).toHaveAttribute("aria-busy", "true");
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(aborted).toBe(true);
     await waitFor(() => {
@@ -344,15 +417,18 @@ describe("the new-app wizard", () => {
     const { user } = harness;
     await inspect(user);
     await user.type(screen.getByLabelText("Domain"), "newapp.io");
-    await user.type(screen.getByLabelText(/^DATABASE_URL/), "x");
-    await user.type(screen.getByLabelText(/^NEXTAUTH_SECRET/), "y");
-
     await user.click(screen.getByRole("checkbox", { name: "Also serve www" }));
-    await user.click(screen.getByText("Resource limits"));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { level: 2, name: "Configuration" });
+
+    await user.click(screen.getByText("Advanced"));
     // Scoped: the topbar's machine strip has its own "Memory" and "CPU" meters.
-    const limits = within(screen.getByText("Resource limits").closest("details") as HTMLElement);
-    await user.type(limits.getByLabelText("Memory"), "512");
-    await user.type(limits.getByLabelText("CPU"), "50");
+    const limits = within(screen.getByRole("group", { name: "Resource limits" }));
+    await user.type(limits.getByLabelText(/^Memory/), "512");
+    await user.type(limits.getByLabelText(/^CPU/), "50");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { level: 2, name: "Variables" });
+    await fillRequired(user);
 
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(await screen.findByRole("button", { name: "Deploy newapp.io" }));
@@ -374,9 +450,7 @@ describe("the new-app wizard", () => {
     await inspect(user);
     await user.type(screen.getByLabelText("Domain"), "elsewhere.example.com");
     await screen.findByText("elsewhere.example.com points somewhere else", {}, { timeout: 2_000 });
-    await user.type(screen.getByLabelText(/^DATABASE_URL/), "x");
-    await user.type(screen.getByLabelText(/^NEXTAUTH_SECRET/), "y");
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "Deploy" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Configuration" })).toBeInTheDocument();
   });
 });

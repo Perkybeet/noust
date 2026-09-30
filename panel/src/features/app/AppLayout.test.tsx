@@ -6,6 +6,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { FakeEventSource, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { screenWidth } from "./testRoutes";
 
 const DOMAIN = "shop.example.com";
 
@@ -32,7 +33,8 @@ const CERT = {
   auto_renew: true,
 };
 
-async function appAt(extra: Record<string, RouteHandler> = {}, path = `/apps/${DOMAIN}`) {
+async function appAt(extra: Record<string, RouteHandler> = {}, path = `/apps/${DOMAIN}`, width = 1440) {
+  screenWidth(width);
   const backend = fakeBackend({
     ...signedInRoutes(),
     "GET /api/certs": () => json(200, { certificates: [CERT], total: 1 }),
@@ -76,17 +78,44 @@ function header() {
 
 describe("an application's page", () => {
   it("heads the page with its state, type, port and a link to the live site", async () => {
-    await appAt();
+    await appAt({ "GET /api/apps/types": () => json(200, { types: [{ type: "nextjs", name: "Next.js", default_port: 3000 }] }) });
     const top = header();
     expect(await within(top).findByText("Running")).toBeInTheDocument();
-    expect(within(top).getByText("nextjs")).toBeInTheDocument();
-    expect(within(top).getByText("3000")).toBeInTheDocument();
+    expect(await within(top).findByText("Next.js")).toBeInTheDocument();
+    expect(within(top).getByText("3000").parentElement).toHaveTextContent("Port 3000");
     const live = within(top).getByRole("link", { name: /shop\.example\.com/ });
     await waitFor(() => {
       expect(live).toHaveAttribute("href", `https://${DOMAIN}`);
     });
     expect(live).toHaveAttribute("target", "_blank");
     expect(screen.getByRole("navigation", { name: "Application sections" })).toBeInTheDocument();
+    // Update is the one primary action; Restart sits beside it.
+    expect(within(top).getByRole("button", { name: "Update" })).toHaveAttribute("data-variant", "primary");
+    expect(within(top).getByRole("button", { name: "Restart" })).toHaveAttribute("data-variant", "secondary");
+  });
+
+  it("keeps eight sections on the strip: Diagnose is reached from the menu, the banner and the Overview", async () => {
+    const { user, location } = await appAt({ [`GET /api/apps/${DOMAIN}/diagnose`]: () => new Promise<Response>(() => undefined) });
+    const tabs = await screen.findByRole("navigation", { name: "Application sections" });
+    const names = within(tabs)
+      .getAllByRole("link")
+      .map((link) => link.textContent);
+    expect(names.length).toBeLessThanOrEqual(8);
+    expect(within(tabs).queryByRole("link", { name: "Diagnose" })).not.toBeInTheDocument();
+    await user.click(await within(header()).findByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Diagnose" }));
+    await waitFor(() => {
+      expect(location().pathname).toBe(`/apps/${DOMAIN}/diagnose`);
+    });
+  });
+
+  it("keeps Update in view on a phone and moves Restart into the menu", async () => {
+    const { user } = await appAt({}, `/apps/${DOMAIN}`, 390);
+    const top = header();
+    expect(await within(top).findByRole("button", { name: "Update" })).toBeInTheDocument();
+    expect(within(top).queryByRole("button", { name: "Restart" })).not.toBeInTheDocument();
+    await user.click(within(top).getByRole("button", { name: "More actions" }));
+    expect(await screen.findByRole("menuitem", { name: "Restart" })).toBeInTheDocument();
   });
 
   it("queues an update, shows it running, and keeps its failure on screen from the job events", async () => {
@@ -168,7 +197,7 @@ describe("an application's page", () => {
     expect(queryClient.getQueryData(["app", DOMAIN])).toMatchObject({ status: "deploying" });
   });
 
-  it("deletes only once the domain is typed, then returns to the list", async () => {
+  it("deletes only once the domain is typed, keeping its files and certificate unless ticked, then returns to the list", async () => {
     const { user, backend, location } = await appAt({
       // Already confirmed it's them: the typed confirmation opens straight away.
       "GET /api/auth/session": () => json(200, { ...SESSION, elevated_until: "2999-01-01T00:00:00+00:00" }),
@@ -177,7 +206,13 @@ describe("an application's page", () => {
     });
     await user.click(await within(header()).findByRole("button", { name: "More actions" }));
     await user.click(await screen.findByRole("menuitem", { name: "Delete application" }));
-    const dialog = await screen.findByRole("alertdialog");
+    const dialog = await screen.findByRole("alertdialog", { name: `Delete ${DOMAIN}` });
+    // Nothing that cannot be made again is chosen for the operator.
+    const files = within(dialog).getByRole("checkbox", { name: "Also delete its files" });
+    const certificate = within(dialog).getByRole("checkbox", { name: "Also delete its certificate" });
+    expect(files).not.toBeChecked();
+    expect(certificate).not.toBeChecked();
+    expect(within(dialog).getByText(/Its files, its certificate and its backups are kept\./)).toBeInTheDocument();
     const confirm = within(dialog).getByRole("button", { name: "Delete application" });
     expect(confirm).toBeDisabled();
     await user.type(within(dialog).getByRole("textbox"), DOMAIN);
@@ -187,8 +222,28 @@ describe("an application's page", () => {
       expect(location().pathname).toBe("/apps");
     });
     const call = backend.callsTo(`DELETE /api/apps/${DOMAIN}`)[0];
-    expect(Object.fromEntries(call?.search ?? [])).toEqual({ remove_files: "true", remove_ssl: "true" });
+    expect(Object.fromEntries(call?.search ?? [])).toEqual({ remove_files: "false", remove_ssl: "false" });
     expect(backend.callsTo("POST /api/jobs/delete")).toHaveLength(0);
+  });
+
+  it("deletes the files and the certificate too only when both are ticked", async () => {
+    const { user, backend } = await appAt({
+      "GET /api/auth/session": () => json(200, { ...SESSION, elevated_until: "2999-01-01T00:00:00+00:00" }),
+      [`DELETE /api/apps/${DOMAIN}`]: () =>
+        json(202, { job_id: JOB.id, status: "pending", message: `Deletion queued for ${DOMAIN}`, job: { ...JOB, type: "delete" } }),
+    });
+    await user.click(await within(header()).findByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete application" }));
+    const dialog = await screen.findByRole("alertdialog", { name: `Delete ${DOMAIN}` });
+    await user.click(within(dialog).getByRole("checkbox", { name: "Also delete its files" }));
+    await user.click(within(dialog).getByRole("checkbox", { name: "Also delete its certificate" }));
+    expect(within(dialog).getByText(/its files and its certificate are removed\. Its backups are kept\./)).toBeInTheDocument();
+    await user.type(within(dialog).getByRole("textbox"), DOMAIN);
+    await user.click(within(dialog).getByRole("button", { name: "Delete application" }));
+    await waitFor(() => {
+      expect(backend.callsTo(`DELETE /api/apps/${DOMAIN}`)).toHaveLength(1);
+    });
+    expect(Object.fromEntries(backend.callsTo(`DELETE /api/apps/${DOMAIN}`)[0]?.search ?? [])).toEqual({ remove_files: "true", remove_ssl: "true" });
   });
 
   it("asks before stopping", async () => {
@@ -197,7 +252,7 @@ describe("an application's page", () => {
     });
     await user.click(await within(header()).findByRole("button", { name: "More actions" }));
     await user.click(await screen.findByRole("menuitem", { name: "Stop" }));
-    const dialog = await screen.findByRole("dialog", { name: `Stop ${DOMAIN}?` });
+    const dialog = await screen.findByRole("alertdialog", { name: `Stop ${DOMAIN}?` });
     expect(backend.callsTo(`POST /api/apps/${DOMAIN}/stop`)).toHaveLength(0);
     await user.click(within(dialog).getByRole("button", { name: "Stop application" }));
     await waitFor(() => {
@@ -215,10 +270,9 @@ describe("an application's page", () => {
       "POST /api/jobs/rollback": () => json(202, { message: "Rollback job created", job: { ...JOB, type: "rollback" } }),
     });
     await user.click(await within(header()).findByRole("button", { name: "More actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Roll back" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Roll back…" }));
     const dialog = await screen.findByRole("dialog", { name: `Roll back ${DOMAIN}` });
-    await user.click(await within(dialog).findByRole("radio", { name: /shop-example-com_20260923_182035/ }));
-    await user.click(within(dialog).getByRole("button", { name: "Roll back" }));
+    await user.click(await within(dialog).findByRole("button", { name: "Go back to shop-example-com_20260923_182035" }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/jobs/rollback")[0]?.body).toEqual({ domain: DOMAIN, backup_id: "shop-example-com_20260923_182035" });
     });
@@ -256,9 +310,8 @@ describe("an application's page", () => {
       if (!blog) throw new Error("no row for blog");
       expect(within(blog).getByText("Not covered")).toBeInTheDocument();
       expect(within(blog).getByRole("link", { name: /^blog/ })).toHaveAttribute("href", "http://blog.shop.example.com");
-      const runtime = screen.getByRole("region", { name: "Runtime" });
-      expect(within(runtime).getByText("Port")).toBeInTheDocument();
-      expect(within(runtime).getByText("In place")).toBeInTheDocument();
+      const runtime = screen.getByRole("region", { name: "How it runs" });
+      expect(within(runtime).getByText("Single folder")).toBeInTheDocument();
       // Not recorded for this seeded app: the labels still show, read as "None".
       expect(within(runtime).getByText("Source")).toBeInTheDocument();
       expect(within(runtime).getByText("Branch")).toBeInTheDocument();
@@ -280,7 +333,7 @@ describe("an application's page", () => {
             branch: "main",
           }),
       });
-      const runtime = await screen.findByRole("region", { name: "Runtime" });
+      const runtime = await screen.findByRole("region", { name: "How it runs" });
       const repo = within(runtime).getByRole("link", { name: /^https:\/\/github\.com\/shop\/storefront\.git/ });
       expect(repo).toHaveAttribute("href", "https://github.com/shop/storefront.git");
       expect(repo).toHaveAttribute("target", "_blank");
@@ -331,7 +384,7 @@ describe("in Spanish", () => {
     expect(await screen.findByRole("button", { name: "Actualizar" })).toBeInTheDocument();
     expect(await screen.findByText("Quedan 29 días")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Dominios" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Tiempo de ejecución" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Cómo se ejecuta" })).toBeInTheDocument();
     // The last deploys, as dots named by their outcome, and the newest in words.
     expect(await screen.findByRole("link", { name: /^Despliegue 12: Fallido c07d5e3/ })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /^Despliegue 11: Correcto 9f2c41a/ })).toBeInTheDocument();
@@ -340,13 +393,78 @@ describe("in Spanish", () => {
   });
 });
 
+describe("while the app is read", () => {
+  it("holds the tabs and the tab until it knows whether a banner goes above them", async () => {
+    let answer: (response: Response) => void = () => undefined;
+    await appAt({
+      [`GET /api/apps/${DOMAIN}`]: () =>
+        new Promise<Response>((resolve) => {
+          answer = resolve;
+        }),
+    });
+    expect(screen.getByText(`Loading ${DOMAIN}`)).toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Application sections" })).not.toBeInTheDocument();
+    answer(json(200, { domain: DOMAIN, name: "shop", app_type: "nextjs", status: "running", active: true, enabled: true, port: 3000, layout: "inplace" }));
+    expect(await screen.findByRole("navigation", { name: "Application sections" })).toBeInTheDocument();
+    expect(screen.queryByText(`Loading ${DOMAIN}`)).not.toBeInTheDocument();
+  });
+});
+
 describe("an app whose last deploy failed", () => {
-  it("says so above the tiles, verbatim, with the log and the diagnosis one step away", async () => {
+  it("says so between the header and the tabs, verbatim, with the log one step away", async () => {
     await appAt();
     const line = await screen.findByText("npm ERR!");
-    expect(line.tagName).toBe("CODE");
-    expect(screen.getByText(/^The last deploy failed/)).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "View log" })[0]).toHaveAttribute("href", `/apps/${DOMAIN}/deployments/12`);
-    expect(screen.getAllByRole("link", { name: "Diagnose" }).some((link) => link.getAttribute("href") === `/apps/${DOMAIN}/diagnose`)).toBe(true);
+    expect(line).toHaveAttribute("translate", "no");
+    const title = screen.getByText(/^The last deploy failed/);
+    const tabs = screen.getByRole("navigation", { name: "Application sections" });
+    // Above the tabs, so every tab shows it.
+    expect(title.compareDocumentPosition(tabs) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText("The version that was live before is still serving.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View log" })).toHaveAttribute("href", `/apps/${DOMAIN}/deployments/12`);
+  });
+
+  it("keeps the banner on every tab", async () => {
+    await appAt({ [`GET /api/apps/${DOMAIN}/env`]: () => json(200, { variables: {}, secrets: {} }) }, `/apps/${DOMAIN}/environment`);
+    expect(await screen.findByText(/^The last deploy failed/)).toBeInTheDocument();
+  });
+});
+
+describe("an app whose service failed", () => {
+  it("says what is wrong and offers the diagnosis, on every tab", async () => {
+    await appAt({
+      [`GET /api/apps/${DOMAIN}`]: () =>
+        json(200, { domain: DOMAIN, name: "shop", app_type: "nextjs", status: "failed", active: false, enabled: true, port: 3000, layout: "inplace" }),
+    });
+    const title = await screen.findByText("The service has stopped with an error");
+    const banner = title.closest("[data-tone]");
+    expect(banner).toHaveAttribute("data-tone", "error");
+    await waitFor(() => {
+      expect(banner).toHaveTextContent(/It stopped after the last deploy failed, .+\./);
+    });
+    if (!(banner instanceof HTMLElement)) throw new Error("no banner");
+    expect(within(banner).getByRole("link", { name: "Diagnose" })).toHaveAttribute("href", `/apps/${DOMAIN}/diagnose`);
+  });
+
+  it("does not offer the diagnosis on the Diagnose tab, where it already is", async () => {
+    await appAt(
+      {
+        [`GET /api/apps/${DOMAIN}`]: () =>
+          json(200, { domain: DOMAIN, name: "shop", app_type: "nextjs", status: "failed", active: false, enabled: true, port: 3000, layout: "inplace" }),
+        [`GET /api/apps/${DOMAIN}/diagnose`]: () => new Promise<Response>(() => undefined),
+      },
+      `/apps/${DOMAIN}/diagnose`,
+    );
+    const banner = (await screen.findByText("The service has stopped with an error")).closest("[data-tone]");
+    if (!(banner instanceof HTMLElement)) throw new Error("no banner");
+    expect(within(banner).queryByRole("link", { name: "Diagnose" })).not.toBeInTheDocument();
+  });
+
+  it("says nothing answers on its port when the service runs but the app is silent", async () => {
+    await appAt({
+      "GET /api/deployments": () => json(200, { items: [], total: 0, next_before_id: null }),
+      [`GET /api/apps/${DOMAIN}`]: () =>
+        json(200, { domain: DOMAIN, name: "shop", app_type: "nextjs", status: "no_answer", active: true, enabled: true, port: 3000, layout: "inplace" }),
+    });
+    expect(await screen.findByText("Nothing answers on port 3000")).toBeInTheDocument();
   });
 });

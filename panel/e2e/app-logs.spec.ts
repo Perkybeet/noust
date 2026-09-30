@@ -12,7 +12,7 @@ const PHONE = { width: 390, height: 844 };
 
 test("the journal streams in, `/` searches it and counts the matches", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${DOMAIN}/logs`);
-  const journal = page.getByRole("region", { name: `Journal of ${DOMAIN}` });
+  const journal = page.getByRole("region", { name: `Logs of ${DOMAIN}` });
   await expect(page.getByText("Live", { exact: true })).toBeVisible();
   // Following: the newest lines are the ones in view.
   await expect(journal.getByText(/tienda-example-org\[\d+\]: /).last()).toBeVisible();
@@ -39,7 +39,7 @@ test("the journal streams in, `/` searches it and counts the matches", async ({ 
 test("on a phone the journal wraps by default and the toolbar stays on screen", async ({ page, consoleServer }) => {
   await page.setViewportSize(PHONE);
   await signIn(page, consoleServer, `/apps/${DOMAIN}/logs`);
-  const journal = page.getByRole("region", { name: `Journal of ${DOMAIN}` });
+  const journal = page.getByRole("region", { name: `Logs of ${DOMAIN}` });
   await expect(journal.getByText(/tienda-example-org\[\d+\]: /).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Wrap lines" })).toHaveAttribute("aria-pressed", "true");
 

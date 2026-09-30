@@ -122,7 +122,7 @@ test("a configuration nginx rejects is not saved, and nginx's output says why", 
 
   // A lost semicolon at the end of the file.
   await editor.fill(`${original}    listen 8080\n`);
-  await expect(page.getByText("Unsaved changes")).toBeVisible();
+  await expect(page.getByText(/^\d+ unsaved changes?$/)).toBeVisible();
 
   const tested = page.waitForResponse((response) => response.url().endsWith(`/api/sites/${site}/config/test`));
   await page.getByRole("button", { name: "Test", exact: true }).click();
@@ -158,7 +158,7 @@ test("a configuration nginx rejects is not saved, and nginx's output says why", 
   // The file on disk is the one it was.
   const onDisk = (await (await page.request.get(`/api/sites/${site}/config`)).json()) as { config: string };
   expect(onDisk.config).toBe(original);
-  await page.getByRole("button", { name: "Discard changes" }).click();
+  await page.getByRole("button", { name: "Discard", exact: true }).click();
   await expect(editor).toHaveValue(original);
 });
 
@@ -170,10 +170,16 @@ test("the certificates and sites tabs: the most urgent certificate first, renewi
   await expect(certificates.getByRole("row").nth(1)).toContainText("example.com");
   await expect(certificates.getByRole("row").nth(1)).toContainText(/Expires in 1[12] days/);
   await expect(certificates.getByRole("row").nth(1)).toContainText(/Expires in \d+ days/);
-  // CertInfo.issuer, in words rather than the raw "C = US, O = Let's Encrypt, CN = R11".
-  await expect(certificates.getByRole("row").nth(1)).toContainText("Let's Encrypt R11");
   await settle(page);
   await expectNoA11yViolations(page, "the certificates tab");
+  // CertInfo.issuer, in words rather than the raw "C = US, O = Let's Encrypt, CN = R11": the
+  // same on every row, so in the certificate's drawer rather than a column.
+  await certificates.getByRole("row").nth(1).getByRole("button", { name: "example.com", exact: true }).click();
+  const drawer = page.getByRole("dialog", { name: "example.com" });
+  await expect(drawer).toContainText("Let's Encrypt R11");
+  await expectNoA11yViolations(page, "a certificate's drawer");
+  await page.keyboard.press("Escape");
+  await expect(drawer).toBeHidden();
 
   const renewal = row(page, "Certificates", "bodas.example.com");
   await renewal.getByRole("button", { name: "Actions for bodas.example.com" }).click();
@@ -190,17 +196,17 @@ test("the certificates and sites tabs: the most urgent certificate first, renewi
   await expectNoA11yViolations(page, "the issue dialog");
   await page.keyboard.press("Escape");
 
-  await page.getByRole("tab", { name: /Sites/ }).click();
-  await expect(page).toHaveURL(/\/domains\?tab=sites$/);
-  await expect(page.getByRole("region", { name: "Sites" })).toBeVisible();
-  await expect(row(page, "Sites", "tools.example.net")).toContainText("Disabled");
+  await page.getByRole("link", { name: /^Web server sites/ }).click();
+  await expect(page).toHaveURL(/\/domains\/sites$/);
+  await expect(page.getByRole("region", { name: "Web server sites" })).toBeVisible();
+  await expect(row(page, "Web server sites", "tools.example.net")).toContainText("Disabled");
 
   // SiteInfo.server_names: example.net's site was seeded to answer on more than its own name.
   // Another test may since have added an alias to it too, so the expectation comes from the
   // API rather than a fixed list.
   const exampleNet = (await (await page.request.get("/api/sites/example.net")).json()) as { server_names: string[] };
   expect(exampleNet.server_names.length).toBeGreaterThan(1);
-  const exampleNetRow = row(page, "Sites", "example.net");
+  const exampleNetRow = row(page, "Web server sites", "example.net");
   const shownNames = exampleNet.server_names.slice(0, 3).join(", ");
   await expect(exampleNetRow).toContainText(shownNames);
   const hiddenCount = exampleNet.server_names.length - 3;
@@ -211,13 +217,14 @@ test("the certificates and sites tabs: the most urgent certificate first, renewi
 });
 
 test("a site's own page lists every name it serves, and a template is offered from the API", async ({ page, consoleServer }) => {
+  // 3.0's address for the sites still lands on them.
   await signIn(page, consoleServer, "/domains?tab=sites");
-  const sites = page.getByRole("region", { name: "Sites" });
+  await expect(page).toHaveURL(/\/domains\/sites$/);
+  const sites = page.getByRole("region", { name: "Web server sites" });
   await expect(sites).toBeVisible();
 
   // GET /api/sites/templates, not a list the dialog invents: every template it names is one
-  // this call actually returned. The button sits in the toolbar above the table, not inside
-  // the table's own scrollable region.
+  // this call actually returned. The button is the header's primary action.
   const templatesResponse = page.waitForResponse((response) => response.url().endsWith("/api/sites/templates"));
   await page.getByRole("button", { name: "Create site" }).click();
   const createDialog = page.getByRole("dialog", { name: "Create a site" });
@@ -279,10 +286,10 @@ test("deleting a certificate needs the operator to confirm it's them", async ({ 
 
 test("on a phone the domains pages keep to the screen", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await signIn(page, consoleServer, "/domains?tab=sites");
-  await expect(page.getByRole("region", { name: "Sites" })).toBeVisible();
+  await signIn(page, consoleServer, "/domains/sites");
+  await expect(page.getByRole("list", { name: "Web server sites" })).toBeVisible();
   await settle(page);
-  for (const path of ["/domains?tab=sites", "/domains", "/apps/shop.example.net/domains", "/domains/sites/shop.example.net"]) {
+  for (const path of ["/domains/sites", "/domains", "/apps/shop.example.net/domains", "/domains/sites/shop.example.net"]) {
     await page.goto(path);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await settle(page);

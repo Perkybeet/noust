@@ -33,7 +33,7 @@ describe("parseLimits", () => {
       "A memory limit of 63M is too small. Allow at least 64M, or no limit.",
     );
     expect(parseLimits({ ...EMPTY, memory: "64" }, 4).errors).toEqual({});
-    expect(parseLimits({ ...EMPTY, tasks: "15" }, 4).errors.tasks).toBe("A limit of 15 tasks is too small. Allow at least 16, or no limit.");
+    expect(parseLimits({ ...EMPTY, tasks: "15" }, 4).errors.tasks).toBe("A limit of 15 processes and threads is too small. Allow at least 16, or no limit.");
     expect(parseLimits({ ...EMPTY, tasks: "16" }, 4).errors).toEqual({});
   });
 
@@ -90,7 +90,7 @@ describe("in Spanish", () => {
     );
     expect(parseLimits({ ...EMPTY, cpu: "0" }, null, "es").errors.cpu).toBe("Una cuota de CPU del 0% no es posible. Usa al menos un 1%.");
     expect(parseLimits({ ...EMPTY, tasks: "15" }, 4, "es").errors.tasks).toBe(
-      "Un límite de 15 tareas es demasiado pequeño. Permite al menos 16, o ningún límite.",
+      "Un límite de 15 procesos e hilos es demasiado pequeño. Permite al menos 16, o ningún límite.",
     );
   });
 });

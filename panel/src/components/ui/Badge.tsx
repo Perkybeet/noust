@@ -26,7 +26,7 @@ export function Badge({ children, tone = "neutral", mono = false, className }: B
   return (
     <span
       className={cx(
-        "inline-flex h-5 shrink-0 items-center gap-1 rounded-[5px] border px-1.5 text-12 leading-none font-medium whitespace-nowrap",
+        "inline-flex h-5 shrink-0 items-center gap-1 rounded-chip border px-1.5 text-12 leading-none font-medium whitespace-nowrap",
         mono && "mono font-normal",
         TONES[tone],
         className,

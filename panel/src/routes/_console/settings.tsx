@@ -1,26 +1,19 @@
 import { Outlet, createFileRoute } from "@tanstack/react-router";
 
-import { LinkTabs } from "../../app/LinkTabs";
-import { SETTINGS_TABS } from "../../app/nav";
-import { PageHeader } from "../../app/PageHeader";
-import { useT } from "../../i18n";
+import { SettingsShell } from "../../features/settings/SettingsShell";
 
-/** Settings, one section per URL. */
+/**
+ * Settings, one section per URL: the selected server's own (`/n/web-2/settings/...`) and the
+ * central's (`/settings/servers`, `/settings/security`...), told apart by SettingsShell.
+ */
 export const Route = createFileRoute("/_console/settings")({
-  component: SettingsLayout,
+  component: SettingsRoute,
 });
 
-function SettingsLayout() {
-  const t = useT();
+function SettingsRoute() {
   return (
-    <>
-      <PageHeader title={t("settings.page.title")} description={t("settings.page.description")} />
-      <LinkTabs label={t("nav.landmarks.settingsSections")} tabs={SETTINGS_TABS} className="-mt-4 mb-8" />
-      {/* Every settings page is a form: it keeps the measure it was designed at rather than
-          stretching its fields across a wide screen. */}
-      <div className="max-w-6xl">
-        <Outlet />
-      </div>
-    </>
+    <SettingsShell>
+      <Outlet />
+    </SettingsShell>
   );
 }

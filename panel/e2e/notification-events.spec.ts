@@ -1,9 +1,10 @@
 /**
- * The two deployment events 2.2 added (started, rolled back) and the console's public address
- * a deployment notification links back to, on Settings > Notifications against the real
- * backend. The address is checked by the configuration's own rule (absolute https), and its
- * refusal lands under the field in the server's words. The worker's machine is shared by
- * every spec it runs, so the test puts back what it changed.
+ * What is sent, on Settings > Notifications against the real backend: every event by area,
+ * folded to a line that counts what is sent, the ones that ship off marked; the events and the
+ * language saved together from the one save bar; and the console's public address (General),
+ * which a notification links back to, refused by the configuration's own rule when it is not
+ * https. The worker's machine is shared by every spec it runs, so each test puts back what it
+ * changed.
  */
 
 import type { Page } from "@playwright/test";
@@ -11,92 +12,94 @@ import type { Page } from "@playwright/test";
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 import { confirmItsYou, stillness } from "./settings.helpers";
 
-const NEW_EVENTS = [/^Deployment started/, /^Deployment rolled back/] as const;
-
-function events(page: Page) {
-  return page.getByRole("region", { name: "Events" });
+function saveBar(page: Page) {
+  return page.getByRole("region", { name: "Unsaved changes" });
 }
 
-function link(page: Page) {
-  return page.getByRole("region", { name: "Link in notifications" });
+function group(page: Page, title: string) {
+  return page.locator("details").filter({ has: page.locator("summary", { hasText: title }) });
 }
 
-test("turns the deployment started event on and the rolled back one off, and back", async ({ page, consoleServer, problems }) => {
-  // Writing configuration asks "Confirm it's you" by answering 403 first, by design.
-  problems.expect(/status of 403 .* \/api\/config$/);
+async function storedEvents(page: Page): Promise<{ events: Record<string, boolean>; language?: string }> {
+  const body = (await (await page.request.get("/api/config")).json()) as { config: { notifications: { events: Record<string, boolean>; language?: string } } };
+  return body.config.notifications;
+}
+
+test("turns the deploy started event on and the rolled back one off, with the language, and back", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/settings/notifications");
-  const section = events(page);
-  const started = section.getByRole("checkbox", { name: NEW_EVENTS[0] });
-  const rolledBack = section.getByRole("checkbox", { name: NEW_EVENTS[1] });
-  // The defaults: a rollback is worth a message, every attempt starting is noise.
+  const deploys = group(page, "Deploys");
+  await expect(deploys.locator("summary")).toContainText("3 of 4 sent");
+  await deploys.locator("summary").click();
+  const started = deploys.getByRole("checkbox", { name: /^Deploy started/ });
+  const rolledBack = deploys.getByRole("checkbox", { name: /^Deploy rolled back/ });
+  // The defaults: a rollback is worth a message, every attempt starting is noise - and says so.
   await expect(started).not.toBeChecked();
+  await expect(deploys.getByText("Off by default")).toBeVisible();
   await expect(rolledBack).toBeChecked();
-  // Both are sent by this version, unlike the certificate reminder.
-  await expect(started).toHaveAccessibleDescription(/^A deploy, update or rollback began\./);
-  await expect(rolledBack).toHaveAccessibleDescription("A new version failed its health check, and the previous one is serving again.");
+  await expect(rolledBack).toHaveAccessibleDescription("A new version did not start, and the previous one serves again.");
 
   await started.click();
   await rolledBack.click();
-  await expect(section.getByRole("button", { name: "Save changes" })).toBeEnabled();
+  await page.getByRole("radio", { name: "Español" }).click();
+  await expect(saveBar(page).getByText("3 unsaved changes")).toBeVisible();
   await stillness(page);
   await expectNoA11yViolations(page, "the events with unsaved changes");
-  await section.getByRole("button", { name: "Save changes" }).click();
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
   await confirmItsYou(page, consoleServer);
-  await expect(section.getByRole("button", { name: "Save changes" })).toBeDisabled();
+  await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();
 
-  const config = (await (await page.request.get("/api/config")).json()) as { config: { notifications: { events: Record<string, boolean> } } };
-  expect(config.config.notifications.events.deploy_started).toBe(true);
-  expect(config.config.notifications.events.deploy_rolled_back).toBe(false);
+  const stored = await storedEvents(page);
+  expect(stored.events.deploy_started).toBe(true);
+  expect(stored.events.deploy_rolled_back).toBe(false);
+  expect(stored.events.backup_success).toBe(false);
+  expect(stored.language).toBe("es");
 
   await page.reload();
-  await expect(events(page).getByRole("checkbox", { name: NEW_EVENTS[0] })).toBeChecked();
-  await expect(events(page).getByRole("checkbox", { name: NEW_EVENTS[1] })).not.toBeChecked();
+  await expect(group(page, "Deploys").locator("summary")).toContainText("3 of 4 sent");
+  await group(page, "Deploys").locator("summary").click();
+  await expect(group(page, "Deploys").getByRole("checkbox", { name: /^Deploy started/ })).toBeChecked();
 
   // Leave the worker's server as it was.
-  await events(page).getByRole("checkbox", { name: NEW_EVENTS[0] }).click();
-  await events(page).getByRole("checkbox", { name: NEW_EVENTS[1] }).click();
-  await events(page).getByRole("button", { name: "Save changes" }).click();
-  await expect(events(page).getByRole("button", { name: "Save changes" })).toBeDisabled();
-  await expect(events(page).getByRole("checkbox", { name: NEW_EVENTS[0] })).not.toBeChecked();
-  await expect(events(page).getByRole("checkbox", { name: NEW_EVENTS[1] })).toBeChecked();
+  await group(page, "Deploys").getByRole("checkbox", { name: /^Deploy started/ }).click();
+  await group(page, "Deploys").getByRole("checkbox", { name: /^Deploy rolled back/ }).click();
+  await page.getByRole("radio", { name: "English" }).click();
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
+  await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();
+  const restored = await storedEvents(page);
+  expect(restored.events.deploy_started).toBe(false);
+  expect(restored.events.deploy_rolled_back).toBe(true);
+  expect(restored.language).toBe("en");
 });
 
-test("sets the console's public address, refusing one that is not https", async ({ page, consoleServer, problems }) => {
-  problems.expect(/status of 403 .* \/api\/config$/);
+test("the console's public address is refused unless https, and notifications then link to it", async ({ page, consoleServer, problems }) => {
   // The refused address is a 400 by design, shown under its field.
   problems.expect(/status of 400 .* \/api\/config$/);
-  await signIn(page, consoleServer, "/settings/notifications");
-  const section = link(page);
-  const input = section.getByLabel("Console address");
+  await signIn(page, consoleServer, "/settings");
+  const input = page.getByLabel("Console address");
   await expect(input).toHaveValue("");
   await settle(page);
 
-  // http is refused by the configuration's own rule, in its words, under the field.
   await input.fill("http://console.example.org");
-  await section.getByRole("button", { name: "Save changes" }).click();
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
   await confirmItsYou(page, consoleServer);
-  await expect(section.getByText(/web\.public_url must be an absolute https:\/\/ URL/)).toBeVisible();
+  await expect(page.getByText(/web\.public_url must be an absolute https:\/\/ URL/)).toBeVisible();
   await expect(input).toHaveAttribute("aria-invalid", "true");
   await expect(input).toHaveAccessibleDescription(/must be an absolute https:\/\/ URL/);
   await stillness(page);
   await expectNoA11yViolations(page, "a refused public address");
 
-  // An https address is saved without its trailing slash, and read back after a reload.
+  // An https address is saved without its trailing slash, and Notifications says it links there.
   await input.fill("https://console.example.org/");
-  await section.getByRole("button", { name: "Save changes" }).click();
-  await expect(section.getByRole("button", { name: "Save changes" })).toBeDisabled();
-  await expect(input).not.toHaveAttribute("aria-invalid", "true");
-  await page.reload();
-  await expect(link(page).getByLabel("Console address")).toHaveValue("https://console.example.org");
-  // The terminal equivalent names the key it reads.
-  await expect(link(page).getByText("noust config get web.public_url")).toBeVisible();
-  await settle(page);
-  await expectNoA11yViolations(page, "a saved public address");
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
+  await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();
+  await page.goto("/settings/notifications");
+  await expect(page.getByText("Messages link to")).toContainText("https://console.example.org");
 
   // Leave the worker's server as it was: empty means notifications carry no link.
-  await link(page).getByLabel("Console address").fill("");
-  await link(page).getByRole("button", { name: "Save changes" }).click();
-  await expect(link(page).getByRole("button", { name: "Save changes" })).toBeDisabled();
+  await page.goto("/settings");
+  await page.getByLabel("Console address").fill("");
+  await saveBar(page).getByRole("button", { name: "Save" }).click();
+  await expect(saveBar(page).getByText("No unsaved changes")).toBeVisible();
   const config = (await (await page.request.get("/api/config")).json()) as { config: { web: { public_url?: string } } };
   expect(config.config.web.public_url ?? "").toBe("");
 });

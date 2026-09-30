@@ -13,7 +13,9 @@ import type { ReactNode } from "react";
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef } from "react";
 
 import { focusPageTitle } from "../app/focus";
-import { nodeFromSearch, serverPath, switchTarget } from "../app/nodeRoute";
+import { contextOf, nodeFromSearch, serverPath, switchTarget } from "../app/nodeRoute";
+import type { ConsoleContext } from "../app/nodeRoute";
+import { rememberServer } from "./lastServer";
 
 export interface SelectedNode {
   /** The node's name on this central, or null for this server. */
@@ -24,15 +26,31 @@ const THIS_SERVER: SelectedNode = { node: null };
 
 const NodeContext = createContext<SelectedNode>(THIS_SERVER);
 
+const THIS_SERVER_CONTEXT: ConsoleContext = { kind: "server", node: null };
+const FLEET_CONTEXT: ConsoleContext = { kind: "fleet" };
+const CENTRAL_CONTEXT: ConsoleContext = { kind: "central" };
+
+const PageContext = createContext<ConsoleContext>(THIS_SERVER_CONTEXT);
+
 /**
  * Provides the selected server to everything signed in, read from the location on screen.
  * A switch remounts what it wraps: every query observer, the event stream and the log and
  * job sockets start again on the new server, so nothing keeps showing the previous one.
  * Focus, which was on the control that switched, goes to the new page's heading.
+ *
+ * It also says which of the three contexts the page is in (a server, all servers, this
+ * central) and remembers each server the operator is on, so the fleet's and the central's
+ * pages can lead back to it.
  */
 export function NodeScope({ children }: { children: ReactNode }) {
   const node = useRouterState({ select: (state) => nodeFromSearch(state.location.search) });
+  const kind = useRouterState({ select: (state) => contextOf(state.location.pathname, null).kind });
   const value = useMemo<SelectedNode>(() => (node === null ? THIS_SERVER : { node }), [node]);
+  const context = useMemo<ConsoleContext>(() => {
+    if (kind === "fleet") return FLEET_CONTEXT;
+    if (kind === "central") return CENTRAL_CONTEXT;
+    return node === null ? THIS_SERVER_CONTEXT : { kind: "server", node };
+  }, [kind, node]);
   const shown = useRef(node);
   useEffect(() => {
     if (shown.current === node) return;
@@ -40,9 +58,14 @@ export function NodeScope({ children }: { children: ReactNode }) {
     if (document.querySelector("main [data-page-title]")) focusPageTitle();
     else document.getElementById("main")?.focus();
   }, [node]);
+  useEffect(() => {
+    if (context.kind === "server") rememberServer(context.node);
+  }, [context]);
   return (
     <NodeContext value={value}>
-      <Fragment key={node ?? ""}>{children}</Fragment>
+      <PageContext value={context}>
+        <Fragment key={node ?? ""}>{children}</Fragment>
+      </PageContext>
     </NodeContext>
   );
 }
@@ -62,6 +85,14 @@ export function ProvideNode({ node, children }: { node: string | null; children:
  */
 export function useNode(): SelectedNode {
   return useContext(NodeContext);
+}
+
+/**
+ * Which context the page on screen is in: a server's page, the fleet's ("All servers") or
+ * the central's own ("This central"). This server's outside the signed-in console.
+ */
+export function useConsoleContext(): ConsoleContext {
+  return useContext(PageContext);
 }
 
 /**
@@ -94,6 +125,7 @@ export function useNodeLink(): NodeLinks {
 /**
  * Switches the console to another server (null: this one), staying on the same page when
  * every server has it and going to the server's overview otherwise (see `switchTarget`).
+ * From the fleet's or the central's pages it always goes to the server chosen, this one too.
  */
 export function useSwitchNode(): (target: string | null) => Promise<void> {
   const router = useRouter();
@@ -101,7 +133,8 @@ export function useSwitchNode(): (target: string | null) => Promise<void> {
   return useCallback(
     async (target: string | null) => {
       const { location, matches } = router.state;
-      if (nodeFromSearch(location.search) === target) return;
+      const onServer = contextOf(location.pathname, null).kind === "server";
+      if (onServer && nodeFromSearch(location.search) === target) return;
       const to = switchTarget(location.pathname, matches.at(-1)?.routeId);
       await navigate({ to, search: { node: target ?? undefined } });
     },

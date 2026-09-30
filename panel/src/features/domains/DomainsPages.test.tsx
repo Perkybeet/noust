@@ -1,10 +1,31 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
+
+/** A screen as wide as a desktop's: tables are tables, not the phone's card rows. */
+beforeEach(() => {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: true,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  }));
+});
+
+/** The first of several matches: the header's primary action, which an empty state repeats. */
+function first<T>(items: readonly T[]): T {
+  const [item] = items;
+  if (item === undefined) throw new Error("nothing matched");
+  return item;
+}
 
 const APP = "shop.example.com";
 
@@ -109,27 +130,29 @@ describe("an application's Domains tab", () => {
   });
 });
 
+const SITES = {
+  sites: [
+    {
+      name: APP,
+      webserver: "nginx",
+      enabled: true,
+      config_path: `/etc/nginx/sites-available/${APP}`,
+      has_ssl: true,
+      server_names: [APP, `www.${APP}`, `shop.${APP}`, `status.${APP}`],
+    },
+    { name: "tools.example.net", webserver: "nginx", enabled: false, config_path: "/etc/nginx/sites-available/tools.example.net", has_ssl: false, server_names: [] },
+  ],
+  total: 2,
+  webserver: "nginx",
+};
+
 describe("the Domains and certificates page", () => {
-  it("lists certificates most urgent first and keeps the tab in the URL", async () => {
+  it("lists certificates most urgent first, and moves between its tabs by URL", async () => {
     fakeBackend({
       ...signedInRoutes(),
       "GET /api/certs": () => json(200, CERTS),
       "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
-      "GET /api/sites": () =>
-        json(200, {
-          sites: [
-            {
-              name: APP,
-              webserver: "nginx",
-              enabled: true,
-              config_path: `/etc/nginx/sites-available/${APP}`,
-              has_ssl: true,
-              server_names: [APP, `www.${APP}`, `shop.${APP}`, `status.${APP}`],
-            },
-          ],
-          total: 1,
-          webserver: "nginx",
-        }),
+      "GET /api/sites": () => json(200, SITES),
     });
     const harness = renderConsole("/domains");
     const table = await screen.findByRole("region", { name: "Certificates" });
@@ -137,19 +160,88 @@ describe("the Domains and certificates page", () => {
     const rows = within(table).getAllByRole("row");
     expect(rows[1]).toHaveTextContent(APP);
     expect(rows[1]).toHaveTextContent("Expires in 12 days");
-    expect(rows[1]).toHaveTextContent("Let's Encrypt R11");
+    expect(rows[1]).toHaveTextContent("Oct 7, 2026");
     expect(rows[2]).toHaveTextContent("Valid for 67 days");
+    // The header holds the tab's primary action; the count sits with the filters.
+    expect(screen.getByRole("button", { name: "Issue certificate" })).toBeInTheDocument();
+    expect(screen.getByText("2 certificates")).toBeInTheDocument();
+    expect(screen.getByText("noust cert list")).toBeInTheDocument();
 
-    await harness.user.click(screen.getByRole("tab", { name: /Sites/ }));
+    // The issuer and how it renews are the same on nearly every row: they are in its drawer.
+    await harness.user.click(within(first(rows.slice(1))).getByRole("button", { name: APP }));
+    const drawer = await screen.findByRole("dialog", { name: APP });
+    expect(within(drawer).getByText("Let's Encrypt R11")).toBeInTheDocument();
+    await harness.user.keyboard("{Escape}");
+
+    await harness.user.click(screen.getByRole("link", { name: /Web server sites/ }));
     await waitFor(() => {
-      expect(harness.location().search).toEqual({ tab: "sites" });
+      expect(harness.location().pathname).toBe("/domains/sites");
     });
-    const sites = await screen.findByRole("region", { name: "Sites" });
-    expect(within(sites).getByText("Enabled")).toBeInTheDocument();
-    expect(within(sites).getByText("HTTPS")).toBeInTheDocument();
+    const sites = await screen.findByRole("region", { name: "Web server sites" });
+    const served = within(sites).getByRole("button", { name: APP }).closest("tr");
+    if (!served) throw new Error("no row");
+    expect(within(served).getByText("Serving")).toBeInTheDocument();
+    expect(within(served).getByText("HTTPS")).toBeInTheDocument();
     // The first three names show inline, mono, with the rest counted rather than crowding the row.
-    expect(within(sites).getByText(`${APP}, www.${APP}, shop.${APP}`)).toBeInTheDocument();
-    expect(within(sites).getByText("+1 more")).toBeInTheDocument();
+    expect(within(served).getByText(`${APP}, www.${APP}, shop.${APP}`)).toBeInTheDocument();
+    expect(within(served).getByText("+1 more")).toBeInTheDocument();
+    const tools = within(sites).getByRole("button", { name: "tools.example.net" }).closest("tr");
+    if (!tools) throw new Error("no row");
+    expect(within(tools).getByText("Disabled")).toBeInTheDocument();
+    expect(within(tools).getByText("No HTTPS")).toBeInTheDocument();
+    expect(screen.getByText("2 sites on nginx")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create site" })).toBeInTheDocument();
+    await expectNoAxeViolations(document.body, { page: true });
+  });
+
+  it("says an expired certificate expired, as a failure, days ago", async () => {
+    fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/certs": () =>
+        json(200, { certificates: [{ ...CERTS.certificates[0], domain: "old.example.com", domains: ["old.example.com"], days_remaining: -3 }], total: 1 }),
+      "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
+      "GET /api/sites": () => json(200, SITES),
+    });
+    renderConsole("/domains");
+    const table = await screen.findByRole("region", { name: "Certificates" });
+    const state = await within(table).findByText("Expired 3 days ago");
+    expect(state.closest("[data-state]")).toHaveAttribute("data-state", "failed");
+  });
+
+  it("filters the certificates by name and by what needs renewing, through the URL", async () => {
+    fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/certs": () => json(200, CERTS),
+      "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
+      "GET /api/sites": () => json(200, SITES),
+    });
+    const { user, location } = renderConsole("/domains?q=later");
+    const table = await screen.findByRole("region", { name: "Certificates matching the filters" });
+    expect(await within(table).findByText("later.example.com")).toBeInTheDocument();
+    expect(within(table).queryByText(APP)).not.toBeInTheDocument();
+    expect(screen.getByText("1 of 2 certificates")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("combobox", { name: "Show" }));
+    await user.click(await screen.findByRole("option", { name: "Expiring or expired" }));
+    await waitFor(() => {
+      expect(location().search).toEqual({ q: "later", show: "attention" });
+    });
+    expect(await screen.findByText("No certificate matches these filters.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    await waitFor(() => {
+      expect(location().search).toEqual({});
+    });
+  });
+
+  it("sends 3.0's tab link to the sites' own address", async () => {
+    fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/certs": () => json(200, CERTS),
+      "GET /api/sites": () => json(200, SITES),
+    });
+    const { location } = renderConsole("/domains?tab=sites");
+    expect(await screen.findByRole("region", { name: "Web server sites" })).toBeInTheDocument();
+    expect(location().pathname).toBe("/domains/sites");
   });
 });
 
@@ -180,7 +272,7 @@ describe("a site's configuration editor", () => {
     expect(backend.callsTo(`PUT /api/sites/${APP}/config`)[0]?.body).toEqual({ config: `${config}# edited` });
     expect(editor).toHaveAttribute("aria-invalid", "true");
 
-    await user.click(within(alert).getByRole("button", { name: "Go to line 4" }));
+    await user.click(screen.getByRole("button", { name: "Go to line 4" }));
     expect(editor).toHaveFocus();
     expect((editor as HTMLTextAreaElement).selectionStart).toBe(config.indexOf("}\n"));
     await expectNoAxeViolations(document.body);
@@ -257,7 +349,7 @@ describe("a site's configuration editor", () => {
     const alert = refusal.closest<HTMLElement>("[role=alert]");
     if (!alert) throw new Error("the refusal is not announced");
     expect(within(alert).getByText(/unknown directive "bad-directive"/)).toBeInTheDocument();
-    expect(within(alert).getByRole("button", { name: "Go to line 4" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Go to line 4" })).toBeInTheDocument();
     // Testing never saves: only the endpoint that tests, never the one that saves, was asked.
     expect(backend.callsTo(`PUT /api/sites/${APP}/config`)).toHaveLength(0);
     expect(backend.callsTo(`POST /api/sites/${APP}/config/test`).length).toBeGreaterThan(0);
@@ -323,11 +415,10 @@ describe("creating a site", () => {
       "GET /api/sites/templates": () => json(200, { templates: ["proxy", "megacorp"], webserver: "nginx" }),
       "POST /api/sites": () => json(200, { success: true, message: "Site created: status.example.com. Reload nginx to apply it.", site: "status.example.com" }),
     });
-    const { user } = renderConsole("/domains?tab=sites");
-    // Waits for the sites list to settle first: while it loads, the toolbar shows its own
-    // "Create site" button too, a different element from the empty state's.
-    await screen.findByText("No sites yet");
-    await user.click(screen.getByRole("button", { name: "Create site" }));
+    const { user } = renderConsole("/domains/sites");
+    // The header's primary action; the empty state offers the same one.
+    await screen.findByRole("heading", { level: 2, name: "No sites yet" });
+    await user.click(first(screen.getAllByRole("button", { name: "Create site" })));
     const dialog = await screen.findByRole("dialog", { name: "Create a site" });
 
     // Not a hardcoded list: an unlisted template never shows, and an unknown one still does,

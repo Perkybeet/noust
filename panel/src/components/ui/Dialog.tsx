@@ -10,23 +10,27 @@ import { useNeedsScrollFocus } from "./scrollable";
 
 export type DialogSize = "sm" | "md" | "lg" | "xl";
 
+/**
+ * sm 440 for a question (a confirmation, "Confirm it's you"), md 560 for a form of up to six
+ * fields, lg 720 for two columns or steps; xl 1280 is for looking at something closely (a
+ * chart enlarged), never for a form.
+ */
 const WIDTHS: Record<DialogSize, string> = {
-  sm: "sm:max-w-[400px]",
-  md: "sm:max-w-[520px]",
-  lg: "sm:max-w-[720px]",
-  // For looking at something closely (a chart enlarged), not for a form.
-  xl: "sm:max-w-[1280px]",
+  sm: "sm:max-w-dialog-sm",
+  md: "sm:max-w-dialog-md",
+  lg: "sm:max-w-dialog-lg",
+  xl: "sm:max-w-dialog-xl",
 };
 
 export const BACKDROP =
-  "fixed inset-0 z-40 bg-backdrop transition-opacity duration-(--duration-base) ease-out " +
+  "fixed inset-0 z-backdrop bg-backdrop transition-opacity duration-(--duration-base) ease-out " +
   "data-starting-style:opacity-0 data-ending-style:opacity-0";
 
 /**
  * Where a modal sits: centred on a phone, a little below the top on anything wider, so it reads
  * as over the page rather than in it. The popup's height cap below is the space this leaves.
  */
-export const MODAL_VIEWPORT = "fixed inset-0 z-50 flex items-center justify-center p-4 sm:items-start sm:pt-[12dvh]";
+export const MODAL_VIEWPORT = "fixed inset-0 z-overlay flex items-center justify-center p-4 sm:items-start sm:pt-[12dvh]";
 
 // The cap is the viewport less the offset above the popup and the 16px margin below it, so the
 // footer (the dialog's actions) is always on screen and the body scrolls instead.
@@ -63,7 +67,7 @@ function DialogBody({ children, titleId }: { children: ReactNode; titleId: strin
     <div
       ref={ref}
       {...(scrolls ? { tabIndex: 0, role: "region", "aria-labelledby": titleId } : {})}
-      className="min-h-0 flex-1 overflow-y-auto px-5 py-4 scroll-thin focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus"
+      className="min-h-0 flex-1 overflow-y-auto px-5 py-4 scroll-thin scroll-stable focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus"
     >
       {children}
     </div>

@@ -1,39 +1,37 @@
-import { Link } from "@tanstack/react-router";
-import { MoreHorizontal, RotateCcw, ShieldCheck, Trash2, UploadCloud } from "lucide-react";
+import { FileCheck, RotateCcw, UploadCloud } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
 
-import type { Backup, BackupList } from "../../api/queries/backups";
+import type { BackupList } from "../../api/queries/backups";
 import { RelativeTime } from "../../components/page/RelativeTime";
-import { Badge } from "../../components/ui/Badge";
-import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { IconButton } from "../../components/ui/IconButton";
-import { Menu, MenuItem } from "../../components/ui/Menu";
+import { ICONS } from "../../components/ui/icons";
+import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
-import type { T } from "../../i18n";
+import type { PlainKey, T } from "../../i18n";
 import { describeError } from "../../lib/errors";
-import { PushBackupDialog } from "./PushBackupDialog";
-import { RestoreBackupDialog } from "./RestoreBackupDialog";
+import { formatBytes, parseTimestamp } from "../../lib/format";
 import { useBackupActions } from "./useBackupActions";
 
 export type BackupRow = BackupList["backups"][number];
 
-interface Includes {
-  label: string;
-  present: boolean;
-}
+/** What a backup holds beyond the application's files, in the order it matters. */
+const EXTRAS: readonly [keyof BackupRow, PlainKey][] = [
+  ["includes_env", "backups.history.parts.env"],
+  ["has_database", "backups.history.parts.databases"],
+  ["includes_node_modules", "backups.history.parts.modules"],
+  ["includes_build", "backups.history.parts.build"],
+];
 
-function includesOf(backup: BackupRow, t: T): Includes[] {
-  return [
-    { label: t("backups.table.includes.env"), present: backup.includes_env },
-    { label: t("backups.table.includes.database"), present: backup.has_database },
-    { label: t("backups.table.includes.modules"), present: backup.includes_node_modules },
-    { label: t("backups.table.includes.build"), present: backup.includes_build },
-  ];
+/** "Files, .env and databases": what a backup holds, as a list the language joins. */
+export function includesWords(backup: BackupRow, t: T): string {
+  const parts = [t("backups.history.parts.files"), ...EXTRAS.filter(([flag]) => backup[flag] === true).map(([, key]) => t(key))];
+  const list = new Intl.ListFormat(t.locale, { style: "long", type: "conjunction" }).format(parts);
+  return list.charAt(0).toLocaleUpperCase(t.locale) + list.slice(1);
 }
 
 /**
@@ -41,184 +39,136 @@ function includesOf(backup: BackupRow, t: T): Includes[] {
  * this session is waiting on a fresh check. The server, not the session, is the source of
  * truth: a page reload shows the same verdict, not "not checked" again.
  */
-function VerifiedCell({ backup, checking, t }: { backup: BackupRow; checking: boolean; t: T }) {
-  if (checking) return <StatusPill state="deploying" label={t("backups.table.verified.checking")} appearance="inline" size="sm" />;
-  if (backup.verified_ok === true) {
+function IntegrityCell({ backup, checking, t }: { backup: BackupRow; checking: boolean; t: T }) {
+  if (checking) return <StatusPill state="deploying" label={t("backups.history.integrity.checking")} appearance="inline" size="sm" />;
+  if (backup.verified_ok === true || backup.verified_ok === false) {
     return (
       <span className="flex flex-col gap-0.5">
-        <StatusPill state="running" label={t("backups.table.verified.verified")} appearance="inline" size="sm" />
+        <StatusPill
+          state={backup.verified_ok ? "running" : "failed"}
+          label={backup.verified_ok ? t("backups.history.integrity.verified") : t("backups.history.integrity.failed")}
+          appearance="inline"
+          size="sm"
+        />
         <RelativeTime value={backup.last_verified_at} className="text-12 text-fg-faint" />
       </span>
     );
   }
-  if (backup.verified_ok === false) {
-    return (
-      <span className="flex flex-col gap-0.5">
-        <StatusPill state="failed" label={t("backups.table.verified.failed")} appearance="inline" size="sm" />
-        <RelativeTime value={backup.last_verified_at} className="text-12 text-fg-faint" />
-      </span>
-    );
-  }
-  return <StatusPill state="stopped" label={t("backups.table.verified.never")} appearance="inline" size="sm" />;
+  return <StatusPill state="stopped" label={t("backups.history.integrity.never")} appearance="inline" size="sm" />;
 }
 
-function RowActions({
-  backup,
-  checking,
-  onVerify,
-}: {
-  backup: BackupRow;
-  checking: boolean;
-  onVerify: () => void;
-}) {
-  const t = useT();
-  const { remove } = useBackupActions();
-  const [restoreOpen, setRestoreOpen] = useState(false);
-  const [pushOpen, setPushOpen] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+export interface BackupActionHandlers {
+  onRestore: (backup: BackupRow) => void;
+  onCopy: (backup: BackupRow) => void;
+  onDelete: (backup: BackupRow) => void;
+}
 
+function RowActions({ backup, checking, onVerify, handlers }: { backup: BackupRow; checking: boolean; onVerify: () => void; handlers: BackupActionHandlers }) {
+  const t = useT();
   return (
-    <>
-      <Menu
-        align="end"
-        trigger={<IconButton label={t("backups.table.actionsFor", { id: backup.backup_id })} icon={<MoreHorizontal />} size="sm" tooltip={false} />}
-      >
-        <MenuItem icon={<ShieldCheck />} disabled={checking} onClick={onVerify}>
-          {t("backups.table.actions.verify")}
-        </MenuItem>
-        <MenuItem icon={<RotateCcw />} onClick={() => setRestoreOpen(true)}>
-          {t("backups.common.restore")}
-        </MenuItem>
-        <MenuItem icon={<UploadCloud />} onClick={() => setPushOpen(true)}>
-          {t("backups.table.actions.copyTo")}
-        </MenuItem>
-        <MenuItem icon={<Trash2 />} destructive onClick={() => setConfirmOpen(true)}>
-          {t("backups.table.actions.delete")}
-        </MenuItem>
-      </Menu>
-      <RestoreBackupDialog backup={backup} open={restoreOpen} onOpenChange={setRestoreOpen} />
-      <PushBackupDialog backup={backup} open={pushOpen} onOpenChange={setPushOpen} />
-      <ConfirmDialog
-        open={confirmOpen}
-        onOpenChange={setConfirmOpen}
-        title={t("backups.table.deleteDialog.title", { id: backup.backup_id })}
-        description={t("backups.table.deleteDialog.description", { domain: backup.domain })}
-        confirmText={backup.backup_id}
-        actionLabel={t("backups.table.deleteDialog.action")}
-        onConfirm={async () => {
-          await remove.mutateAsync(backup.backup_id);
-        }}
-      />
-    </>
+    <Menu
+      align="end"
+      trigger={<IconButton label={t("backups.history.actionsFor", { id: backup.backup_id })} icon={<ICONS.more />} size="sm" tooltip={false} />}
+    >
+      <MenuItem icon={<FileCheck />} disabled={checking} onClick={onVerify}>
+        {t("backups.history.actions.verify")}
+      </MenuItem>
+      <MenuItem icon={<RotateCcw />} onClick={() => handlers.onRestore(backup)}>
+        {t("backups.history.actions.restore")}
+      </MenuItem>
+      <MenuItem icon={<UploadCloud />} onClick={() => handlers.onCopy(backup)}>
+        {t("backups.history.actions.copyTo")}
+      </MenuItem>
+      <MenuSeparator />
+      <MenuItem icon={<ICONS.delete />} destructive onClick={() => handlers.onDelete(backup)}>
+        {t("backups.history.actions.delete")}
+      </MenuItem>
+    </Menu>
   );
 }
 
-export interface BackupsTableProps {
+export interface BackupsTableProps extends BackupActionHandlers {
   backups: readonly BackupRow[];
   caption: string;
   loading?: boolean;
-  /** Rows to hold while loading: the number the storage summary already counted, when known. */
   skeletonRows?: number;
   empty?: ReactNode;
 }
 
 /**
- * Every backup, newest first: what app, when, its size, what it includes, and its last
- * verification against its checksum - `last_verified_at` and `verified_ok`, as the backup
+ * One application's backups, newest first: when, what they hold, their size, and their last
+ * integrity check against their checksum - `last_verified_at` and `verified_ok`, as the backup
  * itself records them, so the state survives a reload instead of resetting to "not checked".
  */
-export function BackupsTable({ backups, caption, loading = false, skeletonRows, empty }: BackupsTableProps) {
+export function BackupsTable({ backups, caption, loading = false, skeletonRows, empty, ...handlers }: BackupsTableProps) {
   const t = useT();
   const { verify } = useBackupActions();
   const [checking, setChecking] = useState<ReadonlySet<string>>(new Set());
 
-  const onVerify = (backup: Backup): void => {
+  const settle = (id: string): void => {
+    setChecking((current) => {
+      const next = new Set(current);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  const onVerify = (backup: BackupRow): void => {
     setChecking((current) => new Set(current).add(backup.backup_id));
     verify.mutate(backup.backup_id, {
       onSuccess: (result) => {
-        setChecking((current) => {
-          const next = new Set(current);
-          next.delete(backup.backup_id);
-          return next;
-        });
+        settle(backup.backup_id);
         if (result.valid) {
-          toast.success(t("backups.table.toast.verified", { id: backup.backup_id }));
+          toast.success(t("backups.history.toast.verified", { id: backup.backup_id }));
         } else {
-          toast.error(t("backups.table.toast.verifyFailed", { id: backup.backup_id }), {
+          toast.error(t("backups.history.toast.verifyFailed", { id: backup.backup_id }), {
             detail: [...(result.errors ?? []), ...(result.warnings ?? [])].join("\n"),
           });
         }
       },
       onError: (error) => {
-        setChecking((current) => {
-          const next = new Set(current);
-          next.delete(backup.backup_id);
-          return next;
-        });
-        toast.error(t("backups.table.toast.verifyError", { id: backup.backup_id }), { detail: describeError(error).detail });
+        settle(backup.backup_id);
+        toast.error(t("backups.history.toast.verifyError", { id: backup.backup_id }), { detail: describeError(error).detail });
       },
     });
   };
 
   const columns: Column<BackupRow>[] = [
     {
-      id: "domain",
-      header: t("backups.fields.application"),
-      cell: (row) => (
-        <Link
-          to="/apps/$domain"
-          params={{ domain: row.domain }}
-          className="-mx-1 rounded-[4px] px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
-        >
-          {row.domain}
-        </Link>
-      ),
-      sortValue: (row) => row.domain,
-    },
-    {
       id: "created",
-      header: t("backups.table.columns.created"),
-      width: "w-36",
-      cell: (row) => <RelativeTime value={row.timestamp} />,
-      sortValue: (row) => row.timestamp,
+      header: t("backups.history.columns.created"),
+      card: "title",
+      cell: (row) => (
+        <span className="flex min-w-0 flex-col">
+          <RelativeTime value={row.timestamp} className="text-fg" />
+          <span className="truncate text-12 font-normal text-fg-muted">
+            {[row.description.trim(), includesWords(row, t)].filter((part) => part !== "").join(" · ")}
+          </span>
+        </span>
+      ),
+      sortValue: (row) => parseTimestamp(row.timestamp)?.getTime() ?? null,
     },
     {
       id: "size",
-      header: t("backups.table.columns.size"),
+      header: t("backups.history.columns.size"),
       align: "end",
       mono: true,
       width: "w-24",
-      // On a phone the row keeps what, when and whether it was verified.
-      hideBelow: "sm",
-      cell: (row) => row.size_human,
+      cell: (row) => formatBytes(row.size, t.locale),
       sortValue: (row) => row.size,
     },
     {
-      id: "includes",
-      header: t("backups.table.columns.includes"),
-      hideBelow: "md",
-      cell: (row) => (
-        <span className="flex flex-wrap gap-1">
-          {includesOf(row, t)
-            .filter((item) => item.present)
-            .map((item) => (
-              <Badge key={item.label} mono>
-                {item.label}
-              </Badge>
-            ))}
-        </span>
-      ),
-    },
-    {
-      id: "verified",
-      header: t("backups.table.columns.verified"),
+      id: "integrity",
+      header: t("backups.history.columns.integrity"),
       width: "w-36",
-      cell: (row) => <VerifiedCell backup={row} checking={checking.has(row.backup_id)} t={t} />,
+      card: "status",
+      cell: (row) => <IntegrityCell backup={row} checking={checking.has(row.backup_id)} t={t} />,
     },
   ];
 
   return (
     <DataTable
+      mobile="cards"
       columns={columns}
       rows={backups}
       getRowId={(row) => row.backup_id}
@@ -226,9 +176,7 @@ export function BackupsTable({ backups, caption, loading = false, skeletonRows, 
       loading={loading}
       {...(skeletonRows !== undefined ? { skeletonRows } : {})}
       {...(empty !== undefined ? { empty } : {})}
-      rowActions={(row) => (
-        <RowActions backup={row} checking={checking.has(row.backup_id)} onVerify={() => onVerify(row)} />
-      )}
+      rowActions={(row) => <RowActions backup={row} checking={checking.has(row.backup_id)} onVerify={() => onVerify(row)} handlers={handlers} />}
       defaultSort={{ column: "created", direction: "descending" }}
     />
   );

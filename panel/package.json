@@ -20,6 +20,7 @@
     "docs:screens": "NOUST_DOCS_SCREENS=1 playwright test docs.spec.ts",
     "gen:api": "openapi-typescript openapi.json -o src/api/schema.gen.ts",
     "check:api": "node scripts/check-api.mjs",
+    "design:baseline": "UPDATE_DESIGN_BASELINE=1 vitest run src/styles/design-rules.test.ts",
     "screens": "node scripts/screens.mjs",
     "screens:shell": "node scripts/shell-screens.mjs"
   },

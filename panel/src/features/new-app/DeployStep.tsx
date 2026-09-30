@@ -1,16 +1,14 @@
 import { useNavigate } from "@tanstack/react-router";
-import { PackageOpen, Rocket } from "lucide-react";
 import { useEffect } from "react";
-import type { Ref } from "react";
 
 import type { FollowedJob } from "../../api/queries/jobs";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
 import { KeyValueList } from "../../components/page/KeyValueList";
+import { JobProgress } from "../../components/page/JobProgress";
 import { ErrorBlock } from "../../components/page/QueryState";
-import { Button } from "../../components/ui/Button";
-import { Spinner } from "../../components/ui/Spinner";
+import { Card } from "../../components/ui/Card";
 import { useT } from "../../i18n";
-import type { PlainKey, T } from "../../i18n";
+import type { T } from "../../i18n";
 import { normalizeDomain } from "../domains/names";
 import { JobOutcome } from "./JobOutcome";
 import { useDeploymentLanding } from "./useDeploymentLanding";
@@ -78,7 +76,7 @@ export function deploySummary(t: T, source: SourceForm, inspection: Inspection, 
 }
 
 /** After the deploy was queued: waiting for the deployer to record a deployment, then going to it. */
-function Landing({ target, followedJob, onGone, onBack }: { target: LandingTarget; followedJob: FollowedJob; onGone: () => void; onBack: () => void }) {
+function Landing({ target, followedJob, onGone }: { target: LandingTarget; followedJob: FollowedJob; onGone: () => void }) {
   const t = useT();
   const navigate = useNavigate();
   const landing = useDeploymentLanding(target, followedJob);
@@ -96,47 +94,27 @@ function Landing({ target, followedJob, onGone, onBack }: { target: LandingTarge
   if (landing?.kind === "failed") {
     const job = followedJob.job;
     return (
-      <div className="flex flex-col gap-3">
-        <ErrorBlock
-          live
-          error={{ detail: job?.error ?? t("newApp.deploy.failedSilently") }}
-          title={t("newApp.deploy.failedBeforeStart", { domain: target.domain })}
-          hint={t("newApp.deploy.failedHint")}
-        />
-        <div>
-          <Button onClick={onBack}>{t("newApp.deploy.backToReview")}</Button>
-        </div>
-      </div>
+      <ErrorBlock
+        live
+        error={{ detail: job?.error ?? t("newApp.deploy.failedSilently") }}
+        title={t("newApp.deploy.failedBeforeStart", { domain: target.domain })}
+        hint={t("newApp.deploy.failedHint")}
+      />
     );
   }
 
-  const step = followedJob.job?.current_step ?? null;
   return (
-    <div role="status" className="flex min-w-0 flex-col gap-1 rounded-card border border-border bg-surface px-4 py-3 shadow-raised">
-      <p className="flex items-center gap-2.5 text-14 font-medium text-fg">
-        <Spinner size={16} className="text-warn" />
-        {t("newApp.deploy.deploying", { domain: target.domain })}
-      </p>
-      <p className="flex min-w-0 flex-wrap items-center gap-x-2 text-13 text-fg-muted">
-        <span>{t("newApp.deploy.buildLogSoon")}</span>
-        {step ? (
-          <code translate="no" className="min-w-0 truncate text-12" title={step}>
-            {step}
-          </code>
-        ) : null}
-      </p>
-    </div>
+    <JobProgress
+      state={followedJob.job?.status === "pending" ? "queued" : "running"}
+      title={t("newApp.deploy.deploying", { domain: target.domain })}
+      step={followedJob.job?.current_step ?? null}
+      description={t("newApp.deploy.buildLogSoon")}
+    />
   );
 }
 
 /** What the application is started from; decides the words, and whether the page hands over. */
 export type DeployKind = "code" | "recipe" | "import";
-
-const INTRO: Readonly<Record<DeployKind, PlainKey>> = {
-  code: "newApp.deploy.intro",
-  recipe: "newApp.deploy.introRecipe",
-  import: "newApp.deploy.introImport",
-};
 
 export interface DeployStepProps {
   kind: DeployKind;
@@ -144,69 +122,42 @@ export interface DeployStepProps {
   domain: string;
   /** What is about to be done, one fact per row. */
   summary: readonly KeyValueItem[];
-  onDeploy: () => void;
-  deploying: boolean;
   /** The failure of the last attempt to queue it, when it is not about a field. */
   failure: unknown;
-  /** Where the deploy `onDeploy` queued is followed to, once it exists. */
+  /** Where the deploy was queued to, once it is. */
   target: LandingTarget | null;
-  /** The job queued by `onDeploy`, followed for its status and its own failure. */
+  /** The job queued, followed for its status and its own failure. */
   followedJob: FollowedJob;
-  onBack: () => void;
   /** Called just before the wizard navigates away for good. */
   onGone: () => void;
-  headingRef: Ref<HTMLHeadingElement>;
 }
 
 /**
- * Step three: the summary, and the one button. Once queued, a deploy from code waits for the
- * build to start and hands over to its deployment page, where the log streams; a recipe or an
- * import is followed here to its end, where it says what comes next.
+ * The last step: the summary of what is about to happen, and once the wizard's Deploy is
+ * pressed, the job in hand. A deploy from code waits for the build to start and hands over to
+ * its deployment page, where the log streams; a recipe or an import is followed here to its
+ * end, where it says what comes next.
  */
-export function DeployStep({ kind, domain: typed, summary, onDeploy, deploying, failure, target, followedJob, onBack, onGone, headingRef }: DeployStepProps) {
+export function DeployStep({ kind, domain: typed, summary, failure, target, followedJob, onGone }: DeployStepProps) {
   const t = useT();
   const domain = normalizeDomain(typed);
   const importing = kind === "import";
   return (
     <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h2 ref={headingRef} tabIndex={-1} className="title text-18 text-fg outline-none">
-          {t("newApp.deploy.heading")}
-        </h2>
-        <p className="text-14 text-pretty text-fg-muted">{t(INTRO[kind])}</p>
-      </header>
-
-      <div className="rounded-card border border-border bg-surface px-4 py-1 shadow-raised">
-        <KeyValueList items={summary} />
-      </div>
-
+      <Card padding="none">
+        <div className="px-4 py-1">
+          <KeyValueList items={summary} />
+        </div>
+      </Card>
       {target !== null ? (
         kind === "code" ? (
-          <Landing key={target.jobId} target={target} followedJob={followedJob} onGone={onGone} onBack={onBack} />
+          <Landing key={target.jobId} target={target} followedJob={followedJob} onGone={onGone} />
         ) : (
-          <JobOutcome key={target.jobId} kind={kind} target={target} followedJob={followedJob} onBack={onBack} />
+          <JobOutcome key={target.jobId} kind={kind} target={target} followedJob={followedJob} />
         )
-      ) : (
-        <>
-          {failure !== null && failure !== undefined ? (
-            <ErrorBlock live error={failure} title={t(importing ? "newApp.deploy.notImported" : "newApp.deploy.notDeployed", { domain })} />
-          ) : null}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-6">
-            <Button disabled={deploying} onClick={onBack}>
-              {t("newApp.deploy.back")}
-            </Button>
-            <Button
-              variant="primary"
-              size="lg"
-              icon={importing ? <PackageOpen aria-hidden="true" /> : <Rocket aria-hidden="true" />}
-              loading={deploying}
-              onClick={onDeploy}
-            >
-              {t(importing ? "newApp.deploy.importAction" : "newApp.deploy.action", { domain })}
-            </Button>
-          </div>
-        </>
-      )}
+      ) : failure !== null && failure !== undefined ? (
+        <ErrorBlock live error={failure} title={t(importing ? "newApp.deploy.notImported" : "newApp.deploy.notDeployed", { domain })} />
+      ) : null}
     </div>
   );
 }

@@ -1,0 +1,118 @@
+{
+  "$comment": "Written by `npm run design:baseline` (styles/design-rules.test.ts); may only go down. rules: count per rule and file. lintLegacy: files ESLint's design rules skip until migrated. pendingAdoption: system components no feature uses yet.",
+  "rules": {
+    "alpha-on-token": {
+      "app/Topbar.tsx": 1,
+      "components/page/DangerZone.tsx": 2,
+      "components/ui/Button.tsx": 1,
+      "components/ui/DataTable.tsx": 1,
+      "components/ui/Kbd.tsx": 1
+    },
+    "arbitrary-dimension": {
+      "app/CommandPalette.tsx": 4,
+      "app/ErrorBoundary.tsx": 1,
+      "app/LanguageSwitch.tsx": 1,
+      "app/RenameNotice.tsx": 1,
+      "app/ThemeSwitch.tsx": 1,
+      "components/page/DangerZone.tsx": 1,
+      "components/page/RelativeTime.tsx": 1,
+      "components/page/Section.tsx": 1,
+      "components/page/SegmentedControl.tsx": 1,
+      "components/ui/Button.tsx": 2,
+      "components/ui/Checkbox.tsx": 1,
+      "components/ui/Dialog.tsx": 3,
+      "components/ui/EmptyState.tsx": 1,
+      "components/ui/ExternalLink.tsx": 1,
+      "components/ui/Kbd.tsx": 2,
+      "components/ui/LogViewer.tsx": 3,
+      "components/ui/Mono.tsx": 1,
+      "components/ui/Popover.tsx": 1,
+      "components/ui/Skeleton.tsx": 1,
+      "components/ui/Switch.tsx": 2,
+      "components/ui/Toast.tsx": 1,
+      "lib/clipboard.ts": 1
+    },
+    "arbitrary-grid": {
+      "components/page/KeyValueList.tsx": 2,
+      "components/page/SettingsLayout.tsx": 1,
+      "components/page/Wizard.tsx": 2,
+      "components/ui/Select.tsx": 1
+    },
+    "chip-radius": {
+      "app/LanguageSwitch.tsx": 1,
+      "app/ThemeSwitch.tsx": 1,
+      "components/page/SegmentedControl.tsx": 1,
+      "components/ui/Checkbox.tsx": 1,
+      "components/ui/ExternalLink.tsx": 1,
+      "components/ui/Kbd.tsx": 1,
+      "components/ui/Skeleton.tsx": 1
+    },
+    "colour-function": {
+      "components/ui/Button.tsx": 3,
+      "components/ui/Switch.tsx": 1
+    },
+    "confirm-hand-rolled": {},
+    "dashed-empty": {},
+    "empty-cell": {},
+    "focus-ring-repeat": {
+      "app/LanguageSwitch.tsx": 1,
+      "app/PageHeader.tsx": 2,
+      "app/ThemeSwitch.tsx": 1,
+      "components/page/SegmentedControl.tsx": 1,
+      "components/page/SettingsLayout.tsx": 2,
+      "components/page/Stepper.tsx": 1,
+      "components/ui/Button.tsx": 1,
+      "components/ui/Checkbox.tsx": 1,
+      "components/ui/DataTable.tsx": 4,
+      "components/ui/Dialog.tsx": 1,
+      "components/ui/ExternalLink.tsx": 1,
+      "components/ui/IconButton.tsx": 1,
+      "components/ui/LogViewer.tsx": 2,
+      "components/ui/Select.tsx": 1,
+      "components/ui/Switch.tsx": 1,
+      "components/ui/SystemOutput.tsx": 1,
+      "components/ui/Tabs.tsx": 1,
+      "components/ui/Toast.tsx": 1
+    },
+    "hand-surface": {
+      "features/settings/github/CreateGitHubApp.tsx": 1,
+      "features/settings/github/GitHubCallback.tsx": 1
+    },
+    "inline-style": {},
+    "mono-utility": {
+      "main.tsx": 1
+    },
+    "off-role-text": {},
+    "off-scale-space": {
+      "app/Topbar.tsx": 1
+    },
+    "page-without-template": {
+      "features/settings/github/GitHubCallback.tsx": 1
+    },
+    "raw-heading": {
+      "routes/__root.tsx": 1
+    },
+    "raw-label": {},
+    "semantic-icon-import": {},
+    "semibold": {
+      "components/ui/Popover.tsx": 1,
+      "components/ui/Toast.tsx": 1,
+      "lib/ansi.ts": 1
+    },
+    "spinner-outside-kit": {
+      "features/settings/github/CreateGitHubApp.tsx": 1,
+      "features/settings/github/GitHubCallback.tsx": 1
+    },
+    "tailwind-palette": {},
+    "tinted-border": {
+      "components/page/DangerZone.tsx": 1
+    },
+    "tone-map": {},
+    "z-arbitrary": {}
+  },
+  "lintLegacy": [
+    "src/lib/clipboard.ts",
+    "src/routes/__root.tsx"
+  ],
+  "pendingAdoption": []
+}

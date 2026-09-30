@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { useState } from "react";
 
 import { releasesQuery, rollbackPointsQuery } from "../../api/queries/apps";
 import type { Job } from "../../api/queries/jobs";
@@ -7,93 +7,96 @@ import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
-import { cx } from "../../lib/cx";
+import type { T } from "../../i18n";
 import { formatBytes } from "../../lib/format";
 import { useAppActions } from "../apps/useAppActions";
+import { versionTitle } from "./versionTitle";
 
 interface Target {
   id: string;
+  /** When it was made, as a person reads it; the id when the time is unknown. */
   title: string;
   commit: string | null;
   when: string | null;
   note: string | null;
 }
 
-function Options({
-  name,
+function titleOf(t: T, when: string | null | undefined, fallback: string): string {
+  return versionTitle(when, t.locale) ?? fallback;
+}
+
+/**
+ * The versions the app can go back to, each a row with its own button: choosing one is going
+ * back to it, the dialog having been the question. The id the disk and the command line use is
+ * each row's second line.
+ */
+function Targets({
+  label,
   targets,
-  value,
-  onChange,
-  legend,
+  pending,
+  onChoose,
+  t,
 }: {
-  name: string;
+  label: string;
   targets: readonly Target[];
-  value: string | null;
-  onChange: (id: string) => void;
-  legend: string;
+  pending: string | null;
+  onChoose: (id: string) => void;
+  t: T;
 }) {
   return (
-    <fieldset className="flex flex-col gap-2">
-      <legend className="mb-2 text-13 text-fg-muted">{legend}</legend>
+    <ul aria-label={label} className="flex flex-col divide-y divide-border rounded-control border border-border">
       {targets.map((target) => (
-        <label
-          key={target.id}
-          className={cx(
-            "grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-0.5 rounded-control border px-3 py-2.5",
-            "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-focus",
-            value === target.id ? "border-accent bg-accent-soft" : "border-border hover:bg-surface-hover",
-          )}
-        >
-          <input
-            type="radio"
-            name={name}
-            value={target.id}
-            checked={value === target.id}
-            onChange={() => onChange(target.id)}
-            className="row-span-2 mt-0.5 size-4 shrink-0 accent-accent"
-          />
-          <span translate="no" className="mono truncate text-12 text-fg">
-            {target.title}
+        <li key={target.id} className="flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2.5">
+          <span className="flex min-w-0 flex-col gap-0.5">
+            <span className="flex min-w-0 items-baseline gap-2 text-13 font-medium text-fg">
+              <span className="truncate">{target.title}</span>
+              {target.commit ? <Mono tone="muted">{target.commit.slice(0, 7)}</Mono> : null}
+            </span>
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2 text-12 text-fg-muted">
+              <Mono tone="faint" truncate title={target.id}>
+                {target.id}
+              </Mono>
+              {target.when ? <RelativeTime value={target.when} /> : null}
+              {target.note ? <span>{target.note}</span> : null}
+            </span>
           </span>
-          <span className="col-start-2 flex flex-wrap items-center gap-x-2 text-12 text-fg-muted">
-            {target.commit ? <span className="mono">{target.commit.slice(0, 7)}</span> : null}
-            {target.when ? <RelativeTime value={target.when} /> : null}
-            {target.note ? <span>{target.note}</span> : null}
-          </span>
-        </label>
+          <Button
+            size="sm"
+            aria-label={t("appPages.rollback.goBackTo", { id: target.id })}
+            loading={pending === target.id}
+            disabled={pending !== null && pending !== target.id}
+            onClick={() => onChoose(target.id)}
+          >
+            {t("appPages.rollback.goBack")}
+          </Button>
+        </li>
       ))}
-    </fieldset>
+    </ul>
   );
 }
 
 export interface RollbackDialogProps {
   domain: string;
-  /** The app's deploy layout: `releases`, or `inplace` for an app not migrated yet. */
+  /** The app's deploy layout: `releases`, or `inplace` for an app kept in a single folder. */
   layout: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Follows the job a rollback from a backup queues; without it, a toast says it was queued. */
   onJobQueued?: (job: Job) => void;
-  /** The target chosen when the dialog opens: a release id, or a backup id. */
-  preselect?: string | null;
 }
 
 /**
- * Puts an earlier version of the app back. An app on releases switches to a previous release
- * in seconds; an app deployed in place is restored from one of its backups, as a job.
+ * Puts an earlier version of the app back. An app with instant rollback switches to an earlier
+ * version in seconds; an app kept in a single folder is restored from one of its backups, as a
+ * job. Only what can be gone back to is listed: the version live now is not.
  */
-export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued, preselect = null }: RollbackDialogProps) {
+export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued }: RollbackDialogProps) {
   const t = useT();
-  const name = useId();
-  const [choice, setChoice] = useState<string | null>(preselect);
-  // Opening again starts from the preselected target, adjusted while rendering.
-  const [wasOpen, setWasOpen] = useState(open);
-  if (wasOpen !== open) {
-    setWasOpen(open);
-    if (open) setChoice(preselect);
-  }
+  const [chosen, setChosen] = useState<string | null>(null);
   const onReleases = layout === "releases";
   const releases = useQuery({ ...releasesQuery(domain), enabled: open && onReleases });
   // The API also answers "no releases" for an app it finds in place, whatever it was listed as.
@@ -105,19 +108,19 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
   const targets: Target[] | undefined = inPlace
     ? points.data?.items.map((point) => ({
         id: point.id,
-        title: point.id,
+        title: titleOf(t, point.created_at, point.id),
         commit: point.git_commit ?? null,
-        when: point.created_at,
+        when: null,
         note: `${point.description}, ${formatBytes(point.size_bytes, t.locale)}`,
       }))
     : releases.data?.items
         .filter((release) => !release.active && release.on_disk)
         .map((release) => ({
           id: release.id,
-          title: release.id,
+          title: titleOf(t, release.created_at, release.id),
           commit: release.commit ?? null,
-          when: release.activated_at ?? release.created_at,
-          note: release.status,
+          when: release.activated_at ?? null,
+          note: null,
         }));
 
   const loading = inPlace ? points.isPending : releases.isPending;
@@ -127,16 +130,19 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
     if (!next && action.isPending) return;
     onOpenChange(next);
     if (!next) {
-      setChoice(null);
+      setChosen(null);
       action.reset();
     }
   };
 
-  const confirm = (): void => {
-    if (choice === null) return;
-    action.mutate(choice, {
+  const choose = (id: string): void => {
+    setChosen(id);
+    action.mutate(id, {
       onSuccess: () => {
         close(false);
+      },
+      onSettled: () => {
+        setChosen(null);
       },
     });
   };
@@ -154,15 +160,15 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
       </div>
     );
   } else if (targets.length === 0) {
-    body = <p className="text-14 text-fg-muted">{inPlace ? t("appPages.rollback.noBackups") : t("appPages.rollback.noReleases")}</p>;
+    body = <EmptyState variant="inline" title={inPlace ? t("appPages.rollback.noBackups") : t("appPages.rollback.noReleases")} />;
   } else {
     body = (
-      <Options
-        name={name}
+      <Targets
+        label={inPlace ? t("appPages.rollback.backupsLabel") : t("appPages.rollback.releasesLabel")}
         targets={targets}
-        value={choice}
-        onChange={setChoice}
-        legend={inPlace ? t("appPages.rollback.restoreFromBackupLegend") : t("appPages.rollback.switchToReleaseLegend")}
+        pending={chosen}
+        onChoose={choose}
+        t={t}
       />
     );
   }
@@ -174,14 +180,9 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
       title={t("appPages.rollback.title", { domain })}
       description={inPlace ? t("appPages.rollback.inPlaceDescription") : t("appPages.rollback.releasesDescription")}
       footer={
-        <>
-          <Button disabled={action.isPending} onClick={() => close(false)}>
-            {t("appPages.common.cancel")}
-          </Button>
-          <Button variant="primary" disabled={choice === null} loading={action.isPending} onClick={confirm}>
-            {t("appPages.common.rollBack")}
-          </Button>
-        </>
+        <Button disabled={action.isPending} onClick={() => close(false)}>
+          {t("appPages.common.cancel")}
+        </Button>
       }
     >
       <div className="flex flex-col gap-4">

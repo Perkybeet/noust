@@ -17,7 +17,23 @@ import { translate } from "../i18n/translate";
  * The login and elevate endpoints answer them; a 401 carrying anything else means the
  * session is gone and the operator has to sign in again.
  */
-export const CREDENTIAL_ERRORS: ReadonlySet<string> = new Set(["invalid_token", "totp_required", "invalid_totp"]);
+export const CREDENTIAL_ERRORS: ReadonlySet<string> = new Set([
+  "invalid_token",
+  "totp_required",
+  "invalid_totp",
+  // An account's sign-in or confirmation: one answer whatever was wrong (G10).
+  "invalid_credentials",
+  // The master token's second factor, when a passkey is (or may be) that factor.
+  "passkey_required",
+  "second_factor_required",
+  // A passkey ceremony the server refused (noust.web.api.passkeys).
+  "invalid_passkey",
+  "passkey_unknown",
+  "passkey_expired",
+  "passkey_origin",
+  // An invitation code that opens nothing: the invitation page is anonymous.
+  "invalid_invitation",
+]);
 
 /** A request the API refused or could not answer. */
 export class ApiError extends Error {
@@ -37,6 +53,11 @@ export class ApiError extends Error {
   readonly output: string | null;
   /** The server that answered: a node's name, or null for this one. */
   readonly node: string | null;
+  /**
+   * Members of the body beyond the contract, verbatim: a deliberate refusal's `required`,
+   * `blockers` or `holders` (409 confirmation_required, preflight_failed, host_busy).
+   */
+  readonly extra: Readonly<Record<string, unknown>>;
 
   constructor(
     status: number,
@@ -47,6 +68,7 @@ export class ApiError extends Error {
     retryAfter: number | null = null,
     output: string | null = null,
     node: string | null = null,
+    extra: Readonly<Record<string, unknown>> = {},
   ) {
     super(detail);
     this.name = "ApiError";
@@ -58,6 +80,7 @@ export class ApiError extends Error {
     this.retryAfter = retryAfter;
     this.output = output;
     this.node = node;
+    this.extra = extra;
   }
 
   /** True when the session is gone, not when a typed credential was wrong. */
@@ -68,15 +91,41 @@ export class ApiError extends Error {
 
 /** The operator closed "Confirm it's you" instead of confirming: the action did not run. */
 export class ElevationCancelledError extends ApiError {
-  constructor() {
+  constructor(code = "elevation_cancelled", detail?: string, hint?: string) {
     const locale = getLocale();
     super(
       403,
-      "elevation_cancelled",
-      translate(locale, "common.apiErrors.elevationCancelled"),
-      translate(locale, "common.apiErrors.elevationCancelledHint"),
+      code,
+      detail ?? translate(locale, "common.apiErrors.elevationCancelled"),
+      hint ?? translate(locale, "common.apiErrors.elevationCancelledHint"),
     );
     this.name = "ElevationCancelledError";
+  }
+}
+
+/** Why an action that needs a second person's approval did not run (yet). */
+export type ApprovalHold = "approval_pending" | "approval_cancelled" | "approval_rejected" | "approval_expired";
+
+/**
+ * The action needs a second person's approval and did not run: the operator closed the
+ * request while it waited (it stays in Approvals, runnable once approved), declined to ask,
+ * or the request was rejected or expired. Like a cancelled confirmation it is not a failure
+ * of the system, so every caller that already treats ElevationCancelledError as "nothing was
+ * done" treats this the same way.
+ */
+export class ApprovalPendingError extends ElevationCancelledError {
+  /** The approval request, when one was filed. */
+  readonly approvalId: string | null;
+
+  constructor(code: ApprovalHold, approvalId: string | null = null, detail?: string) {
+    const locale = getLocale();
+    super(
+      code,
+      detail ?? translate(locale, `approvals.errors.${code}.detail`),
+      translate(locale, `approvals.errors.${code}.hint`),
+    );
+    this.name = "ApprovalPendingError";
+    this.approvalId = approvalId;
   }
 }
 
@@ -106,6 +155,9 @@ const CODE_BY_STATUS: Readonly<Record<number, string>> = {
   422: "validation_error",
   429: "rate_limited",
 };
+
+/** The members every error body has; anything else is kept in `ApiError.extra`. */
+const CONTRACT_MEMBERS: ReadonlySet<string> = new Set(["error", "detail", "hint", "fields", "output"]);
 
 function codeFor(status: number): string {
   return CODE_BY_STATUS[status] ?? (status >= 500 ? "internal" : "http_error");
@@ -161,6 +213,7 @@ export async function errorFromResponse(response: Response, node: string | null 
       retryAfter,
       stringOrNull(record["output"]),
       node,
+      Object.fromEntries(Object.entries(record).filter(([key]) => !CONTRACT_MEMBERS.has(key))),
     );
   }
 

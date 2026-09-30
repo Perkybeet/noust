@@ -57,4 +57,21 @@ describe("Tabs", () => {
     const { container } = render(<Example />);
     await expectNoAxeViolations(container);
   });
+
+  it("keeps a loading count's room, so the strip does not widen when it arrives", () => {
+    render(
+      <Tabs defaultValue="sites">
+        <TabList aria-label="Domains">
+          <Tab value="certificates" count={null}>
+            Certificates
+          </Tab>
+          <Tab value="sites" count={3}>
+            Sites
+          </Tab>
+        </TabList>
+      </Tabs>,
+    );
+    expect(screen.getByRole("tab", { name: /Certificates/ }).querySelector(".invisible")).not.toBeNull();
+    expect(screen.getByRole("tab", { name: "Sites 3" })).toBeInTheDocument();
+  });
 });

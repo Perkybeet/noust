@@ -211,6 +211,17 @@ function States() {
           </QueryState>
           <ErrorBlock live compact error={FAILURE} title="Renewal of shop.example.dev failed" />
           <ErrorBlock compact error={LONG_FAILURE} title="The configuration test failed" />
+          <ErrorBlock
+            compact
+            error={FAILURE}
+            title="The update failed"
+            onRetry={() => undefined}
+            action={
+              <Button size="sm" variant="ghost">
+                View output
+              </Button>
+            }
+          />
         </div>
       </Stage>
     </Section>

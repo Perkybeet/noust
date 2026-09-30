@@ -21,7 +21,8 @@ export async function useSpanish(page: Page): Promise<void> {
 
 /** Signs in through the sign-in page as it reads in Spanish. */
 export async function signInSpanish(page: Page, server: ConsoleServer, next?: string): Promise<void> {
-  await page.goto(next === undefined ? "/login" : `/login?next=${encodeURIComponent(next)}`);
+  // The access token is emergency access since accounts (3.1): `with=token` opens on it.
+  await page.goto(next === undefined ? "/login?with=token" : `/login?with=token&next=${encodeURIComponent(next)}`);
   await expect(page.locator("html")).toHaveAttribute("lang", "es");
   await page.getByLabel(spanish.auth.accessToken).fill(server.token);
   await page.getByRole("button", { name: spanish.auth.signIn }).click();
@@ -33,6 +34,12 @@ export async function signInSpanish(page: Page, server: ConsoleServer, next?: st
   }
   await expect(page).not.toHaveURL(/\/login/);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  // A server with no accounts offers to create the first ones on arrival at the overview.
+  if (new URL(page.url()).pathname === "/setup") {
+    await page.getByRole("button", { name: spanish.auth.firstAccount.notNow }).click();
+    await expect(page).not.toHaveURL(/\/setup/);
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  }
 }
 
 /** Answers "Confirma que eres tú" with an unspent second factor, or the access token. */

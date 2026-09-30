@@ -1,18 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import type { MetricWindow } from "../../api/queries/metrics";
 import { OverviewPage } from "../../features/overview/OverviewPage";
-import { WINDOWS } from "../../features/overview/windows";
+import { DEFAULT_RANGE, isRange } from "../../features/overview/ranges";
+import type { MetricRange } from "../../features/overview/ranges";
 
 interface OverviewSearch {
-  /** The machine charts' time range; the last hour when absent. */
-  window?: MetricWindow;
+  /** The machine charts' time range; the last 24 hours when absent. */
+  window?: MetricRange;
 }
 
 function validateSearch(search: Record<string, unknown>): OverviewSearch {
   const window = search["window"];
-  const known = WINDOWS.find((option) => option.value === window);
-  return known === undefined ? {} : { window: known.value };
+  return isRange(window) && window !== DEFAULT_RANGE ? { window } : {};
 }
 
 export const Route = createFileRoute("/_console/")({
@@ -21,12 +20,12 @@ export const Route = createFileRoute("/_console/")({
 });
 
 function OverviewRoute() {
-  const { window = "1h" } = Route.useSearch();
+  const { window = DEFAULT_RANGE } = Route.useSearch();
   const navigate = Route.useNavigate();
   return (
     <OverviewPage
-      window={window}
-      onWindowChange={(next) => void navigate({ search: next === "1h" ? {} : { window: next }, replace: true })}
+      range={window}
+      onRangeChange={(next) => void navigate({ search: next === DEFAULT_RANGE ? {} : { window: next }, replace: true })}
     />
   );
 }

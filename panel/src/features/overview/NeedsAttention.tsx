@@ -1,30 +1,22 @@
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { TriangleAlert } from "lucide-react";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 
-import { appsQuery } from "../../api/queries/apps";
-import { certsQuery } from "../../api/queries/certs";
-import { observationsQuery } from "../../api/queries/monitor";
-import { servicesQuery } from "../../api/queries/services";
-import { machineQuery } from "../../api/queries/system";
-import { ErrorBlock } from "../../components/page/QueryState";
+import type { OverviewAttentionItem, OverviewAttentionReason } from "../../api/queries/overview";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { appStatus } from "../../components/page/status";
-import { Section } from "../../components/page/Section";
 import { useAnnounceChange } from "../../components/page/useAnnounceChange";
 import { Badge } from "../../components/ui/Badge";
+import { Button, buttonClassName } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { cx } from "../../lib/cx";
-import { describeError } from "../../lib/errors";
 import { formatDate, parseTimestamp } from "../../lib/format";
-import { recentDeploysQuery } from "../apps/data";
-import { collectAttention } from "./attention";
-import type { AttentionItem, AttentionSummary, Severity } from "./attention";
+import type { AttentionSummary, Severity } from "./attention";
 
 /** Turns a pure `AttentionSummary` into the sentence it stands for, in the active language. */
 export function summaryText(t: T, summary: AttentionSummary): string {
@@ -60,320 +52,288 @@ export function validUntilText(t: T, value: string): string {
   return t("overview.attention.certValidUntil", { date: date ? formatDate(date, {}, t.locale) : value });
 }
 
-const LINK =
-  "rounded-[4px] font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus";
-
 export function SeverityGlyph({ severity }: { severity: Severity }) {
   return <StatusGlyph state={severity === "fail" ? "failed" : "warning"} size={14} className={severity === "fail" ? "text-fail" : "text-warn"} />;
 }
 
-/** The page the item's title opens: the app, or the page that owns what it is about. */
-function SubjectLink({ t, item }: { t: T; item: AttentionItem }) {
-  const className =
-    "min-w-0 truncate rounded-[4px] text-14 font-medium text-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus";
-  const label = <span translate="no">{item.title}</span>;
-  switch (item.subject.kind) {
-    case "app":
-      return (
-        <Link to="/apps/$domain" params={{ domain: item.subject.domain }} className={className}>
-          {label}
-        </Link>
-      );
-    case "certificate":
-      return (
-        <Link to="/domains" className={className}>
-          {label}
-        </Link>
-      );
-    case "units":
-      return (
-        <Link to="/services" className={className}>
-          {t("overview.attention.services")}
-        </Link>
-      );
-    case "unit":
-      return (
-        <Link to="/services/$name" params={{ name: item.subject.name }} className={cx(className, "mono text-13")}>
-          {label}
-        </Link>
-      );
-    case "monitor":
-      return (
-        <Link to="/server" className={className}>
-          {label}
-          <span className="mono ml-1.5 text-12 font-normal text-fg-faint">{`PID ${String(item.subject.pid)}`}</span>
-        </Link>
-      );
+function text(value: unknown): string | null {
+  return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+
+/** What the server says is wrong, as a sentence of the console's; a code it does not know, verbatim. */
+export function reasonText(t: T, reason: OverviewAttentionReason): string {
+  const params = reason.params ?? {};
+  switch (reason.code) {
+    case "service_failed":
+      return t("overview.attention.serviceFailed");
+    case "service_restarting":
+      return t("overview.attention.serviceRestarting");
+    case "no_answer":
+      return t("overview.attention.noAnswer");
+    case "deploy_failed":
+      return t("overview.attention.deployFailed");
+    case "deploy_rolled_back":
+      return t("overview.attention.deployRolledBack");
+    case "certificate_expired":
+      return t("overview.attention.certExpired");
+    case "certificate_expires_today":
+      return t("overview.attention.certExpiresToday");
+    case "certificate_expires_in":
+      return t("overview.attention.certExpiresIn", { count: Number(params["days"] ?? 0) });
+    case "unit_failed":
+      return t("overview.attention.unitFailed");
+    case "unit_restarting":
+      return t("overview.attention.unitRestarting");
+    case "monitor_finding":
+      return t("overview.attention.monitorFinding", { severity: text(params["severity"]) ?? "", signal: text(params["signal"]) ?? "" });
+    default:
+      return reason.code;
   }
 }
 
-/** Where each problem of an app is dealt with: its deploy's log, its diagnosis, its domains. */
-function ItemActions({ t, item }: { t: T; item: AttentionItem }) {
-  if (item.subject.kind !== "app") return null;
-  const domain = item.subject.domain;
-  const kinds = new Set(item.reasons.map((reason) => reason.kind));
-  const deploymentId = item.reasons.find((reason) => reason.deploymentId !== undefined)?.deploymentId;
+const SUBJECT_LINK = "min-w-0 truncate rounded-chip text-13 font-medium text-fg hover:underline hover:underline-offset-2";
+
+/** The item's title, linking to the page that owns what it is about. */
+function Subject({ t, item }: { t: T; item: OverviewAttentionItem }) {
+  const kind = item.subject["kind"];
+  const domain = text(item.subject["domain"]);
+  const name = text(item.subject["name"]);
+  if (kind === "app" && domain !== null) {
+    return (
+      <Link to="/apps/$domain" params={{ domain }} className={SUBJECT_LINK}>
+        <span translate="no">{item.title}</span>
+      </Link>
+    );
+  }
+  if (kind === "certificate") {
+    return (
+      <Link to="/domains" className={SUBJECT_LINK}>
+        <span translate="no">{item.title}</span>
+      </Link>
+    );
+  }
+  if (kind === "unit" && name !== null) {
+    return (
+      <Link to="/services/$name" params={{ name }} className={SUBJECT_LINK}>
+        <Mono>{item.title}</Mono>
+      </Link>
+    );
+  }
+  const pid = item.subject["pid"];
   return (
-    <div className="flex shrink-0 items-center gap-3 text-13">
-      {deploymentId !== undefined ? (
-        <Link
-          to="/apps/$domain/deployments/$id"
-          params={{ domain, id: String(deploymentId) }}
-          aria-label={t("overview.attention.viewLogAria", { domain })}
-          className={LINK}
-        >
-          {t("overview.attention.viewLog")}
-        </Link>
+    <Link to="/server" className={SUBJECT_LINK}>
+      <span translate="no">{item.title}</span>
+      {typeof pid === "number" ? (
+        <Mono tone="faint" className="ml-1.5 font-normal">
+          {t("overview.attention.pid", { pid: String(pid) })}
+        </Mono>
       ) : null}
-      {kinds.has("state") || kinds.has("deploy") ? (
-        <Link to="/apps/$domain/diagnose" params={{ domain }} aria-label={t("overview.attention.diagnoseAria", { domain })} className={LINK}>
-          {t("overview.attention.diagnose")}
-        </Link>
-      ) : null}
-      {kinds.has("certificate") ? (
-        <Link to="/apps/$domain/domains" params={{ domain }} aria-label={t("overview.attention.certificateAria", { domain })} className={LINK}>
-          {t("overview.attention.certificate")}
-        </Link>
-      ) : null}
-    </div>
+    </Link>
   );
 }
 
-function Item({ t, item }: { t: T; item: AttentionItem }) {
+const ACTION = buttonClassName("secondary", "sm");
+
+/** The one or two things to do about an item, where they are done: never more than two. */
+function Actions({ t, item }: { t: T; item: OverviewAttentionItem }) {
+  const domain = text(item.subject["domain"]);
+  const name = text(item.subject["name"]);
+  const wanted = new Set(item.reasons.flatMap((reason) => reason.actions ?? []));
+  const deploymentId = item.reasons.find((reason) => reason.deployment_id !== null && reason.deployment_id !== undefined)?.deployment_id ?? null;
+  const out: ReactNode[] = [];
+  if (domain !== null && item.subject["kind"] === "app") {
+    if (wanted.has("view_deployment") && deploymentId !== null) {
+      out.push(
+        <Link
+          key="deploy"
+          to="/apps/$domain/deployments/$id"
+          params={{ domain, id: String(deploymentId) }}
+          aria-label={t("overview.attention.viewLogAria", { domain })}
+          className={ACTION}
+        >
+          {t("overview.attention.viewLog")}
+        </Link>,
+      );
+    } else if (wanted.has("view_log")) {
+      out.push(
+        <Link key="logs" to="/apps/$domain/logs" params={{ domain }} aria-label={t("overview.attention.appLogAria", { domain })} className={ACTION}>
+          {t("overview.attention.appLog")}
+        </Link>,
+      );
+    }
+    if (wanted.has("diagnose")) {
+      out.push(
+        <Link key="diagnose" to="/apps/$domain/diagnose" params={{ domain }} aria-label={t("overview.attention.diagnoseAria", { domain })} className={ACTION}>
+          {t("overview.attention.diagnose")}
+        </Link>,
+      );
+    }
+    if (wanted.has("renew_certificate") && out.length < 2) {
+      out.push(
+        <Link key="cert" to="/apps/$domain/domains" params={{ domain }} aria-label={t("overview.attention.certificateAria", { domain })} className={ACTION}>
+          {t("overview.attention.certificate")}
+        </Link>,
+      );
+    }
+  } else if (item.subject["kind"] === "certificate" && domain !== null) {
+    out.push(
+      <Link key="cert" to="/domains" aria-label={t("overview.attention.certificateAria", { domain })} className={ACTION}>
+        {t("overview.attention.certificate")}
+      </Link>,
+    );
+  } else if (item.subject["kind"] === "unit" && name !== null) {
+    out.push(
+      <Link key="service" to="/services/$name" params={{ name }} aria-label={t("overview.attention.openServiceAria", { name })} className={ACTION}>
+        {t("overview.attention.openService")}
+      </Link>,
+    );
+  } else if (item.subject["kind"] === "monitor") {
+    out.push(
+      <Link key="finding" to="/server" aria-label={t("overview.attention.openFindingAria", { name: item.title })} className={ACTION}>
+        {t("overview.attention.openFinding")}
+      </Link>,
+    );
+  }
+  if (out.length === 0) return null;
+  return <div className="flex shrink-0 flex-wrap items-center gap-2">{out.slice(0, 2)}</div>;
+}
+
+function Item({ t, item }: { t: T; item: OverviewAttentionItem }) {
+  const severity: Severity = item.severity === "fail" ? "fail" : "warn";
   const when = item.reasons.find((reason) => reason.when)?.when ?? null;
   return (
-    <li
-      data-severity={item.severity}
-      className="grid grid-cols-[1rem_minmax(0,1fr)] gap-x-3 gap-y-1 px-4 py-3 sm:grid-cols-[1rem_minmax(0,1fr)_auto]"
-    >
-      <span className="flex h-5 items-center">
-        <SeverityGlyph severity={item.severity} />
-        <span className="sr-only">{item.severity === "fail" ? t("overview.attention.srFailure") : t("overview.attention.srWarning")}</span>
+    <li data-severity={severity} className="flex min-w-0 gap-3 px-4 py-3">
+      <span className="flex h-5 shrink-0 items-center">
+        <SeverityGlyph severity={severity} />
+        <span className="sr-only">{severity === "fail" ? t("overview.attention.srFailure") : t("overview.attention.srWarning")}</span>
       </span>
-      <div className="flex min-w-0 flex-col gap-1">
-        <div className="flex min-w-0 items-baseline gap-2">
-          <SubjectLink t={t} item={item} />
-          {when ? <RelativeTime value={when} className="shrink-0 text-12 text-fg-faint" /> : null}
+      <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <div className="flex min-w-0 items-baseline gap-2">
+            <Subject t={t} item={item} />
+            {when ? <RelativeTime value={when} className="shrink-0 text-12 text-fg-faint" /> : null}
+          </div>
+          <ul className="flex min-w-0 flex-col gap-0.5">
+            {item.reasons.map((reason, index) => {
+              const validUntil = text(reason.params?.["valid_until"]);
+              const detail = reason.detail ?? (validUntil !== null ? validUntilText(t, validUntil) : null);
+              return (
+                <li key={`${reason.code}-${String(index)}`} className="flex min-w-0 flex-col">
+                  <span className={cx("text-13", reason.severity === "fail" ? "text-fg" : "text-fg-muted")}>{reasonText(t, reason)}</span>
+                  {detail !== null ? (
+                    <Mono tone="muted" truncate title={detail} className="text-12">
+                      {detail}
+                    </Mono>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
         </div>
-        <ul className="flex min-w-0 flex-col gap-1">
-          {item.reasons.map((reason, index) => {
-            const detail = reason.detail ?? (reason.validUntil !== undefined ? validUntilText(t, reason.validUntil) : undefined);
-            return (
-              <li key={`${reason.summary.key}-${String(index)}`} className="flex min-w-0 flex-col">
-                <span className={cx("text-13", reason.severity === "fail" ? "text-fg" : "text-fg-muted")}>{summaryText(t, reason.summary)}</span>
-                {detail !== undefined ? (
-                  <code translate="no" title={detail} className="truncate text-12 text-fg-muted">
-                    {detail}
-                  </code>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-      <div className="col-start-2 sm:col-start-3 sm:row-start-1 sm:self-center">
-        <ItemActions t={t} item={item} />
+        <Actions t={t} item={item} />
       </div>
     </li>
   );
 }
 
-/** Where the block's last rendered height is kept, so the next load reserves as much. */
-export const ATTENTION_HEIGHT_KEY = "noust.overview.attention-height";
-/** The key WASM stored this under before the rename; read once, then migrated away. */
-const LEGACY_ATTENTION_HEIGHT_KEY = "wasm.overview.attention-height";
-/** One skeleton row with its divider. */
-const SKELETON_ROW = 63;
+/** How many items show before "Show all": the worst five fit beside the activity at 1440. */
+export const ATTENTION_SHOWN = 5;
 
-function parseHeight(value: string | null): number | null {
-  const parsed = Number(value);
-  return value !== null && Number.isFinite(parsed) && parsed > 0 ? parsed : null;
-}
-
-/** How tall the block was when the overview last showed it, in CSS pixels; null if unknown. */
-export function rememberedAttentionHeight(): number | null {
-  try {
-    const stored = window.localStorage.getItem(ATTENTION_HEIGHT_KEY);
-    if (stored !== null) return parseHeight(stored);
-    // One-time migration: a height remembered before the rename still applies, moved to the new key.
-    const legacy = window.localStorage.getItem(LEGACY_ATTENTION_HEIGHT_KEY);
-    if (legacy === null) return null;
-    window.localStorage.setItem(ATTENTION_HEIGHT_KEY, legacy);
-    window.localStorage.removeItem(LEGACY_ATTENTION_HEIGHT_KEY);
-    return parseHeight(legacy);
-  } catch {
-    // Storage can be disabled (privacy modes): the skeleton falls back to its own two rows.
-    return null;
-  }
-}
-
-function rememberAttentionHeight(height: number): void {
-  try {
-    window.localStorage.setItem(ATTENTION_HEIGHT_KEY, String(Math.round(height)));
-  } catch {
-    // Not kept: the next load reserves the default instead, and may shift once.
-  }
-}
-
-function SkeletonRows({ count }: { count: number }) {
-  return (
-    <div aria-hidden="true" className="divide-y divide-border rounded-card border border-border bg-surface shadow-raised">
-      {Array.from({ length: count }, (_, i) => i).map((i) => (
-        <div key={i} className="grid grid-cols-[1rem_minmax(0,1fr)] gap-3 px-4 py-3.5">
-          <Skeleton className="mt-0.5 size-3.5 rounded-pill" />
-          <div className="flex flex-col gap-2">
-            <Skeleton className="h-3.5 w-48" />
-            <Skeleton className="h-3 w-72 max-w-full" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** A source that could not be checked: said plainly, with its own words, never silently skipped. */
-function Unchecked({ t, source, error }: { t: T; source: "certs" | "monitor"; error: unknown }) {
-  const { detail } = describeError(error);
-  return (
-    <p className="flex min-w-0 items-baseline gap-2 text-12 text-fg-muted">
-      <TriangleAlert aria-hidden="true" className="size-3 shrink-0 translate-y-0.5 text-warn" />
-      <span className="min-w-0">
-        {t(source === "certs" ? "overview.attention.certsUnchecked" : "overview.attention.monitorUnchecked")}
-        <code className="break-words text-fg">{detail}</code>
-      </span>
-    </p>
-  );
+export interface NeedsAttentionProps {
+  items: readonly OverviewAttentionItem[] | undefined;
+  total: number;
 }
 
 /**
- * The top of the overview: every problem on the machine, worst first, each linking to where
- * it is fixed. When there is none, one quiet line says what was checked.
+ * What needs an operator, worst first, each with where it is fixed. Five at most until asked for
+ * all; when nothing does, one calm line that says what was checked.
  */
-export interface NeedsAttentionProps {
-  /** Called once every source has answered and the block has its final height. */
-  onSettled?: () => void;
-}
-
-export function NeedsAttention({ onSettled }: NeedsAttentionProps = {}) {
+export function NeedsAttention({ items, total }: NeedsAttentionProps) {
   const t = useT();
-  const apps = useQuery(appsQuery());
-  const deploys = useQuery(recentDeploysQuery());
-  const certs = useQuery(certsQuery());
-  const observations = useQuery(observationsQuery(false));
-  const machine = useQuery(machineQuery());
-  const units = useQuery(servicesQuery());
-
-  const items = useMemo(
-    () =>
-      collectAttention({
-        apps: apps.data?.apps,
-        deployments: deploys.data?.items,
-        certificates: certs.data?.certificates,
-        observations: observations.data?.observations,
-        machine: machine.data,
-        units: units.data?.services,
-      }),
-    [apps.data, deploys.data, certs.data, observations.data, machine.data, units.data],
-  );
-
-  // Every source answers (or fails) before any item is drawn: items arriving one source at a
-  // time would grow the block, and push the charts and applications below it, once per source.
-  const loading = [apps, deploys, certs, observations, machine, units].some((query) => query.isPending);
-  const count = loading ? null : items.length;
-
-  // The space the block took last time is held for it while it loads, so on the usual reload
-  // (the same problems as a minute ago) nothing below it moves when it lands.
-  const [reserved] = useState(rememberedAttentionHeight);
-  const bodyRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!loading) onSettled?.();
-  }, [loading, onSettled]);
-  useEffect(() => {
-    const body = bodyRef.current;
-    if (loading || !body) return;
-    const observer = new ResizeObserver(() => {
-      rememberAttentionHeight(body.offsetHeight);
-    });
-    observer.observe(body);
-    rememberAttentionHeight(body.offsetHeight);
-    return () => {
-      observer.disconnect();
-    };
-  }, [loading]);
+  const [all, setAll] = useState(false);
+  const count = items === undefined ? null : total;
   useAnnounceChange(
     count === null ? null : String(count),
     count === null ? null : count === 0 ? t("overview.attention.announceEmpty") : t("overview.attention.announceCount", { count }),
-    items.some((item) => item.severity === "fail") ? "assertive" : "polite",
+    items?.some((item) => item.severity === "fail") === true ? "assertive" : "polite",
   );
-
-  const unchecked: { source: "certs" | "monitor"; error: unknown }[] = [
-    ...(certs.isError ? [{ source: "certs" as const, error: certs.error }] : []),
-    ...(observations.isError ? [{ source: "monitor" as const, error: observations.error }] : []),
-  ];
+  const worst = items?.[0]?.severity;
+  const shown = items === undefined ? [] : all ? items : items.slice(0, ATTENTION_SHOWN);
 
   let body: ReactNode;
-  if (apps.isError && apps.data === undefined) {
+  if (items === undefined) {
     body = (
-      <ErrorBlock
-        error={apps.error}
-        title={t("overview.attention.couldNotCheck")}
-        onRetry={() => void apps.refetch()}
-        retrying={apps.isRefetching}
-      />
-    );
-  } else if (loading) {
-    body = (
-      <div aria-busy="true">
+      <div aria-busy="true" className="divide-y divide-border">
         <span className="sr-only">{t("overview.attention.checking")}</span>
-        <SkeletonRows count={reserved === null ? 2 : Math.max(1, Math.round(reserved / SKELETON_ROW))} />
+        {[0, 1].map((row) => (
+          <div key={row} aria-hidden="true" className="flex gap-3 px-4 py-3.5">
+            <Skeleton className="mt-0.5 size-3.5 rounded-pill" />
+            <div className="flex flex-1 flex-col gap-2">
+              <Skeleton className="h-3.5 w-48" />
+              <Skeleton className="h-3 w-72 max-w-full" />
+            </div>
+          </div>
+        ))}
       </div>
     );
   } else if (items.length === 0) {
     body = (
-      <div className="flex items-start gap-3 rounded-card border border-border bg-surface px-4 py-3.5 shadow-raised">
+      <div className="flex items-start gap-3 px-4 py-3.5">
         <span className="flex h-5 items-center">
           <StatusGlyph state="running" size={14} className="text-ok" />
         </span>
-        <p className="text-13 text-fg-muted">
+        <p className="text-13 text-pretty text-fg-muted">
           <span className="font-medium text-fg">{t("overview.attention.emptyTitle")}</span> {t("overview.attention.emptyDescription")}
         </p>
       </div>
     );
   } else {
     body = (
-      <ul className="divide-y divide-border rounded-card border border-border bg-surface shadow-raised">
-        {items.map((item) => (
+      <ul className="divide-y divide-border">
+        {shown.map((item) => (
           <Item key={item.id} t={t} item={item} />
         ))}
       </ul>
     );
   }
 
-  const worst = items[0]?.severity;
+  const more = items !== undefined && items.length > ATTENTION_SHOWN;
   return (
-    <Section
-      title={t("overview.attention.title")}
-      badge={
-        count !== null && count > 0 ? (
-          <Badge tone={worst === "fail" ? "fail" : "warn"}>
-            <span className="sr-only">{t("overview.attention.itemsSr")}</span>
-            {count}
-          </Badge>
-        ) : undefined
-      }
-    >
-      <div ref={bodyRef} style={loading && reserved !== null ? { minHeight: reserved } : undefined}>
+    <section aria-label={t("overview.attention.title")} className="h-full min-w-0">
+      <Card
+        as="div"
+        level={2}
+        padding="none"
+        className="h-full"
+        title={
+          <span className="flex items-center gap-2">
+            {t("overview.attention.title")}
+            {count !== null && count > 0 ? (
+              <Badge tone={worst === "fail" ? "fail" : "warn"}>
+                <span className="sr-only">{t("overview.attention.itemsSr")}</span>
+                {count}
+              </Badge>
+            ) : null}
+          </span>
+        }
+        {...(more
+          ? {
+              footer: (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setAll((value) => !value);
+                  }}
+                >
+                  {all ? t("overview.attention.showFewer") : t("overview.attention.showAll", { count: items.length })}
+                </Button>
+              ),
+            }
+          : {})}
+      >
         {body}
-      </div>
-      {unchecked.length > 0 ? (
-        <div className="-mt-1 flex flex-col gap-1">
-          {unchecked.map((source) => (
-            <Fragment key={source.source}>
-              <Unchecked t={t} source={source.source} error={source.error} />
-            </Fragment>
-          ))}
-        </div>
-      ) : null}
-    </Section>
+      </Card>
+    </section>
   );
 }

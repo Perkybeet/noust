@@ -19,7 +19,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { csrf, forgetApp } from "./apps-cleanup";
 import { spanish } from "./catalog";
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
-import { inspectSource, wizardSource } from "./wizard-sources";
+import { continueTo, inspectSource, wizardSource } from "./wizard-sources";
 
 /** The seeded application with an alias, a cron job, a secret variable and a linked database. */
 const EXPORTED = "lanzamiento.example.org";
@@ -68,15 +68,17 @@ test("a recipe from the gallery is reviewed, deployed, and says what to do next"
   await expectNoA11yViolations(page, "the recipe gallery");
 
   await recipes.getByRole("button", { name: "Use WordPress" }).click();
-  await expect(page.getByRole("heading", { level: 2, name: "Review" })).toBeFocused();
-  await expect(page.getByText("Noust deploys WordPress as its recipe describes.", { exact: false })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Address" })).toBeFocused();
   // The archive and where its checksum is published, straight from wordpress.yaml.
   await expect(page.getByText("https://wordpress.org/latest.tar.gz", { exact: true })).toBeVisible();
-  await expect(page.getByText("A new mysql database and user, their credentials in the app's .env")).toBeVisible();
   await page.getByLabel("Domain", { exact: true }).fill(domain);
   await expect(page.getByText(`${domain} points here`)).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "the WordPress review");
+  await expectNoA11yViolations(page, "the WordPress address");
+  await continueTo(page, "Variables");
+  await expect(page.getByText("A new mysql database and user, their credentials in the app's .env")).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "the WordPress variables");
 
   await page.getByRole("button", { name: "Continue" }).click();
   await expect(page.getByRole("heading", { level: 2, name: "Deploy" })).toBeFocused();
@@ -91,11 +93,12 @@ test("a recipe from the gallery is reviewed, deployed, and says what to do next"
 
   // A recipe's deploy is followed on the wizard's page to its end: the notes come with the result.
   await expect(page.getByText(`${domain} is deployed`)).toBeVisible({ timeout: 90_000 });
-  const next = page.getByRole("region", { name: "Next steps" });
+  const next = page.getByRole("list", { name: "Next steps" });
   await expect(next.getByRole("listitem")).toHaveCount(3);
   // Its address is a link; HTTPS was left on, so the notes say https.
   await expect(next.getByRole("link", { name: new RegExp(`^https://${domain.replace(/\./g, "\\.")}/wp-admin/install\\.php`) })).toBeVisible();
-  await expect(page.getByRole("link", { name: `Open ${domain}` })).toBeVisible();
+  // The wizard's last action opens the application it made.
+  await expect(page.getByRole("button", { name: `Open ${domain}` })).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a deployed recipe's next steps");
 
@@ -112,21 +115,23 @@ test("a repository configured for Railway gets its proposal, and its health chec
   const domain = "api-railway.example.net";
   await signIn(page, consoleServer, "/apps/new");
   await inspectSource(page, consoleServer, problems, await wizardSource(page, "railway-api"));
+  await page.getByLabel("Domain", { exact: true }).fill(domain);
+  await expect(page.getByText(`${domain} points here`)).toBeVisible();
+  await continueTo(page, "Configuration");
 
-  const proposal = page.getByRole("region", { name: /^Found a Railway configuration/ });
+  // The innermost section: the step is a section too, and holds the proposal.
+  const proposal = page.locator("section").filter({ has: page.getByText(/^Found a Railway configuration/) }).last();
   await expect(proposal).toContainText("railway.toml");
   await expect(proposal.getByText("GET /healthz, waiting up to 60 s")).toBeVisible();
   await expect(proposal.getByText("npm run build", { exact: true })).toBeVisible();
   // What has no equivalent here, in the server's words.
   await expect(proposal.getByText(/^restartPolicyType is ON_FAILURE/)).toBeVisible();
   await expect(proposal.getByRole("checkbox", { name: "Use what it proposes" })).toBeChecked();
-  await page.getByLabel("Domain", { exact: true }).fill(domain);
-  await expect(page.getByText(`${domain} points here`)).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "a Railway proposal on the review");
+  await expectNoA11yViolations(page, "a Railway proposal on the configuration step");
 
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { level: 2, name: "Deploy" })).toBeFocused();
+  await continueTo(page, "Variables");
+  await continueTo(page, "Deploy");
   const queued = page.waitForRequest((request) => request.url().endsWith("/api/apps") && request.method() === "POST");
   await page.getByRole("button", { name: `Deploy ${domain}` }).click();
   const body = (await queued).postDataJSON() as Record<string, unknown>;
@@ -139,8 +144,8 @@ test("a repository configured for Railway gets its proposal, and its health chec
 test("an application exports from its settings, with its secret values only after sudo mode", async ({ page, consoleServer, problems }) => {
   // Secret values need a recent confirmation: the first request is refused, by design.
   problems.expect(new RegExp(`status of 403 .* /api/apps/${EXPORTED.replace(/\./g, "\\.")}/export$`));
-  await signIn(page, consoleServer, `/apps/${EXPORTED}/settings`);
-  const section = page.getByRole("region", { name: "Export this application" });
+  await signIn(page, consoleServer, `/apps/${EXPORTED}/settings/export`);
+  const section = page.getByRole("region", { name: "Export" });
   await expect(section).toBeVisible();
   await section.scrollIntoViewIfNeeded();
   await settle(page);
@@ -191,19 +196,20 @@ test("an export imports on another domain with the secret it left out, and says 
   await stillness(page);
   await expectNoA11yViolations(page, "an export file read");
 
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { level: 2, name: "Review" })).toBeFocused();
+  await continueTo(page, "Address");
   const domainField = page.getByLabel("Domain", { exact: true });
   await expect(domainField).toHaveValue(EXPORTED);
   await domainField.fill(domain);
+  await settle(page);
+  await expectNoA11yViolations(page, "the import's address");
+  await continueTo(page, "Variables");
   const secretField = page.getByLabel(new RegExp(`^${SECRET.name}`));
   await expect(secretField).toHaveValue("");
   await secretField.fill("nl_live_copy_5b1e");
   await settle(page);
-  await expectNoA11yViolations(page, "the import review");
+  await expectNoA11yViolations(page, "the import's secret values");
 
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { level: 2, name: "Deploy" })).toBeFocused();
+  await continueTo(page, "Deploy");
   await stillness(page);
   await expectNoA11yViolations(page, "the import's deploy step");
 
@@ -219,8 +225,8 @@ test("an export imports on another domain with the secret it left out, and says 
   expect(body.document.app.domain).toBe(EXPORTED);
 
   await expect(page.getByText(`${domain} is imported`)).toBeVisible({ timeout: 90_000 });
-  const applied = page.getByRole("region", { name: "Applied", exact: true });
-  const notApplied = page.getByRole("region", { name: "Not applied" });
+  const applied = page.getByRole("list", { name: "Applied", exact: true });
+  const notApplied = page.getByRole("list", { name: "Not applied" });
   await expect(applied.getByText(`alias www.${domain}`)).toBeVisible();
   await expect(applied.getByText("keep 3 releases")).toBeVisible();
   await expect(applied.getByText("secret marks")).toBeVisible();
@@ -260,33 +266,31 @@ test("the language chosen in Settings applies at once and survives a reload", as
   await expect(page.locator("html")).toHaveAttribute("lang", "en");
 });
 
-test("the language of notifications saves to the server's configuration", async ({ page, consoleServer, problems }) => {
-  // Writing configuration asks "Confirm it's you" by answering 403 first, by design.
-  problems.expect(/status of 403 .* \/api\/config$/);
+test("the language of notifications saves to the server's configuration", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/settings/notifications");
-  const section = page.getByRole("region", { name: "Language of notifications" });
-  const picker = section.getByRole("radiogroup", { name: "Language of notifications" });
+  const picker = page.getByRole("radiogroup", { name: "Language of notifications" });
   await expect(picker.getByRole("radio", { name: "English" })).toBeChecked();
-  await section.scrollIntoViewIfNeeded();
+  await picker.scrollIntoViewIfNeeded();
   await settle(page);
   await expectNoA11yViolations(page, "the language of notifications");
 
   await picker.getByRole("radio", { name: "Español" }).click();
-  await expect(section.getByText("noust config set notifications.language es")).toBeVisible();
+  const bar = page.getByRole("region", { name: "Unsaved changes" });
+  await expect(bar.getByText("1 unsaved change")).toBeVisible();
   await stillness(page);
   await expectNoA11yViolations(page, "the language of notifications, changed");
   const saved = page.waitForResponse((response) => response.url().endsWith("/api/config") && response.request().method() === "PATCH" && response.ok());
-  await section.getByRole("button", { name: /^Save/ }).click();
+  await bar.getByRole("button", { name: "Save" }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
-  await expect(confirm.or(page.locator(".toast").filter({ hasText: "Saved the language of notifications" }))).toBeVisible();
+  await expect(confirm.or(bar.getByText("No unsaved changes"))).toBeVisible();
   if (await confirm.isVisible()) await confirmItsYou(page, consoleServer);
   await saved;
-  await expect(page.locator(".toast").filter({ hasText: "Saved the language of notifications" })).toBeVisible();
+  await expect(bar.getByText("No unsaved changes")).toBeVisible();
 
   const config = (await (await page.request.get("/api/config")).json()) as { config: { notifications?: { language?: string } } };
   expect(config.config.notifications?.language).toBe("es");
   await page.reload();
-  await expect(page.getByRole("region", { name: "Language of notifications" }).getByRole("radio", { name: "Español" })).toBeChecked();
+  await expect(page.getByRole("radiogroup", { name: "Language of notifications" }).getByRole("radio", { name: "Español" })).toBeChecked();
 
   // Back to English, for the rest of this worker's tests (still in sudo mode).
   const restored = await page.request.patch("/api/config", { data: { path: "notifications.language", value: "en" }, headers: await csrf(page) });

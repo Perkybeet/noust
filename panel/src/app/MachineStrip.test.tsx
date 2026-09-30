@@ -19,14 +19,14 @@ async function stripAt(units: typeof MACHINE.units) {
 describe("unitTallySummary", () => {
   it("says what each count means, in one sentence", () => {
     expect(unitTallySummary({ running: 15, failed: 0, stopped: 1 }, bindT("en"))).toBe(
-      "Noust units: 15 running, 0 failed, 1 stopped",
+      "Noust's services: 15 running, 0 failed, 1 stopped",
     );
   });
 
   it("says it in Spanish too", async () => {
     await loadCatalog("es");
     expect(unitTallySummary({ running: 15, failed: 0, stopped: 1 }, bindT("es"))).toBe(
-      "Unidades de Noust: 15 en ejecución, 0 con fallos, 1 detenidas",
+      "Servicios de Noust: 15 en marcha, 0 con fallo, 1 detenidos",
     );
   });
 });
@@ -34,21 +34,22 @@ describe("unitTallySummary", () => {
 describe("the unit tally", () => {
   it("names itself the same sentence it shows as a tooltip, not two different ones", async () => {
     const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2 });
-    const link = within(strip).getByRole("link", { name: "Noust units: 9 running, 1 failed, 2 stopped" });
-    expect(link).toHaveAttribute("href", "/services");
+    const link = within(strip).getByRole("link", { name: "Noust's services: 9 running, 1 failed, 2 stopped" });
+    expect(link).toHaveAttribute("href", "/server/services");
   });
 
-  it("keeps the visible text compact: the symbols and counts, not the sentence", async () => {
+  it("says each count in words, with its shape", async () => {
     const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2 });
-    const link = within(strip).getByRole("link", { name: "Noust units: 9 running, 1 failed, 2 stopped" });
-    expect(link.textContent).toBe("Units912");
+    const link = within(strip).getByRole("link", { name: "Noust's services: 9 running, 1 failed, 2 stopped" });
+    // Both forms are rendered; the strip's own width (a container query) shows one of them.
+    expect(link.textContent).toBe("Services9 running1 failed2 stopped");
   });
 
   it("shows the same sentence as a tooltip on keyboard focus", async () => {
     const { strip } = await stripAt({ running: 9, failed: 1, stopped: 2 });
-    const link = within(strip).getByRole("link", { name: "Noust units: 9 running, 1 failed, 2 stopped" });
+    const link = within(strip).getByRole("link", { name: "Noust's services: 9 running, 1 failed, 2 stopped" });
     link.focus();
-    expect(await screen.findByText("Noust units: 9 running, 1 failed, 2 stopped", {}, { timeout: 2000 })).toBeInTheDocument();
+    expect(await screen.findByText("Noust's services: 9 running, 1 failed, 2 stopped", {}, { timeout: 2000 })).toBeInTheDocument();
   });
 
   it("has no accessibility violations, with a failure to show", async () => {

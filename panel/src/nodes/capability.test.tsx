@@ -93,12 +93,12 @@ describe("what a node offers", () => {
         </NodeCapabilityGate>
       </Wrapper>,
     );
-    expect(await screen.findByRole("heading", { name: "Not available on db-1 (Noust 1.9.0)" })).toBeInTheDocument();
+    expect(await screen.findByText("Not available on db-1 (Noust 1.9.0)")).toBeInTheDocument();
     expect(screen.getByText("The Noust on db-1 does not offer this. Update Noust on db-1 to use it here.")).toBeInTheDocument();
     expect(screen.queryByText("Previews")).toBeNull();
     await expectNoAxeViolations(view.container);
     await act(() => setLocale("es"));
-    expect(await screen.findByRole("heading", { name: "No disponible en db-1 (Noust 1.9.0)" })).toBeInTheDocument();
+    expect(await screen.findByText("No disponible en db-1 (Noust 1.9.0)")).toBeInTheDocument();
   });
 
   it("renders the page when the node offers it", async () => {

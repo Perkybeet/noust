@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
 import { ArrowRight, Globe, MoreHorizontal, Plus, RotateCw, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 
@@ -15,6 +14,7 @@ import { RelativeTime } from "../../components/page/RelativeTime";
 import { Section, Sections } from "../../components/page/Section";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import type { Column } from "../../components/ui/DataTable";
 import { DataTable } from "../../components/ui/DataTable";
@@ -23,6 +23,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { IconButton } from "../../components/ui/IconButton";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { TextLink } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
@@ -98,14 +99,18 @@ function DnsDialog({ app, name, onClose }: { app: string; name: string | null; o
 
 function TableSkeleton() {
   return (
-    <div aria-hidden="true" className="flex flex-col divide-y divide-border rounded-card border border-border bg-surface">
-      {[0, 1].map((i) => (
-        <div key={i} className="flex h-11 items-center gap-6 px-4">
-          <Skeleton className="h-3 w-40" />
-          <Skeleton className="h-4 w-16" />
-          <Skeleton className="h-3 w-24" />
+    <div aria-hidden="true">
+      <Card as="div" padding="none">
+        <div className="flex flex-col divide-y divide-border">
+          {[0, 1].map((i) => (
+            <div key={i} className="flex h-11 items-center gap-6 px-4">
+              <Skeleton className="h-3 w-40" />
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          ))}
         </div>
-      ))}
+      </Card>
     </div>
   );
 }
@@ -178,7 +183,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
           target="_blank"
           rel="noreferrer"
           translate="no"
-          className="-mx-1 rounded-[4px] px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
+          className="-mx-1 rounded-chip px-1 py-0.5 font-medium text-fg hover:underline hover:underline-offset-2"
         >
           {entry.domain}
           <span className="sr-only">{t("domains.appTab.openInNewTabSr")}</span>
@@ -273,16 +278,16 @@ export function AppDomainsTab({ domain }: { domain: string }) {
             )}
           />
         )}
-        <p className="max-w-[68ch] text-13 text-pretty text-fg-muted">{t("domains.appTab.primaryDomainNote", { domain })}</p>
+        <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("domains.appTab.primaryDomainNote", { domain })}</p>
       </Section>
 
       <Section
         title={t("domains.appTab.certificateSectionTitle")}
         description={t("domains.appTab.certificateSectionDescription")}
         actions={
-          <Link to="/domains" search={{ tab: "certificates" }} className="rounded-[4px] text-13 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus">
+          <TextLink to="/domains" size="ui">
             {t("domains.appTab.allCertificates")}
-          </Link>
+          </TextLink>
         }
       >
         {lineage === undefined ? (
@@ -292,27 +297,29 @@ export function AppDomainsTab({ domain }: { domain: string }) {
             {certs.isError ? t("domains.appTab.certificatesCouldNotBeListed") : t("domains.appTab.noCertificateCoversNote", { domain })}
           </p>
         ) : (
-          <div className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4 shadow-raised sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex min-w-0 flex-col gap-1">
-              <CertificateStatus {...certificateView(lineage, t.locale)} className="text-14" />
-              <p className="text-13 text-fg-muted">
-                {[
-                  lineage.issuer ? t("domains.appTab.issuedBy", { issuer: issuerName(lineage.issuer) }) : null,
-                  lineage.expires_on ? t("domains.appTab.validUntil", { date: lineage.expires_on }) : null,
-                  lineage.auto_renew ? t("domains.appTab.renewsAutomatically") : t("domains.appTab.doesNotRenewAutomatically"),
-                ]
-                  .filter((part): part is string => part !== null)
-                  .join(" ")}
-              </p>
+          <Card as="div" padding="sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex min-w-0 flex-col gap-1">
+                <CertificateStatus {...certificateView(lineage, t.locale)} className="text-14" />
+                <p className="text-13 text-fg-muted">
+                  {[
+                    lineage.issuer ? t("domains.appTab.issuedBy", { issuer: issuerName(lineage.issuer) }) : null,
+                    lineage.expires_on ? t("domains.appTab.validUntil", { date: lineage.expires_on }) : null,
+                    lineage.auto_renew ? t("domains.appTab.renewsAutomatically") : t("domains.appTab.doesNotRenewAutomatically"),
+                  ]
+                    .filter((part): part is string => part !== null)
+                    .join(" ")}
+                </p>
+              </div>
+              <ul aria-label={t("domains.appTab.namesOnCertificateAriaLabel")} className="flex min-w-0 flex-wrap gap-1.5 sm:justify-end">
+                {lineage.domains.map((name) => (
+                  <li key={name}>
+                    <Badge mono>{name}</Badge>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ul aria-label={t("domains.appTab.namesOnCertificateAriaLabel")} className="flex min-w-0 flex-wrap gap-1.5 sm:justify-end">
-              {lineage.domains.map((name) => (
-                <li key={name}>
-                  <Badge mono>{name}</Badge>
-                </li>
-              ))}
-            </ul>
-          </div>
+          </Card>
         )}
       </Section>
 

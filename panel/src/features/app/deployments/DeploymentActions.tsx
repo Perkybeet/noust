@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { GitCommitHorizontal, History } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
 import { request } from "../../../api/client";
 import { appKeys, appQuery } from "../../../api/queries/apps";
@@ -13,6 +14,7 @@ import { announce } from "../../../app/Announcer";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
+import { Notice } from "../../../components/ui/Notice";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { RollbackDialog } from "../RollbackDialog";
@@ -79,11 +81,6 @@ function useDeploymentAction(domain: string, t: T) {
       setKind(null);
     },
   };
-}
-
-/** The backend's reason as the end of a sentence: it has no full stop of its own. */
-function sentence(text: string): string {
-  return /[.!?]$/.test(text) ? text : `${text}.`;
 }
 
 /** What rebuilding a deployment's commit does, on the app's layout. */
@@ -201,7 +198,7 @@ function RollbackToDeploymentDialog({
             {t("appPages.common.cancel")}
           </Button>
           <Button variant="primary" loading={rollback.isPending} onClick={() => rollback.mutate()}>
-            {t("appPages.common.rollBack")}
+            {t("appPages.deployments.actions.goBack")}
           </Button>
         </>
       }
@@ -211,13 +208,23 @@ function RollbackToDeploymentDialog({
   );
 }
 
+export interface DeploymentActionParts {
+  /** Go back to this deploy (when the backend says it can) and rebuild its commit, for the page's title row. */
+  buttons: ReactNode;
+  /** How the action it started went: its failure in the job's words, or that it finished. */
+  outcome: ReactNode;
+  /** The dialogs the buttons open. */
+  dialogs: ReactNode;
+}
+
 /**
- * What can be done from one deploy's page: go back to what it produced, when that is still
- * possible (`rollback_available`, decided by the backend), or else say why and offer the
- * other versions; and deploy its exact commit again. The header's Update stays the page's one
- * primary action, so both are secondary here.
+ * What can be done from one deploy's page: go back to what it produced, only when that is
+ * still possible (`rollback_available`, decided by the backend; otherwise nothing is offered
+ * here, and the header's "Roll back…" lists what can be gone back to), and deploy its exact
+ * commit again. The header's Update stays the page's one primary action, so both are
+ * secondary here.
  */
-export function DeploymentActions({ domain, deployment }: { domain: string; deployment: Deployment }) {
+export function useDeploymentActions(domain: string, deployment: Deployment): DeploymentActionParts {
   const t = useT();
   const app = useQuery(appQuery(domain));
   const action = useDeploymentAction(domain, t);
@@ -226,7 +233,6 @@ export function DeploymentActions({ domain, deployment }: { domain: string; depl
   const layout = app.data?.layout ?? null;
   const commit = shortCommit(deployment.git_commit);
   const available = deployment.rollback_available;
-  const reason = deployment.rollback_unavailable_reason ?? null;
 
   const queued = (kind: DeploymentActionKind) => (job: Job) => {
     action.follow(kind, job);
@@ -235,54 +241,57 @@ export function DeploymentActions({ domain, deployment }: { domain: string; depl
     setDialog(open ? which : null);
   };
 
-  if (running || layout === null) return null;
-  return (
-    <div className="flex max-w-md flex-col items-end gap-2">
-      <div className="flex flex-wrap items-center justify-end gap-2">
+  if (running || layout === null) return { buttons: null, outcome: null, dialogs: null };
+
+  const buttons = (
+    <>
+      {available ? (
         <Button
           icon={<History aria-hidden="true" />}
           disabled={action.busy}
           loading={action.busy && action.kind === "rollback"}
           onClick={() => {
             action.dismiss();
-            setDialog(available ? "rollback" : "chooser");
+            setDialog("rollback");
           }}
         >
-          {available ? t("appPages.common.rollBackToThis") : t("appPages.deployments.actions.rollBackEllipsis")}
+          {t("appPages.deployments.actions.goBackToThis")}
         </Button>
-        {commit !== null ? (
-          <Button
-            icon={<GitCommitHorizontal aria-hidden="true" />}
-            disabled={action.busy}
-            loading={action.busy && action.kind === "rebuild"}
-            onClick={() => {
-              action.dismiss();
-              setDialog("rebuild");
-            }}
-          >
-            {t("appPages.deployments.actions.rebuildThisCommit")}
-          </Button>
-        ) : null}
-      </div>
-      {!available && reason !== null ? (
-        <p className="text-right text-12 text-pretty text-fg-muted">{t("appPages.deployments.actions.cannotRollBack", { reason: sentence(reason) })}</p>
       ) : null}
-      {action.failed !== null && action.kind !== null ? (
-        <ErrorBlock
-          live
-          compact
-          className="text-left"
-          error={{ detail: action.failed.error ?? t("appPages.job.noReason") }}
-          title={actionWords(t, action.kind, domain).failed}
-        />
-      ) : action.done !== null && action.kind !== null ? (
-        <p role="status" className="text-right text-12 text-fg-muted">
-          {action.kind === "rollback"
-            ? t("appPages.deployments.actions.rolledBackTo", { id: String(deployment.id) })
-            : t("appPages.deployments.actions.rebuiltCommit", { commit: commit ?? "" })}
-        </p>
+      {commit !== null ? (
+        <Button
+          icon={<GitCommitHorizontal aria-hidden="true" />}
+          disabled={action.busy}
+          loading={action.busy && action.kind === "rebuild"}
+          onClick={() => {
+            action.dismiss();
+            setDialog("rebuild");
+          }}
+        >
+          {t("appPages.deployments.actions.rebuildThisCommit")}
+        </Button>
       ) : null}
+    </>
+  );
 
+  const outcome =
+    action.failed !== null && action.kind !== null ? (
+      <ErrorBlock
+        live
+        compact
+        error={{ detail: action.failed.error ?? t("appPages.job.noReason") }}
+        title={actionWords(t, action.kind, domain).failed}
+      />
+    ) : action.done !== null && action.kind !== null ? (
+      <Notice tone="success" live>
+        {action.kind === "rollback"
+          ? t("appPages.deployments.actions.rolledBackTo", { id: String(deployment.id) })
+          : t("appPages.deployments.actions.rebuiltCommit", { commit: commit ?? "" })}
+      </Notice>
+    ) : null;
+
+  const dialogs = (
+    <>
       {commit !== null ? (
         <RebuildDialog
           domain={domain}
@@ -307,6 +316,8 @@ export function DeploymentActions({ domain, deployment }: { domain: string; depl
         />
       ) : null}
       <RollbackDialog domain={domain} layout={layout} open={dialog === "chooser"} onOpenChange={setOpen("chooser")} onJobQueued={queued("rollback")} />
-    </div>
+    </>
   );
+
+  return { buttons, outcome, dialogs };
 }

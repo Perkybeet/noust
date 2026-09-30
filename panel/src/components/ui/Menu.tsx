@@ -24,7 +24,7 @@ export function Menu({ trigger, children, side = "bottom", align = "start", open
     >
       <BaseMenu.Trigger render={trigger} />
       <BaseMenu.Portal>
-        <BaseMenu.Positioner side={side} align={align} sideOffset={4} className="z-50 outline-none">
+        <BaseMenu.Positioner side={side} align={align} sideOffset={4} className="z-overlay outline-none">
           <BaseMenu.Popup
             className={cx(
               "min-w-48 rounded-card border border-border bg-surface-raised p-1 text-fg shadow-overlay outline-none",

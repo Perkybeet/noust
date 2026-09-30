@@ -16,7 +16,7 @@ import path from "node:path";
 
 import { confirmItsYou, expect, settle, signIn, stillness, test } from "./fixtures";
 import type { ConsoleServer, PageProblems } from "./fixtures";
-import { inspectSource, typedSource, wizardSource } from "./wizard-sources";
+import { continueTo, fillStorefrontVariables, inspectSource, typedSource, wizardSource } from "./wizard-sources";
 
 const OUT = process.env.NOUST_WIZARD_SCREENS ?? "/tmp/console-wizard";
 
@@ -38,17 +38,36 @@ async function inspected(page: Page, server: ConsoleServer, problems: PageProble
 
 const SCREENS: readonly Screen[] = [
   { name: "wizard-source", path: "/apps/new" },
-  { name: "wizard-review", path: "/apps/new", act: inspected },
+  { name: "wizard-address", path: "/apps/new", act: inspected },
+  {
+    name: "wizard-configure",
+    path: "/apps/new",
+    act: async (page, server, problems) => {
+      await inspected(page, server, problems);
+      await page.getByLabel("Domain", { exact: true }).fill("tienda-nueva.example.net");
+      await continueTo(page, "Configuration");
+    },
+  },
+  {
+    name: "wizard-variables",
+    path: "/apps/new",
+    act: async (page, server, problems) => {
+      await inspected(page, server, problems);
+      await page.getByLabel("Domain", { exact: true }).fill("tienda-nueva.example.net");
+      await continueTo(page, "Configuration");
+      await continueTo(page, "Variables");
+    },
+  },
   {
     name: "wizard-deploy",
     path: "/apps/new",
     act: async (page, server, problems) => {
       await inspected(page, server, problems);
       await page.getByLabel("Domain", { exact: true }).fill("tienda-nueva.example.net");
-      for (const field of await page.getByRole("button", { name: /^Generate/ }).all()) await field.click();
-      await page.getByLabel("DATABASE_URL").fill("postgres://storefront@localhost/storefront");
-      await page.getByRole("button", { name: "Continue" }).click();
-      await expect(page.getByRole("heading", { name: "Deploy", level: 2 })).toBeVisible();
+      await continueTo(page, "Configuration");
+      await continueTo(page, "Variables");
+      await fillStorefrontVariables(page);
+      await continueTo(page, "Deploy");
     },
   },
   {

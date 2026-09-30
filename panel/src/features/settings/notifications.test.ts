@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { bindT, loadCatalog } from "../../i18n";
 import {
+  EVENT_GROUPS,
   EVENT_KINDS,
   REDACTED,
   channelValue,
   channels,
+  eventSpec,
   events,
   isChannelConfigured,
   parseHostList,
@@ -51,10 +53,13 @@ function spec(id: string): ChannelSpec {
 }
 
 describe("the notification settings", () => {
-  it("reads the block, treating an event missing from the file as on, like the notifier", () => {
+  it("reads the block, treating an event missing from the file as the notifier does", () => {
     const settings = readNotificationSettings(CONFIG);
     expect(settings.enabled).toBe(true);
     expect(settings.events).toMatchObject({ deploy_success: false, deploy_failed: true, unit_failed: true, backup_failed: true });
+    // Missing from the file: on, except the few that ship off.
+    expect(settings.events).toMatchObject({ restore_failed: true, node_unreachable: true, deploy_started: false, backup_success: false });
+    expect(readNotificationSettings({ notifications: { events: { backup_success: true } } }).events["backup_success"]).toBe(true);
     expect(settings.channels.telegram).toEqual({ bot_token: REDACTED, chat_id: "-1001234" });
     expect(settings.emailEnabled).toBe(true);
     expect(settings.allowPrivateHosts).toEqual(["10.0.0.12"]);
@@ -83,8 +88,14 @@ describe("the notification settings", () => {
   });
 
   it("sends what was typed, and clears on request", () => {
-    expect(channelValue(spec("webhook"), { webhook_url: "" }, { webhook_url: "https://hooks.example.com/x " })).toEqual({
+    expect(channelValue(spec("webhook"), { webhook_url: "", secret: "" }, { webhook_url: "https://hooks.example.com/x " })).toEqual({
       webhook_url: "https://hooks.example.com/x",
+      // Left alone: the stored secret (none here) is kept.
+      secret: REDACTED,
+    });
+    expect(channelValue(spec("webhook"), { webhook_url: REDACTED, secret: REDACTED }, {}, new Set(["secret"]))).toEqual({
+      webhook_url: REDACTED,
+      secret: "",
     });
     expect(
       channelValue(spec("telegram"), { bot_token: REDACTED, chat_id: "-1001234" }, { chat_id: "42" }, new Set(["bot_token"])),
@@ -105,6 +116,9 @@ describe("the notification settings", () => {
     expect(isChannelConfigured(spec("slack"), { webhook_url: REDACTED })).toBe(true);
     expect(isChannelConfigured(spec("telegram"), { bot_token: "", chat_id: "-1001234" })).toBe(false);
     expect(isChannelConfigured(spec("telegram"), { bot_token: REDACTED, chat_id: "-1001234" })).toBe(true);
+    // A signing secret alone is nowhere to send to.
+    expect(isChannelConfigured(spec("webhook"), { webhook_url: "", secret: REDACTED })).toBe(false);
+    expect(isChannelConfigured(spec("webhook"), { webhook_url: REDACTED, secret: "" })).toBe(true);
   });
 
   it("reads a list of hosts typed one per line or with commas", () => {
@@ -112,16 +126,33 @@ describe("the notification settings", () => {
     expect(parseHostList("   ")).toEqual([]);
   });
 
-  it("offers the deploy lifecycle's own events, in the notifier's order", () => {
-    const kinds = [...EVENT_KINDS];
-    expect(kinds.indexOf("deploy_started")).toBeLessThan(kinds.indexOf("deploy_success"));
-    expect(kinds.indexOf("deploy_success")).toBeLessThan(kinds.indexOf("deploy_failed"));
-    expect(kinds.indexOf("deploy_failed")).toBeLessThan(kinds.indexOf("deploy_rolled_back"));
-    expect(kinds.indexOf("deploy_rolled_back")).toBeLessThan(kinds.indexOf("cert_expiring"));
-    const specs = events(en);
-    expect(specs.find((event) => event.kind === "deploy_started")?.unsent).toBeUndefined();
-    expect(specs.find((event) => event.kind === "deploy_rolled_back")?.unsent).toBeUndefined();
-    expect(specs.find((event) => event.kind === "cert_expiring")?.unsent).toBe(true);
+  it("offers every event the notifier sends, each in exactly one group, the ones that ship off marked", () => {
+    // noust.core.notifications.model.EVENT_KINDS, in its order.
+    expect([...EVENT_KINDS]).toEqual([
+      "deploy_started",
+      "deploy_success",
+      "deploy_failed",
+      "deploy_rolled_back",
+      "restore_success",
+      "restore_failed",
+      "cert_expiring",
+      "unit_failed",
+      "disk_threshold",
+      "backup_failed",
+      "backup_success",
+      "node_unreachable",
+      "node_recovered",
+      "node_host_key_changed",
+      "server_rebooted",
+      "server_back",
+      "approval_requested",
+      "approval_decided",
+    ]);
+    const grouped = EVENT_GROUPS.flatMap((group) => group.kinds);
+    expect([...grouped].sort()).toEqual([...EVENT_KINDS].sort());
+    expect(new Set(grouped).size).toBe(grouped.length);
+    expect(events(en).filter((event) => event.offByDefault === true).map((event) => event.kind)).toEqual(["deploy_started", "backup_success"]);
+    expect(eventSpec(en, "node_host_key_changed").label).toBe("Server's identity changed");
   });
 
   it("translates the events and channels into Spanish, key for key", async () => {

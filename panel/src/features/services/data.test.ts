@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { ServiceInfo } from "./data";
-import { filterServices, isFiltered, serviceState, validateServicesSearch } from "./data";
+import { appOfUnit, filterServices, isFiltered, serviceState, validateServicesSearch } from "./data";
 
 function service(name: string, active: boolean, description: string | null = null): ServiceInfo {
   return { name, active, enabled: true, status: active ? "running" : "stopped", description, pid: null, uptime: null, memory: null, managed: true };
@@ -136,5 +136,26 @@ describe("filterServices", () => {
   it("is not affected by the show-all-units toggle: that scope is server-side", () => {
     expect(isFiltered({ all: true })).toBe(false);
     expect(filterServices(services, { all: true })).toHaveLength(services.length);
+  });
+});
+
+describe("the state filter and the application a unit runs", () => {
+  const failed: ServiceInfo = { ...service("worker", false), active_state: "failed", result: "exit-code" };
+  const units = [service("web", true), service("idle", false), failed];
+
+  it("keeps the units in the state asked for, a crash loop counting as failed", () => {
+    expect(filterServices(units, { state: "failed" }).map((unit) => unit.name)).toEqual(["worker"]);
+    expect(filterServices(units, { state: "running" }).map((unit) => unit.name)).toEqual(["web"]);
+    expect(filterServices(units, { state: "stopped" }).map((unit) => unit.name)).toEqual(["idle"]);
+    expect(isFiltered({ state: "failed" })).toBe(true);
+    expect(validateServicesSearch({ state: "failed", all: "1" })).toEqual({ all: true, state: "failed" });
+    expect(validateServicesSearch({ state: "exploded" })).toEqual({});
+  });
+
+  it("finds the application whose unit it is, with or without the suffix", () => {
+    const apps = [{ domain: "shop.example.com", unit: "shop-example-com.service" }, { domain: "static.example.com", unit: null }];
+    expect(appOfUnit(apps, "shop-example-com")?.domain).toBe("shop.example.com");
+    expect(appOfUnit(apps, "shop-example-com.service")?.domain).toBe("shop.example.com");
+    expect(appOfUnit(apps, "worker")).toBeNull();
   });
 });

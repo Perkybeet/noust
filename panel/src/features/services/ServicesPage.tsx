@@ -1,25 +1,31 @@
 import { useQuery } from "@tanstack/react-query";
-import { Cog, Plus, Search, X } from "lucide-react";
+import { Cog } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { appsQuery } from "../../api/queries/apps";
 import { servicesQuery } from "../../api/queries/services";
-import { PageHeader } from "../../app/PageHeader";
 import { CommandHint } from "../../components/page/CommandHint";
+import { FilterBar } from "../../components/page/FilterBar";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { Input } from "../../components/ui/Input";
-import { Kbd } from "../../components/ui/Kbd";
-import { Switch } from "../../components/ui/Switch";
+import { ICONS } from "../../components/ui/icons";
+import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
+import { TabToolbar } from "../server/TabToolbar";
 import { CreateServiceDialog } from "./CreateServiceDialog";
 import { ServiceRowActions } from "./ServiceRowActions";
 import { ServicesTable } from "./ServicesTable";
-import { filterServices, isFiltered } from "./data";
-import type { ServicesSearch } from "./data";
+import { appOfUnit, filterServices, isFiltered } from "./data";
+import type { ServiceInfo, ServiceStateFilter, ServicesSearch } from "./data";
 
 /** A change to the filters: a key set to undefined is cleared. */
 type SearchPatch = { [K in keyof ServicesSearch]?: ServicesSearch[K] | undefined };
+
+type Scope = "noust" | "all";
+/** Select's value for "no state filter". */
+const ANY = "any";
 
 export interface ServicesPageProps {
   search: ServicesSearch;
@@ -27,126 +33,126 @@ export interface ServicesPageProps {
 }
 
 /**
- * Every systemd unit Noust created on this machine, searchable and acted on from its own row.
- * "Show all units" widens the request to `noust_only=false`: a unit another package created
- * appears too, marked "Foreign" and read-only (see `ServiceRowActions`).
+ * The Services tab of the Server area: the systemd units Noust created on this machine, and on
+ * request every unit on it (`noust_only=false`), each marked Noust's or foreign (foreign ones are
+ * read only: see `ServiceRowActions`). A unit an application runs names the application.
  */
 export function ServicesPage({ search, onSearchChange }: ServicesPageProps) {
   const t = useT();
   const showAll = search.all === true;
   const services = useQuery(servicesQuery(!showAll));
+  const apps = useQuery(appsQuery());
   const [createOpen, setCreateOpen] = useState(false);
 
   const fetched = useMemo(() => services.data?.services ?? [], [services.data]);
   const shown = useMemo(() => filterServices(fetched, search), [fetched, search]);
+  const appList = apps.data?.apps ?? [];
+  const appOf = (service: ServiceInfo): string | null => appOfUnit(appList, service.name)?.domain ?? null;
 
   const set = (patch: SearchPatch, replace = false): void => {
     const next: SearchPatch = { ...search, ...patch };
     const clean: ServicesSearch = {};
     if (next.q) clean.q = next.q;
     if (next.all) clean.all = true;
+    if (next.state) clean.state = next.state;
     onSearchChange(clean, { replace });
   };
 
-  // "Clear filters" only ever clears the text search: "Show all units" is a scope, not a
-  // filter on what came back, so clearing one leaves the other as the operator set it.
-  const clearTextFilter = (): void => onSearchChange(showAll ? { all: true } : {});
-
+  // "Clear filters" clears the text and the state: the scope is what is listed, not a filter
+  // on it, so it stays as the operator set it.
+  const clearFilters = (): void => onSearchChange(showAll ? { all: true } : {});
   const filtered = isFiltered(search);
+  const newService = (
+    <Button variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={() => setCreateOpen(true)}>
+      {t("services.page.newService")}
+    </Button>
+  );
 
   return (
-    <>
-      <PageHeader
-        title={t("nav.services.label")}
-        description={t("services.page.description")}
-        actions={
-          <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setCreateOpen(true)}>
-            {t("services.page.newService")}
-          </Button>
-        }
-      />
-
+    <div className="flex min-w-0 flex-col gap-4">
+      <TabToolbar summary={t("services.page.description")} actions={newService} />
       {services.isError && services.data === undefined ? (
-        <ErrorBlock
-          error={services.error}
-          title={t("services.page.loadFailed")}
-          onRetry={() => void services.refetch()}
-          retrying={services.isRefetching}
-        />
-      ) : services.data !== undefined && fetched.length === 0 ? (
+        <ErrorBlock error={services.error} title={t("services.page.loadFailed")} onRetry={() => void services.refetch()} retrying={services.isRefetching} />
+      ) : services.data !== undefined && fetched.length === 0 && !showAll ? (
         <EmptyState
+          variant="firstUse"
           level={2}
           icon={<Cog />}
           title={t("services.page.emptyTitle")}
           description={t("services.page.emptyDescription")}
           action={
-            <Button variant="primary" icon={<Plus aria-hidden="true" />} onClick={() => setCreateOpen(true)}>
-              {t("services.page.newService")}
+            <Button onClick={() => set({ all: true }, true)} variant="secondary">
+              {t("services.page.showSystem")}
             </Button>
           }
           command="noust service create --name worker --command '/usr/bin/node worker.js' --directory /var/www/worker"
-          className="py-16"
         />
       ) : (
-        <div className="flex flex-col gap-4">
-          <div role="search" aria-label={t("services.page.filterLabel")} className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <Input
-              type="search"
-              aria-label={t("services.page.searchLabel")}
-              placeholder={t("services.page.searchPlaceholder")}
-              data-page-search=""
-              value={search.q ?? ""}
-              onValueChange={(value: string) => set({ q: value }, true)}
-              icon={<Search />}
-              suffix={search.q ? undefined : <Kbd className="pointer-coarse:hidden">/</Kbd>}
-              className="w-full sm:w-80"
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <Switch
-              label={t("services.page.showAllUnits")}
-              checked={showAll}
-              onCheckedChange={(checked) => set({ all: checked ? true : undefined }, true)}
-            />
-            {filtered ? (
-              <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={clearTextFilter}>
-                {t("services.page.clearFilters")}
-              </Button>
-            ) : null}
-            <p role="status" className="ml-auto self-center text-13 text-fg-muted">
-              {services.data === undefined
+        <>
+          <FilterBar
+            label={t("services.page.filterLabel")}
+            search={{
+              label: t("services.page.searchLabel"),
+              placeholder: t("services.page.searchPlaceholder"),
+              value: search.q ?? "",
+              onChange: (q) => set({ q }, true),
+            }}
+            filters={
+              <>
+                <SegmentedControl<Scope>
+                  label={t("services.page.scopeLabel")}
+                  value={showAll ? "all" : "noust"}
+                  onValueChange={(scope) => set({ all: scope === "all" ? true : undefined }, true)}
+                  options={[
+                    { value: "noust", label: t("services.page.scopeNoust") },
+                    { value: "all", label: t("services.page.scopeAll") },
+                  ]}
+                />
+                <Select<ServiceStateFilter | typeof ANY>
+                  aria-label={t("services.page.stateLabel")}
+                  value={search.state ?? ANY}
+                  onValueChange={(state) => set({ state: state === ANY ? undefined : state }, true)}
+                  options={[
+                    { value: ANY, label: t("services.page.stateAny") },
+                    { value: "failed", label: t("services.page.stateFailed") },
+                    { value: "running", label: t("services.page.stateRunning") },
+                    { value: "stopped", label: t("services.page.stateStopped") },
+                  ]}
+                />
+              </>
+            }
+            count={
+              services.data === undefined
                 ? ""
                 : filtered
                   ? t("services.page.countFiltered", { shown: shown.length, total: fetched.length })
-                  : t("services.page.count", { count: fetched.length })}
-            </p>
-          </div>
-
+                  : t("services.page.count", { count: fetched.length })
+            }
+          />
           <ServicesTable
             services={shown}
             caption={filtered ? t("services.page.tableCaptionFiltered") : t("services.page.tableCaption")}
             loading={services.isPending}
             rowActions={(service) => <ServiceRowActions service={service} />}
+            appOf={appOf}
             empty={
               <EmptyState
+                variant="inline"
                 title={t("services.page.noMatchTitle")}
-                description={t("services.page.noMatchDescription")}
                 action={
-                  <Button icon={<X aria-hidden="true" />} onClick={clearTextFilter}>
+                  <Button size="sm" onClick={clearFilters}>
                     {t("services.page.clearFilters")}
                   </Button>
                 }
-                className="border-0 py-8"
               />
             }
           />
-          {/* Drawn with the rows, not before: under a list of unknown length it would only be
-              pushed down the page when they arrive. */}
-          {services.isPending ? null : <CommandHint command="noust service list" label={t("services.fromTerminal")} />}
-        </div>
+        </>
       )}
-
+      {/* Drawn with the rows, not before: under a list of unknown length it would only be
+          pushed down the page when they arrive. */}
+      {services.isPending ? null : <CommandHint command="noust service list" label={t("services.fromTerminal")} />}
       <CreateServiceDialog open={createOpen} onOpenChange={setCreateOpen} />
-    </>
+    </div>
   );
 }

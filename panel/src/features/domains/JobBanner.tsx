@@ -1,12 +1,7 @@
-import { X } from "lucide-react";
-
-import { ErrorBlock } from "../../components/page/QueryState";
-import { IconButton } from "../../components/ui/IconButton";
-import { Spinner } from "../../components/ui/Spinner";
-import { useT } from "../../i18n";
-import { CertificateStatus } from "./CertificateStatus";
 import { isJobFinished } from "../../api/queries/jobs";
 import type { FollowedJob } from "../../api/queries/jobs";
+import { JobProgress } from "../../components/page/JobProgress";
+import { useT } from "../../i18n";
 
 export interface JobWords {
   /** While it runs: "Extending the certificate to shop.example.com". */
@@ -20,56 +15,27 @@ export interface JobWords {
 }
 
 /**
- * A job this page queued, followed where the operator started it: its current step while it
- * runs, a quiet confirmation when it succeeds, and its error verbatim when it fails. Both
- * outcomes stay until dismissed; the live region says each once.
+ * A certificate job this page queued, followed where the operator started it, the way every
+ * job in hand is shown (JobProgress): its current step while it runs, a quiet confirmation
+ * when it succeeds, and its error verbatim when it fails. Both outcomes stay until dismissed.
  */
 export function JobBanner({ followed, words }: { followed: FollowedJob; words: JobWords }) {
   const t = useT();
   const job = followed.job;
   if (followed.id === null) return null;
   if (job === null || !isJobFinished(job)) {
-    const step = job?.current_step ?? null;
-    return (
-      <div
-        role="status"
-        className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 rounded-control border border-border bg-surface px-3 py-2 text-13 shadow-raised"
-      >
-        <Spinner size={14} className="text-warn" />
-        <span className="font-medium text-fg">{words.running}</span>
-        {step ? (
-          <code translate="no" className="min-w-0 truncate text-12 text-fg-muted" title={step}>
-            {step}
-          </code>
-        ) : null}
-      </div>
-    );
+    return <JobProgress state={job?.status === "running" ? "running" : "queued"} title={words.running} step={job?.current_step ?? null} />;
   }
   if (job.status === "completed") {
-    return (
-      <div
-        role="status"
-        className="flex items-center justify-between gap-3 rounded-control border border-ok/30 bg-ok-soft/40 py-1.5 pr-1.5 pl-3 text-13"
-      >
-        <CertificateStatus tone="ok" label={words.done} />
-        <IconButton label={t("domains.jobBanner.dismiss")} icon={<X />} size="sm" onClick={followed.dismiss} />
-      </div>
-    );
+    return <JobProgress state="succeeded" title={words.done} onDismiss={followed.dismiss} />;
   }
   return (
-    <div className="relative">
-      <ErrorBlock
-        live
-        error={{
-          detail:
-            job.error ??
-            (job.status === "cancelled" ? t("domains.jobBanner.jobCancelled") : t("domains.jobBanner.jobFailedNoReason")),
-        }}
-        title={words.failed}
-        {...(words.hint !== undefined ? { hint: words.hint } : {})}
-        className="pr-12"
-      />
-      <IconButton label={t("domains.jobBanner.dismiss")} icon={<X />} size="sm" onClick={followed.dismiss} className="absolute top-2.5 right-2.5" />
-    </div>
+    <JobProgress
+      state="failed"
+      title={words.failed}
+      error={{ detail: job.error ?? (job.status === "cancelled" ? t("domains.jobBanner.jobCancelled") : t("domains.jobBanner.jobFailedNoReason")) }}
+      {...(words.hint !== undefined ? { hint: words.hint } : {})}
+      onDismiss={followed.dismiss}
+    />
   );
 }

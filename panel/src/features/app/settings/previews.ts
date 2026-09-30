@@ -78,6 +78,17 @@ export function samePreviewDraft(a: PreviewDraft, b: PreviewDraft): boolean {
   );
 }
 
+/** How many of the form's fields say something different from the settings: the save bar's count. */
+export function previewChanges(draft: PreviewDraft, stored: PreviewDraft): number {
+  return [
+    draft.base_domain.trim() !== stored.base_domain.trim(),
+    draft.max_previews.trim() !== stored.max_previews.trim(),
+    hoursOf(draft) !== hoursOf(stored),
+    draft.allow_bots !== stored.allow_bots,
+    envNamesOf(draft.exclude_env).join(",") !== envNamesOf(stored.exclude_env).join(","),
+  ].filter(Boolean).length;
+}
+
 /** The lifetime in hours, or null when it is not a whole number. */
 function hoursOf(draft: Pick<PreviewDraft, "ttl_hours" | "unit">): number | null {
   const text = draft.ttl_hours.trim();

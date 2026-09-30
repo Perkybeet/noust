@@ -5,6 +5,7 @@ import {
   markFor,
   secrecyActionLabel,
   secrecyChoice,
+  secrecyKind,
   secrecyLine,
   secrecyMarkAnnouncement,
   secrecyStateLabel,
@@ -64,9 +65,22 @@ describe("secrecyStateLabel / secrecyActionLabel", () => {
     expect(secrecyStateLabel("secret")).toBe("always hidden");
     expect(secrecyStateLabel("not-secret")).toBe("always shown");
     expect(secrecyStateLabel("auto")).toBe("decided automatically");
-    expect(secrecyActionLabel("secret")).toBe("Treat as secret");
-    expect(secrecyActionLabel("not-secret")).toBe("Treat as not secret");
+    expect(secrecyActionLabel("secret")).toBe("Yes, always hide it");
+    expect(secrecyActionLabel("not-secret")).toBe("No, always show it");
     expect(secrecyActionLabel("auto")).toBe("Decide automatically");
+  });
+});
+
+describe("secrecyKind", () => {
+  it("names the type, and in a few words what decided it", () => {
+    expect(secrecyKind(verdict({ secret: true, reason: "name" }))).toEqual({ secret: true, label: "Secret", reason: "by its name" });
+    expect(secrecyKind(verdict({ secret: true, reason: "value: stripe" }))).toEqual({ secret: true, label: "Secret", reason: "by its value" });
+    expect(secrecyKind(verdict({ secret: false, reason: "marked not secret", marked: true }))).toEqual({ secret: false, label: "Plain", reason: "marked by you" });
+    expect(secrecyKind(verdict({ secret: false, reason: "plain" }))).toEqual({ secret: false, label: "Plain", reason: null });
+  });
+
+  it("shows a reason it does not know verbatim", () => {
+    expect(secrecyKind(verdict({ secret: true, reason: "entropy of 4.2 bits" })).reason).toBe("entropy of 4.2 bits");
   });
 });
 
@@ -84,7 +98,7 @@ describe("in Spanish", () => {
     expect(secrecyLine(verdict({ secret: true, reason: "value: stripe" }), "es")).toBe("Oculto: su valor parece una clave de Stripe");
     expect(secrecyLine(verdict({ secret: false, reason: "plain" }), "es")).toBe("Mostrado: nada en él parece un secreto");
     expect(secrecyStateLabel("secret", "es")).toBe("siempre oculto");
-    expect(secrecyActionLabel("not-secret", "es")).toBe("Tratar como no secreto");
+    expect(secrecyActionLabel("not-secret", "es")).toBe("No, mostrarlo siempre");
     expect(secrecyMarkAnnouncement("API_URL", null, "es")).toBe("API_URL ahora se clasifica automáticamente");
   });
 });

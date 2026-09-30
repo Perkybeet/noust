@@ -23,7 +23,7 @@ function configBody(notifications: Record<string, unknown> = {}) {
           backup_failed: true,
         },
         channels: {
-          webhook: { webhook_url: "***" },
+          webhook: { webhook_url: "***", secret: "" },
           slack: { webhook_url: "***" },
           discord: { webhook_url: "***" },
           telegram: { bot_token: "***", chat_id: "" },
@@ -88,8 +88,14 @@ function notificationsBackend(
   });
 }
 
-function channel(name: string): HTMLElement {
-  return screen.getByRole("article", { name });
+/** A channel's row in the list, found by its name. */
+function row(name: string): HTMLElement {
+  const list = screen.getByRole("list", { name: "Notification channels" });
+  const found = within(list)
+    .getAllByRole("listitem")
+    .find((item) => item.textContent.startsWith(name));
+  if (found === undefined) throw new Error(`no row for ${name}`);
+  return found;
 }
 
 async function confirmItsYou(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
@@ -98,477 +104,208 @@ async function confirmItsYou(user: ReturnType<typeof renderConsole>["user"]): Pr
   await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
 }
 
+function saveBar(): HTMLElement {
+  return screen.getByRole("region", { name: "Unsaved changes" });
+}
+
 describe("Settings > Notifications", () => {
-  it("shows every channel, the events and the master switch, and passes axe", { timeout: 20_000 }, async () => {
+  it("says first whether anything is sent, lists the channels with their state, folds the events, and passes axe", { timeout: 20_000 }, async () => {
     notificationsBackend();
     const { container } = renderConsole("/settings/notifications");
-    expect(await screen.findByRole("switch", { name: /Send notifications/ })).not.toBeChecked();
-    for (const name of ["Webhook", "Slack", "Discord", "Telegram", "Email"]) expect(channel(name)).toBeInTheDocument();
-    // Secrets are write-only: the field starts empty and says so.
-    const url = within(channel("Slack")).getByLabelText("Incoming webhook URL");
+    const master = await screen.findByRole("switch", { name: /Send notifications/ });
+    expect(master).not.toBeChecked();
+    expect(screen.getByText(/Off: nothing is sent/)).toBeInTheDocument();
+    // A channel with a destination is on, in a neutral word; one without says how to set it up.
+    expect(within(row("Slack")).getByText("On")).toBeInTheDocument();
+    expect(within(row("Slack")).getByRole("button", { name: "Edit Slack" })).toBeInTheDocument();
+    expect(within(row("Webhook")).getByText("Deliveries are not signed.")).toBeInTheDocument();
+    expect(within(row("Telegram")).getByText("Bot saved; no chat chosen yet.")).toBeInTheDocument();
+    expect(within(row("Email")).getByText("Off")).toBeInTheDocument();
+    expect(within(row("Email")).getByRole("button", { name: "Set up Email" })).toBeInTheDocument();
+    // Every event, by area, each group saying how many of its events are sent.
+    expect(screen.getByText("Deploys", { selector: "summary *" })).toBeInTheDocument();
+    expect(screen.getAllByText("3 of 4 sent")).toHaveLength(2);
+    expect(screen.getByText("Servers you manage", { selector: "summary *" })).toBeInTheDocument();
+    // One save bar for the form, and nothing to save yet.
+    expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+  });
+
+  it("tests a channel from its row and shows what the receiving server said, verbatim", async () => {
+    notificationsBackend();
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    await user.click(within(row("Slack")).getByRole("button", { name: "Send a test to Slack" }));
+    expect(
+      await within(row("Slack")).findByText("Channel slack is not configured; set notifications.channels.slack.webhook_url first."),
+    ).toBeInTheDocument();
+    expect(within(row("Slack")).getByText("The test failed. What the receiving server said:")).toBeInTheDocument();
+
+    await user.click(within(row("Webhook")).getByRole("button", { name: "Send a test to Webhook" }));
+    expect(await within(row("Webhook")).findByText("Sent a test message. Check that it arrived.")).toBeInTheDocument();
+  });
+
+  it("sets up a webhook in its drawer with a generated signing secret, keeping the URL it was not given", { timeout: 20_000 }, async () => {
+    const backend = notificationsBackend();
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    await user.click(within(row("Webhook")).getByRole("button", { name: "Edit Webhook" }));
+    const drawer = await screen.findByRole("dialog", { name: "Webhook" });
+    // Write-only: the stored URL is never shown, and the field says one is kept.
+    const url = within(drawer).getByLabelText("Endpoint URL");
     expect(url).toHaveValue("");
-    expect(url).toHaveAttribute("type", "password");
-    expect(await within(channel("Email")).findByLabelText("SMTP server")).toHaveValue("");
-    expect(screen.getByRole("checkbox", { name: /Certificate expiring/ })).toBeInTheDocument();
-    expect(screen.getByText(/Not sent by this version of Noust yet/)).toBeInTheDocument();
-    // The two new deploy lifecycle events: off by default (noisy) and on by default (a rollback matters).
-    expect(screen.getByRole("checkbox", { name: /Deployment started/ })).not.toBeChecked();
-    expect(screen.getByText(/Noisy: one message per attempt/)).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: /Deployment rolled back/ })).toBeChecked();
-    expect(screen.getByText(/A new version failed its health check, and the previous one is serving again\./)).toBeInTheDocument();
-    await expectNoAxeViolations(container);
+    expect(url).toHaveAttribute("placeholder", "Saved - leave empty to keep it");
+    await user.click(within(drawer).getByRole("button", { name: "Generate" }));
+    const secret = within(drawer).getByLabelText<HTMLInputElement>(/Signing secret/).value;
+    expect(secret).toMatch(/^[0-9a-f]{64}$/);
+    expect(within(drawer).getByText(/Copy it to your endpoint now/)).toBeInTheDocument();
+    await user.click(within(drawer).getByRole("button", { name: "Save" }));
+    await confirmItsYou(user);
+    // Refused once for sudo mode, then sent again once confirmed.
+    await waitFor(() => {
+      expect(backend.callsTo("PATCH /api/config")).toHaveLength(2);
+    });
+    expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({
+      path: "notifications.channels.webhook",
+      value: { webhook_url: "***", secret },
+    });
+    // Saving keeps the drawer open, so the test is one click away.
+    expect(screen.getByRole("dialog", { name: "Webhook" })).toBeInTheDocument();
   });
 
-  it("tests a channel and shows what the server answered, verbatim", async () => {
-    notificationsBackend();
-    const { user } = renderConsole("/settings/notifications");
-    await screen.findByRole("switch", { name: /Send notifications/ });
-    await user.click(within(channel("Slack")).getByRole("button", { name: "Send test" }));
-    expect(
-      await within(channel("Slack")).findByText("Channel slack is not configured; set notifications.channels.slack.webhook_url first."),
-    ).toBeInTheDocument();
-    expect(within(channel("Slack")).getByText("The test failed. The server said:")).toBeInTheDocument();
-
-    await user.click(within(channel("Webhook")).getByRole("button", { name: "Send test" }));
-    expect(await within(channel("Webhook")).findByText("Test message sent through webhook.")).toBeInTheDocument();
-  });
-
-  it("saves a destination after confirming it's you, keeping the secrets it was not given", { timeout: 20_000 }, async () => {
+  it("removes a destination after one question", { timeout: 20_000 }, async () => {
     const backend = notificationsBackend();
     const { user } = renderConsole("/settings/notifications");
     await screen.findByRole("switch", { name: /Send notifications/ });
-    const telegram = channel("Telegram");
-    await user.type(within(telegram).getByLabelText("Chat ID"), "-1001234");
-    // An unsaved destination is not what a test would reach.
-    expect(within(telegram).getByRole("button", { name: "Send test" })).toBeDisabled();
-    await user.click(within(telegram).getByRole("button", { name: "Save" }));
-    await confirmItsYou(user);
-    // Telegram's own endpoint: an empty token keeps the stored one.
-    await waitFor(() => {
-      expect(backend.callsTo("PUT /api/config/notifications/telegram").at(-1)?.body).toEqual({ bot_token: "", chat_id: "-1001234" });
-    });
-
-    const slack = channel("Slack");
-    await user.type(within(slack).getByLabelText("Incoming webhook URL"), "https://hooks.slack.com/services/T0/B0/x");
-    await user.click(within(slack).getByRole("button", { name: "Save" }));
-    await waitFor(() => {
-      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({
-        path: "notifications.channels.slack",
-        value: { webhook_url: "https://hooks.slack.com/services/T0/B0/x" },
-      });
-    });
-
-    await user.click(within(channel("Discord")).getByRole("button", { name: "Remove destination" }));
-    await waitFor(() => {
-      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({
-        path: "notifications.channels.discord",
-        value: { webhook_url: "" },
-      });
-    });
-  });
-
-  it("tells a configured channel from an unconfigured one, and disables its test", async () => {
-    notificationsBackend();
-    const { container } = renderConsole("/settings/notifications");
-    await screen.findByRole("switch", { name: /Send notifications/ });
-
-    // Webhook has a stored "***": configured, its secret field says so, and it can be tested.
-    const webhook = channel("Webhook");
-    expect(within(webhook).getByText("Configured")).toBeInTheDocument();
-    expect(within(webhook).getByLabelText("Endpoint URL")).toHaveAttribute("placeholder", "Set - leave blank to keep it");
-    expect(within(webhook).getByRole("button", { name: "Send test" })).toBeEnabled();
-
-    // Email's destination is the monitor's SMTP host, which the seed leaves blank.
-    const email = channel("Email");
-    expect(within(email).getByText("Not configured")).toBeInTheDocument();
-    const emailTest = await within(email).findByRole("button", { name: "Send test" });
-    await waitFor(() => {
-      expect(emailTest).toBeDisabled();
-    });
-    expect(within(email).getByText("Set up the SMTP server and a recipient to test it.")).toBeInTheDocument();
-
-    await expectNoAxeViolations(container);
-  });
-
-  it("hints that a group's chat ID is negative, and warns before saving one typed without its sign", async () => {
-    notificationsBackend();
-    const { user, container } = renderConsole("/settings/notifications");
-    await screen.findByRole("switch", { name: /Send notifications/ });
-    const telegram = channel("Telegram");
-    const chatId = within(telegram).getByLabelText("Chat ID");
-
-    expect(
-      within(telegram).getByText(
-        "A group or supergroup's chat ID is negative, and a supergroup's starts with -100. A personal chat's is a smaller positive number.",
-      ),
-    ).toBeInTheDocument();
-    expect(within(telegram).queryByRole("alert")).toBeNull();
-
-    // A personal chat's ID is a short positive number: no warning.
-    await user.type(chatId, "123456789");
-    expect(within(telegram).queryByRole("alert")).toBeNull();
-
-    // 13+ digits, positive: the shape of a supergroup ID typed without its leading minus sign.
-    // The warning is drawn as it is typed (so it never pushes the Save button away from a
-    // click that leaves the field), but it is not a live region: one that re-renders on every
-    // digit would be read out on every digit. Leaving the field says it, once.
-    await user.clear(chatId);
-    await user.type(chatId, "1001234567890");
-    const warning =
-      "This looks like a group's chat ID without its minus sign. Groups and supergroups use a negative ID (a supergroup's starts with -100); try -1001234567890.";
-    expect(within(telegram).getByText(warning).closest("[role=alert], [role=status], [aria-live]")).toBeNull();
-    const announcer = screen.getByTestId("announcer-polite");
-    await new Promise((resolve) => setTimeout(resolve, 150));
-    expect(announcer).toHaveTextContent("");
-
-    await user.tab();
-    await waitFor(() => {
-      expect(announcer).toHaveTextContent(warning);
-    });
-    await expectNoAxeViolations(container);
-
-    // A fixed value clears the warning; breaking it again brings it back.
-    await user.click(chatId);
-    await user.type(chatId, "{Home}-");
-    expect(within(telegram).queryByText(warning)).toBeNull();
-    await user.click(chatId);
-    await user.type(chatId, "{Home}{Delete}");
-    expect(within(telegram).getByText(warning)).toBeInTheDocument();
-
-    // The warning does not block saving: it is a hint, not a validation failure.
-    await user.click(within(telegram).getByRole("button", { name: "Save" }));
+    await user.click(within(row("Slack")).getByRole("button", { name: "Edit Slack" }));
+    const drawer = await screen.findByRole("dialog", { name: "Slack" });
+    await user.click(within(drawer).getByRole("button", { name: "Remove destination" }));
+    const question = await screen.findByRole("alertdialog", { name: "Remove the Slack destination?" });
+    await user.click(within(question).getByRole("button", { name: "Remove destination" }));
     await confirmItsYou(user);
     await waitFor(() => {
-      expect(within(telegram).queryByRole("button", { name: "Save" })).toBeNull();
+      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({ path: "notifications.channels.slack", value: { webhook_url: "" } });
     });
   });
 
-  it("turns delivery on and saves the events as one map", { timeout: 20_000 }, async () => {
-    const backend = notificationsBackend();
-    const { user } = renderConsole("/settings/notifications");
-    await user.click(await screen.findByRole("switch", { name: /Send notifications/ }));
-    await confirmItsYou(user);
-    await waitFor(() => {
-      expect(backend.callsTo("PATCH /api/config")[1]?.body).toEqual({ path: "notifications.enabled", value: true });
-    });
-
-    await user.click(screen.getByRole("checkbox", { name: /Deploy finished/ }));
-    const events = screen.getByRole("region", { name: "Events" });
-    expect(within(events).getByText("noust config set notifications.events.deploy_success false")).toBeInTheDocument();
-    await user.click(within(events).getByRole("button", { name: "Save changes" }));
-    await waitFor(() => {
-      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({
-        path: "notifications.events",
-        value: {
-          deploy_started: false,
-          deploy_success: false,
-          deploy_failed: true,
-          deploy_rolled_back: true,
-          cert_expiring: true,
-          unit_failed: true,
-          disk_threshold: true,
-          backup_failed: true,
-        },
-      });
-    });
-  });
-
-  it("saves the console's own address, used only to build a notification's link", async () => {
-    const backend = notificationsBackend();
-    const { user } = renderConsole("/settings/notifications");
-    const field = await screen.findByLabelText(/Console address/);
-    await user.type(field, "https://console.example.com");
-    await user.click(within(screen.getByRole("region", { name: "Link in notifications" })).getByRole("button", { name: "Save changes" }));
-    await confirmItsYou(user);
-    await waitFor(() => {
-      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({
-        path: "web.public_url",
-        value: "https://console.example.com",
-      });
-    });
-  });
-
-  it("shows the server's refusal of the console's address beside its field", async () => {
-    notificationsBackend({
-      routes: {
-        "PATCH /api/config": () =>
-          problem(400, "config_error", "web.public_url must be an absolute https:// URL", {
-            hint: "Got 'ftp://x'. Use an address such as https://console.example.com.",
-          }),
-      },
-    });
-    const { user } = renderConsole("/settings/notifications");
-    const field = await screen.findByLabelText(/Console address/);
-    await user.type(field, "ftp://x");
-    await user.click(within(screen.getByRole("region", { name: "Link in notifications" })).getByRole("button", { name: "Save changes" }));
-    expect(
-      await screen.findByText("web.public_url must be an absolute https:// URL Got 'ftp://x'. Use an address such as https://console.example.com."),
-    ).toBeInTheDocument();
-    expect(field).toHaveAttribute("aria-invalid", "true");
-  });
-
-  it("saves the private destinations as a list", async () => {
-    const backend = notificationsBackend();
-    const { user } = renderConsole("/settings/notifications");
-    const hosts = await screen.findByLabelText(/Allowed private hosts/);
-    await user.type(hosts, "10.0.0.12{Enter}hooks.internal");
-    await user.click(within(screen.getByRole("region", { name: "Private destinations" })).getByRole("button", { name: "Save changes" }));
-    await confirmItsYou(user);
-    await waitFor(() => {
-      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({
-        path: "notifications.allow_private_hosts",
-        value: ["10.0.0.12", "hooks.internal"],
-      });
-    });
-  });
-  it("sets up the SMTP account and its recipients as one save, after confirming it's you", { timeout: 30_000 }, async () => {
-    const backend = notificationsBackend();
-    const { user, container } = renderConsole("/settings/notifications");
-    await screen.findByRole("switch", { name: /Send notifications/ });
-    const email = channel("Email");
-    await user.type(await within(email).findByLabelText("SMTP server"), "smtp.example.com");
-
-    // SSL/TLS and STARTTLS are one choice; the usual port follows it unless one was typed.
-    const encryption = within(email).getByRole("radiogroup", { name: "Encryption" });
-    expect(within(encryption).getByRole("radio", { name: "SSL/TLS" })).toBeChecked();
-    await user.click(within(encryption).getByRole("radio", { name: "STARTTLS" }));
-    expect(within(email).getByLabelText("Port")).toHaveValue("587");
-
-    await user.type(within(email).getByLabelText(/Username/), "noust@example.com");
-    const password = within(email).getByLabelText(/^Password/);
-    expect(password).toHaveAttribute("type", "password");
-    await user.type(password, "s3cret");
-    await user.type(within(email).getByLabelText(/From address/), "noust@example.com");
-
-    // Each address is checked as it is added; a mistake stays in the box with why.
-    const add = within(email).getByLabelText("Add a recipient");
-    await user.type(add, "ops@example{Enter}");
-    expect(within(email).getByText("ops@example is not an email address. Use one such as ops@example.com.")).toBeInTheDocument();
-    expect(add).toHaveValue("ops@example");
-    await user.clear(add);
-    await user.type(add, "ops@example.com, dev@example.com{Enter}");
-    const recipients = within(email).getByRole("list", { name: "Recipients" });
-    expect(within(recipients).getAllByRole("listitem").map((item) => item.textContent)).toEqual(["ops@example.com", "dev@example.com"]);
-    await user.click(within(recipients).getByRole("button", { name: "Remove dev@example.com" }));
-    expect(within(recipients).getAllByRole("listitem")).toHaveLength(1);
-
-    await user.click(within(email).getByRole("checkbox", { name: "Send notifications by email" }));
-    await expectNoAxeViolations(container);
-    await user.click(within(email).getByRole("button", { name: "Save" }));
-    await confirmItsYou(user);
-    await waitFor(() => {
-      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({ path: "notifications.channels.email", value: { enabled: true } });
-    });
-    expect(backend.callsTo("PUT /api/config/smtp").at(-1)?.body).toEqual({
-      host: "smtp.example.com",
-      port: 587,
-      use_ssl: false,
-      use_tls: true,
-      username: "noust@example.com",
-      password: "s3cret",
-      from_address: "noust@example.com",
-      recipients: ["ops@example.com"],
-    });
-  });
-
-  it("puts the server's refusal beside the field it is about, verbatim", { timeout: 20_000 }, async () => {
-    let answer = problem(400, "config_error", "monitor.smtp.host is not a valid hostname: Invalid domain format", {
-      hint: "Got 'smtp example'. Use a hostname such as smtp.example.com.",
-    });
-    const backend = notificationsBackend({
-      routes: {
-        "POST /api/auth/elevate": () => json(200, { elevated_until: new Date(Date.now() + 600_000).toISOString() }),
-        "PUT /api/config/smtp": () => answer,
-      },
-    });
-    const { user, container } = renderConsole("/settings/notifications");
-    await screen.findByRole("switch", { name: /Send notifications/ });
-    const email = channel("Email");
-    const host = await within(email).findByLabelText("SMTP server");
-    await user.type(host, "smtp example");
-    await user.click(within(email).getByRole("button", { name: "Save" }));
-    expect(
-      await within(email).findByText("monitor.smtp.host is not a valid hostname: Invalid domain format Got 'smtp example'. Use a hostname such as smtp.example.com."),
-    ).toBeInTheDocument();
-    expect(host).toHaveAttribute("aria-invalid", "true");
-    await expectNoAxeViolations(container);
-
-    // A 422 names the field itself.
-    answer = problem(422, "validation_error", "Validation failed", { fields: { port: "Input should be less than or equal to 65535" } });
-    await user.clear(within(email).getByLabelText("Port"));
-    await user.type(within(email).getByLabelText("Port"), "99999");
-    await user.click(within(email).getByRole("button", { name: "Save" }));
-    expect(await within(email).findByText("Input should be less than or equal to 65535")).toBeInTheDocument();
-    expect(within(email).getByLabelText("Port")).toHaveAttribute("aria-invalid", "true");
-    expect(backend.callsTo("PUT /api/config/smtp")).toHaveLength(2);
-
-    // A refused recipient is marked where it stands.
-    answer = problem(400, "config_error", "monitor.email_recipients contains an invalid email address: ops@localhost.x", {
-      hint: "Every recipient must be an address such as ops@example.com.",
-    });
-    await user.type(within(email).getByLabelText("Add a recipient"), "ops@localhost.x{Enter}");
-    await user.click(within(email).getByRole("button", { name: "Save" }));
-    const recipients = await within(email).findByRole("list", { name: "Recipients" });
-    expect(await within(recipients).findByText("Refused")).toBeInTheDocument();
-    expect(within(email).getByText(/^monitor\.email_recipients contains an invalid email address: ops@localhost\.x/)).toBeInTheDocument();
-  });
-
-  it("keeps a stored password write-only and shows the SMTP server's own words when a test fails", async () => {
-    notificationsBackend({
-      smtp: SMTP_SET,
-      config: configBody({ channels: { ...configBody().config.notifications.channels, email: { enabled: true } } }),
-      routes: {
-        "POST /api/config/notifications/email/test": () =>
-          json(200, {
-            ok: false,
-            detail: "SMTP authentication failed\n  Details: Check monitor.smtp.username and password: (535, b'5.7.8 Username and Password not accepted')",
-          }),
-      },
-    });
-    const { user } = renderConsole("/settings/notifications");
-    await screen.findByRole("switch", { name: /Send notifications/ });
-    const email = channel("Email");
-    const password = await within(email).findByLabelText(/^Password/);
-    expect(password).toHaveValue("");
-    expect(password).toHaveAttribute("placeholder", "Set - leave blank to keep it");
-    expect(within(email).getByText("Configured")).toBeInTheDocument();
-    await user.click(within(email).getByRole("button", { name: "Send test" }));
-    expect(await within(email).findByText("The test failed. The SMTP server said:")).toBeInTheDocument();
-    expect(within(email).getByText(/535, b'5\.7\.8 Username and Password not accepted'/)).toBeInTheDocument();
-  });
-
-  it("finds the chats the bot has seen and fills the chat ID with the one picked", { timeout: 20_000 }, async () => {
+  it("hints that a group's chat ID is negative, finds the bot's chats and shows Telegram's own words", { timeout: 20_000 }, async () => {
     const backend = notificationsBackend({
       routes: {
         "POST /api/config/notifications/telegram/chats": () =>
-          json(200, {
-            chats: [
-              { id: -1001987654321, type: "supergroup", title: "Noust alerts", username: null },
-              { id: 52345678, type: "private", title: null, username: "yago" },
-            ],
-          }),
-      },
-    });
-    const { user, container } = renderConsole("/settings/notifications");
-    await screen.findByRole("switch", { name: /Send notifications/ });
-    const telegram = channel("Telegram");
-    await user.click(within(telegram).getByRole("button", { name: "Find my chat" }));
-    const chats = await within(telegram).findByRole("list", { name: "Chats your bot has seen" });
-    expect(within(chats).getByText("Noust alerts")).toBeInTheDocument();
-    expect(within(chats).getByText("Supergroup")).toBeInTheDocument();
-    expect(within(chats).getByText("-1001987654321")).toBeInTheDocument();
-    expect(within(chats).getByText("@yago")).toBeInTheDocument();
-    expect(within(chats).getByText("Private chat")).toBeInTheDocument();
-    expect(screen.getByText("Found 2 chats.")).toBeInTheDocument();
-    await expectNoAxeViolations(container);
-
-    await user.click(within(chats).getByRole("button", { name: "Use Noust alerts" }));
-    expect(within(telegram).getByLabelText("Chat ID")).toHaveValue("-1001987654321");
-    expect(within(chats).getByText("Chosen")).toBeInTheDocument();
-    await user.click(within(telegram).getByRole("button", { name: "Save" }));
-    await confirmItsYou(user);
-    await waitFor(() => {
-      expect(backend.callsTo("PUT /api/config/notifications/telegram").at(-1)?.body).toEqual({ bot_token: "", chat_id: "-1001987654321" });
-    });
-  });
-
-  it("explains how to make a chat appear when the bot has seen none, and needs a saved token", async () => {
-    const withoutToken = configBody({ channels: { ...configBody().config.notifications.channels, telegram: { bot_token: "", chat_id: "" } } });
-    notificationsBackend({ config: withoutToken });
-    const first = renderConsole("/settings/notifications");
-    await screen.findByRole("switch", { name: /Send notifications/ });
-    expect(within(channel("Telegram")).getByRole("button", { name: "Find my chat" })).toBeDisabled();
-    expect(within(channel("Telegram")).getByText("Save the bot token first.")).toBeInTheDocument();
-    await first.user.type(within(channel("Telegram")).getByLabelText("Bot token"), "123:abc");
-    expect(within(channel("Telegram")).getByText("Save the new token first.")).toBeInTheDocument();
-    first.unmount();
-
-    notificationsBackend({ routes: { "POST /api/config/notifications/telegram/chats": () => json(200, { chats: [] }) } });
-    const { user } = renderConsole("/settings/notifications");
-    await screen.findByRole("switch", { name: /Send notifications/ });
-    await user.click(within(channel("Telegram")).getByRole("button", { name: "Find my chat" }));
-    expect(await within(channel("Telegram")).findByText(/Add the bot to the group and send/)).toBeInTheDocument();
-    expect(within(channel("Telegram")).getByText("/start@your_bot_name")).toBeInTheDocument();
-  });
-
-  it("shows why the chats could not be listed, and Telegram's own words when a test fails", async () => {
-    notificationsBackend({
-      config: configBody({ channels: { ...configBody().config.notifications.channels, telegram: { bot_token: "***", chat_id: "-100123" } } }),
-      routes: {
-        "POST /api/config/notifications/telegram/chats": () => problem(400, "validation_error", "HTTP Error 401: Unauthorized"),
+          json(200, { chats: [{ id: -1001234567890, type: "supergroup", title: "Ops alerts", username: null }] }),
         "POST /api/config/notifications/telegram/test": () => json(200, { ok: false, detail: "HTTP 400 Bad Request: Bad Request: chat not found" }),
       },
     });
     const { user } = renderConsole("/settings/notifications");
     await screen.findByRole("switch", { name: /Send notifications/ });
-    const telegram = channel("Telegram");
-    await user.click(within(telegram).getByRole("button", { name: "Find my chat" }));
-    expect(await within(telegram).findByText("Could not list the chats")).toBeInTheDocument();
-    expect(within(telegram).getByText("HTTP Error 401: Unauthorized")).toBeInTheDocument();
+    await user.click(within(row("Telegram")).getByRole("button", { name: "Edit Telegram" }));
+    const drawer = await screen.findByRole("dialog", { name: "Telegram" });
+    expect(within(drawer).getByText(/A group's ID is negative, and a supergroup's starts with -100/)).toBeInTheDocument();
+    const chat = within(drawer).getByLabelText("Chat ID");
+    await user.type(chat, "1001234567890");
+    expect(within(drawer).getByText(/try -1001234567890/)).toBeInTheDocument();
+    await user.clear(chat);
 
-    await user.click(within(telegram).getByRole("button", { name: "Send test" }));
-    expect(await within(telegram).findByText("The test failed. Telegram said:")).toBeInTheDocument();
-    expect(within(telegram).getByText("HTTP 400 Bad Request: Bad Request: chat not found")).toBeInTheDocument();
+    await user.click(within(drawer).getByRole("button", { name: "Find my chat" }));
+    await user.click(await within(drawer).findByRole("button", { name: "Use Ops alerts" }));
+    expect(chat).toHaveValue("-1001234567890");
+    await user.click(within(drawer).getByRole("button", { name: "Save" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(backend.callsTo("PUT /api/config/notifications/telegram")).toHaveLength(2);
+    });
+    expect(backend.callsTo("PUT /api/config/notifications/telegram").at(-1)?.body).toEqual({ bot_token: "", chat_id: "-1001234567890" });
+
+    await user.click(within(drawer).getByRole("button", { name: "Send test" }));
+    expect(await within(drawer).findByText("HTTP 400 Bad Request: Bad Request: chat not found")).toBeInTheDocument();
+    expect(within(drawer).getByText("The test failed. What Telegram said:")).toBeInTheDocument();
   });
 
-  it("puts a chat ID Telegram would refuse beside its field", { timeout: 20_000 }, async () => {
+  it("sets up email - the SMTP account, a write-only password and the recipients - in one save", { timeout: 30_000 }, async () => {
+    const backend = notificationsBackend();
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    await user.click(within(row("Email")).getByRole("button", { name: "Set up Email" }));
+    const drawer = await screen.findByRole("dialog", { name: "Email" });
+    await user.click(within(drawer).getByRole("checkbox", { name: "Send notifications by email" }));
+    await user.type(await within(drawer).findByLabelText("SMTP server"), "smtp.example.com");
+    await user.type(within(drawer).getByLabelText(/Password/), "hunter2");
+    await user.type(within(drawer).getByLabelText("Add a recipient"), "not-an-address");
+    await user.click(within(drawer).getByRole("button", { name: "Add" }));
+    expect(within(drawer).getByText(/not-an-address is not an email address/)).toBeInTheDocument();
+    await user.clear(within(drawer).getByLabelText("Add a recipient"));
+    await user.type(within(drawer).getByLabelText("Add a recipient"), "ops@example.com, dev@example.com");
+    await user.click(within(drawer).getByRole("button", { name: "Add" }));
+    await user.click(within(drawer).getByRole("button", { name: "Save" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(backend.callsTo("PATCH /api/config").length).toBeGreaterThan(0);
+    });
+    expect(backend.callsTo("PUT /api/config/smtp").at(-1)?.body).toMatchObject({
+      host: "smtp.example.com",
+      password: "hunter2",
+      recipients: ["ops@example.com", "dev@example.com"],
+    });
+    expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({ path: "notifications.channels.email", value: { enabled: true } });
+  });
+
+  it("puts the SMTP server's refusal beside the field it is about, verbatim", { timeout: 20_000 }, async () => {
     notificationsBackend({
+      smtp: SMTP_SET,
       routes: {
-        "POST /api/auth/elevate": () => json(200, { elevated_until: new Date(Date.now() + 600_000).toISOString() }),
-        "PUT /api/config/notifications/telegram": () =>
-          problem(422, "validation_error", "Validation failed", {
-            fields: { chat_id: "Value error, 1001234567890 looks like a supergroup or channel id missing its leading '-'" },
-          }),
+        "PUT /api/config/smtp": () => problem(400, "config_error", "monitor.smtp.host is not a valid hostname: 'smtp example'"),
       },
     });
     const { user } = renderConsole("/settings/notifications");
     await screen.findByRole("switch", { name: /Send notifications/ });
-    const telegram = channel("Telegram");
-    await user.type(within(telegram).getByLabelText("Chat ID"), "1001234567890");
-    await user.click(within(telegram).getByRole("button", { name: "Save" }));
-    expect(await within(telegram).findByText(/looks like a supergroup or channel id missing its leading '-'/)).toBeInTheDocument();
-    expect(within(telegram).getByLabelText("Chat ID")).toHaveAttribute("aria-invalid", "true");
+    await user.click(within(row("Email")).getByRole("button", { name: "Edit Email" }));
+    const drawer = await screen.findByRole("dialog", { name: "Email" });
+    const host = await within(drawer).findByLabelText("SMTP server");
+    await user.clear(host);
+    await user.type(host, "smtp example");
+    await user.click(within(drawer).getByRole("button", { name: "Save" }));
+    expect(await within(drawer).findByText(/monitor\.smtp\.host is not a valid hostname/)).toBeInTheDocument();
+    expect(host).toHaveAttribute("aria-invalid", "true");
   });
 
-  it("offers English and Español, each written in its own language, for the language of notifications", { timeout: 20_000 }, async () => {
+  it("turns notifications on at once, and saves events and language from the one bar", { timeout: 20_000 }, async () => {
     const backend = notificationsBackend();
     const { user } = renderConsole("/settings/notifications");
-    await screen.findByRole("switch", { name: /Send notifications/ });
-    const section = screen.getByRole("region", { name: "Language of notifications" });
-    const english = within(section).getByRole("radio", { name: "English" });
-    const spanish = within(section).getByRole("radio", { name: "Español" });
-    expect(english).toHaveAttribute("lang", "en");
-    expect(spanish).toHaveAttribute("lang", "es");
-    expect(english).toBeChecked();
-    expect(within(section).getByText("noust config get notifications.language")).toBeInTheDocument();
-
-    await user.click(spanish);
-    expect(within(section).getByText("noust config set notifications.language es")).toBeInTheDocument();
-    await user.click(within(section).getByRole("button", { name: "Save changes" }));
+    const master = await screen.findByRole("switch", { name: /Send notifications/ });
+    await user.click(master);
     await confirmItsYou(user);
     await waitFor(() => {
-      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({ path: "notifications.language", value: "es" });
+      expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({ path: "notifications.enabled", value: true });
     });
-  });
-});
 
-describe("Settings > Notifications in Spanish", () => {
-  it("shows the channels, the events and the language setting in Spanish, with no accessibility violations", { timeout: 20_000 }, async () => {
-    await act(() => setLocale("es"));
+    // A folded group opens on demand; the kinds that ship off say so.
+    await user.click(screen.getByText("Backups and restores", { selector: "summary *" }));
+    const heartbeat = screen.getByRole("checkbox", { name: /Backup finished/ });
+    expect(heartbeat).not.toBeChecked();
+    expect(within(heartbeat.closest("label") ?? document.body).getByText("Off by default")).toBeInTheDocument();
+    await user.click(heartbeat);
+    await user.click(screen.getByRole("radio", { name: "Español" }));
+    expect(within(saveBar()).getByText("2 unsaved changes")).toBeInTheDocument();
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
+    const written = (path: string) => backend.callsTo("PATCH /api/config").find((call) => (call.body as { path: string }).path === path);
+    await waitFor(() => {
+      expect(written("notifications.language")).toBeDefined();
+    });
+    const events = written("notifications.events")?.body as { path: string; value: Record<string, boolean> };
+    expect(events.value).toMatchObject({ backup_success: true, deploy_started: false, restore_failed: true });
+    expect(Object.keys(events.value)).toHaveLength(18);
+    expect(written("notifications.language")?.body).toEqual({ path: "notifications.language", value: "es" });
+  });
+
+  it("reads in Spanish, with no accessibility violations", { timeout: 20_000 }, async () => {
     notificationsBackend();
+    await act(async () => {
+      await setLocale("es");
+    });
     const { container } = renderConsole("/settings/notifications");
     expect(await screen.findByRole("switch", { name: /Enviar notificaciones/ })).toBeInTheDocument();
-    for (const name of ["Webhook", "Slack", "Discord", "Telegram", "Correo electrónico"]) {
-      expect(screen.getByRole("article", { name })).toBeInTheDocument();
-    }
-    expect(screen.getByRole("region", { name: "Eventos" })).toBeInTheDocument();
-    expect(screen.getByRole("checkbox", { name: /Certificado a punto de caducar/ })).toBeInTheDocument();
-    const language = screen.getByRole("region", { name: "Idioma de las notificaciones" });
-    const english = within(language).getByRole("radio", { name: "English" });
-    const spanish = within(language).getByRole("radio", { name: "Español" });
-    expect(english).toHaveAttribute("lang", "en");
-    expect(spanish).toHaveAttribute("lang", "es");
-    expect(english).toBeChecked();
+    expect(screen.getByText("Qué se envía")).toBeInTheDocument();
+    expect(screen.getByText("Servidores que gestionas", { selector: "summary *" })).toBeInTheDocument();
     await expectNoAxeViolations(container);
   });
 });

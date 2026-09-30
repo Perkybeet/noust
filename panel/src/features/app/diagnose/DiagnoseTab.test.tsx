@@ -53,33 +53,49 @@ async function diagnoseTab(diagnose: RouteHandler) {
 }
 
 describe("the Diagnose tab", () => {
-  it("puts the verdict and the probable cause first", async () => {
+  it("puts the verdict first, in the product's words, with the system's own sentence under it", async () => {
     await diagnoseTab(() => json(200, DOWN));
     const verdict = await screen.findByRole("heading", { level: 2, name: "Verdict: Down" });
     expect(verdict.querySelector("[data-verdict]")).toHaveAttribute("data-verdict", "down");
-    expect(screen.getByText("Probable cause")).toBeInTheDocument();
-    expect(screen.getByText(DOWN.probable_cause)).toBeInTheDocument();
+    expect(screen.getByText("Most likely")).toBeInTheDocument();
+    // The port failed and the service is up: the headline is the port's, not systemd's text.
+    expect(screen.getByText("Nothing answers on the app's port")).toBeInTheDocument();
+    const said = screen.getByText(DOWN.probable_cause);
+    expect(said.tagName).toBe("PRE");
     expect(screen.getByText(/^5 checks:/)).toBeInTheDocument();
+    // What to do about it, beside it.
+    expect(screen.getByRole("link", { name: "View logs" })).toHaveAttribute("href", `/apps/${DOMAIN}/logs`);
+    expect(screen.getByRole("button", { name: "Roll back…" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Restart" })).toBeInTheDocument();
   });
 
-  it("lists each check with its status as a word and its output verbatim", async () => {
-    await diagnoseTab(() => json(200, DOWN));
+  it("lists what did not pass first with its output verbatim, and folds what passed into one line", async () => {
+    const { user } = await diagnoseTab(() => json(200, DOWN));
     const checks = await screen.findByRole("region", { name: "Checks" });
-    const rows = within(checks).getAllByRole("listitem");
-    expect(rows).toHaveLength(5);
-    expect(within(at(rows, 1)).getByText("Failed")).toBeInTheDocument();
-    expect(within(at(rows, 1)).getByText("Listening port")).toBeInTheDocument();
+    const rows = within(within(checks).getByRole("list", { name: "Checks to look at" })).getAllByRole("listitem");
+    // The two problems, then one line for the rest.
+    expect(rows).toHaveLength(2);
+    expect(within(at(rows, 0)).getByText("Failed")).toBeInTheDocument();
+    expect(within(at(rows, 0)).getByText("Listening port")).toBeInTheDocument();
+    expect(within(at(rows, 1)).getByText("Warning")).toBeInTheDocument();
 
-    // What did not pass is open; its output is the system's, in mono.
-    const evidence = within(at(rows, 1)).getByText(DOWN.checks[1]?.evidence ?? "");
+    // The check the verdict hangs on is open, and so are the logs it cites; output is verbatim, in mono.
+    const evidence = within(at(rows, 0)).getByText(DOWN.checks[1]?.evidence ?? "");
     expect(evidence.tagName).toBe("PRE");
     expect(evidence).toBeVisible();
+    expect(rows[0]?.querySelector("details")).toHaveAttribute("open");
     expect(rows[1]?.querySelector("details")).toHaveAttribute("open");
-    expect(rows[2]?.querySelector("details")).toHaveAttribute("open");
-    // What passed stays folded; a probe with nothing to show says so.
-    expect(rows[0]?.querySelector("details")).not.toHaveAttribute("open");
-    expect(within(at(rows, 3)).getByText("No output")).toBeInTheDocument();
-    expect(within(at(rows, 4)).getByText("Skipped")).toBeInTheDocument();
+
+    // What passed or was skipped is folded under one line, and opens on request.
+    const rest = checks.querySelector<HTMLElement>("details[data-rest]");
+    if (rest === null) throw new Error("nothing folded");
+    expect(rest).not.toHaveAttribute("open");
+    await user.click(within(rest).getByText("3 checks passed or were skipped"));
+    expect(rest).toHaveAttribute("open");
+    const passed = within(rest).getByRole("list", { name: "Checks that passed or were skipped" });
+    expect(within(passed).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(passed).getAllByText("No output")).toHaveLength(2);
+    expect(within(passed).getByText("Skipped")).toBeInTheDocument();
   });
 
   it("links a journal finding to the live log", async () => {
@@ -97,7 +113,8 @@ describe("the Diagnose tab", () => {
     await screen.findByText(DOWN.probable_cause);
     await user.click(screen.getByRole("button", { name: "Run again" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Verdict: Healthy" })).toBeInTheDocument();
-    expect(screen.getByText("No single cause")).toBeInTheDocument();
+    expect(screen.getByText("All good")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Restart" })).not.toBeInTheDocument();
     expect(backend.callsTo(`GET /api/apps/${DOMAIN}/diagnose`)).toHaveLength(2);
     await waitFor(() => {
       expect(screen.getByTestId("announcer-polite")).toHaveTextContent(`${DOMAIN}: Healthy.`);
@@ -123,13 +140,14 @@ describe("the Diagnose tab", () => {
     await diagnoseTab(() => json(200, DOWN));
     const verdict = await screen.findByRole("heading", { level: 2, name: "Veredicto: Caída" });
     expect(verdict.querySelector("[data-verdict]")).toHaveAttribute("data-verdict", "down");
-    expect(screen.getByText("Causa probable")).toBeInTheDocument();
+    expect(screen.getByText("Lo más probable")).toBeInTheDocument();
+    expect(screen.getByText("Nada responde en el puerto de la aplicación")).toBeInTheDocument();
     expect(screen.getByText(/^5 comprobaciones:/)).toBeInTheDocument();
     const checks = await screen.findByRole("region", { name: "Comprobaciones" });
-    const rows = within(checks).getAllByRole("listitem");
-    expect(within(at(rows, 1)).getByText("Fallida")).toBeInTheDocument();
-    expect(within(at(rows, 1)).getByText("Puerto a la escucha")).toBeInTheDocument();
-    expect(within(at(rows, 4)).getByText("Omitida")).toBeInTheDocument();
+    const rows = within(within(checks).getByRole("list", { name: "Comprobaciones que revisar" })).getAllByRole("listitem");
+    expect(within(at(rows, 0)).getByText("Fallida")).toBeInTheDocument();
+    expect(within(at(rows, 0)).getByText("Puerto a la escucha")).toBeInTheDocument();
+    expect(within(checks).getByText("3 comprobaciones superadas u omitidas")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

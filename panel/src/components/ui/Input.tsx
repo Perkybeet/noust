@@ -32,7 +32,7 @@ export function Input({ size = "md", mono = false, icon, prefix, suffix, classNa
       className={cx(
         "flex min-w-0 items-center",
         CONTROL_FRAME,
-        size === "sm" ? "h-7 text-13" : "h-8 text-13",
+        size === "sm" ? "h-control-sm text-13" : "h-control-md text-13",
         className,
       )}
     >

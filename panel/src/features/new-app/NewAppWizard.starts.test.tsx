@@ -8,6 +8,11 @@ import type { RouteHandler } from "../../test/fakes";
 import { EXPORT, RECIPES, WORDPRESS } from "./testFixtures";
 import type { Inspection } from "./wizard";
 
+/** Fails the test where an element the page should render is not there. */
+function missing(what: string): never {
+  throw new Error(`No ${what} around the element`);
+}
+
 const APP_TYPES = {
   types: [
     { type: "nextjs", name: "Next.js", default_port: 3000 },
@@ -102,8 +107,21 @@ describe("starting from a recipe", () => {
     await choose(user, "From a recipe");
     await user.click(await screen.findByRole("button", { name: "Use WordPress" }));
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Review" })).toHaveFocus();
+    expect(await screen.findByRole("heading", { level: 2, name: "Address" })).toHaveFocus();
     expect(backend.callsTo("GET /api/recipes/wordpress")).toHaveLength(1);
+    // A recipe has no configuration step: its type and settings come with it.
+    const steps = screen.getByRole("list", { name: "Steps" });
+    expect(within(steps).getAllByRole("listitem")).toHaveLength(4);
+
+    // A domain already deployed here is refused before anything is sent.
+    await user.type(screen.getByLabelText("Domain"), "shop.example.com");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findAllByText(/shop\.example\.com is already deployed/)).not.toHaveLength(0);
+    await user.clear(screen.getByLabelText("Domain"));
+    await user.type(screen.getByLabelText("Domain"), "blog.example.com");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Variables" })).toHaveFocus();
     // Generated variables are listed, never asked; the others can be set over the recipe's.
     expect(screen.getByText("Generated for you")).toBeInTheDocument();
     expect(screen.getByText("WORDPRESS_DB_PASSWORD")).toBeInTheDocument();
@@ -112,15 +130,8 @@ describe("starting from a recipe", () => {
     // What comes with it, read-only.
     expect(screen.getByText("A new mysql database and user, their credentials in the app's .env")).toBeInTheDocument();
     expect(screen.getByText("wp-content")).toBeInTheDocument();
-
-    // A domain already deployed here is refused before anything is sent.
-    await user.type(screen.getByLabelText("Domain"), "shop.example.com");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByText(/shop\.example\.com is already deployed/)).toBeInTheDocument();
-    await user.clear(screen.getByLabelText("Domain"));
-    await user.type(screen.getByLabelText("Domain"), "blog.example.com");
     await user.type(screen.getByLabelText(/WP_DEBUG/), "1");
-    await expectNoAxeViolations(harness.container);
+    await expectNoAxeViolations(screen.getByRole("main"));
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
     expect(await screen.findByRole("heading", { level: 2, name: "Deploy" })).toHaveFocus();
@@ -141,15 +152,19 @@ describe("starting from a recipe", () => {
 
     // Followed here to its end, then what to do next: every address in a note is a link.
     expect(await screen.findByText("blog.example.com is deployed", {}, { timeout: 5_000 })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 3, name: "Next steps" })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "Next steps" })).toBeInTheDocument();
     const install = screen.getByRole("link", { name: /https:\/\/blog\.example\.com\/wp-admin\/install\.php/ });
     expect(install).toHaveAttribute("href", "https://blog.example.com/wp-admin/install.php");
     expect(install.getAttribute("rel")).toContain("noopener");
     expect(screen.getByText(/survive every release/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open blog.example.com" })).toHaveAttribute("href", "/apps/blog.example.com");
     expect(screen.getByRole("link", { name: "Follow the build log" })).toHaveAttribute("href", "/apps/blog.example.com/deployments/12");
     expect(harness.location().pathname).toBe("/apps/new");
-    await expectNoAxeViolations(harness.container);
+    await expectNoAxeViolations(screen.getByRole("main"));
+    // The wizard's last action opens what it made.
+    await user.click(screen.getByRole("button", { name: "Open blog.example.com" }));
+    await waitFor(() => {
+      expect(harness.location().pathname).toBe("/apps/blog.example.com");
+    });
   });
 
   it("says why a recipe could not be read, verbatim", { timeout: 20_000 }, async () => {
@@ -174,7 +189,10 @@ describe("importing an application", () => {
     expect(screen.getByLabelText("Export file")).toHaveAttribute("aria-invalid", "true");
     await harness.user.upload(screen.getByLabelText("Export file"), file(JSON.stringify({ ...EXPORT, version: 3 })));
     expect(await screen.findByText(/This export is version 3; this console reads version 1/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
+    // Continue stays where it is and says why.
+    await harness.user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findAllByText(/This export is version 3; this console reads version 1/)).toHaveLength(2);
+    expect(screen.getByRole("heading", { level: 2, name: "Source" })).toBeInTheDocument();
     expect(backend.callsTo("POST /api/apps/import")).toHaveLength(0);
   });
 
@@ -195,24 +213,30 @@ describe("importing an application", () => {
     expect(await screen.findByText("An export of shop.example.com, a Next.js app.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Continue" }));
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Review" })).toHaveFocus();
-    const summary = screen.getByRole("region", { name: "What the export defines" });
+    expect(await screen.findByRole("heading", { level: 2, name: "Address" })).toHaveFocus();
+    await user.click(screen.getByText("What the export defines"));
+    const summary = screen.getByText("What the export defines").closest("details") as HTMLElement;
     expect(within(summary).getByText("1 job")).toBeInTheDocument();
     expect(within(summary).getByText("Schedule daily")).toBeInTheDocument();
     expect(within(summary).getByText("store.example.com")).toBeInTheDocument();
     expect(within(summary).getByText("2 values left out")).toBeInTheDocument();
-    expect(screen.getByLabelText(/^STRIPE_KEY/)).toHaveAttribute("type", "password");
-    await expectNoAxeViolations(harness.container);
+    await expectNoAxeViolations(screen.getByRole("main"));
 
-    // The source had its credentials taken out and the secrets are empty: nothing goes yet.
+    // The source had its credentials taken out: Continue points at it.
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(await screen.findByText(/took the credentials out of this URL\. Enter it with them/)).toBeInTheDocument();
-    expect(screen.getAllByText("The export left this value out. Enter the value the app had.")).toHaveLength(2);
-
+    expect(await screen.findAllByText(/took the credentials out of this URL\. Enter it with them/)).not.toHaveLength(0);
     await user.clear(screen.getByLabelText("Domain"));
     await user.type(screen.getByLabelText("Domain"), "shop.example.org");
     await user.clear(screen.getByLabelText("Source"));
     await user.type(screen.getByLabelText("Source"), "https://github.com/acme/shop.git");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    // The secrets it left out are empty: nothing goes yet.
+    expect(await screen.findByRole("heading", { level: 2, name: "Variables" })).toHaveFocus();
+    expect(screen.getByLabelText(/^STRIPE_KEY/)).toHaveAttribute("type", "password");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(await screen.findAllByText("The export left this value out. Enter the value the app had.")).toHaveLength(2);
+    expect(screen.getByText(/^2 fields need a fix before you continue, starting with (STRIPE_KEY|DATABASE_URL)\.$/)).toBeInTheDocument();
     await user.type(screen.getByLabelText(/^STRIPE_KEY/), "sk_live_1");
     await user.type(screen.getByLabelText(/^DATABASE_URL/), "postgres://db/shop");
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -232,12 +256,12 @@ describe("importing an application", () => {
 
     expect(await screen.findByText("shop.example.org is imported", {}, { timeout: 5_000 })).toBeInTheDocument();
     expect(screen.getByText("2 of 3 parts of the export were applied.")).toBeInTheDocument();
-    const notApplied = screen.getByRole("region", { name: "Not applied" });
+    const notApplied = screen.getByRole("list", { name: "Not applied" });
     expect(within(notApplied).getByText("cron nightly")).toBeInTheDocument();
     expect(within(notApplied).getByText("The cron job needs a user that does not exist here")).toBeInTheDocument();
-    const applied = screen.getByRole("region", { name: "Applied" });
+    const applied = screen.getByRole("list", { name: "Applied" });
     expect(within(applied).getByText("alias store.example.org")).toBeInTheDocument();
-    await expectNoAxeViolations(harness.container);
+    await expectNoAxeViolations(screen.getByRole("main"));
   });
 
   it("sends a domain the server refuses back to its field", { timeout: 20_000 }, async () => {
@@ -251,8 +275,10 @@ describe("importing an application", () => {
     await user.clear(await screen.findByLabelText("Domain"));
     await user.type(screen.getByLabelText("Domain"), "shop.example.org");
     await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { level: 2, name: "Variables" });
+    await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(await screen.findByRole("button", { name: "Import shop.example.org" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "Review" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Address" })).toBeInTheDocument();
     expect(screen.getByText("An application is already deployed on shop.example.org")).toBeInTheDocument();
   });
 });
@@ -294,25 +320,33 @@ describe("another platform's configuration", () => {
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("Repository or directory"), "/srv/api");
     await user.click(screen.getByRole("button", { name: "Inspect source" }));
-    await screen.findByRole("heading", { level: 2, name: "Review" });
+    await screen.findByRole("heading", { level: 2, name: "Address" });
+    await user.type(screen.getByLabelText("Domain"), "api.example.com");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { level: 2, name: "Configuration" });
 
-    const panel = screen.getByRole("region", { name: "Found a Railway configuration (railway.toml)" });
+    const panel = screen.getByText(/Found a Railway configuration/).closest("section") ?? missing("section");
     expect(within(panel).getByText("node server.js")).toBeInTheDocument();
     expect(within(panel).getByText(/For reference only/)).toBeInTheDocument();
     expect(within(panel).getByText("GET /healthz, waiting up to 60 s")).toBeInTheDocument();
     expect(within(panel).getByText("Railway's cron schedule has no equivalent in Noust; add it with noust cron add.")).toBeInTheDocument();
     expect(screen.getByLabelText("Port")).toHaveValue("8080");
-    expect(screen.getByLabelText(/^SESSION_SECRET/)).toHaveAttribute("type", "password");
-    expect(screen.getByLabelText<HTMLInputElement>(/^SESSION_SECRET/).value).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    await expectNoAxeViolations(harness.container);
+    await expectNoAxeViolations(screen.getByRole("main"));
 
     await user.click(within(panel).getByRole("checkbox", { name: "Use what it proposes" }));
     // shop.example.com holds 3000 in the fake machine: the detected default moves to 3001.
     expect(screen.getByLabelText("Port")).toHaveValue("3001");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { level: 2, name: "Variables" });
     expect(screen.queryByLabelText(/^SESSION_SECRET/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Back" }));
 
-    await user.click(within(panel).getByRole("checkbox", { name: "Use what it proposes" }));
-    await user.type(screen.getByLabelText("Domain"), "api.example.com");
+    await user.click(within(await screen.findByText(/Found a Railway configuration/).then((title) => title.closest("section") ?? missing("section"))).getByRole("checkbox", { name: "Use what it proposes" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { level: 2, name: "Variables" });
+    // What the platform generates there is generated here, as a secret.
+    expect(screen.getByLabelText(/^SESSION_SECRET/)).toHaveAttribute("type", "password");
+    expect(screen.getByLabelText<HTMLInputElement>(/^SESSION_SECRET/).value).toMatch(/^[A-Za-z0-9_-]{43}$/);
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(await screen.findByRole("button", { name: "Deploy api.example.com" }));
     await waitFor(() => {
@@ -337,19 +371,26 @@ describe("another platform's configuration", () => {
     await screen.findByRole("heading", { level: 1, name: "New application" });
     await user.type(screen.getByLabelText("Repository or directory"), "/srv/api");
     await user.click(screen.getByRole("button", { name: "Inspect source" }));
-    await screen.findByRole("heading", { level: 2, name: "Review" });
+    await screen.findByRole("heading", { level: 2, name: "Address" });
     await user.type(screen.getByLabelText("Domain"), "api.example.com");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { level: 2, name: "Configuration" });
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { level: 2, name: "Variables" });
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(await screen.findByRole("button", { name: "Deploy api.example.com" }));
 
-    await screen.findByRole("heading", { level: 2, name: "Review" });
-    const panel = screen.getByRole("region", { name: "Found a Railway configuration (railway.toml)" });
-    expect(within(panel).getByRole("alert")).toHaveTextContent(/The server refused this health check/);
+    // The refusal names the startup check, which the Configuration step shows.
+    await screen.findByRole("heading", { level: 2, name: "Configuration" });
+    const panel = screen.getByText(/Found a Railway configuration/).closest("section") ?? missing("section");
+    expect(within(panel).getByRole("alert")).toHaveTextContent(/The server refused this startup check/);
     expect(within(panel).getByText("Health path must start with /")).toBeInTheDocument();
-    await expectNoAxeViolations(harness.container);
+    await expectNoAxeViolations(screen.getByRole("main"));
 
     await user.click(within(panel).getByRole("checkbox", { name: "Use what it proposes" }));
     expect(within(panel).queryByRole("alert")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByRole("heading", { level: 2, name: "Variables" });
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(await screen.findByRole("button", { name: "Deploy api.example.com" }));
     await waitFor(() => {

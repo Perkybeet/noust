@@ -1,4 +1,3 @@
-import { TriangleAlert } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -6,9 +5,10 @@ import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
 import { CopyTextButton } from "../../components/ui/CopyTextButton";
 import { Dialog } from "../../components/ui/Dialog";
+import { Mono } from "../../components/ui/Mono";
+import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
-import { cx } from "../../lib/cx";
 import { useDestinationActions } from "./useDestinationActions";
 
 export interface ShowKeyDialogProps {
@@ -107,14 +107,14 @@ export function ShowKeyDialog({ name, open, onOpenChange, onContinueToRemove }: 
             <dl className="flex flex-col gap-2 rounded-control border border-border bg-bg-sunken px-4 py-3">
               <div className="flex flex-col gap-1">
                 <dt className="text-12 text-fg-muted">{t("backups.showKeyDialog.passwordLabel")}</dt>
-                <dd translate="no" className="mono text-13 break-all text-fg select-all">
-                  {showKey.data.password}
+                <dd className="text-13 break-all select-all">
+                  <Mono>{showKey.data.password}</Mono>
                 </dd>
               </div>
               <div className="flex flex-col gap-1">
                 <dt className="text-12 text-fg-muted">{t("backups.showKeyDialog.password2Label")}</dt>
-                <dd translate="no" className="mono text-13 break-all text-fg select-all">
-                  {showKey.data.password2}
+                <dd className="text-13 break-all select-all">
+                  <Mono>{showKey.data.password2}</Mono>
                 </dd>
               </div>
             </dl>
@@ -123,13 +123,13 @@ export function ShowKeyDialog({ name, open, onOpenChange, onContinueToRemove }: 
                 {t("backups.showKeyDialog.copyBoth")}
               </CopyTextButton>
             </div>
-            <div ref={savedRef} className={cx("rounded-control border p-3", nudge ? "border-warn/50 bg-warn-soft" : "border-transparent")}>
+            <div ref={savedRef} className="flex flex-col gap-3">
               <Checkbox label={t("backups.showKeyDialog.savedLabel")} checked={saved} onCheckedChange={setSaved} />
+              {/* Said once, when closing was refused: the operator's own action, so announced. */}
               {nudge ? (
-                <p role="alert" className="mt-2 flex items-start gap-2 text-13 text-fg">
-                  <TriangleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-warn" />
+                <Notice tone="warning" live>
                   {t("backups.showKeyDialog.nudge")}
-                </p>
+                </Notice>
               ) : null}
             </div>
           </>

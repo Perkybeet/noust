@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { toast } from "../components/ui/toast";
 import { fakeBackend, json, problem } from "../test/fakes";
-import { ApiError, ElevationCancelledError, api, buildPath, configureApi, request } from "./client";
+import { ApiError, ApprovalPendingError, ElevationCancelledError, api, buildPath, configureApi, request, sendApproved } from "./client";
+import type { ApprovalRequested } from "./client";
 
 describe("api", () => {
   it("sends JSON and returns the decoded body", async () => {
@@ -122,12 +123,120 @@ describe("api", () => {
       expect(onSessionExpired).toHaveBeenCalledTimes(1);
     });
 
-    it.each(["invalid_token", "totp_required", "invalid_totp"])("is not what a %s answer means", async (code) => {
+    it.each(["invalid_token", "totp_required", "invalid_totp", "invalid_credentials", "invalid_passkey", "invalid_invitation"])("is not what a %s answer means", async (code) => {
       const onSessionExpired = vi.fn();
       configureApi({ onSessionExpired });
       fakeBackend({ "POST /api/auth/login": () => problem(401, code, "Wrong credentials") });
       await expect(api("POST", "/api/auth/login", { token: "x" })).rejects.toMatchObject({ error: code });
       expect(onSessionExpired).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("an action that needs a second person's approval", () => {
+    // The server's 202, as noust.web.api.approvals answers it.
+    const held = (id: string, state = "requested") =>
+      json(
+        202,
+        {
+          error: "approval_required",
+          detail: `This needs a second person's approval. Request ${id} is waiting.`,
+          hint: `Once approved, send exactly the same call again with the header X-Noust-Approval: ${id}.`,
+          fields: { approval: id, state },
+          output: null,
+        },
+        { "X-Noust-Approval-Request": id, Location: `/api/approvals/${id}` },
+      );
+
+    it("waits for the decision and sends the same call again, once, under the approval", async () => {
+      const approval = vi.fn((requested: ApprovalRequested) => (requested.id === "7" ? Promise.resolve() : Promise.reject(new Error("unexpected"))));
+      configureApi({ approval });
+      const backend = fakeBackend({
+        "PUT /api/services/worker/config": (call) =>
+          call.headers.get("X-Noust-Approval") === "7" ? json(200, { saved: true }) : held("7"),
+      });
+      await expect(api("PUT", "/api/services/worker/config", { content: "[Service]" })).resolves.toEqual({ saved: true });
+      expect(approval).toHaveBeenCalledTimes(1);
+      expect(approval.mock.calls[0]?.[0]).toMatchObject({
+        id: "7",
+        state: "requested",
+        call: { method: "PUT", target: "/api/services/worker/config", body: { content: "[Service]" }, node: null },
+      });
+      const calls = backend.callsTo("PUT /api/services/worker/config");
+      expect(calls).toHaveLength(2);
+      expect(calls[0]?.headers.has("X-Noust-Approval")).toBe(false);
+      expect(calls[1]?.body).toEqual({ content: "[Service]" });
+    });
+
+    it("does not run the call when the operator leaves it waiting", async () => {
+      const backend = fakeBackend({ "POST /api/cron": () => held("12") });
+      const error = await api("POST", "/api/cron", { name: "nightly" }).catch((caught: unknown) => caught);
+      expect(error).toBeInstanceOf(ApprovalPendingError);
+      // Nothing was done, as with a cancelled confirmation: callers already treat it so.
+      expect(error).toBeInstanceOf(ElevationCancelledError);
+      expect(error).toMatchObject({ error: "approval_pending", approvalId: "12" });
+      expect(backend.calls).toHaveLength(1);
+    });
+
+    it("never turns a call already under an approval into another request", async () => {
+      const approval = vi.fn(() => Promise.resolve());
+      configureApi({ approval });
+      const backend = fakeBackend({ "POST /api/cron": () => held("3") });
+      await expect(api("POST", "/api/cron", { name: "nightly" })).resolves.toMatchObject({ error: "approval_required" });
+      expect(approval).toHaveBeenCalledTimes(1);
+      expect(backend.calls).toHaveLength(2);
+    });
+
+    it("asks for the reason when the server wants one, then sends it percent-encoded", async () => {
+      const approvalReason = vi.fn(() => Promise.resolve("Rotar el certificado: caduca mañana"));
+      const approval = vi.fn(() => Promise.reject(new ApprovalPendingError("approval_pending", "4")));
+      configureApi({ approvalReason, approval });
+      const backend = fakeBackend({
+        "POST /api/cron": (call) =>
+          call.headers.has("X-Noust-Reason")
+            ? held("4")
+            : problem(400, "approval_reason_required", "Say why: this call needs a second person's approval, and a reason"),
+      });
+      await expect(api("POST", "/api/cron", { name: "nightly" })).rejects.toMatchObject({ error: "approval_pending" });
+      expect(approvalReason).toHaveBeenCalledTimes(1);
+      const [, second] = backend.calls;
+      expect(decodeURIComponent(second?.headers.get("X-Noust-Reason") ?? "")).toBe("Rotar el certificado: caduca mañana");
+      expect(approval).toHaveBeenCalledTimes(1);
+    });
+
+    it("sends nothing more when the operator declines to give a reason", async () => {
+      const backend = fakeBackend({
+        "POST /api/cron": () => problem(400, "approval_reason_required", "Say why"),
+      });
+      await expect(api("POST", "/api/cron", { name: "nightly" })).rejects.toMatchObject({ error: "approval_cancelled" });
+      expect(backend.calls).toHaveLength(1);
+    });
+
+    it("confirms it's you first when the route asks, and only then files the request", async () => {
+      const elevate = vi.fn(() => Promise.resolve());
+      const approval = vi.fn(() => Promise.resolve());
+      configureApi({ elevate, approval });
+      let attempts = 0;
+      const backend = fakeBackend({
+        "PUT /api/sites/example.com/config": (call) => {
+          attempts += 1;
+          if (attempts === 1) return problem(403, "elevation_required", "Confirm it's you to continue");
+          return call.headers.get("X-Noust-Approval") === "9" ? json(200, { ok: true }) : held("9");
+        },
+      });
+      await expect(api("PUT", "/api/sites/example.com/config", { content: "server {}" })).resolves.toEqual({ ok: true });
+      expect(elevate).toHaveBeenCalledTimes(1);
+      expect(approval).toHaveBeenCalledTimes(1);
+      expect(backend.calls).toHaveLength(3);
+    });
+
+    it("runs a held call later, from the inbox, under its approval", async () => {
+      const backend = fakeBackend({
+        "POST /api/nodes/web-2/api/cron": (call) => json(201, { approval: call.headers.get("X-Noust-Approval"), body: call.body }),
+      });
+      await expect(
+        sendApproved({ method: "POST", target: "/api/nodes/web-2/api/cron", body: { name: "nightly" }, node: "web-2" }, "15"),
+      ).resolves.toEqual({ approval: "15", body: { name: "nightly" } });
+      expect(backend.calls).toHaveLength(1);
     });
   });
 

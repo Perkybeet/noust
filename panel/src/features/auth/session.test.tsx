@@ -19,6 +19,9 @@ describe("safeNext", () => {
     ["/\\evil.example", "/"],
     ["javascript:alert(1)", "/"],
     ["/login?next=/apps", "/"],
+    ["/welcome?next=/apps", "/"],
+    ["/invite", "/"],
+    ["/setup", "/"],
   ])("%s goes to %s", (next, expected) => {
     expect(safeNext(next)).toBe(expected);
   });
@@ -51,7 +54,7 @@ describe("a session that expires while the console is open", () => {
     const { expire, revive } = expiringBackend();
     const path = "/apps/shop.example.com/environment";
     const { user, location, queryClient } = renderConsole(path);
-    await screen.findByRole("heading", { level: 2, name: "Variables" });
+    await screen.findByRole("link", { name: "Environment", current: "page" });
     queryClient.setQueryData(appKeys.list, { apps: [], total: 0 });
 
     expire();
@@ -73,9 +76,10 @@ describe("a session that expires while the console is open", () => {
     expect(queryClient.getQueryData(appKeys.list)).toBeUndefined();
 
     revive();
-    await user.type(screen.getByLabelText("Access token"), "noust_token");
+    await user.click(screen.getByRole("button", { name: "Emergency access" }));
+    await user.type(await screen.findByLabelText("Access token"), "noust_token");
     await user.click(screen.getByRole("button", { name: "Sign in" }));
-    await screen.findByRole("heading", { level: 2, name: "Variables" });
+    await screen.findByRole("link", { name: "Environment", current: "page" });
     expect(location().pathname).toBe(path);
   });
 

@@ -1,48 +1,43 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
-import { sessionQuery } from "../../api/queries/auth";
 import { useDocumentTitle } from "../../app/documentTitle";
-import { Logo } from "../../components/brand/Logo";
-import { Skeleton } from "../../components/ui/Skeleton";
+import { CommandHint } from "../../components/page/CommandHint";
 import { useT } from "../../i18n";
+import { AuthFrame } from "./AuthFrame";
 import { LoginForm } from "./LoginForm";
-import type { LoginFormProps } from "./LoginForm";
+import type { LoginMode } from "./LoginForm";
+
+export interface LoginPageProps {
+  /** Where to go once signed in; already checked to be a path of this console. */
+  next: string;
+  /** The operator was sent here because their session ended. */
+  expired: boolean;
+  /** Open on the access token (a link from a runbook, `?with=token`). */
+  initialMode?: LoginMode;
+}
 
 /**
- * The sign-in screen. It names the machine before anything else: an operator with several
- * servers should never type a token into the wrong one.
+ * The sign-in screen (T7). A person's account first; the access token is emergency access,
+ * with its own title and the terminal's way to print it.
  */
-export function LoginPage({ next, expired }: LoginFormProps) {
+export function LoginPage({ next, expired, initialMode = "account" }: LoginPageProps) {
   const t = useT();
   useDocumentTitle(t("auth.area"));
-  const { data: session, isPending } = useQuery(sessionQuery());
+  const [mode, setMode] = useState<LoginMode>(initialMode);
 
   return (
-    <main className="flex min-h-dvh items-center justify-center bg-bg px-6 py-12">
-      <div className="w-full max-w-[22.5rem]">
-        <div className="mb-12 flex items-center gap-3">
-          <Logo variant="icon" height={28} />
-          <span aria-hidden="true" className="h-7 w-px bg-border" />
-          <div className="flex min-w-0 flex-col gap-0.5">
-            {session ? (
-              <span translate="no" className="mono truncate text-13 font-medium text-fg">
-                {session.hostname}
-              </span>
-            ) : isPending ? (
-              <Skeleton className="h-3.5 w-32" />
-            ) : (
-              <span className="text-13 font-medium text-fg">Noust</span>
-            )}
-            <span className="text-12 text-fg-faint">
-              {t("shell.area")}
-              {session ? <span className="mono">{` ${session.version}`}</span> : null}
-            </span>
-          </div>
-        </div>
-        <h1 className="title text-24 text-fg">{t("auth.area")}</h1>
-        <p className="mt-1.5 mb-7 text-14 text-pretty text-fg-muted">{t("auth.subtitle")}</p>
-        <LoginForm next={next} expired={expired} />
-      </div>
-    </main>
+    <AuthFrame
+      title={mode === "account" ? t("auth.area") : t("auth.emergency.title")}
+      description={mode === "account" ? t("auth.account.description") : t("auth.emergency.description")}
+      footer={
+        mode === "account" ? (
+          <p className="max-w-measure-help text-12 text-pretty text-fg-muted">{t("auth.account.forgot")}</p>
+        ) : (
+          <CommandHint label={t("auth.emergency.lostIt")} command="noust web token" />
+        )
+      }
+    >
+      <LoginForm next={next} expired={expired} mode={mode} onModeChange={setMode} />
+    </AuthFrame>
   );
 }

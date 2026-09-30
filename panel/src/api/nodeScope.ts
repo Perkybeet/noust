@@ -9,8 +9,10 @@
  *
  * What stays the central's own, whichever server is on screen: the operator's credentials
  * (`/api/auth`, so "Confirm it's you" elevates the central's session, which is the one the
- * proxy checks), the fleet itself (`/api/nodes`, `/api/fleet`, `/api/central`). These are
- * exactly the prefixes a node refuses from a central (`noust.web.auth.FLEET_REFUSED_PREFIXES`).
+ * proxy checks), the fleet itself (`/api/nodes`, `/api/fleet`, `/api/central`) - the prefixes
+ * a node refuses from a central (`noust.web.auth.FLEET_REFUSED_PREFIXES`) - and the approvals
+ * a second person gives (`/api/approvals`): a node's call is approved on the central, which
+ * vouches for it to the node.
  *
  * The query cache is partitioned the same way: an entry's hash carries the server it was
  * read from, so `["apps"]` on web-2 and `["apps"]` here are two entries, and a refetch always
@@ -21,13 +23,20 @@ import { hashKey } from "@tanstack/react-query";
 import type { QueryKey, QueryPersister } from "@tanstack/react-query";
 
 /** API prefixes that are always the central's, never forwarded to a node. */
-export const CENTRAL_API_PREFIXES: readonly string[] = ["/api/auth", "/api/nodes", "/api/fleet", "/api/central"];
+export const CENTRAL_API_PREFIXES: readonly string[] = [
+  "/api/auth",
+  "/api/nodes",
+  "/api/fleet",
+  "/api/central",
+  // A node's call that needs a second person is decided where the accounts live: the central.
+  "/api/approvals",
+];
 
 /**
  * First elements of query keys whose data is the central's own (see CENTRAL_API_PREFIXES):
  * their entries are shared by every server the console shows, never partitioned.
  */
-export const CENTRAL_QUERY_ROOTS: ReadonlySet<string> = new Set(["auth", "nodes", "fleet", "servers", "central"]);
+export const CENTRAL_QUERY_ROOTS: ReadonlySet<string> = new Set(["auth", "nodes", "fleet", "servers", "central", "approvals"]);
 
 function under(path: string, prefix: string): boolean {
   return path === prefix || path.startsWith(`${prefix}/`);

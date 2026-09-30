@@ -1,11 +1,25 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RecordedCall, RouteHandler } from "../../test/fakes";
+
+/** A screen as wide as a desktop's: tables are tables, not the phone's card rows. */
+beforeEach(() => {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: true,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  }));
+});
 
 const JOBS = [
   {
@@ -83,14 +97,14 @@ function auditHandler(all: typeof AUDIT_ENTRIES) {
   };
 }
 
-async function activityAt(routes: Record<string, RouteHandler> = {}) {
+async function activityAt(routes: Record<string, RouteHandler> = {}, path = "/activity?kind=all") {
   const backend = fakeBackend({
     ...signedInRoutes(),
     "GET /api/jobs": jobsHandler(JOBS),
     "GET /api/audit": auditHandler(AUDIT_ENTRIES),
     ...routes,
   });
-  const harness = renderConsole("/activity");
+  const harness = renderConsole(path);
   await screen.findByRole("heading", { level: 1, name: "Activity" });
   const table = await screen.findByRole("region", { name: /Activity/ });
   return { ...harness, backend, table };
@@ -105,21 +119,48 @@ describe("the activity timeline", () => {
     expect(within(table).getByText("Failed a scope check")).toBeInTheDocument();
   });
 
+  it("opens on operations: what was done, not who signed in", async () => {
+    const { table } = await activityAt({}, "/activity");
+    await within(table).findByText("shop.example.com");
+    expect(within(table).queryByText("Sign-in attempt")).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Operations" })).toBeChecked();
+  });
+
+  it("names what an action was done to, not the API path", async () => {
+    const { table } = await activityAt();
+    await within(table).findByText("shop.example.com");
+    // The refused scope check was on /api/apps/blog.example.com: its target is the application.
+    expect(within(table).getByText("blog.example.com")).toBeInTheDocument();
+    expect(within(table).queryByText("/api/apps/blog.example.com")).not.toBeInTheDocument();
+  });
+
+  it("leads with the jobs running now, each with its step and its log", async () => {
+    const running = { ...JOBS[0], id: "r1", name: "Deploy shop.example.com", status: "running", current_step: "npm ci", completed_at: null };
+    const { user } = await activityAt({
+      "GET /api/jobs/active": () => json(200, { jobs: [running], total: 1, active: 1 }),
+      "GET /api/jobs/r1/log": () => json(200, { job_id: "r1", content: "[12:00:00] [INFO] npm ci", truncated: false, lines: 1 }),
+    });
+    const progress = (await screen.findByText("Deploy shop.example.com")).closest("div");
+    if (!progress) throw new Error("no job in hand");
+    expect(within(progress).getByText("npm ci")).toBeInTheDocument();
+    await user.click(within(progress).getByRole("button", { name: "View log" }));
+    expect(await screen.findByRole("dialog", { name: "Deploy shop.example.com" })).toBeInTheDocument();
+  });
+
   it("shows a quiet note instead of an error when the session cannot read the audit log", async () => {
     const { table } = await activityAt({ "GET /api/audit": () => problem(403, "forbidden", "admin scope required") });
     await within(table).findByText("shop.example.com");
-    expect(screen.getByText(/audit log needs an admin token/)).toBeInTheDocument();
+    expect(screen.getByText(/audit log is not open to this session/)).toBeInTheDocument();
     expect(screen.queryByText(/^Could not load/)).not.toBeInTheDocument();
     expect(within(table).queryByText("Sign-in attempt")).not.toBeInTheDocument();
   });
 
-  it("filters by kind through the URL, excluding the other source entirely", async () => {
-    const { table, location, user } = await activityAt();
+  it("switches views through the URL: sign-ins and access leave the jobs out", async () => {
+    const { table, location, user } = await activityAt({}, "/activity");
     await within(table).findByText("shop.example.com");
-    await user.click(screen.getByRole("combobox", { name: "Kind" }));
-    await user.click(await screen.findByRole("option", { name: "Audited actions" }));
+    await user.click(screen.getByRole("radio", { name: "Sign-ins and access" }));
     await waitFor(() => {
-      expect(location().search).toEqual({ kind: "audit" });
+      expect(location().search).toEqual({ kind: "access" });
     });
     await waitFor(() => {
       expect(within(table).queryByText("shop.example.com")).not.toBeInTheDocument();
@@ -127,12 +168,12 @@ describe("the activity timeline", () => {
     expect(within(table).getByText("Sign-in attempt")).toBeInTheDocument();
   });
 
-  it("filters by actor through the URL", async () => {
-    const { table, location, user } = await activityAt();
+  it("searches by who, what and to what, through the URL", async () => {
+    const { table, location, user } = await activityAt({}, "/activity");
     await within(table).findByText("shop.example.com");
-    await user.type(screen.getByRole("searchbox", { name: "Actor" }), "master");
+    await user.type(screen.getByRole("searchbox", { name: "Search activity" }), "master");
     await waitFor(() => {
-      expect(location().search).toEqual({ actor: "master" });
+      expect(location().search).toEqual({ q: "master" });
     });
     await waitFor(() => {
       expect(within(table).queryByText("admin.example.com")).not.toBeInTheDocument();
@@ -169,14 +210,14 @@ describe("the activity timeline", () => {
       "GET /api/jobs": jobsHandler(JOBS),
       "GET /api/audit": auditHandler(AUDIT_ENTRIES),
     });
-    renderConsole("/activity");
+    renderConsole("/activity?kind=all");
     await screen.findByRole("heading", { level: 1, name: "Actividad" });
     const table = await screen.findByRole("region", { name: /Actividad/ });
     await within(table).findByText("shop.example.com");
     expect(within(table).getByText("Intento de inicio de sesión")).toBeInTheDocument();
     expect(within(table).getByText("Falló una comprobación de alcance")).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Tipo" })).toBeInTheDocument();
-    expect(screen.getByRole("searchbox", { name: "Autor" })).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "Vista" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "Buscar en la actividad" })).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 });

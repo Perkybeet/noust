@@ -47,7 +47,7 @@ export function IconButton({
         "data-disabled:cursor-not-allowed data-disabled:opacity-50",
         "data-pressed:bg-surface-active data-pressed:text-fg",
         variant === "ghost" ? "border-transparent" : "border-border bg-surface shadow-raised",
-        size === "sm" ? "size-7 [&_svg]:size-3.5" : "size-8 [&_svg]:size-4",
+        size === "sm" ? "size-control-sm [&_svg]:size-icon-sm" : "size-control-md [&_svg]:size-icon-md",
         className,
       )}
     >

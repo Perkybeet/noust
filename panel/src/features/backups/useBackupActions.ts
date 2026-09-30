@@ -6,12 +6,13 @@
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
-import { request } from "../../api/client";
+import { ElevationCancelledError, request } from "../../api/client";
 import { backupKeys } from "../../api/queries/backups";
 import { jobKeys } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
+import { describeError } from "../../lib/errors";
 import { reportActionError } from "../apps/useAppActions";
 
 export interface CreateBackupInput {
@@ -48,6 +49,17 @@ export interface CreateScheduleInput {
   retentionDays: number | null;
   includeDatabases: boolean;
   destinations: ScheduleDestinationInput[];
+}
+
+/** Some applications of a bulk schedule were refused: each one named, with the server's words. */
+export class SchedulesFailed extends Error {
+  readonly detail: string;
+
+  constructor(lines: readonly string[]) {
+    super(lines.join("\n"));
+    this.name = "SchedulesFailed";
+    this.detail = lines.join("\n");
+  }
 }
 
 export interface PushBackupInput {
@@ -161,6 +173,30 @@ export function useBackupActions() {
     },
   });
 
+  // Every application without a schedule, one request each: the API schedules one application
+  // at a time. Those that fail are named with the server's own words, and the rest stand.
+  const createSchedules = useMutation({
+    mutationFn: async (inputs: CreateScheduleInput[]) => {
+      const failed: string[] = [];
+      for (const input of inputs) {
+        try {
+          await request("post", "/api/backup-schedules", { body: scheduleBody(input) });
+        } catch (error: unknown) {
+          if (error instanceof ElevationCancelledError) throw error;
+          failed.push(`${input.domain}: ${describeError(error).detail}`);
+        }
+      }
+      if (failed.length > 0) throw new SchedulesFailed(failed);
+      return inputs.length;
+    },
+    onSuccess: (count) => {
+      toast.success(t("backups.toast.scheduledMany", { count }));
+    },
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: backupKeys.schedules });
+    },
+  });
+
   const updateSchedule = useMutation({
     mutationFn: (input: CreateScheduleInput) =>
       request("put", "/api/backup-schedules/{domain}", { params: { domain: input.domain }, body: scheduleBody(input) }),
@@ -181,5 +217,5 @@ export function useBackupActions() {
     },
   });
 
-  return { create, verify, restore, remove, push, createSchedule, updateSchedule, deleteSchedule };
+  return { create, verify, restore, remove, push, createSchedule, createSchedules, updateSchedule, deleteSchedule };
 }

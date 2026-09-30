@@ -1,11 +1,25 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RecordedCall, RouteHandler } from "../../test/fakes";
+
+/** A screen as wide as a desktop's: tables are tables, not the phone's card rows. */
+beforeEach(() => {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    matches: true,
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  }));
+});
 
 /** The calendar `POST /api/cron/preview` normalises each alias to, for a believable preview. */
 const CALENDAR_OF: Record<string, string> = {
@@ -82,21 +96,45 @@ async function cronAt(path = "/cron", extra: Record<string, RouteHandler> = {}) 
 }
 
 describe("the cron jobs list", () => {
-  it("lists every seeded job with its schedule and last result", async () => {
+  it("lists every seeded job with how its last run ended, its schedule in words and its next run", async () => {
     const { table } = await cronAt();
     const enabledRow = (await within(table).findByText("nightly-backup")).closest("tr");
     if (!enabledRow) throw new Error("no row");
-    expect(within(enabledRow).getByText("Enabled")).toBeInTheDocument();
     expect(within(enabledRow).getByText("Succeeded")).toBeInTheDocument();
+    expect(within(enabledRow).getByText("Every day at 02:00")).toBeInTheDocument();
+    expect(within(enabledRow).getByText("noust backup create shop.example.com")).toBeInTheDocument();
 
     const disabledRow = within(table).getByText("hourly-sync").closest("tr");
     if (!disabledRow) throw new Error("no row");
-    // The State column's pill, not the Next Run column: a disabled job's next run is "-" with
-    // an sr-only reason of "Disabled" too.
-    const stateCell = within(disabledRow).getAllByRole("cell")[0];
-    if (!stateCell) throw new Error("no state cell");
-    expect(within(stateCell).getByText("Disabled")).toBeInTheDocument();
+    // Enabled is a setting, not a state: a paused job says so, neutrally, where its next run would be.
+    expect(within(disabledRow).getByText("Disabled")).toBeInTheDocument();
     expect(within(disabledRow).getByText("Never run")).toBeInTheDocument();
+    expect(within(disabledRow).getByText("Every hour, on the hour")).toBeInTheDocument();
+    expect(screen.getByText("2 jobs")).toBeInTheDocument();
+    expect(screen.getByText("noust cron list")).toBeInTheDocument();
+  });
+
+  it("opens a job's run history from its row", async () => {
+    const { user, table } = await cronAt("/cron", {
+      "GET /api/cron/nightly-backup/runs": () =>
+        json(200, { name: "nightly-backup", runs: [{ started: "2026-09-25T02:00:00+00:00", exit_code: 0, success: true, output: "done" }] }),
+    });
+    await user.click(await within(table).findByRole("button", { name: /^nightly-backup/ }));
+    const drawer = await screen.findByRole("dialog", { name: "Runs of nightly-backup" });
+    expect(await within(drawer).findByText("Exit 0")).toBeInTheDocument();
+  });
+
+  it("says what is missing when a job is saved without a name or command, instead of a disabled button", async () => {
+    const { user, backend, table } = await cronAt();
+    await within(table).findByText("nightly-backup");
+    await user.click(screen.getByRole("button", { name: "New job" }));
+    const dialog = await screen.findByRole("dialog", { name: "New cron job" });
+    const create = within(dialog).getByRole("button", { name: "Create job" });
+    expect(create).toBeEnabled();
+    await user.click(create);
+    expect(await within(dialog).findByText("Enter a name for the job.")).toBeInTheDocument();
+    expect(within(dialog).getByText("Enter the command to run.")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/cron")).toHaveLength(0);
   });
 
   it("filters by the search box, written into the URL", async () => {
@@ -200,7 +238,7 @@ describe("the new job dialog's schedule preview", () => {
     expect(within(dialog).getAllByRole("listitem")).toHaveLength(2);
 
     await user.click(within(dialog).getByRole("combobox", { name: "Schedule" }));
-    await user.click(await screen.findByRole("option", { name: "Hourly" }));
+    await user.click(await screen.findByRole("option", { name: "Every hour" }));
 
     await waitFor(
       () => {
@@ -217,7 +255,7 @@ describe("the new job dialog's schedule preview", () => {
     const dialog = await screen.findByRole("dialog", { name: "New cron job" });
 
     await user.click(within(dialog).getByRole("combobox", { name: "Schedule" }));
-    await user.click(await screen.findByRole("option", { name: "Custom" }));
+    await user.click(await screen.findByRole("option", { name: "Custom calendar expression" }));
     await user.type(within(dialog).getByRole("textbox", { name: "Calendar expression" }), "bogus!");
 
     expect(await within(dialog).findByText(/Invalid cron schedule/, {}, { timeout: 2000 })).toBeInTheDocument();
@@ -232,7 +270,7 @@ describe("the new job dialog's schedule preview", () => {
     const dialog = await screen.findByRole("dialog", { name: "New cron job" });
 
     await user.click(within(dialog).getByRole("combobox", { name: "Schedule" }));
-    await user.click(await screen.findByRole("option", { name: "Custom" }));
+    await user.click(await screen.findByRole("option", { name: "Custom calendar expression" }));
     const calendar = within(dialog).getByRole("textbox", { name: "Calendar expression" });
     await user.type(calendar, "weekly-ish");
     await user.clear(calendar);
@@ -266,8 +304,8 @@ describe("the cron jobs list in Spanish", () => {
     const table = await screen.findByRole("region", { name: /Tareas programadas/ });
     const enabledRow = (await within(table).findByText("nightly-backup")).closest("tr");
     if (!enabledRow) throw new Error("no row");
-    expect(within(enabledRow).getByText("Activada")).toBeInTheDocument();
     expect(within(enabledRow).getByText("Correcta")).toBeInTheDocument();
+    expect(within(enabledRow).getByText("Cada día a las 02:00")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
 
     await user.click(screen.getByRole("button", { name: "Nueva tarea" }));

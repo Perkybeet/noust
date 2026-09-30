@@ -1,36 +1,36 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
-import { CircleAlert, CornerDownRight, FileX, FlaskConical, MoreHorizontal, Play, RotateCw, ShieldCheck, Square, Trash2, Undo2 } from "lucide-react";
+import { CornerDownRight, FileX, Play, RotateCw, Square } from "lucide-react";
 import { useId, useRef, useState } from "react";
+import type { ReactNode } from "react";
 
 import { ElevationCancelledError, isApiError, request } from "../../api/client";
+import { appsQuery } from "../../api/queries/apps";
 import { siteConfigQuery, siteKeys, siteQuery } from "../../api/queries/sites";
 import type { SiteConfig } from "../../api/queries/sites";
-import { PageHeader } from "../../app/PageHeader";
 import { CommandHint } from "../../components/page/CommandHint";
+import { FileEditorPage } from "../../components/page/FileEditorPage";
+import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
-import { Section, Sections } from "../../components/page/Section";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Dialog } from "../../components/ui/Dialog";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { IconButton } from "../../components/ui/IconButton";
-import { Menu, MenuItem } from "../../components/ui/Menu";
+import { ICONS } from "../../components/ui/icons";
+import { MenuItem } from "../../components/ui/Menu";
+import { Mono } from "../../components/ui/Mono";
+import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { SystemOutput } from "../../components/ui/SystemOutput";
+import { TextLink } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import { ConfigEditor } from "./ConfigEditor";
 import type { ConfigEditorHandle } from "./ConfigEditor";
-import { SiteState, Tls } from "./SitesTab";
 import { configRejection, failingLine } from "./configErrors";
 import type { ConfigRejection } from "./configErrors";
+import { SiteState, Tls } from "./SitesPage";
 import { useSiteActions } from "./useSiteActions";
-
-function useBreadcrumbs(): readonly { label: string; to: "/domains" }[] {
-  const t = useT();
-  return [{ label: t("nav.domains.label"), to: "/domains" }] as const;
-}
 
 type Outcome =
   | { kind: "saved"; webserver: string }
@@ -38,20 +38,32 @@ type Outcome =
   | { kind: "tested"; ok: boolean; output: string; line: number | null }
   | null;
 
+/** How many lines differ from what is saved: the save bar's count of unsaved changes. */
+export function changedLines(saved: string, draft: string): number {
+  const before = saved.split("\n");
+  const after = draft.split("\n");
+  let changed = 0;
+  for (let index = 0; index < Math.max(before.length, after.length); index += 1) {
+    if (before[index] !== after[index]) changed += 1;
+  }
+  return changed;
+}
+
+/**
+ * The web server refused the text: the console's usual error block with its own words
+ * verbatim, and the line it names one click away.
+ */
 function Rejected({ rejection, id, onGoToLine }: { rejection: ConfigRejection; id: string; onGoToLine: (line: number) => void }) {
   const t = useT();
   return (
-    <div id={id} role="alert" className="flex min-w-0 flex-col gap-2 rounded-card border border-fail/30 bg-fail-soft/50 p-4">
-      <div className="flex items-start gap-2">
-        <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fail" />
-        <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-13 font-medium text-fg">{t("domains.siteConfigPage.nothingSavedTestFailed")}</p>
-          <p className="text-13 text-pretty text-fg-muted">{t("domains.siteConfigPage.fixLineNote", { summary: rejection.summary })}</p>
-        </div>
-      </div>
-      <SystemOutput label={t("domains.siteConfigPage.whatTestSaid")} maxHeight="max-h-56" className="rounded-control border border-border bg-surface px-3 py-2">
-        {rejection.output.trim() === "" ? rejection.summary : rejection.output.trimEnd()}
-      </SystemOutput>
+    <div id={id} className="flex min-w-0 flex-col gap-2">
+      <ErrorBlock
+        live
+        compact
+        title={t("domains.siteConfigPage.nothingSavedTestFailed")}
+        hint={t("domains.siteConfigPage.fixLineNote", { summary: rejection.summary })}
+        error={{ detail: rejection.output.trim() === "" ? rejection.summary : rejection.output.trimEnd() }}
+      />
       {rejection.line !== null ? (
         <div>
           <Button size="sm" icon={<CornerDownRight aria-hidden="true" />} onClick={() => onGoToLine(rejection.line ?? 1)}>
@@ -63,96 +75,36 @@ function Rejected({ rejection, id, onGoToLine }: { rejection: ConfigRejection; i
   );
 }
 
-function Saved({ webserver, id, onReload, reloading }: { webserver: string; id: string; onReload: () => void; reloading: boolean }) {
+/** A check that passed, or a save: said with the web server's own confirmation. */
+function Passed({ id, title, output, action }: { id: string; title: string; output?: string; action?: ReactNode }) {
   const t = useT();
   return (
-    <div id={id} role="status" className="flex flex-col gap-3 rounded-card border border-ok/30 bg-ok-soft/40 p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div className="flex items-start gap-2">
-        <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ok" />
-        <p className="text-13 text-pretty text-fg">{t("domains.siteConfigPage.savedPassedTest", { webserver })}</p>
-      </div>
-      <Button icon={<RotateCw aria-hidden="true" />} loading={reloading} onClick={onReload} className="self-start sm:self-auto">
-        {t("domains.siteConfigPage.reloadWebserver", { webserver })}
-      </Button>
-    </div>
-  );
-}
-
-/** The reload after a save's own test passed, itself refused by the web server: rare (the
- * configuration changed again between the two calls), but its output is shown verbatim, the
- * same as any other test failure. */
-function ReloadFailed({ webserver, output }: { webserver: string; output: string }) {
-  const t = useT();
-  return (
-    <div role="alert" className="flex flex-col gap-2 rounded-card border border-fail/30 bg-fail-soft/50 p-4">
-      <div className="flex items-start gap-2">
-        <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fail" />
-        <p className="text-13 text-pretty text-fg">{t("domains.siteConfigPage.webserverNotReloaded", { webserver })}</p>
-      </div>
-      <SystemOutput label={t("domains.siteConfigPage.whatReloadSaid", { webserver })} maxHeight="max-h-56" className="rounded-control border border-border bg-surface px-3 py-2">
-        {output.trim() === "" ? t("domains.siteConfigPage.printedNothing", { webserver }) : output.trimEnd()}
-      </SystemOutput>
-    </div>
-  );
-}
-
-/** A candidate configuration tested without saving it, and found acceptable. Nothing on disk
- * changed: the web server's own confirmation is shown so the operator knows it is safe to save. */
-function TestPassed({ webserver, output, id }: { webserver: string; output: string; id: string }) {
-  const t = useT();
-  return (
-    <div id={id} role="status" className="flex flex-col gap-2 rounded-card border border-ok/30 bg-ok-soft/40 p-4">
-      <div className="flex items-start gap-2">
-        <ShieldCheck aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-ok" />
-        <p className="text-13 text-pretty text-fg">{t("domains.siteConfigPage.testPassedNotSaved", { webserver })}</p>
-      </div>
-      <SystemOutput label={t("domains.siteConfigPage.whatTestSaid")} maxHeight="max-h-56" className="rounded-control border border-border bg-surface px-3 py-2">
-        {output.trim() === "" ? t("domains.siteConfigPage.printedNothing", { webserver }) : output.trimEnd()}
-      </SystemOutput>
+    <div id={id}>
+      <Notice tone="success" live title={title} {...(action !== undefined ? { action } : {})}>
+        {output !== undefined ? (
+          <SystemOutput label={t("domains.siteConfigPage.whatTestSaid")} maxHeight="max-h-28">
+            {output}
+          </SystemOutput>
+        ) : undefined}
+      </Notice>
     </div>
   );
 }
 
 /**
- * The loaded view's shape, line for line: the "Serves" and "File" lines, the editor at its own
- * height, and the row of buttons. Anything shorter pushed the terminal hint down the page when
- * the configuration arrived.
- */
-function EditorSkeleton() {
-  const t = useT();
-  return (
-    <div aria-busy="true" className="flex flex-col gap-3">
-      <span className="sr-only">{t("domains.siteConfigPage.loadingConfigurationSr")}</span>
-      <div aria-hidden="true" className="flex flex-col gap-3">
-        <div className="flex h-4 items-center">
-          <Skeleton className="h-3 w-48" />
-        </div>
-        <div className="flex h-4 items-center">
-          <Skeleton className="h-3 w-72 max-w-full" />
-        </div>
-        <div className="flex h-[26rem] min-w-0 flex-col gap-2 rounded-control border border-border p-3 sm:h-[34rem]">
-          {["w-2/5", "w-2/3", "w-1/2", "w-3/4", "w-1/3", "w-3/5", "w-1/2", "w-2/3"].map((width, index) => (
-            <Skeleton key={index} className={`h-3 ${width}`} />
-          ))}
-        </div>
-        <div className="h-8" />
-      </div>
-    </div>
-  );
-}
-
-/**
- * One web server site: its state, and its configuration file in an editor. Saving always tests
- * the text with the web server first; a refusal is shown in the server's own words, the line it
- * names is marked, and the file on disk is left as it was.
+ * One web server site's configuration file, in the file editor (T6): the editor takes the
+ * screen's height and the bar at its foot tests, or tests and saves. Saving always tests the
+ * text with the web server first; a refusal is shown in the server's own words, the line it
+ * names is marked, and the file on disk is left as it was. Deleting the site is behind "More
+ * actions", never on the page beside the editor.
  */
 export function SiteConfigPage({ site }: { site: string }) {
   const t = useT();
-  const BREADCRUMBS = useBreadcrumbs();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const info = useQuery(siteQuery(site));
   const config = useQuery(siteConfigQuery(site));
+  const apps = useQuery(appsQuery());
   const { enable, disable, reload, refresh } = useSiteActions();
   const editor = useRef<ConfigEditorHandle>(null);
   const outcomeId = useId();
@@ -166,6 +118,11 @@ export function SiteConfigPage({ site }: { site: string }) {
   const text = draft ?? saved;
   const dirty = draft !== null && draft !== saved;
   const webserver = config.data?.webserver ?? info.data?.webserver ?? "nginx";
+  const app = apps.data?.apps.find((candidate) => candidate.domain === site) ?? null;
+  const breadcrumbs = [
+    { label: t("nav.domains.label"), to: "/domains" },
+    { label: t("domains.page.sitesTab"), to: "/domains/sites" },
+  ];
 
   // Set once the site is deleted: there is nothing left to lose by leaving.
   const gone = useRef(false);
@@ -215,162 +172,178 @@ export function SiteConfigPage({ site }: { site: string }) {
 
   if ((info.isError && isApiError(info.error) && info.error.status === 404) || (config.isError && isApiError(config.error) && config.error.status === 404)) {
     return (
-      <>
-        <PageHeader title={site} breadcrumbs={BREADCRUMBS} />
+      <ListPage header={{ title: site, mono: true, breadcrumbs }}>
         <EmptyState
-          level={2}
+          variant="firstUse"
           icon={<FileX />}
           title={t("domains.siteConfigPage.noSiteTitle")}
           description={t("domains.siteConfigPage.noSiteDescription")}
           action={
-            <Link to="/domains" search={{ tab: "sites" }} className={buttonClassName("secondary")}>
+            <Link to="/domains/sites" className={buttonClassName("secondary")}>
               {t("domains.siteConfigPage.allSites")}
             </Link>
           }
           command="noust site list"
-          className="py-16"
         />
-      </>
+      </ListPage>
     );
   }
 
-  const facts = info.data ? (
-    <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-      <SiteState enabled={info.data.enabled} />
-      <span translate="no" className="mono text-12 text-fg-muted">
-        {info.data.webserver}
-      </span>
-      <span className="text-13">
-        <Tls secure={info.data.has_ssl} />
-      </span>
-    </span>
-  ) : (
-    // A line as tall as the loaded one: its tallest part is the 13px TLS word.
-    <span aria-hidden="true" className="flex h-5 items-center gap-3">
-      <Skeleton className="h-3 w-16" />
-      <Skeleton className="h-3 w-12" />
-    </span>
-  );
-
-  const actions = info.data ? (
-    <>
-      {info.data.enabled ? (
-        <Button icon={<Square aria-hidden="true" />} loading={disable.isPending} onClick={() => disable.mutate(site)}>
-          {t("domains.sitesTab.disableAction")}
-        </Button>
-      ) : (
-        <Button icon={<Play aria-hidden="true" />} loading={enable.isPending} onClick={() => enable.mutate(site)}>
-          {t("domains.sitesTab.enableAction")}
-        </Button>
-      )}
-      <Menu align="end" trigger={<IconButton variant="secondary" label={t("domains.siteConfigPage.moreActions")} icon={<MoreHorizontal />} tooltip={false} />}>
-        <MenuItem icon={<Trash2 />} destructive onClick={() => setDeleting(true)}>
-          {t("domains.deleteSite")}
-        </MenuItem>
-      </Menu>
-    </>
-  ) : undefined;
+  const goToLine = (line: number): void => editor.current?.goToLine(line);
+  let result = null;
+  if (outcome?.kind === "rejected") {
+    result = <Rejected rejection={outcome.rejection} id={outcomeId} onGoToLine={goToLine} />;
+  } else if (outcome?.kind === "tested") {
+    result = outcome.ok ? (
+      <Passed
+        id={outcomeId}
+        title={t("domains.siteConfigPage.testPassedNotSaved", { webserver })}
+        output={outcome.output.trim() === "" ? t("domains.siteConfigPage.printedNothing", { webserver }) : outcome.output.trimEnd()}
+      />
+    ) : (
+      <Rejected
+        rejection={{ summary: t("domains.siteConfigPage.webserverRejectedThisConfiguration", { webserver }), output: outcome.output, line: outcome.line }}
+        id={outcomeId}
+        onGoToLine={goToLine}
+      />
+    );
+  } else if (outcome?.kind === "saved") {
+    result = reload.isError ? (
+      <ErrorBlock live compact error={reload.error} title={t("domains.siteConfigPage.webserverNotReloaded", { webserver })} />
+    ) : (
+      <Passed
+        id={outcomeId}
+        title={t("domains.siteConfigPage.savedPassedTest", { webserver })}
+        action={
+          <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={reload.isPending} onClick={() => reload.mutate()}>
+            {t("domains.siteConfigPage.reloadWebserver", { webserver })}
+          </Button>
+        }
+      />
+    );
+  } else if (save.error instanceof ElevationCancelledError) {
+    result = (
+      <p role="status" className="text-13 text-fg-muted">
+        {save.error.detail}
+      </p>
+    );
+  } else if (save.isError) {
+    result = <ErrorBlock live compact error={save.error} title={t("domains.siteConfigPage.configNotSaved")} />;
+  } else if (test.isError) {
+    result = <ErrorBlock live compact error={test.error} title={t("domains.siteConfigPage.configNotTested")} />;
+  }
 
   const describedBy = [pathId, outcome ? outcomeId : null].filter(Boolean).join(" ");
 
   return (
     <>
-      <PageHeader title={site} breadcrumbs={BREADCRUMBS} description={facts} actions={actions} />
-      <Sections>
-        <Section
-          title={t("domains.siteConfigPage.configurationSectionTitle")}
-          description={t.rich("domains.siteConfigPage.configurationSectionDescription", {
-            command: <code className="text-12">{webserver === "apache" ? "apache2ctl -t" : "nginx -t"}</code>,
-          })}
-        >
-          {config.isError && config.data === undefined ? (
-            <ErrorBlock error={config.error} title={t("domains.siteConfigPage.couldNotReadConfig", { site })} onRetry={() => void config.refetch()} retrying={config.isRefetching} />
-          ) : config.data === undefined ? (
-            <EditorSkeleton />
+      <FileEditorPage
+        header={{
+          title: site,
+          mono: true,
+          breadcrumbs,
+          ...(info.data ? { status: <SiteState enabled={info.data.enabled} size="md" /> } : {}),
+          meta: info.data ? (
+            <>
+              <Mono tone="muted">{info.data.webserver}</Mono>
+              <Tls secure={info.data.has_ssl} />
+              {app !== null ? (
+                <span>
+                  {t.rich("domains.siteConfigPage.belongsTo", {
+                    app: (
+                      <TextLink to="/apps/$domain" params={{ domain: app.domain }}>
+                        {app.domain}
+                      </TextLink>
+                    ),
+                  })}
+                </span>
+              ) : null}
+            </>
           ) : (
-            <div className="flex flex-col gap-3">
-              {info.data && info.data.server_names.length > 0 ? (
-                <p className="flex min-w-0 items-center gap-2 text-12 text-fg-muted">
-                  <span className="shrink-0">{t("domains.siteConfigPage.servesLabel")}</span>
-                  <span translate="no" className="mono truncate text-fg" title={info.data.server_names.join(", ")}>
-                    {info.data.server_names.join(", ")}
-                  </span>
-                </p>
-              ) : null}
-              <p id={pathId} className="flex min-w-0 items-center gap-2 text-12 text-fg-muted">
-                <span className="shrink-0">{t("domains.siteConfigPage.fileLabel")}</span>
-                <code translate="no" className="truncate text-fg" title={config.data.path}>
-                  {config.data.path}
-                </code>
-              </p>
-              <ConfigEditor
-                ref={editor}
-                value={text}
-                onChange={onChange}
-                label={t("domains.siteConfigPage.configurationOfAriaLabel", { site })}
-                describedBy={describedBy}
-                errorLine={outcome?.kind === "rejected" ? outcome.rejection.line : outcome?.kind === "tested" ? outcome.line : null}
-                disabled={save.isPending || test.isPending}
-              />
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p role="status" className="text-13 text-fg-muted">
-                  {dirty ? t("domains.siteConfigPage.unsavedChanges") : outcome?.kind === "saved" ? "" : t("domains.siteConfigPage.noChanges")}
-                </p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    icon={<Undo2 aria-hidden="true" />}
-                    disabled={!dirty || save.isPending || test.isPending}
-                    onClick={() => {
-                      setDraft(null);
-                      setOutcome(null);
-                    }}
-                  >
-                    {t("domains.discardChanges")}
+            // A line as tall as the loaded one.
+            <span aria-hidden="true" className="flex h-5 items-center gap-3">
+              <Skeleton className="h-3 w-12" />
+              <Skeleton className="h-3 w-16" />
+            </span>
+          ),
+          ...(info.data
+            ? {
+                secondaryActions: info.data.enabled ? (
+                  <Button icon={<Square aria-hidden="true" />} loading={disable.isPending} onClick={() => disable.mutate(site)}>
+                    {t("domains.sitesTab.disableAction")}
                   </Button>
-                  <Button variant="secondary" icon={<FlaskConical aria-hidden="true" />} disabled={save.isPending} loading={test.isPending} onClick={() => test.mutate(text)}>
-                    {t("domains.siteConfigPage.test")}
-                  </Button>
-                  <Button variant="primary" disabled={!dirty || test.isPending} loading={save.isPending} onClick={() => save.mutate(text)}>
-                    {t("domains.siteConfigPage.testAndSave")}
-                  </Button>
-                </div>
-              </div>
-              {outcome?.kind === "rejected" ? (
-                <Rejected rejection={outcome.rejection} id={outcomeId} onGoToLine={(line) => editor.current?.goToLine(line)} />
-              ) : outcome?.kind === "tested" ? (
-                outcome.ok ? (
-                  <TestPassed webserver={webserver} output={outcome.output} id={outcomeId} />
                 ) : (
-                  <Rejected
-                    rejection={{ summary: t("domains.siteConfigPage.webserverRejectedThisConfiguration", { webserver }), output: outcome.output, line: outcome.line }}
-                    id={outcomeId}
-                    onGoToLine={(line) => editor.current?.goToLine(line)}
-                  />
-                )
-              ) : outcome?.kind === "saved" ? (
-                <>
-                  <Saved webserver={outcome.webserver} id={outcomeId} onReload={() => reload.mutate()} reloading={reload.isPending} />
-                  {reload.isError ? (
-                    isApiError(reload.error) && reload.error.output ? (
-                      <ReloadFailed webserver={webserver} output={reload.error.output} />
-                    ) : (
-                      <ErrorBlock live error={reload.error} title={t("domains.siteConfigPage.reloadNotReloadedTitle", { webserver })} />
-                    )
-                  ) : null}
-                </>
-              ) : save.isError && !(save.error instanceof ElevationCancelledError) ? (
-                <ErrorBlock live error={save.error} title={t("domains.siteConfigPage.configNotSaved")} />
-              ) : save.error instanceof ElevationCancelledError ? (
-                <p role="status" className="text-13 text-fg-muted">{save.error.detail}</p>
-              ) : test.isError ? (
-                <ErrorBlock live error={test.error} title={t("domains.siteConfigPage.configNotTested")} />
+                  <Button icon={<Play aria-hidden="true" />} loading={enable.isPending} onClick={() => enable.mutate(site)}>
+                    {t("domains.sitesTab.enableAction")}
+                  </Button>
+                ),
+                overflow: (
+                  <MenuItem icon={<ICONS.delete />} destructive onClick={() => setDeleting(true)}>
+                    {t("domains.deleteSite")}
+                  </MenuItem>
+                ),
+              }
+            : {}),
+        }}
+        notice={
+          <Notice>{t("domains.siteConfigPage.testedBefore", { command: webserver === "apache" ? "apache2ctl -t" : "nginx -t" })}</Notice>
+        }
+        meta={
+          config.data ? (
+            <>
+              {info.data && info.data.server_names.length > 0 ? (
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="shrink-0">{t("domains.siteConfigPage.servesLabel")}</span>
+                  <Mono truncate title={info.data.server_names.join(", ")}>
+                    {info.data.server_names.join(", ")}
+                  </Mono>
+                </span>
               ) : null}
-            </div>
-          )}
-        </Section>
-        <CommandHint command={`noust site show ${site}`} label={t("domains.fromTerminal")} />
-      </Sections>
+              <span id={pathId} className="flex min-w-0 items-center gap-1.5">
+                <span className="shrink-0">{t("domains.siteConfigPage.fileLabel")}</span>
+                <Mono truncate title={config.data.path}>
+                  {config.data.path}
+                </Mono>
+              </span>
+            </>
+          ) : undefined
+        }
+        bar={{
+          changes: dirty ? changedLines(saved, text) : 0,
+          onDiscard: () => {
+            setDraft(null);
+            setOutcome(null);
+          },
+          onTest: () => test.mutate(text),
+          onTestAndSave: () => save.mutate(text),
+          testing: test.isPending,
+          saving: save.isPending,
+        }}
+        footer={<CommandHint command={`noust site show ${site}`} label={t("domains.fromTerminal")} />}
+      >
+        {config.isError && config.data === undefined ? (
+          <ErrorBlock error={config.error} title={t("domains.siteConfigPage.couldNotReadConfig", { site })} onRetry={() => void config.refetch()} retrying={config.isRefetching} />
+        ) : config.data === undefined ? (
+          <div aria-busy="true" className="h-full">
+            <span className="sr-only">{t("domains.siteConfigPage.loadingConfigurationSr")}</span>
+            <Skeleton className="h-full rounded-control" />
+          </div>
+        ) : (
+          <div className="flex h-full min-h-0 flex-col gap-3">
+            {result}
+            <ConfigEditor
+              ref={editor}
+              value={text}
+              onChange={onChange}
+              label={t("domains.siteConfigPage.configurationOfAriaLabel", { site })}
+              describedBy={describedBy}
+              errorLine={outcome?.kind === "rejected" ? outcome.rejection.line : outcome?.kind === "tested" ? outcome.line : null}
+              disabled={save.isPending || test.isPending}
+              className="flex-1"
+            />
+          </div>
+        )}
+      </FileEditorPage>
 
       <ConfirmDialog
         open={deleting}
@@ -384,7 +357,7 @@ export function SiteConfigPage({ site }: { site: string }) {
           gone.current = true;
           refresh(site);
           toast.success(t("domains.sitesTab.deletedToast", { site }));
-          void navigate({ to: "/domains", search: { tab: "sites" } });
+          void navigate({ to: "/domains/sites" });
         }}
       />
       <Dialog

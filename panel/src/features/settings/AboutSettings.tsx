@@ -1,10 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { CircleArrowUp, CircleCheck, CircleDashed, CircleHelp, ExternalLink, RotateCw } from "lucide-react";
+import { ChevronDown, CircleArrowUp, CircleDashed, CircleHelp, RotateCw } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { sessionQuery } from "../../api/queries/auth";
 import { configQuery } from "../../api/queries/config";
-import { versionQuery } from "../../api/queries/system";
+import { machineQuery, versionQuery } from "../../api/queries/system";
 import type { ResponseOf } from "../../api/client";
 import { useDocumentTitle } from "../../app/documentTitle";
 import { CommandHint } from "../../components/page/CommandHint";
@@ -12,223 +11,238 @@ import { KeyValueList } from "../../components/page/KeyValueList";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Section, Sections } from "../../components/page/Section";
 import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
+import { ExternalLink } from "../../components/ui/ExternalLink";
+import { ICONS } from "../../components/ui/icons";
+import { Mono } from "../../components/ui/Mono";
+import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { isHttpUrl } from "../../lib/url";
+import { useNode } from "../../nodes/useNode";
+import { installMethodWords, readServerIdentity, selfUpdateQuery } from "./GeneralSettings.model";
 
-// published_version and update_state are new in 2.3; the intersection keeps this compiling
-// against a schema generated before them, and is a no-op once the schema has them.
-type UpdateInfo = ResponseOf<"/api/system/version", "get"> & {
-  published_version?: string | null;
-  update_state?: "up_to_date" | "update_available" | "on_the_way" | null;
-};
+type UpdateInfo = ResponseOf<"/api/system/version", "get">;
 
-const REPOSITORY = "https://github.com/Perkybeet/wasm";
+const REPOSITORY = "https://github.com/Perkybeet/noust";
 
 function links(t: T): readonly { label: string; href: string; description: string }[] {
   return [
     { label: t("settings.about.links.documentation.label"), href: `${REPOSITORY}#readme`, description: t("settings.about.links.documentation.description") },
     { label: t("settings.about.links.releaseNotes.label"), href: `${REPOSITORY}/releases`, description: t("settings.about.links.releaseNotes.description") },
     { label: t("settings.about.links.reportProblem.label"), href: `${REPOSITORY}/issues`, description: t("settings.about.links.reportProblem.description") },
-    { label: t("settings.about.links.license.label"), href: `${REPOSITORY}/blob/main/LICENSE`, description: t("settings.about.links.license.description") },
+    { label: t("settings.about.links.source.label"), href: REPOSITORY, description: t("settings.about.links.source.description") },
   ];
 }
 
 /** What the console does, and the command that does it from a terminal. */
 function terminalRows(t: T): readonly { task: string; command: string }[] {
   return [
+    { task: t("settings.about.terminal.installedVersion"), command: "noust --version" },
     { task: t("settings.about.terminal.showConfig"), command: "noust config show" },
-    { task: t("settings.about.terminal.readSetting"), command: "noust config get backup.max_per_app" },
-    { task: t("settings.about.terminal.changeSetting"), command: "noust config set ssl.email ops@example.com" },
-    { task: t("settings.about.terminal.configPath"), command: "noust config path" },
     { task: t("settings.about.terminal.checkMachine"), command: "noust health" },
     { task: t("settings.about.terminal.consoleStatus"), command: "noust web status" },
     { task: t("settings.about.terminal.restartConsole"), command: "noust web restart" },
-    { task: t("settings.about.terminal.newToken"), command: "noust web token --new" },
-    { task: t("settings.about.terminal.installedVersion"), command: "noust --version" },
   ];
 }
 
-function ReleaseNotesLink({ t, url, version }: { t: T; url: string | null | undefined; version: string }): ReactNode {
+function ReleaseNotesLink({ url, version }: { url: string | null | undefined; version: string }): ReactNode {
+  const t = useT();
   if (!url || !isHttpUrl(url)) return null;
+  return <ExternalLink href={url}>{t("settings.about.version.whatIsNew", { version })}</ExternalLink>;
+}
+
+/** One line of state: a glyph, a sentence, and what follows from it. */
+function StateLine({ icon, title, children }: { icon: ReactNode; title: string; children?: ReactNode }) {
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noreferrer"
-      className="flex w-fit items-center gap-1 rounded-[4px] text-13 font-medium text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
-    >
-      {t("settings.about.version.whatIsNew", { version })}
-      <ExternalLink aria-hidden="true" className="size-3.5" />
-      <span className="sr-only">{t("settings.shared.opensInNewTab")}</span>
-    </a>
+    <div className="flex min-w-0 flex-col gap-2">
+      <p className="flex items-center gap-2 text-14 font-medium text-fg">
+        {icon}
+        {title}
+      </p>
+      {children}
+    </div>
   );
 }
 
-function UpdateState({ t, info }: { t: T; info: UpdateInfo }): ReactNode {
-  if (info.update_state === "on_the_way" && info.published_version) {
-    // Published on GitHub, but the package this server upgrades from is still being built:
-    // offering the command now would send the operator to an upgrade that installs nothing.
+/**
+ * Whether a newer Noust exists, told truthfully: a release on GitHub is only "available" once
+ * the package this server installs from has it; until then it is "on the way", with no command
+ * that would install nothing.
+ */
+function UpdateState({ info }: { info: UpdateInfo }): ReactNode {
+  const t = useT();
+  const icon = "size-icon-md shrink-0";
+  if (info.status === "disabled") {
     return (
-      <div className="flex min-w-0 flex-col gap-3">
-        <div className="flex min-w-0 flex-col gap-1">
-          <p className="flex items-center gap-2 text-14 font-medium text-fg">
-            <CircleDashed aria-hidden="true" className="size-4 shrink-0 text-warn" />
-            {t("settings.about.version.onTheWay", { version: info.published_version })}
-          </p>
-          <p className="text-13 text-fg-muted">{t("settings.about.version.onTheWayDescription")}</p>
-        </div>
-        <ReleaseNotesLink t={t} url={info.release_url} version={info.published_version} />
-      </div>
+      <StateLine icon={<CircleHelp aria-hidden="true" className={`${icon} text-fg-muted`} />} title={t("settings.about.version.disabled")}>
+        <p className="text-13 text-fg-muted">
+          {t.rich("settings.about.version.disabledHint", {
+            general: (
+              <TextLink key="general" to="/settings">
+                {t("settings.about.version.generalLink")}
+              </TextLink>
+            ),
+          })}
+        </p>
+      </StateLine>
+    );
+  }
+  if (info.update_state === "on_the_way" && info.published_version) {
+    return (
+      <StateLine icon={<CircleDashed aria-hidden="true" className={`${icon} text-warn`} />} title={t("settings.about.version.onTheWay", { version: info.published_version })}>
+        <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("settings.about.version.onTheWayDescription")}</p>
+        <ReleaseNotesLink url={info.release_url} version={info.published_version} />
+      </StateLine>
     );
   }
   if (info.has_update && info.latest_version) {
     return (
-      <div className="flex min-w-0 flex-col gap-3">
-        <p className="flex items-center gap-2 text-14 font-medium text-fg">
-          <CircleArrowUp aria-hidden="true" className="size-4 shrink-0" />
-          {t("settings.about.version.available", { version: info.latest_version })}
-        </p>
+      <StateLine icon={<CircleArrowUp aria-hidden="true" className={icon} />} title={t("settings.about.version.available", { version: info.latest_version })}>
         {info.update_command ? <CommandHint label={t("settings.about.version.updateFromTerminal")} command={info.update_command} /> : null}
-        <ReleaseNotesLink t={t} url={info.release_url} version={info.latest_version} />
-      </div>
+        <ReleaseNotesLink url={info.release_url} version={info.latest_version} />
+      </StateLine>
     );
   }
   if (info.latest_version) {
-    return (
-      <p className="flex items-center gap-2 text-14 text-fg">
-        <CircleCheck aria-hidden="true" className="size-4 shrink-0 text-ok" />
-        {t("settings.about.version.upToDate", { version: info.latest_version })}
-      </p>
-    );
+    return <StateLine icon={<ICONS.success aria-hidden="true" className={`${icon} text-fg-muted`} />} title={t("settings.about.version.upToDate", { version: info.latest_version })} />;
   }
   return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <p className="flex items-center gap-2 text-14 text-fg">
-        <CircleHelp aria-hidden="true" className="size-4 shrink-0 text-idle" />
-        {t("settings.about.version.unknown")}
-      </p>
-      <p className="text-13 text-fg-muted">{t("settings.about.version.unknownHint")}</p>
-    </div>
+    <StateLine icon={<CircleHelp aria-hidden="true" className={`${icon} text-fg-muted`} />} title={t("settings.about.version.unknown")}>
+      <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("settings.about.version.unknownHint")}</p>
+    </StateLine>
   );
 }
 
 function VersionSection() {
   const t = useT();
   const version = useQuery(versionQuery());
-  const { data: session } = useQuery(sessionQuery());
-  const installed = version.data?.current_version ?? session?.version;
   return (
     <Section
       title={t("settings.about.version.title")}
       description={t("settings.about.version.description")}
       actions={
-        <Button
-          size="sm"
-          icon={<RotateCw aria-hidden="true" />}
-          loading={version.isFetching}
-          onClick={() => void version.refetch()}
-        >
+        <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={version.isFetching} onClick={() => void version.refetch()}>
           {t("settings.about.version.checkAgain")}
         </Button>
       }
     >
-      <div className="grid gap-x-10 gap-y-5 rounded-card border border-border bg-surface p-5 shadow-raised sm:grid-cols-[auto_minmax(0,1fr)]">
-        <div className="flex flex-col gap-1">
-          <span className="text-13 text-fg-muted">{t("settings.about.version.installedLabel")}</span>
-          {installed === undefined ? (
-            <Skeleton className="h-8 w-24" />
-          ) : (
-            <span translate="no" className="mono text-24 leading-8 text-fg tabular-nums">
-              {installed}
-            </span>
-          )}
+      <Card>
+        <div className="flex min-w-0 flex-col gap-5 sm:flex-row sm:items-center sm:gap-10">
+          <div className="flex shrink-0 flex-col gap-1">
+            <span className="text-13 text-fg-muted">{t("settings.about.version.installedLabel")}</span>
+            {version.data === undefined ? (
+              <Skeleton className="h-8 w-24" />
+            ) : (
+              <span className="title text-24 tabular-nums">
+                <Mono>{version.data.current_version}</Mono>
+              </span>
+            )}
+          </div>
+          <div aria-live="polite" className="flex min-w-0 flex-1 items-center sm:border-l sm:border-border sm:pl-10">
+            {version.data !== undefined ? (
+              <UpdateState info={version.data} />
+            ) : version.isError ? (
+              <ErrorBlock compact error={version.error} title={t("settings.about.version.checkFailed")} className="w-full" />
+            ) : (
+              <div aria-busy="true" className="flex flex-col gap-2">
+                <span className="sr-only">{t("settings.about.version.checkingLabel")}</span>
+                <Skeleton className="h-4 w-56" />
+                <Skeleton className="h-3 w-40" />
+              </div>
+            )}
+          </div>
         </div>
-        <div aria-live="polite" className="flex min-w-0 items-center sm:border-l sm:border-border sm:pl-10">
-          {version.data !== undefined ? (
-            <UpdateState t={t} info={version.data} />
-          ) : version.isError ? (
-            <ErrorBlock compact error={version.error} title={t("settings.about.version.checkFailed")} className="w-full" />
-          ) : (
-            <div aria-busy="true" className="flex flex-col gap-2">
-              <span className="sr-only">{t("settings.about.version.checkingLabel")}</span>
-              <Skeleton className="h-4 w-56" />
-              <Skeleton className="h-3 w-40" />
-            </div>
-          )}
-        </div>
-      </div>
+      </Card>
     </Section>
   );
 }
 
 function InstallationSection() {
   const t = useT();
-  const { data: session } = useQuery(sessionQuery());
+  const { node } = useNode();
+  const machine = useQuery(machineQuery());
   const config = useQuery(configQuery());
+  const selfUpdate = useQuery(selfUpdateQuery());
+  const publicUrl = config.data === undefined ? "" : readServerIdentity(config.data.config).publicUrl;
+  // A node's console is reached through this one; its own address is the one it says it has.
+  const address = node === null ? window.location.origin : publicUrl;
   return (
     <Section title={t("settings.about.installation.title")}>
-      <div className="rounded-card border border-border bg-surface px-5 py-2 shadow-raised">
+      <Card padding="sm">
         <KeyValueList
           items={[
-            { label: t("settings.about.installation.machine"), value: session?.hostname ?? "" },
-            { label: t("settings.about.installation.consoleAddress"), value: window.location.origin },
-            { label: t("settings.about.installation.configFile"), value: config.data?.path ?? "" },
+            { label: t("settings.about.installation.machine"), value: machine.data?.hostname ?? null },
+            {
+              label: t("settings.about.installation.method"),
+              value: selfUpdate.data === undefined ? null : installMethodWords(t, selfUpdate.data.method),
+              mono: false,
+              copy: false,
+            },
+            { label: t("settings.about.installation.consoleAddress"), value: address === "" ? null : address },
+            { label: t("settings.about.installation.configFile"), value: config.data?.path ?? null },
           ]}
-          empty={t("settings.about.installation.loading")}
+          empty={t("settings.about.installation.notKnown")}
         />
-      </div>
+      </Card>
     </Section>
   );
 }
 
-function LinksSection() {
+/** Where the project lives, its licence, and the name it had before. */
+function ProjectSection() {
   const t = useT();
   return (
-    <Section title={t("settings.about.links.title")}>
-      <ul className="grid gap-3 sm:grid-cols-2">
-        {links(t).map((link) => (
-          <li key={link.href}>
-            <a
-              href={link.href}
-              target="_blank"
-              rel="noreferrer"
-              className="group flex h-full flex-col gap-0.5 rounded-card border border-border bg-surface px-4 py-3 shadow-raised hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-            >
-              <span className="flex items-center gap-1.5 text-14 font-medium text-fg">
+    <Section title={t("settings.about.project.title")}>
+      <Notice title={t("settings.about.rename.title")}>
+        <p className="max-w-measure text-pretty">
+          {t.rich("settings.about.rename.body", { wasm: <Mono key="wasm">wasm</Mono>, noust: <Mono key="noust">noust</Mono> })}
+        </p>
+      </Notice>
+      <Card padding="none">
+        <ul className="flex flex-col divide-y divide-border">
+          {links(t).map((link) => (
+            <li key={link.href} className="flex min-w-0 flex-col gap-0.5 px-4 py-3 sm:flex-row sm:items-baseline sm:gap-3 sm:px-5">
+              <ExternalLink href={link.href} className="text-13">
                 {link.label}
-                <ExternalLink aria-hidden="true" className="size-3.5 text-fg-faint group-hover:text-fg-muted" />
-                <span className="sr-only">{t("settings.shared.opensInNewTab")}</span>
-              </span>
-              <span className="text-13 text-fg-muted">{link.description}</span>
-            </a>
+              </ExternalLink>
+              <span className="text-12 text-fg-muted">{link.description}</span>
+            </li>
+          ))}
+          <li className="flex min-w-0 flex-col gap-1 px-4 py-3 sm:px-5">
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <ExternalLink href={`${REPOSITORY}/blob/main/LICENSE`} className="text-13">
+                {t("settings.about.license.label")}
+              </ExternalLink>
+              <Mono tone="muted">AGPL-3.0-or-later</Mono>
+            </span>
+            <span className="max-w-measure text-12 text-pretty text-fg-muted">{t("settings.about.license.description")}</span>
           </li>
-        ))}
-      </ul>
+        </ul>
+      </Card>
+      <details className="group rounded-card border border-border">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-3 -outline-offset-2 hover:bg-surface-hover sm:px-5 [&::-webkit-details-marker]:hidden">
+          <span className="text-13 font-medium text-fg">{t("settings.about.terminal.title")}</span>
+          <ChevronDown aria-hidden="true" className="size-icon-sm text-fg-muted transition-transform duration-(--duration-fast) group-open:rotate-180" />
+        </summary>
+        <dl className="flex flex-col divide-y divide-border border-t border-border px-4 sm:px-5">
+          {terminalRows(t).map((row) => (
+            <div key={row.command} className="flex min-w-0 flex-col gap-1 py-2.5 sm:flex-row sm:items-center sm:gap-6">
+              <dt className="text-13 text-fg-muted sm:w-64 sm:shrink-0">{row.task}</dt>
+              <dd className="min-w-0">
+                <CommandHint command={row.command} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </details>
     </Section>
   );
 }
 
-function TerminalSection() {
-  const t = useT();
-  return (
-    <Section title={t("settings.about.terminal.title")} description={t("settings.about.terminal.description")}>
-      <dl className="flex flex-col divide-y divide-border rounded-card border border-border bg-surface px-5 py-1 shadow-raised">
-        {terminalRows(t).map((row) => (
-          <div key={row.command} className="grid min-w-0 items-center gap-x-6 gap-y-1 py-2.5 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-            <dt className="text-13 text-fg-muted">{row.task}</dt>
-            <dd className="min-w-0">
-              <CommandHint command={row.command} />
-            </dd>
-          </div>
-        ))}
-      </dl>
-    </Section>
-  );
-}
-
-/** Settings > About: the version, whether a newer one exists, where to read more. */
+/** Settings > About: the version and whether a newer one can be installed, this installation, the project. */
 export function AboutSettings() {
   const t = useT();
   useDocumentTitle(t("settings.about.documentTitle"), 1);
@@ -236,8 +250,7 @@ export function AboutSettings() {
     <Sections>
       <VersionSection />
       <InstallationSection />
-      <TerminalSection />
-      <LinksSection />
+      <ProjectSection />
     </Sections>
   );
 }

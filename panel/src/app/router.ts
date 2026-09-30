@@ -3,9 +3,10 @@ import { createRouter } from "@tanstack/react-router";
 import type { RouterHistory } from "@tanstack/react-router";
 
 import { installNodeSource } from "../api/nodeScope";
+import { rememberServer } from "../nodes/lastServer";
 import { routeTree } from "../routeTree.gen";
 import { RouteError } from "./ErrorBoundary";
-import { nodeFromSearch, nodeRewrite } from "./nodeRoute";
+import { nodeFromSearch, nodeRewrite, onNodeDropped } from "./nodeRoute";
 
 /**
  * Builds the router. `history` is for tests; the browser's history is the default.
@@ -27,6 +28,8 @@ export function buildRouter(queryClient: QueryClient, history?: RouterHistory) {
     ...(history ? { history } : {}),
   });
   installNodeSource(() => nodeFromSearch(router.latestLocation.search));
+  // An old `/n/web-2/fleet` is the fleet now; the server it named is where the operator was.
+  onNodeDropped(rememberServer);
   return router;
 }
 

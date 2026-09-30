@@ -1,18 +1,13 @@
 import type { ReactNode } from "react";
 
+import { Mono } from "../../components/ui/Mono";
+import { SystemOutput } from "../../components/ui/SystemOutput";
+import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 
 /** `noust setup init` in a sentence becomes code; the rest stays text. */
 function inline(text: string): ReactNode[] {
-  return text.split("`").map((part, index) =>
-    index % 2 === 1 ? (
-      <code key={index} translate="no" className="mono text-12 text-fg">
-        {part}
-      </code>
-    ) : (
-      part
-    ),
-  );
+  return text.split("`").map((part, index) => (index % 2 === 1 ? <Mono key={index}>{part}</Mono> : part));
 }
 
 /**
@@ -21,18 +16,15 @@ function inline(text: string): ReactNode[] {
  * builds a Dockerfile), so it is shown as one, verbatim, in mono: indentation is meaning there.
  */
 export function Suggestion({ text, className }: { text: string; className?: string }) {
+  const t = useT();
   const paragraphs = text.split(/\n\s*\n/).filter((paragraph) => paragraph.trim() !== "");
   return (
     <div className={cx("flex min-w-0 flex-col gap-2 text-13 text-pretty text-fg-muted", className)}>
       {paragraphs.map((paragraph, index) =>
         paragraph.includes("\n") ? (
-          <pre
-            key={index}
-            translate="no"
-            className="mono rounded-control border border-border bg-bg-sunken px-3 py-2 text-12 break-words whitespace-pre-wrap text-fg"
-          >
+          <SystemOutput key={index} label={t("newApp.source.suggestedFile")} className="rounded-control border border-border bg-bg-sunken px-3 py-2">
             {paragraph}
-          </pre>
+          </SystemOutput>
         ) : (
           <p key={index}>{inline(paragraph)}</p>
         ),

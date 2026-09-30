@@ -5,8 +5,9 @@
  * from its cookie, and the answers that are not the caller's business handled here once: a
  * lost session sends the operator to sign in, a destructive action asks them to confirm it's
  * them and is retried once, a rate limit on a read waits out the server's own Retry-After and
- * is retried once (a write surfaces it instead, since repeating it is not free), and every
- * other failure becomes an ApiError.
+ * is retried once (a write surfaces it instead, since repeating it is not free), a call that
+ * needs a second person's approval (202 approval_required) waits for the decision and is sent
+ * again once under it, and every other failure becomes an ApiError.
  *
  * On a central with a node selected, every call goes to that node through the central's proxy
  * (`/api/apps` becomes `/api/nodes/{node}/api/apps`); `nodeScope.ts` decides which server and
@@ -25,12 +26,45 @@ import { toast } from "../components/ui/toast";
 import { translate } from "../i18n/translate";
 import type { Locale } from "../i18n/types";
 import type { paths } from "./schema.gen";
-import { ElevationCancelledError, errorFromResponse, unreachable } from "./errors";
+import { ApprovalPendingError, ElevationCancelledError, errorFromResponse, unreachable } from "./errors";
+import type { ApiError } from "./errors";
 import { activeNode, nodeApiPath, nodeOfProxyPath, resetNodeScope } from "./nodeScope";
 
-export { ApiError, ElevationCancelledError, isApiError, isNodeError } from "./errors";
+export { ApiError, ApprovalPendingError, ElevationCancelledError, isApiError, isNodeError } from "./errors";
 
 export type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+
+/** Names the approved request a call is sent again under (noust.web.api.approvals). */
+export const APPROVAL_HEADER = "X-Noust-Approval";
+/** Names the request a 202 approval_required created. */
+export const APPROVAL_REQUEST_HEADER = "X-Noust-Approval-Request";
+/** Why the call is made, percent-encoded UTF-8. */
+export const REASON_HEADER = "X-Noust-Reason";
+
+/**
+ * A call held for a second person's approval, exactly as it was sent: sending it again with
+ * the approval's id is what runs it, and the server checks it is the same call.
+ */
+export interface HeldCall {
+  method: Method;
+  /** The path it went to, node proxy included. */
+  target: string;
+  body: unknown;
+  /** The server that answers it: a node's name, or null for this one. */
+  node: string | null;
+}
+
+/** A call that became an approval request. */
+export interface ApprovalRequested {
+  /** The request's id: the value of X-Noust-Approval once it is approved. */
+  id: string;
+  call: HeldCall;
+  /** `requested`, or `approved` when an earlier request for the same call already was. */
+  state: string | null;
+  /** The server's own words about it. */
+  detail: string;
+  hint: string | null;
+}
 
 export interface ApiHooks {
   /** A request came back 401 without being a failed sign-in: the session is gone. */
@@ -40,11 +74,25 @@ export interface ApiHooks {
    * (with ElevationCancelledError) when they decline.
    */
   elevate: () => Promise<void>;
+  /**
+   * The server wants a reason before it files a call for a second person's approval (400
+   * approval_reason_required). Resolves with the reason; rejects (ApprovalPendingError) when
+   * the operator would rather not ask.
+   */
+  approvalReason: (call: HeldCall, refusal: ApiError) => Promise<string>;
+  /**
+   * A call became an approval request (202 approval_required). Resolves when it is approved
+   * and the operator chooses to run it now, which sends the same call again under the
+   * approval; rejects (ApprovalPendingError) when they leave it waiting, or it is rejected.
+   */
+  approval: (requested: ApprovalRequested) => Promise<void>;
 }
 
 const DEFAULT_HOOKS: ApiHooks = {
   onSessionExpired: () => undefined,
   elevate: () => Promise.reject(new ElevationCancelledError()),
+  approvalReason: () => Promise.reject(new ApprovalPendingError("approval_cancelled")),
+  approval: (requested) => Promise.reject(new ApprovalPendingError("approval_pending", requested.id)),
 };
 
 let hooks: ApiHooks = DEFAULT_HOOKS;
@@ -95,6 +143,14 @@ export interface ApiInit {
   signal?: AbortSignal | undefined;
 }
 
+/** What a call carries for the approval protocol, when it does. */
+interface ApprovalInit {
+  /** The approved request it runs under. */
+  approval?: string;
+  /** Why it is made, when the server asked. */
+  reason?: string;
+}
+
 // Several requests can hit a destructive endpoint at once; the operator confirms once.
 let pendingElevation: Promise<void> | null = null;
 
@@ -136,11 +192,14 @@ async function send(
   node: string | null,
   mayElevate: boolean,
   mayRetryRateLimit = true,
+  approval: ApprovalInit = {},
 ): Promise<unknown> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (body !== undefined) headers["Content-Type"] = "application/json";
   const token = readCookie(csrf.cookie);
   if (token !== null) headers[csrf.header] = token;
+  if (approval.approval !== undefined) headers[APPROVAL_HEADER] = approval.approval;
+  if (approval.reason !== undefined) headers[REASON_HEADER] = encodeURIComponent(approval.reason);
 
   let response: Response;
   try {
@@ -157,6 +216,22 @@ async function send(
     throw unreachable(cause);
   }
 
+  // 202 approval_required is a success status carrying a refusal: the call did not run, it
+  // became a request a second person decides. Once approved, the same call goes again under
+  // it, exactly once; a call already under an approval is never turned into another request.
+  const requested = response.status === 202 ? response.headers.get(APPROVAL_REQUEST_HEADER) : null;
+  if (requested !== null && approval.approval === undefined) {
+    const held = (await readBody(response)) as { detail?: unknown; hint?: unknown; fields?: { state?: unknown } | null } | undefined;
+    await hooks.approval({
+      id: requested,
+      call: { method, target: path, body, node },
+      state: typeof held?.fields?.state === "string" ? held.fields.state : null,
+      detail: typeof held?.detail === "string" ? held.detail : "",
+      hint: typeof held?.hint === "string" ? held.hint : null,
+    });
+    return send(method, path, body, init, node, true, mayRetryRateLimit, { approval: requested });
+  }
+
   if (response.ok) return readBody(response);
 
   const error = await errorFromResponse(response, node);
@@ -165,7 +240,10 @@ async function send(
   } else if (mayElevate && error.status === 403 && error.error === "elevation_required") {
     await elevateOnce();
     // Exactly one retry: a second refusal is reported, never a second dialog.
-    return send(method, path, body, init, node, false);
+    return send(method, path, body, init, node, false, mayRetryRateLimit, approval);
+  } else if (error.error === "approval_reason_required" && approval.reason === undefined && approval.approval === undefined) {
+    const reason = await hooks.approvalReason({ method, target: path, body, node }, error);
+    return send(method, path, body, init, node, mayElevate, mayRetryRateLimit, { reason });
   } else if (error.status === 429 && error.error === "rate_limited") {
     // Reading again is safe to repeat; a mutation is not, so it surfaces the refusal for the
     // caller to report instead of silently repeating a write. TanStack Query is told never to
@@ -184,7 +262,7 @@ async function send(
     });
     if (retrying) {
       await delay(error.retryAfter * 1000);
-      return send(method, path, body, init, node, mayElevate, false);
+      return send(method, path, body, init, node, mayElevate, false, approval);
     }
   }
   throw error;
@@ -202,6 +280,15 @@ export async function api<T>(method: Method, path: string, body?: unknown, init:
   const target = nodeApiPath(node, path);
   const answeredBy = target === path ? nodeOfProxyPath(path) : node;
   return (await send(method, target, body, init, answeredBy, true)) as T;
+}
+
+/**
+ * Sends a held call again under its approval: what "Run it now" does from the approvals inbox,
+ * after the page that made the call is gone. The server runs it once, and only if it is exactly
+ * the call that was approved.
+ */
+export function sendApproved(call: HeldCall, approvalId: string): Promise<unknown> {
+  return send(call.method, call.target, call.body, {}, call.node, true, true, { approval: approvalId });
 }
 
 // ---------------------------------------------------------------------------------------

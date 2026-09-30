@@ -1,8 +1,6 @@
-import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { useQuery } from "@tanstack/react-query";
-import { FolderOpen, RotateCcw } from "lucide-react";
-import { useRef, useState } from "react";
-import type { SyntheticEvent } from "react";
+import { RotateCcw } from "lucide-react";
+import { useState } from "react";
 
 import type { Destination, RemoteBackup, RemoteBackups } from "../../api/queries/backupDestinations";
 import { remoteBackupsQuery } from "../../api/queries/backupDestinations";
@@ -10,26 +8,26 @@ import { appsQuery } from "../../api/queries/apps";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Button } from "../../components/ui/Button";
-import { Checkbox } from "../../components/ui/Checkbox";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
-import { BACKDROP, Dialog, DialogFrame, MODAL_POPUP, MODAL_VIEWPORT } from "../../components/ui/Dialog";
+import { Dialog } from "../../components/ui/Dialog";
+import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
+import { Mono } from "../../components/ui/Mono";
 import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { cx } from "../../lib/cx";
 import { formatBytes } from "../../lib/format";
 import { appNameOf } from "../apps/data";
+import { RestoreDialog } from "./RestoreDialog";
 import { useDestinationActions } from "./useDestinationActions";
 
 /**
- * Restoring straight from a destination: type-to-confirm the target domain, the same
- * confirmation `RestoreBackupDialog` asks a local restore for. The backup is downloaded from
- * `destination` first, then replayed the same way.
+ * Restoring straight from a destination: the same confirmation a local restore asks for (the
+ * target's name, typed), with the backup downloaded from `destination` first.
  */
 function RestoreFromDestinationDialog({
   destination,
@@ -43,126 +41,42 @@ function RestoreFromDestinationDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const t = useT();
-  const inputRef = useRef<HTMLInputElement>(null);
   // A destination's folders are named after the application (dots as dashes), not its
   // domain: the application deployed here under that name is the natural target. None on
   // a replacement server that has not deployed it yet: the operator types the domain.
   const { data: apps } = useQuery(appsQuery());
   const knownDomain = apps?.apps.find((app) => appNameOf(app.domain) === backup.app_name)?.domain;
-  const [edited, setTargetDomain] = useState<string | null>(null);
-  const targetDomain = edited ?? knownDomain ?? "";
-  const [typed, setTyped] = useState("");
-  const [restoreEnv, setRestoreEnv] = useState(true);
   const { restoreFromDestination } = useDestinationActions();
-
-  const matches = typed === targetDomain && targetDomain.trim() !== "";
-
-  const close = (next: boolean): void => {
-    if (!next && restoreFromDestination.isPending) return;
-    onOpenChange(next);
-    if (!next) {
-      setTargetDomain(null);
-      setTyped("");
-      setRestoreEnv(true);
-      restoreFromDestination.reset();
-    }
-  };
-
-  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    if (!matches) return;
-    restoreFromDestination.mutate(
-      {
-        destination,
-        backupId: backup.backup_id,
-        appName: backup.app_name,
-        // The backup's own domain needs no target; the sidecar says it, and the server checks
-        // that it belongs to this folder.
-        targetDomain: targetDomain === knownDomain ? undefined : targetDomain,
-        restoreEnv,
-      },
-      { onSuccess: () => close(false) },
-    );
-  };
-
   return (
-    <AlertDialog.Root open={open} onOpenChange={(next: boolean) => close(next)}>
-      <AlertDialog.Portal>
-        <AlertDialog.Backdrop className={BACKDROP} />
-        <AlertDialog.Viewport className={MODAL_VIEWPORT}>
-          <AlertDialog.Popup initialFocus={inputRef} className={cx(MODAL_POPUP, "sm:max-w-[480px]")}>
-            <form onSubmit={submit} className="contents">
-              <DialogFrame
-                title={t("backups.restoreDialog.title", { id: backup.backup_id })}
-                description={t("backups.restoreFromDestination.description", {
-                  destination,
-                  domain: targetDomain === knownDomain ? targetDomain : targetDomain || t("backups.restoreFromDestination.domainYouType"),
-                })}
-                Title={AlertDialog.Title}
-                Description={AlertDialog.Description}
-                footer={
-                  <>
-                    <AlertDialog.Close render={<Button disabled={restoreFromDestination.isPending}>{t("backups.common.cancel")}</Button>} />
-                    <Button type="submit" variant="danger" disabled={!matches} loading={restoreFromDestination.isPending}>
-                      {t("backups.restoreDialog.submit")}
-                    </Button>
-                  </>
-                }
-              >
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-1.5">
-                    <label htmlFor="restore-remote-target-domain" className="text-13 font-medium text-fg">
-                      {t("backups.restoreDialog.restoreInto")}
-                    </label>
-                    <Input
-                      id="restore-remote-target-domain"
-                      mono
-                      value={targetDomain}
-                      onValueChange={setTargetDomain}
-                      autoComplete="off"
-                      autoCapitalize="off"
-                      spellCheck={false}
-                      disabled={restoreFromDestination.isPending}
-                    />
-                  </div>
-                  <Checkbox
-                    checked={restoreEnv}
-                    onCheckedChange={setRestoreEnv}
-                    label={t("backups.restoreFromDestination.restoreEnv.label")}
-                    description={t("backups.restoreFromDestination.restoreEnv.description")}
-                  />
-                  <div className="flex flex-col gap-1.5">
-                    <label htmlFor="restore-remote-confirm" className="text-13 text-fg-muted">
-                      {t.rich("backups.restoreDialog.typeToConfirm", {
-                        domain: (
-                          <span translate="no" className="mono rounded-[4px] bg-bg-sunken px-1 py-0.5 text-fg select-all">
-                            {targetDomain || t("backups.restoreDialog.domainPlaceholder")}
-                          </span>
-                        ),
-                      })}
-                    </label>
-                    <Input
-                      id="restore-remote-confirm"
-                      ref={inputRef}
-                      mono
-                      value={typed}
-                      onValueChange={setTyped}
-                      autoComplete="off"
-                      autoCapitalize="off"
-                      spellCheck={false}
-                      disabled={restoreFromDestination.isPending}
-                    />
-                  </div>
-                  {restoreFromDestination.isError ? (
-                    <ErrorBlock live compact error={restoreFromDestination.error} title={t("backups.restoreDialog.error")} />
-                  ) : null}
-                </div>
-              </DialogFrame>
-            </form>
-          </AlertDialog.Popup>
-        </AlertDialog.Viewport>
-      </AlertDialog.Portal>
-    </AlertDialog.Root>
+    <RestoreDialog
+      // A new proposal once the applications arrive: the field starts from the known domain.
+      key={knownDomain ?? ""}
+      open={open}
+      onOpenChange={onOpenChange}
+      title={t("backups.restoreFromDestination.title", { destination })}
+      description={t("backups.restoreFromDestination.description", { destination })}
+      source={t.rich("backups.restoreFromDestination.source", { id: <Mono tone="default">{backup.backup_id}</Mono>, app: <Mono tone="default">{backup.app_name}</Mono> })}
+      domain={knownDomain ?? ""}
+      offerVerify={false}
+      envDescription={t("backups.restoreFromDestination.envFromDownload")}
+      pending={restoreFromDestination.isPending}
+      error={restoreFromDestination.error}
+      onReset={() => restoreFromDestination.reset()}
+      onRestore={({ targetDomain, restoreEnv }) =>
+        restoreFromDestination.mutate(
+          {
+            destination,
+            backupId: backup.backup_id,
+            appName: backup.app_name,
+            // The backup's own domain needs no target; the sidecar says it, and the server checks
+            // that it belongs to this folder.
+            targetDomain: targetDomain === knownDomain ? undefined : targetDomain,
+            restoreEnv,
+          },
+          { onSuccess: () => onOpenChange(false) },
+        )
+      }
+    />
   );
 }
 
@@ -218,9 +132,9 @@ function DestinationBrowseResult({
         caption={t("backups.browseDialog.resultsCaption", { name, app })}
         empty={
           <EmptyState
+            variant="inline"
             title={t("backups.browseDialog.noBackupsFound.title")}
             description={t("backups.browseDialog.noBackupsFound.description")}
-            className="border-0 py-8"
           />
         }
         rowActions={(row) => (
@@ -236,9 +150,9 @@ function DestinationBrowseResult({
   if (apps.length === 0) {
     return (
       <EmptyState
+        variant="inline"
         title={t("backups.browseDialog.nothingFound.title")}
         description={t("backups.browseDialog.nothingFound.description")}
-        className="border-0 py-8"
       />
     );
   }
@@ -251,11 +165,9 @@ function DestinationBrowseResult({
             <button
               type="button"
               onClick={() => onSelectApp(candidate)}
-              className="flex w-full items-center px-3 py-2 text-left text-13 text-fg hover:bg-surface-hover focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus"
+              className="flex w-full cursor-pointer items-center px-3 py-2 text-left text-13 text-fg -outline-offset-2 hover:bg-surface-hover"
             >
-              <span translate="no" className="mono">
-                {candidate}
-              </span>
+              <Mono>{candidate}</Mono>
             </button>
           </li>
         ))}
@@ -299,11 +211,11 @@ export function BrowseDestinationDialog({ destinations, initialDestination, open
     },
     {
       id: "size",
-      header: t("backups.table.columns.size"),
+      header: t("backups.history.columns.size"),
       align: "end",
       mono: true,
       width: "w-24",
-      cell: (row) => (row.size === null || row.size === undefined ? "-" : formatBytes(row.size)),
+      cell: (row) => (row.size === null || row.size === undefined ? <EmptyCell /> : formatBytes(row.size, t.locale)),
       sortValue: (row) => row.size ?? -1,
     },
   ];
@@ -339,10 +251,9 @@ export function BrowseDestinationDialog({ destinations, initialDestination, open
 
           {name === "" ? (
             <EmptyState
-              icon={<FolderOpen />}
+              variant="inline"
               title={t("backups.browseDialog.noDestinations.title")}
               description={t("backups.browseDialog.noDestinations.description")}
-              className="border-0 py-8"
             />
           ) : (
             <DestinationBrowseResult remote={remote} name={name} app={app} columns={columns} onSelectApp={setApp} onRestore={setRestoring} t={t} />

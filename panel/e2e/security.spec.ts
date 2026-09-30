@@ -43,8 +43,8 @@ test("create a read token, see it once, use it, revoke it", async ({ page, conso
   await page.getByRole("button", { name: "Create token" }).first().click();
   const dialog = page.getByRole("dialog", { name: "Create an API token" });
   await dialog.getByLabel(/^Name/).fill(name);
-  await expect(dialog.getByRole("radio", { name: "Read" })).toBeChecked();
-  await expect(dialog.getByRole("radio", { name: "Admin" })).toHaveAccessibleDescription(/managing tokens/);
+  await expect(dialog.getByRole("radio", { name: /^Read/ })).toBeChecked();
+  await expect(dialog.getByRole("radio", { name: /^Admin/ })).toHaveAccessibleDescription(/never more than its owner/);
   await stillness(page);
   await expectNoA11yViolations(page, "the create token dialog");
   await dialog.getByRole("button", { name: "Create token" }).click();
@@ -54,7 +54,7 @@ test("create a read token, see it once, use it, revoke it", async ({ page, conso
   await expect(once).toBeVisible();
   const token = (await once.getByTestId("new-token").textContent()) ?? "";
   expect(token).toMatch(/^noust_tok_\S+$/);
-  await expect(once.getByRole("alert")).toContainText("This is the only time the token is shown");
+  await expect(once.getByText(/This is the only time the token is shown/)).toBeVisible();
   await stillness(page);
   await expectNoA11yViolations(page, "the new token, shown once");
   await once.getByRole("button", { name: "Done" }).click();
@@ -73,8 +73,8 @@ test("create a read token, see it once, use it, revoke it", async ({ page, conso
   expect((await api.get("/api/apps", { headers: authorized })).status()).toBe(200);
 
   await row.getByRole("button", { name: `Revoke ${name}` }).click();
+  // One question: a token can be issued again (DESIGN.md, friction "simple").
   const confirm = page.getByRole("alertdialog", { name: `Revoke ${name}` });
-  await confirm.getByRole("textbox").fill(name);
   await confirm.getByRole("button", { name: "Revoke token" }).click();
   await expect(toastSaying(page, `Revoked token ${name}`)).toBeVisible();
   await expect(row).toContainText("Revoked");
@@ -88,9 +88,15 @@ test("signing out other sessions leaves this browser in and signs every other on
   await signIn(page, consoleServer, "/settings/security");
   const table = page.getByRole("region", { name: "Active sessions" });
   const dataRows = () => table.getByRole("row").filter({ hasNot: page.getByRole("columnheader") });
+  // The five most recent show first; this test counts them all.
+  const showAll = async () => {
+    const button = page.getByRole("button", { name: /^Show all \d+$/ });
+    if (await button.isVisible()) await button.click();
+  };
   // The worker's server may already carry sessions from earlier tests; only the count going up
   // by the one about to sign in, and every one of them but this browser's own leaving, is asserted.
   await expect(dataRows()).not.toHaveCount(0);
+  await showAll();
   const before = await dataRows().count();
 
   const otherContext = await browser.newContext({ baseURL: consoleServer.url });
@@ -98,6 +104,8 @@ test("signing out other sessions leaves this browser in and signs every other on
   await signIn(otherPage, consoleServer, "/settings/security");
 
   await page.reload();
+  await expect(dataRows()).not.toHaveCount(0);
+  await showAll();
   await expect(dataRows()).toHaveCount(before + 1);
 
   await page.getByRole("button", { name: "Sign out other sessions" }).click();
@@ -179,7 +187,7 @@ withOwnBackupCodes("new backup codes replace the old ones after confirming it's 
   await shown.getByRole("checkbox", { name: "I have saved these codes somewhere safe" }).click();
   await shown.getByRole("button", { name: "Done" }).click();
   await expect(toastSaying(page, "Replaced the backup codes")).toBeVisible();
-  await expect(page.getByText(/^8 of 8 backup codes left$/)).toBeVisible();
+  await expect(page.getByText(/^8 backup codes left$/)).toBeVisible();
 });
 
 // ---------------------------------------------------------------------------------------
@@ -202,7 +210,7 @@ const withoutTwoFactor = test.extend<object, { consoleServer: ConsoleServer }>({
 
 /** Signs in on a fresh page with the token and a code from `secret`. */
 async function signInWithCode(page: Page, server: ConsoleServer, secret: string): Promise<void> {
-  await page.goto("/login");
+  await page.goto("/login?with=token");
   await page.getByLabel("Access token").fill(server.token);
   await page.getByRole("button", { name: "Sign in" }).click();
   await page.getByLabel("Two-factor code").fill(totpCode(secret));
@@ -241,7 +249,7 @@ withoutTwoFactor("enrol two-factor end to end, sign in with it, turn it off", as
   await expect(list.first()).toHaveText(/^[0-9a-f]{4}-[0-9a-f]{4}$/);
   await expect(codes.getByRole("button", { name: "Done" })).toBeDisabled();
   await page.keyboard.press("Escape");
-  await expect(codes.getByRole("alert")).toContainText("They cannot be shown again");
+  await expect(codes.getByText(/They cannot be shown again/)).toBeVisible();
   await expect(codes).toBeVisible();
   await stillness(page);
   await expectNoA11yViolations(page, "the backup codes");
@@ -249,7 +257,7 @@ withoutTwoFactor("enrol two-factor end to end, sign in with it, turn it off", as
   await codes.getByRole("button", { name: "Done" }).click();
   await expect(toastSaying(page, "Turned on two-factor authentication")).toBeVisible();
   await expect(section.getByText("On", { exact: true })).toBeVisible();
-  await expect(section.getByText("8 of 8 backup codes left")).toBeVisible();
+  await expect(section.getByText("8 backup codes left")).toBeVisible();
 
   // The enrolment is real: a fresh sign-in now needs the authenticator.
   const fresh = await browser.newContext({ baseURL: consoleServer.url });

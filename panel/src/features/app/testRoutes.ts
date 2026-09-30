@@ -3,6 +3,8 @@
  * the machine-wide lists its header reads. Tests add the routes of the tab they exercise.
  */
 
+import { vi } from "vitest";
+
 import { json, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 
@@ -35,4 +37,26 @@ export function appRoutes(app: Partial<typeof TAB_APP> | Record<string, unknown>
     "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
     ...extra,
   };
+}
+
+/**
+ * Makes the window `width` pixels wide for the media queries the console reads (`min-width`
+ * in rem, 16px each): the default jsdom window matches none, which is a phone. Anything that is
+ * not a width query (reduced motion, a coarse pointer) does not match. Undone after each test.
+ */
+export function screenWidth(width: number): void {
+  vi.stubGlobal("matchMedia", (query: string) => {
+    const min = /min-width:\s*([\d.]+)(rem|px)/.exec(query);
+    const matches = min !== null && width >= Number(min[1]) * (min[2] === "rem" ? 16 : 1);
+    return {
+      matches,
+      media: query,
+      onchange: null,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      dispatchEvent: () => false,
+    };
+  });
 }

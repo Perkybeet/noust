@@ -23,8 +23,8 @@ export interface ScopeOption {
 export function scopes(t: T): readonly ScopeOption[] {
   return [
     { value: "read", label: t("settings.tokens.scopes.read.label"), description: t("settings.tokens.scopes.read.description") },
-    { value: "deploy", label: t("settings.tokens.scopes.deploy.label"), description: t("settings.tokens.scopes.deploy.description") },
-    { value: "admin", label: t("settings.tokens.scopes.admin.label"), description: t("settings.tokens.scopes.admin.description") },
+    { value: "deploy", label: t("settings.tokens.scopes.deploy.label"), description: t("accounts.tokens.scopeDeploy") },
+    { value: "admin", label: t("settings.tokens.scopes.admin.label"), description: t("accounts.tokens.scopeAdmin") },
   ];
 }
 

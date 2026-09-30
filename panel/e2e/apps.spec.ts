@@ -37,8 +37,10 @@ test("every seeded app is listed with its state, and the page passes axe", async
   await expect(page.getByText(`${String(total)} applications`)).toBeVisible();
 
   const shop = rows(page).filter({ has: page.getByRole("link", { name: "shop.example.net", exact: true }) });
-  await expect(shop.getByText("Running")).toBeVisible();
-  await expect(shop.getByText("nextjs")).toBeVisible();
+  // The name first, the state beside it, the type by the name people know it by.
+  await expect(shop.getByRole("cell").first()).toContainText("shop.example.net");
+  await expect(shop.getByRole("cell").nth(1)).toHaveText("Running");
+  await expect(shop.getByText("Next.js")).toBeVisible();
   const landing = rows(page).filter({ has: page.getByRole("link", { name: "bodas.example.com", exact: true }) });
   await expect(landing.getByText("Static", { exact: true })).toBeVisible();
 
@@ -65,7 +67,7 @@ test("/ focuses the search, and the search lives in the URL", async ({ page, con
 
   // A shared link opens the same view.
   await page.goto("/apps?q=nothing-matches-this");
-  await expect(page.getByText("No application matches")).toBeVisible();
+  await expect(page.getByText("No application matches these filters.")).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).last().click();
   await expect(page).toHaveURL(/\/apps$/);
   await expect(rows(page)).toHaveCount(total);
@@ -116,11 +118,17 @@ test("a static site has nothing to restart", async ({ page, consoleServer }) => 
   await expect(page.getByRole("button", { name: "Actions for bodas.example.com" })).toBeFocused();
 });
 
-test("on a phone the table scrolls inside itself, never the page", async ({ page, consoleServer }) => {
+test("on a phone each app is a card with its menu in view, and the page never scrolls sideways", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, consoleServer, "/apps");
-  await expect(rows(page)).toHaveCount(await seeded(page));
+  const cards = page.getByRole("list", { name: "Applications" }).getByRole("listitem");
+  await expect(cards).toHaveCount(await seeded(page));
   await settle(page);
+  // The first card's menu is on the first screen, and no card's menu is past a sideways scroll.
+  await expect(cards.first().getByRole("button", { name: /^Actions for / })).toBeInViewport({ ratio: 1 });
+  for (const box of await cards.getByRole("button", { name: /^Actions for / }).evaluateAll((menus) => menus.map((menu) => menu.getBoundingClientRect().right))) {
+    expect(box).toBeLessThanOrEqual(390);
+  }
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
   await expectNoA11yViolations(page, "the list on a phone");

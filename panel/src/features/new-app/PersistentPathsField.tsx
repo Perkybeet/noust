@@ -1,8 +1,7 @@
-import { Plus, Trash2 } from "lucide-react";
-
 import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
 import { IconButton } from "../../components/ui/IconButton";
+import { ICONS } from "../../components/ui/icons";
 import { Input } from "../../components/ui/Input";
 import { useT } from "../../i18n";
 import { pathField } from "./wizard";
@@ -17,8 +16,8 @@ export interface PersistentPathsFieldProps {
 let added = 0;
 
 /**
- * The paths that survive every release: linked into `shared/` and kept across every deploy,
- * for uploads or anything else a build must not throw away. Empty is the common case - most
+ * The folders kept between deploys: linked into every new version from `shared/`, for uploads
+ * or anything else a build must not throw away. Empty is the common case - most
  * apps keep no state on disk - so the list starts with nothing and the operator adds what
  * their app needs.
  */
@@ -37,29 +36,32 @@ export function PersistentPathsField({ rows, errors, onChange }: PersistentPaths
       {/* The label above says what these are; with none, the Add button is the whole story. */}
       {rows.length === 0 ? null : (
         rows.map((row) => (
-          <div key={row.id} className="flex items-start gap-2">
-            <Field label={t("newApp.paths.path")} error={errors[pathField(row)]} className="min-w-0 flex-1">
-              <Input
-                mono
-                value={row.value}
-                onValueChange={(value: string) => update(row.id, value)}
-                placeholder="storage"
-                autoComplete="off"
-                autoCapitalize="off"
-                spellCheck={false}
+          <Field
+            key={row.id}
+            label={t("newApp.paths.path")}
+            error={errors[pathField(row)]}
+            action={
+              <IconButton
+                label={row.value.trim() === "" ? t("newApp.paths.removeEmpty") : t("newApp.paths.remove", { path: row.value.trim() })}
+                icon={<ICONS.delete />}
+                onClick={() => onChange(rows.filter((other) => other.id !== row.id))}
               />
-            </Field>
-            <IconButton
-              label={row.value.trim() === "" ? t("newApp.paths.removeEmpty") : t("newApp.paths.remove", { path: row.value.trim() })}
-              icon={<Trash2 />}
-              onClick={() => onChange(rows.filter((other) => other.id !== row.id))}
-              className="mt-[1.625rem]"
+            }
+          >
+            <Input
+              mono
+              value={row.value}
+              onValueChange={(value: string) => update(row.id, value)}
+              placeholder="storage"
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
             />
-          </div>
+          </Field>
         ))
       )}
       <div>
-        <Button size="sm" icon={<Plus aria-hidden="true" />} onClick={add}>
+        <Button size="sm" icon={<ICONS.add aria-hidden="true" />} onClick={add}>
           {t("newApp.paths.add")}
         </Button>
       </div>

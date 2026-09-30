@@ -38,12 +38,12 @@ describe("appStatus", () => {
 
 describe("deployStatus", () => {
   it.each([
-    ["queued", "deploying", "Queued"],
+    ["queued", "queued", "Queued"],
     ["running", "deploying", "In progress"],
     ["success", "running", "Succeeded"],
     ["failed", "failed", "Failed"],
     ["rolled_back", "stopped", "Rolled back"],
-    ["pending", "deploying", "Queued"],
+    ["pending", "queued", "Queued"],
     ["completed", "running", "Succeeded"],
     ["cancelled", "stopped", "Cancelled"],
   ])("%s is drawn %s and labelled %s", (status, state, label) => {

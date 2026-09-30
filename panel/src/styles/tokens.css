@@ -1,14 +1,16 @@
 /*
- * WASM Console design tokens.
+ * Noust console design tokens. docs/DESIGN.md says what each one is for; this file is the
+ * only place a value is written.
  *
  * Every colour is written once as light-dark(light, dark). The document follows the system
  * theme through `color-scheme: light dark`; `data-theme` on any element pins a subtree to one
  * theme, which is how the explicit theme setting and the design gallery work without a second
  * copy of the palette.
  *
- * Surfaces are strictly achromatic (R = G = B). Hue on screen means one of two things: the
- * state of something (ok, warn, fail, idle) or something the operator can act on (accent).
- * Contrast is verified by styles/tokens.test.ts; change a value here and that test tells you
+ * Surfaces are strictly achromatic (R = G = B). Hue on screen means one of three things: the
+ * state of something (ok, warn, fail, idle), something the operator can act on (accent), or
+ * which series a line of a chart is (viz, inside a plot only). Contrast and colour-vision
+ * distance are verified by styles/tokens.test.ts; change a value here and that test tells you
  * whether the pair still reads.
  */
 
@@ -49,6 +51,19 @@
   --fail-strong: light-dark(#c12c24, #cf3a30);
   --idle: light-dark(#636363, #9e9e9e);
   --idle-soft: light-dark(#ececec, #242424);
+  /* The border of a tinted block (Notice, a failed job): the state colour at 35% over
+     surface, a token rather than an alpha so its contrast is tested, not left to what is
+     underneath. */
+  --ok-border: light-dark(#add0c0, #2a543b);
+  --warn-border: light-dark(#d7c5a6, #5e4924);
+  --fail-border: light-dark(#e9b5b2, #683734);
+  --idle-border: light-dark(#c8c8c8, #464646);
+
+  /* Chart series identity, inside a plot and nowhere else. Blue and magenta: 35 degrees of
+     hue or more from the accent and every state, and apart for protanopia and deuteranopia.
+     Series 3 and 4 are neutral (text-muted dashed, text-faint dotted): there is no fifth. */
+  --viz-1: light-dark(#0274c7, #3496ef);
+  --viz-2: light-dark(#9b2673, #ca549d);
 
   --focus: light-dark(#6a45d5, #a08bff);
   --selection: light-dark(#ddd3fb, #3a2c73);
@@ -88,12 +103,56 @@
   --tracking-title: -0.018em;
   --tracking-display: -0.028em;
 
-  /* Space follows 4-8-12-16-20-24-32-40-48-64 (Tailwind's 0.25rem step: p-1 ... p-16). */
+  /* Prose keeps a reading measure; help text under a field a shorter one. */
+  --measure: 68ch;
+  --measure-help: 52ch;
+
+  /* Space is Tailwind's 0.25rem step: half steps (2px) up to 16px, then 20, 24, 32, 40, 48,
+     64. Nothing else (docs/DESIGN.md, "Spacing"). */
   --space: 0.25rem;
 
+  /* Four radii: chips (keys, badges, inline code), controls, cards and overlays, pills. */
+  --radius-chip: 4px;
   --radius-control: 6px;
   --radius-card: 10px;
   --radius-pill: 999px;
+
+  /* Control heights. Every button, field and select reads one, so a coarse pointer (below)
+     grows them all at once to a comfortable target. */
+  --control-sm: 1.75rem;
+  --control-md: 2rem;
+  --control-lg: 2.5rem;
+
+  /* Icon sizes: 12 a status glyph in a dense row, 14 beside 13px text and in small buttons,
+     16 the default, 20 an empty state, 24 illustration only. */
+  --icon-xs: 0.75rem;
+  --icon-sm: 0.875rem;
+  --icon-md: 1rem;
+  --icon-lg: 1.25rem;
+  --icon-xl: 1.5rem;
+
+  /* Stacking layers, lowest first. Nothing else sets a z-index. */
+  --z-sticky: 30;
+  --z-backdrop: 40;
+  --z-overlay: 50;
+  --z-toast: 60;
+  --z-skip: 70;
+
+  /* Widths. The shell caps the page; each template sets its own inner grid from these. */
+  --width-page: 100rem;
+  --width-wizard: 46rem;
+  --width-settings-nav: 12.5rem;
+  --width-settings: 55rem;
+  --width-auth: 25rem;
+  --width-dialog-sm: 27.5rem;
+  --width-dialog-md: 35rem;
+  --width-dialog-lg: 45rem;
+  --width-dialog-xl: 80rem;
+  --width-drawer-md: 30rem;
+  --width-drawer-lg: 45rem;
+  --width-search: 18rem;
+  /* A file editor or a full log takes the screen, less the header and its bar. */
+  --height-editor: max(24rem, calc(100dvh - 20rem));
 
   /* Light gets a whisper of shadow; dark relies on luminance and keeps shadows for overlays. */
   --shadow-color: light-dark(rgb(0 0 0 / 0.1), rgb(0 0 0 / 0.55));
@@ -107,6 +166,16 @@
   --duration-fast: 120ms;
   --duration-base: 180ms;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* A finger is not a cursor: every control grows to a comfortable target (WCAG 2.5.8 asks for
+   24px; 36-44px is what a thumb hits reliably). */
+@media (pointer: coarse) {
+  :root {
+    --control-sm: 2.25rem;
+    --control-md: 2.5rem;
+    --control-lg: 2.75rem;
+  }
 }
 
 [data-theme="light"] {

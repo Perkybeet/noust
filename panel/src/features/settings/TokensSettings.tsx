@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, KeyRound, Plus, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { Ban, KeyRound } from "lucide-react";
+import { useMemo, useState } from "react";
 
-import { apiTokensQuery, authKeys, revokeApiToken } from "../../api/queries/auth";
+import { apiTokensQuery, authKeys, revokeApiToken, sessionQuery } from "../../api/queries/auth";
 import type { ApiToken } from "../../api/queries/auth";
 import { useDocumentTitle } from "../../app/documentTitle";
 import { CommandHint } from "../../components/page/CommandHint";
@@ -14,67 +14,76 @@ import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
+import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { ICONS } from "../../components/ui/icons";
+import { Mono } from "../../components/ui/Mono";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { accountsQuery } from "./accounts/api";
 import { CreateTokenDialog } from "./CreateTokenDialog";
 import { RowAction } from "./RowAction";
 import { sortTokens, tokenState } from "./tokens";
 import type { TokenState } from "./tokens";
 
-/** A token's state told three ways: colour, shape and word. */
+/**
+ * A token's state. Working is not a running state, so "Active" is plain words with an icon;
+ * expired and revoked are stopped, grey.
+ */
 function TokenStateLabel({ t, state }: { t: T; state: TokenState }) {
-  const label =
-    state === "active"
-      ? t("settings.tokens.state.active")
-      : state === "expired"
-        ? t("settings.tokens.state.expired")
-        : t("settings.tokens.state.revoked");
+  if (state === "active") {
+    return (
+      <span className="inline-flex items-center gap-1.5 text-13 text-fg">
+        <KeyRound aria-hidden="true" className="size-icon-xs text-fg-muted" />
+        {t("settings.tokens.state.active")}
+      </span>
+    );
+  }
   return (
-    <span className="flex items-center gap-1.5">
-      {state === "active" ? (
-        <StatusGlyph state="running" className="text-ok" />
-      ) : state === "expired" ? (
-        <StatusGlyph state="stopped" className="text-idle" />
-      ) : (
-        <Ban aria-hidden="true" className="size-3 text-idle" />
-      )}
-      <span className={state === "active" ? "text-fg" : "text-fg-muted"}>{label}</span>
+    <span className="inline-flex items-center gap-1.5 text-13 text-fg-muted">
+      {state === "expired" ? <StatusGlyph state="stopped" className="text-idle" /> : <Ban aria-hidden="true" className="size-icon-xs text-idle" />}
+      {state === "expired" ? t("settings.tokens.state.expired") : t("settings.tokens.state.revoked")}
     </span>
   );
 }
 
-function columnsFor(t: T): readonly Column<ApiToken>[] {
+function columnsFor(t: T, ownerName: (token: ApiToken) => string | null): Column<ApiToken>[] {
   return [
     {
       id: "name",
       header: t("settings.tokens.columnName"),
+      card: "title",
       cell: (token) => (
-        <span className="flex flex-col items-start gap-1">
-          <span translate="no" className="mono text-12">
+        <span className="flex min-w-0 flex-col items-start gap-1">
+          <Mono tone="default" truncate>
             {token.name}
-          </span>
-          {/* On a phone the scope column is hidden; the scope rides under the name. */}
-          <Badge mono className="sm:hidden">
-            {token.scope}
-          </Badge>
+          </Mono>
+          <Badge mono>{token.scope}</Badge>
         </span>
       ),
     },
+    { id: "state", header: t("settings.tokens.columnState"), card: "status", width: "w-32", cell: (token) => <TokenStateLabel t={t} state={tokenState(token)} /> },
     {
-      id: "scope",
-      header: t("settings.tokens.columnScope"),
+      id: "owner",
+      header: t("accounts.tokens.columnOwner"),
       hideBelow: "sm",
-      cell: (token) => <Badge mono>{token.scope}</Badge>,
+      cell: (token) => {
+        const owner = ownerName(token);
+        return owner === null ? <EmptyCell reason={t("accounts.tokens.noOwner")} /> : <Mono tone="default">{owner}</Mono>;
+      },
     },
-    { id: "state", header: t("settings.tokens.columnState"), cell: (token) => <TokenStateLabel t={t} state={tokenState(token)} /> },
     {
-      id: "created",
-      header: t("settings.tokens.columnCreated"),
-      hideBelow: "md",
-      cell: (token) => <RelativeTime value={token.created_at} />,
+      id: "addresses",
+      header: t("accounts.tokens.columnAddresses"),
+      hideBelow: "lg",
+      cell: (token) =>
+        token.allowed_cidrs && token.allowed_cidrs.length > 0 ? (
+          <Mono tone="default">{token.allowed_cidrs.join(", ")}</Mono>
+        ) : (
+          <span className="text-13 text-fg-muted">{t("accounts.tokens.anyAddress")}</span>
+        ),
     },
     {
       id: "expires",
@@ -82,7 +91,7 @@ function columnsFor(t: T): readonly Column<ApiToken>[] {
       hideBelow: "sm",
       cell: (token) =>
         token.revoked_at !== null && token.revoked_at !== undefined ? (
-          <span className="sr-only">{t("settings.tokens.revokedNotApplicable")}</span>
+          <EmptyCell reason={t("settings.tokens.revokedNotApplicable")} />
         ) : (
           <RelativeTime value={token.expires_at} fallback={t("settings.tokens.never")} />
         ),
@@ -90,31 +99,42 @@ function columnsFor(t: T): readonly Column<ApiToken>[] {
     {
       id: "last-used",
       header: t("settings.tokens.columnLastUsed"),
-      hideBelow: "lg",
-      cell: (token) => <RelativeTime value={token.last_used_at} fallback={t("settings.tokens.never")} />,
+      hideBelow: "md",
+      cell: (token) => (
+        <span className="flex flex-col">
+          <RelativeTime value={token.last_used_at} fallback={t("settings.tokens.never")} />
+          {token.last_used_ip ? <Mono tone="faint">{token.last_used_ip}</Mono> : null}
+        </span>
+      ),
     },
   ];
 }
 
-/** Settings > API tokens: named, scoped credentials for CI and scripts. */
+/**
+ * Settings > API tokens (the central's): named credentials for CI and scripts. Each belongs to
+ * a person and never does more than they may, may be limited to some addresses, and expires.
+ */
 export function TokensSettings() {
   const t = useT();
   useDocumentTitle(t("settings.tokens.documentTitle"), 1);
   const queryClient = useQueryClient();
+  const { data: session } = useQuery(sessionQuery());
   const query = useQuery(apiTokensQuery());
+  // Owners by name, for whoever may read the accounts (a security officer, an auditor).
+  const accounts = useQuery({ ...accountsQuery(), enabled: session?.permissions?.includes("accounts.read") ?? false });
   const [creating, setCreating] = useState(false);
   const [revoking, setRevoking] = useState<ApiToken | null>(null);
-  const [confirming, setConfirming] = useState(false);
-  const columns = columnsFor(t);
+  const names = useMemo(() => new Map((accounts.data?.accounts ?? []).map((account) => [account.id, account.username])), [accounts.data]);
+  const ownerName = (token: ApiToken): string | null => {
+    const id = token.owner_account_id;
+    if (id === null || id === undefined) return null;
+    if (session?.account?.id === id) return session.account.username;
+    return names.get(id) ?? token.created_by ?? `#${String(id)}`;
+  };
+  const columns = columnsFor(t, ownerName);
 
   const create = (
-    <Button
-      variant="primary"
-      icon={<Plus aria-hidden="true" />}
-      onClick={() => {
-        setCreating(true);
-      }}
-    >
+    <Button variant="primary" icon={<ICONS.add aria-hidden="true" />} onClick={() => setCreating(true)}>
       {t("settings.tokens.createToken")}
     </Button>
   );
@@ -122,21 +142,24 @@ export function TokensSettings() {
   return (
     <Sections>
       <Section
-        title={t("settings.tokens.sectionTitle")}
-        description={t("settings.tokens.sectionDescription")}
+        title={t("accounts.tokens.title")}
+        description={t("accounts.tokens.description")}
         actions={query.data !== undefined && query.data.tokens.length > 0 ? create : undefined}
       >
         <QueryState
           query={query}
           label={t("settings.tokens.loadingLabel")}
-          skeleton={<DataTable caption={t("settings.tokens.tableCaption")} columns={columns} rows={[]} getRowId={(token) => String(token.id)} loading />}
+          skeleton={<DataTable caption={t("settings.tokens.tableCaption")} columns={columns} rows={[]} getRowId={(token) => String(token.id)} loading mobile="cards" skeletonRows={2} />}
           isEmpty={(data) => data.tokens.length === 0}
           empty={
             <EmptyState
+              variant="firstUse"
+              level={3}
               icon={<KeyRound />}
               title={t("settings.tokens.emptyTitle")}
-              description={t("settings.tokens.emptyDescription")}
+              description={t("accounts.tokens.emptyDescription")}
               action={create}
+              command="noust token create ci-deploy --scope deploy --expires-hours 2160 --owner NAME"
             />
           }
         >
@@ -146,15 +169,15 @@ export function TokensSettings() {
               columns={columns}
               rows={sortTokens(data.tokens)}
               getRowId={(token) => String(token.id)}
+              mobile="cards"
               rowActions={(token) =>
                 tokenState(token) === "active" ? (
                   <RowAction
                     label={t("settings.tokens.revokeLabel", { name: token.name })}
                     text={t("settings.tokens.revokeText")}
-                    icon={<Trash2 />}
+                    icon={<ICONS.delete />}
                     onClick={() => {
                       setRevoking(token);
-                      setConfirming(true);
                     }}
                   />
                 ) : null
@@ -165,10 +188,7 @@ export function TokensSettings() {
       </Section>
       {/* Under a list of unknown length: drawn with it, never pushed down the page by it. */}
       {query.data !== undefined || query.isError ? (
-        <Section
-          title={t("settings.tokens.usingTitle")}
-          description={t("settings.tokens.usingDescription")}
-        >
+        <Section title={t("settings.tokens.usingTitle")} description={t("settings.tokens.usingDescription")}>
           <CommandHint command={`curl -H "Authorization: Bearer noust_tok_..." ${window.location.origin}/api/apps`} />
         </Section>
       ) : null}
@@ -181,11 +201,13 @@ export function TokensSettings() {
       />
       {revoking !== null ? (
         <ConfirmDialog
-          open={confirming}
-          onOpenChange={setConfirming}
+          friction="simple"
+          open
+          onOpenChange={(next) => {
+            if (!next) setRevoking(null);
+          }}
           title={t("settings.tokens.revokeDialogTitle", { name: revoking.name })}
           description={t("settings.tokens.revokeDialogDescription")}
-          confirmText={revoking.name}
           actionLabel={t("settings.tokens.revokeAction")}
           onConfirm={async () => {
             const result = await revokeApiToken(revoking.id);

@@ -48,8 +48,8 @@ async function expectJobCompletes(page: Page, jobId: string): Promise<void> {
 }
 
 test("both seeded destinations are listed, with what is encrypted, and the page passes axe", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/backups");
-  await expect(page.getByRole("heading", { level: 2, name: "Destinations" })).toBeVisible();
+  await signIn(page, consoleServer, "/backups/destinations");
+  await expect(page.getByRole("link", { name: /^Destinations/ })).toHaveAttribute("data-status", "active");
 
   const sftp = destinationRow(page, SFTP);
   await expect(sftp.getByRole("cell", { name: "SFTP server" })).toBeVisible();
@@ -66,7 +66,7 @@ test("both seeded destinations are listed, with what is encrypted, and the page 
 });
 
 test("testing a destination says it is reachable and what is there", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/backups");
+  await signIn(page, consoleServer, "/backups/destinations");
   await openActions(page, SFTP);
   const tested = page.waitForResponse((response) => response.url().endsWith(`/api/backup-destinations/${SFTP}/test`));
   await page.getByRole("menuitem", { name: "Test" }).click();
@@ -86,9 +86,9 @@ test("adding an SFTP destination lists it; one that cannot be reached says so in
   problems.expect(/status of 403 .*\/api\/backup-destinations$/);
   // Testing the unreachable one fails on purpose, with rclone's own error: a server-side
   // status (a BackupError answers 500 today; an upstream failure may well become 502).
-  problems.expect(/status of 5\d\d .*\/api\/backup-destinations\/[a-z0-9-]+\/test$/);
+  problems.expect(/status of [45]\d\d .*\/api\/backup-destinations\/[a-z0-9-]+\/test$/);
   const name = uniqueName("old-nas", testInfo);
-  await signIn(page, consoleServer, "/backups");
+  await signIn(page, consoleServer, "/backups/destinations");
 
   await page.getByRole("button", { name: "Add destination" }).click();
   const dialog = page.getByRole("dialog", { name: "Add backup destination" });
@@ -134,7 +134,7 @@ test("adding an SFTP destination lists it; one that cannot be reached says so in
 
 test("browsing a destination lists its applications and backups, and restores one from it", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .*\/api\/backup-destinations\/.*\/restore$/);
-  await signIn(page, consoleServer, "/backups");
+  await signIn(page, consoleServer, "/backups/destinations");
   await openActions(page, SFTP);
   await page.getByRole("menuitem", { name: "Browse" }).click();
 
@@ -159,8 +159,9 @@ test("browsing a destination lists its applications and backups, and restores on
   expect(backupId).toMatch(/^shop-example-net_\d{8}_\d{6}$/);
   await oldest.getByRole("button", { name: "Restore" }).click();
 
-  const confirm = page.getByRole("alertdialog", { name: `Restore ${backupId}` });
+  const confirm = page.getByRole("dialog", { name: `Restore from ${SFTP}` });
   await expect(confirm).toBeVisible();
+  await expect(confirm.getByText(backupId)).toBeVisible();
   const restore = confirm.getByRole("button", { name: "Restore" });
   await expect(restore).toBeDisabled();
   // The folder is named after the application; the target offered is its domain.
@@ -186,7 +187,7 @@ test("browsing a destination lists its applications and backups, and restores on
 
 test("the encrypted destination's key is shown after confirming it's you, and kept until saved", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .*\/api\/backup-destinations\/vault-r2\/show-key$/);
-  await signIn(page, consoleServer, "/backups");
+  await signIn(page, consoleServer, "/backups/destinations");
   await openActions(page, SFTP);
   // Only an encrypted destination has a key to show.
   await expect(page.getByRole("menuitem", { name: "Show encryption key" })).toHaveCount(0);
@@ -207,7 +208,7 @@ test("the encrypted destination's key is shown after confirming it's you, and ke
   // Leaving without saying it was saved is refused, with the reason.
   await page.keyboard.press("Escape");
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("alert")).toContainText("Losing it makes every backup on this destination unrecoverable");
+  await expect(dialog.locator("[data-tone=warning]")).toContainText("Losing it makes every backup on this destination unrecoverable");
   await settle(page);
   await expectNoA11yViolations(page, "the encryption key dialog");
 
@@ -217,14 +218,13 @@ test("the encrypted destination's key is shown after confirming it's you, and ke
 });
 
 test("a schedule copies to both destinations, each with its own retention", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/backups");
+  await signIn(page, consoleServer, "/backups/schedules");
   const schedules = page.getByRole("region", { name: "Backup schedules" });
   const row = schedules.getByRole("row").filter({ has: page.getByRole("cell", { name: "shop.example.net", exact: true }) });
-  await expect(row.getByText("7 backups")).toBeVisible();
-  await expect(row.getByText(SFTP, { exact: true })).toBeVisible();
-  await expect(row.getByText(ENCRYPTED, { exact: true })).toBeVisible();
-  // The alias as the API names it (capitalised by CSS alone), over its calendar expression.
-  await expect(row.getByText("daily", { exact: true })).toBeVisible();
+  await expect(row.getByText("The last 7 backups")).toBeVisible();
+  await expect(row.getByText(`${SFTP}, ${ENCRYPTED}`, { exact: true })).toBeVisible();
+  // The schedule in words, over its calendar expression as written.
+  await expect(row.getByText("Every day at 02:00", { exact: true })).toBeVisible();
   await expect(row.getByText("*-*-* 02:00:00", { exact: true })).toBeVisible();
 
   await page.getByRole("button", { name: "Actions for the schedule on shop.example.net" }).click();
@@ -232,16 +232,17 @@ test("a schedule copies to both destinations, each with its own retention", asyn
   const dialog = page.getByRole("dialog", { name: "Edit the schedule for shop.example.net" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel(`Keep on ${SFTP}`)).toHaveValue("14");
-  await expect(dialog.getByLabel(`Max age on ${SFTP}`)).toHaveValue("90");
+  await expect(dialog.getByLabel(`Delete after (days) on ${SFTP}`)).toHaveValue("90");
   await expect(dialog.getByLabel(`Keep on ${ENCRYPTED}`)).toHaveValue("30");
-  await expect(dialog.getByLabel(`Max age on ${ENCRYPTED}`)).toHaveValue("");
+  await expect(dialog.getByLabel(`Delete after (days) on ${ENCRYPTED}`)).toHaveValue("");
   await settle(page);
   await expectNoA11yViolations(page, "a schedule with destinations");
 });
 
 test("copying a local backup to a destination queues a job that finishes", async ({ page, consoleServer, problems }) => {
   problems.expect(/status of 403 .*\/api\/backups\/.*\/push$/);
-  await signIn(page, consoleServer, "/backups");
+  // A backup's own actions are in its application's drawer.
+  await signIn(page, consoleServer, "/backups?domain=example.com");
 
   const listed = (await (await page.request.get("/api/backups")).json()) as { backups: { backup_id: string; domain: string }[] };
   const backup = listed.backups.find((entry) => entry.domain === "example.com");

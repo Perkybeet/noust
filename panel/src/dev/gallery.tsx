@@ -74,3 +74,50 @@ export function Item({ label, children, className }: { label: string; children: 
 export function Row({ children, className }: { children: ReactNode; className?: string }) {
   return <div className={cx("flex flex-wrap items-end gap-x-8 gap-y-6", className)}>{children}</div>;
 }
+
+/** The same specimen in the light and the dark theme, side by side. */
+export function BothThemes({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={cx("grid gap-4 lg:grid-cols-2", className)}>
+      {(["light", "dark"] as const).map((theme) => (
+        <div key={theme} data-theme={theme} className="min-w-0 rounded-card border border-border bg-bg p-5 text-fg max-sm:p-4">
+          <p className="mb-4 text-12 text-fg-faint">{theme === "light" ? "Light" : "Dark"}</p>
+          {children}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * A rule shown twice: how it is done, and the mistake it prevents. The mistake is drawn for
+ * real, so it is marked as an exception the design contract does not audit.
+ */
+export function DoDont({ rule, doThis, notThis, why }: { rule: string; doThis: ReactNode; notThis: ReactNode; why: ReactNode }) {
+  return (
+    <div className="flex min-w-0 flex-col gap-3">
+      <h3 className="title text-14 text-fg">{rule}</h3>
+      <div className="grid gap-4 md:grid-cols-2">
+        <figure className="flex min-w-0 flex-col gap-2 rounded-card border border-border bg-bg p-4">
+          <figcaption className="flex items-center gap-1.5 text-12 font-medium text-ok">
+            <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true">
+              <circle cx="6" cy="6" r="3.5" fill="currentColor" />
+            </svg>
+            Do
+          </figcaption>
+          <div className="min-w-0">{doThis}</div>
+        </figure>
+        <figure data-design-exception="" className="flex min-w-0 flex-col gap-2 rounded-card border border-border bg-bg p-4">
+          <figcaption className="flex items-center gap-1.5 text-12 font-medium text-fail">
+            <svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true">
+              <path d="M3.25 3.25l5.5 5.5M8.75 3.25l-5.5 5.5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
+            </svg>
+            Don&apos;t
+          </figcaption>
+          <div className="min-w-0">{notThis}</div>
+        </figure>
+      </div>
+      <p className="max-w-measure text-13 text-pretty text-fg-muted">{why}</p>
+    </div>
+  );
+}

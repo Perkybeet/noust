@@ -25,7 +25,10 @@ test("the header says the app's state, type and port, links to the live site, an
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(DOMAIN);
   await expect(pill(page)).toHaveAttribute("data-state", "running");
   await expect(pill(page)).toHaveText("Running");
-  await expect(header(page).getByText("nextjs", { exact: true })).toBeVisible();
+  await expect(header(page).getByText("Next.js", { exact: true })).toBeVisible();
+  // Update is the page's one primary action, Restart beside it.
+  await expect(header(page).getByRole("button", { name: "Update" })).toHaveAttribute("data-variant", "primary");
+  await expect(header(page).getByRole("button", { name: "Restart" })).toBeVisible();
 
   const live = header(page).getByRole("link", { name: new RegExp(`^${DOMAIN.replace(".", "\\.")}`) });
   await expect(live).toHaveAttribute("href", `https://${DOMAIN}`);
@@ -151,7 +154,7 @@ test("Stop asks first; the header follows the unit down and back up", async ({ p
 
   await header(page).getByRole("button", { name: "More actions" }).click();
   await page.getByRole("menuitem", { name: "Stop" }).click();
-  const dialog = page.getByRole("dialog", { name: `Stop ${domain}?` });
+  const dialog = page.getByRole("alertdialog", { name: `Stop ${domain}?` });
   await expect(dialog).toBeVisible();
   await expectNoA11yViolations(page, "the stop confirmation");
   await dialog.getByRole("button", { name: "Stop application" }).click();
@@ -178,6 +181,9 @@ test("Delete stays disabled until the domain is typed", async ({ page, consoleSe
 
   const dialog = page.getByRole("alertdialog", { name: `Delete ${DOMAIN}` });
   await expect(dialog).toBeVisible();
+  // What cannot be made again goes only when ticked: both start unticked.
+  await expect(dialog.getByRole("checkbox", { name: "Also delete its files" })).not.toBeChecked();
+  await expect(dialog.getByRole("checkbox", { name: "Also delete its certificate" })).not.toBeChecked();
   const confirm = dialog.getByRole("button", { name: "Delete application" });
   await expect(confirm).toBeDisabled();
   await dialog.getByRole("textbox").fill("shop");
@@ -192,15 +198,12 @@ test("Delete stays disabled until the domain is typed", async ({ page, consoleSe
   await expect(header(page).getByRole("button", { name: "More actions" })).toBeFocused();
 });
 
-test("Roll back lists the backups of an app deployed in place", async ({ page, consoleServer }) => {
+test("Roll back lists the backups of an app kept in a single folder", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${DOMAIN}`);
   await header(page).getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Roll back" }).click();
+  await page.getByRole("menuitem", { name: "Roll back…" }).click();
   const dialog = page.getByRole("dialog", { name: `Roll back ${DOMAIN}` });
-  await expect(dialog.getByRole("radio")).not.toHaveCount(0);
-  await expect(dialog.getByRole("button", { name: "Roll back" })).toBeDisabled();
-  await dialog.getByRole("radio").first().check();
-  await expect(dialog.getByRole("button", { name: "Roll back" })).toBeEnabled();
+  await expect(dialog.getByRole("button", { name: /^Go back to / })).not.toHaveCount(0);
   await expectNoA11yViolations(page, "the rollback dialog");
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
@@ -212,11 +215,12 @@ test("the overview tab shows the deploys as dots that open each deploy, and the 
   const dots = page.getByRole("list", { name: /^Last \d+ deploys, oldest first$/ });
   const newest = dots.getByRole("link").last();
   await expect(newest).toHaveAccessibleName(/^Deploy \d+: Failed c07d5e3/);
-  // Its unit is the one systemd gave up on.
+  // Its unit is the one systemd gave up on: said above the tabs, with the diagnosis one click away.
   await expect(pill(page)).toHaveAttribute("data-state", "failed");
+  await expect(page.getByText("The service has stopped with an error")).toBeVisible();
 
   const facts = (await (await page.request.get(`/api/apps/${domain}`)).json()) as { source: string | null; branch: string | null };
-  const runtime = page.getByRole("region", { name: "Runtime" });
+  const runtime = page.getByRole("region", { name: "How it runs" });
   await expect(runtime.getByText("/var/www/apps/clientes.example.com")).toBeVisible();
   if (facts.source !== null) {
     const repo = runtime.getByRole("link", { name: new RegExp(`^${facts.source.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`) });
@@ -226,18 +230,22 @@ test("the overview tab shows the deploys as dots that open each deploy, and the 
   if (facts.branch !== null) await expect(runtime.getByText(facts.branch, { exact: true })).toBeVisible();
   // Not every seeded app has a recorded branch: the row still shows, and says so.
   else await expect(runtime.getByText("Not recorded").first()).toBeVisible();
-  await expect(page.getByRole("region", { name: "Domains" }).getByText("No certificate").first()).toBeVisible();
+  await expect(page.getByRole("region", { name: "Domains" }).getByRole("link", { name: new RegExp(`^${domain.replace(/\./g, "\\.")}`) })).toBeVisible();
+
+  // The banner is the page's, not the tab's: it stays on every tab.
+  await page.getByRole("navigation", { name: "Application sections" }).getByRole("link", { name: "Environment" }).click();
+  await expect(page.getByText("The service has stopped with an error")).toBeVisible();
+  await page.goBack();
 
   await newest.click();
   await expect(page).toHaveURL(/\/apps\/clientes\.example\.com\/deployments\/\d+$/);
 });
 
-test("on a phone the header's actions fold into one menu", async ({ page, consoleServer }) => {
+test("on a phone the header keeps Update in view beside More actions", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, consoleServer, `/apps/${DOMAIN}`);
-  await expect(header(page).getByRole("button", { name: "Update" })).toBeHidden();
-  await header(page).getByRole("button", { name: `Actions for ${DOMAIN}` }).click();
-  await expect(page.getByRole("menuitem", { name: "Update" })).toBeVisible();
+  await expect(header(page).getByRole("button", { name: "Update" })).toBeInViewport();
+  await header(page).getByRole("button", { name: "More actions" }).click();
   await expect(page.getByRole("menuitem", { name: "Restart" })).toBeVisible();
   await page.keyboard.press("Escape");
   await settle(page);

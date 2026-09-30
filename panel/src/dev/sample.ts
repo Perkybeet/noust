@@ -122,3 +122,37 @@ export function sampleWeekMetrics(): { timestamps: number[]; cpu: number[] } {
   }
   return { timestamps, cpu };
 }
+
+/**
+ * A day of 10-minute cells for the chart demo's reading features: history that starts six hours
+ * into the window, an hour the monitor was down (null cells, a break, never zero), a mean with
+ * its peak per cell, and memory creeping towards its limit.
+ */
+export function sampleDayWithGaps(): {
+  timestamps: number[];
+  domain: readonly [number, number];
+  firstSampleAt: number;
+  cpu: (number | null)[];
+  cpuPeak: (number | null)[];
+  memory: (number | null)[];
+} {
+  const end = Date.UTC(2026, 8, 25, 14, 0) / 1000;
+  const start = end - 86_400;
+  const step = 600;
+  const firstSampleAt = start + 6 * 3_600;
+  const timestamps: number[] = [];
+  const cpu: (number | null)[] = [];
+  const cpuPeak: (number | null)[] = [];
+  const memory: (number | null)[] = [];
+  for (let at = firstSampleAt; at <= end; at += step) {
+    const i = (at - firstSampleAt) / step;
+    timestamps.push(at);
+    // The monitor was down for an hour: no reading, drawn as a break.
+    const down = i >= 40 && i < 46;
+    const mean = Math.max(3, 18 + Math.sin(i / 7) * 7 + Math.sin(i / 2.3) * 3 + (i > 70 && i < 76 ? 30 : 0));
+    cpu.push(down ? null : Math.round(mean * 10) / 10);
+    cpuPeak.push(down ? null : Math.round((mean * 1.6 + 4) * 10) / 10);
+    memory.push(down ? null : Math.round((380 + i * 1.9 + Math.sin(i / 5) * 12) * 10) / 10);
+  }
+  return { timestamps, domain: [start, end] as const, firstSampleAt, cpu, cpuPeak, memory };
+}

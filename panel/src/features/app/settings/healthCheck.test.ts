@@ -55,10 +55,10 @@ describe("effectiveHealth", () => {
 });
 
 describe("parseRetention", () => {
-  it("keeps from 1 to 50 releases", () => {
+  it("keeps from 1 to 50 versions", () => {
     expect(parseRetention("1")).toEqual({ keep: 1, error: null });
     expect(parseRetention(" 50 ")).toEqual({ keep: 50, error: null });
-    expect(parseRetention("0").error).toBe("Keep from 1 to 50 releases.");
+    expect(parseRetention("0").error).toBe("Keep from 1 to 50 versions.");
     expect(parseRetention("51").keep).toBeNull();
     expect(parseRetention("").error).toMatch(/whole number/);
     expect(parseRetention("3.5").error).toMatch(/whole number/);
@@ -74,6 +74,6 @@ describe("in Spanish", () => {
     expect(effectiveHealth({ health_path: "/up", health_expect: null, health_timeout: null }, "es")).toMatchObject({
       expect: "cualquier estado por debajo de 500",
     });
-    expect(parseRetention("0", "es").error).toBe("Mantén de 1 a 50 releases.");
+    expect(parseRetention("0", "es").error).toBe("Guarda de 1 a 50 versiones.");
   });
 });

@@ -1,7 +1,7 @@
-import { ExternalLink } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { getLocale } from "../../app/locale";
+import { ICONS } from "../../components/ui/icons";
 import { translate } from "../../i18n";
 import { isHttpUrl } from "../../lib/url";
 
@@ -29,10 +29,10 @@ export function sourceLink(source: string | null): ReactNode {
       target="_blank"
       rel="noreferrer"
       translate="no"
-      className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-[4px] text-accent-fg hover:underline hover:underline-offset-2 focus-visible:outline-2 focus-visible:outline-focus"
+      className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-chip text-accent-fg hover:underline hover:underline-offset-2"
     >
       <span className="truncate">{source}</span>
-      <ExternalLink aria-hidden="true" className="size-3.5 shrink-0" />
+      <ICONS.external aria-hidden="true" className="size-icon-sm shrink-0" />
       <span className="sr-only"> {translate(getLocale(), "appPages.sourceLink.opensInNewTab")}</span>
     </a>
   );

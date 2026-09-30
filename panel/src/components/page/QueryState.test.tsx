@@ -111,6 +111,22 @@ describe("QueryState", () => {
 });
 
 describe("ErrorBlock", () => {
+  it("offers one follow-up beside Try again, after the system's words", () => {
+    render(
+      <ErrorBlock error={FAILURE} title="Could not renew" onRetry={() => undefined} action={<button type="button">View output</button>} />,
+    );
+    const follow = screen.getByRole("button", { name: "View output" });
+    const retry = screen.getByRole("button", { name: "Try again" });
+    expect(retry.compareDocumentPosition(follow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByText("certbot: error: unrecognized arguments: --dry").compareDocumentPosition(follow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("offers its follow-up without a retry too", () => {
+    render(<ErrorBlock error={FAILURE} title="Could not renew" action={<button type="button">View output</button>} />);
+    expect(screen.getByRole("button", { name: "View output" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+  });
+
   it("makes long system output scrollable from the keyboard, named after the failure", async () => {
     vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(192);
     vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockReturnValue(900);

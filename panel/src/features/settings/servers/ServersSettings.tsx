@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
-import { ArrowUpRight, Network, Plus, RotateCw, ShieldAlert, Trash2 } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { ArrowUpRight, Network, Plus, RotateCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import { sessionQuery } from "../../../api/queries/auth";
@@ -10,43 +10,42 @@ import { QueryState } from "../../../components/page/QueryState";
 import { RelativeTime } from "../../../components/page/RelativeTime";
 import { Section, Sections } from "../../../components/page/Section";
 import { Button, buttonClassName } from "../../../components/ui/Button";
+import { IconButton } from "../../../components/ui/IconButton";
+import { ICONS } from "../../../components/ui/icons";
+import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
+import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
+import { Mono } from "../../../components/ui/Mono";
+import { Notice } from "../../../components/ui/Notice";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { describeError } from "../../../lib/errors";
 import { useCentral } from "../../central/central";
 import { CentralLockedNotice } from "../../central/CentralLockedNotice";
-import { ServerLink } from "../../fleet/links";
+import { accessOf, fleetKeys, fleetViewQuery, originOf } from "../../fleet/data";
+import type { AccessCeiling } from "../../fleet/data";
 import { nodeKeys, nodeStatus, nodesQuery, sshAddress, testNode } from "../../fleet/nodes";
 import type { NodeRecord } from "../../fleet/nodes";
 import { ReachabilityPill } from "../../fleet/ReachabilityPill";
 import { AddServerDialog } from "./AddServerDialog";
 import { RemoveServerDialog } from "./RemoveServerDialog";
 
-function columnsFor(t: T, locked: boolean): readonly Column<NodeRecord>[] {
+function columnsFor(t: T, locked: boolean, access: ReadonlyMap<string, AccessCeiling | null>): readonly Column<NodeRecord>[] {
   return [
     {
       id: "name",
       header: t("servers.settings.column.name"),
       sortValue: (node) => node.name,
-      cell: (node) => (
-        <span translate="no" className="mono text-13 font-medium text-fg">
-          {node.name}
-        </span>
-      ),
+      cell: (node) => <Mono className="font-medium">{node.name}</Mono>,
     },
     {
       id: "address",
       header: t("servers.settings.column.address"),
       hideBelow: "md",
-      cell: (node) => (
-        <span translate="no" className="mono text-12 text-fg-muted">
-          {sshAddress(node)}
-        </span>
-      ),
+      cell: (node) => <Mono tone="muted">{sshAddress(node)}</Mono>,
     },
     {
       id: "status",
@@ -57,14 +56,16 @@ function columnsFor(t: T, locked: boolean): readonly Column<NodeRecord>[] {
       id: "version",
       header: t("servers.settings.column.version"),
       hideBelow: "sm",
-      cell: (node) =>
-        node.version ? (
-          <span translate="no" className="mono text-13 text-fg">
-            {node.version}
-          </span>
-        ) : (
-          <span className="text-13 text-fg-faint">{t("servers.fleet.notRead")}</span>
-        ),
+      cell: (node) => (node.version ? <Mono>{node.version}</Mono> : <EmptyCell reason={t("servers.fleet.notRead")} />),
+    },
+    {
+      id: "access",
+      header: t("servers.settings.column.access"),
+      hideBelow: "md",
+      cell: (node) => {
+        const ceiling = access.get(node.name) ?? null;
+        return ceiling === null ? <EmptyCell reason={t("fleet.access.unknown")} /> : <span className="text-13 text-fg">{t(`fleet.access.level.${ceiling.level}`)}</span>;
+      },
     },
     {
       id: "last-seen",
@@ -75,38 +76,40 @@ function columnsFor(t: T, locked: boolean): readonly Column<NodeRecord>[] {
   ];
 }
 
+/** A server's actions, in its row's menu: test the tunnel, open it, remove it from the fleet. */
 function RowActions({ t, node, testing, onTest, onRemove }: { t: T; node: NodeRecord; testing: boolean; onTest: () => void; onRemove: () => void }) {
+  const navigate = useNavigate();
   return (
-    <div className="flex items-center justify-end gap-1">
-      <Button size="sm" variant="ghost" aria-label={t("servers.settings.testLabel", { name: node.name })} icon={<RotateCw />} loading={testing} onClick={onTest}>
-        <span className="max-sm:sr-only">{t("servers.settings.test")}</span>
-      </Button>
-      <ServerLink node={node.name} path="/" aria-label={t("servers.settings.openLabel", { name: node.name })} className={buttonClassName("ghost", "sm")}>
-        <ArrowUpRight aria-hidden="true" />
-        <span className="max-sm:sr-only">{t("servers.settings.open")}</span>
-      </ServerLink>
-      <Button size="sm" variant="ghost" aria-label={t("servers.settings.removeLabel", { name: node.name })} icon={<Trash2 />} onClick={onRemove}>
-        <span className="max-sm:sr-only">{t("servers.settings.remove")}</span>
-      </Button>
-    </div>
+    <Menu align="end" trigger={<IconButton label={t("fleet.servers.actionsFor", { name: node.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+      <MenuItem icon={<RotateCw />} disabled={testing} onClick={onTest}>
+        {t("fleet.servers.test")}
+      </MenuItem>
+      <MenuItem icon={<ArrowUpRight />} onClick={() => void navigate({ to: "/", search: { node: node.name } })}>
+        {t("servers.settings.openLabel", { name: node.name })}
+      </MenuItem>
+      <MenuSeparator />
+      <MenuItem icon={<Trash2 />} destructive onClick={onRemove}>
+        {t("fleet.servers.remove")}
+      </MenuItem>
+    </Menu>
   );
 }
 
 /** Two-factor sign-in is off: the central will refuse to add a server, so say it first. */
 function TwoFactorFirst({ t }: { t: T }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-card border border-warn/40 bg-warn-soft px-4 py-3">
-      <div className="flex min-w-0 items-start gap-2.5">
-        <ShieldAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warn" />
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <p className="text-13 font-medium text-fg">{t("servers.settings.twoFactor.title")}</p>
-          <p className="text-13 text-pretty text-fg-muted">{t("servers.settings.twoFactor.description")}</p>
-        </div>
-      </div>
-      <Link to="/settings/security" className={buttonClassName("secondary", "sm")}>
-        {t("servers.settings.twoFactor.link")}
-      </Link>
-    </div>
+    <Notice
+      tone="warning"
+      variant="banner"
+      title={t("servers.settings.twoFactor.title")}
+      action={
+        <Link to="/settings/security" className={buttonClassName("secondary", "sm")}>
+          {t("servers.settings.twoFactor.link")}
+        </Link>
+      }
+    >
+      {t("servers.settings.twoFactor.description")}
+    </Notice>
   );
 }
 
@@ -124,6 +127,9 @@ export function ServersSettings({ adding: addingProp, onAddingChange }: ServersS
   const central = useCentral();
   const { data: session } = useQuery(sessionQuery());
   const query = useQuery(nodesQuery());
+  // What each server lets this central do there, as it last published it (the fleet's own read).
+  const fleet = useQuery({ ...fleetViewQuery("servers"), enabled: (query.data?.items.length ?? 0) > 0 });
+  const access = new Map((fleet.data?.items ?? []).map((row) => [originOf(row).node, accessOf(row)]));
   const [addingState, setAddingState] = useState(false);
   const adding = addingProp ?? addingState;
   const setAdding = (next: boolean): void => {
@@ -132,7 +138,7 @@ export function ServersSettings({ adding: addingProp, onAddingChange }: ServersS
   };
   const [removing, setRemoving] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const columns = columnsFor(t, central.locked);
+  const columns = columnsFor(t, central.locked, access);
 
   const test = useMutation({
     mutationFn: (name: string) => testNode(name),
@@ -156,9 +162,9 @@ export function ServersSettings({ adding: addingProp, onAddingChange }: ServersS
         ...(described.output !== null ? { output: described.output } : {}),
       });
     },
-    onSettled: (_result, _error, name) => {
+    onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: nodeKeys.all });
-      void queryClient.invalidateQueries({ queryKey: ["fleet", name] });
+      void queryClient.invalidateQueries({ queryKey: fleetKeys.all });
     },
   });
 

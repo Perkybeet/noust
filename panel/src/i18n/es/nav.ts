@@ -9,6 +9,20 @@ export const nav: Catalog<typeof en> = {
     appSections: "Secciones de la aplicación",
     settingsSections: "Secciones de los ajustes",
   },
+  groups: {
+    fleet: "Flota",
+    server: "Servidor",
+  },
+  settingsGroups: {
+    serverLabel: "Servidor",
+    central: "Central {name}",
+    serverDescription: "Cómo funciona Noust en {name}. Siguen al servidor que elijas.",
+    centralDescription: "Son de la central, {name}: no cambian elijas el servidor que elijas.",
+    nodeNoteTitle: "El inicio de sesión, la verificación en dos pasos y los tokens de API de {node} se gestionan en {node}",
+    nodeNote:
+      "{node} rechaza a esta central en ellos a propósito: una central comprometida podría dejarte fuera de todos los servidores. Inicia sesión en la consola de {node} o ejecuta esto en {node}:",
+    nodeNoteCommands: "En {node}",
+  },
   failed: { one: "{count} con fallo", other: "{count} con fallos" },
   overview: { label: "Resumen", keywords: "inicio panel salud home dashboard health", goTo: "Ir al resumen" },
   apps: { label: "Aplicaciones", keywords: "apps sitios desplegar despliegue deploy", goTo: "Ir a aplicaciones" },
@@ -34,7 +48,6 @@ export const nav: Catalog<typeof en> = {
     metrics: { label: "Métricas", keywords: "cpu memoria gráficas metrics" },
     environment: { label: "Entorno", keywords: "env variables secretos environment" },
     domains: { label: "Dominios", keywords: "certificado ssl www domains" },
-    diagnose: { label: "Diagnóstico", keywords: "caída por qué rota salud diagnose" },
     settings: { label: "Ajustes", keywords: "webhook origen compilación puerto eliminar settings" },
   },
   settingsTabs: {
@@ -60,5 +73,6 @@ export const nav: Catalog<typeof en> = {
     },
     tokens: { label: "Tokens de API", keywords: "automatización ci alcance tokens", command: "Tokens de API" },
     about: { label: "Acerca de", keywords: "versión actualización about", command: "Acerca de Noust" },
+    central: { label: "Central", keywords: "sellado frase de paso desbloquear hub rol flota seal", command: "Ajustes de esta central" },
   },
 };

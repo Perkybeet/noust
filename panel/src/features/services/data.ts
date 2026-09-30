@@ -62,11 +62,16 @@ export function serviceState(
   return { state: "stopped", label: "services.state.stopped" };
 }
 
+export const SERVICE_STATES = ["failed", "running", "stopped"] as const;
+export type ServiceStateFilter = (typeof SERVICE_STATES)[number];
+
 export interface ServicesSearch {
-  /** Free text matched against the unit name. */
+  /** Free text matched against the unit name and its command. */
   q?: string;
   /** List every unit on the host, not just the ones Noust created (`GET ?noust_only=false`). */
   all?: true;
+  /** Only the units in this state; "failed" also keeps the ones systemd is restarting. */
+  state?: ServiceStateFilter;
 }
 
 function text(value: unknown): string | undefined {
@@ -78,25 +83,50 @@ function text(value: unknown): string | undefined {
 /** Reads the search params, dropping anything malformed instead of failing. */
 export function validateServicesSearch(search: Record<string, unknown>): ServicesSearch {
   const q = text(search["q"]);
-  const all = search["all"] === "1" || search["all"] === true;
+  const all = search["all"] === "1" || search["all"] === true || search["all"] === 1;
+  const state = search["state"];
   return {
     ...(q !== undefined ? { q } : {}),
     ...(all ? { all: true as const } : {}),
+    ...(typeof state === "string" && (SERVICE_STATES as readonly string[]).includes(state) ? { state: state as ServiceStateFilter } : {}),
   };
 }
 
 export function isFiltered(search: ServicesSearch): boolean {
-  return search.q !== undefined;
+  return search.q !== undefined || search.state !== undefined;
+}
+
+/** Whether a unit is in the state a filter asks for. */
+export function inState(service: ServiceInfo, state: ServiceStateFilter): boolean {
+  const view = serviceState(service).state;
+  if (state === "failed") return view === "failed" || view === "warning";
+  if (state === "running") return view === "running";
+  return view === "stopped";
 }
 
 /** The services a search keeps, in their original order. */
 export function filterServices(services: readonly ServiceInfo[], search: ServicesSearch): ServiceInfo[] {
   const needle = search.q?.toLowerCase();
-  if (needle === undefined) return [...services];
   return services.filter((service) => {
+    if (search.state !== undefined && !inState(service, search.state)) return false;
+    if (needle === undefined) return true;
     const haystack = `${service.name} ${service.description ?? ""}`.toLowerCase();
     return haystack.includes(needle);
   });
+}
+
+/** An application's unit name as the store records it (`shop-example-com.service`), without the suffix. */
+function bare(unit: string): string {
+  return unit.endsWith(".service") ? unit.slice(0, -".service".length) : unit;
+}
+
+/**
+ * The application a unit runs, when it runs one: its page is where that unit is managed (a
+ * redeploy rewrites the unit), so the service page links there and deletes nothing itself.
+ */
+export function appOfUnit<A extends { domain: string; unit?: string | null | undefined }>(apps: readonly A[], unit: string): A | null {
+  const name = bare(unit);
+  return apps.find((app) => app.unit !== null && app.unit !== undefined && bare(app.unit) === name) ?? null;
 }
 
 export type ServiceDetail = Service;

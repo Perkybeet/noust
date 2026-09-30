@@ -6,6 +6,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { APPS, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { screenWidth } from "../app/testRoutes";
 
 const JOB = {
   id: "96bad296",
@@ -22,6 +23,7 @@ const JOB = {
 };
 
 async function appsAt(path = "/apps", extra: Record<string, RouteHandler> = {}) {
+  screenWidth(1440);
   const backend = fakeBackend({
     ...signedInRoutes(),
     "GET /api/deployments": () =>
@@ -40,17 +42,35 @@ async function appsAt(path = "/apps", extra: Record<string, RouteHandler> = {}) 
 }
 
 describe("the applications list", () => {
-  it("lists every app with its state, type, port and last deploy", async () => {
-    const { table } = await appsAt();
+  it("lists every app, its name first and its state beside it, with its type by name and last deploy", async () => {
+    const { table } = await appsAt("/apps", {
+      "GET /api/apps/types": () => json(200, { types: [{ type: "nextjs", name: "Next.js", default_port: 3000 }] }),
+    });
     const shop = await within(table).findByRole("link", { name: "shop.example.com" });
     expect(shop).toHaveAttribute("href", "/apps/shop.example.com");
     const row = shop.closest("tr");
     if (!row) throw new Error("no row");
-    expect(within(row).getByText("Running")).toBeInTheDocument();
-    expect(within(row).getByText("nextjs")).toBeInTheDocument();
-    expect(within(row).getByText("3000")).toBeInTheDocument();
+    const cells = within(row).getAllByRole("cell");
+    expect(cells[0]).toContainElement(shop);
+    expect(cells[1]).toHaveTextContent("Running");
+    expect(await within(row).findByText("Next.js")).toBeInTheDocument();
+    // The port is the app's own page's to say: a random number is not how an app is found.
+    expect(within(row).queryByText("3000")).not.toBeInTheDocument();
     expect(within(row).getByText(/Succeeded/)).toHaveClass("sr-only");
     expect(screen.getByText("2 applications")).toHaveAttribute("role", "status");
+  });
+
+  it("draws each app as a card on a phone, its menu always in view", async () => {
+    fakeBackend({ ...signedInRoutes(), "GET /api/deployments": () => json(200, { items: [], total: 0, next_before_id: null }) });
+    const { user } = renderConsole("/apps");
+    const list = await screen.findByRole("list", { name: "Applications" });
+    const cards = await within(list).findAllByRole("listitem");
+    expect(cards).toHaveLength(2);
+    const shop = cards.find((card) => within(card).queryByRole("link", { name: "shop.example.com" }) !== null);
+    if (!shop) throw new Error("no card for shop.example.com");
+    expect(within(shop).getByText("Running")).toBeInTheDocument();
+    await user.click(within(shop).getByRole("button", { name: "Actions for shop.example.com" }));
+    expect(await screen.findByRole("menuitem", { name: "Update" })).toBeInTheDocument();
   });
 
   it("filters by the URL's search params", async () => {
@@ -75,7 +95,7 @@ describe("the applications list", () => {
 
   it("says when nothing matches and clears the filters", async () => {
     const { user, location } = await appsAt("/apps?q=nothing-like-this");
-    expect(await screen.findByText("No application matches")).toBeInTheDocument();
+    expect(await screen.findByText("No application matches these filters.")).toBeInTheDocument();
     const clear = screen.getAllByRole("button", { name: "Clear filters" });
     await user.click(clear[clear.length - 1] ?? clear[0] ?? document.body);
     await waitFor(() => {
@@ -158,19 +178,23 @@ describe("the applications list", () => {
     const link = await within(table).findByRole("link", { name: preview.domain });
     const row = link.closest("tr");
     if (!row) throw new Error("no row");
-    expect(within(row).getByText("Preview of")).toBeInTheDocument();
-    expect(within(row).getByText("shop.example.com")).toBeInTheDocument();
+    expect(within(row).getByText(/Preview of/)).toHaveTextContent("Preview of shop.example.com");
     const own = within(table).getByRole("link", { name: "shop.example.com" }).closest("tr");
     if (!own) throw new Error("no row");
     expect(within(own).queryByText(/Preview of/)).not.toBeInTheDocument();
     await expectNoAxeViolations(table);
   });
 
-  it("invites the first deploy on an empty machine", async () => {
+  it("invites the first deploy on an empty machine, without filters or a table", async () => {
     fakeBackend({ ...signedInRoutes(), "GET /api/apps": () => json(200, { total: 0, apps: [] }) });
     renderConsole("/apps");
-    expect(await screen.findByRole("heading", { level: 2, name: "Deploy your first application" })).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: "New application" }).length).toBeGreaterThan(0);
+    expect(await screen.findByRole("heading", { level: 2, name: "No applications yet" })).toBeInTheDocument();
+    const links = screen.getAllByRole("link", { name: "New application" });
+    expect(links).toHaveLength(2);
+    // One primary action on the page: the header's; the empty state's is its echo.
+    expect(links.filter((link) => link.className.includes("bg-accent"))).toHaveLength(1);
+    expect(screen.queryByRole("searchbox")).not.toBeInTheDocument();
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });
 
   it("has no accessibility violations", async () => {
@@ -181,6 +205,7 @@ describe("the applications list", () => {
 
   it("reads in Spanish", async () => {
     await act(() => setLocale("es"));
+    screenWidth(1440);
     fakeBackend({
       ...signedInRoutes(),
       "GET /api/deployments": () => json(200, { items: [], total: 0, next_before_id: null }),
@@ -205,6 +230,7 @@ describe("the applications list", () => {
   it("says every state in Spanish: the pills, the last deploy and the state filter", async () => {
     await act(() => setLocale("es"));
     const user = (await import("@testing-library/user-event")).default.setup();
+    screenWidth(1440);
     fakeBackend({
       ...signedInRoutes(),
       "GET /api/deployments": () =>

@@ -23,14 +23,18 @@ import {
   Button,
   Card,
   Chart,
+  ChartGroup,
   Checkbox,
+  ChoiceCards,
   ConfirmDialog,
   CopyButton,
   DataTable,
   Dialog,
   DialogClose,
+  Disclosure,
   Drawer,
   EmptyState,
+  ExternalLink as ExternalPage,
   Field,
   IconButton,
   Input,
@@ -54,6 +58,7 @@ import {
   TabList,
   TabPanel,
   Tabs,
+  TextLink,
   Textarea,
   Tooltip,
   toast,
@@ -62,7 +67,7 @@ import type { Column, LogLine, Status } from "../components/ui";
 import { Logo } from "../components/brand/Logo";
 import { Item, Row, Section, Stage } from "./gallery";
 import type { SampleApp } from "./sample";
-import { SAMPLE_APPS, SAMPLE_BUILD_LOG, ago, nextJournalLine, sampleMetrics, sampleWeekMetrics } from "./sample";
+import { SAMPLE_APPS, SAMPLE_BUILD_LOG, ago, nextJournalLine, sampleDayWithGaps, sampleMetrics, sampleWeekMetrics } from "./sample";
 
 const STATES: Status[] = ["running", "deploying", "failed", "stopped", "static", "unknown"];
 
@@ -221,7 +226,39 @@ function Forms() {
           </div>
         </div>
       </Stage>
+      <Stage>
+        <div className="grid gap-x-8 gap-y-6 md:grid-cols-2">
+          <Item label="ChoiceCards: two to four choices that each need a sentence">
+            <DeployModes />
+          </Item>
+          <Item label="Disclosure: the options most operators never change">
+            <Disclosure label="More options">
+              <div className="flex flex-col gap-4">
+                <Field label="Keep for" optional description="Older backups are deleted after this many days.">
+                  <Input mono defaultValue="30" suffix="days" inputMode="numeric" />
+                </Field>
+                <Checkbox label="Encrypt with the server's key" />
+              </div>
+            </Disclosure>
+          </Item>
+        </div>
+      </Stage>
     </Section>
+  );
+}
+
+function DeployModes() {
+  const [mode, setMode] = useState<"releases" | "inplace">("releases");
+  return (
+    <ChoiceCards
+      legend="How deploys work"
+      value={mode}
+      onValueChange={setMode}
+      options={[
+        { value: "releases", label: "Instant rollback", description: "Each deploy is kept apart; going back takes seconds.", badge: "Recommended" },
+        { value: "inplace", label: "Single folder", description: "Every deploy rebuilds the same folder. Uses less disk." },
+      ]}
+    />
   );
 }
 
@@ -269,6 +306,23 @@ function Overlays() {
                 </Button>
               }
             />
+          </Item>
+          <Item label="Options that destroy more, unchecked">
+            <ConfirmDialog
+              title="Delete legacy.example.dev"
+              description="Stops the service and removes the site. Backups are kept."
+              confirmText="legacy.example.dev"
+              actionLabel="Delete application"
+              onConfirm={() => new Promise((resolve) => setTimeout(resolve, 900))}
+              trigger={
+                <Button variant="danger" icon={<Trash2 />} data-testid="open-confirm-options">
+                  Delete with options
+                </Button>
+              }
+            >
+              <Checkbox label="Also delete its files" description={<Mono tone="muted">/var/www/apps/legacy-example-dev</Mono>} />
+              <Checkbox label="Also delete its certificate" description="It is issued again if the domain is used later." />
+            </ConfirmDialog>
           </Item>
           <Item label="Failure shown verbatim">
             <ConfirmDialog
@@ -611,6 +665,21 @@ function Attributes() {
                 <Mono>wasm-shop.example.dev.service</Mono>
               </div>
             </Item>
+            <Item label="Links">
+              <div className="flex flex-col gap-2">
+                <p className="text-14 text-fg-muted">
+                  Served by{" "}
+                  <TextLink to="/apps/$domain" params={{ domain: "shop.example.dev" }}>
+                    shop.example.dev
+                  </TextLink>
+                  , on port 3004.
+                </p>
+                <TextLink to="/apps" size="ui">
+                  All applications
+                </TextLink>
+                <ExternalPage href="https://github.com/acme/shop">github.com/acme/shop</ExternalPage>
+              </div>
+            </Item>
             <Item label="Copy">
               <div className="flex items-center gap-1 rounded-control border border-border bg-surface py-0.5 pr-0.5 pl-2.5">
                 <Mono>ssh root@example.dev</Mono>
@@ -804,7 +873,63 @@ function Charts() {
           />
         </Card>
       </div>
+      <ChartReading />
     </Section>
+  );
+}
+
+const formatPercent = (v: number): string => `${v.toFixed(0)}%`;
+const formatMegabytes = (v: number): string => `${v.toFixed(0)} MB`;
+
+/**
+ * How a chart is read: the readout row above the plot says the moment under the pointer (or
+ * the latest reading), in words and with its peak; charts in a ChartGroup share that moment
+ * and one width of value axis; missing cells break the line and the time before the first
+ * reading is hatched; Expand opens the chart large, where a drag zooms and the table is a
+ * click away.
+ */
+function ChartReading() {
+  const day = sampleDayWithGaps();
+  const common = {
+    timestamps: day.timestamps,
+    domain: day.domain,
+    step: 600,
+    firstSampleAt: day.firstSampleAt,
+    resolution: "10-minute averages",
+    cell: "10-minute average",
+    description: "Last 24 hours",
+  } as const;
+  return (
+    <>
+      <p className="max-w-measure text-13 text-pretty text-fg-muted">
+        Read together: point at either chart, or focus it and use the arrow keys, and both mark the same moment; the readout row above each plot says
+        it, with the peak of a cell that averages several readings. History starts six hours in (hatched) and the monitor missed an hour (a break,
+        never a zero). Expand opens the chart in a dialog: drag across it to zoom, and the data table is one click away.
+      </p>
+      <ChartGroup>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card>
+            <Chart
+              {...common}
+              title="CPU"
+              series={[{ label: "shop.example.dev", values: day.cpu, peaks: day.cpuPeak }]}
+              formatValue={formatPercent}
+              yRange={[0, 100]}
+            />
+          </Card>
+          <Card>
+            <Chart
+              {...common}
+              title="Memory"
+              series={[{ label: "shop.example.dev", values: day.memory }]}
+              formatValue={formatMegabytes}
+              ceiling={640}
+              limit={{ value: 640, label: "Limit 640 MB" }}
+            />
+          </Card>
+        </div>
+      </ChartGroup>
+    </>
   );
 }
 

@@ -9,7 +9,7 @@ import { byUrgency, certificateJobFor, certificateView, covers, issuerName } fro
 import { configRejection, failingLine, lineOffset } from "./configErrors";
 import { dnsVerdict, isPrivateAddress, recordsToCreate } from "./dns";
 import { domainProblem, parseNames, truncatedNames, wwwOf } from "./names";
-import { validateDomainsSearch } from "./search";
+import { validateCertificatesSearch, validateSitesSearch } from "./search";
 
 describe("domain names", () => {
   it("accepts ordinary and internationalised names, trimmed and lowercased", () => {
@@ -261,13 +261,18 @@ describe("in Spanish", () => {
   });
 });
 
-describe("the page's search params", () => {
-  it("keeps the tab and the certificates' filter a link opens them with, and drops anything else", () => {
-    expect(validateDomainsSearch({})).toEqual({});
-    expect(validateDomainsSearch({ tab: "sites" })).toEqual({ tab: "sites" });
-    expect(validateDomainsSearch({ tab: "certificates", q: " shop.example.com " })).toEqual({ tab: "certificates", q: "shop.example.com" });
-    expect(validateDomainsSearch({ q: "shop.example.com" })).toEqual({ q: "shop.example.com" });
-    expect(validateDomainsSearch({ tab: "nope", q: "" })).toEqual({});
-    expect(validateDomainsSearch({ q: 42 })).toEqual({});
+describe("the tabs' search params", () => {
+  it("keeps the certificates' filter a link opens them with, and 3.0's tab for its redirect", () => {
+    expect(validateCertificatesSearch({})).toEqual({});
+    expect(validateCertificatesSearch({ tab: "sites" })).toEqual({ tab: "sites" });
+    expect(validateCertificatesSearch({ tab: "certificates", q: " shop.example.com " })).toEqual({ tab: "certificates", q: "shop.example.com" });
+    expect(validateCertificatesSearch({ q: "shop.example.com", show: "attention" })).toEqual({ q: "shop.example.com", show: "attention" });
+    expect(validateCertificatesSearch({ tab: "nope", q: "", show: "all" })).toEqual({});
+    expect(validateCertificatesSearch({ q: 42 })).toEqual({});
+  });
+
+  it("keeps the sites' filter and drops anything else", () => {
+    expect(validateSitesSearch({ q: " shop " })).toEqual({ q: "shop" });
+    expect(validateSitesSearch({ q: "", tab: "sites" })).toEqual({});
   });
 });

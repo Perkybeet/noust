@@ -1,205 +1,157 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { LOCALE_STORAGE_KEY } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
+import { SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
+import { readServerIdentity } from "./GeneralSettings.model";
 
-function generalRoutes(extra: Record<string, RouteHandler> = {}): Record<string, RouteHandler> {
+/** A session already in sudo mode, so a save goes straight through. */
+const ELEVATED = { ...SESSION, elevated_until: "2999-01-01T00:00:00+00:00" };
+
+function generalRoutes(config: Record<string, unknown> = {}, extra: Record<string, RouteHandler> = {}): Record<string, RouteHandler> {
   return {
-    ...signedInRoutes(),
-    "GET /api/config": () => json(200, { config: {}, path: "/etc/noust/config.yaml", writable: true }),
+    ...signedInRoutes(ELEVATED),
+    "GET /api/config": () => json(200, { config, path: "/etc/noust/config.yaml", writable: true }),
     "GET /api/config/apps-directory": () => json(200, { apps_directory: "/var/www/apps" }),
     "GET /api/config/webserver": () => json(200, { webserver: "nginx" }),
     "GET /api/config/ssl": () => json(200, { enabled: true, provider: "certbot", email: "ops@example.com" }),
     "GET /api/config/backup": () => json(200, { directory: "/var/backups/noust", max_per_app: 10 }),
     "GET /api/config/web": () => json(200, { host: "127.0.0.1", port: 8080, session_timeout: 3600 }),
+    "GET /api/system/update": () => json(200, { current_version: "3.1.0", method: "apt", supported: true }),
     ...extra,
   };
 }
 
-/** Waits for the visible toast (not its announcement) to say `text`. */
-async function expectToast(text: string): Promise<void> {
-  await waitFor(() => {
-    expect([...document.querySelectorAll(".toast")].some((toast) => toast.textContent.includes(text))).toBe(true);
-  });
+function saveBar(): HTMLElement {
+  return screen.getByRole("region", { name: "Unsaved changes" });
 }
 
-function section(name: string): HTMLElement {
-  return screen.getByRole("region", { name });
-}
+describe("reading the general settings", () => {
+  it("reads the name, the addresses, whether updates are checked and the role", () => {
+    expect(readServerIdentity({})).toEqual({ name: "", publicUrl: "", hooksUrl: "", checkUpdates: true, role: "server", serviceUser: "" });
+    expect(
+      readServerIdentity({
+        server: { name: "web-1" },
+        web: { public_url: "https://console.example.com", hooks_url: "https://hooks.example.com" },
+        updates: { check: false },
+        central: { role: "hub" },
+        service_user: "www-data",
+      }),
+    ).toEqual({
+      name: "web-1",
+      publicUrl: "https://console.example.com",
+      hooksUrl: "https://hooks.example.com",
+      checkUpdates: false,
+      role: "hub",
+      serviceUser: "www-data",
+    });
+  });
+});
 
 describe("Settings > General", () => {
-  it("shows each section's settings, where they are saved, and passes axe", { timeout: 20_000 }, async () => {
-    fakeBackend(generalRoutes());
+  it("shows one form with one save bar, the read-only details apart, and passes axe", { timeout: 20_000 }, async () => {
+    fakeBackend(generalRoutes({ service_user: "www-data" }));
     const { container } = renderConsole("/settings");
     await screen.findByDisplayValue("/var/www/apps");
-    expect(screen.getByText("/etc/noust/config.yaml")).toBeInTheDocument();
-    expect(within(section("Backups")).getByLabelText("Backups kept per application")).toHaveValue(10);
-    expect(within(section("Certificates")).getByLabelText(/Email for certificate notices/)).toHaveValue("ops@example.com");
-    // Nothing changed: nothing to save, and the terminal form reads the setting.
-    expect(within(section("Backups")).getByRole("button", { name: "Save changes" })).toBeDisabled();
-    expect(within(section("Backups")).getByText("noust config get backup")).toBeInTheDocument();
-    await expectNoAxeViolations(container);
-  });
-
-  it("shows the server's refusal beside the field it is about, and saves once it is fixed", { timeout: 20_000 }, async () => {
-    let stored = { directory: "/var/backups/noust", max_per_app: 10 };
-    const backend = fakeBackend(
-      generalRoutes({
-        "GET /api/config/backup": () => json(200, stored),
-        "PUT /api/config/backup": (call) => {
-          const body = call.body as typeof stored;
-          if (body.max_per_app > 100) {
-            return problem(422, "validation_error", "Validation failed", {
-              fields: { max_per_app: "Input should be less than or equal to 100" },
-            });
-          }
-          stored = body;
-          return json(200, { message: "Backup configuration updated" });
-        },
-      }),
-    );
-    const { user } = renderConsole("/settings");
-    const retention = await screen.findByLabelText("Backups kept per application");
-    const backups = section("Backups");
-
-    await user.clear(retention);
-    await user.type(retention, "500");
-    expect(within(backups).getByText("Unsaved changes")).toBeInTheDocument();
-    // The terminal form follows the edit.
-    expect(within(backups).getByText("noust config set backup.max_per_app 500")).toBeInTheDocument();
-    await user.click(within(backups).getByRole("button", { name: "Save changes" }));
-
-    const message = await within(backups).findByText("Input should be less than or equal to 100");
-    expect(retention).toHaveAttribute("aria-invalid", "true");
-    expect(retention.getAttribute("aria-describedby") ?? "").toContain(message.closest("[id]")?.id ?? "missing");
-    expect(backend.callsTo("PUT /api/config/backup")[0]?.body).toEqual({ directory: "/var/backups/noust", max_per_app: 500 });
-
-    // Editing the field retracts the message about the value that was sent.
-    await user.clear(retention);
-    await user.type(retention, "12");
-    expect(within(backups).queryByText("Input should be less than or equal to 100")).not.toBeInTheDocument();
-    await user.click(within(backups).getByRole("button", { name: "Save changes" }));
-
-    await expectToast("Saved the backup settings");
+    // The server's name is empty: the machine's own name is what it goes by, and says so.
+    const name = screen.getByLabelText(/Server name/);
+    expect(name).toHaveValue("");
     await waitFor(() => {
-      expect(within(backups).getByRole("button", { name: "Save changes" })).toBeDisabled();
+      expect(name).toHaveAttribute("placeholder", "web-01");
     });
-    expect(retention).toHaveValue(12);
-    expect(backend.callsTo("PUT /api/config/backup")[1]?.body).toEqual({ directory: "/var/backups/noust", max_per_app: 12 });
-  });
-
-  it("asks to confirm it's you before the first write of the session, then saves", { timeout: 20_000 }, async () => {
-    let elevated = false;
-    let stored = { directory: "/var/backups/noust", max_per_app: 10 };
-    const backend = fakeBackend(
-      generalRoutes({
-        "GET /api/config/backup": () => json(200, stored),
-        "PUT /api/config/backup": (call) => {
-          if (!elevated) return problem(403, "elevation_required", "Confirm it's you to continue.");
-          stored = call.body as typeof stored;
-          return json(200, { message: "Backup configuration updated" });
-        },
-        "POST /api/auth/elevate": () => {
-          elevated = true;
-          return json(200, { elevated_until: new Date(Date.now() + 600_000).toISOString() });
-        },
-      }),
-    );
-    const { user } = renderConsole("/settings");
-    const retention = await screen.findByLabelText("Backups kept per application");
-    const backups = section("Backups");
-
-    await user.clear(retention);
-    await user.type(retention, "20");
-    await user.click(within(backups).getByRole("button", { name: "Save changes" }));
-
-    const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
-    await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
-    await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
-
-    await expectToast("Saved the backup settings");
-    expect(backend.callsTo("PUT /api/config/backup")).toHaveLength(2);
-    expect(backend.callsTo("PUT /api/config/backup")[1]?.body).toEqual({ directory: "/var/backups/noust", max_per_app: 20 });
-  });
-
-  it("gives a one-field section a refusal that names no field, with the server's fix", async () => {
-    fakeBackend(
-      generalRoutes({
-        "PUT /api/config/apps-directory": () =>
-          problem(400, "configerror", "apps_directory must be an absolute path", {
-            hint: "Got 'apps'. Use a path starting with '/', such as /var/www/apps.",
-          }),
-      }),
-    );
-    const { user } = renderConsole("/settings");
-    const directory = await screen.findByLabelText("Directory");
-    await user.clear(directory);
-    await user.type(directory, "apps");
-    await user.click(within(section("Applications directory")).getByRole("button", { name: "Save changes" }));
-    expect(
-      await screen.findByText(
-        "apps_directory must be an absolute path Got 'apps'. Use a path starting with '/', such as /var/www/apps.",
-      ),
-    ).toBeInTheDocument();
-    expect(directory).toHaveAttribute("aria-invalid", "true");
-  });
-
-  it("discards an edit back to the saved value", async () => {
-    fakeBackend(generalRoutes());
-    const { user } = renderConsole("/settings");
-    const email = await screen.findByLabelText(/Email for certificate notices/);
-    await user.clear(email);
-    await user.type(email, "someone@example.com");
-    await user.click(within(section("Certificates")).getByRole("button", { name: "Discard" }));
-    expect(email).toHaveValue("ops@example.com");
-    expect(within(section("Certificates")).queryByText("Unsaved changes")).not.toBeInTheDocument();
-  });
-
-  it("sends the certificate block whole, keeping the values the form does not show", async () => {
-    const backend = fakeBackend(generalRoutes({ "PUT /api/config/ssl": () => json(200, { message: "SSL configuration updated" }) }));
-    const { user } = renderConsole("/settings");
-    const email = await screen.findByLabelText(/Email for certificate notices/);
-    await user.clear(email);
-    await user.type(email, "certs@example.com");
-    await user.click(within(section("Certificates")).getByRole("button", { name: "Save changes" }));
-    await expectToast("Saved the certificate email");
-    expect(backend.callsTo("PUT /api/config/ssl")[0]?.body).toEqual({ enabled: true, provider: "certbot", email: "certs@example.com" });
-  });
-
-  it("switches the console to Spanish at once, in every place that names a page, and passes axe", { timeout: 20_000 }, async () => {
-    fakeBackend(generalRoutes());
-    const { container, user } = renderConsole("/settings");
-    await screen.findByDisplayValue("/var/www/apps");
-    const language = section("Language");
-    const english = within(language).getByRole("button", { name: "English" });
-    const spanish = within(language).getByRole("button", { name: "Español" });
-    // Each option is written, and pronounced, in its own language.
-    expect(english).toHaveAttribute("lang", "en");
-    expect(spanish).toHaveAttribute("lang", "es");
-    expect(english).toHaveAttribute("aria-pressed", "true");
-
-    await user.click(spanish);
-
-    const main = await screen.findByRole("navigation", { name: "Principal" });
-    // The failure count after a name is a plural of the catalog, in Spanish too.
-    expect(within(main).getByRole("link", { name: "Aplicaciones 1 con fallo" })).toBeInTheDocument();
-    expect(within(main).getByRole("link", { name: "Copias de seguridad" })).toBeInTheDocument();
-    const tabs = screen.getByRole("navigation", { name: "Secciones de los ajustes" });
-    expect(within(tabs).getByRole("link", { name: "Seguridad" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Idioma" })).toBeInTheDocument();
-    expect(spanish).toHaveAttribute("aria-pressed", "true");
-    // Focus stays on the choice just made: nothing was remounted.
-    expect(spanish).toHaveFocus();
-    expect(document.documentElement.lang).toBe("es");
-    expect(window.localStorage.getItem(LOCALE_STORAGE_KEY)).toBe("es");
+    expect(screen.getByLabelText(/Backups kept per app/)).toHaveValue("10");
+    expect(screen.getByRole("checkbox", { name: /Check for new versions/ })).toBeChecked();
+    expect(await screen.findByText(/the apt repository/)).toBeInTheDocument();
+    // What is not edited here is shown apart, with where it is set.
+    const details = screen.getByRole("region", { name: "Details" });
+    expect(within(details).getByText("/etc/noust/config.yaml")).toBeInTheDocument();
+    expect(within(details).getByText("noust web expose-hooks hooks.example.com")).toBeInTheDocument();
+    // One save bar, there from the start, with nothing to save.
+    expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument();
+    expect(within(saveBar()).getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
     await expectNoAxeViolations(container);
+  });
 
-    await user.click(within(screen.getByRole("region", { name: "Idioma" })).getByRole("button", { name: "English" }));
-    expect(await screen.findByRole("navigation", { name: "Main" })).toBeInTheDocument();
-    expect(document.documentElement.lang).toBe("en");
+  it("saves every changed group from the one bar, and a refusal stays beside its field", { timeout: 20_000 }, async () => {
+    let backup = { directory: "/var/backups/noust", max_per_app: 10 };
+    let config: Record<string, unknown> = {};
+    const backend = fakeBackend(
+      generalRoutes(
+        {},
+        {
+          "GET /api/config": () => json(200, { config, path: "/etc/noust/config.yaml", writable: true }),
+          "GET /api/config/backup": () => json(200, backup),
+          "PATCH /api/config": (call) => {
+            const body = call.body as { path: string; value: unknown };
+            config = { ...config, server: { name: body.value } };
+            return json(200, { message: "ok", path: "/etc/noust/config.yaml", value: body.value });
+          },
+          "PUT /api/config/backup": (call) => {
+            const body = call.body as typeof backup;
+            if (body.max_per_app > 100) {
+              return problem(422, "validation_error", "Validation failed", { fields: { max_per_app: "Input should be less than or equal to 100" } });
+            }
+            backup = body;
+            return json(200, { message: "Backup configuration updated" });
+          },
+        },
+      ),
+    );
+    const { user } = renderConsole("/settings");
+    const name = await screen.findByLabelText(/Server name/);
+    const count = screen.getByLabelText(/Backups kept per app/);
+    await user.type(name, "web-1");
+    await user.clear(count);
+    await user.type(count, "500");
+    expect(within(saveBar()).getByText("2 unsaved changes")).toBeInTheDocument();
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
+
+    // The name was saved; the count was refused and says why, where it is.
+    expect(await screen.findByText("Input should be less than or equal to 100")).toBeInTheDocument();
+    expect(count).toHaveAttribute("aria-invalid", "true");
+    expect(backend.callsTo("PATCH /api/config")[0]?.body).toEqual({ path: "server.name", value: "web-1" });
+    await waitFor(() => {
+      expect(within(saveBar()).getByText("1 unsaved change")).toBeInTheDocument();
+    });
+
+    await user.clear(count);
+    await user.type(count, "20");
+    await user.click(within(saveBar()).getByRole("button", { name: "Save" }));
+    await waitFor(() => {
+      expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument();
+    });
+    expect(backend.callsTo("PUT /api/config/backup").at(-1)?.body).toEqual({ directory: "/var/backups/noust", max_per_app: 20 });
+    expect(count).toHaveValue("20");
+  });
+
+  it("discards every change at once", { timeout: 20_000 }, async () => {
+    const backend = fakeBackend(generalRoutes());
+    const { user } = renderConsole("/settings");
+    const directory = await screen.findByLabelText(/Applications folder/);
+    await user.clear(directory);
+    await user.type(directory, "/srv/apps");
+    await user.click(screen.getByRole("checkbox", { name: /Check for new versions/ }));
+    expect(within(saveBar()).getByText("2 unsaved changes")).toBeInTheDocument();
+    await user.click(within(saveBar()).getByRole("button", { name: "Discard" }));
+    expect(directory).toHaveValue("/var/www/apps");
+    expect(screen.getByRole("checkbox", { name: /Check for new versions/ })).toBeChecked();
+    expect(backend.callsTo("PUT /api/config/apps-directory")).toHaveLength(0);
+  });
+
+  it("on a central that runs no applications, leaves out where applications live", { timeout: 20_000 }, async () => {
+    fakeBackend(generalRoutes({ central: { role: "hub" } }));
+    renderConsole("/settings");
+    expect(await screen.findByText("This central runs no applications")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Applications folder/)).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/Server name/)).toBeInTheDocument();
+  });
+
+  it("warns before anything is typed when the configuration file cannot be written", { timeout: 20_000 }, async () => {
+    fakeBackend(generalRoutes({}, { "GET /api/config": () => json(200, { config: {}, path: "/etc/noust/config.yaml", writable: false }) }));
+    renderConsole("/settings");
+    expect(await screen.findByText("Saving will fail")).toBeInTheDocument();
   });
 });

@@ -1,19 +1,17 @@
-import { useId } from "react";
-import type { Ref, SyntheticEvent } from "react";
+import { ChevronDown } from "lucide-react";
 
 import type { AppExportDocument } from "../../api/queries/appImport";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
 import { KeyValueList } from "../../components/page/KeyValueList";
-import { Button } from "../../components/ui/Button";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
+import { Mono } from "../../components/ui/Mono";
 import { parseTimestamp, formatDateTime } from "../../lib/format";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { AddressFields } from "./AddressFields";
 import { addressItem } from "./DeployStep";
-import { ReviewGroup } from "./ReviewStep";
-import { useDomainDnsCheck } from "./useDomainDnsCheck";
+import type { DomainDnsCheck } from "./useDomainDnsCheck";
 import { missingValues, secretField, sourceStripped } from "./exportFile";
 import type { ImportForm } from "./exportFile";
 import { joinList, typeName } from "./wizard";
@@ -115,116 +113,88 @@ export function importSummary(t: T, document: AppExportDocument, form: ImportFor
   ];
 }
 
-export interface ImportReviewProps {
+export interface ImportAddressProps {
   document: AppExportDocument;
   types: readonly AppTypeOption[];
   form: ImportForm;
   errors: ReviewErrors;
   onChange: (form: ImportForm) => void;
-  onBack: () => void;
-  onContinue: () => void;
-  headingRef: Ref<HTMLHeadingElement>;
+  dns: DomainDnsCheck;
 }
 
 /**
- * Step two for an import: what the export defines, where it is created (the domain, the
- * source, which has to be given again when the export took its credentials out) and the
- * values of the secrets it left out, every one of them required.
+ * Where an export is created: what it defines, folded under one line, then the domain (the
+ * exported one, or another) and the source, which has to be given again when the export took
+ * its credentials out.
  */
-export function ImportReview({ document, types, form, errors, onChange, onBack, onContinue, headingRef }: ImportReviewProps) {
+export function ImportAddress({ document, types, form, errors, onChange, dns }: ImportAddressProps) {
   const t = useT();
-  const dns = useDomainDnsCheck(form.domain);
-  const summaryId = useId();
-  const missing = Object.keys(form.secrets);
   const stripped = sourceStripped(document.app.source ?? "");
-  const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    dns.checkNow();
-    onContinue();
-  };
-
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <h2 ref={headingRef} tabIndex={-1} className="title text-18 text-fg outline-none">
-          {t("newApp.review.heading")}
-        </h2>
-        <p className="text-14 text-pretty text-fg-muted">{t("newApp.importApp.reviewIntro")}</p>
-      </header>
-
-      <section aria-labelledby={summaryId} className="flex flex-col gap-1 rounded-card border border-border bg-surface px-4 py-3 shadow-raised">
-        <h3 id={summaryId} className="text-13 font-medium text-fg">
-          {t("newApp.importApp.summary")}
-        </h3>
-        <KeyValueList items={exportFacts(t, document, types)} />
-      </section>
-
-      <ReviewGroup title={t("newApp.importApp.where")}>
-        <div className="flex flex-col gap-5">
-          <AddressFields
-            value={{ domain: form.domain, includeWww: false, ssl: document.app.ssl }}
-            onChange={(patch) => {
-              if (patch.domain !== undefined) onChange({ ...form, domain: patch.domain });
-            }}
-            error={errors["domain"]}
-            dns={dns}
-            description={t("newApp.importApp.domainDescription")}
-            options={false}
-          />
-          <Field
-            label={t("newApp.importApp.sourceField")}
-            error={errors["source"]}
-            description={t(stripped ? "newApp.importApp.sourceStripped" : "newApp.importApp.sourceDescription")}
-          >
-            <Input
-              mono
-              value={form.source}
-              onValueChange={(value: string) => onChange({ ...form, source: value })}
-              autoComplete="off"
-              autoCapitalize="off"
-              spellCheck={false}
-            />
-          </Field>
+    <div className="flex flex-col gap-6">
+      <details className="group overflow-hidden rounded-card border border-border">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 -outline-offset-2 hover:bg-surface-hover [&::-webkit-details-marker]:hidden">
+          <span className="text-13 font-medium text-fg">{t("newApp.importApp.summary")}</span>
+          <ChevronDown aria-hidden="true" className="size-icon-sm text-fg-muted transition-transform duration-(--duration-fast) group-open:rotate-180" />
+        </summary>
+        <div className="border-t border-border px-4 py-1">
+          <KeyValueList items={exportFacts(t, document, types)} />
         </div>
-      </ReviewGroup>
+      </details>
+      <AddressFields
+        value={{ domain: form.domain, includeWww: false, ssl: document.app.ssl }}
+        onChange={(patch) => {
+          if (patch.domain !== undefined) onChange({ ...form, domain: patch.domain });
+        }}
+        error={errors["domain"]}
+        dns={dns}
+        description={t("newApp.importApp.domainDescription")}
+        options={false}
+      />
+      <Field
+        label={t("newApp.importApp.sourceField")}
+        error={errors["source"]}
+        description={t(stripped ? "newApp.importApp.sourceStripped" : "newApp.importApp.sourceDescription")}
+      >
+        <Input
+          mono
+          value={form.source}
+          onValueChange={(value: string) => onChange({ ...form, source: value })}
+          autoComplete="off"
+          autoCapitalize="off"
+          spellCheck={false}
+        />
+      </Field>
+    </div>
+  );
+}
 
-      {missing.length > 0 ? (
-        <ReviewGroup title={t("newApp.importApp.secrets")} description={t("newApp.importApp.secretsDescription")}>
-          <div className="flex flex-col gap-4">
-            {missing.map((name) => (
-              <Field
-                key={name}
-                label={
-                  <span className="flex flex-wrap items-center gap-x-2">
-                    <code translate="no" className="text-12 font-medium text-fg">
-                      {name}
-                    </code>
-                    <span className="text-12 font-medium text-fg-muted">{t("newApp.env.required")}</span>
-                  </span>
-                }
-                error={errors[secretField(name)]}
-              >
-                <Input
-                  mono
-                  type="password"
-                  value={form.secrets[name] ?? ""}
-                  onValueChange={(value: string) => onChange({ ...form, secrets: { ...form.secrets, [name]: value } })}
-                  autoComplete="new-password"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                />
-              </Field>
-            ))}
-          </div>
-        </ReviewGroup>
-      ) : null}
+export interface ImportSecretsProps {
+  form: ImportForm;
+  errors: ReviewErrors;
+  onChange: (form: ImportForm) => void;
+}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-6">
-        <Button onClick={onBack}>{t("newApp.review.back")}</Button>
-        <Button type="submit" variant="primary">
-          {t("newApp.review.continue")}
-        </Button>
-      </div>
-    </form>
+/** The values of the secrets an export left out, every one of them required. */
+export function ImportSecrets({ form, errors, onChange }: ImportSecretsProps) {
+  const t = useT();
+  const missing = Object.keys(form.secrets);
+  if (missing.length === 0) return <p className="text-13 text-fg-muted">{t("newApp.importApp.noSecrets")}</p>;
+  return (
+    <div className="flex flex-col gap-5">
+      {missing.map((name) => (
+        <Field key={name} label={<Mono>{name}</Mono>} error={errors[secretField(name)]}>
+          <Input
+            mono
+            type="password"
+            value={form.secrets[name] ?? ""}
+            onValueChange={(value: string) => onChange({ ...form, secrets: { ...form.secrets, [name]: value } })}
+            autoComplete="new-password"
+            autoCapitalize="off"
+            spellCheck={false}
+          />
+        </Field>
+      ))}
+    </div>
   );
 }

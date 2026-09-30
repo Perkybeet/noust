@@ -48,6 +48,27 @@ describe("Meter", () => {
     expect(levels).toEqual(["normal", "warn", "fail"]);
   });
 
+  it("says a level that is a problem with a shape and a word, not colour alone", () => {
+    render(
+      <div>
+        <Meter label="CPU" value={23} />
+        <Meter label="Memory" value={80} />
+        <Meter label="Disk" value={95} />
+      </div>,
+    );
+    expect(screen.getByText("High")).toBeInTheDocument();
+    expect(screen.getByText("Critical")).toBeInTheDocument();
+    const cpu = screen.getByRole("meter", { name: "CPU" });
+    expect(cpu.querySelector("svg[data-glyph]")).toBeNull();
+    expect(screen.getByRole("meter", { name: "Memory" }).querySelector("svg[data-glyph]")).toHaveAttribute("data-glyph", "triangle");
+    expect(screen.getByRole("meter", { name: "Disk" }).querySelector("svg[data-glyph]")).toHaveAttribute("data-glyph", "cross");
+  });
+
+  it("keeps the word for screen readers only in the small size, where the row has no room", () => {
+    render(<Meter label="Disk" value={95} size="sm" />);
+    expect(screen.getByText("Critical")).toHaveClass("sr-only");
+  });
+
   it("defaults to a percentage", () => {
     render(<Meter label="CPU" value={23} />);
     expect(screen.getByRole("meter", { name: "CPU" })).toHaveAttribute("aria-valuetext", "23%");

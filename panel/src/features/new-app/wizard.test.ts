@@ -3,8 +3,13 @@ import { describe, expect, it } from "vitest";
 import { ApiError } from "../../api/errors";
 import { generateSecret } from "./secrets";
 import {
+  WIZARD_STEPS,
   canIncludeWww,
   createAppBody,
+  errorsOf,
+  nextStep,
+  previousStep,
+  stepOfField,
   initialReview,
   inspectBody,
   manualInspection,
@@ -162,7 +167,7 @@ describe("the review the inspection proposes", () => {
   it("starts with no type when the operator chooses it by hand", () => {
     const form = initialReview(manualInspection({ source: "/srv/app", branch: "" }), { webserver: "nginx", taken: new Map() });
     expect(form.appType).toBe("");
-    expect(reviewProblems({ ...form, domain: "a.example.com" }, NOBODY)["appType"]).toMatch(/Choose how to deploy it/);
+    expect(reviewProblems({ ...form, domain: "a.example.com" }, NOBODY)["appType"]).toMatch(/Choose the app type/);
   });
 });
 
@@ -178,7 +183,7 @@ describe("also serving www", () => {
 
 describe("persistent paths", () => {
   it("wants a path relative to the application, without '..' or a leading slash", () => {
-    expect(persistentPathProblem("")).toMatch(/Enter a path/);
+    expect(persistentPathProblem("")).toMatch(/Enter a folder/);
     expect(persistentPathProblem("/etc/passwd")).toMatch(/relative to the application/);
     expect(persistentPathProblem("../secrets")).toMatch(/relative to the application/);
     expect(persistentPathProblem("storage")).toBeNull();
@@ -303,6 +308,33 @@ describe("the request", () => {
   });
 });
 
+describe("the steps", () => {
+  it("has a configuration step only for an application started from code", () => {
+    expect(WIZARD_STEPS.code).toEqual(["source", "address", "configure", "variables", "deploy"]);
+    expect(WIZARD_STEPS.recipe).toEqual(["source", "address", "variables", "deploy"]);
+    expect(WIZARD_STEPS.import).toEqual(["source", "address", "variables", "deploy"]);
+    expect(nextStep("code", "address")).toBe("configure");
+    expect(nextStep("recipe", "address")).toBe("variables");
+    expect(nextStep("code", "deploy")).toBeNull();
+    expect(previousStep("import", "variables")).toBe("address");
+    expect(previousStep("code", "source")).toBeNull();
+  });
+
+  it("knows which step asks for each field", () => {
+    expect(stepOfField("domain")).toBe("address");
+    expect(stepOfField("source")).toBe("address");
+    expect(stepOfField("appType")).toBe("configure");
+    expect(stepOfField("port")).toBe("configure");
+    expect(stepOfField("path:path:1")).toBe("configure");
+    expect(stepOfField("limit:memory")).toBe("configure");
+    expect(stepOfField("health_path")).toBe("configure");
+    expect(stepOfField("env:declared:DATABASE_URL")).toBe("variables");
+    expect(stepOfField("env-name:added:1")).toBe("variables");
+    expect(stepOfField("secret:STRIPE_KEY")).toBe("variables");
+    expect(errorsOf({ domain: "a", port: "b", "env:x": "c" }, "configure")).toEqual([["port", "b"]]);
+  });
+});
+
 describe("refusals", () => {
   it("sends field errors to the step that asks for the field", () => {
     expect(refusalOf(new ApiError(422, "validation_error", "Validation failed", null, { source: "field required" }))).toEqual({
@@ -310,14 +342,18 @@ describe("refusals", () => {
       fields: { source: "field required" },
     });
     expect(refusalOf(new ApiError(422, "validation_error", "Validation failed", null, { port: "not an integer", app_type: "bad" }))).toEqual({
-      step: "review",
+      step: "configure",
       fields: { port: "not an integer", appType: "bad" },
+    });
+    expect(refusalOf(new ApiError(422, "validation_error", "Validation failed", null, { domain: "not a domain" }))).toEqual({
+      step: "address",
+      fields: { domain: "not a domain" },
     });
   });
 
   it("puts a taken domain, a refused port and an unfetchable source on their fields", () => {
-    expect(refusalOf(new ApiError(409, "conflict", "Application already exists: a.com"))).toEqual({ step: "review", fields: { domain: "Application already exists: a.com" } });
-    expect(refusalOf(new ApiError(400, "porterror", "Port 3000 is already in use"))).toEqual({ step: "review", fields: { port: "Port 3000 is already in use" } });
+    expect(refusalOf(new ApiError(409, "conflict", "Application already exists: a.com"))).toEqual({ step: "address", fields: { domain: "Application already exists: a.com" } });
+    expect(refusalOf(new ApiError(400, "porterror", "Port 3000 is already in use"))).toEqual({ step: "configure", fields: { port: "Port 3000 is already in use" } });
     expect(refusalOf(new ApiError(400, "sourceerror", "Source path does not exist: /x"))).toEqual({ step: "source", fields: { source: "Source path does not exist: /x" } });
     expect(refusalOf(new ApiError(500, "internal", "boom"))).toBeNull();
     expect(refusalOf(new Error("boom"))).toBeNull();

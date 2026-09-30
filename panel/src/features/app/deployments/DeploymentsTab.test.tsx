@@ -6,7 +6,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { fakeBackend, json, problem } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
-import { TAB_DOMAIN, appRoutes } from "../testRoutes";
+import { TAB_DOMAIN, appRoutes, screenWidth } from "../testRoutes";
 
 function deploy(id: number, status = "success", extra: Record<string, unknown> = {}) {
   return {
@@ -47,7 +47,8 @@ const RELEASES = {
   total: 3,
 };
 
-async function tabAt(app: Record<string, unknown>, extra: Record<string, RouteHandler> = {}) {
+async function tabAt(app: Record<string, unknown>, extra: Record<string, RouteHandler> = {}, width = 1440) {
+  screenWidth(width);
   const backend = fakeBackend(appRoutes(app, { "GET /api/deployments": history, ...extra }));
   const harness = renderConsole(`/apps/${TAB_DOMAIN}/deployments`);
   // "History" / "Historial", so this helper still works once the locale is switched to Spanish.
@@ -68,12 +69,20 @@ describe("the deployments tab", { timeout: 20_000 }, () => {
     // The commit's own subject line, beside its hash, truncated but reachable in full on hover.
     expect(within(table).getByTitle("Redesign checkout summary")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Load older deploys" }));
+    await user.click(screen.getByRole("button", { name: "Load more" }));
     await within(table).findByRole("link", { name: "Deployment 13" });
     expect(within(table).getAllByRole("row")).toHaveLength(14);
     const pages = backend.callsTo("GET /api/deployments").filter((call) => call.search.get("domain") === TAB_DOMAIN);
     expect(pages.at(-1)?.search.get("before_id")).toBe("16");
-    expect(screen.queryByRole("button", { name: "Load older deploys" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load more" })).not.toBeInTheDocument();
+  });
+
+  it("draws each deploy as a card on a phone, its state above its number", async () => {
+    await tabAt({}, {}, 390);
+    const list = await screen.findByRole("list", { name: `Deploys of ${TAB_DOMAIN}, newest first` });
+    const cards = await within(list).findAllByRole("listitem");
+    expect(cards).toHaveLength(10);
+    expect(within(cards[0] ?? list).getByRole("link", { name: "Deployment 25" })).toBeInTheDocument();
   });
 
   it("rolls a release app back to an earlier release in one step, and says it went back", async () => {
@@ -92,21 +101,23 @@ describe("the deployments tab", { timeout: 20_000 }, () => {
           }),
       },
     );
-    const releases = await screen.findByRole("list", { name: `Releases of ${TAB_DOMAIN}, newest first` });
-    expect(within(releases).getByText("Serving")).toBeInTheDocument();
+    const releases = await screen.findByRole("list", { name: `Versions of ${TAB_DOMAIN}, newest first` });
+    expect(within(releases).getByText("Live")).toBeInTheDocument();
     expect(within(releases).getByText("Removed from disk")).toBeInTheDocument();
-    // Only a release on disk that is not serving can be switched to.
+    // The release id is each version's second line; its title is when it was built.
+    expect(within(releases).getByText("20260924-194023-19d3f6e")).toBeInTheDocument();
+    // Only a version on disk that is not live can be switched to.
     expect(within(releases).getAllByRole("button")).toHaveLength(1);
 
-    await user.click(within(releases).getByRole("button", { name: /Roll back to this/ }));
-    const dialog = await screen.findByRole("dialog", { name: "Roll back to this release?" });
-    await user.click(within(dialog).getByRole("button", { name: "Roll back" }));
+    await user.click(within(releases).getByRole("button", { name: /Go back to this version/ }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Go back to this version?" });
+    await user.click(within(dialog).getByRole("button", { name: "Go back to this version" }));
     await waitFor(() => {
       expect(backend.callsTo(`POST /api/apps/${TAB_DOMAIN}/releases/20260924-194023-19d3f6e/activate`)).toHaveLength(1);
     });
-    expect(await screen.findAllByText(`Rolled ${TAB_DOMAIN} back to release 20260924-194023-19d3f6e`, {}, { timeout: 5_000 })).not.toHaveLength(0);
+    expect(await screen.findAllByText(`Rolled ${TAB_DOMAIN} back to version 20260924-194023-19d3f6e`, {}, { timeout: 5_000 })).not.toHaveLength(0);
     await waitFor(() => {
-      expect(screen.queryByRole("dialog", { name: "Roll back to this release?" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("alertdialog", { name: "Go back to this version?" })).not.toBeInTheDocument();
     });
   });
 
@@ -121,10 +132,10 @@ describe("the deployments tab", { timeout: 20_000 }, () => {
           }),
       },
     );
-    const releases = await screen.findByRole("list", { name: `Releases of ${TAB_DOMAIN}, newest first` });
-    await user.click(within(releases).getByRole("button", { name: /Roll back to this/ }));
-    const dialog = await screen.findByRole("dialog");
-    await user.click(within(dialog).getByRole("button", { name: "Roll back" }));
+    const releases = await screen.findByRole("list", { name: `Versions of ${TAB_DOMAIN}, newest first` });
+    await user.click(within(releases).getByRole("button", { name: /Go back to this version/ }));
+    const dialog = await screen.findByRole("alertdialog");
+    await user.click(within(dialog).getByRole("button", { name: "Go back to this version" }));
     expect(await within(dialog).findByText("Release 20260924-194023-19d3f6e did not pass its health check", {}, { timeout: 5_000 })).toBeInTheDocument();
     expect(within(dialog).getByText("The release that was serving is active again.")).toBeInTheDocument();
   });
@@ -146,9 +157,9 @@ describe("the deployments tab", { timeout: 20_000 }, () => {
       },
     );
     const points = await screen.findByRole("list", { name: `Backups of ${TAB_DOMAIN}, newest first` });
-    await user.click(within(points).getByRole("button", { name: /Roll back to this/ }));
-    const dialog = await screen.findByRole("dialog", { name: "Roll back to this backup?" });
-    await user.click(within(dialog).getByRole("button", { name: "Roll back" }));
+    await user.click(within(points).getByRole("button", { name: /Go back to this version/ }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Go back to this backup?" });
+    await user.click(within(dialog).getByRole("button", { name: "Go back to this version" }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/jobs/rollback")[0]?.body).toEqual({ domain: TAB_DOMAIN, backup_id: "shop-example-com_20260923_182035" });
     });
@@ -161,7 +172,7 @@ describe("the deployments tab", { timeout: 20_000 }, () => {
 
   it("has no accessibility violations", async () => {
     await tabAt({ layout: "releases" }, { [`GET /api/apps/${TAB_DOMAIN}/releases`]: () => json(200, RELEASES) });
-    await screen.findByRole("list", { name: `Releases of ${TAB_DOMAIN}, newest first` });
+    await screen.findByRole("list", { name: `Versions of ${TAB_DOMAIN}, newest first` });
     await screen.findByRole("link", { name: "Deployment 25" });
     await expectNoAxeViolations(screen.getByRole("main"));
   });
@@ -171,9 +182,9 @@ describe("the deployments tab", { timeout: 20_000 }, () => {
     await tabAt({ layout: "releases" }, { [`GET /api/apps/${TAB_DOMAIN}/releases`]: () => json(200, RELEASES) });
     const table = await screen.findByRole("region", { name: `Despliegues de ${TAB_DOMAIN}, los más recientes primero` });
     await within(table).findByRole("link", { name: "Despliegue 25" });
-    expect(screen.getByText("Cargar despliegues anteriores")).toBeInTheDocument();
-    const releases = await screen.findByRole("list", { name: `Releases de ${TAB_DOMAIN}, las más recientes primero` });
-    expect(within(releases).getByText("Sirviendo")).toBeInTheDocument();
+    expect(screen.getByText("Cargar más")).toBeInTheDocument();
+    const releases = await screen.findByRole("list", { name: `Versiones de ${TAB_DOMAIN}, las más recientes primero` });
+    expect(within(releases).getByText("En producción")).toBeInTheDocument();
     expect(within(releases).getByText("Eliminada del disco")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });

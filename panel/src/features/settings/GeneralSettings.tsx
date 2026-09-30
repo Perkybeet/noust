@@ -1,13 +1,10 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import type { UseQueryResult } from "@tanstack/react-query";
-import { CircleAlert, FileCog } from "lucide-react";
-import type { ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import {
   appsDirectoryQuery,
   backupSettingsQuery,
-  configKeys,
   configQuery,
+  patchConfig,
   saveAppsDirectory,
   saveBackupSettings,
   saveSslSettings,
@@ -17,400 +14,414 @@ import {
   webSettingsQuery,
   webserverQuery,
 } from "../../api/queries/config";
-import type { ConfigSection } from "../../api/queries/config";
+import type { BackupSettings, ConsoleConfig, SslSettings, WebSettings } from "../../api/queries/config";
+import { machineQuery } from "../../api/queries/system";
 import { useDocumentTitle } from "../../app/documentTitle";
-import { LanguageSwitch } from "../../app/LanguageSwitch";
+import { CommandHint } from "../../components/page/CommandHint";
+import { KeyValueList, KeyValueListSkeleton } from "../../components/page/KeyValueList";
 import { ErrorBlock } from "../../components/page/QueryState";
-import { Sections } from "../../components/page/Section";
+import { SaveBar } from "../../components/page/SaveBar";
+import { Section, Sections } from "../../components/page/Section";
+import { Card } from "../../components/ui/Card";
+import { Checkbox } from "../../components/ui/Checkbox";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
+import { Mono } from "../../components/ui/Mono";
+import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import type { SelectOption } from "../../components/ui/Select";
-import { Skeleton } from "../../components/ui/Skeleton";
-import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
-import type { T } from "../../i18n";
-import { configGetCommand, configSetCommand } from "./shell";
-import { SettingsFormCard, SettingsFormSkeleton, SettingsSection } from "./SettingsForm";
-import type { SkeletonField } from "./SettingsForm";
+import { useSaveBar } from "../app/settings/formParts";
+import { readServerIdentity, selfUpdateQuery, installMethodWords, wholeNumber } from "./GeneralSettings.model";
+import type { ServerIdentity } from "./GeneralSettings.model";
+import { FieldsSkeleton, FormFailure, useRefreshConfig } from "./SettingsForm";
 import { useSettingsForm } from "./useSettingsForm";
-import type { FormValues, SettingsForm } from "./useSettingsForm";
-
-/**
- * A whole number typed into a field, as a number; anything else is sent as typed, and the
- * server's refusal is shown beside the field. The server is the one validator.
- */
-function wholeNumber(value: string): number {
-  const trimmed = value.trim();
-  return /^-?\d+$/.test(trimmed) ? Number(trimmed) : (trimmed as unknown as number);
-}
-
-/** The terminal form of a section: what `noust config set` would change, or how to read it. */
-function commandsFor<V extends FormValues>(form: SettingsForm<V>, keys: Record<keyof V & string, string>, read: string): string[] {
-  if (!form.dirty || form.values === undefined) return [configGetCommand(read)];
-  const values = form.values;
-  return form.changed.map((name) => configSetCommand(keys[name], values[name] ?? ""));
-}
-
-/** A section's form once its settings are loaded; the skeleton or the failure until then. */
-function Loaded<D>({
-  t,
-  query,
-  label,
-  fields,
-  children,
-}: {
-  t: T;
-  query: UseQueryResult<D>;
-  /** What is loading, already translated: "the applications directory". */
-  label: string;
-  /** The form's fields, for a placeholder of the same height. */
-  fields: readonly SkeletonField[];
-  children: ReactNode;
-}) {
-  if (query.data !== undefined) return <>{children}</>;
-  if (query.isError) {
-    return (
-      <ErrorBlock
-        error={query.error}
-        title={t("settings.shared.loadFailed", { label })}
-        onRetry={() => void query.refetch()}
-        retrying={query.isRefetching}
-      />
-    );
-  }
-  return (
-    <div aria-busy="true">
-      <span className="sr-only">{t("settings.shared.loading", { label })}</span>
-      <SettingsFormSkeleton fields={fields} />
-    </div>
-  );
-}
-
-/** After a save: the cached answer becomes what was saved, then everything refreshes. */
-function useSaved() {
-  const queryClient = useQueryClient();
-  return (section: ConfigSection, saved: unknown, message: string, description?: string): void => {
-    queryClient.setQueryData(configKeys.section(section), saved);
-    void queryClient.invalidateQueries({ queryKey: configKeys.all });
-    toast.success(message, description !== undefined ? { description } : undefined);
-  };
-}
-
-// ---------------------------------------------------------------------------------------
-
-function AppsDirectorySection() {
-  const t = useT();
-  const query = useQuery(appsDirectoryQuery());
-  const saved = useSaved();
-  const form = useSettingsForm({
-    server: query.data ? { apps_directory: query.data.apps_directory } : undefined,
-    names: ["apps_directory"],
-    soleField: "apps_directory",
-    save: async ({ apps_directory }) => {
-      const result = await saveAppsDirectory({ apps_directory: apps_directory.trim() });
-      saved("apps-directory", { apps_directory: result.apps_directory }, t("settings.general.appsDirectory.saved"));
-    },
-  });
-  return (
-    <SettingsSection
-      title={t("settings.general.appsDirectory.title")}
-      description={t("settings.general.appsDirectory.description")}
-      commands={commandsFor(form, { apps_directory: "apps_directory" }, "apps_directory")}
-    >
-      <Loaded t={t} query={query} label={t("settings.general.appsDirectory.loadingLabel")} fields={[{ description: 1 }]}>
-        <SettingsFormCard {...cardProps(form, t("settings.general.appsDirectory.errorTitle"))}>
-          <Field
-            label={t("settings.general.appsDirectory.fieldLabel")}
-            description={t("settings.general.appsDirectory.fieldDescription")}
-            error={form.fieldErrors.apps_directory}
-          >
-            <Input
-              mono
-              autoComplete="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              value={form.values?.apps_directory ?? ""}
-              onValueChange={(value: string) => {
-                form.set("apps_directory", value);
-              }}
-              className="max-w-md"
-            />
-          </Field>
-        </SettingsFormCard>
-      </Loaded>
-    </SettingsSection>
-  );
-}
 
 const WEBSERVERS: readonly SelectOption[] = [
   { value: "nginx", label: "Nginx" },
   { value: "apache", label: "Apache" },
 ];
 
-function WebserverSection() {
-  const t = useT();
-  const query = useQuery(webserverQuery());
-  const saved = useSaved();
-  const form = useSettingsForm({
-    server: query.data ? { webserver: query.data.webserver } : undefined,
-    names: ["webserver"],
-    soleField: "webserver",
-    save: async ({ webserver }) => {
-      const result = await saveWebserver({ webserver });
-      saved("webserver", { webserver: result.webserver }, t("settings.general.webserver.saved"));
-    },
-  });
-  return (
-    <SettingsSection
-      title={t("settings.general.webserver.title")}
-      description={t("settings.general.webserver.description")}
-      commands={commandsFor(form, { webserver: "webserver" }, "webserver")}
-    >
-      <Loaded t={t} query={query} label={t("settings.general.webserver.loadingLabel")} fields={[{}]}>
-        <SettingsFormCard {...cardProps(form, t("settings.general.webserver.errorTitle"))}>
-          <Field label={t("settings.general.webserver.fieldLabel")} nativeLabel={false} error={form.fieldErrors.webserver}>
-            <Select
-              options={WEBSERVERS}
-              value={form.values?.webserver ?? null}
-              onValueChange={(value) => {
-                form.set("webserver", value);
-              }}
-              className="w-56"
-            />
-          </Field>
-        </SettingsFormCard>
-      </Loaded>
-    </SettingsSection>
-  );
+/** Every value the subsection shows, once each of its sources has answered. */
+interface Loaded {
+  config: ConsoleConfig;
+  identity: ServerIdentity;
+  appsDirectory: string;
+  webserver: string;
+  ssl: SslSettings;
+  backup: BackupSettings;
+  web: WebSettings;
 }
 
-function CertificatesSection() {
+/** A system value typed into a field: mono, no autocomplete, no spellcheck. */
+const SYSTEM_VALUE = { mono: true, autoComplete: "off", autoCapitalize: "off", spellCheck: false } as const;
+
+/**
+ * The subsection as one form over seven endpoints: each group of fields is a part of the save
+ * bar, saved in turn when it changed, its refusal shown beside its own fields.
+ */
+function GeneralForm({ loaded, hostname }: { loaded: Loaded; hostname: string | undefined }) {
   const t = useT();
-  const query = useQuery(sslSettingsQuery());
-  const saved = useSaved();
-  const form = useSettingsForm({
-    server: query.data ? { email: query.data.email } : undefined,
-    names: ["email"],
-    soleField: "email",
-    save: async ({ email }) => {
-      // The endpoint replaces the whole block; the two values this form does not show are
-      // sent back exactly as the server gave them.
-      const current = query.data ?? { enabled: true, provider: "certbot", email: "" };
-      const body = { enabled: current.enabled, provider: current.provider, email: email.trim() };
-      await saveSslSettings(body);
-      saved("ssl", body, t("settings.general.certificates.saved"));
+  const refresh = useRefreshConfig();
+  const selfUpdate = useQuery(selfUpdateQuery());
+  const { identity, ssl, web } = loaded;
+  const hub = identity.role === "hub";
+
+  const name = useSettingsForm({
+    server: { name: identity.name },
+    names: ["name"],
+    soleField: "name",
+    save: async ({ name: value }) => {
+      await patchConfig("server.name", value.trim());
+      await refresh();
     },
   });
-  return (
-    <SettingsSection
-      title={t("settings.general.certificates.title")}
-      description={t.rich("settings.general.certificates.description", {
-        provider: <span className="mono text-12">{query.data?.provider ?? "certbot"}</span>,
-      })}
-      commands={commandsFor(form, { email: "ssl.email" }, "ssl.email")}
-    >
-      <Loaded t={t} query={query} label={t("settings.general.certificates.loadingLabel")} fields={[{ description: 2 }]}>
-        <SettingsFormCard {...cardProps(form, t("settings.general.certificates.errorTitle"))}>
-          <Field
-            label={t("settings.general.certificates.fieldLabel")}
-            optional
-            description={t("settings.general.certificates.fieldDescription")}
-            error={form.fieldErrors.email}
-          >
-            <Input
-              type="email"
-              autoComplete="email"
-              spellCheck={false}
-              placeholder="ops@example.com"
-              value={form.values?.email ?? ""}
-              onValueChange={(value: string) => {
-                form.set("email", value);
-              }}
-              className="max-w-md"
-            />
-          </Field>
-        </SettingsFormCard>
-      </Loaded>
-    </SettingsSection>
-  );
-}
-
-function BackupsSection() {
-  const query = useQuery(backupSettingsQuery());
-  const t = useT();
-  const saved = useSaved();
-  const form = useSettingsForm({
-    server: query.data ? { directory: query.data.directory, max_per_app: String(query.data.max_per_app) } : undefined,
-    names: ["directory", "max_per_app"],
-    save: async ({ directory, max_per_app }) => {
-      const body = { directory: directory.trim(), max_per_app: wholeNumber(max_per_app) };
-      await saveBackupSettings(body);
-      saved("backup", body, t("settings.general.backups.saved"));
+  const publicUrl = useSettingsForm({
+    server: { public_url: identity.publicUrl },
+    names: ["public_url"],
+    soleField: "public_url",
+    save: async ({ public_url }) => {
+      await patchConfig("web.public_url", public_url.trim());
+      await refresh();
     },
   });
-  return (
-    <SettingsSection
-      title={t("settings.general.backups.title")}
-      description={t("settings.general.backups.description")}
-      commands={commandsFor(form, { directory: "backup.directory", max_per_app: "backup.max_per_app" }, "backup")}
-    >
-      <Loaded t={t} query={query} label={t("settings.general.backups.loadingLabel")} fields={[{}, { description: 1 }]}>
-        <SettingsFormCard {...cardProps(form, t("settings.general.backups.errorTitle"))}>
-          <Field label={t("settings.general.backups.directoryLabel")} error={form.fieldErrors.directory}>
-            <Input
-              mono
-              autoComplete="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              value={form.values?.directory ?? ""}
-              onValueChange={(value: string) => {
-                form.set("directory", value);
-              }}
-              className="max-w-md"
-            />
-          </Field>
-          <Field
-            label={t("settings.general.backups.countLabel")}
-            description={t("settings.general.backups.countDescription")}
-            error={form.fieldErrors.max_per_app}
-          >
-            <Input
-              type="number"
-              inputMode="numeric"
-              mono
-              value={form.values?.max_per_app ?? ""}
-              onValueChange={(value: string) => {
-                form.set("max_per_app", value);
-              }}
-              className="w-32"
-            />
-          </Field>
-        </SettingsFormCard>
-      </Loaded>
-    </SettingsSection>
-  );
-}
-
-function ConsoleAddressSection() {
-  const t = useT();
-  const query = useQuery(webSettingsQuery());
-  const saved = useSaved();
-  const form = useSettingsForm({
-    server: query.data ? { host: query.data.host, port: String(query.data.port) } : undefined,
+  const address = useSettingsForm({
+    server: { host: web.host, port: String(web.port) },
     names: ["host", "port"],
     save: async ({ host, port }) => {
       // session_timeout rides along unchanged: the endpoint replaces the three together.
-      const body = { host: host.trim(), port: wholeNumber(port), session_timeout: query.data?.session_timeout ?? 3600 };
-      await saveWebSettings(body);
-      saved("web", body, t("settings.general.consoleAddress.saved"));
+      await saveWebSettings({ host: host.trim(), port: wholeNumber(port), session_timeout: web.session_timeout });
+      await refresh();
     },
   });
-  return (
-    <SettingsSection
-      title={t("settings.general.consoleAddress.title")}
-      description={t.rich("settings.general.consoleAddress.description", {
-        statusCommand: <span className="mono text-12">noust status --open</span>,
-        webCommand: <span className="mono text-12">noust web start --host --port</span>,
-      })}
-      commands={commandsFor(form, { host: "web.host", port: "web.port" }, "web.host")}
-    >
-      <Loaded t={t} query={query} label={t("settings.general.consoleAddress.loadingLabel")} fields={[{ inline: 2 }]}>
-        <SettingsFormCard {...cardProps(form, t("settings.general.consoleAddress.errorTitle"))}>
-          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_8rem]">
-            <Field label={t("settings.general.consoleAddress.hostLabel")} error={form.fieldErrors.host}>
-              <Input
-                mono
-                autoComplete="off"
-                autoCapitalize="off"
-                spellCheck={false}
-                value={form.values?.host ?? ""}
-                onValueChange={(value: string) => {
-                  form.set("host", value);
-                }}
-              />
-            </Field>
-            <Field label={t("settings.general.consoleAddress.portLabel")} error={form.fieldErrors.port}>
-              <Input
-                type="number"
-                inputMode="numeric"
-                mono
-                value={form.values?.port ?? ""}
-                onValueChange={(value: string) => {
-                  form.set("port", value);
-                }}
-              />
-            </Field>
-          </div>
-        </SettingsFormCard>
-      </Loaded>
-    </SettingsSection>
+  const updates = useSettingsForm({
+    server: { check: identity.checkUpdates },
+    names: ["check"],
+    save: async ({ check }) => {
+      await patchConfig("updates.check", check);
+      await refresh();
+    },
+  });
+  const appsDirectory = useSettingsForm({
+    server: { apps_directory: loaded.appsDirectory },
+    names: ["apps_directory"],
+    soleField: "apps_directory",
+    save: async ({ apps_directory }) => {
+      await saveAppsDirectory({ apps_directory: apps_directory.trim() });
+      await refresh();
+    },
+  });
+  const webserver = useSettingsForm({
+    server: { webserver: loaded.webserver },
+    names: ["webserver"],
+    soleField: "webserver",
+    save: async ({ webserver: value }) => {
+      await saveWebserver({ webserver: value });
+      await refresh();
+    },
+  });
+  const certificates = useSettingsForm({
+    server: { email: ssl.email },
+    names: ["email"],
+    soleField: "email",
+    save: async ({ email }) => {
+      // The endpoint replaces the whole block; what this form does not show goes back as it came.
+      await saveSslSettings({ enabled: ssl.enabled, provider: ssl.provider, email: email.trim() });
+      await refresh();
+    },
+  });
+  const backups = useSettingsForm({
+    server: { directory: loaded.backup.directory, max_per_app: String(loaded.backup.max_per_app) },
+    names: ["directory", "max_per_app"],
+    save: async ({ directory, max_per_app }) => {
+      await saveBackupSettings({ directory: directory.trim(), max_per_app: wholeNumber(max_per_app) });
+      await refresh();
+    },
+  });
+
+  const bar = useSaveBar(
+    [name.part, publicUrl.part, address.part, updates.part, ...(hub ? [] : [certificates.part, appsDirectory.part, webserver.part, backups.part])],
+    t("settings.general.notSaved"),
   );
-}
 
-/** The console's language: a preference of this browser, applied at once, not a server setting. */
-function LanguageSection() {
-  const t = useT();
   return (
-    <SettingsSection title={t("language.label")} description={t("language.description")}>
-      <LanguageSwitch className="w-full max-w-64" />
-    </SettingsSection>
-  );
-}
-
-function cardProps<V extends FormValues>(form: SettingsForm<V>, errorTitle: string) {
-  return {
-    dirty: form.dirty,
-    pending: form.pending,
-    formError: form.formError,
-    errorTitle,
-    onSubmit: form.submit,
-    onDiscard: form.discard,
-  };
-}
-
-/** Where the settings live on disk, and whether the console can write them. */
-function ConfigFileLine() {
-  const t = useT();
-  const { data } = useQuery(configQuery());
-  if (data === undefined) {
-    return (
-      <div className="flex h-5 items-center">
-        <Skeleton className="h-3.5 w-72" />
-      </div>
-    );
-  }
-  return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-13 text-fg-muted">
-      <span className="flex min-w-0 items-start gap-2">
-        <FileCog aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-fg-faint" />
-        <span className="min-w-0">
-          {t.rich("settings.general.configFile.savedTo", { path: <span className="mono text-12 break-all text-fg">{data.path}</span> })}
-        </span>
-      </span>
-      {data.writable ? null : (
-        <span className="flex items-center gap-1.5 text-fail">
-          <CircleAlert aria-hidden="true" className="size-3.5" />
-          {t("settings.general.configFile.notWritable")}
-        </span>
+    <>
+      {loaded.config.writable ? null : (
+        <Notice tone="warning" title={t("settings.general.notWritableTitle")}>
+          {t.rich("settings.general.notWritable", { path: <Mono key="path">{loaded.config.path}</Mono> })}
+        </Notice>
       )}
+      <Section title={t("settings.general.server.title")} description={t("settings.general.server.description")}>
+        <Card>
+          <div className="flex flex-col gap-5">
+            <FormFailure error={name.formError ?? publicUrl.formError ?? address.formError ?? certificates.formError ?? updates.formError} title={t("settings.general.server.failed")} />
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field label={t("settings.general.server.nameLabel")} optional description={t("settings.general.server.nameDescription")} error={name.fieldErrors.name}>
+                <Input
+                  {...SYSTEM_VALUE}
+                  maxLength={64}
+                  placeholder={hostname ?? ""}
+                  value={name.values?.name ?? ""}
+                  onValueChange={(value: string) => {
+                    name.set("name", value);
+                  }}
+                />
+              </Field>
+              <Field
+                label={t("settings.general.server.publicUrlLabel")}
+                optional
+                description={t("settings.general.server.publicUrlDescription")}
+                error={publicUrl.fieldErrors.public_url}
+              >
+                <Input
+                  {...SYSTEM_VALUE}
+                  type="url"
+                  placeholder="https://console.example.com"
+                  value={publicUrl.values?.public_url ?? ""}
+                  onValueChange={(value: string) => {
+                    publicUrl.set("public_url", value);
+                  }}
+                />
+              </Field>
+            </div>
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="flex min-w-0 gap-3">
+                <Field
+                  label={t("settings.general.server.hostLabel")}
+                  description={t("settings.general.server.hostDescription")}
+                  error={address.fieldErrors.host}
+                  className="flex-1"
+                >
+                  <Input
+                    {...SYSTEM_VALUE}
+                    value={address.values?.host ?? ""}
+                    onValueChange={(value: string) => {
+                      address.set("host", value);
+                    }}
+                  />
+                </Field>
+                <Field label={t("settings.general.server.portLabel")} error={address.fieldErrors.port} className="w-24 shrink-0">
+                  <Input
+                    {...SYSTEM_VALUE}
+                    inputMode="numeric"
+                    value={address.values?.port ?? ""}
+                    onValueChange={(value: string) => {
+                      address.set("port", value);
+                    }}
+                  />
+                </Field>
+              </div>
+              {hub ? null : (
+                <Field
+                  label={t("settings.general.server.emailLabel")}
+                  optional
+                  description={t("settings.general.server.emailDescription")}
+                  error={certificates.fieldErrors.email}
+                >
+                  <Input
+                    type="email"
+                    autoComplete="email"
+                    spellCheck={false}
+                    placeholder="ops@example.com"
+                    value={certificates.values?.email ?? ""}
+                    onValueChange={(value: string) => {
+                      certificates.set("email", value);
+                    }}
+                  />
+                </Field>
+              )}
+            </div>
+            <Checkbox
+              label={t("settings.general.server.checkUpdatesLabel")}
+              description={t("settings.general.server.checkUpdatesDescription", {
+                source: installMethodWords(t, selfUpdate.data?.method),
+              })}
+              checked={updates.values?.check ?? true}
+              onCheckedChange={(next) => {
+                updates.set("check", next);
+              }}
+            />
+          </div>
+        </Card>
+      </Section>
+
+      {hub ? (
+        <Notice title={t("settings.general.hub.title")}>{t("settings.general.hub.description")}</Notice>
+      ) : (
+        <Section title={t("settings.general.applications.title")} description={t("settings.general.applications.description")}>
+          <Card>
+            <div className="flex flex-col gap-5">
+              <FormFailure
+                error={appsDirectory.formError ?? webserver.formError ?? backups.formError}
+                title={t("settings.general.applications.failed")}
+              />
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field
+                  label={t("settings.general.applications.directoryLabel")}
+                  description={t("settings.general.applications.directoryDescription")}
+                  error={appsDirectory.fieldErrors.apps_directory}
+                >
+                  <Input
+                    {...SYSTEM_VALUE}
+                    value={appsDirectory.values?.apps_directory ?? ""}
+                    onValueChange={(value: string) => {
+                      appsDirectory.set("apps_directory", value);
+                    }}
+                  />
+                </Field>
+                <Field
+                  label={t("settings.general.applications.webserverLabel")}
+                  nativeLabel={false}
+                  description={t("settings.general.applications.webserverDescription")}
+                  error={webserver.fieldErrors.webserver}
+                >
+                  <Select
+                    options={WEBSERVERS}
+                    value={webserver.values?.webserver ?? null}
+                    onValueChange={(value) => {
+                      webserver.set("webserver", value);
+                    }}
+                  />
+                </Field>
+              </div>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field label={t("settings.general.applications.backupDirectoryLabel")} optional description={t("settings.general.applications.backupDirectoryDescription")} error={backups.fieldErrors.directory}>
+                  <Input
+                    {...SYSTEM_VALUE}
+                    value={backups.values?.directory ?? ""}
+                    onValueChange={(value: string) => {
+                      backups.set("directory", value);
+                    }}
+                  />
+                </Field>
+                <Field
+                  label={t("settings.general.applications.backupCountLabel")}
+                  description={t("settings.general.applications.backupCountDescription")}
+                  error={backups.fieldErrors.max_per_app}
+                  className="sm:max-w-48"
+                >
+                  <Input
+                    {...SYSTEM_VALUE}
+                    inputMode="numeric"
+                    value={backups.values?.max_per_app ?? ""}
+                    onValueChange={(value: string) => {
+                      backups.set("max_per_app", value);
+                    }}
+                  />
+                </Field>
+              </div>
+            </div>
+          </Card>
+        </Section>
+      )}
+
+      <Details loaded={loaded} />
+      <CommandHint command="noust config show" label={t("settings.general.fromTerminal")} />
+      <SaveBar changes={bar.changes} saving={bar.saving} onSave={bar.onSave} onDiscard={bar.onDiscard} />
+    </>
+  );
+}
+
+/** What is set from a terminal or at installation: shown, not edited. */
+function Details({ loaded }: { loaded: Loaded }) {
+  const t = useT();
+  const { identity, config } = loaded;
+  return (
+    <Section title={t("settings.general.details.title")} description={t("settings.general.details.description")}>
+      <Card padding="sm">
+        <KeyValueList
+          items={[
+            {
+              label: t("settings.general.details.hooksUrl"),
+              value: identity.hooksUrl === "" ? null : identity.hooksUrl,
+              hint:
+                identity.hooksUrl === ""
+                  ? t.rich("settings.general.details.hooksUrlUnset", { command: <Mono key="command">noust web expose-hooks hooks.example.com</Mono> })
+                  : undefined,
+            },
+            { label: t("settings.general.details.configFile"), value: config.path },
+            ...(identity.serviceUser === "" ? [] : [{ label: t("settings.general.details.serviceUser"), value: identity.serviceUser }]),
+          ]}
+          empty={t("settings.general.details.notSet")}
+        />
+      </Card>
+    </Section>
+  );
+}
+
+/** The skeleton of the whole subsection, card for card. */
+function GeneralSkeleton() {
+  const t = useT();
+  return (
+    <div aria-busy="true" className="flex flex-col gap-8">
+      <span className="sr-only">{t("settings.general.loading")}</span>
+      <Section title={t("settings.general.server.title")} description={t("settings.general.server.description")}>
+        <FieldsSkeleton rows={[2, 2, 1]} />
+      </Section>
+      <Section title={t("settings.general.applications.title")} description={t("settings.general.applications.description")}>
+        <FieldsSkeleton rows={[2, 2]} />
+      </Section>
+      <Section title={t("settings.general.details.title")} description={t("settings.general.details.description")}>
+        <Card padding="sm">
+          <KeyValueListSkeleton rows={3} />
+        </Card>
+      </Section>
     </div>
   );
 }
 
-/** Settings > General: how Noust lays out, serves, secures and backs up applications. */
+/**
+ * Settings > General: what this server is called and where it is reached, where applications
+ * live and how they are served and backed up, and what is fixed at installation. One form,
+ * one save bar.
+ */
 export function GeneralSettings() {
   const t = useT();
   useDocumentTitle(t("settings.general.documentTitle"), 1);
+  const config = useQuery(configQuery());
+  const appsDirectory = useQuery(appsDirectoryQuery());
+  const webserver = useQuery(webserverQuery());
+  const ssl = useQuery(sslSettingsQuery());
+  const backup = useQuery(backupSettingsQuery());
+  const web = useQuery(webSettingsQuery());
+  const machine = useQuery(machineQuery());
+
+  const queries = [config, appsDirectory, webserver, ssl, backup, web];
+  const failed = queries.find((query) => query.isError && query.data === undefined);
+  if (failed !== undefined) {
+    return (
+      <ErrorBlock
+        error={failed.error}
+        title={t("settings.general.loadFailed")}
+        onRetry={() => {
+          for (const query of queries) if (query.isError) void query.refetch();
+        }}
+        retrying={queries.some((query) => query.isRefetching)}
+      />
+    );
+  }
+  if (
+    config.data === undefined ||
+    appsDirectory.data === undefined ||
+    webserver.data === undefined ||
+    ssl.data === undefined ||
+    backup.data === undefined ||
+    web.data === undefined
+  ) {
+    return <GeneralSkeleton />;
+  }
+  const loaded: Loaded = {
+    config: config.data,
+    identity: readServerIdentity(config.data.config),
+    appsDirectory: appsDirectory.data.apps_directory,
+    webserver: webserver.data.webserver,
+    ssl: ssl.data,
+    backup: backup.data,
+    web: web.data,
+  };
   return (
     <Sections>
-      <ConfigFileLine />
-      <AppsDirectorySection />
-      <WebserverSection />
-      <CertificatesSection />
-      <BackupsSection />
-      <ConsoleAddressSection />
-      <LanguageSection />
+      <GeneralForm loaded={loaded} hostname={machine.data?.hostname} />
     </Sections>
   );
 }

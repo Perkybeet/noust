@@ -5,6 +5,7 @@ import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { Skeleton } from "./Skeleton";
+import { SM_UP, useMediaQuery } from "./useMediaQuery";
 
 export type SortDirection = "ascending" | "descending";
 
@@ -26,6 +27,12 @@ export interface Column<T> {
   width?: string;
   /** Hide the column on narrow screens to keep rows legible. */
   hideBelow?: "sm" | "md" | "lg";
+  /**
+   * Its place in a card row (`mobile="cards"`): `title` is the row's name (the first column
+   * by default), `status` the line above it, `meta` the line below it (every other column by
+   * default, each with its header for screen readers), `hidden` left out on a phone.
+   */
+  card?: "title" | "status" | "meta" | "hidden";
 }
 
 export interface DataTableProps<T> {
@@ -54,6 +61,12 @@ export interface DataTableProps<T> {
   /** Shown instead of rows when there are none, usually an EmptyState. */
   empty?: ReactNode;
   density?: "compact" | "comfortable";
+  /**
+   * Below 640px: `scroll` keeps the table and scrolls it sideways; `cards` draws each row as a
+   * card (state, name, the rest on one line) with its actions always in view. Lists of a T1
+   * page use `cards`.
+   */
+  mobile?: "scroll" | "cards";
   className?: string;
 }
 
@@ -91,9 +104,11 @@ export function DataTable<T>({
   skeletonRows = 5,
   empty,
   density = "comfortable",
+  mobile = "scroll",
   className,
 }: DataTableProps<T>) {
   const t = useT();
+  const wide = useMediaQuery(SM_UP);
   const captionId = useId();
   const [internalSort, setInternalSort] = useState<SortState | null>(defaultSort);
   const activeSort = sort !== undefined ? sort : internalSort;
@@ -146,6 +161,23 @@ export function DataTable<T>({
     if ((event.target as HTMLElement).closest(INTERACTIVE)) return;
     onRowActivate(row);
   };
+
+  if (mobile === "cards" && !wide) {
+    return (
+      <CardRows
+        columns={columns}
+        rows={sorted}
+        getRowId={getRowId}
+        caption={caption}
+        {...(onRowActivate ? { onRowActivate } : {})}
+        {...(rowActions ? { rowActions } : {})}
+        loading={loading}
+        skeletonRows={skeletonRows}
+        empty={empty}
+        {...(className !== undefined ? { className } : {})}
+      />
+    );
+  }
 
   const cellHeight = density === "compact" ? "h-9" : "h-11";
   const hasInteractive = Boolean(onRowActivate) || Boolean(rowActions) || columns.some((c) => c.sortValue);
@@ -294,5 +326,103 @@ export function DataTable<T>({
         </tbody>
       </table>
     </div>
+  );
+}
+
+function cardPlace<T>(column: Column<T>, index: number): NonNullable<Column<T>["card"]> {
+  return column.card ?? (index === 0 ? "title" : "meta");
+}
+
+/**
+ * The rows of a table as cards, for a phone: the state on top, the name (the row's primary
+ * control when rows open), the other values on one line, and the row's actions at the top
+ * right, where a thumb finds them and no sideways scroll can hide them.
+ */
+function CardRows<T>({
+  columns,
+  rows,
+  getRowId,
+  caption,
+  onRowActivate,
+  rowActions,
+  loading,
+  skeletonRows,
+  empty,
+  className,
+}: {
+  columns: readonly Column<T>[];
+  rows: readonly T[];
+  getRowId: (row: T) => string;
+  caption: string;
+  onRowActivate?: (row: T) => void;
+  rowActions?: (row: T) => ReactNode;
+  loading: boolean;
+  skeletonRows: number;
+  empty: ReactNode;
+  className?: string;
+}) {
+  const placed = columns.map((column, index) => ({ column, place: cardPlace(column, index) }));
+  const of = (place: string) => placed.filter((entry) => entry.place === place).map((entry) => entry.column);
+  const status = of("status");
+  const titles = of("title");
+  const meta = of("meta");
+
+  if (!loading && rows.length === 0 && empty !== undefined) return <div className={className}>{empty}</div>;
+
+  return (
+    <ul aria-label={caption} aria-busy={loading || undefined} className={cx("flex min-w-0 flex-col gap-2", className)}>
+      {loading
+        ? Array.from({ length: Math.max(1, Math.round(skeletonRows)) }, (_, i) => (
+            <li key={`skeleton-${String(i)}`} aria-hidden="true" className="flex flex-col gap-2 rounded-card border border-border bg-surface px-4 py-3 shadow-raised">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-4 w-3/5" />
+              <Skeleton className="h-3 w-2/5" />
+            </li>
+          ))
+        : rows.map((row) => {
+            const id = getRowId(row);
+            const title = titles.map((column) => <span key={column.id}>{column.cell(row)}</span>);
+            return (
+              <li key={id} className="flex min-w-0 items-start gap-3 rounded-card border border-border bg-surface py-3 pr-2 pl-4 shadow-raised">
+                <div className="flex min-w-0 flex-1 flex-col gap-1">
+                  {status.length > 0 ? (
+                    <div className="flex min-w-0 flex-wrap items-center gap-2 text-13">
+                      {status.map((column) => (
+                        <span key={column.id}>{column.cell(row)}</span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {onRowActivate ? (
+                    <button
+                      type="button"
+                      onClick={() => onRowActivate(row)}
+                      className="-mx-1 max-w-full cursor-pointer truncate rounded-control px-1 text-left text-14 font-medium text-fg focus-visible:outline-2 focus-visible:outline-focus"
+                    >
+                      {title}
+                    </button>
+                  ) : (
+                    <p className="min-w-0 truncate text-14 font-medium text-fg">{title}</p>
+                  )}
+                  {meta.length > 0 ? (
+                    <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-12 text-fg-muted">
+                      {meta.map((column, index) => (
+                        <span key={column.id} className={cx("min-w-0", column.mono && "mono")}>
+                          {index > 0 ? (
+                            <span aria-hidden="true" className="mr-1.5 text-fg-faint">
+                              ·
+                            </span>
+                          ) : null}
+                          <span className="sr-only">{`${column.header}: `}</span>
+                          {column.cell(row)}
+                        </span>
+                      ))}
+                    </p>
+                  ) : null}
+                </div>
+                {rowActions ? <div className="shrink-0">{rowActions(row)}</div> : null}
+              </li>
+            );
+          })}
+    </ul>
   );
 }

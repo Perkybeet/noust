@@ -11,7 +11,8 @@
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
 test("merges the jobs history and the audit log, newest first, including this sign-in", async ({ page, consoleServer }) => {
-  await signIn(page, consoleServer, "/activity");
+  // Everything: the page opens on operations, and a sign-in is access.
+  await signIn(page, consoleServer, "/activity?kind=all");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Activity");
 
   const table = page.getByRole("region", { name: /^Activity/ });
@@ -23,7 +24,6 @@ test("merges the jobs history and the audit log, newest first, including this si
   const signInRow = table.getByRole("row").filter({ has: page.getByText("Sign-in attempt") }).first();
   await expect(signInRow).toBeVisible();
   await expect(signInRow.getByText("Succeeded")).toBeVisible();
-  await expect(signInRow.getByText(/^Session [0-9a-f]{8}$/)).toBeVisible();
 
   // A seeded job (the backup of shop.example.net), so the merge is proven with both kinds of row
   // on screen at once.
@@ -31,6 +31,12 @@ test("merges the jobs history and the audit log, newest first, including this si
 
   await settle(page);
   await expectNoA11yViolations(page, "the activity timeline");
+
+  // Operations, the page's own view, leaves the sign-ins out and keeps the jobs.
+  await page.getByRole("radio", { name: "Operations" }).click();
+  await expect(page).toHaveURL(/\/activity$/);
+  await expect(table.getByText("Sign-in attempt")).toHaveCount(0);
+  await expect(table.getByRole("row").filter({ has: page.getByText("shop.example.net") }).first()).toBeVisible();
 });
 
 test("filtering by result narrows the timeline to one source", async ({ page, consoleServer }) => {

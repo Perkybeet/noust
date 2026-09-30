@@ -1,12 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
-import { ServiceDetailPage } from "../../../features/services/ServiceDetailPage";
-
+/** A service's old address (3.0, and the unit alerts sent before 3.1): its page under Server. */
 export const Route = createFileRoute("/_console/services/$name")({
-  component: ServiceRoute,
+  beforeLoad: ({ params }) => {
+    // eslint-disable-next-line @typescript-eslint/only-throw-error -- the router's redirect protocol
+    throw redirect({ to: "/server/services/$name", params: { name: params.name }, replace: true });
+  },
 });
-
-function ServiceRoute() {
-  const { name } = Route.useParams();
-  return <ServiceDetailPage name={name} />;
-}

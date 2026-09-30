@@ -1,9 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 
 import { cronRunsQuery } from "../../api/queries/cron";
-import { RelativeTime } from "../../components/page/RelativeTime";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { RelativeTime } from "../../components/page/RelativeTime";
+import { Card } from "../../components/ui/Card";
 import { Drawer } from "../../components/ui/Drawer";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
@@ -22,7 +25,7 @@ export interface CronRunsDrawerProps {
   onOpenChange: (open: boolean) => void;
 }
 
-/** A job's recorded executions, newest first, each with its exit code and own output. */
+/** A job's recorded executions, newest first, each with its exit code and its own output. */
 export function CronRunsDrawer({ name, onOpenChange }: CronRunsDrawerProps) {
   const t = useT();
   const runs = useQuery({ ...cronRunsQuery(name ?? "", 20), enabled: name !== null });
@@ -44,21 +47,21 @@ export function CronRunsDrawer({ name, onOpenChange }: CronRunsDrawerProps) {
           ))}
         </div>
       ) : runs.data.runs.length === 0 ? (
-        <p className="text-13 text-fg-muted">{t("cron.runsDrawer.empty")}</p>
+        <EmptyState variant="inline" title={t("cron.runsDrawer.empty")} />
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-2">
           {runs.data.runs.map((run, index) => {
             const view = runView(run.success, t);
             return (
-              <li key={`${run.started}-${String(index)}`} className="rounded-card border border-border bg-surface px-3 py-2.5">
+              <Card as="li" key={`${run.started}-${String(index)}`} padding="sm">
                 <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
                   <div className="flex items-center gap-2">
                     <StatusPill state={view.state} label={view.label} appearance="inline" size="sm" />
                     <RelativeTime value={run.started} className="text-12 text-fg-muted" />
                   </div>
-                  <span className="mono text-12 text-fg-faint">
+                  <Mono tone="faint" className="text-12">
                     {run.exit_code === null ? t("cron.runsDrawer.noExitCode") : t("cron.runsDrawer.exitCode", { code: run.exit_code })}
-                  </span>
+                  </Mono>
                 </div>
                 {run.output.trim() !== "" ? (
                   <details className="mt-2">
@@ -68,7 +71,7 @@ export function CronRunsDrawer({ name, onOpenChange }: CronRunsDrawerProps) {
                     </div>
                   </details>
                 ) : null}
-              </li>
+              </Card>
             );
           })}
         </ul>

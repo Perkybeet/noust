@@ -10,13 +10,13 @@ import { ErrorBlock } from "../../components/page/QueryState";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button } from "../../components/ui/Button";
 import { Checkbox } from "../../components/ui/Checkbox";
+import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { translate, useT } from "../../i18n";
 import type { Locale, T } from "../../i18n";
-import { cx } from "../../lib/cx";
 import { domainProblem, normalizeDomain } from "./names";
 
 type WebServer = "nginx" | "apache";
@@ -112,7 +112,6 @@ export function CreateSiteDialog({ open, onOpenChange, detected, onCreated }: Cr
   const [form, setForm] = useState<CreateSiteForm>(initial);
   const [errors, setErrors] = useState<CreateSiteErrors>({});
   const formId = useId();
-  const templateName = useId();
 
   // Fetched only while the dialog is open: the list rarely changes, and a create dialog that
   // is never opened should never be the reason this call went out.
@@ -208,43 +207,26 @@ export function CreateSiteDialog({ open, onOpenChange, detected, onCreated }: Cr
           />
           <span className="text-12 text-fg-muted">{t("domains.createSiteDialog.thisMachineRuns", { webserver: detected })}</span>
         </div>
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-1.5 text-13 font-medium text-fg">{t("domains.createSiteDialog.templateLegend")}</legend>
-          {templates.isError && available.length === 0 ? (
-            <ErrorBlock compact error={templates.error} title={t("domains.createSiteDialog.couldNotListTemplates")} onRetry={() => void templates.refetch()} retrying={templates.isRefetching} />
-          ) : available.length === 0 ? (
-            <div aria-hidden="true" className="grid gap-2 sm:grid-cols-2">
-              <Skeleton className="h-16 rounded-control" />
-              <Skeleton className="h-16 rounded-control" />
-            </div>
-          ) : (
-            <div className="grid gap-2 sm:grid-cols-2">
-              {available.map((name) => (
-                <label
-                  key={name}
-                  className={cx(
-                    "grid cursor-pointer grid-cols-[auto_minmax(0,1fr)] content-start items-start gap-x-2.5 gap-y-0.5 rounded-control border px-3 py-2.5",
-                    "has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-focus",
-                    template === name ? "border-accent bg-accent-soft" : "border-border hover:bg-surface-hover",
-                  )}
-                >
-                  <input
-                    type="radio"
-                    name={templateName}
-                    value={name}
-                    checked={template === name}
-                    onChange={() => set({ template: name })}
-                    className="row-span-2 mt-0.5 size-4 shrink-0 accent-accent"
-                  />
-                  <span translate="no" className="text-13 font-medium text-fg">
-                    {templateLabel(t, name)}
-                  </span>
-                  <span className="col-start-2 text-12 text-pretty text-fg-muted">{templateDescription(t, name, domain)}</span>
-                </label>
-              ))}
-            </div>
-          )}
-        </fieldset>
+        {templates.isError && available.length === 0 ? (
+          <ErrorBlock compact error={templates.error} title={t("domains.createSiteDialog.couldNotListTemplates")} onRetry={() => void templates.refetch()} retrying={templates.isRefetching} />
+        ) : available.length === 0 ? (
+          <div aria-hidden="true" className="grid gap-2 sm:grid-cols-2">
+            <Skeleton className="h-16 rounded-control" />
+            <Skeleton className="h-16 rounded-control" />
+          </div>
+        ) : (
+          <ChoiceCards
+            legend={t("domains.createSiteDialog.templateLegend")}
+            options={available.map((name) => ({
+              value: name,
+              label: templateLabel(t, name),
+              description: templateDescription(t, name, domain),
+              untranslated: true,
+            }))}
+            value={template}
+            onValueChange={(name) => set({ template: name })}
+          />
+        )}
         {templateNeedsPort(template) ? (
           <Field label={t("domains.createSiteDialog.portFieldLabel")} error={errors.port ?? server["port"]} description={t("domains.createSiteDialog.portFieldDescription")} className="sm:max-w-40">
             <Input mono inputMode="numeric" value={form.port} onValueChange={(value: string) => set({ port: value })} />

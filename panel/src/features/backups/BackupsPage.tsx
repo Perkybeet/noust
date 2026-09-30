@@ -1,154 +1,241 @@
 import { useQuery } from "@tanstack/react-query";
-import { Archive, Plus, X } from "lucide-react";
-import { useMemo } from "react";
+import { Link } from "@tanstack/react-router";
+import { Archive, Play } from "lucide-react";
+import { useMemo, useState } from "react";
 
-import { backupSchedulesQuery, backupStorageQuery, backupsQuery } from "../../api/queries/backups";
-import { PageHeader } from "../../app/PageHeader";
+import { appsQuery } from "../../api/queries/apps";
+import { backupSchedulesQuery, backupsQuery } from "../../api/queries/backups";
+import type { BackupSchedule } from "../../api/queries/backups";
 import { CommandHint } from "../../components/page/CommandHint";
+import { FilterBar } from "../../components/page/FilterBar";
 import { ErrorBlock } from "../../components/page/QueryState";
-import { Section } from "../../components/page/Section";
-import { Button } from "../../components/ui/Button";
-import { Checkbox } from "../../components/ui/Checkbox";
+import { Button, buttonClassName } from "../../components/ui/Button";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
-import { BackupsTable } from "./BackupsTable";
+import { BackupHistoryDrawer } from "./BackupHistoryDrawer";
+import { BackupsListPage } from "./BackupsListPage";
+import type { BackupRow } from "./BackupsTable";
+import { coverageRows, filterCoverage, isCoverageFiltered } from "./coverage";
+import type { CoverageRow, CoverageSearch } from "./coverage";
+import { CoverageTable } from "./CoverageTable";
 import { CreateBackupDialog } from "./CreateBackupDialog";
-import { DestinationsSection } from "./DestinationsSection";
-import { backupDomains, filterBackups, isFiltered } from "./filters";
-import type { BackupsSearch } from "./filters";
-import { MisplacedBackupsNotice } from "./MisplacedBackupsNotice";
-import { SchedulesSection } from "./SchedulesSection";
-import { StorageUsageBar } from "./StorageUsageBar";
+import { MisplacedBackupsNotice, useMisplacedBackups } from "./MisplacedBackupsNotice";
+import { PushBackupDialog } from "./PushBackupDialog";
+import { RestoreBackupDialog } from "./RestoreBackupDialog";
+import { ScheduleDialog } from "./ScheduleDialog";
+import { useBackupActions } from "./useBackupActions";
 import { useBackupRefresh } from "./useBackupRefresh";
 
 const ALL = "all";
-/** The most placeholder rows worth drawing: past a screenful, more only lengthens the page below the fold. */
-const MAX_SKELETON_ROWS = 20;
 
-type SearchPatch = { [K in keyof BackupsSearch]?: BackupsSearch[K] | undefined };
+type SearchPatch = { [K in keyof CoverageSearch]?: CoverageSearch[K] | undefined };
+
+/** The dialog the page has open, with what it acts on. */
+type Open =
+  | { kind: "create"; domain?: string }
+  | { kind: "restore"; backup: BackupRow }
+  | { kind: "copy"; backup: BackupRow }
+  | { kind: "delete"; backup: BackupRow }
+  | { kind: "schedule"; domain: string; existing: BackupSchedule | null }
+  | null;
 
 export interface BackupsPageProps {
-  search: BackupsSearch;
-  onSearchChange: (search: BackupsSearch, options?: { replace?: boolean }) => void;
+  search: CoverageSearch;
+  onSearchChange: (search: CoverageSearch, options?: { replace?: boolean }) => void;
 }
 
-/** Every backup on the machine, its storage footprint, and the schedules that create more of them. */
+/**
+ * The Backups tab: is every application protected, and restore this one. One row per
+ * application (its state, its newest backup, what schedules the next, where copies go); a row
+ * opens that application's backups in a drawer, where each can be checked, restored, copied
+ * to a destination or deleted. Creating a backup by hand is the header's action.
+ */
 export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
   const t = useT();
   useBackupRefresh();
-  const backups = useQuery(backupsQuery(search.domain ?? null));
-  const all = useMemo(() => backups.data?.backups ?? [], [backups.data]);
-  const shown = useMemo(() => filterBackups(all, search), [all, search]);
-  const domains = useMemo(() => backupDomains(all), [all]);
-  const filtered = isFiltered(search);
-  // The storage summary counts every backup and usually answers first: the list's placeholder
-  // holds that many rows, so the schedules below do not jump when the list lands.
-  const storage = useQuery(backupStorageQuery());
-  const expected = search.domain === undefined ? storage.data?.backup_count : undefined;
-  // Fetched from the start, though drawn only once the list is in (below).
-  useQuery(backupSchedulesQuery());
+  const apps = useQuery(appsQuery());
+  const backups = useQuery(backupsQuery(null));
+  const schedules = useQuery(backupSchedulesQuery());
+  const misplaced = useMisplacedBackups();
+  const { remove } = useBackupActions();
+  const [open, setOpen] = useState<Open>(null);
 
-  const set = (patch: SearchPatch): void => {
+  const rows = useMemo(
+    () => coverageRows({ apps: apps.data?.apps ?? [], backups: backups.data?.backups ?? [], schedules: schedules.data?.schedules ?? [] }),
+    [apps.data, backups.data, schedules.data],
+  );
+  const shown = useMemo(() => filterCoverage(rows, search), [rows, search]);
+  const filtered = isCoverageFiltered(search);
+  const loading = apps.isPending || backups.isPending;
+  const hasApps = (apps.data?.apps.length ?? 0) > 0;
+  const nothing = !loading && rows.length === 0;
+  const noneBackedUp = !loading && hasApps && (backups.data?.backups.length ?? 0) === 0;
+  const drawerRow = search.domain === undefined ? null : (rows.find((row) => row.domain === search.domain) ?? null);
+
+  const set = (patch: SearchPatch, replace = true): void => {
     const next: SearchPatch = { ...search, ...patch };
-    const clean: BackupsSearch = {};
+    const clean: CoverageSearch = {};
+    if (next.q) clean.q = next.q;
+    if (next.show) clean.show = next.show;
     if (next.domain) clean.domain = next.domain;
-    if (next.database) clean.database = true;
-    onSearchChange(clean);
+    onSearchChange(clean, { replace });
   };
+  const openRow = (row: CoverageRow): void => set({ domain: row.domain }, false);
+  const openSchedule = (row: CoverageRow): void => setOpen({ kind: "schedule", domain: row.domain, existing: row.schedule });
+  const close = (): void => setOpen(null);
 
-  return (
-    <>
-      <PageHeader
-        title={t("backups.page.title")}
-        description={t("backups.page.description")}
-        actions={
-          <CreateBackupDialog
-            trigger={
-              <Button variant="primary" icon={<Plus aria-hidden="true" />}>
-                {t("backups.page.newBackup")}
+  const backUpButton = hasApps ? (
+    <Button variant="primary" icon={<Play aria-hidden="true" />} onClick={() => setOpen({ kind: "create" })}>
+      {t("backups.page.backUpNow")}
+    </Button>
+  ) : undefined;
+
+  const notice = misplaced ? (
+    <MisplacedBackupsNotice />
+  ) : noneBackedUp ? (
+    <Notice
+      title={t("backups.coverage.noneBackedUp.title")}
+      action={
+        <Button size="sm" onClick={() => setOpen({ kind: "schedule", domain: "", existing: null })}>
+          {t("backups.coverage.noneBackedUp.action")}
+        </Button>
+      }
+    >
+      {t("backups.coverage.noneBackedUp.description")}
+    </Notice>
+  ) : undefined;
+
+  let content;
+  if (backups.isError && backups.data === undefined) {
+    content = <ErrorBlock error={backups.error} title={t("backups.page.loadError")} onRetry={() => void backups.refetch()} retrying={backups.isRefetching} />;
+  } else if (nothing) {
+    content = (
+      <EmptyState
+        variant="firstUse"
+        icon={<Archive />}
+        title={t("backups.coverage.empty.title")}
+        description={t("backups.coverage.empty.description")}
+        action={
+          <Link to="/apps/new" className={buttonClassName("primary")}>
+            {t("backups.coverage.empty.action")}
+          </Link>
+        }
+        command="noust create -d example.com -s https://github.com/you/app"
+      />
+    );
+  } else {
+    content = (
+      <CoverageTable
+        rows={shown}
+        caption={filtered ? t("backups.coverage.captionFiltered") : t("backups.coverage.caption")}
+        loading={loading}
+        skeletonRows={Math.max(1, Math.min(apps.data?.apps.length ?? 5, 20))}
+        empty={
+          <EmptyState
+            variant="inline"
+            title={t("backups.coverage.noMatch")}
+            action={
+              <Button size="sm" variant="ghost" onClick={() => onSearchChange(search.domain !== undefined ? { domain: search.domain } : {})}>
+                {t("backups.common.clearFilters")}
               </Button>
             }
           />
         }
+        onOpen={openRow}
+        onBackUp={(domain) => setOpen({ kind: "create", domain })}
+        onRestore={(backup) => setOpen({ kind: "restore", backup })}
+        onSchedule={openSchedule}
       />
-      <div className="flex flex-col gap-8">
-        <StorageUsageBar />
-        <MisplacedBackupsNotice />
+    );
+  }
 
-        <Section title={t("backups.page.title")}>
-          {backups.isError && backups.data === undefined ? (
-            <ErrorBlock error={backups.error} title={t("backups.page.loadError")} onRetry={() => void backups.refetch()} retrying={backups.isRefetching} />
-          ) : backups.data !== undefined && all.length === 0 ? (
-            <EmptyState
-              icon={<Archive />}
-              title={t("backups.page.empty.title")}
-              description={t("backups.page.empty.description")}
-              action={
-                <CreateBackupDialog
-                  trigger={
-                    <Button variant="primary" icon={<Plus aria-hidden="true" />}>
-                      {t("backups.page.newBackup")}
-                    </Button>
-                  }
-                />
-              }
-              command="noust backup create <domain>"
-              className="py-16"
-            />
-          ) : (
-            <div className="flex flex-col gap-4">
-              <div role="search" aria-label={t("backups.page.filterAria")} className="flex flex-wrap items-center gap-2">
-                <Select
-                  aria-label={t("backups.fields.application")}
-                  size="sm"
-                  value={search.domain ?? ALL}
-                  onValueChange={(value) => set({ domain: value === ALL ? undefined : value })}
-                  options={[{ value: ALL, label: t("backups.page.everyApplication") }, ...domains.map((domain) => ({ value: domain, label: domain }))]}
-                />
-                <Checkbox
-                  checked={search.database === true}
-                  onCheckedChange={(checked) => set({ database: checked ? true : undefined })}
-                  label={t("backups.page.includesDatabaseFilter")}
-                />
-                {filtered ? (
-                  <Button size="sm" variant="ghost" icon={<X aria-hidden="true" />} onClick={() => onSearchChange({})}>
-                    {t("backups.common.clearFilters")}
-                  </Button>
-                ) : null}
-              </div>
-              <BackupsTable
-                backups={shown}
-                caption={filtered ? t("backups.table.captionFiltered") : t("backups.table.captionAll")}
-                loading={backups.isPending}
-                {...(expected !== undefined && expected > 0 ? { skeletonRows: Math.min(expected, MAX_SKELETON_ROWS) } : {})}
-                empty={
-                  <EmptyState
-                    title={t("backups.page.noMatch.title")}
-                    description={t("backups.page.noMatch.description")}
-                    action={
-                      <Button icon={<X aria-hidden="true" />} onClick={() => onSearchChange({})}>
-                        {t("backups.common.clearFilters")}
-                      </Button>
-                    }
-                    className="border-0 py-8"
+  return (
+    <BackupsListPage
+      {...(backUpButton !== undefined ? { primaryAction: backUpButton } : {})}
+      {...(notice !== undefined ? { notice } : {})}
+      {...(nothing
+        ? {}
+        : {
+            filters: (
+              <FilterBar
+                label={t("backups.coverage.filterLabel")}
+                search={{
+                  value: search.q ?? "",
+                  onChange: (value) => set({ q: value === "" ? undefined : value }),
+                  label: t("backups.coverage.searchLabel"),
+                  placeholder: t("backups.coverage.searchPlaceholder"),
+                }}
+                filters={
+                  <Select
+                    aria-label={t("backups.coverage.showLabel")}
+                    value={search.show ?? ALL}
+                    onValueChange={(value) => set({ show: value === "attention" ? "attention" : undefined })}
+                    options={[
+                      { value: ALL, label: t("backups.coverage.showAll") },
+                      { value: "attention", label: t("backups.coverage.showAttention") },
+                    ]}
                   />
                 }
+                count={
+                  loading
+                    ? undefined
+                    : filtered
+                      ? t("backups.coverage.countFiltered", { shown: shown.length, total: rows.length })
+                      : t("backups.coverage.count", { count: rows.length })
+                }
               />
-              <CommandHint command="noust backup list" label={t("backups.common.fromTerminal")} />
-            </div>
-          )}
-        </Section>
+            ),
+          })}
+      // The first-use state says its own command: one per view.
+      {...(nothing ? {} : { footer: <CommandHint command="noust backup list" label={t("backups.common.fromTerminal")} /> })}
+    >
+      {content}
 
-        {/* Under a list whose length is not known until it loads: drawn once it has, so
-            destinations and schedules never jump down the page as the backups arrive above them. */}
-        {backups.data !== undefined || backups.isError ? (
-          <>
-            <DestinationsSection />
-            <SchedulesSection />
-          </>
-        ) : null}
-      </div>
-    </>
+      <BackupHistoryDrawer
+        row={drawerRow}
+        domain={search.domain ?? null}
+        loading={loading}
+        onClose={() => set({ domain: undefined })}
+        onBackUp={(domain) => setOpen({ kind: "create", domain })}
+        onRestore={(backup) => setOpen({ kind: "restore", backup })}
+        onCopy={(backup) => setOpen({ kind: "copy", backup })}
+        onDelete={(backup) => setOpen({ kind: "delete", backup })}
+      />
+
+      {/* Mounted per use and keyed: a dialog opened for another backup or application starts
+          fresh, with none of the previous one's typing. */}
+      {open?.kind === "create" ? (
+        <CreateBackupDialog key={open.domain ?? "*"} open onOpenChange={(next) => !next && close()} {...(open.domain !== undefined ? { domain: open.domain } : {})} />
+      ) : null}
+      {open?.kind === "restore" ? (
+        <RestoreBackupDialog key={open.backup.backup_id} backup={open.backup} open onOpenChange={(next) => !next && close()} />
+      ) : null}
+      {open?.kind === "copy" ? <PushBackupDialog key={open.backup.backup_id} backup={open.backup} open onOpenChange={(next) => !next && close()} /> : null}
+      {open?.kind === "delete" ? (
+        <ConfirmDialog
+          key={open.backup.backup_id}
+          open
+          onOpenChange={(next) => !next && close()}
+          title={t("backups.deleteDialog.title", { domain: open.backup.domain })}
+          description={t("backups.deleteDialog.description", { id: open.backup.backup_id })}
+          confirmText={open.backup.backup_id}
+          actionLabel={t("backups.deleteDialog.action")}
+          onConfirm={async () => {
+            await remove.mutateAsync(open.backup.backup_id);
+          }}
+        />
+      ) : null}
+      {open?.kind === "schedule" ? (
+        <ScheduleDialog
+          key={open.domain}
+          open
+          onOpenChange={(next) => !next && close()}
+          {...(open.existing !== null ? { existing: open.existing } : open.domain !== "" ? { domain: open.domain } : {})}
+        />
+      ) : null}
+    </BackupsListPage>
   );
 }

@@ -1,17 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { jobLogQuery } from "../../api/queries/jobs";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Drawer } from "../../components/ui/Drawer";
 import { LogViewer } from "../../components/ui/LogViewer";
 import type { LogLine } from "../../components/ui/LogViewer";
+import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { DeployStatePill } from "../../components/page/AppStatePill";
 import { useT } from "../../i18n";
 import { jobActionLabel, jobResource } from "./data";
 import type { ActivityJob } from "./data";
-import { jobLogQuery } from "./queries";
 
 export interface JobLogDrawerProps {
   job: ActivityJob | null;
@@ -44,7 +45,7 @@ export function JobLogDrawer({ job, onOpenChange }: JobLogDrawerProps) {
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <DeployStatePill status={job.status} appearance="inline" size="sm" />
             <span>{jobActionLabel(t, job.type)}</span>
-            {resource ? <span translate="no" className="mono">{resource}</span> : null}
+            {resource ? <Mono>{resource}</Mono> : null}
             <RelativeTime value={job.started_at ?? job.created_at} />
           </span>
         ) : undefined

@@ -14,12 +14,12 @@ const DESTINATIONS: readonly { link: string; path: string; title: string }[] = [
   { link: "Overview", path: "/", title: "Overview" },
   { link: "Applications", path: "/apps", title: "Applications" },
   { link: "Databases", path: "/databases", title: "Databases" },
-  { link: "Services", path: "/services", title: "Services" },
-  { link: "Cron", path: "/cron", title: "Cron" },
   { link: "Domains and certificates", path: "/domains", title: "Domains and certificates" },
   { link: "Backups", path: "/backups", title: "Backups" },
-  { link: "Activity", path: "/activity", title: "Activity" },
+  // Services live under Server (its tab), not in the sidebar.
   { link: "Server", path: "/server", title: "Server" },
+  { link: "Cron", path: "/cron", title: "Cron" },
+  { link: "Activity", path: "/activity", title: "Activity" },
   { link: "Settings", path: "/settings", title: "Settings" },
 ];
 
@@ -64,6 +64,8 @@ test("an anonymous visit lands on sign-in, which asks for the token and then the
   await settle(page);
   await expectNoA11yViolations(page, "sign in");
 
+  // The access token is emergency access since accounts (3.1).
+  await page.getByRole("button", { name: "Emergency access" }).click();
   await page.getByLabel("Access token").fill(consoleServer.token);
   await page.getByRole("button", { name: "Sign in" }).click();
 
@@ -82,7 +84,7 @@ test("an anonymous visit lands on sign-in, which asks for the token and then the
 
 test("a wrong token is refused in the server's words and the field keeps focus", async ({ page, problems }) => {
   problems.expect(REFUSED_SIGN_IN);
-  await page.goto("/login");
+  await page.goto("/login?with=token");
 
   await page.getByLabel("Access token").fill("noust_not_the_token");
   await page.getByRole("button", { name: "Sign in" }).click();
@@ -194,7 +196,7 @@ test("a locked-out address is told how long to wait", async ({ page, problems })
   // worker's server is shared with every other test in the worker.
   const server = await startConsoleServer();
   try {
-    await page.goto(`${server.url}/login`);
+    await page.goto(`${server.url}/login?with=token`);
     const token = page.getByLabel("Access token");
     const submit = page.getByRole("button", { name: "Sign in" });
     for (let attempt = 0; attempt < 6; attempt += 1) {

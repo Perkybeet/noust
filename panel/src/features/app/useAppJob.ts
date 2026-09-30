@@ -8,31 +8,38 @@ import { translate } from "../../i18n";
 import type { MessageKey } from "../../i18n";
 
 /** How a job on an app is named while it runs and when it ends (the backend's JobType). */
-const JOB_KEYS: Readonly<Record<string, { running: MessageKey; failed: MessageKey }>> = {
-  deploy: { running: "appPages.job.deploy.running", failed: "appPages.job.deploy.failed" },
-  update: { running: "appPages.job.update.running", failed: "appPages.job.update.failed" },
-  rollback: { running: "appPages.job.rollback.running", failed: "appPages.job.rollback.failed" },
-  restore: { running: "appPages.job.restore.running", failed: "appPages.job.restore.failed" },
-  delete: { running: "appPages.job.delete.running", failed: "appPages.job.delete.failed" },
-  backup: { running: "appPages.job.backup.running", failed: "appPages.job.backup.failed" },
-  push: { running: "appPages.job.push.running", failed: "appPages.job.push.failed" },
-  migrate: { running: "appPages.job.migrate.running", failed: "appPages.job.migrate.failed" },
-  service_action: { running: "appPages.job.serviceAction.running", failed: "appPages.job.serviceAction.failed" },
-  zero_downtime: { running: "appPages.job.zeroDowntime.running", failed: "appPages.job.zeroDowntime.failed" },
+const JOB_KEYS: Readonly<Record<string, { running: MessageKey; title: MessageKey; failed: MessageKey }>> = {
+  deploy: { running: "appPages.job.deploy.running", title: "appPages.job.deploy.title", failed: "appPages.job.deploy.failed" },
+  update: { running: "appPages.job.update.running", title: "appPages.job.update.title", failed: "appPages.job.update.failed" },
+  rollback: { running: "appPages.job.rollback.running", title: "appPages.job.rollback.title", failed: "appPages.job.rollback.failed" },
+  restore: { running: "appPages.job.restore.running", title: "appPages.job.restore.title", failed: "appPages.job.restore.failed" },
+  delete: { running: "appPages.job.delete.running", title: "appPages.job.delete.title", failed: "appPages.job.delete.failed" },
+  backup: { running: "appPages.job.backup.running", title: "appPages.job.backup.title", failed: "appPages.job.backup.failed" },
+  push: { running: "appPages.job.push.running", title: "appPages.job.push.title", failed: "appPages.job.push.failed" },
+  migrate: { running: "appPages.job.migrate.running", title: "appPages.job.migrate.title", failed: "appPages.job.migrate.failed" },
+  service_action: { running: "appPages.job.serviceAction.running", title: "appPages.job.serviceAction.title", failed: "appPages.job.serviceAction.failed" },
+  zero_downtime: { running: "appPages.job.zeroDowntime.running", title: "appPages.job.zeroDowntime.title", failed: "appPages.job.zeroDowntime.failed" },
+  sandbox_test: { running: "appPages.job.sandboxTest.running", title: "appPages.job.sandboxTest.title", failed: "appPages.job.sandboxTest.failed" },
 };
 
-const DEFAULT_JOB_KEYS = { running: "appPages.job.default.running", failed: "appPages.job.default.failed" } as const;
+const DEFAULT_JOB_KEYS = { running: "appPages.job.default.running", title: "appPages.job.default.title", failed: "appPages.job.default.failed" } as const;
 
 export interface JobWords {
-  /** The bare state word ("Deploying"): a label on its own, or before the domain it names. */
+  /** The bare state word ("Deploying"): the app's state while the job runs. */
   running: string;
+  /** What is being done, as a sentence with the domain in it: "Deploying shop.example.com". */
+  title: string;
   /** How its failure is titled, the domain's name and grammar already in the sentence. */
   failed: string;
 }
 
 export function jobWords(type: string, domain: string, locale: Locale = getLocale()): JobWords {
   const keys = JOB_KEYS[type] ?? DEFAULT_JOB_KEYS;
-  return { running: translate(locale, keys.running), failed: translate(locale, keys.failed, { domain }) };
+  return {
+    running: translate(locale, keys.running),
+    title: translate(locale, keys.title, { domain }),
+    failed: translate(locale, keys.failed, { domain }),
+  };
 }
 
 const RUNNING = new Set(["pending", "running"]);

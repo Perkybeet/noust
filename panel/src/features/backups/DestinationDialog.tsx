@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Info } from "lucide-react";
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -11,6 +10,8 @@ import { Checkbox } from "../../components/ui/Checkbox";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
+import { Mono } from "../../components/ui/Mono";
+import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
@@ -187,16 +188,9 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
           {backend !== "" && !backends.isPending ? (
             <>
               {oauth ? (
-                <div className="flex items-start gap-2 rounded-control border border-border bg-bg-sunken px-3 py-2.5 text-13 text-fg-muted">
-                  <Info aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-                  <p>
-                    {t.rich("backups.destinationDialog.oauthNote", {
-                      command: (
-                        <code translate="no" className="mono rounded-[4px] bg-surface px-1 py-0.5 text-fg">{`rclone authorize "${backend}"`}</code>
-                      ),
-                    })}
-                  </p>
-                </div>
+                <Notice>
+                  {t.rich("backups.destinationDialog.oauthNote", { command: <Mono>{`rclone authorize "${backend}"`}</Mono> })}
+                </Notice>
               ) : null}
               <div className="grid gap-4 sm:grid-cols-2">
                 {fields.map((field) => {
@@ -286,11 +280,9 @@ export function DestinationDialog({ existing, open, onOpenChange }: DestinationD
                   </div>
                 ) : null}
                 {encrypted && !useExistingKey ? (
-                  <p className="flex items-start gap-1.5 pl-6 text-13 text-warn">
-                    <span>
-                      {t("backups.destinationDialog.encryptWarning")} <span className="font-medium">{t("backups.destinationDialog.encryptWarningBold")}</span>
-                    </span>
-                  </p>
+                  <Notice tone="warning" title={t("backups.destinationDialog.encryptWarningBold")} className="ml-6">
+                    {t("backups.destinationDialog.encryptWarning")}
+                  </Notice>
                 ) : null}
               </div>
             </>

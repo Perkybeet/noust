@@ -80,15 +80,11 @@ async function previewsOf(state: () => object, extra: Record<string, RouteHandle
     [`GET /api/apps/${DOMAIN}`]: () => json(200, app),
     "GET /api/certs": () => json(200, { certificates: [], total: 0 }),
     "GET /api/jobs/active": () => json(200, { jobs: [], total: 0, active: 0 }),
-    [`GET /api/apps/${DOMAIN}/releases`]: () => json(200, { domain: DOMAIN, items: [], total: 0 }),
-    [`GET /api/apps/${DOMAIN}/webhook/deliveries`]: () => json(200, { items: [], total: 0 }),
-    [`GET /api/apps/${DOMAIN}/zero-downtime`]: () =>
-      json(200, { domain: DOMAIN, enabled: false, drain_seconds: 10, instances: [], eligible: true, reason: null, hint: null }),
     [`GET /api/apps/${DOMAIN}/previews`]: () => json(200, state()),
     [`GET /api/jobs/${JOB.id}`]: () => json(200, JOB),
     ...extra,
   });
-  const harness = renderConsole(`/apps/${DOMAIN}/settings`);
+  const harness = renderConsole(`/apps/${DOMAIN}/settings/previews`);
   const section = await screen.findByRole("region", { name: "Pull request previews" });
   return { ...harness, backend, section };
 }
@@ -107,9 +103,8 @@ describe("pull request previews", () => {
     expect(within(needs).getByText("A wildcard DNS record")).toBeInTheDocument();
     expect(within(needs).getByText("Pull request events")).toBeInTheDocument();
     expect(within(section).getByText("Previews get this app's production secrets")).toBeInTheDocument();
-    expect(within(section).getByText(/built as root, like every deploy/)).toBeInTheDocument();
-    expect(within(section).getByText(/except those never copied to previews, and connects to its databases/)).toBeInTheDocument();
-    expect(within(section).getByText(/only pull requests by the repository's owners, members and\s+collaborators/)).toBeInTheDocument();
+    expect(within(section).getByText(/except those never copied, and connects to its databases/)).toBeInTheDocument();
+    expect(within(section).getByText(/from anyone but owners, members and collaborators, get none/)).toBeInTheDocument();
     expect(within(section).getByRole("checkbox", { name: "Allow pull requests from bots" })).not.toBeChecked();
     expect(within(section).getByRole("textbox", { name: "Never copied to previews" })).toHaveValue("");
 
@@ -118,7 +113,7 @@ describe("pull request previews", () => {
     expect(within(section).getByRole("radio", { name: "Days" })).toBeChecked();
 
     await user.type(within(section).getByRole("textbox", { name: "Base domain" }), "previews.example.com");
-    expect(within(section).getByText("*.previews.example.com", { selector: "code" })).toBeInTheDocument();
+    expect(within(section).getByText("*.previews.example.com")).toBeInTheDocument();
     await user.click(within(section).getByRole("button", { name: "Turn on previews" }));
     await waitFor(() => {
       expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/previews/settings`)[0]?.body).toEqual({
@@ -130,7 +125,6 @@ describe("pull request previews", () => {
       });
     });
     expect(await within(section).findByText("On")).toBeInTheDocument();
-    expect(within(section).getByText("Every variable is copied. Bots get none.")).toBeInTheDocument();
     expect(within(section).getByText("Now: at most 3 previews under previews.example.com, each removed after 7 days without a push.")).toBeInTheDocument();
     expect(within(section).getByRole("button", { name: "Turn off previews" })).toBeInTheDocument();
   });
@@ -192,9 +186,10 @@ describe("pull request previews", () => {
         exclude_env: ["STRIPE_SECRET_KEY", "SMTP_PASSWORD"],
       });
     });
-    expect(await within(section).findByText("STRIPE_SECRET_KEY, SMTP_PASSWORD", { selector: "span" })).toBeInTheDocument();
-    expect(within(section).getByText(/Bots get previews\./)).toBeInTheDocument();
-    expect(within(section).getByRole("textbox", { name: "Never copied to previews" })).toHaveValue("STRIPE_SECRET_KEY, SMTP_PASSWORD");
+    await waitFor(() => {
+      expect(within(section).getByRole("textbox", { name: "Never copied to previews" })).toHaveValue("STRIPE_SECRET_KEY, SMTP_PASSWORD");
+    });
+    expect(await within(section).findByText("No unsaved changes")).toBeInTheDocument();
     expect(within(section).getByRole("checkbox", { name: "Allow pull requests from bots" })).toBeChecked();
   });
 
@@ -266,7 +261,7 @@ describe("pull request previews", () => {
     });
     const list = await within(section).findByRole("list", { name: "Previews" });
     await user.click(within(list).getByRole("button", { name: "Remove the preview of pull request #12" }));
-    const dialog = await screen.findByRole("dialog", { name: "Remove the preview of pull request #12?" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Remove the preview of pull request #12?" });
     expect(within(dialog).getByText(new RegExp(`${READY.domain.replace(/\./g, "\\.")} stops answering`))).toBeInTheDocument();
     expect(backend.callsTo(`DELETE /api/apps/${DOMAIN}/previews/12`)).toHaveLength(0);
     await user.click(within(dialog).getByRole("button", { name: "Remove preview" }));
@@ -288,11 +283,8 @@ describe("pull request previews", () => {
       },
     });
     await user.click(await within(section).findByRole("button", { name: "Turn off previews" }));
-    const dialog = await screen.findByRole("dialog", { name: `Turn off previews for ${DOMAIN}?` });
-    expect(within(dialog).getByText(/the 2 previews there are now are removed/)).toBeInTheDocument();
-    const removed = within(dialog).getByRole("list", { name: "Previews that are removed" });
-    expect(within(removed).getByText(READY.domain)).toBeInTheDocument();
-    expect(within(removed).getByText(FAILED.domain)).toBeInTheDocument();
+    const dialog = await screen.findByRole("alertdialog", { name: `Turn off previews for ${DOMAIN}?` });
+    expect(within(dialog).getByText(/the 2 previews there are now are removed/)).toHaveTextContent(`${READY.domain}, ${FAILED.domain}`);
     await user.click(within(dialog).getByRole("button", { name: "Turn off previews" }));
     await waitFor(() => {
       expect(backend.callsTo(`DELETE /api/apps/${DOMAIN}/previews/settings`)).toHaveLength(1);
@@ -305,7 +297,7 @@ describe("pull request previews", () => {
   it("on a preview, points at the application it previews instead", async () => {
     const { backend, section } = await previewsOf(() => OFF, {}, { ...APP, preview_parent: "store.example.com" });
     expect(within(section).getByText(/This app is a preview of/)).toBeInTheDocument();
-    expect(within(section).getByRole("link", { name: "store.example.com" })).toHaveAttribute("href", "/apps/store.example.com/settings");
+    expect(within(section).getByRole("link", { name: "store.example.com" })).toHaveAttribute("href", "/apps/store.example.com/settings/previews");
     expect(within(section).queryByRole("textbox")).not.toBeInTheDocument();
     expect(backend.callsTo(`GET /api/apps/${DOMAIN}/previews`)).toHaveLength(0);
   });
@@ -320,7 +312,7 @@ describe("pull request previews", () => {
     await within(on.section).findByRole("list", { name: "Previews" });
     await expectNoAxeViolations(on.section);
     await on.user.click(within(on.section).getByRole("button", { name: "Turn off previews" }));
-    await expectNoAxeViolations(await screen.findByRole("dialog"));
+    await expectNoAxeViolations(await screen.findByRole("alertdialog"));
   });
 
   it("renders the previews list in Spanish, with no accessibility violations", async () => {

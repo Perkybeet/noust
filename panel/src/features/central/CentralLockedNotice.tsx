@@ -1,10 +1,10 @@
-import { LockKeyhole, LockOpen } from "lucide-react";
+import { LockOpen } from "lucide-react";
 import { useId, useState } from "react";
 
 import { Button } from "../../components/ui/Button";
 import { Dialog } from "../../components/ui/Dialog";
+import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
-import { cx } from "../../lib/cx";
 import { useCentral } from "./central";
 import { UnlockForm } from "./UnlockForm";
 
@@ -61,29 +61,27 @@ export function CentralLockedNotice({ className }: { className?: string }) {
   const [open, setOpen] = useState(false);
   if (!central.locked) return null;
   return (
-    <div
-      className={cx(
-        "flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-card border border-warn/40 bg-warn-soft px-4 py-3",
-        className,
-      )}
-    >
-      <div className="flex min-w-0 items-start gap-2.5">
-        <LockKeyhole aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-warn" />
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <p className="text-13 font-medium text-fg">{t("servers.lock.bannerTitle")}</p>
-          <p className="text-13 text-pretty text-fg-muted">{t("servers.lock.bannerDescription")}</p>
-        </div>
-      </div>
-      <Button
-        size="sm"
-        icon={<LockOpen aria-hidden="true" />}
-        onClick={() => {
-          setOpen(true);
-        }}
+    <>
+      <Notice
+        tone="warning"
+        variant="banner"
+        title={t("servers.lock.bannerTitle")}
+        action={
+          <Button
+            size="sm"
+            icon={<LockOpen aria-hidden="true" />}
+            onClick={() => {
+              setOpen(true);
+            }}
+          >
+            {t("servers.lock.bannerAction")}
+          </Button>
+        }
+        {...(className !== undefined ? { className } : {})}
       >
-        {t("servers.lock.bannerAction")}
-      </Button>
+        {t("servers.lock.bannerDescription")}
+      </Notice>
       <UnlockDialog open={open} onOpenChange={setOpen} />
-    </div>
+    </>
   );
 }

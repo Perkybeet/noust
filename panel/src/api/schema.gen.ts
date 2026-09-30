@@ -4,6 +4,160 @@
  */
 
 export interface paths {
+    "/api/approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Approvals
+         * @description List the requests the caller may see, newest first.
+         *
+         *     Deciders and auditors see every request; everybody else sees their own.
+         *
+         *     Args:
+         *         session: The caller.
+         *         state: Only this state: ``requested``, ``approved``, ``rejected``,
+         *             ``expired`` or ``executed``.
+         *         mine: Only the caller's own.
+         *
+         *     Returns:
+         *         The requests.
+         *
+         *     Raises:
+         *         HTTPException: 400 for an unknown state.
+         */
+        get: operations["list_approvals_api_approvals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/approvals/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Approval Policy
+         * @description Say whether approvals apply here, who decides, and which calls need one.
+         *
+         *     Args:
+         *         session: The caller.
+         *
+         *     Returns:
+         *         The policy and the rules.
+         */
+        get: operations["approval_policy_api_approvals_policy_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/approvals/{approval_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Approval
+         * @description Describe one request.
+         *
+         *     Args:
+         *         approval_id: Its id.
+         *         session: The caller.
+         *
+         *     Returns:
+         *         The request.
+         *
+         *     Raises:
+         *         HTTPException: 404 when it does not exist or is not the caller's to see.
+         */
+        get: operations["get_approval_api_approvals__approval_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/approvals/{approval_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve Request
+         * @description Approve a request, in sudo mode: its requester may make the call once.
+         *
+         *     Args:
+         *         approval_id: The request.
+         *         body: An optional comment.
+         *         session: The decider.
+         *
+         *     Returns:
+         *         The request, approved.
+         *
+         *     Raises:
+         *         HTTPException: 403 ``approval_denied`` for the requester, another
+         *             account of the same person, a role that does not decide it, or a
+         *             credential that is not a person; 409 when it is not waiting.
+         */
+        post: operations["approve_request_api_approvals__approval_id__approve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/approvals/{approval_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject Request
+         * @description Reject a request, or withdraw an approval not used yet, in sudo mode.
+         *
+         *     Args:
+         *         approval_id: The request.
+         *         body: Why, shown to the requester.
+         *         session: The decider.
+         *
+         *     Returns:
+         *         The request, rejected.
+         *
+         *     Raises:
+         *         HTTPException: As for approving.
+         */
+        post: operations["reject_request_api_approvals__approval_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps": {
         parameters: {
             query?: never;
@@ -245,6 +399,175 @@ export interface paths {
          *         HTTPException: 404 when the application is unknown.
          */
         delete: operations["delete_app_api_apps__domain__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/branch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update App Branch
+         * @description Pin the branch an application deploys from, or unpin it.
+         *
+         *     With a branch pinned, the webhook ignores pushes to any other branch and
+         *     every update builds it; unpinned, any push deploys. The branch is checked
+         *     on the remote first; nothing is fetched or rebuilt until the next update.
+         *     Changing what deploys needs sudo mode, like the health check and the limits.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The branch, or null.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The branch it deploys from now, its head, and the one before.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         SourceError: Not deployed from git, not a branch name, no such branch
+         *             on the remote, or the remote cannot be read (400, git's words in
+         *             ``output``).
+         */
+        patch: operations["update_app_branch_api_apps__domain__branch_patch"];
+        trace?: never;
+    };
+    "/api/apps/{domain}/databases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List App Databases
+         * @description List the databases an application uses, connection strings masked.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its databases.
+         */
+        get: operations["list_app_databases_api_apps__domain__databases_get"];
+        put?: never;
+        /**
+         * Provision App Database
+         * @description Queue creating a database for an application and linking it.
+         *
+         *     Args:
+         *         domain: The application.
+         *         request: What to create.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["provision_app_database_api_apps__domain__databases_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/databases/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Link App Database
+         * @description Queue linking an existing database to an application.
+         *
+         *     Args:
+         *         domain: The application.
+         *         request: What to link.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["link_app_database_api_apps__domain__databases_link_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/databases/{engine}/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unlink App Database
+         * @description Queue unlinking a database from an application; dropping it needs sudo mode.
+         *
+         *     Args:
+         *         domain: The application.
+         *         engine: Engine name.
+         *         name: Database name.
+         *         http_request: The request, for the elevation check's audit record.
+         *         session: The authenticated session.
+         *         drop: Drop the database too.
+         *         restart: Restart the application without the variables.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        delete: operations["unlink_app_database_api_apps__domain__databases__engine___name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/databases/{engine}/{name}/url": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reveal App Database Url
+         * @description Show a linked database's connection string with its password.
+         *
+         *     Sudo mode, and audited as a secret shown.
+         *
+         *     Args:
+         *         domain: The application.
+         *         engine: Engine name.
+         *         name: Database name.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The connection string.
+         */
+        post: operations["reveal_app_database_url_api_apps__domain__databases__engine___name__url_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -721,6 +1044,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * App Metrics
+         * @description Say why an application's metrics are, or are not, there.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         Whether its CPU and memory are being recorded, where they come from,
+         *         the reason and the fix when they are not, what each unit or container
+         *         looks like right now, and whether history is being recorded at all.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such application.
+         */
+        get: operations["app_metrics_api_apps__domain__metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/migrate": {
         parameters: {
             query?: never;
@@ -845,9 +1200,11 @@ export interface paths {
          * @description Turn previews on for an application, or change their settings.
          *
          *     Installs ``noust-previews.timer`` the first time any application turns
-         *     previews on. A preview is built as root, like every deployment, with a
-         *     copy of the application's environment minus ``exclude_env``; only pull
-         *     requests from people trusted with the repository get one (see
+         *     previews on. A preview builds in the sandbox (as ``noust-build``, in the
+         *     strict network profile: dependencies install with the network and without
+         *     the secrets, the build runs without a network), with a copy of the
+         *     application's environment minus ``exclude_env``; only pull requests from
+         *     people trusted with the repository get one (see
          *     :func:`noust.managers.previews.handle_pull_request`).
          *
          *     Args:
@@ -1091,6 +1448,185 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/sandbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Sandbox
+         * @description Show how an application builds. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its regime, its last trial and what is unprotected about it.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_sandbox_api_apps__domain__sandbox_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/sandbox/compose-exception": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Compose Exception
+         * @description Allow a compose stack privileged containers and the Docker socket.
+         *
+         *     Either is root on the server and the compose file comes from the
+         *     repository, so this needs sudo mode and a reason.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: Why.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The application's regime, with the exception.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        put: operations["put_compose_exception_api_apps__domain__sandbox_compose_exception_put"];
+        post?: never;
+        /**
+         * Delete Compose Exception
+         * @description Stop allowing a compose stack privileged containers and the Docker socket.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The application's regime, without the exception.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        delete: operations["delete_compose_exception_api_apps__domain__sandbox_compose_exception_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/sandbox/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Sandbox Disable
+         * @description Build the application as root from now on: recorded, with the reason.
+         *
+         *     Its dependencies' install scripts then run with root's access to the
+         *     server, so this needs sudo mode.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: Why.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The new regime.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        post: operations["post_sandbox_disable_api_apps__domain__sandbox_disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/sandbox/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Sandbox Enable
+         * @description Build the application in the sandbox from its next deploy on.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: Whether to skip the trial, and the profile.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The new regime.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: No passing trial and no ``force``, or a type whose
+         *             builds do not run in the sandbox (400).
+         */
+        post: operations["post_sandbox_enable_api_apps__domain__sandbox_enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/sandbox/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Sandbox Test
+         * @description Queue a trial build of the application's current commit in the sandbox.
+         *
+         *     Nothing is activated, restarted or recorded in the deployment history;
+         *     the outcome is kept, and enabling the sandbox asks for a passing one.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: A compose stack (400).
+         */
+        post: operations["post_sandbox_test_api_apps__domain__sandbox_test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/start": {
         parameters: {
             query?: never;
@@ -1139,6 +1675,45 @@ export interface paths {
          *         The action outcome.
          */
         post: operations["stop_app_api_apps__domain__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Webhook State
+         * @description Report the state of an application's deploy webhook.
+         *
+         *     Everything the guided setup needs in one answer: whether the public hooks
+         *     URL exists and the exact payload URL, the content type and events to
+         *     enable at the forge, whether a secret exists (never the secret), which
+         *     branch deploys and whether any push does when none is pinned, whether an
+         *     in-place application deploys on push, whether the GitHub App already
+         *     covers the repository, and what the forge has been sending.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         request: The incoming request; its own address is the payload URL's
+         *             fallback when the hooks were not exposed.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The state.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["webhook_state_api_apps__domain__webhook_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1233,6 +1808,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/webhook/received": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Webhook Received
+         * @description List what an application's webhook received, whatever became of it.
+         *
+         *     Unlike ``GET .../webhook/deliveries`` (the deployments a webhook queued),
+         *     this is every delivery the forge sent: a ping, a push that deployed, a
+         *     push to another branch, a repeat, a wrong signature. A burst of wrong
+         *     signatures is one entry with a ``count``.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *         limit: Most deliveries to return.
+         *
+         *     Returns:
+         *         The deliveries, newest first.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["webhook_received_api_apps__domain__webhook_received_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/webhook/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reveal Webhook Secret
+         * @description Show an application's webhook secret again.
+         *
+         *     The forge's settings page needs it pasted in, and the guided setup can be
+         *     reopened after the secret was created; rotating it just to read it would
+         *     break a webhook that works. A secret is a credential, so this is sudo
+         *     mode, needs the permission to reveal secrets, and is audited.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         request: The incoming request, for the audit record and the hook URL.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         The secret in clear and the URL to configure at the forge.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown or has no secret.
+         */
+        post: operations["reveal_webhook_secret_api_apps__domain__webhook_reveal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/zero-downtime": {
         parameters: {
             query?: never;
@@ -1297,17 +1944,180 @@ export interface paths {
          * @description List audit entries, newest first, with keyset pagination.
          *
          *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
          *         limit: Maximum entries to return.
          *         before: Cursor from a previous page's ``next_before``.
          *         action: Only entries with this exact action.
          *         result: Only entries with this exact result.
          *         actor: Only entries with this exact actor.
-         *         session: The authenticated session; admin scope is required.
+         *         category: Only entries of this catalog category.
+         *         correlation_id: Only entries with this correlation id.
+         *         target: Only entries on this exact target.
          *
          *     Returns:
          *         The matching entries and the cursor for the next page.
          */
         get: operations["list_audit_entries_api_audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audit/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit Catalog
+         * @description List every event the audit log can record, for filters and labels.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The catalog.
+         */
+        get: operations["audit_catalog_api_audit_events_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audit/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Audit Log
+         * @description Export the audit log as NDJSON, every field and the chain included.
+         *
+         *     The export is recorded (``audit.export``).
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         since: Lower bound on ``ts``.
+         *         until: Upper bound on ``ts``.
+         *
+         *     Returns:
+         *         The events, oldest first, one JSON object per line.
+         */
+        get: operations["export_audit_log_api_audit_export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audit/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Reviews
+         * @description List the recorded reviews of the audit log, newest first.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         limit: Most reviews returned.
+         *
+         *     Returns:
+         *         The reviews.
+         */
+        get: operations["list_reviews_api_audit_reviews_get"];
+        put?: never;
+        /**
+         * Create Review
+         * @description Attest that the audit log was reviewed for a period (ENS op.exp.8.r1).
+         *
+         *     The chain is verified first, and the result is part of the attestation,
+         *     which is itself an audit event (``audit.review``).
+         *
+         *     Args:
+         *         body: The period and the notes.
+         *         request: The request.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The recorded review.
+         *
+         *     Raises:
+         *         ValidationError: A date is malformed or the period is reversed.
+         */
+        post: operations["create_review_api_audit_reviews_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audit/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit Status
+         * @description Report whether the audit trail works: writes, key, size and destinations.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The report.
+         */
+        get: operations["audit_status_api_audit_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/audit/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Verify Audit Log
+         * @description Check the HMAC chain and name the first broken link.
+         *
+         *     The check is recorded (``audit.verify``). A pass proves the log is
+         *     consistent under the local key; root on the machine holds that key, so
+         *     the shipped copy is what proves it is original.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The result.
+         */
+        get: operations["verify_audit_log_api_audit_verify_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1325,7 +2135,7 @@ export interface paths {
         };
         /**
          * Two Factor Status
-         * @description Report the two-factor state.
+         * @description Report the two-factor state of the caller's own sign-in.
          *
          *     Args:
          *         session: The authenticated session.
@@ -1392,23 +2202,23 @@ export interface paths {
          * Two Factor Confirm
          * @description Verify a code from the authenticator and activate the second factor.
          *
-         *     Sudo mode, like enrolling: this is the step that switches the second
-         *     factor on and hands out the backup codes.
+         *     Sudo mode for the master token, like enrolling: this is the step that
+         *     switches the console's second factor on and hands out the backup codes.
          *
          *     Args:
          *         request: The incoming request.
          *         body: The code the app shows for the pending secret.
-         *         session: The authenticated session, elevated.
+         *         session: The authenticated session.
          *
          *     Returns:
          *         The backup codes, in clear, exactly once.
          *
          *     Raises:
-         *         HTTPException: 403 with ``error: "elevation_required"`` per
-         *             :func:`noust.web.api.deps.require_elevated`. 400 when the code
-         *             does not verify. Not counted by the lockout: the pending secret
-         *             is on the operator's own screen, so a wrong code here proves a
-         *             typo, not a guess at a credential.
+         *         HTTPException: 403 with ``error: "elevation_required"`` for the
+         *             master token outside sudo mode. 400 when the code does not
+         *             verify. Not counted by the lockout: the pending secret is on the
+         *             operator's own screen, so a wrong code here proves a typo, not a
+         *             guess at a credential.
          */
         post: operations["two_factor_confirm_api_auth_2fa_confirm_post"];
         delete?: never;
@@ -1428,7 +2238,10 @@ export interface paths {
         put?: never;
         /**
          * Two Factor Disable
-         * @description Turn the second factor off, on presentation of a current code.
+         * @description Turn the console's second factor off, on presentation of a current code.
+         *
+         *     An account cannot turn its own off: every account keeps a second factor
+         *     (ENS op.acc.6), and replacing one is a security officer's ``reset-mfa``.
          *
          *     Args:
          *         request: The incoming request.
@@ -1445,6 +2258,7 @@ export interface paths {
          *             a failed login: this endpoint guards the switch that turns the
          *             second factor off, so a wrong code here is a credential guess by
          *             whoever holds the session.
+         *         AccountError: For an account's session.
          */
         post: operations["two_factor_disable_api_auth_2fa_disable_post"];
         delete?: never;
@@ -1466,23 +2280,271 @@ export interface paths {
          * Two Factor Enroll
          * @description Begin enrolment: generate a pending secret. Nothing is enforced yet.
          *
-         *     Sudo mode, confirmed with the master token (two-factor is off, or there
-         *     would be nothing to enrol): the factor enrolled here is the one every
-         *     later confirmation asks for, so a session nobody re-confirmed must not be
-         *     able to bind its own authenticator.
+         *     An account enrols its first authenticator right after signing in with
+         *     its password - it can do nothing else until it has - so this asks for no
+         *     sudo mode; replacing one takes a security officer (``reset-mfa``). The
+         *     console's own factor, for the master token, asks for sudo mode confirmed
+         *     with the master token: the factor enrolled here is the one every later
+         *     confirmation asks for, so a session nobody re-confirmed must not be able
+         *     to bind its own authenticator.
          *
          *     Args:
          *         request: The incoming request.
-         *         session: The authenticated session, elevated.
+         *         session: The authenticated session.
          *
          *     Returns:
          *         The secret and its provisioning URI, shown to the operator once.
          *
          *     Raises:
-         *         HTTPException: 403 with ``error: "elevation_required"`` per
-         *             :func:`noust.web.api.deps.require_elevated`.
+         *         HTTPException: 403 with ``error: "elevation_required"`` for the master
+         *             token outside sudo mode.
+         *         AccountError: When the account already has an authenticator.
          */
         post: operations["two_factor_enroll_api_auth_2fa_enroll_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Accounts
+         * @description List every account, and anyone holding incompatible roles.
+         *
+         *     Args:
+         *         session: The authenticated payload.
+         *
+         *     Returns:
+         *         The accounts and the separation-of-duties conflicts.
+         */
+        get: operations["list_accounts_api_auth_accounts_get"];
+        put?: never;
+        /**
+         * Create Account
+         * @description Create an account with a password.
+         *
+         *     This is also how the first account is created, signed in with the master
+         *     token on a server that has none. The person enrols an authenticator at
+         *     their first sign-in, before anything else.
+         *
+         *     Args:
+         *         request: The incoming request.
+         *         body: The account.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The account.
+         *
+         *     Raises:
+         *         ValidationError: When a field or the password is refused.
+         *         AccountError: When the name is taken or the role clashes.
+         */
+        post: operations["create_account_api_auth_accounts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/accounts/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Account
+         * @description Describe one account.
+         *
+         *     Args:
+         *         username: The account's name.
+         *         session: The authenticated payload.
+         *
+         *     Returns:
+         *         The account.
+         *
+         *     Raises:
+         *         AccountNotFoundError: When no account has that name.
+         */
+        get: operations["get_account_api_auth_accounts__username__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove Account
+         * @description Remove an account, ending its sessions and tokens.
+         *
+         *     Prefer disabling: a removed account's name in the audit log no longer
+         *     names a record.
+         *
+         *     Args:
+         *         username: The account's name.
+         *         request: The incoming request.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The account as it was.
+         *
+         *     Raises:
+         *         AccountNotFoundError: When no account has that name.
+         *         AccountError: For one's own account.
+         */
+        delete: operations["remove_account_api_auth_accounts__username__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Account
+         * @description Change an account's role, display name or person reference.
+         *
+         *     A role change applies to the account's sessions and tokens on their next
+         *     request: the role is read on every one.
+         *
+         *     Args:
+         *         username: The account's name.
+         *         request: The incoming request.
+         *         body: The changes.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The account after the change.
+         *
+         *     Raises:
+         *         AccountNotFoundError: When no account has that name.
+         *         AccountError: When the change breaks separation of duties, or is a
+         *             change of one's own role.
+         */
+        patch: operations["update_account_api_auth_accounts__username__patch"];
+        trace?: never;
+    };
+    "/api/auth/accounts/{username}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable Account
+         * @description Disable an account: its sessions and tokens stop working at once.
+         *
+         *     Args:
+         *         username: The account's name.
+         *         request: The incoming request.
+         *         body: Why.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The account after the change.
+         *
+         *     Raises:
+         *         AccountNotFoundError: When no account has that name.
+         *         AccountError: For one's own account.
+         */
+        post: operations["disable_account_api_auth_accounts__username__disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/accounts/{username}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable Account
+         * @description Enable a disabled account again.
+         *
+         *     Args:
+         *         username: The account's name.
+         *         request: The incoming request.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The account after the change.
+         *
+         *     Raises:
+         *         AccountNotFoundError: When no account has that name.
+         */
+        post: operations["enable_account_api_auth_accounts__username__enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/accounts/{username}/reset-mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reset Account Mfa
+         * @description Remove an account's authenticator; it enrols a new one at its next sign-in.
+         *
+         *     Its sessions end, so the next thing it does is sign in again.
+         *
+         *     Args:
+         *         username: The account's name.
+         *         request: The incoming request.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The account after the change.
+         *
+         *     Raises:
+         *         AccountNotFoundError: When no account has that name.
+         */
+        post: operations["reset_account_mfa_api_auth_accounts__username__reset_mfa_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/accounts/{username}/unlock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unlock Account
+         * @description Lift an account's lockout before it runs out.
+         *
+         *     Args:
+         *         username: The account's name.
+         *         request: The incoming request.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The account after the change.
+         *
+         *     Raises:
+         *         AccountNotFoundError: When no account has that name.
+         */
+        post: operations["unlock_account_api_auth_accounts__username__unlock_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1507,26 +2569,100 @@ export interface paths {
          *     revealing a ``.env`` in clear, issuing an API token and turning
          *     two-factor authentication off all require a cookie session to have
          *     called this recently; see :func:`noust.web.api.deps.require_elevated`.
-         *     The factor asked for is the same a login would ask for - a TOTP or backup
-         *     code when two-factor authentication is enabled, the master token
-         *     otherwise - and a wrong one is counted by the same lockout a login
-         *     failure is, through the same chokepoint.
+         *
+         *     An account confirms with its password and a code from its authenticator;
+         *     an account without one cannot enter sudo mode. The master token confirms
+         *     as it signs in: the console's two-factor code when that is enabled, the
+         *     master token otherwise. A wrong factor is counted by the same lockout a
+         *     login failure is, through the same chokepoint.
          *
          *     Args:
          *         request: The incoming request.
-         *         body: The code or the master token.
+         *         body: The factors.
          *         session: The authenticated session being elevated.
          *
          *     Returns:
          *         The new elevation deadline.
          *
          *     Raises:
-         *         HTTPException: 401 with ``error`` ``totp_required`` when two-factor
-         *             authentication is on and no code was sent, or ``invalid_totp``
-         *             or ``invalid_token`` when the factor presented does not verify.
+         *         HTTPException: 401 with ``error`` ``invalid_credentials`` for an
+         *             account, ``totp_required``, ``invalid_totp`` or ``invalid_token``
+         *             for the master token, when the factors do not verify.
          */
         post: operations["elevate_api_auth_elevate_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/exceptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Exceptions
+         * @description List every separation-of-duties exception ever recorded.
+         *
+         *     Args:
+         *         session: The authenticated payload.
+         *
+         *     Returns:
+         *         The exceptions, newest first.
+         */
+        get: operations["list_exceptions_api_auth_exceptions_get"];
+        put?: never;
+        /**
+         * Create Exception
+         * @description Record a documented exception to the separation of duties, with an end date.
+         *
+         *     Args:
+         *         request: The incoming request.
+         *         body: The person, the reason and how long.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The exception.
+         *
+         *     Raises:
+         *         ValidationError: When a field is refused.
+         */
+        post: operations["create_exception_api_auth_exceptions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/exceptions/{exception_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke Exception
+         * @description Withdraw a separation-of-duties exception before it runs out.
+         *
+         *     Args:
+         *         exception_id: Its id.
+         *         request: The incoming request.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         Every exception, after the change.
+         *
+         *     Raises:
+         *         HTTPException: 404 when no exception in force has that id.
+         */
+        delete: operations["revoke_exception_api_auth_exceptions__exception_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1567,6 +2703,132 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/fleet/self": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Self
+         * @description Say how far a central may go on this server.
+         *
+         *     Args:
+         *         session: The authenticated caller.
+         *
+         *     Returns:
+         *         The ceiling in force and, for a central, its own token's name.
+         */
+        get: operations["fleet_self_api_auth_fleet_self_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Invitation
+         * @description Invite a person: they set their own password and authenticator.
+         *
+         *     For an existing account it is a recovery: accepting it replaces the
+         *     password and the authenticator.
+         *
+         *     Args:
+         *         request: The incoming request.
+         *         body: Who, with what role, and for how long.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The account and the code, shown exactly once.
+         *
+         *     Raises:
+         *         ValidationError: When a field is refused.
+         *         AccountError: When the role clashes or the account is disabled.
+         */
+        post: operations["create_invitation_api_auth_invitations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/invitations/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Invitation
+         * @description Finish an invitation: set the password, confirm the authenticator.
+         *
+         *     Args:
+         *         request: The incoming request.
+         *         body: The code, the password, a code from the authenticator and the
+         *             notice accepted.
+         *
+         *     Returns:
+         *         The account's name and its backup codes, shown exactly once.
+         *
+         *     Raises:
+         *         HTTPException: 401 ``invalid_invitation`` for a code that is not a
+         *             live invitation.
+         *         ValidationError: When the password is refused or the authenticator
+         *             code does not match; the invitation stays usable.
+         */
+        post: operations["accept_invitation_api_auth_invitations_accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/invitations/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open Invitation
+         * @description Open an invitation: say who it is for and hand out the authenticator to enrol.
+         *
+         *     Args:
+         *         request: The incoming request.
+         *         body: The invitation code.
+         *
+         *     Returns:
+         *         The account, its authenticator secret and the notice to accept.
+         *
+         *     Raises:
+         *         HTTPException: 401 ``invalid_invitation`` for a code that is unknown,
+         *             used or expired - counted by the lockout like a wrong password.
+         */
+        post: operations["open_invitation_api_auth_invitations_open_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/login": {
         parameters: {
             query?: never;
@@ -1578,7 +2840,7 @@ export interface paths {
         put?: never;
         /**
          * Login
-         * @description Exchange the master token for a session.
+         * @description Exchange an account's credentials, or the master token, for a session.
          *
          *     Args:
          *         request: The incoming request.
@@ -1586,15 +2848,16 @@ export interface paths {
          *         body: The login payload.
          *
          *     Returns:
-         *         The login result.
+         *         The login result, with what happened since the account's last sign-in.
          *
          *     Raises:
-         *         HTTPException: 401 with ``error`` ``invalid_token`` when the master
-         *             token is wrong, ``totp_required`` when a required second factor
-         *             is missing, or ``invalid_totp`` when the second factor is wrong.
-         *             A client locked out by too many attempts never reaches this
-         *             handler: ``SecurityMiddleware`` answers 429 with ``locked_out``
-         *             first.
+         *         HTTPException: 401. For an account, ``invalid_credentials`` whatever
+         *             was wrong. For the master token, ``invalid_token`` when it is
+         *             wrong, ``totp_required``, ``passkey_required`` or
+         *             ``second_factor_required`` when a required second factor is
+         *             missing, ``invalid_totp`` when it is wrong. A client locked out
+         *             by too many attempts never reaches this handler:
+         *             ``SecurityMiddleware`` answers 429 with ``locked_out`` first.
          */
         post: operations["login_api_auth_login_post"];
         delete?: never;
@@ -1631,6 +2894,385 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/notice/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept Notice
+         * @description Record that the signed-in person accepted the rights-and-obligations notice.
+         *
+         *     Until they do, every request but their own session's is answered 403
+         *     ``notice_required`` (ENS op.acc.6.9, mp.per.2).
+         *
+         *     Args:
+         *         request: The incoming request.
+         *         body: The version shown.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         A confirmation payload.
+         *
+         *     Raises:
+         *         HTTPException: 400 for a credential that is not an account's session.
+         *         ValidationError: When the version is not the one in force.
+         */
+        post: operations["accept_notice_api_auth_notice_accept_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/passkeys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Passkeys
+         * @description List the signed-in owner's passkeys, and say whether passkeys work from here.
+         *
+         *     Args:
+         *         request: The request, for the availability.
+         *         session: The authenticated payload.
+         *
+         *     Returns:
+         *         The passkeys and the availability.
+         */
+        get: operations["list_passkeys_api_auth_passkeys_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/passkeys/elevate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Elevate With Passkey
+         * @description Confirm it's you with a passkey, opening sudo mode for ten minutes.
+         *
+         *     Args:
+         *         request: The request.
+         *         body: The assertion.
+         *         session: The authenticated payload.
+         *
+         *     Returns:
+         *         The new elevation deadline.
+         *
+         *     Raises:
+         *         HTTPException: 401 as for a passkey sign-in, and
+         *             ``passkey_wrong_owner`` for somebody else's passkey.
+         */
+        post: operations["elevate_with_passkey_api_auth_passkeys_elevate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/passkeys/elevate/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Elevate Options
+         * @description Start confirming sudo mode with one of the signed-in owner's passkeys.
+         *
+         *     The options list the owner's own passkeys, so another server's reached
+         *     at the same address is not offered.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated payload.
+         *
+         *     Returns:
+         *         The request options.
+         *
+         *     Raises:
+         *         HTTPException: ``passkeys_<reason>`` when passkeys cannot work from
+         *             this page.
+         */
+        post: operations["elevate_options_api_auth_passkeys_elevate_options_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/passkeys/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login With Passkey
+         * @description Sign in with a passkey: a complete sign-in, no password or code.
+         *
+         *     A passkey is possession and a PIN or biometric in one, bound to this
+         *     console's name. The account it belongs to must be able to sign in; the
+         *     master token's own passkey signs in as the master token (break-glass, on
+         *     record as such).
+         *
+         *     Args:
+         *         request: The request.
+         *         response: Response used to set the session cookies.
+         *         body: The assertion.
+         *
+         *     Returns:
+         *         The login result, as ``POST /api/auth/login`` answers it.
+         *
+         *     Raises:
+         *         HTTPException: 401 ``invalid_passkey``, ``passkey_unknown``,
+         *             ``passkey_expired`` or ``passkey_origin``; ``passkeys_<reason>``
+         *             when passkeys cannot work from this page.
+         */
+        post: operations["login_with_passkey_api_auth_passkeys_login_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/passkeys/login/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Login Options
+         * @description Start a sign-in with a passkey. Anonymous, and writes nothing.
+         *
+         *     The options list no credential: the passkey says whose it is, so nobody
+         *     types a name and nobody can ask which names have passkeys.
+         *
+         *     Args:
+         *         request: The request.
+         *         body: Whether this is for the autofill flavour.
+         *
+         *     Returns:
+         *         The request options.
+         *
+         *     Raises:
+         *         HTTPException: ``passkeys_<reason>`` when passkeys cannot work from
+         *             this page.
+         */
+        post: operations["login_options_api_auth_passkeys_login_options_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/passkeys/registration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Register Passkey
+         * @description Finish registering a passkey: verify the authenticator's answer and keep it.
+         *
+         *     Args:
+         *         request: The request.
+         *         body: The credential and its name.
+         *         session: The authenticated payload.
+         *
+         *     Returns:
+         *         The passkey, and the account's backup codes when this was its first
+         *         second factor.
+         *
+         *     Raises:
+         *         HTTPException: 403 ``elevation_required`` as for the options; 400
+         *             ``passkey_rejected`` when the answer does not verify.
+         *         AccountError: When it is already registered, the owner has too many,
+         *             or it may be synced and this server only accepts bound ones.
+         */
+        post: operations["register_passkey_api_auth_passkeys_registration_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/passkeys/registration/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Registration Options
+         * @description Start registering a passkey for the signed-in owner.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated payload.
+         *
+         *     Returns:
+         *         The creation options.
+         *
+         *     Raises:
+         *         HTTPException: 403 ``elevation_required`` outside sudo mode (except an
+         *             account's first second factor); ``passkeys_<reason>`` when
+         *             passkeys cannot work from this page.
+         */
+        post: operations["registration_options_api_auth_passkeys_registration_options_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/passkeys/{passkey_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Passkey
+         * @description Remove one of the signed-in owner's passkeys, in sudo mode.
+         *
+         *     Args:
+         *         passkey_id: Its id.
+         *         request: The request.
+         *         session: The authenticated payload.
+         *
+         *     Returns:
+         *         The passkey as it was.
+         *
+         *     Raises:
+         *         HTTPException: 403 ``elevation_required`` outside sudo mode.
+         *         AccountError: When the owner has no passkey with that id, or it is an
+         *             account's only second factor.
+         */
+        delete: operations["remove_passkey_api_auth_passkeys__passkey_id__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename Passkey
+         * @description Rename one of the signed-in owner's passkeys.
+         *
+         *     Args:
+         *         passkey_id: Its id.
+         *         request: The request.
+         *         body: The new name.
+         *         session: The authenticated payload.
+         *
+         *     Returns:
+         *         The passkey after the change.
+         *
+         *     Raises:
+         *         AccountError: When the owner has no passkey with that id.
+         */
+        patch: operations["rename_passkey_api_auth_passkeys__passkey_id__patch"];
+        trace?: never;
+    };
+    "/api/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Password
+         * @description Change the signed-in account's own password.
+         *
+         *     Every other session of the account is signed out: whoever else held one
+         *     held it with the old password.
+         *
+         *     Args:
+         *         request: The incoming request.
+         *         body: The current and the new password.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         A confirmation payload.
+         *
+         *     Raises:
+         *         HTTPException: 400 for a credential that is not an account's
+         *             session; 401 ``invalid_credentials`` when the current password is
+         *             wrong.
+         *         ValidationError: When the new password is refused.
+         */
+        post: operations["change_password_api_auth_password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Roles
+         * @description Describe the roles and the permissions they hold.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The role table and every permission's description.
+         */
+        get: operations["list_roles_api_auth_roles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/session": {
         parameters: {
             query?: never;
@@ -1657,9 +3299,8 @@ export interface paths {
          *         request: The incoming request.
          *
          *     Returns:
-         *         The session's bootstrap information, ``authenticated=False`` and
-         *         nothing else populated when no credential, or an expired or revoked
-         *         one, was presented.
+         *         The session's bootstrap information; for no credential, or an expired
+         *         or revoked one, ``authenticated=False`` and the sign-in label only.
          */
         get: operations["get_session_info_api_auth_session_get"];
         put?: never;
@@ -1679,7 +3320,8 @@ export interface paths {
         };
         /**
          * Get Sessions
-         * @description Report the active sessions.
+         * @description Report the active sessions: a person's own, or all of them for whoever
+         *     governs accounts and for the master token.
          *
          *     Only a truncated prefix of each session id is included: enough to name a
          *     row for ``DELETE /api/auth/sessions/{sid_prefix}``, useless for forging
@@ -1689,8 +3331,8 @@ export interface paths {
          *         session: The authenticated session.
          *
          *     Returns:
-         *         Active session count, the caller's session id, and one entry per live
-         *         session with its address, birth, last activity and expiry.
+         *         The count, the caller's session id, and one entry per live session
+         *         with its address, birth, last activity and expiry.
          */
         get: operations["get_sessions_api_auth_sessions_get"];
         put?: never;
@@ -1712,7 +3354,8 @@ export interface paths {
         put?: never;
         /**
          * Revoke All Sessions
-         * @description Revoke every session, including the caller's.
+         * @description Revoke every session, including the caller's: a person's own sessions,
+         *     every session for the master token.
          *
          *     Args:
          *         request: The incoming request.
@@ -1744,7 +3387,8 @@ export interface paths {
          *
          *     The counterpart to "Sign out everywhere": an operator who notices an
          *     unrecognised session in the list wants every other session gone without
-         *     also being signed out of the tab they are looking at the list from.
+         *     also being signed out of the tab they are looking at the list from. A
+         *     person's own other sessions; every other one for the master token.
          *
          *     Args:
          *         request: The incoming request.
@@ -1780,9 +3424,10 @@ export interface paths {
          * Revoke One Session
          * @description Revoke exactly one session, named by a unique prefix of its id.
          *
-         *     Synchronous on purpose, like the two-factor handlers: the settings screen
-         *     calls this function directly, so there is one implementation of "revoke a
-         *     session" with one audit trail.
+         *     A person revokes their own sessions; whoever governs accounts, and the
+         *     master token, any session. Synchronous on purpose, like the two-factor
+         *     handlers: the settings screen calls this function directly, so there is
+         *     one implementation of "revoke a session" with one audit trail.
          *
          *     Args:
          *         sid_prefix: Leading characters of the session id, as listed by
@@ -1794,7 +3439,7 @@ export interface paths {
          *         A confirmation payload naming the revoked prefix.
          *
          *     Raises:
-         *         HTTPException: 404 when nothing matches the prefix.
+         *         HTTPException: 404 when nothing the caller may revoke matches the prefix.
          *         SecurityError: When the prefix is malformed or ambiguous, or names the
          *             caller's own session - ending the session you are inside is
          *             sign-out, which also clears the browser's cookies.
@@ -1814,13 +3459,17 @@ export interface paths {
         };
         /**
          * List Api Tokens
-         * @description List every API token ever issued, live and revoked alike.
+         * @description List the API tokens the caller may see, live and revoked alike: a
+         *     person's own, or every token for whoever governs accounts.
          *
          *     Args:
-         *         session: The authenticated session, admin scope required.
+         *         session: The authenticated session.
          *
          *     Returns:
          *         The records. No response from this endpoint carries a token.
+         *
+         *     Raises:
+         *         HTTPException: 403 for a credential that manages no tokens.
          */
         get: operations["list_api_tokens_api_auth_tokens_get"];
         put?: never;
@@ -1828,22 +3477,24 @@ export interface paths {
          * Create Api Token
          * @description Issue a named, scoped API token, returned in clear exactly once.
          *
+         *     A person's token belongs to them and acts with at most their role, checked
+         *     on every use. The master token's belongs to nobody until the first admin
+         *     account adopts it.
+         *
          *     Args:
          *         request: The incoming request.
-         *         body: Name, scope and optional expiry.
-         *         session: The authenticated session, admin scope required.
-         *         _elevated: Unused beyond the check it performs: a cookie session must
-         *             have called ``POST /api/auth/elevate`` recently (D5). Issuing a
-         *             token is a standing credential, the same category of action as
-         *             deleting something.
+         *         body: Name, scope, optional expiry, permissions and networks.
+         *         session: The authenticated session, elevated (D5): issuing a token is
+         *             a standing credential, the same category of action as deleting
+         *             something.
          *
          *     Returns:
          *         The record, including the one and only clear copy of the token.
          *
          *     Raises:
-         *         SecurityError: When the name is taken or the scope is not a scope. The
-         *             audit record names the token; the token itself never reaches the
-         *             audit log.
+         *         SecurityError: When the name is taken, the scope is not a scope, or a
+         *             permission, network or expiry is refused. The audit record names
+         *             the token; the token itself never reaches the audit log.
          *         HTTPException: 403 with ``error: "elevation_required"`` per
          *             :func:`noust.web.api.deps.require_elevated`.
          */
@@ -1868,16 +3519,18 @@ export interface paths {
          * Revoke Api Token
          * @description Revoke one API token. Requests presenting it stop authenticating at once.
          *
+         *     A person revokes their own tokens; whoever governs accounts, any.
+         *
          *     Args:
          *         token_id: The record's id, as listed by ``GET /api/auth/tokens``.
          *         request: The incoming request.
-         *         session: The authenticated session, admin scope required.
+         *         session: The authenticated session.
          *
          *     Returns:
          *         A confirmation payload naming the revoked token.
          *
          *     Raises:
-         *         HTTPException: 404 when no record has that id.
+         *         HTTPException: 404 when the caller has no token with that id.
          */
         delete: operations["revoke_api_token_api_auth_tokens__token_id__delete"];
         options?: never;
@@ -1929,8 +3582,9 @@ export interface paths {
          *     query string that proxies and access logs record.
          *
          *     Any credential may ask: a session, the master token or an API token. The
-         *     ticket redeems as that same credential, with its scope, and only while it
-         *     is still valid - see :meth:`noust.web.auth.TokenManager.consume_ws_ticket`.
+         *     ticket redeems as that same credential, with its permissions, and only
+         *     while it is still valid - see
+         *     :meth:`noust.web.auth.TokenManager.consume_ws_ticket`.
          *
          *     Args:
          *         request: The incoming request.
@@ -2076,6 +3730,10 @@ export interface paths {
          *
          *     Returns:
          *         The applications found, or that application's backups, newest first.
+         *
+         *     Raises:
+         *         HTTPException: 400 ``destination_unreachable`` when it cannot be
+         *             reached, with rclone's own words in ``output``.
          */
         get: operations["list_remote_backups_api_backup_destinations__name__backups_get"];
         put?: never;
@@ -2173,6 +3831,10 @@ export interface paths {
          *
          *     Returns:
          *         The top-level entries found there.
+         *
+         *     Raises:
+         *         HTTPException: 400 ``destination_unreachable`` when it cannot be
+         *             reached, with rclone's own words in ``output``.
          */
         post: operations["test_destination_api_backup_destinations__name__test_post"];
         delete?: never;
@@ -3477,6 +5139,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/backup-policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Policies
+         * @description List every backup policy, and the databases that have none.
+         *
+         *     Args:
+         *         engine: Engine to restrict the listing to.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The policies with their timers' state, and the unprotected databases.
+         */
+        get: operations["list_policies_api_databases_backup_policies_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/backup-policies/{engine}/{database}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Policy
+         * @description Read one database's backup policy.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         database: The database.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The policy; ``configured`` is false when the database has none.
+         */
+        get: operations["get_policy_api_databases_backup_policies__engine___database__get"];
+        /**
+         * Set Policy
+         * @description Create or replace a database's backup policy, and its timer.
+         *
+         *     Sudo mode: the policy is a root timer, and its retention decides which
+         *     dumps are thrown away.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         database: The database, which must exist.
+         *         request: The policy.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The policy as stored.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 when the database does not exist.
+         *         ValidationError: 400 for an unknown destination or an unusable value.
+         */
+        put: operations["set_policy_api_databases_backup_policies__engine___database__put"];
+        post?: never;
+        /**
+         * Remove Policy
+         * @description Remove a database's backup policy and its timer. Its dumps stay.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         database: The database.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The outcome; ``success`` is false when there was no policy.
+         */
+        delete: operations["remove_policy_api_databases_backup_policies__engine___database__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/backup-policies/{engine}/{database}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Policy
+         * @description Queue a run of a database's policy: a dump, its check, and the sends.
+         *
+         *     Unlike ``POST /backups``, which only takes a dump, this does everything
+         *     the timer does, retention included. A database with no policy still gets a
+         *     dump, checked, with nothing sent.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         database: The database.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job; its result names the dump and what each destination said.
+         */
+        post: operations["run_policy_api_databases_backup_policies__engine___database__run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/backups": {
         parameters: {
             query?: never;
@@ -3500,19 +5281,85 @@ export interface paths {
         put?: never;
         /**
          * Create Backup
-         * @description Dump a database.
+         * @description Queue a dump of a database.
          *
          *     Args:
          *         request: The backup request.
          *         session: The authenticated session.
          *
          *     Returns:
-         *         The new dump.
-         *
-         *     Raises:
-         *         DatabaseBackupError: When the dump fails.
+         *         The queued job; its result is the dump, as the listing describes it.
          */
         post: operations["create_backup_api_databases_backups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/backups/remote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Remote Backups
+         * @description List a database's dumps on a destination, newest first.
+         *
+         *     A live read of the destination (one rclone call, or two), so the answer is
+         *     what is there now, whoever put it there.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         database: The database.
+         *         destination: The destination.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The dumps, each with whether this server sent it and whether it is
+         *         also here.
+         *
+         *     Raises:
+         *         BackupError: When the destination cannot be listed.
+         */
+        get: operations["list_remote_backups_api_databases_backups_remote_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/backups/remote/databases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Remote Databases
+         * @description List the databases a destination holds dumps of, for one engine.
+         *
+         *     What a new server browses to restore a database it never dumped.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         destination: The destination.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The database names, sorted.
+         *
+         *     Raises:
+         *         BackupError: When the destination cannot be listed.
+         */
+        get: operations["list_remote_databases_api_databases_backups_remote_databases_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3530,29 +5377,220 @@ export interface paths {
         put?: never;
         /**
          * Restore Backup
-         * @description Restore a database from one of the engine's own dumps.
+         * @description Queue restoring one of the engine's own dumps, with sudo mode.
          *
-         *     The dump is named, not pathed: the file is resolved inside the engine's
-         *     backup directory, so the endpoint cannot be talked into reading
-         *     ``/etc/shadow`` as the database superuser.
-         *
-         *     Restoring overwrites whatever the target database currently holds - D5's
-         *     sudo mode list treats it the same as dropping a database, so a cookie
-         *     session has to confirm itself first; an admin-scoped Bearer credential is
-         *     exempt, per :func:`noust.web.api.deps.ensure_elevated`.
+         *     The dump is named, not pathed, and must exist before the job is queued.
          *
          *     Args:
          *         request: The restore request.
          *         session: The authenticated, elevated session.
          *
          *     Returns:
-         *         The action outcome.
+         *         The queued job.
          *
          *     Raises:
-         *         HTTPException: 404 when the named dump does not exist.
-         *         DatabaseBackupError: When the restore fails.
+         *         DatabaseBackupError: 404 when the named dump does not exist.
          */
         post: operations["restore_backup_api_databases_backups_restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/backups/restore-remote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Remote Backup
+         * @description Queue restoring a dump from a destination, with sudo mode.
+         *
+         *     The dump is downloaded, checked against the digest recorded when it was
+         *     sent and verified before anything is touched; replacing a database takes a
+         *     safety copy first and puts it back when the restore fails.
+         *
+         *     Args:
+         *         request: The restore request.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["restore_remote_backup_api_databases_backups_restore_remote_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/backups/suggest-name": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Suggest Restore Name
+         * @description Suggest a free name for restoring a dump as a new database.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         database: The database the dump is of.
+         *         backup_name: The dump, whose timestamp dates the name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         A name nothing uses yet, such as ``shop_restored_20260928``.
+         */
+        get: operations["suggest_restore_name_api_databases_backups_suggest_name_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/backups/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Backup
+         * @description Delete a dump from this server, or its copy from a destination.
+         *
+         *     Sudo mode. With ``destination`` only that copy goes (its folder is the
+         *     database's, so ``database`` names it); without, only the local file goes
+         *     and copies on destinations stay.
+         *
+         *     Args:
+         *         name: The dump's file name.
+         *         engine: The engine.
+         *         destination: The destination to delete from, when it is the copy.
+         *         database: The database, when deleting a copy.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The outcome.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 when the local dump does not exist.
+         *         ValidationError: 400 when a remote delete names no database.
+         */
+        delete: operations["delete_backup_api_databases_backups__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/backups/{name}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download Backup
+         * @description Download a dump, streamed from disk, with sudo mode.
+         *
+         *     A dump is the whole database: reading one is recorded as a sensitive read,
+         *     with the file's name and size. Only a dump in the engine's own backup
+         *     directory can be named; a path is never accepted.
+         *
+         *     Args:
+         *         name: The dump's file name.
+         *         engine: The engine.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The file, as an attachment.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 when the dump does not exist.
+         */
+        get: operations["download_backup_api_databases_backups__name__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/backups/{name}/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push Backup
+         * @description Queue sending a dump to a destination, after checking it.
+         *
+         *     A dump that fails its check is not sent. The destination keeps its own
+         *     encryption.
+         *
+         *     Args:
+         *         name: The dump's file name.
+         *         request: The engine and the destination.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 when the dump does not exist.
+         *         ValidationError: 400 when the destination does not exist.
+         */
+        post: operations["push_backup_api_databases_backups__name__push_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/backups/{name}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Backup
+         * @description Queue checking a dump: size, digest, and the engine's own reading of it.
+         *
+         *     Args:
+         *         name: The dump's file name.
+         *         request: The engine, and whether to also test-restore it.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job; its result is the dump with its evidence.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 when the dump does not exist.
+         */
+        post: operations["verify_backup_api_databases_backups__name__verify_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3586,6 +5624,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/console/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Console History
+         * @description List the statements this operator ran, newest first.
+         *
+         *     Args:
+         *         session: The authenticated session; its operator's history only.
+         *         engine: Only this engine's.
+         *         database: Only this database's.
+         *         limit: Most entries returned.
+         *
+         *     Returns:
+         *         The history.
+         */
+        get: operations["console_history_api_databases_console_history_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Clear Console History
+         * @description Forget statements this operator ran.
+         *
+         *     Args:
+         *         session: The authenticated session; its operator's history only.
+         *         engine: Only this engine's.
+         *         database: Only this database's.
+         *
+         *     Returns:
+         *         How many were forgotten.
+         */
+        delete: operations["clear_console_history_api_databases_console_history_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/console/saved": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Saved Queries
+         * @description List this operator's saved queries.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         engine: Only this engine's.
+         *         database: Only those for this database, or for any database.
+         *
+         *     Returns:
+         *         The saved queries.
+         */
+        get: operations["list_saved_queries_api_databases_console_saved_get"];
+        put?: never;
+        /**
+         * Save Query
+         * @description Keep a statement under a name.
+         *
+         *     Args:
+         *         request: The name, the statement and what it is for.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The saved query, its statement scrubbed of quoted secrets.
+         *
+         *     Raises:
+         *         DatabaseExistsError: 409 when the operator has one with that name.
+         */
+        post: operations["save_query_api_databases_console_saved_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/console/saved/{saved_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update Saved Query
+         * @description Change one of this operator's saved queries.
+         *
+         *     Args:
+         *         saved_id: Its id.
+         *         request: Its new name, statement and target.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The saved query.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 when the operator has none with that id.
+         */
+        put: operations["update_saved_query_api_databases_console_saved__saved_id__put"];
+        post?: never;
+        /**
+         * Delete Saved Query
+         * @description Delete one of this operator's saved queries.
+         *
+         *     Args:
+         *         saved_id: Its id.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The outcome.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 when the operator has none with that id.
+         */
+        delete: operations["delete_saved_query_api_databases_console_saved__saved_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/databases": {
         parameters: {
             query?: never;
@@ -3595,20 +5761,21 @@ export interface paths {
         };
         /**
          * List Databases
-         * @description List databases across the running engines.
+         * @description List databases across the running engines, joined with the store.
          *
          *     Args:
          *         engine: Engine to restrict the listing to.
          *         session: The authenticated session.
          *
          *     Returns:
-         *         Every database the running engines report.
+         *         Every database the running engines report, and the tracked ones
+         *         they no longer have (``missing``).
          */
         get: operations["list_databases_api_databases_databases_get"];
         put?: never;
         /**
          * Create Database
-         * @description Create a database.
+         * @description Create a database and record it in the store.
          *
          *     Args:
          *         request: The create request.
@@ -3621,6 +5788,33 @@ export interface paths {
          *         DatabaseExistsError: When the database already exists.
          */
         post: operations["create_database_api_databases_databases_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/adopt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adopt Databases
+         * @description Record every database the engines hold and Noust does not track.
+         *
+         *     Args:
+         *         request: Optionally, one engine.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The databases adopted.
+         */
+        post: operations["adopt_databases_api_databases_databases_adopt_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3644,7 +5838,7 @@ export interface paths {
          *         session: The authenticated session.
          *
          *     Returns:
-         *         The database description.
+         *         The database.
          *
          *     Raises:
          *         DatabaseNotFoundError: When no such database exists.
@@ -3654,21 +5848,521 @@ export interface paths {
         post?: never;
         /**
          * Drop Database
-         * @description Drop a database.
+         * @description Queue dropping a database, after its last dump, with sudo mode.
+         *
+         *     A job: the last dump can take longer than a request may, and a central's
+         *     proxy cuts a request at 300 seconds. A database an application uses is
+         *     refused by the job unless ``unlink`` is set.
          *
          *     Args:
          *         engine: Engine name.
          *         name: Database name.
-         *         force: Disconnect open sessions before dropping.
+         *         session: The authenticated, elevated session.
+         *         force: Disconnect open sessions first.
+         *         keep_backup: Dump it first.
+         *         unlink: Remove its variables from the applications using it.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        delete: operations["drop_database_api_databases_databases__engine___name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Access
+         * @description List who can reach a database, with each account's profile.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         name: Database name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The accounts.
+         */
+        get: operations["list_access_api_databases_databases__engine___name__access_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/access/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Profile
+         * @description Give an account one access profile on a database.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         name: Database name.
+         *         username: The account.
+         *         request: The profile.
          *         session: The authenticated session.
          *
          *     Returns:
          *         The action outcome.
+         */
+        put: operations["set_profile_api_databases_databases__engine___name__access__username__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/connect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Connect
+         * @description Build the Connect tab: from the application, from a computer, exposure.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         name: Database name.
+         *         session: The authenticated session.
+         *         username: The account; the provisioned one by default.
+         *         server: This server's address as the operator reaches it.
+         *         ssh_user: The SSH account.
+         *         local_port: The local end of the tunnel.
+         *
+         *     Returns:
+         *         The connection information. No password is in it.
+         */
+        get: operations["get_connect_api_databases_databases__engine___name__connect_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/fix-owner": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Fix Owner
+         * @description Show what giving a PostgreSQL database to its application's role changes.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         name: Database name.
+         *         session: The authenticated session.
+         *         owner: The role; the provisioned one by default.
+         *
+         *     Returns:
+         *         The plan, not applied.
+         */
+        get: operations["preview_fix_owner_api_databases_databases__engine___name__fix_owner_get"];
+        put?: never;
+        /**
+         * Apply Fix Owner
+         * @description Give a PostgreSQL database, and what its owner holds in it, to another role.
+         *
+         *     Explicit and with sudo mode: nothing changes a database's owner on its
+         *     own. Run it again with the previous owner to put it back.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         name: Database name.
+         *         request: The role.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The plan, applied.
+         */
+        post: operations["apply_fix_owner_api_databases_databases__engine___name__fix_owner_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/forget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Forget Database
+         * @description Forget a tracked database the engine no longer has, with sudo mode.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         name: Database name.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The action outcome.
+         */
+        post: operations["forget_database_api_databases_databases__engine___name__forget_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Key
+         * @description Read a bounded preview of one key.
+         *
+         *     Args:
+         *         engine: The engine (Redis or Valkey).
+         *         name: The slot number.
+         *         session: The authenticated session.
+         *         key: The key, as text.
+         *         hex: The key's exact bytes, for a key that is not UTF-8.
+         *
+         *     Returns:
+         *         The preview.
+         */
+        get: operations["preview_key_api_databases_databases__engine___name__key_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Scan Keys
+         * @description Scan one page of a Redis slot's keys, with each key's type, TTL and memory.
+         *
+         *     Args:
+         *         engine: The engine (Redis or Valkey).
+         *         name: The slot number.
+         *         session: The authenticated session.
+         *         match: Only keys matching this glob.
+         *         cursor: Where to continue.
+         *         count: Keys to scan.
+         *         type: Only keys of this type.
+         *
+         *     Returns:
+         *         The page.
+         */
+        get: operations["scan_keys_api_databases_databases__engine___name__keys_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Database Metrics
+         * @description Read a database's size, connections, cache hits and biggest tables.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         name: The database.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The metrics.
+         */
+        get: operations["database_metrics_api_databases_databases__engine___name__metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Database Overview
+         * @description Everything the database page's Overview shows.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         name: Database name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The overview.
+         */
+        get: operations["get_database_overview_api_databases_databases__engine___name__overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/relation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Describe Relation
+         * @description Describe a relation: columns and types, primary key, indexes, constraints.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         name: The database.
+         *         session: The authenticated session.
+         *         schema: The schema.
+         *         relation: The relation.
+         *
+         *     Returns:
+         *         Its structure.
+         */
+        get: operations["describe_relation_api_databases_databases__engine___name__relation_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/relations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Relations
+         * @description List a database's tables and views, with estimated rows and sizes.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         name: The database.
+         *         session: The authenticated session.
+         *         schema: Only this schema's.
+         *         q: Only those whose name contains this, ignoring case.
+         *         kind: Only this kind.
+         *
+         *     Returns:
+         *         The relations.
+         */
+        get: operations["list_relations_api_databases_databases__engine___name__relations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/rows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Rows
+         * @description Read one page of a relation's rows, typed, as the read-only account.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         name: The database.
+         *         session: The authenticated session.
+         *         schema: The schema.
+         *         relation: The relation.
+         *         limit: Rows per page.
+         *         offset: Rows to skip (offset pagination).
+         *         cursor: A previous page's ``next_cursor`` (keyset pagination).
+         *         order: Sort columns; the primary key when none.
+         *         filter: Conditions, all of which a row must meet.
+         *         count: Also count every matching row (bounded by the timeout).
+         *         timeout_s: Seconds the server may spend.
+         *
+         *     Returns:
+         *         The page.
+         */
+        get: operations["read_rows_api_databases_databases__engine___name__rows_get"];
+        put?: never;
+        /**
+         * Insert Row
+         * @description Insert one row into a table that has a primary key.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         name: The database.
+         *         request: The table and the values.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         What changed.
+         */
+        post: operations["insert_row_api_databases_databases__engine___name__rows_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Row
+         * @description Change one row, found by its whole primary key.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         name: The database.
+         *         request: The table, the row's key and the new values.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         What changed: the row before and after.
          *
          *     Raises:
-         *         DatabaseNotFoundError: When no such database exists.
+         *         DatabaseNotFoundError: 404 when no row has that key; nothing changes.
          */
-        delete: operations["drop_database_api_databases_databases__engine___name__delete"];
+        patch: operations["update_row_api_databases_databases__engine___name__rows_patch"];
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/rows/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Delete Row
+         * @description Delete one row, found by its whole primary key.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         name: The database.
+         *         request: The table and the row's key.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         What changed: the row as it was.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: 404 when no row has that key; nothing changes.
+         */
+        post: operations["delete_row_api_databases_databases__engine___name__rows_delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/schemas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Schemas
+         * @description List a database's schemas, as its read-only account sees them.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         name: The database.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The schemas, with how many relations each holds.
+         */
+        get: operations["list_schemas_api_databases_databases__engine___name__schemas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/databases/{engine}/{name}/slow-queries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Slow Queries
+         * @description List a database's slowest statements, or say how to turn their statistics on.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         name: The database.
+         *         session: The authenticated session.
+         *         limit: Statements listed.
+         *
+         *     Returns:
+         *         The statements, or why there are none.
+         */
+        get: operations["slow_queries_api_databases_databases__engine___name__slow_queries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3692,6 +6386,33 @@ export interface paths {
          *         The engines.
          */
         get: operations["list_engines_api_databases_engines_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/engines/{engine}/exposure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Engine Exposure
+         * @description Report where one engine listens and whether its port is open.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The engine's listen setting and exposed ports.
+         */
+        get: operations["get_engine_exposure_api_databases_engines__engine__exposure_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3760,6 +6481,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/engines/{engine}/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Engine Metrics
+         * @description Read an engine's connections, cache hits and per-database sizes.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The metrics.
+         */
+        get: operations["engine_metrics_api_databases_engines__engine__metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/engines/{engine}/privileges": {
         parameters: {
             query?: never;
@@ -3772,9 +6520,7 @@ export interface paths {
          * @description List the privileges an engine's grant dialog may offer.
          *
          *     The manager's own whitelist is the one definition of what Noust will
-         *     grant - see :data:`noust.managers.database.base.BaseDatabaseManager.VALID_PRIVILEGES` -
-         *     so the console reads it from here instead of keeping its own copy that
-         *     could drift.
+         *     grant, so the console reads it from here instead of keeping a copy.
          *
          *     Args:
          *         engine: Engine name.
@@ -3911,12 +6657,9 @@ export interface paths {
         put?: never;
         /**
          * Uninstall Engine
-         * @description Queue the removal of an engine.
+         * @description Queue the removal of an engine, with sudo mode.
          *
-         *     Removing an engine can take every database it hosts with it - D5's sudo
-         *     mode list treats it the same as dropping a single database, so a cookie
-         *     session has to confirm itself first; an admin-scoped Bearer credential is
-         *     exempt, per :func:`noust.web.api.deps.ensure_elevated`.
+         *     Removing an engine can take every database it hosts with it.
          *
          *     Args:
          *         engine: Engine name.
@@ -3927,6 +6670,64 @@ export interface paths {
          *         The queued job.
          */
         post: operations["uninstall_engine_api_databases_engines__engine__uninstall_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/exposure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Exposure
+         * @description List every database port reachable from beyond this machine.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The exposed ports, Docker's published ones included.
+         */
+        get: operations["get_exposure_api_databases_exposure_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/provisioning/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Provisioning Plan
+         * @description Say what creating a database for an application would write.
+         *
+         *     For the New-application wizard's Database step, before the application
+         *     exists: nothing is created. Once it is deployed, ``POST
+         *     /api/apps/{domain}/databases`` creates the database and links it.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         domain: The application's domain.
+         *         engine: The engine.
+         *
+         *     Returns:
+         *         The plan.
+         */
+        get: operations["provisioning_plan_api_databases_provisioning_plan_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3946,9 +6747,6 @@ export interface paths {
          * Execute Query
          * @description Run one statement against a database.
          *
-         *     Read-only unless the body says ``mode="write"``. See the module docstring
-         *     for why the endpoint exists at all and what it refuses.
-         *
          *     Args:
          *         request: The query request.
          *         http_request: The incoming request, for the audit record of a write
@@ -3956,16 +6754,80 @@ export interface paths {
          *         session: The authenticated session.
          *
          *     Returns:
-         *         The engine's output, truncated to ``max_rows`` lines.
+         *         The result: the engine's output, truncated to ``max_rows`` lines,
+         *         and its rows, at most ``row_limit``.
          *
          *     Raises:
-         *         DatabaseQueryError: When the statement is empty, is more than one
-         *             statement, or is not a read in read mode.
-         *         HTTPException: 403 with ``error: "elevation_required"`` when a write
-         *             is attempted from a cookie session that has not confirmed
-         *             recently. See D5: a read needs only the session's own scope.
+         *         DatabaseQueryError: When the statement is empty, too long, more than
+         *             one statement in read mode, or asks for read mode on an engine
+         *             whose server cannot hold a session read-only.
+         *         HTTPException: 403 ``permission_denied`` for a write without
+         *             ``databases.write`` (and ``root_equivalent`` under the ENS
+         *             profile); 403 ``elevation_required`` for a write from a session
+         *             that has not confirmed recently.
          */
         post: operations["execute_query_api_databases_query_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/query/explain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Explain Query
+         * @description Show how the engine would run a statement.
+         *
+         *     Args:
+         *         request: The statement and whether to analyze it.
+         *         http_request: The incoming request.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan.
+         *
+         *     Raises:
+         *         HTTPException: 403 when ``analyze`` lacks what a write needs.
+         */
+        post: operations["explain_query_api_databases_query_explain_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/query/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Export Query
+         * @description Run a read again and download its whole result, up to ``row_limit`` rows.
+         *
+         *     Only reads are exported: exporting runs the statement a second time, and
+         *     a write must never run twice.
+         *
+         *     Args:
+         *         request: The statement and the format.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The file, as an attachment.
+         */
+        post: operations["export_query_api_databases_query_export_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3983,17 +6845,14 @@ export interface paths {
         put?: never;
         /**
          * Create User
-         * @description Create a database user.
+         * @description Create a database user, optionally with a profile on one database.
          *
          *     Args:
          *         request: The create request.
          *         session: The authenticated session.
          *
          *     Returns:
-         *         The user and its password, which is shown exactly once.
-         *
-         *     Raises:
-         *         DatabaseUserError: When the engine refuses the user.
+         *         The user and its password, shown this once.
          */
         post: operations["create_user_api_databases_users_post"];
         delete?: never;
@@ -4023,9 +6882,6 @@ export interface paths {
          *
          *     Returns:
          *         The action outcome.
-         *
-         *     Raises:
-         *         DatabaseUserError: When a privilege is not on the engine's whitelist.
          */
         post: operations["grant_privileges_api_databases_users_grant_post"];
         delete?: never;
@@ -4053,9 +6909,6 @@ export interface paths {
          *
          *     Returns:
          *         The action outcome.
-         *
-         *     Raises:
-         *         DatabaseUserError: When a privilege is not on the engine's whitelist.
          */
         post: operations["revoke_privileges_api_databases_users_revoke_post"];
         delete?: never;
@@ -4073,7 +6926,7 @@ export interface paths {
         };
         /**
          * List Users
-         * @description List the users of an engine.
+         * @description List the users of an engine, internal ones marked.
          *
          *     Args:
          *         engine: Engine name.
@@ -4103,21 +6956,81 @@ export interface paths {
         post?: never;
         /**
          * Delete User
-         * @description Delete a database user.
+         * @description Delete a database user, with sudo mode.
+         *
+         *     Refused for an internal account and for one an application signs in as.
          *
          *     Args:
          *         engine: Engine name.
          *         username: User to delete.
          *         host: Host restriction the user was created with.
-         *         session: The authenticated session.
+         *         session: The authenticated, elevated session.
          *
          *     Returns:
          *         The action outcome.
-         *
-         *     Raises:
-         *         DatabaseUserError: When the engine refuses the deletion.
          */
         delete: operations["delete_user_api_databases_users__engine___username__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/users/{engine}/{username}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate Password
+         * @description Queue a password rotation, with sudo mode.
+         *
+         *     A job, because each application that signs in as the account restarts
+         *     behind its gate. The new password is kept in Noust's secret store; read
+         *     it with ``POST .../password/reveal``.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         username: The account; ``default`` for Redis's ``requirepass``.
+         *         request: Whether to give it to the applications.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["rotate_password_api_databases_users__engine___username__password_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/users/{engine}/{username}/password/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reveal Password
+         * @description Show the password Noust keeps for an account, with sudo mode, audited.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         username: The account.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The password.
+         */
+        post: operations["reveal_password_api_databases_users__engine___username__password_reveal_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -4241,6 +7154,588 @@ export interface paths {
          *         What it resolves to, compared with this server's addresses.
          */
         get: operations["get_bare_dns_api_domains_dns_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ens/access-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ens Access Review
+         * @description Build the list of who may do what, for the periodic review.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The list, its digest and the past attestations.
+         */
+        get: operations["ens_access_review_api_ens_access_review_get"];
+        put?: never;
+        /**
+         * Ens Access Review Attest
+         * @description Attest the list, as it was shown (the security officer's).
+         *
+         *     Args:
+         *         body: The digest of the list reviewed, and notes.
+         *         request: The request.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         What was recorded.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the list changed since it was shown.
+         */
+        post: operations["ens_access_review_attest_api_ens_access_review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ens/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ens Check
+         * @description Compare this server with the ens-medium profile, check by check.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: Authenticated session, injected.
+         *         refresh: Probe the hardening checks again.
+         *
+         *     Returns:
+         *         The findings, their counts and verdict, and the op.mon.2 indicators.
+         */
+        get: operations["ens_check_api_ens_check_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ens/incident": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ens Incident
+         * @description Say whether the console is locked down for an incident.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The lockdown, if any.
+         */
+        get: operations["ens_incident_api_ens_incident_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ens/inventory": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ens Inventory
+         * @description List the inventory, or export it as CSV.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *         format: ``json`` or ``csv`` (a download).
+         *
+         *     Returns:
+         *         Every application with its owner, criticality and classification.
+         */
+        get: operations["ens_inventory_api_ens_inventory_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ens/inventory/{domain}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Ens Inventory Update
+         * @description Change an application's owner, criticality, classification or notes.
+         *
+         *     Args:
+         *         domain: The application.
+         *         body: The fields to change; absent ones are kept, empty ones cleared.
+         *         request: The request.
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The entry as it is now.
+         */
+        put: operations["ens_inventory_update_api_ens_inventory__domain__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ens/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ens Profile
+         * @description Say which profile is on, and every value ens-medium fixes.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *
+         *     Returns:
+         *         The profile and the baseline.
+         */
+        get: operations["ens_profile_api_ens_profile_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/ens/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ens Report
+         * @description Build the evidence report for an ENS auditor.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: Authenticated session, injected.
+         *         refresh: Probe the hardening checks again.
+         *         format: ``json`` (the report and its SHA-256) or ``markdown`` (a
+         *             download).
+         *
+         *     Returns:
+         *         The report, or its Markdown rendering as an attachment.
+         */
+        get: operations["ens_report_api_ens_report_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/actions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Actions
+         * @description Describe the bulk actions: what each uses on a node, and its defaults.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         ``actions``: each with ``name``, ``title``, ``operations``, ``serial``
+         *         and ``max_failures``.
+         */
+        get: operations["list_actions_api_fleet_actions_get"];
+        put?: never;
+        /**
+         * Run Action
+         * @description Plan a bulk action, and run it as a job unless ``plan`` is set.
+         *
+         *     Args:
+         *         request: The request.
+         *         body: The action, its servers, its strategy and options.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan and, when it runs, the job. Poll the job, or
+         *         ``GET /api/fleet/jobs/{id}`` for every server's state and words.
+         *
+         *     Raises:
+         *         ValidationError: An unknown action, option or server, or nothing to run.
+         */
+        post: operations["run_action_api_fleet_actions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Activity
+         * @description What happened lately on every server, newest first.
+         *
+         *     Each server's audit log decides what this operator may read of it: a
+         *     server that does not let the operator's role read its audit log is
+         *     ``forbidden``, not an error.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *         limit: Events per server.
+         *
+         *     Returns:
+         *         One row per event.
+         */
+        get: operations["fleet_activity_api_fleet_activity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Apps
+         * @description Every application of every server, as each server lists it.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per application, with its server and its page there.
+         */
+        get: operations["fleet_apps_api_fleet_apps_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Backups
+         * @description Every application's backups, the gaps first: none, old, unverified, unscheduled.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per application: its newest backup, whether it verified, its schedule.
+         */
+        get: operations["fleet_backups_api_fleet_backups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/certificates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Certificates
+         * @description Every certificate of every server, the soonest to expire first.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per certificate.
+         */
+        get: operations["fleet_certificates_api_fleet_certificates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Jobs
+         * @description List the fleet jobs, newest first.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         limit: How many.
+         *
+         *     Returns:
+         *         ``jobs``: each with its action, status, request and a count per state.
+         */
+        get: operations["list_jobs_api_fleet_jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Fleet Job
+         * @description Describe one fleet job, with every server's state and words.
+         *
+         *     Args:
+         *         job_id: The job.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The job: ``status`` (``running``, ``succeeded``, ``failed``,
+         *         ``aborted``, ``interrupted``), ``summary`` and ``nodes``.
+         *
+         *     Raises:
+         *         HTTPException: 404 for an unknown job.
+         */
+        get: operations["get_fleet_job_api_fleet_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/jobs/{job_id}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry Job
+         * @description Run a job again on its servers that did not get done.
+         *
+         *     Args:
+         *         job_id: The job.
+         *         request: The request.
+         *         session: The authenticated session.
+         *         plan: Only plan it.
+         *
+         *     Returns:
+         *         The plan and, unless planning, the new job.
+         */
+        post: operations["retry_job_api_fleet_jobs__job_id__retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/servers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Servers
+         * @description Every server: whether it answers, its version, access ceiling and labels.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per server.
+         */
+        get: operations["fleet_servers_api_fleet_servers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/servers/{node}/labels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Labels
+         * @description Set a server's labels, replacing the ones it had.
+         *
+         *     Labels are this central's own grouping (``env=prod``) for aiming actions;
+         *     the server never sees them.
+         *
+         *     Args:
+         *         node: The server.
+         *         body: Its labels.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its labels now.
+         */
+        put: operations["set_labels_api_fleet_servers__node__labels_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Summary
+         * @description Every server at a glance: reachability, version, its overview and its machine.
+         *
+         *     Each row carries the server's own ``overview`` (``GET /api/overview``),
+         *     ``server`` summary (``GET /api/server/summary``) and ``machine`` snapshot,
+         *     verbatim, plus the counts ``noust fleet status`` prints. A node too old to
+         *     offer the overview is ``unsupported`` and still shows what it has.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per server.
+         */
+        get: operations["fleet_summary_api_fleet_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fleet Updates
+         * @description Every server's Noust and operating system updates.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The authenticated session.
+         *         node: Only these servers.
+         *         refresh: Ask again.
+         *
+         *     Returns:
+         *         One row per server: installed and available Noust, how it updates, the
+         *         last self-update, and the pending operating system updates.
+         */
+        get: operations["fleet_updates_api_fleet_updates_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4790,15 +8285,56 @@ export interface paths {
         };
         /**
          * List Metrics
-         * @description Name every metric that has data.
+         * @description Name every metric that has data, and say whether history is being recorded.
          *
          *     Args:
          *         session: Authenticated session, injected.
          *
          *     Returns:
-         *         The metric names and the windows they can be asked over.
+         *         The metric names, the windows a range read accepts, where the history
+         *         lives and whether a collector is recording it.
          */
         get: operations["list_metrics_api_metrics_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/metrics/query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Query Metrics
+         * @description Read several metrics over a window or a range, as one grid.
+         *
+         *     The tier is the finest whose retention reaches back to the start of the
+         *     range; the response says which it read. The grid covers exactly
+         *     ``[from, to]``, with nulls where nothing was recorded.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *         metric: The metrics, at most 40.
+         *         window: A named window ending now; ignored when ``from`` and ``to`` are
+         *             both given.
+         *         from_: Start of an explicit range, for a zoom.
+         *         to: End of an explicit range.
+         *         step: Seconds per cell.
+         *
+         *     Returns:
+         *         The grid and the series.
+         *
+         *     Raises:
+         *         ValidationError: When only one of ``from`` and ``to`` is given, or the
+         *             range, step or metric list is not acceptable.
+         */
+        get: operations["query_metrics_api_metrics_query_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4818,6 +8354,9 @@ export interface paths {
          * Metric History
          * @description Read one metric over a named window, oldest point first.
          *
+         *     The read the console used before ``/query``: the means of the recorded
+         *     cells, without the gaps. Kept until the console reads ranges.
+         *
          *     Args:
          *         metric: Metric name, e.g. ``cpu.percent`` or
          *             ``app.example.com.mem.bytes``.
@@ -4826,10 +8365,10 @@ export interface paths {
          *             is refused by validation before this runs.
          *
          *     Returns:
-         *         The metric, the window, the resolution the points are spaced at, and
-         *         ``[ts, value]`` pairs. A metric nothing has recorded returns an empty
-         *         list rather than a 404: "no data yet" is a normal chart state, not a
-         *         missing resource.
+         *         The metric, the window, the tier the points were read from (``raw``,
+         *         ``minute``, ``10m`` or ``hour``) and ``[ts, value]`` pairs. A metric
+         *         nothing has recorded returns an empty list rather than a 404: "no data
+         *         yet" is a normal chart state, not a missing resource.
          */
         get: operations["metric_history_api_metrics__metric__get"];
         put?: never;
@@ -5438,6 +8977,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Overview
+         * @description Answer the six key figures, what needs attention and what happened lately.
+         *
+         *     Args:
+         *         session: Authenticated session, injected.
+         *         spark: Include the last hour of CPU and memory: what a fleet view draws
+         *             as a thumbnail per server.
+         *
+         *     Returns:
+         *         The Overview.
+         */
+        get: operations["overview_api_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recipes": {
         parameters: {
             query?: never;
@@ -5486,6 +9053,1654 @@ export interface paths {
          *         HTTPException: 404 when no recipe has that name.
          */
         get: operations["get_recipe_detail_api_recipes__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/capabilities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Capabilities
+         * @description Say what this machine can do, so a tab degrades with a message.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Which package manager drives updates, whether updates and their
+         *         security subset are managed here, whether the system is transactional or
+         *         a container, whether systemd runs, whether swap can be made and whether
+         *         Docker is installed.
+         */
+        get: operations["get_capabilities_api_server_capabilities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Identity
+         * @description Describe what the machine is called and what it runs.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The host name and whether cloud-init would rename it back, the operating
+         *         system and where it is in its support (from a table shipped with Noust,
+         *         no network), the kernel, the uptime and the load.
+         */
+        get: operations["get_identity_api_server_identity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/identity/hostname": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change Hostname
+         * @description Rename the machine.
+         *
+         *     Args:
+         *         body: The new name, and whether to tell cloud-init to keep it.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         One sentence per thing done, including a warning when cloud-init would
+         *         set the name back on the next boot.
+         *
+         *     Raises:
+         *         ValidationError: The name is not a valid host name (400).
+         *         ServerError: hostnamectl refused, carrying its output.
+         */
+        put: operations["change_hostname_api_server_identity_hostname_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Journal
+         * @description Read the journal.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         unit: A unit name; every unit when omitted.
+         *         priority: A level (``err``) or 0 to 7; it and everything more serious is shown.
+         *         since: ``2026-09-29``, ``2026-09-29 10:30`` or ``-30min``, ``-2h``, ``-7d``.
+         *         until: The same forms.
+         *         lines: How many entries, at most 1000.
+         *         q: Keep only entries whose message contains this, ignoring case.
+         *         boot: 0 for this boot, -1 for the one before.
+         *         kernel: Only the kernel's messages.
+         *         cursor: Continue after the ``next_cursor`` of a previous read.
+         *
+         *     Returns:
+         *         The entries oldest first, the cursor to continue from and whether there
+         *         were more than asked for.
+         *
+         *     Raises:
+         *         ValidationError: A filter is not valid (400).
+         *         ServerError: journalctl failed, carrying its output.
+         */
+        get: operations["read_journal_api_server_logs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/logs/boots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Boots
+         * @description List the boots the journal remembers.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The boots. One at most when the journal is volatile.
+         */
+        get: operations["list_boots_api_server_logs_boots_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/logs/units": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Journal Units
+         * @description List the units the journal can be read for, the failed ones first.
+         *
+         *     The listing is :meth:`ServiceManager.list_services` with every unit on the
+         *     machine, the one implementation of that.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The units, failed first and then by name.
+         */
+        get: operations["list_journal_units_api_server_logs_units_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/power": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Power
+         * @description Say what is scheduled and what a reboot would break.
+         *
+         *     Runs the checks, which ask systemd about the console and the applications, so
+         *     it is meant for the moment somebody is about to reboot, not for polling.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The schedule, the boot's identity and the checks, each ``ok`` or ``warn``.
+         */
+        get: operations["get_power_api_server_power_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/power/reboot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Schedule Reboot
+         * @description Schedule a reboot.
+         *
+         *     Args:
+         *         body: When, and whether to go ahead although a check warned.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The schedule. In one minute when the request gave no time.
+         *
+         *     Raises:
+         *         ValidationError: The time is in the past, more than a week away, or not a
+         *             time (400).
+         *         PreflightError: A check warned and ``force`` was not given (409, with the
+         *             warnings in ``blockers``).
+         *         ServerError: ``shutdown`` refused, carrying its output.
+         */
+        post: operations["schedule_reboot_api_server_power_reboot_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/power/scheduled": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Cancel Scheduled
+         * @description Cancel the pending reboot or shutdown.
+         *
+         *     Not elevated: cancelling is the safe direction, and the operator who sees a
+         *     reboot they did not want should not have to confirm anything first.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Whether there was something to cancel.
+         *
+         *     Raises:
+         *         ServerError: ``shutdown -c`` failed although something was scheduled.
+         */
+        delete: operations["cancel_scheduled_api_server_power_scheduled_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/power/shutdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Schedule Shutdown
+         * @description Schedule a shutdown.
+         *
+         *     A powered-off VPS cannot be started from Noust, only from the provider's
+         *     panel, so the host name has to be typed. A central needs the node's explicit
+         *     permission to change the host itself before it can call this.
+         *
+         *     Args:
+         *         body: When, the host name typed to confirm, and whether to go ahead
+         *             although a check warned.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The schedule.
+         *
+         *     Raises:
+         *         ValidationError: The host name does not match, or the time is not valid (400).
+         *         PreflightError: A check warned and ``force`` was not given (409).
+         */
+        post: operations["schedule_shutdown_api_server_power_shutdown_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/processes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Processes
+         * @description List the processes, or add them up by the unit they belong to.
+         *
+         *     Observation only: nothing here signals a process. Command lines are left out
+         *     unless the credential may read them, because argv carries other people's
+         *     secrets.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         sort_by: ``cpu``, ``memory``, ``pid`` or ``name``.
+         *         limit: How many processes to return.
+         *         group: ``unit`` to add the processes up by unit instead.
+         *
+         *     Returns:
+         *         The processes and, with ``group=unit``, the units, biggest memory user first.
+         *
+         *     Raises:
+         *         ValidationError: ``group`` is not ``unit`` (400).
+         */
+        get: operations["get_processes_api_server_processes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Overview
+         * @description The Security tab's summary, from the last checks; never probes.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Counts, open findings and pending changes; ``checked_at`` is null
+         *         before the first run.
+         */
+        get: operations["get_overview_api_server_security_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Changes
+         * @description Every change to sshd and the firewall, newest first; the pending ones wait for confirmation.
+         *
+         *     Reading undoes any change whose timer was lost (a reboot inside its window).
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The changes.
+         */
+        get: operations["get_changes_api_server_security_changes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/changes/{change_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Change
+         * @description Keep a pending change, once a new SSH login since it was applied is on record.
+         *
+         *     Args:
+         *         change_id: The change.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The confirmed change; 400 ``accessguarderror`` when no new login was seen yet.
+         */
+        post: operations["confirm_change_api_server_security_changes__change_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/changes/{change_id}/revert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revert Change
+         * @description Undo a pending change now.
+         *
+         *     Args:
+         *         change_id: The change.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The reverted change.
+         */
+        post: operations["revert_change_api_server_security_changes__change_id__revert_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Checks
+         * @description Every hardening check, from the last run, or now when there is none or ``refresh``.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         refresh: Run them again.
+         *
+         *     Returns:
+         *         The checks.
+         */
+        get: operations["get_checks_api_server_security_checks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/checks/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Checks
+         * @description Run every check again, as a job: the package manager's part takes seconds.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job; ``GET /checks`` answers from its result once it ends.
+         */
+        post: operations["refresh_checks_api_server_security_checks_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/checks/{check_id}/fix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Fix Check
+         * @description Apply a check's automatic fix; an access change then waits for confirmation.
+         *
+         *     Args:
+         *         check_id: The check.
+         *         body: ``epel`` confirms enabling EPEL (fail2ban on RHEL rebuilds).
+         *         request: The request.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 for an unknown check.
+         */
+        post: operations["fix_check_api_server_security_checks__check_id__fix_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/fail2ban": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Fail2Ban
+         * @description fail2ban: whether it runs, its jails and bans, and how it would be installed.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The fail2ban view.
+         */
+        get: operations["get_fail2ban_api_server_security_fail2ban_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/fail2ban/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install Fail2Ban
+         * @description Install fail2ban with an sshd jail that never bans who is connected now.
+         *
+         *     On RHEL rebuilds it comes from EPEL: without ``epel`` the answer is 409
+         *     ``confirmation_required`` with ``required.epel``, and nothing changes.
+         *
+         *     Args:
+         *         body: ``epel`` confirms enabling EPEL.
+         *         request: The request.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["install_fail2ban_api_server_security_fail2ban_install_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/fail2ban/unban": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unban Address
+         * @description Lift a fail2ban ban.
+         *
+         *     Args:
+         *         body: The address, and optionally the jail.
+         *         request: The request.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["unban_address_api_server_security_fail2ban_unban_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/firewall": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Firewall
+         * @description The firewall and its rules, every port that answers with its verdict, and what is protected.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The firewall view.
+         */
+        get: operations["get_firewall_api_server_security_firewall_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/firewall/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable Firewall
+         * @description Turn the firewall off; it comes back on unless confirmed.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["disable_firewall_api_server_security_firewall_disable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/firewall/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable Firewall
+         * @description Turn ufw on, SSH and a public console allowed first; it undoes itself unless confirmed.
+         *
+         *     Args:
+         *         request: The request.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["enable_firewall_api_server_security_firewall_enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/firewall/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Firewall Rule
+         * @description Add a rule; it undoes itself unless confirmed. Never closes SSH or a public console.
+         *
+         *     Args:
+         *         body: The rule.
+         *         request: The request.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["add_firewall_rule_api_server_security_firewall_rules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/firewall/rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Firewall Rule
+         * @description Delete a rule; it undoes itself unless confirmed. Never the last one opening SSH.
+         *
+         *     Args:
+         *         rule_id: The rule's id, from ``GET /firewall``.
+         *         request: The request.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        delete: operations["delete_firewall_rule_api_server_security_firewall_rules__rule_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/risks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Risks
+         * @description Every accepted risk, newest first, withdrawn and expired ones included.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The acceptances.
+         */
+        get: operations["get_risks_api_server_security_risks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/risks/{check_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Accept Risk
+         * @description Accept a check's finding until a date: it shows as accepted, not passed, until then.
+         *
+         *     Args:
+         *         check_id: The check.
+         *         body: Why, and until when (at most a year).
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The acceptance.
+         *
+         *     Raises:
+         *         HTTPException: 404 for an unknown check.
+         */
+        put: operations["accept_risk_api_server_security_risks__check_id__put"];
+        post?: never;
+        /**
+         * Revoke Risk
+         * @description Withdraw a check's acceptance, so its finding shows again.
+         *
+         *     Args:
+         *         check_id: The check.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The withdrawn acceptance.
+         *
+         *     Raises:
+         *         HTTPException: 404 when no acceptance holds for it.
+         */
+        delete: operations["revoke_risk_api_server_security_risks__check_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/ssh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ssh
+         * @description sshd's effective configuration, Noust's drop-in, open sessions and every fix's plan.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The SSH view.
+         */
+        get: operations["get_ssh_api_server_security_ssh_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/ssh/fixes/{fix}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ssh Fix
+         * @description What one sshd fix would change, and whether its guard holds now.
+         *
+         *     Args:
+         *         fix: The fix: ``disable-passwords``, ``root-prohibit-password``, ``root-no``,
+         *             ``no-empty-passwords``, ``sensible-defaults`` or ``verbose-logging``.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Before and after, the proof, what blocks it and the guided steps.
+         *
+         *     Raises:
+         *         HTTPException: 404 for an unknown fix.
+         */
+        get: operations["get_ssh_fix_api_server_security_ssh_fixes__fix__get"];
+        put?: never;
+        /**
+         * Apply Ssh Fix
+         * @description Apply an sshd fix; it undoes itself unless confirmed after a new SSH login.
+         *
+         *     Args:
+         *         fix: The fix.
+         *         request: The request.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 for an unknown fix.
+         */
+        post: operations["apply_ssh_fix_api_server_security_ssh_fixes__fix__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/ssh/keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ssh Keys
+         * @description root and every account that can become root, with their keys and when each was last used.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The accounts, root first.
+         */
+        get: operations["get_ssh_keys_api_server_security_ssh_keys_get"];
+        put?: never;
+        /**
+         * Add Ssh Key
+         * @description Let a key log in as root or an account that can become root.
+         *
+         *     Args:
+         *         body: The account and the ``.pub`` line.
+         *         request: The request.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["add_ssh_key_api_server_security_ssh_keys_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/security/ssh/keys/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Remove Ssh Key
+         * @description Remove a key. A POST because a fingerprint holds ``/`` and ``+``.
+         *
+         *     Refused unless ``force`` for a central's tunnel key, a key a session open
+         *     now logged in with, or the last key while passwords are off.
+         *
+         *     Args:
+         *         body: The account, the fingerprint and ``force``.
+         *         request: The request.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["remove_ssh_key_api_server_security_ssh_keys_remove_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Storage
+         * @description Show the filesystems and what takes their space.
+         *
+         *     Nothing here walks a tree: the journal and Docker are asked, the rest comes
+         *     from the last scan (``analysis_at`` says when). ``POST
+         *     /api/server/storage/analyze`` measures it.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         One row per real device (bind mounts and pseudo filesystems left out),
+         *         the fullest writable one, and the places that could give space back.
+         */
+        get: operations["get_storage_api_server_storage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/storage/analyze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Analyze Storage
+         * @description Measure the known places that take space, as a job.
+         *
+         *     Each path has its own deadline, and the scan runs at the lowest I/O priority.
+         *     It writes nothing, so it does not need sudo mode.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job; its result is the analysis.
+         */
+        post: operations["analyze_storage_api_server_storage_analyze_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/storage/analyze/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Last Analysis
+         * @description Read the last scan.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The analysis, or one with ``measured_at`` null when none has run since the
+         *         console started.
+         */
+        get: operations["get_last_analysis_api_server_storage_analyze_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/storage/cleanup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cleanup Storage
+         * @description Run one cleanup action, as a job.
+         *
+         *     Args:
+         *         body: The action, its parameters and whether the caller read what it takes.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job, whose log is the tools' own output.
+         *
+         *     Raises:
+         *         ValidationError: The action or a parameter is not valid (400).
+         *         ConfirmationRequiredError: The action takes something the operator may
+         *             want back and ``confirm`` was not given (409).
+         *         UnsupportedHostError: This machine has nothing to clean that way (501).
+         */
+        post: operations["cleanup_storage_api_server_storage_cleanup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/storage/cleanup/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plan Cleanup
+         * @description Say what a cleanup action would do, without doing it.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         action: One of the closed list of actions.
+         *         size_mb: For ``journal``: what to vacuum it to.
+         *         days: For ``journal``: keep this many days instead.
+         *         target: For ``docker-image``: the image id.
+         *
+         *     Returns:
+         *         The commands, what it takes, what it would remove where it can list that,
+         *         and whether it needs a confirmation.
+         *
+         *     Raises:
+         *         ValidationError: The action or a parameter is not valid (400).
+         */
+        get: operations["plan_cleanup_api_server_storage_cleanup_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/storage/docker/images": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Unused Images
+         * @description List the Docker images no container uses.
+         *
+         *     The ``wasm-previous`` image of a Compose application, its way back, is left
+         *     out even though nothing runs it.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The images, to be removed one by one with ``docker-image``.
+         */
+        get: operations["list_unused_images_api_server_storage_docker_images_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Summary
+         * @description Describe how the server is, in one cheap answer.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The operating system and its end of life, pending updates, whether a
+         *         reboot is due, the automatic updates, the disks by their worst, the
+         *         clock, swap, what is scheduled, whether systemd is well and what this
+         *         machine can do. A section whose probe has not finished says so with
+         *         nulls and its ``checked_at``; one whose probe failed carries ``error``.
+         */
+        get: operations["get_summary_api_server_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/swap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Swap
+         * @description Describe the swap of the machine.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Every active swap area, the RAM, the size Noust would suggest, whether a
+         *         swap file can be made here (a container cannot) and why not.
+         */
+        get: operations["get_swap_api_server_swap_get"];
+        put?: never;
+        /**
+         * Create Swap
+         * @description Make a swap file and switch it on, as a job.
+         *
+         *     Refused when the machine is a container, when ``/swapfile`` exists, when the
+         *     filesystem cannot hold one, or when it would leave the disk too full. Each
+         *     step is undone if a later one fails.
+         *
+         *     Args:
+         *         body: The size in MiB and the swappiness.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         UnsupportedHostError: A container or an unsuitable filesystem (501).
+         *         ValidationError: The size is out of range or would fill the disk (400).
+         *         ServerError: ``/swapfile`` already exists.
+         */
+        post: operations["create_swap_api_server_swap_post"];
+        /**
+         * Remove Swap
+         * @description Switch off and delete the swap file Noust made, as a job.
+         *
+         *     Only that file: a swap partition, the installer's swap image and zram are
+         *     never touched, and the guard is the mark Noust leaves in ``fstab``.
+         *
+         *     Args:
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ServerError: The swap is not one Noust made (409 by the job's failure).
+         */
+        delete: operations["remove_swap_api_server_swap_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/swap/swappiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Swappiness
+         * @description Set how eagerly the kernel swaps, now and at boot.
+         *
+         *     Args:
+         *         body: 0 to 100.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         ValidationError: The value is out of range (400).
+         */
+        put: operations["set_swappiness_api_server_swap_swappiness_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/time": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Time
+         * @description Read the clock.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The time zone, whether the clock is synchronised and by what, and, when
+         *         chrony is running, how far off it is.
+         *
+         *     Raises:
+         *         ServerError: timedatectl cannot be run, carrying its output.
+         */
+        get: operations["get_time_api_server_time_get"];
+        /**
+         * Change Time
+         * @description Change the time zone, the synchronisation, or both.
+         *
+         *     Changing the zone moves every timer Noust wrote for cron jobs and backups,
+         *     which fire at local times; they are listed in ``moved_timers``.
+         *
+         *     Args:
+         *         body: What to change; at least one of ``timezone`` and ``ntp``.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The clock afterwards, the zone it had, the timers that moved and the
+         *         tools' own output.
+         *
+         *     Raises:
+         *         ValidationError: Nothing to change, or an unknown zone (400).
+         *         ServerError: timedatectl refused; without a time daemon the message says
+         *             to allow installing chrony.
+         */
+        put: operations["change_time_api_server_time_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Updates
+         * @description Everything the updates tab shows.
+         *
+         *     Served from the cache with its age; the first look computes it here, which
+         *     takes about a second of ``apt-get -s``. ``POST /api/server/updates/refresh``
+         *     renews the package lists and this answer.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The pending updates with security ones marked, whether a reboot is due
+         *         and why, the services running old libraries, the automatic updates and
+         *         the update that is running now, if one is.
+         */
+        get: operations["list_updates_api_server_updates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/updates/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply Updates
+         * @description Apply updates, as a job that runs in its own systemd unit.
+         *
+         *     The unit is what lets this survive the console restarting when the ``noust``
+         *     package is among the updates. Refused before any job exists when another
+         *     package manager is running, a deploy or backup is in progress, or the
+         *     update would remove packages and ``allow_removals`` was not given.
+         *
+         *     Args:
+         *         body: Which updates and whether removals are allowed.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ConfirmationRequiredError: The update would remove packages (409, with
+         *             the list in ``required.removals``).
+         *         HostBusyError: Another package manager or operation is running (409).
+         *         PreflightError: A deploy is running, the disk is nearly full, nothing is
+         *             marked security, or the package database is half configured (409).
+         *         UnsupportedHostError: Updates are not managed here (501).
+         */
+        post: operations["apply_updates_api_server_updates_apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/updates/auto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Auto Updates
+         * @description Read the state of the distribution's automatic updates.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Which mechanism this system has, whether it is installed and enabled,
+         *         whether it applies only security updates, and whether it reboots by itself.
+         */
+        get: operations["get_auto_updates_api_server_updates_auto_get"];
+        /**
+         * Set Auto Updates
+         * @description Turn the automatic updates on or off, as a job (it may install a package).
+         *
+         *     Noust never turns on an automatic reboot: a server with clients'
+         *     applications does not restart by itself.
+         *
+         *     Args:
+         *         body: The wanted state.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         UnsupportedHostError: The mechanism cannot be changed here (501).
+         *         HostBusyError: A package operation is in progress (409).
+         */
+        put: operations["set_auto_updates_api_server_updates_auto_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/updates/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plan Updates
+         * @description Say what applying updates would do, without doing it.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         scope: ``security`` or ``all``.
+         *         full: A full upgrade, which may remove packages.
+         *
+         *     Returns:
+         *         The packages, what would be removed, which software the update disturbs,
+         *         whether the console itself restarts, and the exact command.
+         *
+         *     Raises:
+         *         ValidationError: The scope is not one (400).
+         */
+        get: operations["plan_updates_api_server_updates_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/updates/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Refresh Updates
+         * @description Renew the package lists, as a job.
+         *
+         *     Args:
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job. Its log is the package manager's own output.
+         *
+         *     Raises:
+         *         UnsupportedHostError: Updates are not managed here (501).
+         *         HostBusyError: A package operation is in progress (409).
+         */
+        post: operations["refresh_updates_api_server_updates_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/updates/repair": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Repair Updates
+         * @description Finish a half-applied update, as a job.
+         *
+         *     Args:
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         UnsupportedHostError: There is nothing to repair with on this system (501).
+         *         HostBusyError: A package operation is in progress (409).
+         */
+        post: operations["repair_updates_api_server_updates_repair_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/updates/restarts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plan Restarts
+         * @description Say which services on replaced libraries a restart would restart, and which not.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan: what the update check reported, what restarts (the console's
+         *         own unit last), what is left for a reboot and why.
+         */
+        get: operations["plan_restarts_api_server_updates_restarts_get"];
+        put?: never;
+        /**
+         * Restart Outdated Services
+         * @description Restart the services an update left on replaced libraries, as a job.
+         *
+         *     Only units the update check reported, and never one that ends sessions,
+         *     drops the network or stops containers (the guard is in ServiceManager).
+         *     When the console's own unit is among them it restarts last, and the answer
+         *     says so before it happens.
+         *
+         *     Args:
+         *         body: The units; every restartable one when omitted.
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job and the plan it follows.
+         *
+         *     Raises:
+         *         PreflightError: Nothing asked for can be restarted from here (409, with
+         *             each unit and why in ``blockers``).
+         */
+        post: operations["restart_outdated_services_api_server_updates_restarts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/updates/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Runs
+         * @description List the updates that were run, newest first.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         limit: How many.
+         *
+         *     Returns:
+         *         The runs, each with what it installed, how it ended and its last output.
+         */
+        get: operations["list_runs_api_server_updates_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/updates/runs/{update_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Run
+         * @description Read one run of an update.
+         *
+         *     Args:
+         *         update_id: The run's identifier.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The run.
+         *
+         *     Raises:
+         *         ValidationError: The identifier is not one (400).
+         *         HTTPException: 404 when there is no such run.
+         */
+        get: operations["get_run_api_server_updates_runs__update_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6291,6 +11506,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Self Update Status
+         * @description Say whether this server can update its own Noust, and how the last update ended.
+         *
+         *     A central polls this while a node updates: the record outlives the
+         *     console's restart, and is settled by the console that comes back.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The installation method, what an update runs and the last update.
+         */
+        get: operations["self_update_status_api_system_update_get"];
+        put?: never;
+        /**
+         * Start Self Update
+         * @description Update this server's Noust to what its package source offers.
+         *
+         *     Runs the one command of this installation's method, in its own systemd
+         *     unit, as a job. Nothing in the request chooses what runs. Needs sudo mode.
+         *
+         *     Args:
+         *         session: The elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 501 for an installation Noust does not update itself
+         *             (a source checkout, a container image), 409 while an update runs.
+         */
+        post: operations["start_self_update_api_system_update_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/version": {
         parameters: {
             query?: never;
@@ -6421,6 +11682,387 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AcceptRiskRequest
+         * @description Accept a finding: why (10 to 500 characters) and until when (ISO date or date-time).
+         */
+        AcceptRiskRequest: {
+            /** Expires At */
+            expires_at: string;
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * AcceptedRiskOut
+         * @description A risk accepted instead of fixed, until ``expires_at``.
+         */
+        AcceptedRiskOut: {
+            /** Accepted At */
+            accepted_at: string;
+            /** Accepted By */
+            accepted_by: string;
+            /** Check Id */
+            check_id: string;
+            /** Expires At */
+            expires_at: string;
+            /** Id */
+            id: number;
+            /** Reason */
+            reason: string;
+            /** Revoked At */
+            revoked_at?: string | null;
+            /** Revoked By */
+            revoked_by?: string | null;
+        };
+        /**
+         * AccessEntryResponse
+         * @description One account's access to one database.
+         *
+         *     Attributes:
+         *         profile: ``owner``, ``read_write``, ``read_only`` or ``custom``.
+         *         internal: The engine's own account or Noust's read-only console's;
+         *             never changed through Noust.
+         *         managed: Noust knows its password, so it can be shown (sudo mode) or
+         *             linked to an application.
+         *         apps: Applications whose connection string signs in as it.
+         *         password_changed_at: When Noust last set its password.
+         */
+        AccessEntryResponse: {
+            /** Apps */
+            apps?: string[];
+            /**
+             * Host
+             * @default localhost
+             */
+            host: string;
+            /**
+             * Internal
+             * @default false
+             */
+            internal: boolean;
+            /**
+             * Managed
+             * @default false
+             */
+            managed: boolean;
+            /** Password Changed At */
+            password_changed_at?: string | null;
+            /** Privileges */
+            privileges?: string[];
+            /**
+             * Profile
+             * @default custom
+             */
+            profile: string;
+            /** Username */
+            username: string;
+        };
+        /**
+         * AccessListResponse
+         * @description Who can reach a database.
+         */
+        AccessListResponse: {
+            /** Access */
+            access: components["schemas"]["AccessEntryResponse"][];
+        };
+        /**
+         * AccessReviewAttestation
+         * @description An attestation of the list with a given digest.
+         *
+         *     Attributes:
+         *         digest: The digest of the list that was reviewed; refused when the
+         *             list changed since it was shown.
+         *         notes: What was looked at and what was changed.
+         */
+        AccessReviewAttestation: {
+            /** Digest */
+            digest: string;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+        };
+        /**
+         * AccessReviewRecorded
+         * @description What was recorded.
+         *
+         *     Attributes:
+         *         digest: The list's digest.
+         *         accounts: Accounts in it.
+         *         conflicts: Incompatible-role conflicts in it.
+         *         exceptions: Exceptions in it.
+         *         notes: The reviewer's notes.
+         *         recorded_at: When.
+         */
+        AccessReviewRecorded: {
+            /** Accounts */
+            accounts: number;
+            /** Conflicts */
+            conflicts: number;
+            /** Digest */
+            digest: string;
+            /** Exceptions */
+            exceptions: number;
+            /** Notes */
+            notes: string;
+            /** Recorded At */
+            recorded_at: string;
+        };
+        /**
+         * AccessReviewResponse
+         * @description The list a reviewer attests (op.acc.4.4), and the past attestations.
+         *
+         *     Attributes:
+         *         accounts: Every account: username, role, status, person, second
+         *             factor, last sign-in, tokens it owns.
+         *         conflicts: People holding incompatible roles.
+         *         exceptions: Separation-of-duties exceptions in force.
+         *         tokens_without_owner: Live API tokens no account owns.
+         *         generated_at: When the list was built.
+         *         digest: SHA-256 of the list: what an attestation names.
+         *         reviews: Past attestations, newest first (audit events).
+         */
+        AccessReviewResponse: {
+            /** Accounts */
+            accounts: {
+                [key: string]: unknown;
+            }[];
+            /** Conflicts */
+            conflicts?: {
+                [key: string]: unknown;
+            }[];
+            /** Digest */
+            digest: string;
+            /** Exceptions */
+            exceptions?: {
+                [key: string]: unknown;
+            }[];
+            /** Generated At */
+            generated_at: string;
+            /** Reviews */
+            reviews?: {
+                [key: string]: unknown;
+            }[];
+            /** Tokens Without Owner */
+            tokens_without_owner?: number | null;
+        };
+        /**
+         * AccountActionResponse
+         * @description An account after an action on it.
+         *
+         *     Attributes:
+         *         account: The account.
+         *         message: What was done.
+         */
+        AccountActionResponse: {
+            account: components["schemas"]["AccountInfo"];
+            /** Message */
+            message: string;
+        };
+        /**
+         * AccountCreate
+         * @description A new account with a password.
+         *
+         *     Attributes:
+         *         username: Sign-in name.
+         *         role: Its role.
+         *         password: Its first password, checked against the policy.
+         *         display_name: How the console greets them.
+         *         person_ref: Who it belongs to, such as an e-mail address.
+         */
+        AccountCreate: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Password */
+            password: string;
+            /** Person Ref */
+            person_ref?: string | null;
+            /** Role */
+            role: string;
+            /** Username */
+            username: string;
+        };
+        /**
+         * AccountDisable
+         * @description Why an account is being disabled.
+         *
+         *     Attributes:
+         *         reason: One sentence, for the record.
+         */
+        AccountDisable: {
+            /** Reason */
+            reason?: string | null;
+        };
+        /**
+         * AccountInfo
+         * @description One account, with no secret in it.
+         *
+         *     Attributes:
+         *         id: Store id.
+         *         username: Sign-in name.
+         *         display_name: How the console greets them.
+         *         role: ``viewer``, ``operator``, ``admin``, ``security`` or ``auditor``.
+         *         status: ``active``, ``disabled``, ``locked`` or ``invited``.
+         *         person_ref: Who the account belongs to, for separation of duties.
+         *         mfa_enabled: Whether a second factor is enrolled: an authenticator
+         *             or a passkey.
+         *         passkeys: How many passkeys it has.
+         *         backup_codes_remaining: Unused recovery codes.
+         *         last_login_at: Last successful sign-in, UNIX seconds.
+         *         last_login_ip: Where it came from.
+         *         failures_since_login: Refused attempts since then.
+         *         locked_until: End of a lockout in force, UNIX seconds.
+         *         notice_accepted_at: When the usage notice was last accepted.
+         *         password_changed_at: When the password was last set.
+         *         created_at: When the account was created.
+         *         created_by: Who created it.
+         *         disabled_at: When it was disabled.
+         *         disabled_reason: Why.
+         */
+        AccountInfo: {
+            /** Backup Codes Remaining */
+            backup_codes_remaining: number;
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Disabled At */
+            disabled_at?: number | null;
+            /** Disabled Reason */
+            disabled_reason?: string | null;
+            /** Display Name */
+            display_name: string;
+            /**
+             * Failures Since Login
+             * @default 0
+             */
+            failures_since_login: number;
+            /** Id */
+            id: number;
+            /** Last Login At */
+            last_login_at?: number | null;
+            /** Last Login Ip */
+            last_login_ip?: string | null;
+            /** Locked Until */
+            locked_until?: number | null;
+            /** Mfa Enabled */
+            mfa_enabled: boolean;
+            /** Notice Accepted At */
+            notice_accepted_at?: number | null;
+            /**
+             * Passkeys
+             * @default 0
+             */
+            passkeys: number;
+            /** Password Changed At */
+            password_changed_at?: number | null;
+            /** Person Ref */
+            person_ref?: string | null;
+            /** Role */
+            role: string;
+            /** Status */
+            status: string;
+            /** Username */
+            username: string;
+        };
+        /**
+         * AccountKeysOut
+         * @description An account that can become root, and the keys that open it.
+         */
+        AccountKeysOut: {
+            /**
+             * Files
+             * @default []
+             */
+            files: components["schemas"]["KeyFileOut"][];
+            /** Login Allowed */
+            login_allowed: boolean;
+            /** Login Refusal */
+            login_refusal: string;
+            /** Password */
+            password: string;
+            /** Sudo */
+            sudo: boolean;
+            /** Sudo Usable */
+            sudo_usable: boolean;
+            /** Uid */
+            uid: number;
+            /** User */
+            user: string;
+        };
+        /**
+         * AccountUpdate
+         * @description Changes to an account; a field left out is kept.
+         *
+         *     Attributes:
+         *         role: A new role.
+         *         display_name: A new display name.
+         *         person_ref: A new person reference; empty clears it.
+         */
+        AccountUpdate: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Person Ref */
+            person_ref?: string | null;
+            /** Role */
+            role?: string | null;
+        };
+        /**
+         * AccountsResponse
+         * @description Every account, and any person holding incompatible roles.
+         *
+         *     Attributes:
+         *         accounts: The accounts, by username.
+         *         conflicts: People with incompatible roles, exception or not.
+         */
+        AccountsResponse: {
+            /** Accounts */
+            accounts: components["schemas"]["AccountInfo"][];
+            /** Conflicts */
+            conflicts: components["schemas"]["SeparationConflict"][];
+        };
+        /**
+         * ActionIn
+         * @description A bulk action.
+         *
+         *     Attributes:
+         *         action: ``certs_renew``, ``backups_run``, ``backups_verify``,
+         *             ``apps_update``, ``apps_restart``, ``noust_update`` or ``os_updates``.
+         *         targets: Which servers.
+         *         strategy: How.
+         *         options: The action's options (``force``, ``domains``, ``verify``,
+         *             ``scope``).
+         *         plan: Only say what would happen; nothing runs.
+         */
+        ActionIn: {
+            /** Action */
+            action: string;
+            /** Options */
+            options?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Plan
+             * @default false
+             */
+            plan: boolean;
+            strategy?: components["schemas"]["StrategyIn"];
+            targets?: components["schemas"]["TargetsIn"];
+        };
+        /**
+         * ActionOut
+         * @description What a bulk action will do, or did start.
+         *
+         *     Attributes:
+         *         plan: The servers, the batches and what is skipped and why.
+         *         job: The queued job (``JobType.FLEET``: its ``result`` is the state per
+         *             server as it runs), when it runs; null for a plan.
+         */
+        ActionOut: {
+            job?: components["schemas"]["JobAcceptedResponse"] | null;
+            plan: components["schemas"]["FleetPlanOut"];
+        };
+        /**
          * ActionResponse
          * @description Generic action outcome.
          */
@@ -6429,6 +12071,42 @@ export interface components {
             message: string;
             /** Success */
             success: boolean;
+        };
+        /**
+         * ActivityEntry
+         * @description One thing that happened lately.
+         *
+         *     Attributes:
+         *         id: Stable identifier (``job:<id>``).
+         *         type: What it was: ``deploy``, ``update``, ``backup``, ``restore``...
+         *         title: The job's name.
+         *         status: How it went: ``pending``, ``running``, ``completed``,
+         *             ``failed``, ``cancelled``.
+         *         domain: The application it acted on, if any.
+         *         actor: Who asked, if known.
+         *         at: When it ended (or started), with its UTC offset.
+         */
+        ActivityEntry: {
+            /** Actor */
+            actor?: string | null;
+            /** At */
+            at?: string | null;
+            /** Domain */
+            domain?: string | null;
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @default
+             */
+            status: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /** Type */
+            type: string;
         };
         /**
          * AddAppDomainRequest
@@ -6449,6 +12127,47 @@ export interface components {
             kind: string;
         };
         /**
+         * AddKeyRequest
+         * @description A public key, as in a ``.pub`` file, for root or an account that can become root.
+         */
+        AddKeyRequest: {
+            /** Public Key */
+            public_key: string;
+            /** User */
+            user: string;
+        };
+        /**
+         * AdoptRequest
+         * @description Request to adopt the databases Noust does not track.
+         */
+        AdoptRequest: {
+            /**
+             * Engine
+             * @description Only this engine
+             */
+            engine?: string | null;
+        };
+        /**
+         * AdoptResponse
+         * @description The databases adopted, as ``engine/name``.
+         */
+        AdoptResponse: {
+            /** Adopted */
+            adopted: string[];
+        };
+        /**
+         * AnalysisOut
+         * @description The last scan of the known places.
+         */
+        AnalysisOut: {
+            /** Candidates */
+            candidates?: components["schemas"]["CandidateOut"][];
+            /** Errors */
+            errors?: string[];
+            /** Measured At */
+            measured_at?: string | null;
+        };
+        /**
          * ApiTokenCreated
          * @description A freshly issued API token. The only response that ever carries the token.
          *
@@ -6460,8 +12179,16 @@ export interface components {
          *             stored, so it cannot be shown again.
          *         created_at: Creation time as a UNIX timestamp.
          *         expires_at: Expiry as a UNIX timestamp, or None for no expiry.
+         *         owner_account_id: The account it acts for, or None.
+         *         permissions: What it may do at most, or None for its scope's.
+         *         allowed_cidrs: Networks it is accepted from, or None.
+         *         allow_elevated: Whether it may act where sudo mode is asked.
          */
         ApiTokenCreated: {
+            /** Allow Elevated */
+            allow_elevated?: boolean | null;
+            /** Allowed Cidrs */
+            allowed_cidrs?: string[] | null;
             /** Created At */
             created_at: number;
             /** Expires At */
@@ -6470,6 +12197,10 @@ export interface components {
             id: number;
             /** Name */
             name: string;
+            /** Owner Account Id */
+            owner_account_id?: number | null;
+            /** Permissions */
+            permissions?: string[] | null;
             /** Scope */
             scope: string;
             /** Token */
@@ -6487,18 +12218,38 @@ export interface components {
          *         expires_at: Expiry as a UNIX timestamp, or None for no expiry.
          *         last_used_at: When it last authenticated a request, or None.
          *         revoked_at: When it was revoked, or None while it is live.
+         *         owner_account_id: The account it acts for; None for a token issued
+         *             before accounts existed, until the first admin adopts it.
+         *         permissions: What it may do at most, or None for its scope's.
+         *         allowed_cidrs: Networks it is accepted from, or None.
+         *         allow_elevated: Whether it may act where sudo mode is asked; None for
+         *             a token issued before 3.1.
+         *         created_by: Who issued it.
+         *         last_used_ip: Where it was last used from.
          */
         ApiTokenInfo: {
+            /** Allow Elevated */
+            allow_elevated?: boolean | null;
+            /** Allowed Cidrs */
+            allowed_cidrs?: string[] | null;
             /** Created At */
             created_at: number;
+            /** Created By */
+            created_by?: string | null;
             /** Expires At */
             expires_at?: number | null;
             /** Id */
             id: number;
             /** Last Used At */
             last_used_at?: number | null;
+            /** Last Used Ip */
+            last_used_ip?: string | null;
             /** Name */
             name: string;
+            /** Owner Account Id */
+            owner_account_id?: number | null;
+            /** Permissions */
+            permissions?: string[] | null;
             /** Revoked At */
             revoked_at?: number | null;
             /** Scope */
@@ -6506,7 +12257,7 @@ export interface components {
         };
         /**
          * ApiTokenListResponse
-         * @description Every API token record.
+         * @description Every API token record the caller may see.
          *
          *     Attributes:
          *         tokens: The records, newest first.
@@ -6521,15 +12272,30 @@ export interface components {
          *
          *     Attributes:
          *         name: Human-chosen name, unique across all tokens ever issued.
-         *         scope: ``read``, ``deploy`` or ``admin``.
+         *         scope: ``read``, ``deploy`` or ``admin``; narrowed to what the
+         *             issuing account holds.
          *         expires_hours: Lifetime in hours; omit for a token that only dies by
-         *             revocation.
+         *             revocation (under the ENS profile, the longest allowed).
+         *         permissions: Permissions to narrow it to instead of its scope's; all
+         *             must be held by the issuing account.
+         *         allowed_cidrs: Networks it is accepted from; any when omitted.
+         *         allow_elevated: Let it act where sudo mode is asked. Off by default,
+         *             refused under the ENS profile.
          */
         ApiTokenRequest: {
+            /**
+             * Allow Elevated
+             * @default false
+             */
+            allow_elevated: boolean;
+            /** Allowed Cidrs */
+            allowed_cidrs?: string[] | null;
             /** Expires Hours */
             expires_hours?: number | null;
             /** Name */
             name: string;
+            /** Permissions */
+            permissions?: string[] | null;
             /** Scope */
             scope: string;
         };
@@ -6544,6 +12310,19 @@ export interface components {
             message: string;
             /** Success */
             success: boolean;
+        };
+        /**
+         * AppDatabasesResponse
+         * @description The databases an application uses.
+         *
+         *     A database provisioned for it before 3.1 has no recorded variable: its
+         *     ``env_var`` is empty and its ``url`` null.
+         */
+        AppDatabasesResponse: {
+            /** Databases */
+            databases: components["schemas"]["LinkResponse"][];
+            /** Domain */
+            domain: string;
         };
         /**
          * AppDomain
@@ -6856,6 +12635,47 @@ export interface components {
             logs: string;
         };
         /**
+         * AppMetricsResponse
+         * @description Why an application's metrics are, or are not, there.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         kind: ``unit``, ``legacy``, ``blue_green``, ``monorepo``, ``compose``,
+         *             ``php_fpm`` or ``static``.
+         *         sampled: True when its CPU and memory are being recorded now.
+         *         source: Where they come from: ``cgroup``, ``docker``, ``fpm`` or
+         *             ``none``.
+         *         reason: Why they are not; null when they are.
+         *         units: What each unit or container looks like right now.
+         *         series: Role (``cpu``, ``memory``, ``requests``, ``errors_5xx``) to the
+         *             metric name that holds it, for the roles that exist for this kind
+         *             of application.
+         *         traffic: Whether requests are being counted.
+         *         last_sample_at: The newest sample of any of its series.
+         *         collector: Whether history is being recorded at all.
+         */
+        AppMetricsResponse: {
+            collector: components["schemas"]["CollectorModel"];
+            /** Domain */
+            domain: string;
+            /** Kind */
+            kind: string;
+            /** Last Sample At */
+            last_sample_at?: number | null;
+            reason?: components["schemas"]["ReasonModel"] | null;
+            /** Sampled */
+            sampled: boolean;
+            /** Series */
+            series?: {
+                [key: string]: string;
+            };
+            /** Source */
+            source: string;
+            traffic: components["schemas"]["TrafficModel"];
+            /** Units */
+            units?: components["schemas"]["UnitStatusModel"][];
+        };
+        /**
          * AppTypeInfo
          * @description One application type the new-app wizard may offer.
          */
@@ -6874,6 +12694,217 @@ export interface components {
         AppTypesResponse: {
             /** Types */
             types: components["schemas"]["AppTypeInfo"][];
+        };
+        /**
+         * ApplyPlanOut
+         * @description What applying updates would do, before anything is touched.
+         */
+        ApplyPlanOut: {
+            /** Command */
+            command: string;
+            /** Full */
+            full: boolean;
+            /** Impact */
+            impact: string[];
+            /** Packages */
+            packages: components["schemas"]["PackageOut"][];
+            /** Removals */
+            removals: string[];
+            /** Restarts Console */
+            restarts_console: boolean;
+            /** Scope */
+            scope: string;
+        };
+        /**
+         * ApplyUpdatesRequest
+         * @description Apply updates.
+         *
+         *     Attributes:
+         *         scope: ``security`` or ``all``.
+         *         full: A full upgrade (``full-upgrade``, ``dist-upgrade``), the only kind
+         *             that may remove packages. When it would, the request is refused with
+         *             the list until it is repeated with ``allow_removals``.
+         *         allow_removals: The caller has read the removal list and accepts it.
+         */
+        ApplyUpdatesRequest: {
+            /**
+             * Allow Removals
+             * @default false
+             */
+            allow_removals: boolean;
+            /**
+             * Full
+             * @default false
+             */
+            full: boolean;
+            /**
+             * Scope
+             * @default security
+             */
+            scope: string;
+        };
+        /**
+         * ApprovalActorInfo
+         * @description Who asked, or who decided.
+         *
+         *     Attributes:
+         *         kind: ``account``, ``master``, ``token``, ``fleet``, ``cli`` or ``system``.
+         *         id: The account id, the token's name, the login uid.
+         *         name: The username, ``master``, ``token:<name>``, the login.
+         *         role: The account's role.
+         */
+        ApprovalActorInfo: {
+            /** Id */
+            id?: string | null;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Role */
+            role?: string | null;
+        };
+        /**
+         * ApprovalInfo
+         * @description One request for a second person's approval.
+         *
+         *     Attributes:
+         *         id: Its id; the value of ``X-Noust-Approval``.
+         *         action: ``root_equivalent``, ``fleet.node.add``, ``fleet.node.remove``,
+         *             ``db.query.write``, ``apps.local_source`` or ``user.role_change``.
+         *         kind: ``infrastructure`` or ``role_change``.
+         *         description: What the action is, in one sentence.
+         *         method: The call's method.
+         *         path: The call's path.
+         *         parameters: What the call carries, secrets redacted: ``method``,
+         *             ``path``, ``query`` and ``body``.
+         *         fingerprint: SHA-256 of the exact call the approval allows.
+         *         reason: Why the requester asked.
+         *         state: ``requested``, ``approved``, ``rejected``, ``expired`` or
+         *             ``executed``.
+         *         requester: Who asked.
+         *         created_at: When, UNIX seconds.
+         *         expires_at: When it expires undecided.
+         *         decided_at: When it was decided.
+         *         decider: Who decided.
+         *         decision_comment: What they said.
+         *         execute_by: Until when an approval allows the call.
+         *         executed_at: When the call ran.
+         *         mine: Whether the caller asked for it.
+         *         can_decide: Whether the caller may approve or reject it now.
+         */
+        ApprovalInfo: {
+            /** Action */
+            action: string;
+            /**
+             * Can Decide
+             * @default false
+             */
+            can_decide: boolean;
+            /** Created At */
+            created_at: number;
+            /** Decided At */
+            decided_at?: number | null;
+            decider?: components["schemas"]["ApprovalActorInfo"] | null;
+            /** Decision Comment */
+            decision_comment?: string | null;
+            /** Description */
+            description: string;
+            /** Execute By */
+            execute_by?: number | null;
+            /** Executed At */
+            executed_at?: number | null;
+            /** Expires At */
+            expires_at: number;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Method */
+            method: string;
+            /**
+             * Mine
+             * @default false
+             */
+            mine: boolean;
+            /** Parameters */
+            parameters?: {
+                [key: string]: unknown;
+            };
+            /** Path */
+            path: string;
+            /** Reason */
+            reason?: string | null;
+            requester: components["schemas"]["ApprovalActorInfo"];
+            /** State */
+            state: string;
+        };
+        /**
+         * ApprovalListResponse
+         * @description The requests the caller may see.
+         *
+         *     Attributes:
+         *         approvals: Newest first.
+         *         pending: How many wait for a decision, of those listed.
+         */
+        ApprovalListResponse: {
+            /** Approvals */
+            approvals: components["schemas"]["ApprovalInfo"][];
+            /** Pending */
+            pending: number;
+        };
+        /**
+         * ApprovalPolicyInfo
+         * @description Whether approvals apply here, who decides, and to what.
+         *
+         *     Attributes:
+         *         enabled: Whether the calls of ``rules`` need an approval now.
+         *         approvers: The roles that decide (``admin`` for infrastructure only).
+         *         request_hours: How long a request waits for a decision.
+         *         execute_minutes: How long an approval allows its call.
+         *         reason_required: Whether ``X-Noust-Reason`` is required.
+         *         rules: The calls that need one.
+         */
+        ApprovalPolicyInfo: {
+            /** Approvers */
+            approvers: string[];
+            /** Enabled */
+            enabled: boolean;
+            /** Execute Minutes */
+            execute_minutes: number;
+            /** Reason Required */
+            reason_required: boolean;
+            /** Request Hours */
+            request_hours: number;
+            /** Rules */
+            rules: components["schemas"]["ApprovalRuleInfo"][];
+        };
+        /**
+         * ApprovalRuleInfo
+         * @description One kind of call that needs approval.
+         *
+         *     Attributes:
+         *         method: Its method, or ``*``.
+         *         template: Its route, or ``*`` for the permission rule.
+         *         action: The action name requests carry.
+         *         kind: ``infrastructure`` or ``role_change``.
+         *         description: What it is.
+         *         when: When it applies.
+         */
+        ApprovalRuleInfo: {
+            /** Action */
+            action: string;
+            /** Description */
+            description: string;
+            /** Kind */
+            kind: string;
+            /** Method */
+            method: string;
+            /** Template */
+            template: string;
+            /** When */
+            when: string;
         };
         /**
          * AppsDirConfig
@@ -6905,33 +12936,192 @@ export interface components {
             message: string;
         };
         /**
-         * AuditEntry
-         * @description One audit log line.
+         * AppsFigure
+         * @description Applications by state.
          *
          *     Attributes:
-         *         timestamp: When the action was attempted, with its UTC offset.
-         *         action: What was attempted, for example ``apps.delete``.
-         *         result: Outcome, for example ``success`` or ``denied``.
-         *         actor: Session id, API token name, ``master`` or ``anonymous``.
+         *         running: Serving.
+         *         failed: A unit failed.
+         *         stopped: Not running, or restarting.
+         *         static: Served straight from disk: nothing to run.
+         *         error: Why this could not be read, in the tool's own words.
+         */
+        AppsFigure: {
+            /** Error */
+            error?: string | null;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Running
+             * @default 0
+             */
+            running: number;
+            /**
+             * Static
+             * @default 0
+             */
+            static: number;
+            /**
+             * Stopped
+             * @default 0
+             */
+            stopped: number;
+        };
+        /**
+         * AttentionItem
+         * @description Something that needs an operator.
+         *
+         *     Attributes:
+         *         id: Stable across refreshes.
+         *         subject: What it is about: ``{"kind": "app", "domain": ...}``,
+         *             ``{"kind": "certificate", "domain": ...}``, ``{"kind": "unit",
+         *             "name": ...}`` or ``{"kind": "monitor", "process": ..., "pid": ...}``.
+         *         title: A domain, a unit, a process.
+         *         severity: The worst of its reasons.
+         *         reasons: Each reason, with its own severity.
+         */
+        AttentionItem: {
+            /** Id */
+            id: string;
+            /** Reasons */
+            reasons: components["schemas"]["AttentionReason"][];
+            /** Severity */
+            severity: string;
+            /** Subject */
+            subject: {
+                [key: string]: unknown;
+            };
+            /** Title */
+            title: string;
+        };
+        /**
+         * AttentionReason
+         * @description One reason an item needs attention.
+         *
+         *     Attributes:
+         *         kind: ``state``, ``deploy``, ``certificate``, ``unit`` or ``monitor``.
+         *         severity: ``fail`` or ``warn``.
+         *         code: Machine-readable and stable; the console words it. ``service_failed``,
+         *             ``service_restarting``, ``deploy_failed``, ``deploy_rolled_back``,
+         *             ``certificate_expired``, ``certificate_expires_today``,
+         *             ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,
+         *             ``monitor_finding``.
+         *         params: Values for the console's sentence (days, a signal).
+         *         detail: The system's own words, verbatim.
+         *         when: When it happened.
+         *         deployment_id: A deployment to open for the full story.
+         *         actions: What can be done, as identifiers the console maps to buttons:
+         *             ``view_log``, ``diagnose``, ``view_deployment``,
+         *             ``renew_certificate``, ``open_service``, ``open_observation``.
+         */
+        AttentionReason: {
+            /** Actions */
+            actions?: string[];
+            /** Code */
+            code: string;
+            /** Deployment Id */
+            deployment_id?: number | null;
+            /** Detail */
+            detail?: string | null;
+            /** Kind */
+            kind: string;
+            /** Params */
+            params?: {
+                [key: string]: unknown;
+            };
+            /** Severity */
+            severity: string;
+            /** When */
+            when?: string | null;
+        };
+        /**
+         * AuditActor
+         * @description Who an event names.
+         *
+         *     Attributes:
+         *         kind: ``user``, ``token``, ``master``, ``fleet``, ``cli``, ``system``
+         *             or ``anonymous``.
+         *         id: A stable identifier, when there is one.
+         *         name: The human-readable name.
+         *         role: The role it acted with.
+         *         via: The channel it came through.
+         *         source: Where from.
+         */
+        AuditActor: {
+            /** Id */
+            id?: string | null;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name?: string | null;
+            /** Role */
+            role?: string | null;
+            /** Source */
+            source?: string | null;
+            /** Via */
+            via?: string | null;
+        };
+        /**
+         * AuditEntry
+         * @description One audit event.
+         *
+         *     Attributes:
+         *         timestamp: When it was recorded, with its UTC offset.
+         *         action: The event, for example ``apps.delete``.
+         *         result: Outcome, for example ``ok``, ``success`` or ``denied``.
+         *         actor: Label of who acted: an account, ``token:<name>``, ``master``,
+         *             ``cli:<login>`` or ``anonymous``.
          *         client_ip: Address the request came from.
-         *         resource: Target of the action, such as an API path.
-         *         detail: Extra context. Never a credential.
+         *         resource: Target of the action.
+         *         detail: One line of context. Never a credential.
+         *         seq: Position in the chain; None for a line written before 3.1.
+         *         id: Unique id of the event.
+         *         category: The catalog category (``access``, ``change``, ``read``...).
+         *         severity: Syslog severity it is shipped with.
+         *         correlation_id: Links the events and host actions of one request,
+         *             command or job.
+         *         who: The structured actor.
+         *         details: Structured context, secrets already removed.
+         *         sensitive: The event records a sensitive read.
          */
         AuditEntry: {
             /** Action */
             action: string;
             /** Actor */
             actor: string;
+            /** Category */
+            category?: string | null;
             /** Client Ip */
             client_ip?: string | null;
+            /** Correlation Id */
+            correlation_id?: string | null;
             /** Detail */
             detail?: string | null;
+            /** Details */
+            details?: {
+                [key: string]: unknown;
+            } | null;
+            /** Id */
+            id?: string | null;
             /** Resource */
             resource?: string | null;
             /** Result */
             result: string;
+            /**
+             * Sensitive
+             * @default false
+             */
+            sensitive: boolean;
+            /** Seq */
+            seq?: number | null;
+            /** Severity */
+            severity?: number | null;
             /** Timestamp */
             timestamp: string;
+            who?: components["schemas"]["AuditActor"] | null;
         };
         /**
          * AuditListResponse
@@ -6947,6 +13137,107 @@ export interface components {
             items: components["schemas"]["AuditEntry"][];
             /** Next Before */
             next_before?: string | null;
+        };
+        /**
+         * AuditStatusResponse
+         * @description Response for ``GET /api/audit/status``: whether the trail works.
+         *
+         *     Attributes:
+         *         status: ``ok``, ``warning`` or ``error``.
+         *         problems: One actionable sentence per problem, worst first.
+         *         total_bytes: Size of the log.
+         *         failing: Writes are failing right now.
+         *         failures: Failed writes since the console started.
+         *         last_failure: The last write error, verbatim.
+         *         last_failure_at: When it happened.
+         *         sinks: The shipping destinations.
+         */
+        AuditStatusResponse: {
+            /**
+             * Failing
+             * @default false
+             */
+            failing: boolean;
+            /**
+             * Failures
+             * @default 0
+             */
+            failures: number;
+            /** Last Failure */
+            last_failure?: string | null;
+            /** Last Failure At */
+            last_failure_at?: string | null;
+            /** Problems */
+            problems?: string[];
+            /** Sinks */
+            sinks?: components["schemas"]["SinkOut"][];
+            /** Status */
+            status: string;
+            /**
+             * Total Bytes
+             * @default 0
+             */
+            total_bytes: number;
+        };
+        /**
+         * AutoUpdatesOut
+         * @description The distribution's own automatic updates.
+         */
+        AutoUpdatesOut: {
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Installed */
+            installed: boolean;
+            /** Last Run */
+            last_run?: string | null;
+            /** Mechanism */
+            mechanism: string;
+            /** Reboots */
+            reboots: boolean;
+            /** Security Only */
+            security_only?: boolean | null;
+            /** Supported */
+            supported: boolean;
+        };
+        /**
+         * AutoUpdatesRequest
+         * @description Turn the automatic updates on or off.
+         *
+         *     Attributes:
+         *         enabled: The wanted state.
+         *         security_only: Apply only security updates.
+         */
+        AutoUpdatesRequest: {
+            /** Enabled */
+            enabled: boolean;
+            /**
+             * Security Only
+             * @default true
+             */
+            security_only: boolean;
+        };
+        /**
+         * AutoUpdatesSummary
+         * @description The state of the automatic updates.
+         */
+        AutoUpdatesSummary: {
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Error */
+            error?: string | null;
+            /** Mechanism */
+            mechanism?: string | null;
+            /** Reboots */
+            reboots?: boolean | null;
+            /** Security Only */
+            security_only?: boolean | null;
+            /** Supported */
+            supported?: boolean | null;
         };
         /**
          * BackendFieldInfo
@@ -7029,6 +13320,27 @@ export interface components {
             max_per_app: number;
         };
         /**
+         * BackupCopy
+         * @description A copy of a dump on a destination.
+         *
+         *     Attributes:
+         *         destination: The destination's name.
+         *         folder: Where in the destination it is.
+         *         pushed_at: When it was sent.
+         *         verified_by: What the upload was checked by: a hash name, or ``size``
+         *             when the destination reports no hash (an encrypted one never does).
+         */
+        BackupCopy: {
+            /** Destination */
+            destination: string;
+            /** Folder */
+            folder?: string | null;
+            /** Pushed At */
+            pushed_at?: string | null;
+            /** Verified By */
+            verified_by?: string | null;
+        };
+        /**
          * BackupInfo
          * @description One backup as the manager records it.
          *
@@ -7095,23 +13407,165 @@ export interface components {
         };
         /**
          * BackupInfoResponse
-         * @description One database backup.
+         * @description One database dump.
+         *
+         *     Attributes:
+         *         name: The file name, which restore and the other dump actions take.
+         *         format: ``custom`` (pg_dump -Fc), ``plain`` (SQL), ``tar``, ``rdb``,
+         *             ``aof`` or ``archive`` (a mongodump tarball).
+         *         kind: Who made it: ``manual``, ``scheduled`` (a policy: the only kind
+         *             retention deletes), ``safety`` (the copy a restore took of what it
+         *             overwrote) or ``unknown`` (taken before 3.1).
+         *         sha256: The digest recorded when it was taken.
+         *         verify_status: ``ok`` or ``failed`` for its last check, ``unverified``
+         *             when it has none.
+         *         verify_detail: The check's own words, verbatim.
+         *         restore_test_status: ``ok`` or ``failed`` for its last test restore.
+         *         restore_test_detail: The test's evidence, verbatim.
+         *         destinations: Where a copy was sent, from what Noust recorded (the live
+         *             contents of a destination are ``/backups/remote``).
+         *         age_seconds: How old the file is.
          */
         BackupInfoResponse: {
+            /**
+             * Age Seconds
+             * @default 0
+             */
+            age_seconds: number;
             /** Compressed */
             compressed: boolean;
             /** Created */
             created: string;
             /** Database */
             database: string;
+            /** Destinations */
+            destinations?: components["schemas"]["BackupCopy"][];
             /** Engine */
             engine: string;
+            /**
+             * Format
+             * @default unknown
+             */
+            format: string;
+            /**
+             * Kind
+             * @default unknown
+             */
+            kind: string;
+            /**
+             * Name
+             * @default
+             */
+            name: string;
             /** Path */
             path: string;
+            /** Restore Test Detail */
+            restore_test_detail?: string | null;
+            /** Restore Test Status */
+            restore_test_status?: string | null;
+            /** Restore Tested At */
+            restore_tested_at?: string | null;
+            /** Sha256 */
+            sha256?: string | null;
             /** Size */
             size: number;
             /** Size Human */
             size_human: string;
+            /** Verified At */
+            verified_at?: string | null;
+            /** Verify Detail */
+            verify_detail?: string | null;
+            /** Verify Method */
+            verify_method?: string | null;
+            /**
+             * Verify Status
+             * @default unverified
+             */
+            verify_status: string;
+        };
+        /**
+         * BackupPolicyListResponse
+         * @description Every policy, and the databases without one.
+         *
+         *     Attributes:
+         *         unprotected: Databases of running engines with no enabled policy,
+         *             which is what the databases page warns about. A Redis instance is
+         *             one entry.
+         */
+        BackupPolicyListResponse: {
+            /** Policies */
+            policies: components["schemas"]["BackupPolicyResponse"][];
+            /** Total */
+            total: number;
+            /** Unprotected */
+            unprotected?: components["schemas"]["UnprotectedDatabase"][];
+        };
+        /**
+         * BackupPolicyResponse
+         * @description A database's backup policy and how it is going.
+         *
+         *     Attributes:
+         *         configured: Whether the database has a policy. When it does not, every
+         *             other field is empty and ``timer`` says nothing.
+         *         schedule: The calendar expression.
+         *         schedule_alias: ``hourly``, ``daily``, ``weekly``, ``monthly`` or
+         *             ``custom``.
+         *         retention_count: Scheduled dumps kept locally; null for no limit.
+         *         retention_days: Days a scheduled dump is kept locally; null for none.
+         *         destinations: Where each dump is sent.
+         *         dump_format: PostgreSQL's format; null for the engine's default.
+         *         verify_restore: Each dump is loaded into a temporary database.
+         *         enabled: Whether the timer exists.
+         *         last_run_at: When the policy last ran.
+         *         last_status: ``ok`` or ``failed``; null before the first run.
+         *         last_error: What the last failed run said, verbatim.
+         *         last_dump: The dump the last run took.
+         *         last_success_at: When a run last went everywhere it was meant to.
+         */
+        BackupPolicyResponse: {
+            /** Configured */
+            configured: boolean;
+            /** Created At */
+            created_at?: string | null;
+            /** Database */
+            database: string;
+            /** Destinations */
+            destinations?: components["schemas"]["PolicyDestinationState"][];
+            /** Dump Format */
+            dump_format?: string | null;
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Engine */
+            engine: string;
+            /** Last Dump */
+            last_dump?: string | null;
+            /** Last Error */
+            last_error?: string | null;
+            /** Last Run At */
+            last_run_at?: string | null;
+            /** Last Status */
+            last_status?: string | null;
+            /** Last Success At */
+            last_success_at?: string | null;
+            /** Retention Count */
+            retention_count?: number | null;
+            /** Retention Days */
+            retention_days?: number | null;
+            /** Schedule */
+            schedule?: string | null;
+            /** Schedule Alias */
+            schedule_alias?: string | null;
+            timer?: components["schemas"]["PolicyTimer"];
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Verify Restore
+             * @default false
+             */
+            verify_restore: boolean;
         };
         /**
          * BackupRequest
@@ -7222,6 +13676,70 @@ export interface components {
             total_size_human: string;
         };
         /**
+         * BackupsFigure
+         * @description Backups of the last 24 hours against the applications that should have them.
+         *
+         *     Attributes:
+         *         window_hours: How far back it looks.
+         *         apps: Applications (previews excluded).
+         *         scheduled: Applications with a backup schedule.
+         *         with_backup_24h: Applications backed up in the window.
+         *         unprotected_scheduled: Scheduled applications with no backup in it.
+         *         failed_24h: Backup jobs that failed in it.
+         *         last_at: When the newest backup was taken.
+         *         error: Why this could not be read.
+         */
+        BackupsFigure: {
+            /**
+             * Apps
+             * @default 0
+             */
+            apps: number;
+            /** Error */
+            error?: string | null;
+            /**
+             * Failed 24H
+             * @default 0
+             */
+            failed_24h: number;
+            /** Last At */
+            last_at?: string | null;
+            /**
+             * Scheduled
+             * @default 0
+             */
+            scheduled: number;
+            /**
+             * Unprotected Scheduled
+             * @default 0
+             */
+            unprotected_scheduled: number;
+            /**
+             * Window Hours
+             * @default 24
+             */
+            window_hours: number;
+            /**
+             * With Backup 24H
+             * @default 0
+             */
+            with_backup_24h: number;
+        };
+        /**
+         * BootOut
+         * @description One boot the journal remembers.
+         */
+        BootOut: {
+            /** Boot Id */
+            boot_id: string;
+            /** First */
+            first: string;
+            /** Index */
+            index: number;
+            /** Last */
+            last: string;
+        };
+        /**
          * BranchListOut
          * @description A repository's branches.
          */
@@ -7247,6 +13765,138 @@ export interface components {
             protected: boolean;
         };
         /**
+         * BranchResponse
+         * @description The branch an application deploys from now.
+         *
+         *     Attributes:
+         *         domain: The application's domain.
+         *         branch: The pinned branch, or None when any push deploys.
+         *         pinned: Whether a branch is pinned.
+         *         commit: The branch's head on the remote when it was pinned.
+         *         previous: The branch it had before.
+         */
+        BranchResponse: {
+            /** Branch */
+            branch?: string | null;
+            /** Commit */
+            commit?: string | null;
+            /** Domain */
+            domain: string;
+            /** Pinned */
+            pinned: boolean;
+            /** Previous */
+            previous?: string | null;
+        };
+        /**
+         * BrokenLinkOut
+         * @description Where the chain breaks.
+         *
+         *     Attributes:
+         *         file: The log file.
+         *         line: Line number in it.
+         *         seq: The sequence number the line claims.
+         *         reason: What is wrong.
+         */
+        BrokenLinkOut: {
+            /** File */
+            file: string;
+            /** Line */
+            line: number;
+            /** Reason */
+            reason: string;
+            /** Seq */
+            seq?: number | null;
+        };
+        /**
+         * CancelOut
+         * @description The result of cancelling.
+         */
+        CancelOut: {
+            /** Cancelled */
+            cancelled: boolean;
+        };
+        /**
+         * CandidateOut
+         * @description Something that takes space and might be freed.
+         */
+        CandidateOut: {
+            /** Action */
+            action?: string | null;
+            /**
+             * Detail
+             * @default
+             */
+            detail: string;
+            /** Id */
+            id: string;
+            /** Measured At */
+            measured_at?: string | null;
+            /** Reclaimable Bytes */
+            reclaimable_bytes?: number | null;
+            /** Size Bytes */
+            size_bytes?: number | null;
+        };
+        /**
+         * CapabilitiesOut
+         * @description What this machine can do, so the console degrades with a message and not
+         *     with an error.
+         */
+        CapabilitiesOut: {
+            /** Container */
+            container?: string | null;
+            /** Docker */
+            docker: boolean;
+            /** Packages */
+            packages: string;
+            /** Security Updates */
+            security_updates: boolean;
+            /** Swap */
+            swap: boolean;
+            /** Systemd */
+            systemd: boolean;
+            /** Transactional */
+            transactional: boolean;
+            /** Updates */
+            updates: boolean;
+        };
+        /**
+         * CatalogEvent
+         * @description One event the audit log can record.
+         *
+         *     Attributes:
+         *         name: The event name.
+         *         category: Its category.
+         *         severity: Syslog severity of a successful occurrence.
+         *         sensitive_read: It records someone reading something secret.
+         *         description: What it means.
+         */
+        CatalogEvent: {
+            /** Category */
+            category: string;
+            /** Description */
+            description: string;
+            /** Name */
+            name: string;
+            /** Sensitive Read */
+            sensitive_read: boolean;
+            /** Severity */
+            severity: number;
+        };
+        /**
+         * CatalogResponse
+         * @description Response for ``GET /api/audit/events``.
+         *
+         *     Attributes:
+         *         categories: Every category, in display order.
+         *         events: Every event.
+         */
+        CatalogResponse: {
+            /** Categories */
+            categories: string[];
+            /** Events */
+            events: components["schemas"]["CatalogEvent"][];
+        };
+        /**
          * CentralInfo
          * @description What the console needs to know about the central it is signed in to.
          *
@@ -7264,6 +13914,30 @@ export interface components {
             role: string;
             /** Sealed */
             sealed: boolean;
+        };
+        /**
+         * CeremonyOptions
+         * @description The options of a WebAuthn ceremony.
+         *
+         *     Attributes:
+         *         public_key: The ``publicKey`` member, in WebAuthn's JSON form: pass it
+         *             to ``PublicKeyCredential.parseCreationOptionsFromJSON()`` or
+         *             ``parseRequestOptionsFromJSON()``.
+         *         mediation: For a sign-in, ``conditional`` when asked for the autofill
+         *             flavour (``navigator.credentials.get({mediation: "conditional"})``
+         *             on a field with ``autocomplete="username webauthn"``), else
+         *             ``optional``. None for the other ceremonies.
+         *         expires_in: Seconds the challenge stays valid; ask again after.
+         */
+        CeremonyOptions: {
+            /** Expires In */
+            expires_in: number;
+            /** Mediation */
+            mediation?: string | null;
+            /** Public Key */
+            public_key: {
+                [key: string]: unknown;
+            };
         };
         /**
          * CertActionResponse
@@ -7358,6 +14032,222 @@ export interface components {
             webserver: string;
         };
         /**
+         * CertificatesFigure
+         * @description Certificates by how long they have left.
+         *
+         *     Attributes:
+         *         total: How many there are.
+         *         expiring: Expiring within ``warning_days``.
+         *         expired: Already expired.
+         *         next_days: Days to the nearest expiry, or null with none known.
+         *         warning_days: The window ``expiring`` counts.
+         *         error: Why this could not be read.
+         */
+        CertificatesFigure: {
+            /** Error */
+            error?: string | null;
+            /**
+             * Expired
+             * @default 0
+             */
+            expired: number;
+            /**
+             * Expiring
+             * @default 0
+             */
+            expiring: number;
+            /** Next Days */
+            next_days?: number | null;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /**
+             * Warning Days
+             * @default 21
+             */
+            warning_days: number;
+        };
+        /**
+         * ChangeOut
+         * @description A change to sshd or the firewall.
+         *
+         *     ``pending`` until confirmed or undone; ``expires_at`` (epoch seconds) is
+         *     when its timer undoes it.
+         */
+        ChangeOut: {
+            /** Actor */
+            actor: string;
+            /**
+             * After
+             * @default {}
+             */
+            after: {
+                [key: string]: string;
+            };
+            /** Applied At */
+            applied_at: number;
+            /**
+             * Before
+             * @default {}
+             */
+            before: {
+                [key: string]: string;
+            };
+            /**
+             * Commit
+             * @default []
+             */
+            commit: string[][];
+            /** Expires At */
+            expires_at: number;
+            /**
+             * Files
+             * @default []
+             */
+            files: string[];
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Proof */
+            proof: string;
+            /**
+             * Resolution
+             * @default
+             */
+            resolution: string;
+            /** Resolved At */
+            resolved_at?: number | null;
+            /** Resolved By */
+            resolved_by?: string | null;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+            /**
+             * Undo
+             * @default []
+             */
+            undo: string[][];
+            /** Unit */
+            unit: string;
+            /**
+             * Validate Command
+             * @default []
+             */
+            validate_command: string[];
+        };
+        /**
+         * CheckCountsOut
+         * @description How many checks are in each state.
+         */
+        CheckCountsOut: {
+            /** Accepted */
+            accepted: number;
+            /** Critical */
+            critical: number;
+            /** Not Applicable */
+            not_applicable: number;
+            /** Passed */
+            passed: number;
+            /** Unknown */
+            unknown: number;
+            /** Warning */
+            warning: number;
+        };
+        /**
+         * CheckFixOut
+         * @description How a finding is fixed: ``automatic``, ``action``, ``guided`` or ``none``.
+         */
+        CheckFixOut: {
+            /** Action */
+            action?: string | null;
+            /**
+             * Blocked
+             * @default
+             */
+            blocked: string;
+            /** Cli */
+            cli?: string | null;
+            /** Endpoint */
+            endpoint?: string | null;
+            /** Kind */
+            kind: string;
+            /**
+             * Reverts
+             * @default false
+             */
+            reverts: boolean;
+            /**
+             * Steps
+             * @default []
+             */
+            steps: string[];
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+        };
+        /**
+         * ChecksOut
+         * @description Every check, and when they ran.
+         */
+        ChecksOut: {
+            /** Checked At */
+            checked_at: string;
+            /** Checks */
+            checks: components["schemas"]["noust__web__api__server__security__CheckOut"][];
+            counts: components["schemas"]["CheckCountsOut"];
+        };
+        /**
+         * CleanupPlanOut
+         * @description What a cleanup would do.
+         */
+        CleanupPlanOut: {
+            /** Action */
+            action: string;
+            /** Commands */
+            commands: string[];
+            /** Effect */
+            effect: string;
+            /** Items */
+            items?: string[];
+            /** Needs Confirmation */
+            needs_confirmation: boolean;
+        };
+        /**
+         * CleanupRequest
+         * @description Clean one thing.
+         *
+         *     Attributes:
+         *         action: One of ``journal``, ``pkg-cache``, ``docker-build-cache``,
+         *             ``docker-dangling-images``, ``docker-image``, ``releases``.
+         *         size_mb: For ``journal``: what to vacuum it to.
+         *         days: For ``journal``: keep this many days instead.
+         *         target: For ``docker-image``: the image id.
+         *         confirm: The caller has read what the action takes. Required by the
+         *             Docker actions; ``GET /api/server/storage/cleanup/plan`` says what
+         *             an action would do without changing anything.
+         */
+        CleanupRequest: {
+            /** Action */
+            action: string;
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /** Days */
+            days?: number | null;
+            /** Size Mb */
+            size_mb?: number | null;
+            /** Target */
+            target?: string | null;
+        };
+        /**
          * CleanupResponse
          * @description Response after dropping old jobs.
          */
@@ -7366,6 +14256,114 @@ export interface components {
             message: string;
             /** Removed */
             removed: number;
+        };
+        /**
+         * CollectorModel
+         * @description Whether history is being recorded, and by whom.
+         *
+         *     Attributes:
+         *         recording: True while a collector holds a live lease.
+         *         host: ``daemon`` (``noust-monitor``) or ``console``; null when nobody
+         *             is recording.
+         *         since: When the collector started, epoch seconds.
+         *         last_sample_at: Its newest tick, epoch seconds.
+         *         interval_s: Seconds between its ticks.
+         *         last_error: The newest failure it logged, verbatim.
+         *         reason: Why nothing is being recorded, with the fix.
+         *         advice: A hint when recording works but could be better (it only runs
+         *             while the console does).
+         *         retention_days: How long the hourly tier is kept.
+         */
+        CollectorModel: {
+            advice?: components["schemas"]["ReasonModel"] | null;
+            /** Host */
+            host?: string | null;
+            /**
+             * Interval S
+             * @default 5
+             */
+            interval_s: number;
+            /** Last Error */
+            last_error?: string | null;
+            /** Last Sample At */
+            last_sample_at?: number | null;
+            reason?: components["schemas"]["ReasonModel"] | null;
+            /** Recording */
+            recording: boolean;
+            /**
+             * Retention Days
+             * @default 400
+             */
+            retention_days: number;
+            /** Since */
+            since?: number | null;
+        };
+        /**
+         * ColumnResponse
+         * @description One column.
+         *
+         *     Attributes:
+         *         type: The type as the engine spells it.
+         *         kind: ``numeric``, ``boolean``, ``text``, ``datetime``, ``json``,
+         *             ``binary``, ``uuid``, ``array`` or ``other``: how its cells are
+         *             encoded and drawn.
+         *         primary_key: Its position in the primary key, from 1.
+         *         generated: Computed by the engine (identity, generated,
+         *             auto-increment); an insert may leave it out.
+         */
+        ColumnResponse: {
+            /** Default */
+            default?: string | null;
+            /**
+             * Generated
+             * @default false
+             */
+            generated: boolean;
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /**
+             * Nullable
+             * @default true
+             */
+            nullable: boolean;
+            /** Primary Key */
+            primary_key?: number | null;
+            /** Type */
+            type: string;
+        };
+        /**
+         * ComposeExceptionModel
+         * @description A compose stack allowed privileged containers and the Docker socket.
+         */
+        ComposeExceptionModel: {
+            /**
+             * Allowed At
+             * @description When, ISO 8601
+             */
+            allowed_at: string;
+            /**
+             * Allowed By
+             * @description Who allowed it
+             */
+            allowed_by: string;
+            /**
+             * Reason
+             * @description Why, in the operator's words
+             */
+            reason: string;
+        };
+        /**
+         * ComposeExceptionRequest
+         * @description Allowing a compose stack what is root on the host, and why.
+         */
+        ComposeExceptionRequest: {
+            /**
+             * Reason
+             * @description Why, recorded and shown
+             */
+            reason: string;
         };
         /**
          * ConfigPatchRequest
@@ -7447,6 +14445,33 @@ export interface components {
             path: string;
         };
         /**
+         * ConnectResponse
+         * @description Everything the Connect tab shows.
+         *
+         *     Attributes:
+         *         password_known: Noust keeps the account's password, so "Show" works
+         *             (sudo mode); otherwise the console offers a rotation.
+         *         apps: The applications' variables that carry the database.
+         */
+        ConnectResponse: {
+            /** Apps */
+            apps: components["schemas"]["LinkResponse"][];
+            /** Database */
+            database: string;
+            /** Engine */
+            engine: string;
+            /** Exposed */
+            exposed: components["schemas"]["ExposedPortResponse"][];
+            listen?: components["schemas"]["ListenResponse"] | null;
+            /** Password Known */
+            password_known: boolean;
+            /** Port */
+            port: number;
+            tunnel: components["schemas"]["TunnelResponse"];
+            /** Username */
+            username?: string | null;
+        };
+        /**
          * ConnectionStringRequest
          * @description Request for a connection string.
          */
@@ -7469,12 +14494,42 @@ export interface components {
          * ConnectionStringResponse
          * @description Response with a connection string.
          *
-         *     The string embeds the password the caller supplied, which is the point of
-         *     the endpoint; nothing here is read from the server.
+         *     The string embeds the password the caller supplied, percent-encoded, on
+         *     the port the engine really listens on.
          */
         ConnectionStringResponse: {
             /** Connection String */
             connection_string: string;
+        };
+        /**
+         * ConnectionUrlResponse
+         * @description A linked database's connection string, with its password.
+         */
+        ConnectionUrlResponse: {
+            /** Database */
+            database: string;
+            /** Domain */
+            domain: string;
+            /** Engine */
+            engine: string;
+            /** Url */
+            url: string;
+        };
+        /**
+         * ConstraintResponse
+         * @description One constraint.
+         *
+         *     Attributes:
+         *         type: ``primary_key``, ``foreign_key``, ``unique``, ``check``,
+         *             ``exclusion``, ``trigger`` or ``other``.
+         */
+        ConstraintResponse: {
+            /** Definition */
+            definition?: string | null;
+            /** Name */
+            name: string;
+            /** Type */
+            type: string;
         };
         /**
          * ConversionRequest
@@ -7540,6 +14595,8 @@ export interface components {
              * @description CPUQuota for the unit, in percent of one CPU (200 is two CPUs); 1 to 100 per CPU. Null: no limit
              */
             cpu_quota_percent?: number | null;
+            /** @description Create a database for the application before its first build, owned by an account of its own, and write its connection string into the application's environment, marked secret: the first build and the first start already have it. Not with a recipe, a monorepo or a Docker Compose project, which provision their own. A first deploy that fails keeps the database, and its error says how to drop it */
+            database?: components["schemas"]["NewAppDatabaseRequest"] | null;
             /**
              * Domain
              * @description Target domain name
@@ -7724,8 +14781,16 @@ export interface components {
         /**
          * CreateDatabaseRequest
          * @description Request to create a database.
+         *
+         *     Attributes:
+         *         app: The application it belongs to, so its backups include it.
          */
         CreateDatabaseRequest: {
+            /**
+             * App
+             * @description Application the database belongs to
+             */
+            app?: string | null;
             /**
              * Encoding
              * @description Character encoding
@@ -7889,8 +14954,27 @@ export interface components {
             webserver?: string | null;
         };
         /**
+         * CreateSwapRequest
+         * @description Make a swap file.
+         *
+         *     Attributes:
+         *         size_mb: Its size in MiB, at least 256.
+         *         swappiness: ``vm.swappiness`` to set with it; 10 when omitted.
+         */
+        CreateSwapRequest: {
+            /** Size Mb */
+            size_mb: number;
+            /** Swappiness */
+            swappiness?: number | null;
+        };
+        /**
          * CreateUserRequest
          * @description Request to create a database user.
+         *
+         *     Attributes:
+         *         database: A database to give it access to.
+         *         profile: ``owner``, ``read_write`` or ``read_only`` on that database;
+         *             the engine's full privileges when a database is given without one.
          */
         CreateUserRequest: {
             /**
@@ -7915,6 +14999,11 @@ export interface components {
              */
             password?: string | null;
             /**
+             * Profile
+             * @description owner, read_write or read_only
+             */
+            profile?: string | null;
+            /**
              * Username
              * @description Username
              */
@@ -7924,9 +15013,9 @@ export interface components {
          * CreateUserResponse
          * @description Response after creating a user.
          *
-         *     The password is returned exactly once, at creation: Noust stores only what
-         *     the engine stores, which is a hash, so there is nowhere to read it from
-         *     later. It is deliberately absent from every other response.
+         *     The password is returned here, once. Noust keeps it in its secret store so
+         *     the account can be linked to an application and shown again with sudo
+         *     mode; it is absent from every listing.
          */
         CreateUserResponse: {
             /** Message */
@@ -7935,6 +15024,19 @@ export interface components {
             password: string;
             /** Username */
             username: string;
+        };
+        /**
+         * CredentialBody
+         * @description A browser's answer to a ceremony.
+         *
+         *     Attributes:
+         *         credential: ``PublicKeyCredential.toJSON()``, as the browser made it.
+         */
+        CredentialBody: {
+            /** Credential */
+            credential: {
+                [key: string]: unknown;
+            };
         };
         /**
          * CronActionResponse
@@ -8067,19 +15169,38 @@ export interface components {
         };
         /**
          * DatabaseInfoResponse
-         * @description One database.
+         * @description One database, as the engine and the store together describe it.
          *
          *     Attributes:
-         *         owner: The role or account that owns it. Null when the engine has no
-         *             such concept - MySQL/MariaDB and Redis have none, and MongoDB
-         *             grants roles to users rather than owning a database with one; see
-         *             each manager's ``list_databases`` docstring for why.
+         *         owner: The owning role or account. Null for engines with no such
+         *             concept: MySQL/MariaDB and Redis have none, and MongoDB grants
+         *             roles to users rather than owning a database with one.
+         *         tracked: Recorded by Noust: backed up with its application, linkable.
+         *         missing: Recorded by Noust but gone from the engine.
+         *         app: The application it belongs to, whose backups include it.
+         *         apps: Every application linked to it.
+         *         username: The account Noust provisioned for it.
+         *         engine_version: The engine's version.
+         *         last_backup: When its newest dump was taken.
          */
         DatabaseInfoResponse: {
+            /** App */
+            app?: string | null;
+            /** Apps */
+            apps?: string[];
             /** Encoding */
             encoding?: string | null;
             /** Engine */
             engine: string;
+            /** Engine Version */
+            engine_version?: string | null;
+            /** Last Backup */
+            last_backup?: string | null;
+            /**
+             * Missing
+             * @default false
+             */
+            missing: boolean;
             /** Name */
             name: string;
             /** Owner */
@@ -8091,6 +15212,13 @@ export interface components {
              * @default 0
              */
             tables: number;
+            /**
+             * Tracked
+             * @default false
+             */
+            tracked: boolean;
+            /** Username */
+            username?: string | null;
         };
         /**
          * DatabaseListResponse
@@ -8101,6 +15229,95 @@ export interface components {
             databases: components["schemas"]["DatabaseInfoResponse"][];
             /** Total */
             total: number;
+        };
+        /**
+         * DatabaseMetricsResponse
+         * @description A database's state now.
+         *
+         *     Attributes:
+         *         connections: Connections to this database.
+         *         server_connections: Connections to the whole server.
+         *         cache_hit_ratio: Reads served from memory, as a percentage
+         *             (server-wide on MySQL/MariaDB and Redis).
+         *         transactions: Committed and rolled back since the statistics began
+         *             (PostgreSQL).
+         *         keys: Keys in the slot (Redis).
+         *         tables: The ten biggest tables.
+         *         series: Chart name to the metrics store's series: ``size``,
+         *             ``connections``, and on PostgreSQL ``cache_hit`` and ``tps``.
+         */
+        DatabaseMetricsResponse: {
+            /** Cache Hit Ratio */
+            cache_hit_ratio?: number | null;
+            /** Connections */
+            connections?: number | null;
+            /** Database */
+            database: string;
+            /** Deadlocks */
+            deadlocks?: number | null;
+            /** Engine */
+            engine: string;
+            /** Keys */
+            keys?: number | null;
+            /** Max Connections */
+            max_connections?: number | null;
+            /** Series */
+            series?: {
+                [key: string]: string;
+            };
+            /** Server Connections */
+            server_connections?: number | null;
+            /** Size Bytes */
+            size_bytes?: number | null;
+            /** Tables */
+            tables?: components["schemas"]["TableSizeResponse"][];
+            /** Transactions */
+            transactions?: number | null;
+        };
+        /**
+         * DatabaseOverviewResponse
+         * @description Everything the database page's Overview shows, in one call.
+         *
+         *     Attributes:
+         *         port: The port the engine really listens on.
+         *         service: The systemd unit it runs as.
+         *         capabilities: The engine's capabilities, for the page's tabs.
+         *         support: Upstream support for the engine's version.
+         *         warnings: What the operator must know about the engine.
+         *         access: Who can reach the database.
+         *         links: The applications using it.
+         *         backups: How many dumps of it are on disk.
+         */
+        DatabaseOverviewResponse: {
+            /** Access */
+            access: components["schemas"]["AccessEntryResponse"][];
+            /** Backups */
+            backups: number;
+            /** Capabilities */
+            capabilities: string[];
+            database: components["schemas"]["DatabaseInfoResponse"];
+            /** Display Name */
+            display_name: string;
+            /** Links */
+            links: components["schemas"]["LinkResponse"][];
+            /** Port */
+            port: number;
+            /** Service */
+            service: string;
+            support: components["schemas"]["SupportNoticeResponse"];
+            /** Warnings */
+            warnings: string[];
+        };
+        /**
+         * DecisionBody
+         * @description A decision's comment.
+         *
+         *     Attributes:
+         *         comment: What the decider says; shown to the requester.
+         */
+        DecisionBody: {
+            /** Comment */
+            comment?: string | null;
         };
         /**
          * DeleteRequest
@@ -8124,6 +15341,29 @@ export interface components {
              * @default true
              */
             remove_ssl: boolean;
+        };
+        /**
+         * DeleteRowRequest
+         * @description A row to delete.
+         *
+         *     Attributes:
+         *         key: The row's whole primary key, as the page returned it.
+         */
+        DeleteRowRequest: {
+            /** Key */
+            key: {
+                [key: string]: unknown;
+            };
+            /**
+             * Relation
+             * @description Table
+             */
+            relation: string;
+            /**
+             * Schema
+             * @description Schema (the database on MySQL)
+             */
+            schema: string;
         };
         /**
          * DeploymentListResponse
@@ -8225,6 +15465,65 @@ export interface components {
          * @enum {string}
          */
         DeploymentTrigger: "panel" | "cli" | "webhook";
+        /**
+         * DeploysFigure
+         * @description Deployments since local midnight.
+         *
+         *     Attributes:
+         *         since: Midnight, with its UTC offset.
+         *         total: Deployments started since.
+         *         succeeded: Of those, finished well.
+         *         failed: Of those, failed.
+         *         rolled_back: Of those, undone.
+         *         running: Still in progress.
+         *         finished: Finished either way.
+         *         last_at: When the newest one ended (or started).
+         *         last_status: How it ended.
+         *         last_domain: Which application it was.
+         *         error: Why this could not be read.
+         */
+        DeploysFigure: {
+            /** Error */
+            error?: string | null;
+            /**
+             * Failed
+             * @default 0
+             */
+            failed: number;
+            /**
+             * Finished
+             * @default 0
+             */
+            finished: number;
+            /** Last At */
+            last_at?: string | null;
+            /** Last Domain */
+            last_domain?: string | null;
+            /** Last Status */
+            last_status?: string | null;
+            /**
+             * Rolled Back
+             * @default 0
+             */
+            rolled_back: number;
+            /**
+             * Running
+             * @default 0
+             */
+            running: number;
+            /** Since */
+            since?: string | null;
+            /**
+             * Succeeded
+             * @default 0
+             */
+            succeeded: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+        };
         /**
          * DestinationActionResponse
          * @description Response for a destination action that completed immediately.
@@ -8331,6 +15630,18 @@ export interface components {
             verdict: string;
         };
         /**
+         * DirectiveChangeOut
+         * @description One sshd directive, before and after.
+         */
+        DirectiveChangeOut: {
+            /** After */
+            after: string;
+            /** Before */
+            before: string;
+            /** Directive */
+            directive: string;
+        };
+        /**
          * DiskEntry
          * @description Capacity of one filesystem.
          *
@@ -8360,6 +15671,47 @@ export interface components {
             used_bytes: number;
         };
         /**
+         * DiskFigure
+         * @description The disk the applications live on.
+         *
+         *     Attributes:
+         *         used: Bytes in use.
+         *         total: Bytes in all.
+         *         percent: Percent used.
+         *         free_percent: Percent free.
+         *         forecast_full_days: Estimated days until it fills, from recent growth;
+         *             an estimate, and null when there is none.
+         *         forecast_reason: Why there is none.
+         *         error: Why this could not be read.
+         */
+        DiskFigure: {
+            /** Error */
+            error?: string | null;
+            /** Forecast Full Days */
+            forecast_full_days?: number | null;
+            forecast_reason?: components["schemas"]["ForecastReason"] | null;
+            /**
+             * Free Percent
+             * @default 100
+             */
+            free_percent: number;
+            /**
+             * Percent
+             * @default 0
+             */
+            percent: number;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
+            /**
+             * Used
+             * @default 0
+             */
+            used: number;
+        };
+        /**
          * DiskInfo
          * @description Disk usage of one mounted filesystem.
          */
@@ -8376,6 +15728,29 @@ export interface components {
             total_gb: number;
             /** Used Gb */
             used_gb: number;
+        };
+        /**
+         * DiskSummary
+         * @description The disks, by their worst.
+         */
+        DiskSummary: {
+            /** Error */
+            error?: string | null;
+            /** Free Bytes */
+            free_bytes?: number | null;
+            /** Inodes Percent */
+            inodes_percent?: number | null;
+            /**
+             * Mounts
+             * @default 0
+             */
+            mounts: number;
+            /** Status */
+            status?: string | null;
+            /** Worst Mount */
+            worst_mount?: string | null;
+            /** Worst Percent */
+            worst_percent?: number | null;
         };
         /**
          * DnsCheckResponse
@@ -8398,17 +15773,54 @@ export interface components {
             resolved_addresses: string[];
         };
         /**
+         * DockerImageOut
+         * @description An image no container uses.
+         */
+        DockerImageOut: {
+            /** Containers */
+            containers: string;
+            /** Id */
+            id: string;
+            /** Repository */
+            repository: string;
+            /** Size */
+            size: string;
+            /** Tag */
+            tag: string;
+        };
+        /**
+         * DockerPortOut
+         * @description A port Docker publishes on the host.
+         */
+        DockerPortOut: {
+            /** Container */
+            container: string;
+            /** Container Port */
+            container_port: number;
+            /** Host Address */
+            host_address: string;
+            /** Host Port */
+            host_port: number;
+            /** Project */
+            project?: string | null;
+            /** Proto */
+            proto: string;
+        };
+        /**
          * ElevateRequest
          * @description Confirmation presented to enter sudo mode for the next ten minutes.
          *
          *     Attributes:
-         *         code: A TOTP code or a backup code, used when two-factor
-         *             authentication is enabled.
-         *         token: The master token, used when it is not.
+         *         code: A TOTP code or a backup code: the account's own, or the
+         *             console's for the master token when two-factor is enabled.
+         *         password: The account's password; an account confirms with both.
+         *         token: The master token, for a master token session without two-factor.
          */
         ElevateRequest: {
             /** Code */
             code?: string | null;
+            /** Password */
+            password?: string | null;
             /** Token */
             token?: string | null;
         };
@@ -8434,10 +15846,34 @@ export interface components {
             password2: string;
         };
         /**
+         * EngineExposureResponse
+         * @description One engine's listen setting and its open ports.
+         */
+        EngineExposureResponse: {
+            /** Engine */
+            engine: string;
+            /** Exposed */
+            exposed: components["schemas"]["ExposedPortResponse"][];
+            listen?: components["schemas"]["ListenResponse"] | null;
+            /** Port */
+            port: number;
+        };
+        /**
          * EngineInfo
          * @description A database engine and whether it is usable on this host.
+         *
+         *     Attributes:
+         *         port: The port the server listens on when it runs, its default
+         *             otherwise.
+         *         service: The systemd unit it runs as on this server.
+         *         capabilities: What the engine can do; the console draws its tabs
+         *             from these instead of testing engine names.
+         *         support: Upstream support for the installed version.
+         *         warnings: What the operator must know about the installation.
          */
         EngineInfo: {
+            /** Capabilities */
+            capabilities?: string[];
             /** Display Name */
             display_name: string;
             /** Installed */
@@ -8451,8 +15887,13 @@ export interface components {
              * @default false
              */
             running: boolean;
+            /** Service */
+            service?: string | null;
+            support?: components["schemas"]["SupportNoticeResponse"] | null;
             /** Version */
             version?: string | null;
+            /** Warnings */
+            warnings?: string[];
         };
         /**
          * EngineListResponse
@@ -8477,10 +15918,47 @@ export interface components {
             service: string;
         };
         /**
+         * EngineMetricsResponse
+         * @description An engine's state now.
+         *
+         *     Attributes:
+         *         cache_hit_ratio: Reads served from memory since the statistics
+         *             began, as a percentage.
+         *         databases: Per database (per slot on Redis): ``name`` and what the
+         *             engine reports of it (``size_bytes``, ``connections``, ``keys``).
+         *         details: What only this engine reports: MySQL's ``slow_queries`` and
+         *             ``questions``, Redis's ``used_memory`` and ``evicted_keys``...
+         *         series: Chart name to the metrics store's series.
+         */
+        EngineMetricsResponse: {
+            /** Cache Hit Ratio */
+            cache_hit_ratio?: number | null;
+            /** Connections */
+            connections?: number | null;
+            /** Databases */
+            databases?: {
+                [key: string]: unknown;
+            }[];
+            /** Details */
+            details?: {
+                [key: string]: unknown;
+            };
+            /** Engine */
+            engine: string;
+            /** Max Connections */
+            max_connections?: number | null;
+            /** Series */
+            series?: {
+                [key: string]: string;
+            };
+        };
+        /**
          * EngineStatusResponse
          * @description Response for the status of one engine.
          */
         EngineStatusResponse: {
+            /** Capabilities */
+            capabilities?: string[];
             /** Display Name */
             display_name: string;
             /** Engine */
@@ -8493,8 +15971,140 @@ export interface components {
             running: boolean;
             /** Service */
             service: string;
+            support?: components["schemas"]["SupportNoticeResponse"] | null;
             /** Version */
             version?: string | null;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * EnsBaselineItem
+         * @description One value the profile fixes.
+         *
+         *     Attributes:
+         *         key: The setting or behaviour.
+         *         description: What it controls.
+         *         standard_value: Outside the profile.
+         *         ens_value: Under ``ens-medium``.
+         *         measures: The measures it answers.
+         */
+        EnsBaselineItem: {
+            /** Description */
+            description: string;
+            /** Ens Value */
+            ens_value: string;
+            /** Key */
+            key: string;
+            /** Measures */
+            measures: string[];
+            /** Standard Value */
+            standard_value: string;
+        };
+        /**
+         * EnsCheckResponse
+         * @description The result of the compliance check.
+         *
+         *     Attributes:
+         *         profile: ``standard`` or ``ens-medium``.
+         *         checked_at: When, ISO 8601 UTC.
+         *         host: The server's name.
+         *         version: The Noust it runs.
+         *         verdict: ``ok``, ``warning`` or ``fail``: the worst finding.
+         *         counts: Findings per status.
+         *         findings: One per check, in catalog order.
+         *         indicators: The op.mon.2 figures.
+         *         errors: Areas that could not be read, verbatim.
+         */
+        EnsCheckResponse: {
+            /** Checked At */
+            checked_at: string;
+            /** Counts */
+            counts: {
+                [key: string]: number;
+            };
+            /** Errors */
+            errors?: {
+                [key: string]: string;
+            };
+            /** Findings */
+            findings: components["schemas"]["EnsFinding"][];
+            /** Host */
+            host: string;
+            /** Indicators */
+            indicators?: {
+                [key: string]: unknown;
+            };
+            /** Profile */
+            profile: string;
+            /** Verdict */
+            verdict: string;
+            /** Version */
+            version: string;
+        };
+        /**
+         * EnsFinding
+         * @description One check's result.
+         *
+         *     Attributes:
+         *         id: Stable id, such as ``ENS-ACC-02``.
+         *         title: What is checked.
+         *         status: ``ok``, ``warning``, ``fail`` or ``n/a``.
+         *         measures: RD 311/2022 measures it answers, such as ``op.acc.6.r2``.
+         *         summary: What was found, in a sentence.
+         *         evidence: Values and paths, verbatim; never a secret.
+         *         remediation: What to do; empty when nothing is.
+         */
+        EnsFinding: {
+            /** Evidence */
+            evidence?: string[];
+            /** Id */
+            id: string;
+            /** Measures */
+            measures: string[];
+            /**
+             * Remediation
+             * @default
+             */
+            remediation: string;
+            /** Status */
+            status: string;
+            /** Summary */
+            summary: string;
+            /** Title */
+            title: string;
+        };
+        /**
+         * EnsProfileResponse
+         * @description The profile in force and what ``ens-medium`` fixes.
+         *
+         *     Attributes:
+         *         profile: ``standard`` or ``ens-medium``.
+         *         baseline: Every value the profile fixes.
+         */
+        EnsProfileResponse: {
+            /** Baseline */
+            baseline: components["schemas"]["EnsBaselineItem"][];
+            /** Profile */
+            profile: string;
+        };
+        /**
+         * EnsReportResponse
+         * @description The evidence report.
+         *
+         *     Attributes:
+         *         sha256: SHA-256 of the report (canonical JSON without this field),
+         *             also recorded in the audit log.
+         *         report: The report: findings grouped by measure, indicators,
+         *             baseline, accounts, tokens, audit, backups, hardening, console,
+         *             inventory, fleet.
+         */
+        EnsReportResponse: {
+            /** Report */
+            report: {
+                [key: string]: unknown;
+            };
+            /** Sha256 */
+            sha256: string;
         };
         /**
          * EnvKeyResponse
@@ -8534,6 +16144,133 @@ export interface components {
             reason: string;
             /** Secret */
             secret: boolean;
+        };
+        /**
+         * EolOut
+         * @description Where the operating system is in its support.
+         */
+        EolOut: {
+            /** Days Left */
+            days_left?: number | null;
+            /** End Date */
+            end_date?: string | null;
+            /**
+             * Source
+             * @default none
+             */
+            source: string;
+            /** Status */
+            status: string;
+        };
+        /**
+         * ExceptionCreate
+         * @description A separation-of-duties exception to record.
+         *
+         *     Attributes:
+         *         person_ref: The person it covers.
+         *         reason: Why; what an auditor reads.
+         *         days: How long it applies.
+         */
+        ExceptionCreate: {
+            /** Days */
+            days: number;
+            /** Person Ref */
+            person_ref: string;
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * ExceptionInfo
+         * @description A documented exception to the separation of duties.
+         *
+         *     Attributes:
+         *         id: Store id.
+         *         person_ref: The person it covers.
+         *         reason: Why it exists.
+         *         expires_at: When it stops applying, UNIX seconds.
+         *         created_at: When it was recorded.
+         *         created_by: Who recorded it.
+         *         revoked_at: When it was withdrawn early.
+         *         in_force: Whether it applies now.
+         */
+        ExceptionInfo: {
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Expires At */
+            expires_at: number;
+            /** Id */
+            id: number;
+            /** In Force */
+            in_force: boolean;
+            /** Person Ref */
+            person_ref: string;
+            /** Reason */
+            reason: string;
+            /** Revoked At */
+            revoked_at?: number | null;
+        };
+        /**
+         * ExceptionsResponse
+         * @description Every exception ever recorded.
+         *
+         *     Attributes:
+         *         exceptions: Newest first.
+         */
+        ExceptionsResponse: {
+            /** Exceptions */
+            exceptions: components["schemas"]["ExceptionInfo"][];
+        };
+        /**
+         * ExplainRequest
+         * @description Request for a plan.
+         *
+         *     Attributes:
+         *         analyze: Execute the statement to report real timings. It runs as the
+         *             superuser inside a transaction that is rolled back, and needs
+         *             what a write needs (``databases.write``, sudo mode).
+         */
+        ExplainRequest: {
+            /**
+             * Analyze
+             * @default false
+             */
+            analyze: boolean;
+            /** Database */
+            database: string;
+            /** Engine */
+            engine: string;
+            /** Query */
+            query: string;
+            /**
+             * Timeout S
+             * @default 30
+             * @enum {integer}
+             */
+            timeout_s: 5 | 30 | 120;
+        };
+        /**
+         * ExplainResponse
+         * @description A plan.
+         *
+         *     Attributes:
+         *         format: ``json`` when ``plan`` holds the parsed plan (PostgreSQL's
+         *             ``FORMAT JSON``, MySQL's and MariaDB's ``FORMAT=JSON``), ``text``
+         *             for MySQL's analyzed tree.
+         *         plan: The parsed plan, or null.
+         *         text: The plan as the engine printed it.
+         *         analyze: Whether the statement was executed.
+         */
+        ExplainResponse: {
+            /** Analyze */
+            analyze: boolean;
+            /** Format */
+            format: string;
+            /** Plan */
+            plan?: unknown;
+            /** Text */
+            text: string;
         };
         /**
          * ExportApp
@@ -8724,6 +16461,40 @@ export interface components {
             ttl_hours?: number | null;
         };
         /**
+         * ExportRequest
+         * @description Request to export a read's result.
+         *
+         *     Attributes:
+         *         format: ``csv`` or ``json`` (an array of objects, a repeated column
+         *             name suffixed ``_2``).
+         *         row_limit: Most rows exported.
+         */
+        ExportRequest: {
+            /** Database */
+            database: string;
+            /** Engine */
+            engine: string;
+            /**
+             * Format
+             * @default csv
+             * @enum {string}
+             */
+            format: "csv" | "json";
+            /** Query */
+            query: string;
+            /**
+             * Row Limit
+             * @default 50000
+             */
+            row_limit: number;
+            /**
+             * Timeout S
+             * @default 30
+             * @enum {integer}
+             */
+            timeout_s: 5 | 30 | 120;
+        };
+        /**
          * ExportZeroDowntime
          * @description Blue/green activation.
          */
@@ -8735,6 +16506,451 @@ export interface components {
              * @default false
              */
             enabled: boolean;
+        };
+        /**
+         * ExposedPortResponse
+         * @description A database port open beyond this machine.
+         *
+         *     Attributes:
+         *         source: ``engine`` for a server on the host, ``docker`` for a port
+         *             Docker publishes for a container.
+         *         advice: How to close it, in English.
+         */
+        ExposedPortResponse: {
+            /** Address */
+            address: string;
+            /**
+             * Advice
+             * @default
+             */
+            advice: string;
+            /** Container */
+            container?: string | null;
+            /** Engine */
+            engine: string;
+            /** Image */
+            image?: string | null;
+            /** Port */
+            port: number;
+            /** Process */
+            process?: string | null;
+            /** Source */
+            source: string;
+        };
+        /**
+         * ExposureResponse
+         * @description Every database port open beyond this machine.
+         */
+        ExposureResponse: {
+            /** Exposed */
+            exposed: components["schemas"]["ExposedPortResponse"][];
+        };
+        /**
+         * Fail2banInstallRequest
+         * @description Install fail2ban; ``epel`` confirms enabling EPEL where it is needed.
+         */
+        Fail2banInstallRequest: {
+            /**
+             * Epel
+             * @default false
+             */
+            epel: boolean;
+        };
+        /**
+         * Fail2banOut
+         * @description fail2ban on this server; ``needs_epel`` means installing asks a separate yes.
+         */
+        Fail2banOut: {
+            /** Error */
+            error: string;
+            /** Install Hint */
+            install_hint: string;
+            /** Install Supported */
+            install_supported: boolean;
+            /** Installed */
+            installed: boolean;
+            /**
+             * Jails
+             * @default []
+             */
+            jails: components["schemas"]["JailOut"][];
+            /** Needs Epel */
+            needs_epel: boolean;
+            /** Running */
+            running: boolean;
+            /**
+             * Substitutes
+             * @default []
+             */
+            substitutes: string[];
+        };
+        /**
+         * FirewallOut
+         * @description The firewall, every port that answers, and what the guard protects.
+         */
+        FirewallOut: {
+            firewall: components["schemas"]["FirewallStateOut"];
+            /** Ports */
+            ports: components["schemas"]["PortOut"][];
+            /** Ports Error */
+            ports_error?: string | null;
+            /** Protected Ports */
+            protected_ports: components["schemas"]["ProtectedPortOut"][];
+            /** Session Sources */
+            session_sources: string[];
+        };
+        /**
+         * FirewallStateOut
+         * @description The firewall: ``ufw``, ``firewalld``, ``nftables`` or ``none``.
+         */
+        FirewallStateOut: {
+            /** Active */
+            active: boolean;
+            /** Backend */
+            backend: string;
+            /** Default Incoming */
+            default_incoming: string;
+            /** Error */
+            error: string;
+            /** Installed */
+            installed: boolean;
+            /**
+             * Others
+             * @default []
+             */
+            others: string[];
+            /**
+             * Rules
+             * @default []
+             */
+            rules: components["schemas"]["RuleOut"][];
+            /** Status */
+            status: string;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: string[];
+            /** Zone */
+            zone?: string | null;
+        };
+        /**
+         * FixOwnerRequest
+         * @description Request to give a database to its application's role.
+         *
+         *     Attributes:
+         *         owner: The role; the one Noust provisioned for it when omitted.
+         */
+        FixOwnerRequest: {
+            /**
+             * Owner
+             * @description Role that must own the database
+             */
+            owner?: string | null;
+        };
+        /**
+         * FixPlanOut
+         * @description What an sshd fix would change, whether its guard holds, and the steps when not.
+         */
+        FixPlanOut: {
+            /** Allowed */
+            allowed: boolean;
+            /**
+             * Blockers
+             * @default []
+             */
+            blockers: string[];
+            /** Changes */
+            changes: components["schemas"]["DirectiveChangeOut"][];
+            /** Check Id */
+            check_id: string;
+            /**
+             * Evidence
+             * @default []
+             */
+            evidence: string[];
+            /** Fix */
+            fix: string;
+            /**
+             * Guidance
+             * @default []
+             */
+            guidance: string[];
+            /** Needed */
+            needed: boolean;
+            /** Proof */
+            proof?: string | null;
+            /** Title */
+            title: string;
+        };
+        /**
+         * FixRequest
+         * @description Apply a check's automatic fix; ``epel`` confirms enabling EPEL for fail2ban.
+         */
+        FixRequest: {
+            /**
+             * Epel
+             * @default false
+             */
+            epel: boolean;
+        };
+        /**
+         * FleetActionOut
+         * @description One bulk action.
+         *
+         *     Attributes:
+         *         name: Its name.
+         *         title: What it does.
+         *         operations: The node operations it uses (``METHOD /path``).
+         *         serial: Servers at a time by default.
+         *         max_failures: Failures tolerated by default; null never stops.
+         */
+        FleetActionOut: {
+            /** Max Failures */
+            max_failures?: number | null;
+            /** Name */
+            name: string;
+            /** Operations */
+            operations: string[];
+            /** Serial */
+            serial: number;
+            /** Title */
+            title: string;
+        };
+        /**
+         * FleetActionsOut
+         * @description The bulk actions.
+         */
+        FleetActionsOut: {
+            /** Actions */
+            actions: components["schemas"]["FleetActionOut"][];
+        };
+        /**
+         * FleetJobOut
+         * @description One fleet job.
+         *
+         *     Attributes:
+         *         job_id: The job (also a console job when started there).
+         *         action: The action.
+         *         title: What it does.
+         *         request: What was asked: targets, strategy, options.
+         *         status: ``running``, ``succeeded``, ``failed``, ``aborted`` or
+         *             ``interrupted`` (the central restarted while it ran).
+         *         created_at: When.
+         *         created_by: Who.
+         *         finished_at: When it ended.
+         *         retry_of: The job it retried.
+         *         summary: Servers per state.
+         *         nodes: Every server; absent in a listing.
+         */
+        FleetJobOut: {
+            /** Action */
+            action: string;
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Job Id */
+            job_id: string;
+            /** Nodes */
+            nodes?: components["schemas"]["FleetNodeStateOut"][] | null;
+            /** Request */
+            request: {
+                [key: string]: unknown;
+            };
+            /** Retry Of */
+            retry_of?: string | null;
+            /** Status */
+            status: string;
+            /** Summary */
+            summary: {
+                [key: string]: number;
+            };
+            /** Title */
+            title: string;
+        };
+        /**
+         * FleetJobsOut
+         * @description The fleet jobs, newest first.
+         */
+        FleetJobsOut: {
+            /** Jobs */
+            jobs: components["schemas"]["FleetJobOut"][];
+        };
+        /**
+         * FleetNodeStateOut
+         * @description One server in a fleet job, or in its plan.
+         *
+         *     Attributes:
+         *         node: Its name.
+         *         position: Its order.
+         *         batch: Its batch; 0 is the canary's when there is one.
+         *         state: ``queued``, ``running``, ``succeeded``, ``failed``, ``skipped``,
+         *             ``unreachable``, ``refused`` or ``interrupted``.
+         *         reason: Why it was skipped: ``policy``, ``unsupported``,
+         *             ``not_needed``, ``aborted``, ``busy``, ``elevation_expired``,
+         *             ``error``.
+         *         step: What is happening on it, or what happened last.
+         *         node_jobs: The node's own job ids.
+         *         items: One result per application where the action has them
+         *             (``domain``, ``state``, ``message``, ``output``...).
+         *         error: ``code``, ``message`` and ``hint``.
+         *         output: The node's (or ssh's) words, verbatim.
+         *         started_at: When it started.
+         *         ended_at: When it ended.
+         *         requires_elevation: The node's schema says the action needs sudo mode.
+         *         href: The node's activity page through this central.
+         */
+        FleetNodeStateOut: {
+            /** Batch */
+            batch: number;
+            /** Ended At */
+            ended_at?: string | null;
+            /** Error */
+            error?: {
+                [key: string]: unknown;
+            } | null;
+            /** Href */
+            href: string;
+            /** Items */
+            items?: {
+                [key: string]: unknown;
+            }[];
+            /** Node */
+            node: string;
+            /** Node Jobs */
+            node_jobs?: string[];
+            /** Output */
+            output?: string | null;
+            /** Position */
+            position: number;
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Requires Elevation
+             * @default false
+             */
+            requires_elevation: boolean;
+            /** Started At */
+            started_at?: string | null;
+            /** State */
+            state: string;
+            /** Step */
+            step?: string | null;
+        };
+        /**
+         * FleetPlanOut
+         * @description What a bulk action will do.
+         *
+         *     Attributes:
+         *         action: The action.
+         *         title: What it does.
+         *         strategy: ``serial``, ``max_failures`` (null never stops) and ``canary``.
+         *         options: Its checked options.
+         *         nodes: Every selected server, with what will happen to it.
+         *         batches: The servers that run, batch by batch.
+         *         summary: ``run`` and ``skipped``.
+         *         requires_elevation: Sudo mode is asked once for the whole job.
+         *         notes: Sentences for the operator.
+         */
+        FleetPlanOut: {
+            /** Action */
+            action: string;
+            /** Batches */
+            batches: string[][];
+            /** Nodes */
+            nodes: components["schemas"]["FleetNodeStateOut"][];
+            /** Notes */
+            notes?: string[];
+            /** Options */
+            options: {
+                [key: string]: unknown;
+            };
+            /** Requires Elevation */
+            requires_elevation: boolean;
+            /** Strategy */
+            strategy: {
+                [key: string]: unknown;
+            };
+            /** Summary */
+            summary: {
+                [key: string]: number;
+            };
+            /** Title */
+            title: string;
+        };
+        /**
+         * FleetSelfResponse
+         * @description The most a central may do on this server, and who is asking.
+         *
+         *     Attributes:
+         *         level: ``read``, ``deploy`` or ``admin``.
+         *         host_access: Whether a central may also change how this server is
+         *             reached (SSH keys, sshd, firewall, accounts); only with ``admin``.
+         *         fleet: Whether the caller is a central (a fleet token).
+         *         token_name: The caller's fleet token, when it is one.
+         *         central: The central that token belongs to.
+         *         updated_at: When this server's operator last set the ceiling; None
+         *             when it never was (the default applies).
+         */
+        FleetSelfResponse: {
+            /** Central */
+            central?: string | null;
+            /**
+             * Fleet
+             * @default false
+             */
+            fleet: boolean;
+            /** Host Access */
+            host_access: boolean;
+            /** Level */
+            level: string;
+            /** Token Name */
+            token_name?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /**
+         * FleetViewOut
+         * @description One fleet view.
+         *
+         *     Attributes:
+         *         resource: Which view.
+         *         generated_at: When it was put together.
+         *         partial: Some server's answer is not fresh and complete.
+         *         nodes: Every server's outcome.
+         *         items: The rows, each with ``node``, ``local``, ``page`` (its page on
+         *             that server's console) and ``href`` (the same page here).
+         */
+        FleetViewOut: {
+            /** Generated At */
+            generated_at: string;
+            /** Items */
+            items: {
+                [key: string]: unknown;
+            }[];
+            /** Nodes */
+            nodes: components["schemas"]["NodeOutcomeOut"][];
+            /** Partial */
+            partial: boolean;
+            /** Resource */
+            resource: string;
+        };
+        /**
+         * ForecastReason
+         * @description Why there is no disk forecast.
+         *
+         *     Attributes:
+         *         code: ``no_history``, ``insufficient_history`` or ``not_growing``.
+         *         message: One sentence.
+         */
+        ForecastReason: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
         };
         /**
          * GitHubStatusOut
@@ -8850,6 +17066,143 @@ export interface components {
             timeout?: number | null;
         };
         /**
+         * HistoryEntryResponse
+         * @description One statement the operator ran.
+         *
+         *     Attributes:
+         *         statement: The statement, with quoted secrets and Noust's
+         *             credentials replaced.
+         *         kind: ``query``, ``explain``, ``explain_analyze`` or ``export``.
+         *         outcome: ``ok`` or ``failure``.
+         *         error: The engine's error, scrubbed and shortened.
+         */
+        HistoryEntryResponse: {
+            /** Created At */
+            created_at?: string | null;
+            /** Database */
+            database: string;
+            /** Duration Ms */
+            duration_ms?: number | null;
+            /** Engine */
+            engine: string;
+            /** Error */
+            error?: string | null;
+            /** Id */
+            id: number;
+            /** Kind */
+            kind: string;
+            /** Mode */
+            mode: string;
+            /** Outcome */
+            outcome: string;
+            /** Row Count */
+            row_count?: number | null;
+            /** Statement */
+            statement: string;
+        };
+        /**
+         * HistoryFigure
+         * @description Whether metrics history is being recorded.
+         *
+         *     Attributes:
+         *         recording: True while a collector is running.
+         *         host: ``daemon`` or ``console``.
+         *         reason: Why not, with the fix (``code``, ``message``, ``fix``...).
+         *         error: Why this could not be read.
+         */
+        HistoryFigure: {
+            /** Error */
+            error?: string | null;
+            /** Host */
+            host?: string | null;
+            /** Reason */
+            reason?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Recording
+             * @default false
+             */
+            recording: boolean;
+        };
+        /**
+         * HistoryResponse
+         * @description The operator's statements, newest first.
+         */
+        HistoryResponse: {
+            /** Entries */
+            entries: components["schemas"]["HistoryEntryResponse"][];
+        };
+        /**
+         * HostnameOut
+         * @description The names of the machine.
+         */
+        HostnameOut: {
+            /** Boot Id */
+            boot_id: string;
+            /** Chassis */
+            chassis?: string | null;
+            /** Cloud Init */
+            cloud_init: boolean;
+            /** Cloud Init Resets */
+            cloud_init_resets: boolean;
+            /** Hostname */
+            hostname: string;
+            /** Machine Id */
+            machine_id: string;
+            /** Pretty */
+            pretty?: string | null;
+            /** Static */
+            static: string;
+        };
+        /**
+         * HostnameRequest
+         * @description Rename the machine.
+         *
+         *     Attributes:
+         *         hostname: The new name: lower-case DNS labels.
+         *         keep_against_cloud_init: Also tell cloud-init not to rename it back.
+         */
+        HostnameRequest: {
+            /** Hostname */
+            hostname: string;
+            /**
+             * Keep Against Cloud Init
+             * @default false
+             */
+            keep_against_cloud_init: boolean;
+        };
+        /**
+         * IdentityOut
+         * @description What the machine is called and what it runs.
+         */
+        IdentityOut: {
+            /** Architecture */
+            architecture: string;
+            /** Booted At */
+            booted_at?: string | null;
+            /** Codename */
+            codename: string;
+            /** Container */
+            container?: string | null;
+            /** Cpu Count */
+            cpu_count: number;
+            eol: components["schemas"]["EolOut"];
+            hostname: components["schemas"]["HostnameOut"];
+            /** Kernel */
+            kernel: string;
+            /** Load */
+            load: number[];
+            /** Os Id */
+            os_id: string;
+            /** Os Name */
+            os_name: string;
+            /** Os Version */
+            os_version: string;
+            /** Uptime Seconds */
+            uptime_seconds?: number | null;
+        };
+        /**
          * ImportAppRequest
          * @description An export document to create an application from.
          */
@@ -8872,6 +17225,53 @@ export interface components {
              * @description Deploy from this source instead of the exported one
              */
             source?: string | null;
+        };
+        /**
+         * IndexResponse
+         * @description One index.
+         */
+        IndexResponse: {
+            /** Columns */
+            columns?: string[];
+            /** Definition */
+            definition?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Primary
+             * @default false
+             */
+            primary: boolean;
+            /**
+             * Unique
+             * @default false
+             */
+            unique: boolean;
+        };
+        /**
+         * InsertRowRequest
+         * @description A row to insert.
+         *
+         *     Attributes:
+         *         values: Column to value; columns left out take their defaults. A
+         *             binary value is ``{"hex": "..."}``; a JSON column takes an object,
+         *             an array or the document's text.
+         */
+        InsertRowRequest: {
+            /**
+             * Relation
+             * @description Table
+             */
+            relation: string;
+            /**
+             * Schema
+             * @description Schema (the database on MySQL)
+             */
+            schema: string;
+            /** Values */
+            values?: {
+                [key: string]: unknown;
+            };
         };
         /**
          * InspectSourceRequest
@@ -8979,6 +17379,253 @@ export interface components {
              * @default 0
              */
             speed_mbps: number;
+        };
+        /**
+         * InventoryEntryModel
+         * @description One application in the inventory.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         app_type: Its type.
+         *         status: Its last known status.
+         *         source: Where its code comes from, without credentials.
+         *         owner: Who answers for it.
+         *         criticality: ``low``, ``medium`` or ``high``.
+         *         classification: ``public``, ``internal``, ``restricted`` or ``confidential``.
+         *         notes: Anything else.
+         *         updated_at: When the fields last changed.
+         *         updated_by: Who changed them.
+         *         complete: Whether it has an owner and a criticality.
+         */
+        InventoryEntryModel: {
+            /**
+             * App Type
+             * @default
+             */
+            app_type: string;
+            /** Classification */
+            classification?: string | null;
+            /**
+             * Complete
+             * @default false
+             */
+            complete: boolean;
+            /** Criticality */
+            criticality?: string | null;
+            /** Domain */
+            domain: string;
+            /** Notes */
+            notes?: string | null;
+            /** Owner */
+            owner?: string | null;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+            /**
+             * Status
+             * @default
+             */
+            status: string;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Updated By */
+            updated_by?: string | null;
+        };
+        /**
+         * InventoryResponse
+         * @description The inventory.
+         *
+         *     Attributes:
+         *         applications: Every application, by domain.
+         *         criticalities: The criticality values accepted.
+         *         classifications: The classification values accepted.
+         */
+        InventoryResponse: {
+            /** Applications */
+            applications: components["schemas"]["InventoryEntryModel"][];
+            /** Classifications */
+            classifications: string[];
+            /** Criticalities */
+            criticalities: string[];
+        };
+        /**
+         * InventoryUpdate
+         * @description A change to an application's inventory fields. An absent field is kept; an
+         *     empty string clears it.
+         *
+         *     Attributes:
+         *         owner: Who answers for it.
+         *         criticality: ``low``, ``medium`` or ``high``.
+         *         classification: ``public``, ``internal``, ``restricted`` or ``confidential``.
+         *         notes: Anything else.
+         */
+        InventoryUpdate: {
+            /** Classification */
+            classification?: string | null;
+            /** Criticality */
+            criticality?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Owner */
+            owner?: string | null;
+        };
+        /**
+         * InvitationAccept
+         * @description Finishing an invitation.
+         *
+         *     Attributes:
+         *         code: The invitation code.
+         *         password: The chosen password.
+         *         totp_code: A current code from the enrolled authenticator.
+         *         notice_version: The version of the usage notice accepted, when one
+         *             is configured.
+         */
+        InvitationAccept: {
+            /** Code */
+            code: string;
+            /** Notice Version */
+            notice_version?: string | null;
+            /** Password */
+            password: string;
+            /** Totp Code */
+            totp_code: string;
+        };
+        /**
+         * InvitationAccepted
+         * @description An account that is now active.
+         *
+         *     Attributes:
+         *         username: Its name, to sign in with.
+         *         backup_codes: Single-use recovery codes, shown exactly once.
+         */
+        InvitationAccepted: {
+            /** Backup Codes */
+            backup_codes: string[];
+            /** Username */
+            username: string;
+        };
+        /**
+         * InvitationCode
+         * @description An invitation code presented to open it.
+         *
+         *     Attributes:
+         *         code: The code, as received.
+         */
+        InvitationCode: {
+            /** Code */
+            code: string;
+        };
+        /**
+         * InvitationCreate
+         * @description An invitation: a new account, or a recovery for an existing one.
+         *
+         *     Attributes:
+         *         username: The account's name.
+         *         role: The role of a new account; ignored for an existing one.
+         *         display_name: Display name of a new account.
+         *         person_ref: Person reference of a new account.
+         *         expires_hours: How long the code is valid.
+         */
+        InvitationCreate: {
+            /** Display Name */
+            display_name?: string | null;
+            /**
+             * Expires Hours
+             * @default 24
+             */
+            expires_hours: number;
+            /** Person Ref */
+            person_ref?: string | null;
+            /** Role */
+            role?: string | null;
+            /** Username */
+            username: string;
+        };
+        /**
+         * InvitationIssued
+         * @description An invitation code, shown exactly once.
+         *
+         *     Attributes:
+         *         account: The account it is for.
+         *         code: The code; only its digest is stored.
+         *         expires_in: Seconds it is valid for.
+         */
+        InvitationIssued: {
+            account: components["schemas"]["AccountInfo"];
+            /** Code */
+            code: string;
+            /** Expires In */
+            expires_in: number;
+        };
+        /**
+         * InvitationNotice
+         * @description The usage notice an invited person accepts with their invitation.
+         *
+         *     Attributes:
+         *         text: The notice.
+         *         version: Its version, to send back.
+         */
+        InvitationNotice: {
+            /** Text */
+            text: string;
+            /** Version */
+            version: string;
+        };
+        /**
+         * InvitationOpened
+         * @description What an invited person needs to finish: who they are, and their authenticator.
+         *
+         *     Attributes:
+         *         username: The account's name.
+         *         display_name: Its display name.
+         *         role: Its role.
+         *         totp_secret: The authenticator secret to enrol, shown here only.
+         *         totp_uri: The ``otpauth://`` URI for the QR code.
+         *         password_min_length: The shortest password accepted.
+         *         notice: The usage notice to accept, when one is configured.
+         */
+        InvitationOpened: {
+            /** Display Name */
+            display_name: string;
+            notice?: components["schemas"]["InvitationNotice"] | null;
+            /** Password Min Length */
+            password_min_length: number;
+            /** Role */
+            role: string;
+            /** Totp Secret */
+            totp_secret: string;
+            /** Totp Uri */
+            totp_uri: string;
+            /** Username */
+            username: string;
+        };
+        /**
+         * JailOut
+         * @description A fail2ban jail and its bans.
+         */
+        JailOut: {
+            /**
+             * Banned
+             * @default []
+             */
+            banned: string[];
+            /** Currently Banned */
+            currently_banned: number;
+            /** Currently Failed */
+            currently_failed: number;
+            /** Name */
+            name: string;
+            /**
+             * Reads
+             * @default
+             */
+            reads: string;
+            /** Total Banned */
+            total_banned: number;
+            /** Total Failed */
+            total_failed: number;
         };
         /**
          * JobAcceptedResponse
@@ -9096,6 +17743,214 @@ export interface components {
             type: string;
         };
         /**
+         * JournalEntryOut
+         * @description One line of the journal.
+         */
+        JournalEntryOut: {
+            /** Cursor */
+            cursor: string;
+            /** Message */
+            message: string;
+            /** Pid */
+            pid?: number | null;
+            /** Priority */
+            priority: number;
+            /** Timestamp */
+            timestamp: string;
+            /** Unit */
+            unit: string;
+        };
+        /**
+         * JournalOut
+         * @description A read of the journal.
+         */
+        JournalOut: {
+            /** Entries */
+            entries: components["schemas"]["JournalEntryOut"][];
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /**
+         * JournalUnitOut
+         * @description A unit the journal can be read for.
+         */
+        JournalUnitOut: {
+            /** Active */
+            active: string;
+            /** Failed */
+            failed: boolean;
+            /** Name */
+            name: string;
+            /** Sub */
+            sub: string;
+        };
+        /**
+         * KeyFileOut
+         * @description One ``authorized_keys`` file, and what would make StrictModes ignore it.
+         */
+        KeyFileOut: {
+            /**
+             * Error
+             * @default
+             */
+            error: string;
+            /** Exists */
+            exists: boolean;
+            /**
+             * Keys
+             * @default []
+             */
+            keys: components["schemas"]["KeyOut"][];
+            /** Path */
+            path: string;
+            /**
+             * Problems
+             * @default []
+             */
+            problems: string[];
+        };
+        /**
+         * KeyOut
+         * @description One key: its kind (``operator``, ``central``, ``restricted``, ``cloud_disabled``) and use.
+         */
+        KeyOut: {
+            /** Bits */
+            bits?: number | null;
+            /** Comment */
+            comment: string;
+            /** Fingerprint */
+            fingerprint: string;
+            /**
+             * In Use
+             * @default false
+             */
+            in_use: boolean;
+            /** Kind */
+            kind: string;
+            /** Last Used */
+            last_used?: number | null;
+            /** Last Used From */
+            last_used_from?: string | null;
+            /**
+             * Options
+             * @default []
+             */
+            options: string[];
+            /** Type */
+            type: string;
+            /**
+             * Weak
+             * @default
+             */
+            weak: string;
+        };
+        /**
+         * KeyResponse
+         * @description One Redis key.
+         *
+         *     Attributes:
+         *         key: The key as text (``\xNN`` where it is not UTF-8).
+         *         hex: Its exact bytes, when it is not UTF-8; pass it back as ``hex``.
+         *         ttl: Seconds until it expires; null when it never does.
+         *         memory: Bytes it takes, when the server says.
+         */
+        KeyResponse: {
+            /** Hex */
+            hex?: string | null;
+            /** Key */
+            key: string;
+            /** Memory */
+            memory?: number | null;
+            /** Ttl */
+            ttl?: number | null;
+            /** Type */
+            type: string;
+        };
+        /**
+         * KeyValueResponse
+         * @description A bounded preview of one key.
+         *
+         *     Attributes:
+         *         length: Bytes of a string, elements of anything else.
+         *         value: A string's text (or ``{"bytes", "hex"}``); a list's or a set's
+         *             elements; a hash's ``[field, value]`` pairs; a sorted set's
+         *             ``[member, score]`` pairs; null for a stream or a module type.
+         *         truncated: Only part of the value is shown.
+         */
+        KeyValueResponse: {
+            /** Hex */
+            hex?: string | null;
+            /** Key */
+            key: string;
+            /** Length */
+            length?: number | null;
+            /** Memory */
+            memory?: number | null;
+            /**
+             * Read Only Enforced
+             * @default true
+             */
+            read_only_enforced: boolean;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+            /** Ttl */
+            ttl?: number | null;
+            /** Type */
+            type: string;
+            /** Value */
+            value?: unknown;
+        };
+        /**
+         * KeysResponse
+         * @description One page of a key scan.
+         *
+         *     Attributes:
+         *         cursor: Where the next page starts; ``"0"`` when the scan is done.
+         *         done: Whether the scan is complete.
+         *         read_only_enforced: Whether the server held the reads read-only (an
+         *             ACL user); false on a server without ACLs (Redis 5).
+         */
+        KeysResponse: {
+            /** Cursor */
+            cursor: string;
+            /** Done */
+            done: boolean;
+            /** Keys */
+            keys: components["schemas"]["KeyResponse"][];
+            /** Read Only Enforced */
+            read_only_enforced: boolean;
+        };
+        /**
+         * LabelsIn
+         * @description A server's labels.
+         *
+         *     Attributes:
+         *         labels: Every label it carries, replacing what it had.
+         */
+        LabelsIn: {
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * LabelsOut
+         * @description A server's labels.
+         */
+        LabelsOut: {
+            /** Labels */
+            labels: {
+                [key: string]: string;
+            };
+            /** Node */
+            node: string;
+        };
+        /**
          * LastDeploymentOut
          * @description An application's most recent deployment attempt.
          *
@@ -9148,15 +18003,174 @@ export interface components {
             units: string[];
         };
         /**
-         * LoginRequest
-         * @description Login request body.
+         * LinkRequest
+         * @description Request to link an existing database to an application.
          *
          *     Attributes:
-         *         token: The master access token.
+         *         username: The account to sign in as. Noust must know its password;
+         *             when omitted, the provisioned account, or a new one for the
+         *             application made the database's owner.
+         */
+        LinkRequest: {
+            /**
+             * Database
+             * @description Database name
+             */
+            database: string;
+            /**
+             * Engine
+             * @description Database engine
+             */
+            engine: string;
+            /**
+             * Env Var
+             * @description Variable to write
+             */
+            env_var?: string | null;
+            /**
+             * Extra Vars
+             * @description Also write the DB_* variables
+             * @default false
+             */
+            extra_vars: boolean;
+            /**
+             * Restart
+             * @description Restart the application behind its gate
+             * @default true
+             */
+            restart: boolean;
+            /**
+             * Username
+             * @description Account to sign in as
+             */
+            username?: string | null;
+        };
+        /**
+         * LinkResponse
+         * @description One database an application uses.
+         *
+         *     Attributes:
+         *         url: The connection string with the password masked, or null when
+         *             the engine is down or the variable is not known (a database
+         *             provisioned before 3.1 has no recorded variable).
+         *         exists: Whether the database is still on the engine.
+         */
+        LinkResponse: {
+            /** Created At */
+            created_at?: string | null;
+            /** Database */
+            database: string;
+            /** Domain */
+            domain: string;
+            /** Engine */
+            engine: string;
+            /** Engine Version */
+            engine_version?: string | null;
+            /** Env Var */
+            env_var: string;
+            /**
+             * Exists
+             * @default true
+             */
+            exists: boolean;
+            /**
+             * Extra Vars
+             * @default false
+             */
+            extra_vars: boolean;
+            /** Size */
+            size?: string | null;
+            /** Url */
+            url?: string | null;
+            /** Username */
+            username?: string | null;
+        };
+        /**
+         * ListenResponse
+         * @description Where an engine's server says it listens.
+         *
+         *     Attributes:
+         *         setting: The engine's own name for the setting.
+         *         loopback_only: Every address is a loopback one.
+         */
+        ListenResponse: {
+            /** Addresses */
+            addresses: string[];
+            /** Loopback Only */
+            loopback_only: boolean;
+            /** Setting */
+            setting: string;
+        };
+        /**
+         * LockdownResponse
+         * @description Whether the console is locked down for an incident.
+         *
+         *     Attributes:
+         *         locked: True while only the master token signs in.
+         *         since: Since when.
+         *         by: Who locked it.
+         *         reason: The incident reference.
+         *         package: The evidence package taken with it.
+         */
+        LockdownResponse: {
+            /** By */
+            by?: string | null;
+            /** Locked */
+            locked: boolean;
+            /** Package */
+            package?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Since */
+            since?: string | null;
+        };
+        /**
+         * LoginOptionsRequest
+         * @description Asking for sign-in options.
+         *
+         *     Attributes:
+         *         conditional: For the autofill (conditional UI) flavour.
+         */
+        LoginOptionsRequest: {
+            /**
+             * Conditional
+             * @default false
+             */
+            conditional: boolean;
+        };
+        /**
+         * LoginOut
+         * @description A login sshd recorded.
+         */
+        LoginOut: {
+            /** At */
+            at: number;
+            /** Fingerprint */
+            fingerprint?: string | null;
+            /** Line */
+            line: string;
+            /** Method */
+            method: string;
+            /** Source */
+            source: string;
+            /** User */
+            user: string;
+        };
+        /**
+         * LoginRequest
+         * @description Login request body: an account, or the master token.
+         *
+         *     Attributes:
+         *         username: The account's name. With it, ``password`` (and
+         *             ``totp_code`` for an account with an authenticator) sign in as
+         *             that person.
+         *         password: The account's password.
+         *         token: The master access token, for the break-glass sign-in; ignored
+         *             when ``username`` is given.
          *         bearer: Whether to also return the session token in the response, for
          *             clients without a cookie jar.
          *         totp_code: Second factor - a six-digit authenticator code or a backup
-         *             code. Required when two-factor authentication is enabled.
+         *             code: the account's own, or the console's for the master token.
          */
         LoginRequest: {
             /**
@@ -9164,10 +18178,14 @@ export interface components {
              * @default false
              */
             bearer: boolean;
+            /** Password */
+            password?: string | null;
             /** Token */
-            token: string;
+            token?: string | null;
             /** Totp Code */
             totp_code?: string | null;
+            /** Username */
+            username?: string | null;
         };
         /**
          * LoginResponse
@@ -9178,16 +18196,69 @@ export interface components {
          *         expires_in: Session lifetime in seconds.
          *         csrf_token: Token to echo in the ``X-WASM-CSRF`` header on mutations.
          *         session_token: Session token, only present for ``bearer`` clients.
+         *         account: The account signed in; None for the master token.
+         *         grant: For the master token, how it holds the console: ``compat``
+         *             (no account exists yet), ``break_glass`` or ``recovery``.
+         *         previous_login_at: The sign-in before this one, ISO 8601 (ENS
+         *             op.acc.6.r5.2: shown to the person right after they sign in).
+         *         previous_login_ip: Where it came from.
+         *         failures_since: Refused attempts on the account since then.
+         *         last_failure_at: The latest of them, ISO 8601.
+         *         last_failure_ip: Where it came from.
+         *         mfa_required: The account must enrol an authenticator before
+         *             anything else.
+         *         notice_pending: The account must accept the usage notice before
+         *             anything else.
          */
         LoginResponse: {
+            account?: components["schemas"]["AccountInfo"] | null;
             /** Csrf Token */
             csrf_token: string;
             /** Expires In */
             expires_in: number;
+            /** Failures Since */
+            failures_since?: number | null;
+            /** Grant */
+            grant?: string | null;
+            /** Last Failure At */
+            last_failure_at?: string | null;
+            /** Last Failure Ip */
+            last_failure_ip?: string | null;
+            /**
+             * Mfa Required
+             * @default false
+             */
+            mfa_required: boolean;
+            /**
+             * Notice Pending
+             * @default false
+             */
+            notice_pending: boolean;
+            /** Previous Login At */
+            previous_login_at?: string | null;
+            /** Previous Login Ip */
+            previous_login_ip?: string | null;
             /** Session Token */
             session_token?: string | null;
             /** Success */
             success: boolean;
+        };
+        /**
+         * LoginsOut
+         * @description Where the login history came from, and the latest logins.
+         */
+        LoginsOut: {
+            /** Days */
+            days: number;
+            /** Error */
+            error: string;
+            /**
+             * Recent
+             * @default []
+             */
+            recent: components["schemas"]["LoginOut"][];
+            /** Source */
+            source: string;
         };
         /**
          * MachineApps
@@ -9350,10 +18421,57 @@ export interface components {
             window: string;
         };
         /**
+         * MetricQueryResponse
+         * @description A range read: the requested domain and one grid of cells for all series.
+         *
+         *     Attributes:
+         *         from_: Start of the requested domain, epoch seconds (``from`` on the
+         *             wire).
+         *         to: End of the requested domain.
+         *         step: Seconds per cell.
+         *         resolution: The tier the data was read from: ``raw`` (5 s), ``1m``,
+         *             ``10m`` or ``1h``. A cell wider than the tier is a mean over
+         *             several of its buckets.
+         *         window: The named window asked for, or null for an explicit range.
+         *         first_sample_at: The oldest sample any requested metric has, in any
+         *             tier: where "history since" starts.
+         *         last_sample_at: The newest.
+         *         series: One entry per requested metric, in the order asked.
+         *         collector: Whether history is being recorded, and why not.
+         */
+        MetricQueryResponse: {
+            collector: components["schemas"]["CollectorModel"];
+            /** First Sample At */
+            first_sample_at?: number | null;
+            /** From */
+            from: number;
+            /** Last Sample At */
+            last_sample_at?: number | null;
+            /** Resolution */
+            resolution: string;
+            /** Series */
+            series: components["schemas"]["SeriesModel"][];
+            /** Step */
+            step: number;
+            /** To */
+            to: number;
+            /** Window */
+            window?: string | null;
+        };
+        /**
          * MetricsListResponse
-         * @description Every metric name the store has data for, and the windows it can be read over.
+         * @description Every metric name the store has data for, and how it is being recorded.
+         *
+         *     Attributes:
+         *         metrics: The names.
+         *         windows: The windows a range read accepts.
+         *         database: Where the history lives.
+         *         collector: Whether it is being recorded.
          */
         MetricsListResponse: {
+            collector: components["schemas"]["CollectorModel"];
+            /** Database */
+            database: string;
             /** Metrics */
             metrics: string[];
             /** Windows */
@@ -9551,12 +18669,78 @@ export interface components {
             uptime?: string | null;
         };
         /**
+         * MountOut
+         * @description One real filesystem.
+         */
+        MountOut: {
+            /** Device */
+            device: string;
+            /** Free Bytes */
+            free_bytes: number;
+            /** Fstype */
+            fstype: string;
+            /** Inodes Free */
+            inodes_free: number;
+            /** Inodes Percent */
+            inodes_percent: number;
+            /** Inodes Total */
+            inodes_total: number;
+            /** Mount Point */
+            mount_point: string;
+            /** Percent Used */
+            percent_used: number;
+            /** Readonly */
+            readonly: boolean;
+            /** Status */
+            status: string;
+            /** Total Bytes */
+            total_bytes: number;
+            /** Used Bytes */
+            used_bytes: number;
+        };
+        /**
          * NetworkResponse
          * @description Response for the network listing.
          */
         NetworkResponse: {
             /** Interfaces */
             interfaces: components["schemas"]["InterfaceInfo"][];
+        };
+        /**
+         * NewAppDatabaseRequest
+         * @description A database to create with a new application, before its first build.
+         *
+         *     Attributes:
+         *         engine: The engine (``GET /api/databases/engines``), installed and
+         *             running.
+         *         name: The database; derived from the application when omitted
+         *             (``<app>_db``), a slot number for Redis (0 by default).
+         *         env_var: The variable; ``DATABASE_URL``, or ``REDIS_URL`` for Redis.
+         *         extra_vars: Also write ``DB_HOST``, ``DB_PORT``, ``DB_NAME``,
+         *             ``DB_USER`` and ``DB_PASSWORD``.
+         */
+        NewAppDatabaseRequest: {
+            /**
+             * Engine
+             * @description Database engine
+             */
+            engine: string;
+            /**
+             * Env Var
+             * @description Variable to write
+             */
+            env_var?: string | null;
+            /**
+             * Extra Vars
+             * @description Also write the DB_* variables
+             * @default false
+             */
+            extra_vars: boolean;
+            /**
+             * Name
+             * @description Database name
+             */
+            name?: string | null;
         };
         /**
          * NodeAddRequest
@@ -9605,6 +18789,58 @@ export interface components {
         NodeListResponse: {
             /** Items */
             items: components["schemas"]["NodeResponse"][];
+        };
+        /**
+         * NodeOutcomeOut
+         * @description How one server answered a fleet view.
+         *
+         *     Attributes:
+         *         name: The server's name (this central's own name for its own row).
+         *         local: The row is this central.
+         *         status: ``ok``, ``stale``, ``unreachable``, ``unsupported``,
+         *             ``forbidden`` or ``error``.
+         *         code: Why, for a machine (``node_unreachable``, ``node_refused``,
+         *             ``timeout``, ``not_offered``, ``permission_denied``...).
+         *         message: Why, in a sentence.
+         *         hint: What to do about it.
+         *         error_verbatim: The node's or ssh's own words.
+         *         age_seconds: How old the rows shown for it are.
+         *         fetched_at: When they were read.
+         *         elapsed_ms: How long its first answer took.
+         *         version: The Noust it runs.
+         *         missing: Its endpoints the view needed and it does not offer.
+         *         warnings: Parts of the view it could not give.
+         */
+        NodeOutcomeOut: {
+            /** Age Seconds */
+            age_seconds?: number | null;
+            /** Code */
+            code?: string | null;
+            /** Elapsed Ms */
+            elapsed_ms?: number | null;
+            /** Error Verbatim */
+            error_verbatim?: string | null;
+            /** Fetched At */
+            fetched_at?: string | null;
+            /** Hint */
+            hint?: string | null;
+            /**
+             * Local
+             * @default false
+             */
+            local: boolean;
+            /** Message */
+            message?: string | null;
+            /** Missing */
+            missing?: string[];
+            /** Name */
+            name: string;
+            /** Status */
+            status: string;
+            /** Version */
+            version?: string | null;
+            /** Warnings */
+            warnings?: string[];
         };
         /**
          * NodeRemovedResponse
@@ -9669,6 +18905,31 @@ export interface components {
             };
             /** Version */
             version?: string | null;
+        };
+        /**
+         * NoticeAcceptance
+         * @description Acceptance of the usage notice.
+         *
+         *     Attributes:
+         *         version: The version of the notice that was shown.
+         */
+        NoticeAcceptance: {
+            /** Version */
+            version: string;
+        };
+        /**
+         * NoticeInfo
+         * @description The rights-and-obligations notice an account has to accept.
+         *
+         *     Attributes:
+         *         text: The notice, as the operator wrote it.
+         *         version: Its version, to send back when accepting it.
+         */
+        NoticeInfo: {
+            /** Text */
+            text: string;
+            /** Version */
+            version: string;
         };
         /**
          * NotificationTestResult
@@ -9747,6 +19008,326 @@ export interface components {
             } | null;
         };
         /**
+         * OsOut
+         * @description The operating system.
+         */
+        OsOut: {
+            eol: components["schemas"]["EolOut"];
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+        };
+        /**
+         * OverviewOut
+         * @description The Security tab's summary: counts and open findings of the last run, pending changes.
+         */
+        OverviewOut: {
+            /**
+             * Attention
+             * @default []
+             */
+            attention: components["schemas"]["noust__web__api__server__security__CheckOut"][];
+            /** Checked At */
+            checked_at?: string | null;
+            counts?: components["schemas"]["CheckCountsOut"] | null;
+            /**
+             * Pending
+             * @default []
+             */
+            pending: components["schemas"]["ChangeOut"][];
+        };
+        /**
+         * OverviewResponse
+         * @description Everything the Overview shows.
+         *
+         *     Attributes:
+         *         schema_version: The shape of this answer (``schema`` in the body).
+         *         generated_at: When it was collected (it may be a few seconds old).
+         *         server: Which server.
+         *         apps: Applications by state.
+         *         deploys: Deployments today.
+         *         certificates: Certificates expiring.
+         *         backups: Backups in the last 24 hours.
+         *         disk: The disk and its forecast.
+         *         updates: Pending operating system updates.
+         *         attention: What needs an operator, worst first.
+         *         attention_total: How many there are, if the list was cut.
+         *         activity: What happened lately, newest first.
+         *         history: Whether metrics history is being recorded.
+         *         spark: The last hour of CPU and memory, when asked for.
+         */
+        OverviewResponse: {
+            /** Activity */
+            activity?: components["schemas"]["ActivityEntry"][];
+            apps: components["schemas"]["AppsFigure"];
+            /** Attention */
+            attention?: components["schemas"]["AttentionItem"][];
+            /**
+             * Attention Total
+             * @default 0
+             */
+            attention_total: number;
+            backups: components["schemas"]["BackupsFigure"];
+            certificates: components["schemas"]["CertificatesFigure"];
+            deploys: components["schemas"]["DeploysFigure"];
+            disk: components["schemas"]["DiskFigure"];
+            /** Generated At */
+            generated_at: string;
+            history?: components["schemas"]["HistoryFigure"] | null;
+            /**
+             * Schema
+             * @default 1
+             */
+            schema: number;
+            server: components["schemas"]["ServerInfo"];
+            spark?: components["schemas"]["SparkFigure"] | null;
+            updates: components["schemas"]["UpdatesFigure"];
+        };
+        /**
+         * OwnerPlanResponse
+         * @description What fix-owner would change, or changed.
+         *
+         *     Attributes:
+         *         current_owner: The owner before the change.
+         *         new_owner: The owner it is given.
+         *         objects: The objects re-owned with it, ``KIND schema.name``.
+         *         statements: The exact statements.
+         *         applied: Whether they ran.
+         */
+        OwnerPlanResponse: {
+            /** Applied */
+            applied: boolean;
+            /** Current Owner */
+            current_owner?: string | null;
+            /** Database */
+            database: string;
+            /** New Owner */
+            new_owner: string;
+            /** Objects */
+            objects: string[];
+            /** Statements */
+            statements: string[];
+        };
+        /**
+         * PackageOut
+         * @description One pending update.
+         */
+        PackageOut: {
+            /** Advisory */
+            advisory?: string | null;
+            /** Candidate */
+            candidate: string;
+            /** Installed */
+            installed?: string | null;
+            /** Kernel */
+            kernel: boolean;
+            /**
+             * Kind
+             * @default package
+             */
+            kind: string;
+            /** Name */
+            name: string;
+            /**
+             * Origin
+             * @default
+             */
+            origin: string;
+            /** Security */
+            security: boolean;
+            /** Severity */
+            severity?: string | null;
+        };
+        /**
+         * PasskeyAvailability
+         * @description Whether passkeys work for the request that asked, and if not, why.
+         *
+         *     Attributes:
+         *         supported: Whether a ceremony can be started from this page.
+         *         rp_id: The name passkeys are bound to here, when supported.
+         *         reason: When not: ``library_missing``, ``ip_address``,
+         *             ``insecure_context``, ``invalid_host`` or ``host_mismatch``. The
+         *             browser knows more (no WebAuthn, a certificate it does not trust)
+         *             and says so itself.
+         *         detail: What is wrong, in one sentence.
+         *         hint: How to fix it.
+         */
+        PasskeyAvailability: {
+            /** Detail */
+            detail?: string | null;
+            /** Hint */
+            hint?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Rp Id */
+            rp_id?: string | null;
+            /** Supported */
+            supported: boolean;
+        };
+        /**
+         * PasskeyInfo
+         * @description One passkey, with no key material in it.
+         *
+         *     Attributes:
+         *         id: Store id, to rename or remove it.
+         *         name: What its owner called it.
+         *         owner: The account's username, or ``master``.
+         *         rp_id: The name it was registered under; it signs in nowhere else.
+         *         algorithm: ``ES256``, ``RS256`` or ``EdDSA``.
+         *         synced: Whether the authenticator said it may be synced (a password
+         *             manager's passkey) rather than bound to one device. A label: the
+         *             attestation is ``none``.
+         *         transports: How the browser said it is reached (hints only).
+         *         created_at: When it was registered, UNIX seconds.
+         *         created_by: Who registered it.
+         *         last_used_at: Its last use, UNIX seconds.
+         *         last_used_ip: Where from.
+         *         clone_warning_at: When its signature counter went back - it may have
+         *             been copied - if it ever did.
+         */
+        PasskeyInfo: {
+            /** Algorithm */
+            algorithm: string;
+            /** Clone Warning At */
+            clone_warning_at?: number | null;
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Id */
+            id: number;
+            /** Last Used At */
+            last_used_at?: number | null;
+            /** Last Used Ip */
+            last_used_ip?: string | null;
+            /** Name */
+            name: string;
+            /** Owner */
+            owner: string;
+            /** Rp Id */
+            rp_id: string;
+            /** Synced */
+            synced: boolean;
+            /** Transports */
+            transports?: string[];
+        };
+        /**
+         * PasskeyListResponse
+         * @description The signed-in owner's passkeys, and whether passkeys work from here.
+         *
+         *     Attributes:
+         *         passkeys: Oldest first.
+         *         availability: Whether a ceremony can start from this page.
+         *         allow_synced: Whether passkeys that may be synced are accepted
+         *             (``web.passkeys.allow_synced``).
+         */
+        PasskeyListResponse: {
+            /** Allow Synced */
+            allow_synced: boolean;
+            availability: components["schemas"]["PasskeyAvailability"];
+            /** Passkeys */
+            passkeys: components["schemas"]["PasskeyInfo"][];
+        };
+        /**
+         * PasskeyLoginRequest
+         * @description Signing in with a passkey.
+         *
+         *     Attributes:
+         *         bearer: Also return the session token in the body, for clients
+         *             without a cookie jar.
+         */
+        PasskeyLoginRequest: {
+            /**
+             * Bearer
+             * @default false
+             */
+            bearer: boolean;
+            /** Credential */
+            credential: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * PasskeyRegistered
+         * @description A passkey just registered.
+         *
+         *     Attributes:
+         *         passkey: The passkey.
+         *         backup_codes: The account's backup codes, in clear, when this was its
+         *             first second factor: shown exactly once.
+         */
+        PasskeyRegistered: {
+            /** Backup Codes */
+            backup_codes?: string[] | null;
+            passkey: components["schemas"]["PasskeyInfo"];
+        };
+        /**
+         * PasskeyRegistrationRequest
+         * @description Registering a passkey.
+         *
+         *     Attributes:
+         *         name: What to call it, such as "Work laptop".
+         */
+        PasskeyRegistrationRequest: {
+            /** Credential */
+            credential: {
+                [key: string]: unknown;
+            };
+            /** Name */
+            name: string;
+        };
+        /**
+         * PasskeyRemoved
+         * @description A passkey that was removed.
+         *
+         *     Attributes:
+         *         success: Always true.
+         *         passkey: The passkey as it was.
+         */
+        PasskeyRemoved: {
+            passkey: components["schemas"]["PasskeyInfo"];
+            /** Success */
+            success: boolean;
+        };
+        /**
+         * PasskeyRename
+         * @description Renaming a passkey.
+         *
+         *     Attributes:
+         *         name: The new name.
+         */
+        PasskeyRename: {
+            /** Name */
+            name: string;
+        };
+        /**
+         * PasswordChange
+         * @description An account holder changing their own password.
+         *
+         *     Attributes:
+         *         current_password: The password in force.
+         *         new_password: The new one; checked against the policy.
+         */
+        PasswordChange: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
+        };
+        /**
+         * PasswordResponse
+         * @description An account's password, shown once to an elevated session.
+         */
+        PasswordResponse: {
+            /** Password */
+            password: string;
+            /** Username */
+            username: string;
+        };
+        /**
          * PlatformProposalResponse
          * @description What another platform's configuration says, in Noust's terms.
          */
@@ -9796,6 +19377,135 @@ export interface components {
              * @description What has no equivalent, and what to do instead
              */
             warnings?: string[];
+        };
+        /**
+         * PolicyDestination
+         * @description One remote destination a policy sends its dumps to.
+         *
+         *     Attributes:
+         *         name: A destination created under ``/api/backup-destinations``, which
+         *             keeps its own encryption.
+         *         retention_count: This server's scheduled dumps of the database to keep
+         *             there; null for no limit.
+         *         retention_days: Maximum age in days of those; null for no limit.
+         */
+        PolicyDestination: {
+            /** Name */
+            name: string;
+            /** Retention Count */
+            retention_count?: number | null;
+            /** Retention Days */
+            retention_days?: number | null;
+        };
+        /**
+         * PolicyDestinationState
+         * @description A destination a policy names, and what it is now.
+         *
+         *     Attributes:
+         *         exists: Whether the destination is still configured. False means it was
+         *             removed by hand after the policy was saved and every upload fails
+         *             until the policy names another.
+         *         encrypted: Whether it wraps what it stores in rclone's crypt.
+         */
+        PolicyDestinationState: {
+            /**
+             * Encrypted
+             * @default false
+             */
+            encrypted: boolean;
+            /**
+             * Exists
+             * @default true
+             */
+            exists: boolean;
+            /** Name */
+            name: string;
+            /** Retention Count */
+            retention_count?: number | null;
+            /** Retention Days */
+            retention_days?: number | null;
+        };
+        /**
+         * PolicyTimer
+         * @description What systemd says of a policy's timer.
+         *
+         *     Attributes:
+         *         installed: The unit is loaded. False for an enabled policy means the
+         *             timer was removed by hand: saving the policy again recreates it.
+         *         next_run: When it fires next, as systemd prints it.
+         *         last_run: When it last fired.
+         */
+        PolicyTimer: {
+            /**
+             * Installed
+             * @default false
+             */
+            installed: boolean;
+            /** Last Run */
+            last_run?: string | null;
+            /** Next Run */
+            next_run?: string | null;
+        };
+        /**
+         * PortOut
+         * @description A port that answers, and the firewall's verdict.
+         *
+         *     ``verdict`` is ``local``, ``blocked``, ``open``, ``open_to``, ``no_firewall``
+         *     or ``docker_bypass``.
+         */
+        PortOut: {
+            /** Address */
+            address: string;
+            /**
+             * Baseline
+             * @default false
+             */
+            baseline: boolean;
+            docker?: components["schemas"]["DockerPortOut"] | null;
+            /** Port */
+            port: number;
+            /** Process */
+            process?: string | null;
+            /** Proto */
+            proto: string;
+            /** Reachable */
+            reachable: boolean;
+            /**
+             * Risky
+             * @default
+             */
+            risky: string;
+            /**
+             * Sources
+             * @default []
+             */
+            sources: string[];
+            /** Verdict */
+            verdict: string;
+        };
+        /**
+         * PowerOut
+         * @description The power state, and what a reboot would break.
+         */
+        PowerOut: {
+            /** Boot Id */
+            boot_id: string;
+            /** Checks */
+            checks: components["schemas"]["noust__web__api__server__models__CheckOut"][];
+            /** Due At */
+            due_at?: string | null;
+            /** Mode */
+            mode?: string | null;
+            scheduled?: components["schemas"]["ScheduledPowerOut"] | null;
+            /** Uptime Seconds */
+            uptime_seconds?: number | null;
+        };
+        /**
+         * PowerSummary
+         * @description What is scheduled.
+         */
+        PowerSummary: {
+            scheduled?: components["schemas"]["ScheduledPowerOut"] | null;
         };
         /**
          * PreviewOut
@@ -9850,8 +19560,10 @@ export interface components {
          *         max_previews: How many may exist at once (1 to 20).
          *         ttl_hours: Hours a preview lives without a push (1 to 2160).
          *         allow_bots: Whether pull requests from bot accounts (Dependabot,
-         *             Renovate) get a preview. A preview is built as root with the
-         *             application's secrets, so this is off unless turned on.
+         *             Renovate) get a preview. A preview builds in the sandbox, as
+         *             ``noust-build`` and without a network while it compiles, but its
+         *             build and its unit get a copy of the application's secrets, so
+         *             this is off unless turned on.
          *         exclude_env: Variables never copied to a preview.
          */
         PreviewSettingsOut: {
@@ -10017,6 +19729,42 @@ export interface components {
             user: string;
         };
         /**
+         * ProcessOut
+         * @description One process.
+         */
+        ProcessOut: {
+            /** Command */
+            command?: string | null;
+            /** Cpu Percent */
+            cpu_percent: number;
+            /** Memory Mb */
+            memory_mb: number;
+            /** Memory Percent */
+            memory_percent: number;
+            /** Name */
+            name: string;
+            /** Pid */
+            pid: number;
+            /** Status */
+            status: string;
+            /** Unit */
+            unit?: string | null;
+            /** User */
+            user: string;
+        };
+        /**
+         * ProcessesOut
+         * @description The process list, or its grouping by unit.
+         */
+        ProcessesOut: {
+            /** Processes */
+            processes: components["schemas"]["ProcessOut"][];
+            /** Total */
+            total: number;
+            /** Units */
+            units: components["schemas"]["UnitProcessesOut"][];
+        };
+        /**
          * ProposedEnvResponse
          * @description One environment variable the platform's configuration declares.
          */
@@ -10052,6 +19800,85 @@ export interface components {
             value?: string | null;
         };
         /**
+         * ProtectedPortOut
+         * @description A port the anti-lockout guard keeps open, and why.
+         */
+        ProtectedPortOut: {
+            /** Port */
+            port: number;
+            /** Reason */
+            reason: string;
+        };
+        /**
+         * ProvisionRequest
+         * @description Request to create a database for an application and link it.
+         *
+         *     Attributes:
+         *         name: The database; derived from the application when omitted
+         *             (``<app>_db``), a slot number for Redis (0 by default).
+         *         env_var: The variable; ``DATABASE_URL``, or ``REDIS_URL`` for Redis.
+         *         extra_vars: Also write ``DB_HOST``, ``DB_PORT``, ``DB_NAME``,
+         *             ``DB_USER`` and ``DB_PASSWORD``.
+         *         restart: Restart the application on the new variables.
+         */
+        ProvisionRequest: {
+            /**
+             * Engine
+             * @description Database engine
+             */
+            engine: string;
+            /**
+             * Env Var
+             * @description Variable to write
+             */
+            env_var?: string | null;
+            /**
+             * Extra Vars
+             * @description Also write the DB_* variables
+             * @default false
+             */
+            extra_vars: boolean;
+            /**
+             * Name
+             * @description Database name
+             */
+            name?: string | null;
+            /**
+             * Restart
+             * @description Restart the application behind its gate
+             * @default true
+             */
+            restart: boolean;
+        };
+        /**
+         * ProvisioningPlanResponse
+         * @description What creating a database for an application would write.
+         *
+         *     Attributes:
+         *         url: The connection string, password masked.
+         *         database_exists: A database of that name is already on the engine.
+         */
+        ProvisioningPlanResponse: {
+            /** Database */
+            database: string;
+            /** Database Exists */
+            database_exists: boolean;
+            /** Display Name */
+            display_name: string;
+            /** Engine */
+            engine: string;
+            /** Env Vars */
+            env_vars: string[];
+            /** Installed */
+            installed: boolean;
+            /** Running */
+            running: boolean;
+            /** Url */
+            url: string;
+            /** Username */
+            username: string;
+        };
+        /**
          * PushBackupRequest
          * @description Request to upload a local backup to a remote destination.
          */
@@ -10063,16 +19890,32 @@ export interface components {
             destination: string;
         };
         /**
+         * PushRequest
+         * @description Request to send a dump to a destination.
+         *
+         *     Attributes:
+         *         engine: The engine the dump belongs to.
+         *         destination: A destination created under ``/api/backup-destinations``.
+         */
+        PushRequest: {
+            /** Destination */
+            destination: string;
+            /** Engine */
+            engine: string;
+        };
+        /**
          * QueryRequest
          * @description Request to run a statement.
          *
          *     Attributes:
          *         database: Database to run against.
          *         engine: Engine that owns it.
-         *         query: The statement. One statement only.
-         *         mode: ``read`` refuses anything that is not a read statement; ``write``
-         *             is the explicit opt-in for statements that change data.
-         *         max_rows: Most output lines to return.
+         *         query: The statement. One statement only in read mode.
+         *         mode: ``read`` runs it as the database's read-only account; ``write``
+         *             is the explicit, sudo-mode opt-in for statements that change data.
+         *         max_rows: Most lines of ``output`` to return.
+         *         row_limit: Most rows of ``rows`` to return.
+         *         timeout_s: Seconds the server may spend on it: 5, 30 or 120.
          */
         QueryRequest: {
             /**
@@ -10103,6 +19946,19 @@ export interface components {
              * @description Statement to run
              */
             query: string;
+            /**
+             * Row Limit
+             * @description Rows to return
+             * @default 1000
+             */
+            row_limit: number;
+            /**
+             * Timeout S
+             * @description Statement timeout
+             * @default 30
+             * @enum {integer}
+             */
+            timeout_s: 5 | 30 | 120;
         };
         /**
          * QueryResponse
@@ -10117,9 +19973,12 @@ export interface components {
          *         columns: Column names, in the order the engine returned them. Empty
          *             for an engine with no tabular client output to parse (Redis,
          *             MongoDB) or a statement with no result set.
-         *         rows: Data rows, each cell a string exactly as the client printed it.
+         *         rows: Data rows, each cell a string as the client printed it, or
+         *             null for a NULL (exact on PostgreSQL; on MySQL/MariaDB a text
+         *             value that is the four letters ``NULL`` also reads as null).
          *         row_count: Number of rows in ``rows``, after truncation.
          *         duration_ms: Wall-clock time the query's own client invocation took.
+         *         timeout_s: The statement timeout it ran under.
          */
         QueryResponse: {
             /** Columns */
@@ -10144,14 +20003,86 @@ export interface components {
              */
             row_count: number;
             /** Rows */
-            rows?: string[][];
+            rows?: (string | null)[][];
             /** Success */
             success: boolean;
+            /** Timeout S */
+            timeout_s?: number | null;
             /**
              * Truncated
              * @default false
              */
             truncated: boolean;
+        };
+        /**
+         * ReasonModel
+         * @description Why something is not being measured, and what to do about it.
+         *
+         *     Attributes:
+         *         code: Machine-readable and stable; the console translates by it.
+         *         message: One sentence, in English, saying what is true.
+         *         fix: What to do, a command verbatim when there is one; null when there
+         *             is nothing to fix.
+         *         evidence: The system's own output that led here, verbatim.
+         *         params: Values the console puts into its own sentence.
+         */
+        ReasonModel: {
+            /** Code */
+            code: string;
+            /** Evidence */
+            evidence?: string | null;
+            /** Fix */
+            fix?: string | null;
+            /** Message */
+            message: string;
+            /** Params */
+            params?: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * RebootOut
+         * @description Whether a reboot is due, and why.
+         */
+        RebootOut: {
+            /**
+             * Detector Available
+             * @default true
+             */
+            detector_available: boolean;
+            /** Packages */
+            packages?: string[];
+            /** Reasons */
+            reasons?: string[];
+            /** Required */
+            required: boolean;
+            /** Since */
+            since?: string | null;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+        };
+        /**
+         * RebootSummary
+         * @description Whether a reboot is due.
+         */
+        RebootSummary: {
+            /** Checked At */
+            checked_at?: string | null;
+            /** Detector Available */
+            detector_available?: boolean | null;
+            /** Error */
+            error?: string | null;
+            /** Packages */
+            packages?: string[];
+            /** Reasons */
+            reasons?: string[];
+            /** Required */
+            required?: boolean | null;
+            /** Since */
+            since?: string | null;
         };
         /**
          * RecipeEnvOut
@@ -10315,6 +20246,77 @@ export interface components {
             unavailable_reason?: string | null;
         };
         /**
+         * RefusedRestartOut
+         * @description A service on replaced libraries that is not restarted from Noust, and why.
+         */
+        RefusedRestartOut: {
+            /** Reason */
+            reason: string;
+            /** Unit */
+            unit: string;
+        };
+        /**
+         * RelationDetailResponse
+         * @description A relation's structure.
+         *
+         *     Attributes:
+         *         editable: A table with a primary key: its rows can be edited.
+         */
+        RelationDetailResponse: {
+            /** Columns */
+            columns: components["schemas"]["ColumnResponse"][];
+            /** Constraints */
+            constraints?: components["schemas"]["ConstraintResponse"][];
+            /**
+             * Editable
+             * @default false
+             */
+            editable: boolean;
+            /** Indexes */
+            indexes?: components["schemas"]["IndexResponse"][];
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Primary Key */
+            primary_key?: string[];
+            /** Rows Estimate */
+            rows_estimate?: number | null;
+            /** Schema */
+            schema: string;
+            /** Size Bytes */
+            size_bytes?: number | null;
+        };
+        /**
+         * RelationListResponse
+         * @description A database's tables and views, by schema then name.
+         */
+        RelationListResponse: {
+            /** Relations */
+            relations: components["schemas"]["RelationResponse"][];
+        };
+        /**
+         * RelationResponse
+         * @description One table or view.
+         *
+         *     Attributes:
+         *         kind: ``table``, ``view``, ``materialized_view`` or ``foreign_table``.
+         *         rows_estimate: The planner's estimate, never a count.
+         *         size_bytes: Data and indexes on disk; null for a view.
+         */
+        RelationResponse: {
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Rows Estimate */
+            rows_estimate?: number | null;
+            /** Schema */
+            schema: string;
+            /** Size Bytes */
+            size_bytes?: number | null;
+        };
+        /**
          * ReleaseActivationResponse
          * @description The outcome of activating a release.
          *
@@ -10429,6 +20431,87 @@ export interface components {
             backups?: components["schemas"]["RemoteBackupInfo"][];
         };
         /**
+         * RemoteDatabasesResponse
+         * @description The databases a destination holds dumps of, for one engine.
+         *
+         *     Attributes:
+         *         databases: The folder names; ``instance`` for Redis.
+         */
+        RemoteDatabasesResponse: {
+            /** Databases */
+            databases: string[];
+            /** Destination */
+            destination: string;
+            /** Engine */
+            engine: string;
+        };
+        /**
+         * RemoteDumpListResponse
+         * @description The dumps a destination holds for one database.
+         */
+        RemoteDumpListResponse: {
+            /** Database */
+            database: string;
+            /** Destination */
+            destination: string;
+            /** Dumps */
+            dumps: components["schemas"]["RemoteDumpResponse"][];
+            /** Engine */
+            engine: string;
+            /** Total */
+            total: number;
+        };
+        /**
+         * RemoteDumpResponse
+         * @description A dump on a destination.
+         *
+         *     Attributes:
+         *         name: The file name, which a remote restore takes.
+         *         own: This server sent it; retention only ever deletes these.
+         *         scheduled: A policy sent it, so retention may delete it.
+         *         sha256: The digest recorded when it was sent; null when there is no
+         *             sidecar (something else put the file there).
+         *         local: The file is also on this server.
+         */
+        RemoteDumpResponse: {
+            /** Created */
+            created?: string | null;
+            /** Database */
+            database: string;
+            /** Destination */
+            destination: string;
+            /**
+             * Format
+             * @default unknown
+             */
+            format: string;
+            /**
+             * Local
+             * @default false
+             */
+            local: boolean;
+            /** Modified */
+            modified?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Own
+             * @default false
+             */
+            own: boolean;
+            /**
+             * Scheduled
+             * @default false
+             */
+            scheduled: boolean;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Size */
+            size?: number | null;
+            /** Size Human */
+            size_human?: string | null;
+        };
+        /**
          * RemovalOut
          * @description What removing the integration did.
          *
@@ -10442,6 +20525,21 @@ export interface components {
             removed: boolean;
             /** Settings Url */
             settings_url?: string | null;
+        };
+        /**
+         * RemoveKeyRequest
+         * @description Remove a key; ``force`` overrides the guard (a central's key, a key in use).
+         */
+        RemoveKeyRequest: {
+            /** Fingerprint */
+            fingerprint: string;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** User */
+            user: string;
         };
         /**
          * RenewCertRequest
@@ -10486,6 +20584,63 @@ export interface components {
             source: string;
         };
         /**
+         * RestartPlanOut
+         * @description Which services on replaced libraries restart, and which do not.
+         *
+         *     Attributes:
+         *         services: What the update check reported.
+         *         restart: What restarts, in order; the console's own unit last.
+         *         refused: What does not, each with why (a reboot restarts those).
+         *         restarts_console: The console restarts at the end: the page reconnects.
+         */
+        RestartPlanOut: {
+            /** Refused */
+            refused?: components["schemas"]["RefusedRestartOut"][];
+            /** Restart */
+            restart?: string[];
+            /**
+             * Restarts Console
+             * @default false
+             */
+            restarts_console: boolean;
+            /** Services */
+            services?: string[];
+        };
+        /**
+         * RestartServicesAccepted
+         * @description The queued restart, with the plan it follows.
+         */
+        RestartServicesAccepted: {
+            /** Job */
+            job?: {
+                [key: string]: unknown;
+            };
+            /** Job Id */
+            job_id: string;
+            /** Message */
+            message: string;
+            /** Refused */
+            refused: components["schemas"]["RefusedRestartOut"][];
+            /** Restart */
+            restart: string[];
+            /** Restarts Console */
+            restarts_console: boolean;
+            /** Status */
+            status: string;
+        };
+        /**
+         * RestartServicesRequest
+         * @description Restart services on replaced libraries.
+         *
+         *     Attributes:
+         *         services: The units to restart, from the update check's list; every one
+         *             that may be restarted when omitted.
+         */
+        RestartServicesRequest: {
+            /** Services */
+            services?: string[] | null;
+        };
+        /**
          * RestoreFromDestinationRequest
          * @description Request to restore a backup found on a remote destination.
          */
@@ -10508,6 +20663,44 @@ export interface components {
             target_domain?: string | null;
         };
         /**
+         * RestoreRemoteRequest
+         * @description Request to restore a dump that lives on a destination.
+         *
+         *     Attributes:
+         *         engine: The engine.
+         *         database: The database the dump is of, which names its folder on the
+         *             destination, and the target unless ``new_name`` is given.
+         *         destination: The destination it is on.
+         *         backup_name: The dump's file name there.
+         *         drop_existing: Drop and recreate the target before loading. A safety
+         *             copy is taken first whatever ``safety_backup`` says.
+         *         safety_backup: Dump the target before loading over it.
+         *         new_name: Restore into a new database of this name instead, leaving
+         *             the original untouched.
+         */
+        RestoreRemoteRequest: {
+            /** Backup Name */
+            backup_name: string;
+            /** Database */
+            database: string;
+            /** Destination */
+            destination: string;
+            /**
+             * Drop Existing
+             * @default false
+             */
+            drop_existing: boolean;
+            /** Engine */
+            engine: string;
+            /** New Name */
+            new_name?: string | null;
+            /**
+             * Safety Backup
+             * @default true
+             */
+            safety_backup: boolean;
+        };
+        /**
          * RetentionResponse
          * @description The retention an application has now.
          *
@@ -10525,6 +20718,72 @@ export interface components {
             pruned: string[];
         };
         /**
+         * ReviewListResponse
+         * @description Response for ``GET /api/audit/reviews``.
+         *
+         *     Attributes:
+         *         items: Reviews, newest first.
+         */
+        ReviewListResponse: {
+            /** Items */
+            items: components["schemas"]["ReviewOut"][];
+        };
+        /**
+         * ReviewOut
+         * @description One recorded review.
+         *
+         *     Attributes:
+         *         timestamp: When it was recorded.
+         *         reviewer: Who attested it.
+         *         period_start: First day reviewed.
+         *         period_end: Last day reviewed.
+         *         notes: What was found.
+         *         events_in_period: Events the period held when it was reviewed.
+         *         chain_ok: Whether the chain verified at that moment.
+         *         chain_head_seq: The chain's head then.
+         */
+        ReviewOut: {
+            /** Chain Head Seq */
+            chain_head_seq?: number | null;
+            /** Chain Ok */
+            chain_ok?: boolean | null;
+            /** Events In Period */
+            events_in_period?: number | null;
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /** Period End */
+            period_end?: string | null;
+            /** Period Start */
+            period_start?: string | null;
+            /** Reviewer */
+            reviewer: string;
+            /** Timestamp */
+            timestamp: string;
+        };
+        /**
+         * ReviewRequest
+         * @description Body of ``POST /api/audit/reviews``.
+         *
+         *     Attributes:
+         *         period_start: First day reviewed, ``YYYY-MM-DD``.
+         *         period_end: Last day reviewed, ``YYYY-MM-DD``.
+         *         notes: What was looked at and what was found.
+         */
+        ReviewRequest: {
+            /**
+             * Notes
+             * @default
+             */
+            notes: string;
+            /** Period End */
+            period_end: string;
+            /** Period Start */
+            period_start: string;
+        };
+        /**
          * RevokedResponse
          * @description Confirmation that one record - a session or an API token - was revoked.
          */
@@ -10533,6 +20792,24 @@ export interface components {
             revoked: string;
             /** Success */
             success: boolean;
+        };
+        /**
+         * RolesResponse
+         * @description What each role may do, for the console's account screens.
+         *
+         *     Attributes:
+         *         roles: Role name to its permissions.
+         *         permissions: Every permission, with what it allows.
+         */
+        RolesResponse: {
+            /** Permissions */
+            permissions: {
+                [key: string]: string;
+            };
+            /** Roles */
+            roles: {
+                [key: string]: string[];
+            };
         };
         /**
          * RollbackPointOut
@@ -10575,6 +20852,196 @@ export interface components {
              * @description Domain of the application
              */
             domain: string;
+        };
+        /**
+         * RotatePasswordRequest
+         * @description Request to rotate an account's password.
+         *
+         *     Attributes:
+         *         propagate: Give the new password to the applications that sign in as
+         *             the account, restarting each behind its health gate; anything
+         *             that does not come back undoes the whole rotation.
+         */
+        RotatePasswordRequest: {
+            /**
+             * Host
+             * @description Host restriction
+             * @default localhost
+             */
+            host: string;
+            /**
+             * Propagate
+             * @description Rewrite and restart the applications
+             * @default true
+             */
+            propagate: boolean;
+        };
+        /**
+         * RowChangeResponse
+         * @description What an edit did.
+         *
+         *     Attributes:
+         *         action: ``insert``, ``update`` or ``delete``.
+         *         key: The row's primary key (the new row's, for an insert).
+         *         before: The row before, as the engine rendered it; null for an insert.
+         *         after: The row after; null for a delete.
+         */
+        RowChangeResponse: {
+            /** Action */
+            action: string;
+            /** After */
+            after?: unknown;
+            /** Before */
+            before?: unknown;
+            /** Database */
+            database: string;
+            /** Engine */
+            engine: string;
+            /** Key */
+            key: {
+                [key: string]: string;
+            };
+            /** Relation */
+            relation: string;
+            /** Schema */
+            schema: string;
+        };
+        /**
+         * RowResponse
+         * @description One row.
+         *
+         *     Attributes:
+         *         cells: Its values, in the order of the page's ``columns``.
+         *         truncated: Indexes of the cells cut to 2000 characters.
+         *         key: Its primary key as text, by column: what an edit sends back.
+         *             Empty when the relation has no primary key.
+         */
+        RowResponse: {
+            /** Cells */
+            cells: unknown[];
+            /** Key */
+            key?: {
+                [key: string]: string;
+            };
+            /** Truncated */
+            truncated?: number[];
+        };
+        /**
+         * RowsResponse
+         * @description One page of rows.
+         *
+         *     Attributes:
+         *         pagination: ``keyset`` (sorted by the primary key: follow
+         *             ``next_cursor``) or ``offset`` (follow ``next_offset``, up to
+         *             100000).
+         *         has_more: Whether another page follows.
+         *         count: The exact number of matching rows, when asked with
+         *             ``count=true``.
+         *         rows_estimate: The planner's estimate of the relation's rows.
+         */
+        RowsResponse: {
+            /** Columns */
+            columns: components["schemas"]["ColumnResponse"][];
+            /** Count */
+            count?: number | null;
+            /**
+             * Editable
+             * @default false
+             */
+            editable: boolean;
+            /**
+             * Has More
+             * @default false
+             */
+            has_more: boolean;
+            /** Limit */
+            limit: number;
+            /** Next Cursor */
+            next_cursor?: string | null;
+            /** Next Offset */
+            next_offset?: number | null;
+            /**
+             * Offset
+             * @default 0
+             */
+            offset: number;
+            /** Pagination */
+            pagination: string;
+            /** Primary Key */
+            primary_key?: string[];
+            /** Relation */
+            relation: string;
+            /** Rows */
+            rows: components["schemas"]["RowResponse"][];
+            /** Rows Estimate */
+            rows_estimate?: number | null;
+            /** Schema */
+            schema: string;
+        };
+        /**
+         * RuleOut
+         * @description A firewall rule. ``ports`` are inclusive ranges; empty is every port.
+         */
+        RuleOut: {
+            /** Action */
+            action: string;
+            /** Backend */
+            backend: string;
+            /**
+             * Comment
+             * @default
+             */
+            comment: string;
+            /** Id */
+            id: string;
+            /**
+             * Known
+             * @default true
+             */
+            known: boolean;
+            /**
+             * Noust
+             * @default false
+             */
+            noust: boolean;
+            /**
+             * Ports
+             * @default []
+             */
+            ports: number[][];
+            /** Proto */
+            proto: string;
+            /** Service */
+            service?: string | null;
+            /** Source */
+            source: string;
+            /** Spec */
+            spec: string;
+        };
+        /**
+         * RuleRequestIn
+         * @description A rule: ``allow`` or ``deny`` a port, from everyone (``any``) or an address or network.
+         */
+        RuleRequestIn: {
+            /** Action */
+            action: string;
+            /**
+             * Comment
+             * @default
+             */
+            comment: string;
+            /** Port */
+            port: number;
+            /**
+             * Proto
+             * @default tcp
+             */
+            proto: string;
+            /**
+             * Source
+             * @default any
+             */
+            source: string;
         };
         /**
          * SMTPConfig
@@ -10707,6 +21174,166 @@ export interface components {
             provider: string;
         };
         /**
+         * SandboxDisableRequest
+         * @description Building as root, and why.
+         */
+        SandboxDisableRequest: {
+            /**
+             * Reason
+             * @description Why, recorded and shown
+             */
+            reason: string;
+        };
+        /**
+         * SandboxEnableRequest
+         * @description Turning the sandbox on.
+         */
+        SandboxEnableRequest: {
+            /**
+             * Force
+             * @description Enable without a passing trial build
+             * @default false
+             */
+            force: boolean;
+            /**
+             * Network
+             * @description full or strict; omitted keeps the application's
+             */
+            network?: string | null;
+            /**
+             * Pty
+             * @description The compatibility mode; omitted keeps it
+             */
+            pty?: boolean | null;
+        };
+        /**
+         * SandboxResponse
+         * @description How an application builds.
+         */
+        SandboxResponse: {
+            /**
+             * Changed At
+             * @description When, ISO 8601
+             */
+            changed_at?: string | null;
+            /**
+             * Changed By
+             * @description Who last changed the regime
+             */
+            changed_by?: string | null;
+            /** @description For a compose stack: what it was allowed, and why */
+            compose_exception?: components["schemas"]["ComposeExceptionModel"] | null;
+            /** Domain */
+            domain: string;
+            /**
+             * Enabled
+             * @description Whether its builds run in the sandbox
+             */
+            enabled: boolean;
+            /**
+             * Mode
+             * @description on: in the sandbox as noust-build; off: as root by an operator's decision; legacy: as root, as applications from before 3.1
+             */
+            mode: string;
+            /**
+             * Network
+             * @description full, or strict: install without its variables, build without a network
+             */
+            network: string;
+            /**
+             * Pty
+             * @description Builds run on a terminal (the compatibility mode)
+             */
+            pty: boolean;
+            /**
+             * Reason
+             * @description Why it builds as root, when off
+             */
+            reason?: string | null;
+            /** @description The last trial build */
+            trial?: components["schemas"]["SandboxTrial"] | null;
+            /**
+             * Warning
+             * @description What is unprotected about its builds, and what to do
+             */
+            warning?: string | null;
+        };
+        /**
+         * SandboxTrial
+         * @description The last trial build of an application in the sandbox.
+         */
+        SandboxTrial: {
+            /**
+             * Commit
+             * @description The commit it built
+             */
+            commit?: string | null;
+            /**
+             * Detail
+             * @description The build's own output when it failed, verbatim
+             */
+            detail?: string | null;
+            /**
+             * Passed
+             * @description Whether it installed and built
+             */
+            passed: boolean;
+            /**
+             * Tested At
+             * @description When it ran, ISO 8601
+             */
+            tested_at: string;
+        };
+        /**
+         * SavedQueryListResponse
+         * @description The operator's saved queries, by name.
+         */
+        SavedQueryListResponse: {
+            /** Queries */
+            queries: components["schemas"]["SavedQueryResponse"][];
+        };
+        /**
+         * SavedQueryRequest
+         * @description A statement to keep under a name.
+         *
+         *     Attributes:
+         *         database: The database it is for; null for any database of the engine.
+         */
+        SavedQueryRequest: {
+            /** Database */
+            database?: string | null;
+            /** Engine */
+            engine: string;
+            /** Name */
+            name: string;
+            /** Query */
+            query: string;
+        };
+        /**
+         * SavedQueryResponse
+         * @description A saved query.
+         *
+         *     Attributes:
+         *         database: The database it is for; empty for any.
+         *         statement: The statement, scrubbed.
+         */
+        SavedQueryResponse: {
+            /** Created At */
+            created_at?: string | null;
+            /** Database */
+            database: string;
+            /** Engine */
+            engine: string;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Statement */
+            statement: string;
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /**
          * ScanResponse
          * @description Result of a single scan.
          *
@@ -10770,6 +21397,189 @@ export interface components {
             schedules: components["schemas"]["BackupScheduleInfo"][];
             /** Total */
             total: number;
+        };
+        /**
+         * ScheduleRequest
+         * @description Schedule a reboot.
+         *
+         *     Give ``in_minutes`` or ``at``, not both. Without either the reboot is in one
+         *     minute: the response reaches the operator and there is time to cancel.
+         *
+         *     Attributes:
+         *         in_minutes: Minutes from now, at least 1.
+         *         at: A moment, ISO 8601. Without an offset it is the server's local time.
+         *         message: What to tell logged-in users.
+         *         force: Go ahead although a check warned. The warnings are the answer of
+         *             a request that did not say so.
+         */
+        ScheduleRequest: {
+            /** At */
+            at?: string | null;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** In Minutes */
+            in_minutes?: number | null;
+            /** Message */
+            message?: string | null;
+        };
+        /**
+         * ScheduledPowerOut
+         * @description A reboot or shutdown that was asked for.
+         */
+        ScheduledPowerOut: {
+            /** Action */
+            action: string;
+            /** Boot Id */
+            boot_id: string;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Id */
+            id: number;
+            /** Message */
+            message?: string | null;
+            /** Requested At */
+            requested_at: string;
+            /** Requested By */
+            requested_by?: string | null;
+            /** Scheduled For */
+            scheduled_for: string;
+            /** Status */
+            status: string;
+        };
+        /**
+         * SchemaResponse
+         * @description One schema.
+         *
+         *     Attributes:
+         *         relations: How many tables and views it holds.
+         */
+        SchemaResponse: {
+            /** Name */
+            name: string;
+            /**
+             * Relations
+             * @default 0
+             */
+            relations: number;
+        };
+        /**
+         * SchemasResponse
+         * @description A database's schemas (on MySQL/MariaDB, the database itself).
+         */
+        SchemasResponse: {
+            /** Schemas */
+            schemas: components["schemas"]["SchemaResponse"][];
+        };
+        /**
+         * SelfUpdateOut
+         * @description What this server can do about its own Noust, and how the last update went.
+         *
+         *     Attributes:
+         *         current_version: The Noust answering.
+         *         method: How it was installed: ``apt``, ``dnf``, ``yum``, ``zypper``,
+         *             ``pip``, ``pipx``, ``source`` or ``unknown``.
+         *         supported: Whether ``POST /api/system/update`` can update it.
+         *         code: Why not, for a machine: ``unsupported_installation`` or
+         *             ``container_image``.
+         *         reason: Why not, in a sentence.
+         *         hint: What to run instead.
+         *         command: The command an update runs, exactly.
+         *         last_run: The last update's record (``id``, ``status``:
+         *             ``running``/``installed``/``succeeded``/``failed``,
+         *             ``from_version``, ``to_version``, ``tail``, ``job_id``...).
+         */
+        SelfUpdateOut: {
+            /** Code */
+            code?: string | null;
+            /** Command */
+            command?: string[] | null;
+            /** Current Version */
+            current_version: string;
+            /** Hint */
+            hint?: string | null;
+            /** Last Run */
+            last_run?: {
+                [key: string]: unknown;
+            } | null;
+            /** Method */
+            method: string;
+            /** Reason */
+            reason?: string | null;
+            /** Supported */
+            supported: boolean;
+        };
+        /**
+         * SeparationConflict
+         * @description A person holding roles that should not go together.
+         *
+         *     Attributes:
+         *         person_ref: The person.
+         *         accounts: Their accounts, with the role of each.
+         *         exception: Whether a documented exception covers them.
+         */
+        SeparationConflict: {
+            /** Accounts */
+            accounts: {
+                [key: string]: string;
+            }[];
+            /** Exception */
+            exception: boolean;
+            /** Person Ref */
+            person_ref: string;
+        };
+        /**
+         * SeriesModel
+         * @description One metric of a range read.
+         *
+         *     Attributes:
+         *         metric: Metric name.
+         *         points: ``[timestamp, mean, maximum]`` for every cell of the grid,
+         *             oldest first. ``mean`` and ``maximum`` are both null for a cell
+         *             where nothing was recorded; every series has the same timestamps.
+         *         ceiling: What the metric is drawn against (total memory for used
+         *             memory), or null.
+         */
+        SeriesModel: {
+            /** Ceiling */
+            ceiling?: number | null;
+            /** Metric */
+            metric: string;
+            /** Points */
+            points: [
+                number,
+                number | null,
+                number | null
+            ][];
+        };
+        /**
+         * ServerInfo
+         * @description Which server this is.
+         *
+         *     Attributes:
+         *         name: Its hostname.
+         *         version: The Noust it runs.
+         *         role: ``server`` (deploys applications) or ``hub`` (only manages other
+         *             servers).
+         */
+        ServerInfo: {
+            /**
+             * Name
+             * @default
+             */
+            name: string;
+            /**
+             * Role
+             * @default server
+             */
+            role: string;
+            /**
+             * Version
+             * @default
+             */
+            version: string;
         };
         /**
          * ServiceActionResponse
@@ -10884,8 +21694,13 @@ export interface components {
          *         last_seen: Most recent activity, as a UNIX timestamp.
          *         expires_at: When the session stops being valid, as a UNIX timestamp.
          *         is_current: Whether this is the session the caller is using now.
+         *         kind: ``account`` for a person's sign-in, ``master`` for the master
+         *             token's.
+         *         account_id: The account signed in, for an ``account`` session.
          */
         SessionEntry: {
+            /** Account Id */
+            account_id?: number | null;
             /** Client Ip */
             client_ip: string;
             /** Created At */
@@ -10894,6 +21709,11 @@ export interface components {
             expires_at: number;
             /** Is Current */
             is_current: boolean;
+            /**
+             * Kind
+             * @default master
+             */
+            kind: string;
             /** Last Seen */
             last_seen: number;
             /** Sid Prefix */
@@ -10905,18 +21725,24 @@ export interface components {
          *
          *     Answered for an anonymous caller too, with ``authenticated=False``, so the
          *     console can decide between the sign-in screen and the shell from one
-         *     request instead of treating a 401 as "maybe not logged in yet".
+         *     request instead of treating a 401 as "maybe not logged in yet". An
+         *     anonymous caller learns nothing about the server (ENS op.acc.6.7, G10):
+         *     no hostname, no version, not whether a second factor is on - only the
+         *     label the operator chose for the sign-in page.
          *
          *     Attributes:
          *         authenticated: Whether a usable credential was presented.
-         *         scope: The credential's scope, or None when unauthenticated.
+         *         scope: The credential's 3.0 scope, or None when unauthenticated.
          *         expires_at: Session expiry, ISO 8601, or None.
          *         elevated_until: End of the sudo-mode confirmation window, ISO 8601,
          *             or None when the session is not currently elevated.
-         *         totp_enabled: Whether logins require a second factor.
+         *         totp_enabled: Whether this credential's sign-in asks for a second
+         *             factor: the account's own authenticator, or the console's for the
+         *             master token. False for an anonymous caller.
          *         hostname: This machine's hostname, so an operator with several panels
-         *             open can tell them apart.
-         *         version: The installed Noust version.
+         *             open can tell them apart; the operator's sign-in label (empty by
+         *             default) for an anonymous caller.
+         *         version: The installed Noust version; empty for an anonymous caller.
          *         csrf_header: Header name a mutation must echo the CSRF cookie in.
          *         csrf_cookie: Name of the readable CSRF cookie.
          *         renamed_from_wasm: Whether this server ran WASM before Noust, so the
@@ -10924,8 +21750,22 @@ export interface components {
          *         central: This server's role and whether its sealed secrets are
          *             locked, so the console hides what a hub does not do and offers
          *             the unlock form; None for an anonymous caller.
+         *         login_label: What the operator chose to show on the sign-in page.
+         *         account: The account signed in, or None.
+         *         role: Its role, or the role a central forwarded.
+         *         grant: For the master token, how it holds the console.
+         *         permissions: Everything the credential may do.
+         *         mfa_required: The account must enrol an authenticator first.
+         *         notice: The usage notice to accept first, when one is pending.
+         *         accounts_exist: Whether this server has accounts; while it has none
+         *             the console offers to create the first.
+         *         security_profile: ``standard`` or ``ens-medium``.
+         *         idle_minutes: How long the session may go unused.
          */
         SessionInfo: {
+            account?: components["schemas"]["AccountInfo"] | null;
+            /** Accounts Exist */
+            accounts_exist?: boolean | null;
             /** Authenticated */
             authenticated: boolean;
             central?: components["schemas"]["CentralInfo"] | null;
@@ -10943,15 +21783,33 @@ export interface components {
             elevated_until?: string | null;
             /** Expires At */
             expires_at?: string | null;
+            /** Grant */
+            grant?: string | null;
             /** Hostname */
             hostname: string;
+            /** Idle Minutes */
+            idle_minutes?: number | null;
+            /** Login Label */
+            login_label?: string | null;
+            /**
+             * Mfa Required
+             * @default false
+             */
+            mfa_required: boolean;
+            notice?: components["schemas"]["NoticeInfo"] | null;
+            /** Permissions */
+            permissions?: string[];
             /**
              * Renamed From Wasm
              * @default false
              */
             renamed_from_wasm: boolean;
+            /** Role */
+            role?: string | null;
             /** Scope */
             scope?: string | null;
+            /** Security Profile */
+            security_profile?: string | null;
             /** Totp Enabled */
             totp_enabled: boolean;
             /** Version */
@@ -10959,10 +21817,10 @@ export interface components {
         };
         /**
          * SessionsListResponse
-         * @description Every active session.
+         * @description Every active session the caller may see.
          *
          *     Attributes:
-         *         active_sessions: Count of live sessions.
+         *         active_sessions: Count of the sessions listed.
          *         current_session: The caller's own session id, unmasked - it is
          *             already the credential proving the request, unlike every other
          *             session's id, which only ever leaves as a prefix.
@@ -10977,6 +21835,74 @@ export interface components {
             sessions: components["schemas"]["SessionEntry"][];
         };
         /**
+         * SetPolicyRequest
+         * @description Request to create or replace a database's backup policy.
+         *
+         *     Attributes:
+         *         schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd
+         *             ``OnCalendar`` expression.
+         *         retention_count: Scheduled dumps to keep locally. Dumps taken by hand
+         *             and the safety copies of restores are never deleted by retention.
+         *         retention_days: Days to keep a scheduled dump locally.
+         *         destinations: Remote copies, each with its own retention.
+         *         dump_format: PostgreSQL's ``custom`` (default), ``plain`` or ``tar``.
+         *         verify_restore: Load each dump into a temporary database and drop it
+         *             as proof it restores. Not available for Redis.
+         *         enabled: Whether the timer runs; a disabled policy keeps its settings.
+         */
+        SetPolicyRequest: {
+            /** Destinations */
+            destinations?: components["schemas"]["PolicyDestination"][];
+            /** Dump Format */
+            dump_format?: string | null;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Retention Count
+             * @default 7
+             */
+            retention_count: number | null;
+            /**
+             * Retention Days
+             * @default 30
+             */
+            retention_days: number | null;
+            /**
+             * Schedule
+             * @description hourly, daily, weekly, monthly or a systemd OnCalendar expression
+             * @default daily
+             */
+            schedule: string;
+            /**
+             * Verify Restore
+             * @default false
+             */
+            verify_restore: boolean;
+        };
+        /**
+         * SetProfileRequest
+         * @description Request to give an account one profile on a database.
+         *
+         *     Attributes:
+         *         profile: ``owner``, ``read_write`` or ``read_only``.
+         */
+        SetProfileRequest: {
+            /**
+             * Host
+             * @description Host restriction
+             * @default localhost
+             */
+            host: string;
+            /**
+             * Profile
+             * @description owner, read_write or read_only
+             */
+            profile: string;
+        };
+        /**
          * ShowKeyResponse
          * @description A destination's encryption passphrases, for safekeeping.
          */
@@ -10985,6 +21911,66 @@ export interface components {
             password: string;
             /** Password2 */
             password2: string;
+        };
+        /**
+         * ShutdownRequest
+         * @description Schedule a shutdown.
+         *
+         *     A powered-off VPS cannot be started from Noust, only from the provider's
+         *     panel, so the host name has to be typed.
+         *
+         *     Attributes:
+         *         confirm_hostname: The server's host name, as a person would type it.
+         */
+        ShutdownRequest: {
+            /** At */
+            at?: string | null;
+            /**
+             * Confirm Hostname
+             * @default
+             */
+            confirm_hostname: string;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** In Minutes */
+            in_minutes?: number | null;
+            /** Message */
+            message?: string | null;
+        };
+        /**
+         * SinkOut
+         * @description One shipping destination.
+         *
+         *     Attributes:
+         *         sink_id: Its name.
+         *         seq: The last event it received.
+         *         delivered_at: When it last received one.
+         *         error: Its last error, verbatim.
+         *         error_at: When that happened.
+         *         lag_seconds: How far behind the log it is.
+         *         degraded: It has been failing for longer than ``audit.sink_lag_minutes``.
+         */
+        SinkOut: {
+            /**
+             * Degraded
+             * @default false
+             */
+            degraded: boolean;
+            /** Delivered At */
+            delivered_at?: string | null;
+            /** Error */
+            error?: string | null;
+            /** Error At */
+            error_at?: string | null;
+            /** Lag Seconds */
+            lag_seconds?: number | null;
+            /** Seq */
+            seq?: number | null;
+            /** Sink Id */
+            sink_id: string;
         };
         /**
          * SiteActionResponse
@@ -11089,6 +22075,50 @@ export interface components {
             webserver: string;
         };
         /**
+         * SlowQueriesResponse
+         * @description The statements that take longest on average.
+         *
+         *     Attributes:
+         *         available: Whether the engine keeps statement statistics.
+         *         source: ``pg_stat_statements`` or ``performance_schema``.
+         *         reason: Why not: ``not_loaded``, ``not_created``,
+         *             ``performance_schema_off`` or ``not_supported``.
+         *         how_to_enable: The steps, in English, commands included.
+         */
+        SlowQueriesResponse: {
+            /** Available */
+            available: boolean;
+            /** How To Enable */
+            how_to_enable?: string | null;
+            /** Queries */
+            queries?: components["schemas"]["SlowQueryResponse"][];
+            /** Reason */
+            reason?: string | null;
+            /** Source */
+            source?: string | null;
+        };
+        /**
+         * SlowQueryResponse
+         * @description One statement's statistics.
+         *
+         *     Attributes:
+         *         query: The statement as the engine normalises it (constants replaced),
+         *             with quoted secrets replaced.
+         *         mean_ms: Average time per call.
+         */
+        SlowQueryResponse: {
+            /** Calls */
+            calls?: number | null;
+            /** Mean Ms */
+            mean_ms?: number | null;
+            /** Query */
+            query: string;
+            /** Rows */
+            rows?: number | null;
+            /** Total Ms */
+            total_ms?: number | null;
+        };
+        /**
          * SourceInspectionResponse
          * @description What a repository is, discovered before anything is deployed from it.
          *
@@ -11156,6 +22186,164 @@ export interface components {
             verdict?: string | null;
         };
         /**
+         * SparkFigure
+         * @description The last hour of CPU and memory, for a thumbnail.
+         *
+         *     Attributes:
+         *         cpu: One-minute means of CPU percent; null where nothing was recorded.
+         *         mem: One-minute means of used memory in bytes.
+         *         step: Seconds per point.
+         *         from_: Start of the hour (``from`` on the wire).
+         *         to: End of it.
+         *         error: Why this could not be read.
+         */
+        SparkFigure: {
+            /** Cpu */
+            cpu?: (number | null)[];
+            /** Error */
+            error?: string | null;
+            /** From */
+            from?: number | null;
+            /** Mem */
+            mem?: (number | null)[];
+            /**
+             * Step
+             * @default 60
+             */
+            step: number;
+            /** To */
+            to?: number | null;
+        };
+        /**
+         * SshSessionOut
+         * @description An SSH connection open now.
+         */
+        SshSessionOut: {
+            /** Fingerprint */
+            fingerprint?: string | null;
+            /** Peer */
+            peer: string;
+            /** Port */
+            port: number;
+            /** User */
+            user?: string | null;
+        };
+        /**
+         * SshStatusOut
+         * @description sshd as it runs: effective values (``sshd -T -C``), Noust's drop-in, fixes.
+         */
+        SshStatusOut: {
+            /** Confirm Window */
+            confirm_window: number;
+            /** Dropin */
+            dropin?: string | null;
+            /** Dropin Error */
+            dropin_error?: string | null;
+            /**
+             * Dropin Settings
+             * @default {}
+             */
+            dropin_settings: {
+                [key: string]: string;
+            };
+            /**
+             * Effective
+             * @default {}
+             */
+            effective: {
+                [key: string]: string;
+            };
+            /** Error */
+            error?: string | null;
+            /** Error Output */
+            error_output?: string | null;
+            /**
+             * Fixes
+             * @default {}
+             */
+            fixes: {
+                [key: string]: components["schemas"]["FixPlanOut"];
+            };
+            /** Include Present */
+            include_present: boolean;
+            logins: components["schemas"]["LoginsOut"];
+            /** Passwords Accepted */
+            passwords_accepted?: boolean | null;
+            /**
+             * Ports
+             * @default []
+             */
+            ports: number[];
+            /** Root Password */
+            root_password: string;
+            /**
+             * Sessions
+             * @default []
+             */
+            sessions: components["schemas"]["SshSessionOut"][];
+            unit?: components["schemas"]["SshUnitOut"] | null;
+        };
+        /**
+         * SshUnitOut
+         * @description How systemd runs sshd.
+         */
+        SshUnitOut: {
+            /**
+             * Active
+             * @default false
+             */
+            active: boolean;
+            /** Service */
+            service?: string | null;
+            /** Socket */
+            socket?: string | null;
+            /**
+             * Socket Active
+             * @default false
+             */
+            socket_active: boolean;
+        };
+        /**
+         * StepsOut
+         * @description What a change did, one sentence per step.
+         */
+        StepsOut: {
+            /** Steps */
+            steps: string[];
+        };
+        /**
+         * StorageOut
+         * @description The storage page: filesystems and what takes their space.
+         */
+        StorageOut: {
+            /** Analysis At */
+            analysis_at?: string | null;
+            /** Candidates */
+            candidates: components["schemas"]["CandidateOut"][];
+            /** Mounts */
+            mounts: components["schemas"]["MountOut"][];
+            worst?: components["schemas"]["MountOut"] | null;
+        };
+        /**
+         * StrategyIn
+         * @description How an action goes through the servers.
+         *
+         *     Attributes:
+         *         serial: Servers at a time: a number or a percentage (``"25%"``); the
+         *             action's default when absent.
+         *         max_failures: Failed servers tolerated before the rest are skipped;
+         *             the action's default when absent, ``-1`` never stops.
+         *         canary: A server that goes alone first; if it fails, nothing else runs.
+         */
+        StrategyIn: {
+            /** Canary */
+            canary?: string | null;
+            /** Max Failures */
+            max_failures?: number | null;
+            /** Serial */
+            serial?: number | string | null;
+        };
+        /**
          * SuccessResponse
          * @description A bare confirmation, for an action with nothing else to report back.
          */
@@ -11164,6 +22352,142 @@ export interface components {
             message: string;
             /** Success */
             success: boolean;
+        };
+        /**
+         * SuggestedNameResponse
+         * @description A free name for restoring as a new database.
+         */
+        SuggestedNameResponse: {
+            /** Name */
+            name: string;
+        };
+        /**
+         * SummaryOut
+         * @description The server in one look.
+         *
+         *     What the overview and a fleet's server list read. Cheap by construction:
+         *     what is slow is computed in the background and shows here with its age.
+         *     ``hardening`` is filled by the security checks when they are installed.
+         */
+        SummaryOut: {
+            auto_updates: components["schemas"]["AutoUpdatesSummary"];
+            capabilities: components["schemas"]["CapabilitiesOut"];
+            /** Checked At */
+            checked_at: string;
+            disk: components["schemas"]["DiskSummary"];
+            /** Hardening */
+            hardening?: {
+                [key: string]: unknown;
+            } | null;
+            /** Hostname */
+            hostname: string;
+            /** Kernel */
+            kernel: string;
+            os: components["schemas"]["OsOut"];
+            power: components["schemas"]["PowerSummary"];
+            reboot: components["schemas"]["RebootSummary"];
+            /** Stale Services */
+            stale_services?: number | null;
+            swap: components["schemas"]["SwapSummary"];
+            system: components["schemas"]["SystemStateSummary"];
+            time: components["schemas"]["TimeSummary"];
+            updates: components["schemas"]["UpdatesSummary"];
+            /** Uptime Seconds */
+            uptime_seconds?: number | null;
+        };
+        /**
+         * SupportNoticeResponse
+         * @description Where an engine version stands in its upstream support.
+         *
+         *     Attributes:
+         *         status: ``supported``, ``ending_soon``, ``ended`` or ``unknown``.
+         *         message: One English sentence; the console renders its own copy
+         *             from ``status`` and ``end_of_life``.
+         */
+        SupportNoticeResponse: {
+            /** End Of Life */
+            end_of_life?: string | null;
+            /** Family */
+            family: string;
+            /** Major */
+            major?: string | null;
+            /** Message */
+            message: string;
+            /** Status */
+            status: string;
+            /** Version */
+            version?: string | null;
+        };
+        /**
+         * SwapDeviceOut
+         * @description One swap area.
+         */
+        SwapDeviceOut: {
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Noust */
+            noust: boolean;
+            /** Priority */
+            priority: number;
+            /** Size Bytes */
+            size_bytes: number;
+            /** Used Bytes */
+            used_bytes: number;
+        };
+        /**
+         * SwapOut
+         * @description The swap of the machine.
+         */
+        SwapOut: {
+            /** Devices */
+            devices: components["schemas"]["SwapDeviceOut"][];
+            /** Memory Bytes */
+            memory_bytes: number;
+            /** Noust Swapfile */
+            noust_swapfile: boolean;
+            /** Reason */
+            reason: string;
+            /** Recommended */
+            recommended: boolean;
+            /** Suggested Bytes */
+            suggested_bytes: number;
+            /** Supported */
+            supported: boolean;
+            /** Swappiness */
+            swappiness?: number | null;
+            /** Total Bytes */
+            total_bytes: number;
+            /** Used Bytes */
+            used_bytes: number;
+            /** Warnings */
+            warnings: string[];
+        };
+        /**
+         * SwapSummary
+         * @description Swap in use.
+         */
+        SwapSummary: {
+            /** Error */
+            error?: string | null;
+            /** Recommended */
+            recommended?: boolean | null;
+            /** Total Bytes */
+            total_bytes?: number | null;
+            /** Used Bytes */
+            used_bytes?: number | null;
+        };
+        /**
+         * SwappinessRequest
+         * @description Set how eagerly the kernel swaps.
+         *
+         *     Attributes:
+         *         value: 0 to 100.
+         */
+        SwappinessRequest: {
+            /** Value */
+            value: number;
         };
         /**
          * SystemHealthOut
@@ -11200,6 +22524,48 @@ export interface components {
             os: string;
             /** Uptime */
             uptime: string;
+        };
+        /**
+         * SystemStateSummary
+         * @description Whether systemd is well.
+         */
+        SystemStateSummary: {
+            /** Error */
+            error?: string | null;
+            /** Failed Units */
+            failed_units?: string[] | null;
+            /** State */
+            state?: string | null;
+        };
+        /**
+         * TableSizeResponse
+         * @description One of the biggest tables.
+         */
+        TableSizeResponse: {
+            /** Name */
+            name: string;
+            /** Rows Estimate */
+            rows_estimate?: number | null;
+            /** Schema */
+            schema: string;
+            /** Size Bytes */
+            size_bytes?: number | null;
+        };
+        /**
+         * TargetsIn
+         * @description The servers an action runs on: by name, by label, or both.
+         *
+         *     Attributes:
+         *         nodes: Servers by name.
+         *         labels: A label selector; servers carrying every pair are added.
+         */
+        TargetsIn: {
+            /** Labels */
+            labels?: {
+                [key: string]: string;
+            };
+            /** Nodes */
+            nodes?: string[];
         };
         /**
          * TelegramChatOut
@@ -11275,6 +22641,80 @@ export interface components {
             content: string;
         };
         /**
+         * TimeChangeOut
+         * @description What a change of the clock did.
+         */
+        TimeChangeOut: {
+            /** Moved Timers */
+            moved_timers?: string[];
+            /**
+             * Output
+             * @default
+             */
+            output: string;
+            /** Previous Timezone */
+            previous_timezone?: string | null;
+            time: components["schemas"]["TimeOut"];
+        };
+        /**
+         * TimeChangeRequest
+         * @description Change the time zone, the synchronisation, or both.
+         *
+         *     Attributes:
+         *         timezone: A tz database name such as ``Europe/Madrid``.
+         *         ntp: Turn synchronisation on or off.
+         *         install_ntp: Install chrony when there is no time daemon to turn on.
+         */
+        TimeChangeRequest: {
+            /**
+             * Install Ntp
+             * @default false
+             */
+            install_ntp: boolean;
+            /** Ntp */
+            ntp?: boolean | null;
+            /** Timezone */
+            timezone?: string | null;
+        };
+        /**
+         * TimeOut
+         * @description The clock.
+         */
+        TimeOut: {
+            /** Local Rtc */
+            local_rtc: boolean;
+            /** Local Time */
+            local_time: string;
+            /** Ntp Enabled */
+            ntp_enabled: boolean;
+            /** Ntp Supported */
+            ntp_supported: boolean;
+            /** Offset Seconds */
+            offset_seconds?: number | null;
+            /** Synchronized */
+            synchronized: boolean;
+            /** Timezone */
+            timezone: string;
+            /** Utc */
+            utc: string;
+        };
+        /**
+         * TimeSummary
+         * @description Whether the clock is right.
+         */
+        TimeSummary: {
+            /** Error */
+            error?: string | null;
+            /** Ntp Enabled */
+            ntp_enabled?: boolean | null;
+            /** Ntp Supported */
+            ntp_supported?: boolean | null;
+            /** Synchronized */
+            synchronized?: boolean | null;
+            /** Timezone */
+            timezone?: string | null;
+        };
+        /**
          * TokenInfo
          * @description Session information.
          *
@@ -11290,6 +22730,52 @@ export interface components {
             session_id?: string | null;
             /** Valid */
             valid: boolean;
+        };
+        /**
+         * TrafficModel
+         * @description Whether requests are being counted from the access log.
+         *
+         *     Attributes:
+         *         available: True when they are being recorded now.
+         *         log: The access log they are read from.
+         *         reason: Why not, when the site should have one.
+         */
+        TrafficModel: {
+            /** Available */
+            available: boolean;
+            /** Log */
+            log?: string | null;
+            reason?: components["schemas"]["ReasonModel"] | null;
+        };
+        /**
+         * TunnelResponse
+         * @description The SSH tunnel to reach a database from the operator's computer.
+         *
+         *     Attributes:
+         *         command: The complete ``ssh -N -L`` command.
+         *         url: The connection string through the tunnel, password masked.
+         *         clients: Ready command lines, by client (``psql``, ``mysql``,
+         *             ``redis-cli``, ``mongosh``, ``jdbc``).
+         */
+        TunnelResponse: {
+            /** Clients */
+            clients?: {
+                [key: string]: string;
+            };
+            /** Command */
+            command: string;
+            /** Local Port */
+            local_port: number;
+            /** Remote Port */
+            remote_port: number;
+            /** Server */
+            server: string;
+            /** Ssh Port */
+            ssh_port: number;
+            /** Ssh User */
+            ssh_user: string;
+            /** Url */
+            url: string;
         };
         /**
          * TwoFactorCode
@@ -11349,6 +22835,67 @@ export interface components {
             pending: boolean;
         };
         /**
+         * UnbanRequest
+         * @description Lift a ban; every jail that bans the address when ``jail`` is omitted.
+         */
+        UnbanRequest: {
+            /** Address */
+            address: string;
+            /** Jail */
+            jail?: string | null;
+        };
+        /**
+         * UnitProcessesOut
+         * @description The processes of one unit, added up.
+         */
+        UnitProcessesOut: {
+            /** Cpu Percent */
+            cpu_percent: number;
+            /** Memory Mb */
+            memory_mb: number;
+            /** Memory Percent */
+            memory_percent: number;
+            /** Processes */
+            processes: number;
+            /** Unit */
+            unit: string;
+        };
+        /**
+         * UnitStatusModel
+         * @description One unit or container an application's metrics are read from.
+         *
+         *     Attributes:
+         *         name: The unit's name, or the container's.
+         *         kind: ``unit`` or ``container``.
+         *         active_state: systemd's ``ActiveState``, or null.
+         *         control_group: systemd's ``ControlGroup`` verbatim, or null.
+         *         cgroup_exists: Whether that cgroup exists right now.
+         *         memory_current: ``memory.current`` in bytes, or null when unreadable.
+         *         cpu_stat: Whether ``cpu.stat`` is readable.
+         */
+        UnitStatusModel: {
+            /** Active State */
+            active_state?: string | null;
+            /**
+             * Cgroup Exists
+             * @default false
+             */
+            cgroup_exists: boolean;
+            /** Control Group */
+            control_group?: string | null;
+            /**
+             * Cpu Stat
+             * @default false
+             */
+            cpu_stat: boolean;
+            /** Kind */
+            kind: string;
+            /** Memory Current */
+            memory_current?: number | null;
+            /** Name */
+            name: string;
+        };
+        /**
          * UnlockRequest
          * @description Body of ``POST /api/central/unlock``.
          *
@@ -11358,6 +22905,16 @@ export interface components {
         UnlockRequest: {
             /** Passphrase */
             passphrase: string;
+        };
+        /**
+         * UnprotectedDatabase
+         * @description A database no enabled policy covers.
+         */
+        UnprotectedDatabase: {
+            /** Database */
+            database: string;
+            /** Engine */
+            engine: string;
         };
         /**
          * UpdateAppEnvRequest
@@ -11371,6 +22928,17 @@ export interface components {
             variables?: {
                 [key: string]: string;
             };
+        };
+        /**
+         * UpdateBranchRequest
+         * @description Pin the branch an application deploys from, or unpin it.
+         */
+        UpdateBranchRequest: {
+            /**
+             * Branch
+             * @description The branch to pin; it must exist on the remote. Null: any push deploys
+             */
+            branch: string | null;
         };
         /**
          * UpdateDestinationRequest
@@ -11510,6 +23078,72 @@ export interface components {
             keep: number;
         };
         /**
+         * UpdateRowRequest
+         * @description A row to change.
+         *
+         *     Attributes:
+         *         key: The row's whole primary key, as the page returned it.
+         *         values: Column to new value.
+         */
+        UpdateRowRequest: {
+            /** Key */
+            key: {
+                [key: string]: unknown;
+            };
+            /**
+             * Relation
+             * @description Table
+             */
+            relation: string;
+            /**
+             * Schema
+             * @description Schema (the database on MySQL)
+             */
+            schema: string;
+            /** Values */
+            values: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * UpdateRunOut
+         * @description One run of an update, as it was written down.
+         */
+        UpdateRunOut: {
+            /** Actor */
+            actor?: string | null;
+            /** Conffiles Kept */
+            conffiles_kept?: string[];
+            /** Error */
+            error?: string | null;
+            /** Exit Code */
+            exit_code?: number | null;
+            /** Finished At */
+            finished_at?: string | null;
+            /** Full */
+            full: boolean;
+            /** Id */
+            id: string;
+            /** Job Id */
+            job_id?: string | null;
+            /** Packages */
+            packages?: string[];
+            /** Reboot Required */
+            reboot_required?: boolean | null;
+            /** Scope */
+            scope: string;
+            /** Stale Services */
+            stale_services?: string[];
+            /** Started At */
+            started_at: string;
+            /** Status */
+            status: string;
+            /** Tail */
+            tail?: string[];
+            /** Unit */
+            unit?: string | null;
+        };
+        /**
          * UpdateServiceConfigRequest
          * @description Request to update service configuration.
          */
@@ -11526,8 +23160,125 @@ export interface components {
             config: string;
         };
         /**
+         * UpdatesFigure
+         * @description Pending operating system updates.
+         *
+         *     Attributes:
+         *         supported: Whether this server's package manager is supported; null
+         *             when unknown.
+         *         available: Updates pending; null until the first check has run.
+         *         security: Of those, security updates.
+         *         reboot_required: Whether a reboot is due.
+         *         checked_at: When the pending list was read.
+         *         reason: Why nothing is reported.
+         *         error: The failure, verbatim.
+         */
+        UpdatesFigure: {
+            /** Available */
+            available?: number | null;
+            /** Checked At */
+            checked_at?: string | null;
+            /** Error */
+            error?: string | null;
+            reason?: components["schemas"]["UpdatesReason"] | null;
+            /** Reboot Required */
+            reboot_required?: boolean | null;
+            /** Security */
+            security?: number | null;
+            /** Supported */
+            supported?: boolean | null;
+        };
+        /**
+         * UpdatesOut
+         * @description Everything the updates tab shows.
+         *
+         *     Served from the cache with its age (``checked_at``); ``POST
+         *     /api/server/updates/refresh`` renews the package lists and this list.
+         */
+        UpdatesOut: {
+            auto: components["schemas"]["AutoUpdatesOut"];
+            /** Broken */
+            broken: boolean;
+            /** Checked At */
+            checked_at?: string | null;
+            /** Error */
+            error?: string | null;
+            /** Holds */
+            holds: string[];
+            /** Kept Back */
+            kept_back: string[];
+            /** Lists Age Seconds */
+            lists_age_seconds?: number | null;
+            /** Notes */
+            notes: string[];
+            /** Packages */
+            packages: components["schemas"]["PackageOut"][];
+            /** Pending */
+            pending: number;
+            /** Reason */
+            reason?: string | null;
+            reboot: components["schemas"]["RebootOut"];
+            running?: components["schemas"]["UpdateRunOut"] | null;
+            /** Security */
+            security: number;
+            /** Security Scope */
+            security_scope: boolean;
+            /** Stale Services */
+            stale_services: string[];
+            /** Supported */
+            supported: boolean;
+        };
+        /**
+         * UpdatesReason
+         * @description Why updates are not reported.
+         *
+         *     Attributes:
+         *         code: ``not_available`` or ``unsupported``.
+         *         message: One sentence.
+         */
+        UpdatesReason: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+        };
+        /**
+         * UpdatesSummary
+         * @description Pending updates, as the overview shows them.
+         *
+         *     ``pending`` and ``security`` are null until the first computation finishes;
+         *     ``error`` says why when it failed.
+         */
+        UpdatesSummary: {
+            /** Broken */
+            broken?: boolean | null;
+            /** Checked At */
+            checked_at?: string | null;
+            /** Error */
+            error?: string | null;
+            /** Kept Back */
+            kept_back?: number | null;
+            /** Lists Age Seconds */
+            lists_age_seconds?: number | null;
+            /** Notes */
+            notes?: string[];
+            /** Pending */
+            pending?: number | null;
+            /** Reason */
+            reason?: string | null;
+            /** Security */
+            security?: number | null;
+            /** Security Scope */
+            security_scope: boolean;
+            /** Supported */
+            supported: boolean;
+        };
+        /**
          * UserInfoResponse
          * @description One database user.
+         *
+         *     Attributes:
+         *         internal: The engine's own account or Noust's read-only console's.
          */
         UserInfoResponse: {
             /** Databases */
@@ -11539,6 +23290,11 @@ export interface components {
              * @default localhost
              */
             host: string;
+            /**
+             * Internal
+             * @default false
+             */
+            internal: boolean;
             /** Privileges */
             privileges?: string[];
             /** Username */
@@ -11584,6 +23340,58 @@ export interface components {
             valid: boolean;
             /** Warnings */
             warnings?: string[];
+        };
+        /**
+         * VerifyRequest
+         * @description Request to check a dump again.
+         *
+         *     Attributes:
+         *         engine: The engine the dump belongs to.
+         *         restore_test: Also load it into a temporary database, dropped
+         *             afterwards. Not available for Redis.
+         */
+        VerifyRequest: {
+            /** Engine */
+            engine: string;
+            /**
+             * Restore Test
+             * @default false
+             */
+            restore_test: boolean;
+        };
+        /**
+         * VerifyResponse
+         * @description Response for ``GET /api/audit/verify``.
+         *
+         *     Attributes:
+         *         ok: Whether the chain holds.
+         *         checked: Chained events checked.
+         *         legacy: Lines from before the chain, which cannot be checked.
+         *         first_seq: Oldest chained event.
+         *         last_seq: Newest chained event.
+         *         last_mac: Its MAC: what a receiver's latest checkpoint should hold.
+         *         broken: The first broken link, when there is one.
+         *         notes: Things worth knowing that are not breaks.
+         *         limitation: What a pass does not prove.
+         */
+        VerifyResponse: {
+            broken?: components["schemas"]["BrokenLinkOut"] | null;
+            /** Checked */
+            checked: number;
+            /** First Seq */
+            first_seq?: number | null;
+            /** Last Mac */
+            last_mac?: string | null;
+            /** Last Seq */
+            last_seq?: number | null;
+            /** Legacy */
+            legacy: number;
+            /** Limitation */
+            limitation: string;
+            /** Notes */
+            notes?: string[];
+            /** Ok */
+            ok: boolean;
         };
         /**
          * VerifyUnitRequest
@@ -11658,12 +23466,53 @@ export interface components {
             ticket: string;
         };
         /**
+         * WebhookBranchOut
+         * @description Which pushes deploy.
+         *
+         *     Attributes:
+         *         tracked: The branch the application deploys, None when none is pinned.
+         *         pinned: Whether one is.
+         *         any_push_deploys: True when none is pinned: a push to any branch then
+         *             deploys the application.
+         */
+        WebhookBranchOut: {
+            /** Any Push Deploys */
+            any_push_deploys: boolean;
+            /** Pinned */
+            pinned: boolean;
+            /** Tracked */
+            tracked?: string | null;
+        };
+        /**
          * WebhookDeliveriesResponse
          * @description Webhook-triggered deployments for one application, newest first.
          */
         WebhookDeliveriesResponse: {
             /** Items */
             items: components["schemas"]["WebhookDeliveryOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * WebhookDeliveriesSummaryOut
+         * @description What the forge has been sending.
+         *
+         *     Attributes:
+         *         total: Deliveries kept.
+         *         refused_since_last_verified: Wrong signatures and lockouts since the
+         *             last delivery that verified.
+         *         last: The newest delivery.
+         *         last_verified_at: When the newest delivery that verified arrived.
+         *         last_push_at: When the newest push that deployed arrived.
+         */
+        WebhookDeliveriesSummaryOut: {
+            last?: components["schemas"]["WebhookReceivedOut"] | null;
+            /** Last Push At */
+            last_push_at?: string | null;
+            /** Last Verified At */
+            last_verified_at?: string | null;
+            /** Refused Since Last Verified */
+            refused_since_last_verified: number;
             /** Total */
             total: number;
         };
@@ -11701,6 +23550,140 @@ export interface components {
             enabled: boolean;
         };
         /**
+         * WebhookForgeOut
+         * @description The forge side of the setup.
+         *
+         *     Attributes:
+         *         forge: ``github``, ``gitlab`` or ``gitea``; None for another host.
+         *         host: The forge's host name; never a credential.
+         *         repository: ``owner/repo``.
+         *         settings_url: Where to add the webhook, when the forge is known.
+         */
+        WebhookForgeOut: {
+            /** Forge */
+            forge?: string | null;
+            /** Host */
+            host?: string | null;
+            /** Repository */
+            repository?: string | null;
+            /** Settings Url */
+            settings_url?: string | null;
+        };
+        /**
+         * WebhookGitHubAppOut
+         * @description Whether this server's GitHub App already deploys the repository.
+         *
+         *     Attributes:
+         *         configured: Whether this server has an App.
+         *         hooks_active: Whether the App's webhook points at this server.
+         *         covers_repository: Whether a push reaches the application through the
+         *             App, so a webhook of its own would deploy twice.
+         *         account: The account of the covering installation.
+         *         repository_selection: ``all`` or ``selected``.
+         *         settings_url: Where to change the installation's repositories.
+         */
+        WebhookGitHubAppOut: {
+            /** Account */
+            account?: string | null;
+            /** Configured */
+            configured: boolean;
+            /** Covers Repository */
+            covers_repository: boolean;
+            /** Hooks Active */
+            hooks_active: boolean;
+            /** Repository Selection */
+            repository_selection?: string | null;
+            /** Settings Url */
+            settings_url?: string | null;
+        };
+        /**
+         * WebhookHooksOut
+         * @description Where the forge delivers.
+         *
+         *     Attributes:
+         *         exposed: Whether ``noust web expose-hooks`` published ``/hooks/``.
+         *         base_url: The public base of ``/hooks``, None until exposed.
+         *         hook_url: The exact payload URL of this application: the public one
+         *             when exposed, else the address the console was opened at (which
+         *             a forge usually cannot reach).
+         *         hook_url_public: Whether ``hook_url`` is one a forge can reach.
+         *         content_type: What the forge must send.
+         *         events: The events to enable at the forge.
+         */
+        WebhookHooksOut: {
+            /** Base Url */
+            base_url?: string | null;
+            /** Content Type */
+            content_type: string;
+            /** Events */
+            events: string[];
+            /** Exposed */
+            exposed: boolean;
+            /** Hook Url */
+            hook_url?: string | null;
+            /** Hook Url Public */
+            hook_url_public: boolean;
+        };
+        /**
+         * WebhookReceivedOut
+         * @description One delivery the forge sent.
+         *
+         *     Attributes:
+         *         id: Row id; larger is newer.
+         *         received_at: When it arrived (the last of a burst, for a folded row),
+         *             with a UTC offset.
+         *         provider: ``github``, ``gitea``, ``gitlab`` or ``github-app``; None
+         *             when no credential verified.
+         *         event: The forge's name for the event.
+         *         outcome: ``deploy_started``, ``preview_started``, ``ping``,
+         *             ``ignored_branch``, ``ignored_event``, ``ignored_pull_request``,
+         *             ``duplicate``, ``bad_signature`` or ``locked``.
+         *         branch: The branch a push named.
+         *         detail: One short line of context.
+         *         job_id: The job it queued, to follow in the console's jobs.
+         *         delivery_id: The forge's id for the delivery.
+         *         count: How many identical refusals the row stands for.
+         */
+        WebhookReceivedOut: {
+            /** Branch */
+            branch?: string | null;
+            /** Count */
+            count: number;
+            /** Delivery Id */
+            delivery_id?: string | null;
+            /** Detail */
+            detail?: string | null;
+            /** Event */
+            event?: string | null;
+            /** Id */
+            id: number;
+            /** Job Id */
+            job_id?: string | null;
+            /** Outcome */
+            outcome: string;
+            /** Provider */
+            provider?: string | null;
+            /** Received At */
+            received_at: string;
+        };
+        /**
+         * WebhookReceivedResponse
+         * @description The deliveries an application's webhook received, newest first.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         items: The deliveries.
+         *         total: How many are listed.
+         */
+        WebhookReceivedResponse: {
+            /** Domain */
+            domain: string;
+            /** Items */
+            items: components["schemas"]["WebhookReceivedOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
          * WebhookSecretResponse
          * @description A freshly minted webhook secret, shown this once and never again.
          *
@@ -11717,6 +23700,41 @@ export interface components {
             hook_url: string;
             /** Secret */
             secret: string;
+        };
+        /**
+         * WebhookStatusResponse
+         * @description Everything the guided webhook setup shows about one application.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         enabled: Whether a secret exists. The secret is never in this answer:
+         *             ``POST .../webhook/reveal`` (sudo mode) returns it.
+         *         state: ``disabled``, ``waiting`` (a secret and no delivery yet),
+         *             ``connected`` or ``problem`` (the last delivery was refused).
+         *         layout: ``releases`` or ``inplace``.
+         *         inplace_warning: True when an in-place application deploys on push.
+         *         hooks: Where the forge delivers.
+         *         branch: Which pushes deploy.
+         *         forge: The forge side.
+         *         github_app: Whether the GitHub App already covers the repository.
+         *         deliveries: What the forge has been sending.
+         */
+        WebhookStatusResponse: {
+            branch: components["schemas"]["WebhookBranchOut"];
+            deliveries: components["schemas"]["WebhookDeliveriesSummaryOut"];
+            /** Domain */
+            domain: string;
+            /** Enabled */
+            enabled: boolean;
+            forge: components["schemas"]["WebhookForgeOut"];
+            github_app: components["schemas"]["WebhookGitHubAppOut"];
+            hooks: components["schemas"]["WebhookHooksOut"];
+            /** Inplace Warning */
+            inplace_warning: boolean;
+            /** Layout */
+            layout: string;
+            /** State */
+            state: string;
         };
         /**
          * WebserverConfig
@@ -11941,7 +23959,7 @@ export interface components {
          * BackupListResponse
          * @description Response for listing database backups.
          */
-        noust__web__api__databases__BackupListResponse: {
+        noust__web__api__databases__dumps__BackupListResponse: {
             /** Backups */
             backups: components["schemas"]["BackupInfoResponse"][];
             /** Total */
@@ -11950,8 +23968,12 @@ export interface components {
         /**
          * CreateBackupRequest
          * @description Request to dump a database.
+         *
+         *     Attributes:
+         *         format: PostgreSQL's dump format: ``custom`` (the default since 3.1),
+         *             ``plain`` or ``tar``. Ignored by the other engines.
          */
-        noust__web__api__databases__CreateBackupRequest: {
+        noust__web__api__databases__dumps__CreateBackupRequest: {
             /**
              * Compress
              * @description Compress the dump
@@ -11968,20 +23990,29 @@ export interface components {
              * @description Database engine
              */
             engine: string;
+            /**
+             * Format
+             * @description PostgreSQL dump format
+             */
+            format?: string | null;
         };
         /**
          * RestoreBackupRequest
          * @description Request to restore a database.
          *
          *     Attributes:
-         *         database: Database to restore into.
-         *         engine: Engine that owns it.
+         *         database: The database the dump is of, and the target unless
+         *             ``new_name`` is given.
          *         backup_name: File name of the dump, which must be one of the engine's
          *             own backups. A full path is not accepted: it would let the panel
          *             read any file on the host as the database superuser.
-         *         drop_existing: Drop the database before restoring.
+         *         drop_existing: Drop and recreate the database before loading. A
+         *             safety copy is taken first whatever ``safety_backup`` says.
+         *         safety_backup: Dump the target before loading over it.
+         *         new_name: Restore into a new database of this name instead, leaving
+         *             the original untouched.
          */
-        noust__web__api__databases__RestoreBackupRequest: {
+        noust__web__api__databases__dumps__RestoreBackupRequest: {
             /**
              * Backup Name
              * @description File name of the dump to restore
@@ -12003,6 +24034,17 @@ export interface components {
              * @description Database engine
              */
             engine: string;
+            /**
+             * New Name
+             * @description Restore into a new database
+             */
+            new_name?: string | null;
+            /**
+             * Safety Backup
+             * @description Dump the database first
+             * @default true
+             */
+            safety_backup: boolean;
         };
         /**
          * ProcessListResponse
@@ -12017,6 +24059,46 @@ export interface components {
             processes: components["schemas"]["ProcessEntry"][];
             /** Total */
             total: number;
+        };
+        /**
+         * CheckOut
+         * @description One thing looked at before a reboot.
+         */
+        noust__web__api__server__models__CheckOut: {
+            /** Id */
+            id: string;
+            /** Message */
+            message: string;
+            /** Status */
+            status: string;
+        };
+        /**
+         * CheckOut
+         * @description One hardening check.
+         *
+         *     ``status`` is ``pass``, ``warn``, ``fail``, ``unknown``, ``n/a`` or
+         *     ``accepted``; ``evidence`` is what the system said, verbatim.
+         */
+        noust__web__api__server__security__CheckOut: {
+            accepted?: components["schemas"]["AcceptedRiskOut"] | null;
+            /**
+             * Evidence
+             * @default []
+             */
+            evidence: string[];
+            fix?: components["schemas"]["CheckFixOut"] | null;
+            /** Group */
+            group: string;
+            /** Id */
+            id: string;
+            /** Reason */
+            reason: string;
+            /** Severity */
+            severity: string;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
         };
         /**
          * ProcessListResponse
@@ -12037,6 +24119,161 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    list_approvals_api_approvals_get: {
+        parameters: {
+            query?: {
+                /** @description Only requests in this state */
+                state?: string | null;
+                /** @description Only the caller's own requests */
+                mine?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approval_policy_api_approvals_policy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalPolicyInfo"];
+                };
+            };
+        };
+    };
+    get_approval_api_approvals__approval_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                approval_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    approve_request_api_approvals__approval_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                approval_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reject_request_api_approvals__approval_id__reject_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                approval_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecisionBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApprovalInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_apps_api_apps_get: {
         parameters: {
             query?: never;
@@ -12228,6 +24465,213 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_app_branch_api_apps__domain__branch_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateBranchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BranchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_app_databases_api_apps__domain__databases_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDatabasesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    provision_app_database_api_apps__domain__databases_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProvisionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    link_app_database_api_apps__domain__databases_link_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlink_app_database_api_apps__domain__databases__engine___name__delete: {
+        parameters: {
+            query?: {
+                /** @description Also drop the database, after its last dump */
+                drop?: boolean;
+                /** @description Restart the application behind its gate */
+                restart?: boolean;
+            };
+            header?: never;
+            path: {
+                domain: string;
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reveal_app_database_url_api_apps__domain__databases__engine___name__url_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionUrlResponse"];
                 };
             };
             /** @description Validation Error */
@@ -12705,6 +25149,37 @@ export interface operations {
             };
         };
     };
+    app_metrics_api_apps__domain__metrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppMetricsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     migrate_app_api_apps__domain__migrate_post: {
         parameters: {
             query?: never;
@@ -13062,6 +25537,204 @@ export interface operations {
             };
         };
     };
+    get_sandbox_api_apps__domain__sandbox_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SandboxResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_compose_exception_api_apps__domain__sandbox_compose_exception_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComposeExceptionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SandboxResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_compose_exception_api_apps__domain__sandbox_compose_exception_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SandboxResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_sandbox_disable_api_apps__domain__sandbox_disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SandboxDisableRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SandboxResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_sandbox_enable_api_apps__domain__sandbox_enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SandboxEnableRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SandboxResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_sandbox_test_api_apps__domain__sandbox_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     start_app_api_apps__domain__start_post: {
         parameters: {
             query?: never;
@@ -13111,6 +25784,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AppActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    webhook_state_api_apps__domain__webhook_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookStatusResponse"];
                 };
             };
             /** @description Validation Error */
@@ -13217,6 +25921,70 @@ export interface operations {
             };
         };
     };
+    webhook_received_api_apps__domain__webhook_received_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookReceivedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reveal_webhook_secret_api_apps__domain__webhook_reveal_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookSecretResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_zero_downtime_api_apps__domain__zero_downtime_get: {
         parameters: {
             query?: never;
@@ -13295,6 +26063,12 @@ export interface operations {
                 result?: string | null;
                 /** @description Filter by exact actor */
                 actor?: string | null;
+                /** @description Filter by catalog category */
+                category?: string | null;
+                /** @description Only the events of one request, command or job */
+                correlation_id?: string | null;
+                /** @description Filter by exact target */
+                target?: string | null;
             };
             header?: never;
             path?: never;
@@ -13318,6 +26092,164 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    audit_catalog_api_audit_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogResponse"];
+                };
+            };
+        };
+    };
+    export_audit_log_api_audit_export_get: {
+        parameters: {
+            query?: {
+                /** @description From this ISO timestamp */
+                since?: string | null;
+                /** @description Up to this ISO timestamp */
+                until?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The events, oldest first, one JSON object per line. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-ndjson": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_reviews_api_audit_reviews_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_review_api_audit_reviews_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    audit_status_api_audit_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditStatusResponse"];
+                };
+            };
+        };
+    };
+    verify_audit_log_api_audit_verify_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VerifyResponse"];
                 };
             };
         };
@@ -13448,6 +26380,284 @@ export interface operations {
             };
         };
     };
+    list_accounts_api_auth_accounts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountsResponse"];
+                };
+            };
+        };
+    };
+    create_account_api_auth_accounts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_account_api_auth_accounts__username__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_account_api_auth_accounts__username__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_account_api_auth_accounts__username__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    disable_account_api_auth_accounts__username__disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountDisable"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enable_account_api_auth_accounts__username__enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reset_account_mfa_api_auth_accounts__username__reset_mfa_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlock_account_api_auth_accounts__username__unlock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     elevate_api_auth_elevate_post: {
         parameters: {
             query?: never;
@@ -13481,6 +26691,90 @@ export interface operations {
             };
         };
     };
+    list_exceptions_api_auth_exceptions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExceptionsResponse"];
+                };
+            };
+        };
+    };
+    create_exception_api_auth_exceptions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExceptionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExceptionInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_exception_api_auth_exceptions__exception_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                exception_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExceptionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     revoke_own_fleet_token_api_auth_fleet_revoke_post: {
         parameters: {
             query?: never;
@@ -13497,6 +26791,125 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RevokedResponse"];
+                };
+            };
+        };
+    };
+    fleet_self_api_auth_fleet_self_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetSelfResponse"];
+                };
+            };
+        };
+    };
+    create_invitation_api_auth_invitations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvitationCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationIssued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_invitation_api_auth_invitations_accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvitationAccept"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_invitation_api_auth_invitations_open_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvitationCode"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvitationOpened"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -13550,6 +26963,350 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SuccessResponse"];
+                };
+            };
+        };
+    };
+    accept_notice_api_auth_notice_accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoticeAcceptance"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_passkeys_api_auth_passkeys_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyListResponse"];
+                };
+            };
+        };
+    };
+    elevate_with_passkey_api_auth_passkeys_elevate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CredentialBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ElevateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    elevate_options_api_auth_passkeys_elevate_options_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CeremonyOptions"];
+                };
+            };
+        };
+    };
+    login_with_passkey_api_auth_passkeys_login_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    login_options_api_auth_passkeys_login_options_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginOptionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CeremonyOptions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    register_passkey_api_auth_passkeys_registration_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyRegistrationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyRegistered"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    registration_options_api_auth_passkeys_registration_options_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CeremonyOptions"];
+                };
+            };
+        };
+    };
+    remove_passkey_api_auth_passkeys__passkey_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                passkey_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyRemoved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_passkey_api_auth_passkeys__passkey_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                passkey_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyRename"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_password_api_auth_password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuccessResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_roles_api_auth_roles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RolesResponse"];
                 };
             };
         };
@@ -15475,6 +29232,170 @@ export interface operations {
             };
         };
     };
+    list_policies_api_databases_backup_policies_get: {
+        parameters: {
+            query?: {
+                /** @description Restrict to one engine */
+                engine?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupPolicyListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_policy_api_databases_backup_policies__engine___database__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                database: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupPolicyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_policy_api_databases_backup_policies__engine___database__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                database: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupPolicyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_policy_api_databases_backup_policies__engine___database__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                database: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_policy_api_databases_backup_policies__engine___database__run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                database: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_backups_api_databases_backups_get: {
         parameters: {
             query?: {
@@ -15495,7 +29416,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["noust__web__api__databases__BackupListResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__dumps__BackupListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15518,9 +29439,45 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["noust__web__api__databases__CreateBackupRequest"];
+                "application/json": components["schemas"]["noust__web__api__databases__dumps__CreateBackupRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_remote_backups_api_databases_backups_remote_get: {
+        parameters: {
+            query: {
+                /** @description The engine */
+                engine: string;
+                /** @description The database */
+                database: string;
+                /** @description A backup destination */
+                destination: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -15528,7 +29485,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BackupInfoResponse"];
+                    "application/json": components["schemas"]["RemoteDumpListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_remote_databases_api_databases_backups_remote_databases_get: {
+        parameters: {
+            query: {
+                /** @description The engine */
+                engine: string;
+                /** @description A backup destination */
+                destination: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemoteDatabasesResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15551,9 +29542,116 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["noust__web__api__databases__RestoreBackupRequest"];
+                "application/json": components["schemas"]["noust__web__api__databases__dumps__RestoreBackupRequest"];
             };
         };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_remote_backup_api_databases_backups_restore_remote_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreRemoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggest_restore_name_api_databases_backups_suggest_name_get: {
+        parameters: {
+            query: {
+                /** @description The engine */
+                engine: string;
+                /** @description The database the dump is of */
+                database: string;
+                /** @description The dump, which dates the name */
+                backup_name?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestedNameResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_backup_api_databases_backups__name__delete: {
+        parameters: {
+            query: {
+                /** @description The engine */
+                engine: string;
+                /** @description Delete the copy on this destination, not the local file */
+                destination?: string | null;
+                /** @description The database the dump is of; needed with destination */
+                database?: string | null;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -15562,6 +29660,110 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    download_backup_api_databases_backups__name__download_get: {
+        parameters: {
+            query: {
+                /** @description The engine */
+                engine: string;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dump, as an attachment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    push_backup_api_databases_backups__name__push_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_backup_api_databases_backups__name__verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15595,6 +29797,208 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConnectionStringResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    console_history_api_databases_console_history_get: {
+        parameters: {
+            query?: {
+                /** @description Only this engine's */
+                engine?: string | null;
+                /** @description Only this database's */
+                database?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HistoryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    clear_console_history_api_databases_console_history_delete: {
+        parameters: {
+            query?: {
+                /** @description Only this engine's */
+                engine?: string | null;
+                /** @description Only this database's */
+                database?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_saved_queries_api_databases_console_saved_get: {
+        parameters: {
+            query?: {
+                /** @description Only this engine's */
+                engine?: string | null;
+                /** @description Only those for this database or for any */
+                database?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedQueryListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    save_query_api_databases_console_saved_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedQueryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedQueryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_saved_query_api_databases_console_saved__saved_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                saved_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedQueryRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedQueryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_saved_query_api_databases_console_saved__saved_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                saved_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -15673,6 +30077,39 @@ export interface operations {
             };
         };
     };
+    adopt_databases_api_databases_databases_adopt_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdoptRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdoptResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_database_info_api_databases_databases__engine___name__get: {
         parameters: {
             query?: never;
@@ -15710,7 +30147,224 @@ export interface operations {
             query?: {
                 /** @description Disconnect clients first */
                 force?: boolean;
+                /** @description Dump it before dropping it */
+                keep_backup?: boolean;
+                /** @description Also remove its variables from the applications using it */
+                unlink?: boolean;
             };
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_access_api_databases_databases__engine___name__access_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_profile_api_databases_databases__engine___name__access__username__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_connect_api_databases_databases__engine___name__connect_get: {
+        parameters: {
+            query?: {
+                /** @description Account to connect as */
+                username?: string | null;
+                /** @description Address the operator reaches this server at */
+                server?: string | null;
+                /** @description Account to sign in to the server */
+                ssh_user?: string | null;
+                /** @description Port to open locally */
+                local_port?: number | null;
+            };
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_fix_owner_api_databases_databases__engine___name__fix_owner_get: {
+        parameters: {
+            query?: {
+                /** @description Role that must own it */
+                owner?: string | null;
+            };
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerPlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_fix_owner_api_databases_databases__engine___name__fix_owner_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FixOwnerRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerPlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    forget_database_api_databases_databases__engine___name__forget_post: {
+        parameters: {
+            query?: never;
             header?: never;
             path: {
                 engine: string;
@@ -15740,6 +30394,446 @@ export interface operations {
             };
         };
     };
+    preview_key_api_databases_databases__engine___name__key_get: {
+        parameters: {
+            query?: {
+                /** @description The key */
+                key?: string | null;
+                /** @description The key's bytes */
+                hex?: string | null;
+            };
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeyValueResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    scan_keys_api_databases_databases__engine___name__keys_get: {
+        parameters: {
+            query?: {
+                /** @description Glob pattern */
+                match?: string | null;
+                /** @description Scan cursor; 0 to start */
+                cursor?: string;
+                count?: number;
+                /** @description string, list, set, zset, hash, stream */
+                type?: string | null;
+            };
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KeysResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    database_metrics_api_databases_databases__engine___name__metrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatabaseMetricsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_database_overview_api_databases_databases__engine___name__overview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DatabaseOverviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    describe_relation_api_databases_databases__engine___name__relation_get: {
+        parameters: {
+            query: {
+                /** @description Schema (the database on MySQL) */
+                schema: string;
+                /** @description Table or view */
+                relation: string;
+            };
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_relations_api_databases_databases__engine___name__relations_get: {
+        parameters: {
+            query?: {
+                /** @description Only this schema's */
+                schema?: string | null;
+                /** @description Name contains */
+                q?: string | null;
+                /** @description table, view, materialized_view... */
+                kind?: string | null;
+            };
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelationListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_rows_api_databases_databases__engine___name__rows_get: {
+        parameters: {
+            query: {
+                /** @description Schema (the database on MySQL) */
+                schema: string;
+                /** @description Table or view */
+                relation: string;
+                limit?: number;
+                offset?: number;
+                /** @description next_cursor */
+                cursor?: string | null;
+                /** @description column or column:asc / column:desc, repeatable */
+                order?: string[] | null;
+                /** @description column:op:value (eq neq lt lte gt gte like ilike in null notnull) */
+                filter?: string[] | null;
+                /** @description Also count matching rows exactly */
+                count?: boolean;
+                /** @description Statement timeout */
+                timeout_s?: 5 | 30 | 120;
+            };
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RowsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    insert_row_api_databases_databases__engine___name__rows_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InsertRowRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RowChangeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_row_api_databases_databases__engine___name__rows_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRowRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RowChangeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_row_api_databases_databases__engine___name__rows_delete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeleteRowRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RowChangeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_schemas_api_databases_databases__engine___name__schemas_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SchemasResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    slow_queries_api_databases_databases__engine___name__slow_queries_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlowQueriesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_engines_api_databases_engines_get: {
         parameters: {
             query?: never;
@@ -15756,6 +30850,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EngineListResponse"];
+                };
+            };
+        };
+    };
+    get_engine_exposure_api_databases_engines__engine__exposure_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineExposureResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -15811,6 +30936,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EngineLogsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    engine_metrics_api_databases_engines__engine__metrics_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineMetricsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -16013,6 +31169,60 @@ export interface operations {
             };
         };
     };
+    get_exposure_api_databases_exposure_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExposureResponse"];
+                };
+            };
+        };
+    };
+    provisioning_plan_api_databases_provisioning_plan_get: {
+        parameters: {
+            query: {
+                /** @description The application's domain */
+                domain: string;
+                /** @description The engine */
+                engine: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProvisioningPlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     execute_query_api_databases_query_post: {
         parameters: {
             query?: never;
@@ -16033,6 +31243,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QueryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    explain_query_api_databases_query_explain_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExplainRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExplainResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    export_query_api_databases_query_export_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"];
+            };
+        };
+        responses: {
+            /** @description The result as a file; X-Noust-Rows and X-Noust-Truncated describe it. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": Record<string, never>[];
+                    "text/csv": string;
                 };
             };
             /** @description Validation Error */
@@ -16210,6 +31487,74 @@ export interface operations {
             };
         };
     };
+    rotate_password_api_databases_users__engine___username__password_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotatePasswordRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reveal_password_api_databases_users__engine___username__password_reveal_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_deployments_api_deployments_get: {
         parameters: {
             query?: {
@@ -16333,6 +31678,656 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DnsCheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ens_access_review_api_ens_access_review_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessReviewResponse"];
+                };
+            };
+        };
+    };
+    ens_access_review_attest_api_ens_access_review_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccessReviewAttestation"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessReviewRecorded"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ens_check_api_ens_check_get: {
+        parameters: {
+            query?: {
+                /** @description Probe the server again for the hardening checks instead of reusing the last run. */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnsCheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ens_incident_api_ens_incident_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LockdownResponse"];
+                };
+            };
+        };
+    };
+    ens_inventory_api_ens_inventory_get: {
+        parameters: {
+            query?: {
+                format?: "json" | "csv";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryResponse"];
+                    "text/csv": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ens_inventory_update_api_ens_inventory__domain__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryEntryModel"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ens_profile_api_ens_profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnsProfileResponse"];
+                };
+            };
+        };
+    };
+    ens_report_api_ens_report_get: {
+        parameters: {
+            query?: {
+                /** @description Probe the server again for the hardening checks instead of reusing the last run. */
+                refresh?: boolean;
+                format?: "json" | "markdown";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnsReportResponse"];
+                    "text/markdown": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_actions_api_fleet_actions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetActionsOut"];
+                };
+            };
+        };
+    };
+    run_action_api_fleet_actions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fleet_activity_api_fleet_activity_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+                /** @description Events per server */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fleet_apps_api_fleet_apps_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fleet_backups_api_fleet_backups_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fleet_certificates_api_fleet_certificates_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_jobs_api_fleet_jobs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetJobsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_fleet_job_api_fleet_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetJobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    retry_job_api_fleet_jobs__job_id__retry_post: {
+        parameters: {
+            query?: {
+                /** @description Only say what the retry would do */
+                plan?: boolean;
+            };
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fleet_servers_api_fleet_servers_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_labels_api_fleet_servers__node__labels_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                node: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LabelsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabelsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fleet_summary_api_fleet_summary_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fleet_updates_api_fleet_updates_get: {
+        parameters: {
+            query?: {
+                /** @description Only these servers, repeated; '@central' is this central itself */
+                node?: string[] | null;
+                /** @description Ask every server again, ignoring the cache */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FleetViewOut"];
                 };
             };
             /** @description Validation Error */
@@ -16924,6 +32919,46 @@ export interface operations {
             };
         };
     };
+    query_metrics_api_metrics_query_get: {
+        parameters: {
+            query: {
+                /** @description Metric name; repeat it for several series in one read. */
+                metric: string[];
+                /** @description A named window ending now. Ignored when from and to are given. */
+                window?: "1h" | "6h" | "24h" | "7d" | "30d" | "90d" | "1y";
+                /** @description Start of an explicit range, epoch seconds. */
+                from?: number | null;
+                /** @description End of an explicit range, epoch seconds. */
+                to?: number | null;
+                /** @description Seconds per cell: a multiple of a tier's step. Chosen when omitted. */
+                step?: number | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricQueryResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     metric_history_api_metrics__metric__get: {
         parameters: {
             query?: {
@@ -17477,6 +33512,38 @@ export interface operations {
             };
         };
     };
+    overview_api_overview_get: {
+        parameters: {
+            query?: {
+                /** @description Include the last hour of CPU and memory as two short series. */
+                spark?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_recipes_api_recipes_get: {
         parameters: {
             query?: never;
@@ -17515,6 +33582,1569 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecipeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_capabilities_api_server_capabilities_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CapabilitiesOut"];
+                };
+            };
+        };
+    };
+    get_identity_api_server_identity_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityOut"];
+                };
+            };
+        };
+    };
+    change_hostname_api_server_identity_hostname_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostnameRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StepsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_journal_api_server_logs_get: {
+        parameters: {
+            query?: {
+                unit?: string | null;
+                priority?: string | null;
+                since?: string | null;
+                until?: string | null;
+                lines?: number;
+                q?: string | null;
+                boot?: number | null;
+                kernel?: boolean;
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_boots_api_server_logs_boots_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BootOut"][];
+                };
+            };
+        };
+    };
+    list_journal_units_api_server_logs_units_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JournalUnitOut"][];
+                };
+            };
+        };
+    };
+    get_power_api_server_power_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PowerOut"];
+                };
+            };
+        };
+    };
+    schedule_reboot_api_server_power_reboot_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduledPowerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_scheduled_api_server_power_scheduled_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancelOut"];
+                };
+            };
+        };
+    };
+    schedule_shutdown_api_server_power_shutdown_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShutdownRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduledPowerOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_processes_api_server_processes_get: {
+        parameters: {
+            query?: {
+                sort_by?: string;
+                limit?: number;
+                group?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_overview_api_server_security_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OverviewOut"];
+                };
+            };
+        };
+    };
+    get_changes_api_server_security_changes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeOut"][];
+                };
+            };
+        };
+    };
+    confirm_change_api_server_security_changes__change_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revert_change_api_server_security_changes__change_id__revert_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_checks_api_server_security_checks_get: {
+        parameters: {
+            query?: {
+                /** @description Run the checks again now */
+                refresh?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChecksOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_checks_api_server_security_checks_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    fix_check_api_server_security_checks__check_id__fix_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                check_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FixRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_fail2ban_api_server_security_fail2ban_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Fail2banOut"];
+                };
+            };
+        };
+    };
+    install_fail2ban_api_server_security_fail2ban_install_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Fail2banInstallRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unban_address_api_server_security_fail2ban_unban_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnbanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_firewall_api_server_security_firewall_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FirewallOut"];
+                };
+            };
+        };
+    };
+    disable_firewall_api_server_security_firewall_disable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    enable_firewall_api_server_security_firewall_enable_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    add_firewall_rule_api_server_security_firewall_rules_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleRequestIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_firewall_rule_api_server_security_firewall_rules__rule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_risks_api_server_security_risks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptedRiskOut"][];
+                };
+            };
+        };
+    };
+    accept_risk_api_server_security_risks__check_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                check_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptRiskRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptedRiskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_risk_api_server_security_risks__check_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                check_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptedRiskOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ssh_api_server_security_ssh_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SshStatusOut"];
+                };
+            };
+        };
+    };
+    get_ssh_fix_api_server_security_ssh_fixes__fix__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fix: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FixPlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apply_ssh_fix_api_server_security_ssh_fixes__fix__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                fix: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ssh_keys_api_server_security_ssh_keys_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountKeysOut"][];
+                };
+            };
+        };
+    };
+    add_ssh_key_api_server_security_ssh_keys_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_ssh_key_api_server_security_ssh_keys_remove_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RemoveKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_storage_api_server_storage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageOut"];
+                };
+            };
+        };
+    };
+    analyze_storage_api_server_storage_analyze_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    get_last_analysis_api_server_storage_analyze_latest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisOut"];
+                };
+            };
+        };
+    };
+    cleanup_storage_api_server_storage_cleanup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CleanupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_cleanup_api_server_storage_cleanup_plan_get: {
+        parameters: {
+            query: {
+                action: string;
+                size_mb?: number | null;
+                days?: number | null;
+                target?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CleanupPlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_unused_images_api_server_storage_docker_images_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DockerImageOut"][];
+                };
+            };
+        };
+    };
+    get_summary_api_server_summary_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SummaryOut"];
+                };
+            };
+        };
+    };
+    get_swap_api_server_swap_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SwapOut"];
+                };
+            };
+        };
+    };
+    create_swap_api_server_swap_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSwapRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_swap_api_server_swap_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    set_swappiness_api_server_swap_swappiness_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SwappinessRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StepsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_time_api_server_time_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOut"];
+                };
+            };
+        };
+    };
+    change_time_api_server_time_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TimeChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeChangeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_updates_api_server_updates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdatesOut"];
+                };
+            };
+        };
+    };
+    apply_updates_api_server_updates_apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyUpdatesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_auto_updates_api_server_updates_auto_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoUpdatesOut"];
+                };
+            };
+        };
+    };
+    set_auto_updates_api_server_updates_auto_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutoUpdatesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_updates_api_server_updates_plan_get: {
+        parameters: {
+            query?: {
+                scope?: string;
+                full?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplyPlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_updates_api_server_updates_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    repair_updates_api_server_updates_repair_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    plan_restarts_api_server_updates_restarts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestartPlanOut"];
+                };
+            };
+        };
+    };
+    restart_outdated_services_api_server_updates_restarts_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestartServicesRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestartServicesAccepted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_runs_api_server_updates_runs_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateRunOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_api_server_updates_runs__update_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                update_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UpdateRunOut"];
                 };
             };
             /** @description Validation Error */
@@ -18433,6 +36063,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    self_update_status_api_system_update_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SelfUpdateOut"];
+                };
+            };
+        };
+    };
+    start_self_update_api_system_update_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
         };

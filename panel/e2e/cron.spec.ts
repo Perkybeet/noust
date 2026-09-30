@@ -41,7 +41,7 @@ test("creates a job with a daily preset and sees it listed with a next run", asy
   await expect(toasts(page).getByText("Created e2e-report")).toBeVisible();
   const row = page.getByRole("row").filter({ has: page.getByText("e2e-report", { exact: true }) });
   await expect(row).toBeVisible();
-  await expect(row.getByText("Enabled")).toBeVisible();
+  await expect(row.getByText("Every day at 02:00")).toBeVisible();
 });
 
 test("previews the schedule live before saving: normalised calendar, next runs, and a refusal inline", async ({ page, consoleServer, problems }) => {
@@ -58,11 +58,11 @@ test("previews the schedule live before saving: normalised calendar, next runs, 
   await expectNoA11yViolations(page, "the new job dialog with a schedule preview");
 
   await dialog.getByRole("combobox", { name: "Schedule" }).click();
-  await page.getByRole("option", { name: "Hourly" }).click();
+  await page.getByRole("option", { name: "Every hour" }).click();
   await expect(dialog.getByText("*-*-* *:00:00", { exact: true })).toBeVisible();
 
   await dialog.getByRole("combobox", { name: "Schedule" }).click();
-  await page.getByRole("option", { name: "Custom" }).click();
+  await page.getByRole("option", { name: "Custom calendar expression" }).click();
   // Character-set validation, not systemd's own: refused before it is ever asked to parse it.
   await dialog.getByLabel("Calendar expression", { exact: true }).fill("bogus!");
   await expect(dialog.getByText(/Invalid cron schedule/)).toBeVisible();
@@ -78,8 +78,8 @@ test("runs a job now, and its history opens with the run", async ({ page, consol
   expect((await started).status()).toBe(200);
   await expect(toasts(page).getByText("Started sitemap")).toBeVisible();
 
-  await page.getByRole("button", { name: "Actions for sitemap" }).click();
-  await page.getByRole("menuitem", { name: "View runs" }).click();
+  // A row opens its history.
+  await page.getByRole("button", { name: /^sitemap/ }).click();
   const drawer = page.getByRole("dialog", { name: "Runs of sitemap" });
   await expect(drawer).toBeVisible();
   await expectNoA11yViolations(page, "the runs drawer");
@@ -93,15 +93,15 @@ test("disables and re-enables a job's timer", async ({ page, consoleServer }) =>
   expect((await disabled).status()).toBe(200);
   await expect(toasts(page).getByText("Disabled cleanup-tmp")).toBeVisible();
 
-  // The State column's pill, not the Next Run column: a disabled job's next run is "-" with
-  // an sr-only reason of "Disabled" too, and getByText alone would match both.
+  // Enabled is a setting, not a state: a paused job says so, neutrally, where its next run would be.
   const row = page.getByRole("row").filter({ has: page.getByText("cleanup-tmp", { exact: true }) });
-  const state = row.getByRole("cell").first();
-  await expect(state.getByText("Disabled")).toBeVisible();
+  const nextRun = row.getByRole("cell").nth(3);
+  await expect(nextRun.getByText("Disabled")).toBeVisible();
 
   await page.getByRole("button", { name: "Actions for cleanup-tmp" }).click();
   const enabled = page.waitForResponse((response) => response.url().endsWith("/api/cron/cleanup-tmp/enable"));
   await page.getByRole("menuitem", { name: "Enable" }).click();
   expect((await enabled).status()).toBe(200);
-  await expect(state.getByText("Enabled")).toBeVisible();
+  await expect(nextRun.getByText("Disabled")).toHaveCount(0);
+  await expect(nextRun.locator("time")).toBeVisible();
 });

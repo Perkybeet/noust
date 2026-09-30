@@ -6,7 +6,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { FakeWebSocket, fakeBackend, json } from "../../../test/fakes";
 import { TAB_DOMAIN, appRoutes } from "../testRoutes";
-import { journalLine } from "./LogsTab";
+import { journalLine, passesLevel } from "./LogsTab";
 
 async function logsAt(app: Record<string, unknown> = {}) {
   vi.stubGlobal("WebSocket", FakeWebSocket);
@@ -27,6 +27,17 @@ async function socket(): Promise<FakeWebSocket> {
   if (!found) throw new Error("no log socket");
   return found;
 }
+
+describe("the level filter", () => {
+  it("keeps errors for errors, and warnings with errors for warnings", () => {
+    const error = { id: 1, text: "x", level: "error" as const };
+    const warn = { id: 2, text: "y", level: "warn" as const };
+    const plain = { id: 3, text: "z" };
+    expect([error, warn, plain].filter((line) => passesLevel(line, "errors"))).toEqual([error]);
+    expect([error, warn, plain].filter((line) => passesLevel(line, "warnings"))).toEqual([error, warn]);
+    expect([error, warn, plain].filter((line) => passesLevel(line, "all"))).toHaveLength(3);
+  });
+});
 
 describe("a journal line", () => {
   it("moves systemd's time to the time column, drops the host, and keeps the rest verbatim", () => {
@@ -55,7 +66,7 @@ describe("the logs tab", { timeout: 20_000 }, () => {
       ws.frame({ type: "log", data: "2026-09-25T21:45:52+0100 web-01 shop-example-com[41234]: GET / 200 in 38ms" });
       ws.frame({ type: "log", data: "2026-09-25T21:45:53+0100 web-01 shop-example-com[41234]: Error: connect ECONNREFUSED 127.0.0.1:6379" });
     });
-    const journal = await screen.findByRole("region", { name: `Journal of ${TAB_DOMAIN}` });
+    const journal = await screen.findByRole("region", { name: `Logs of ${TAB_DOMAIN}` });
     expect(await within(journal).findByText(/GET \/ 200 in 38ms/)).toBeInTheDocument();
     expect(within(journal).getByText(/ECONNREFUSED/).closest("[data-index]")).toHaveClass("bg-fail-soft");
     expect(screen.getByText("2 lines")).toBeInTheDocument();
@@ -75,7 +86,23 @@ describe("the logs tab", { timeout: 20_000 }, () => {
       ws.frame({ type: "error", message: "journalctl not found. Log streaming requires systemd." });
     });
     expect(await screen.findByText("journalctl not found. Log streaming requires systemd.")).toBeInTheDocument();
-    expect(screen.getByText("The journal stream failed")).toBeInTheDocument();
+    expect(screen.getByText("The log stream failed")).toBeInTheDocument();
+  });
+
+  it("narrows the lines to warnings and errors, and says how many it shows", async () => {
+    const { user } = await logsAt();
+    const ws = await socket();
+    act(() => {
+      ws.open();
+      ws.frame({ type: "log", data: "2026-09-25T21:45:52+0100 web-01 shop-example-com[41234]: GET / 200 in 38ms" });
+      ws.frame({ type: "log", data: "2026-09-25T21:45:53+0100 web-01 shop-example-com[41234]: Error: connect ECONNREFUSED 127.0.0.1:6379" });
+    });
+    const journal = await screen.findByRole("region", { name: `Logs of ${TAB_DOMAIN}` });
+    await within(journal).findByText(/GET \/ 200 in 38ms/);
+    await user.click(screen.getByRole("radio", { name: "Errors" }));
+    expect(within(journal).queryByText(/GET \/ 200 in 38ms/)).not.toBeInTheDocument();
+    expect(within(journal).getByText(/ECONNREFUSED/)).toBeInTheDocument();
+    expect(screen.getByText("1 of 2 lines")).toBeInTheDocument();
   });
 
   it("lets `/` search the journal", async () => {
@@ -113,7 +140,7 @@ describe("the logs tab", { timeout: 20_000 }, () => {
       ws.frame({ type: "connected", domain: TAB_DOMAIN, service: "shop-example-com" });
       ws.frame({ type: "log", data: "2026-09-25T21:45:52+0100 web-01 shop-example-com[41234]: GET / 200 in 38ms" });
     });
-    const journal = await screen.findByRole("region", { name: `Journal de ${TAB_DOMAIN}` });
+    const journal = await screen.findByRole("region", { name: `Registros de ${TAB_DOMAIN}` });
     expect(await within(journal).findByText(/GET \/ 200 in 38ms/)).toBeInTheDocument();
     expect(screen.getByText("En vivo")).toBeInTheDocument();
     act(() => {

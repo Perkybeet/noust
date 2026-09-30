@@ -79,7 +79,9 @@ test("a connected App: what it is, where it is installed and that GitHub deliver
   await expect(page).toHaveTitle(/^Integrations/);
   const github = page.getByRole("region", { name: "GitHub" });
   await expect(github.getByText(APP, { exact: true })).toBeVisible();
-  await expect(github.getByText("1043871")).toBeVisible();
+  // The state first: connected, with nothing left to set up.
+  await expect(github.getByText("Connected", { exact: true })).toBeVisible();
+  await expect(github.getByRole("list", { name: /steps/i })).toHaveCount(0);
   await expect(github.getByRole("link", { name: /github\.com\/apps\/noust-acme/ })).toHaveAttribute("href", "https://github.com/apps/noust-acme");
 
   const installations = page.getByRole("table", { name: "GitHub App installations" });
@@ -94,14 +96,13 @@ test("a connected App: what it is, where it is installed and that GitHub deliver
     "https://github.com/settings/installations/61000002",
   );
 
-  const events = page.getByRole("region", { name: "Push and pull request events" });
-  await expect(events.getByText("Receiving events")).toBeVisible();
-  await expect(events.getByText(HOOKS)).toBeVisible();
+  await expect(github.getByText("Receiving pushes")).toBeVisible();
+  await expect(github.getByText(HOOKS)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a connected GitHub App");
 
   // Syncing asks GitHub (the fake) for the App's installations: the same two.
-  await page.getByRole("button", { name: "Sync installations" }).click();
+  await page.getByRole("button", { name: "Sync", exact: true }).click();
   await expect(toasts(page).getByText("Synced 2 installations from GitHub")).toBeVisible();
   await expect(rows).toHaveCount(3);
 });
@@ -111,7 +112,8 @@ const STATES: readonly { name: string; change: (status: GitHubStatus) => GitHubS
     name: "installed nowhere yet",
     change: (status) => ({ ...status, installations: [] }),
     expect: async (page) => {
-      await expect(page.getByText("Next: install the App")).toBeVisible();
+      await expect(page.getByText("Setting up", { exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Install it on an account" })).toBeVisible();
       await expect(page.getByRole("link", { name: /Install on GitHub/ })).toHaveAttribute(
         "href",
         "https://github.com/apps/noust-acme/installations/new",
@@ -123,19 +125,19 @@ const STATES: readonly { name: string; change: (status: GitHubStatus) => GitHubS
     name: "hooks not exposed",
     change: (status) => ({ ...status, hooks_url: null, hooks_active: false }),
     expect: async (page) => {
-      const events = page.getByRole("region", { name: "Push and pull request events" });
-      await expect(events.getByText("Not reachable from GitHub")).toBeVisible();
-      await expect(events.getByText("noust web expose-hooks hooks.example.com")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Let GitHub reach this server" })).toBeVisible();
+      await expect(page.getByText("Not reachable from GitHub")).toBeVisible();
+      await expect(page.getByText("noust web expose-hooks hooks.example.com")).toBeVisible();
     },
   },
   {
     name: "webhook inactive on GitHub",
     change: (status) => ({ ...status, hooks_active: false }),
     expect: async (page) => {
-      const events = page.getByRole("region", { name: "Push and pull request events" });
-      await expect(events.getByText("Inactive on GitHub")).toBeVisible();
-      await expect(events.getByText(HOOKS)).toBeVisible();
-      await expect(events.getByRole("link", { name: /Open the App's settings on GitHub/ })).toHaveAttribute(
+      await expect(page.getByRole("heading", { name: "Let GitHub reach this server" })).toBeVisible();
+      await expect(page.getByText("Not switched on at GitHub")).toBeVisible();
+      await expect(page.getByText(HOOKS)).toBeVisible();
+      await expect(page.getByRole("link", { name: /Open the App's settings on GitHub/ })).toHaveAttribute(
         "href",
         "https://github.com/organizations/acme/settings/apps/noust-acme",
       );
@@ -147,9 +149,9 @@ const STATES: readonly { name: string; change: (status: GitHubStatus) => GitHubS
     expect: async (page) => {
       await expect(page.getByText("Connect GitHub with an App of your own")).toBeVisible();
       await expect(page.getByRole("button", { name: "Create GitHub App" })).toBeVisible();
-      const events = page.getByRole("region", { name: "Push and pull request events" });
-      await expect(events.getByText("Ready for the App")).toBeVisible();
-      await expect(page.getByRole("button", { name: "Remove GitHub App" })).toHaveCount(0);
+      await expect(page.getByText("Not connected", { exact: true })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Create the App" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "More actions for GitHub" })).toHaveCount(0);
     },
   },
   {
@@ -157,7 +159,7 @@ const STATES: readonly { name: string; change: (status: GitHubStatus) => GitHubS
     change: () => ({ configured: false, installations: [], hooks_url: null, hooks_active: false }),
     expect: async (page) => {
       await expect(page.getByRole("button", { name: "Create GitHub App" })).toBeVisible();
-      await expect(page.getByRole("region", { name: "Push and pull request events" }).getByText("Not reachable from GitHub")).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Create the App" })).toBeVisible();
     },
   },
 ];
@@ -276,7 +278,8 @@ test("removing the App forgets it here and says where to delete it on GitHub; cr
   problems.expect(/status of 403 .* \/api\/integrations\/github$/);
   problems.expect(/status of 403 .* \/api\/integrations\/github\/manifest$/);
   await signIn(page, consoleServer, "/settings/integrations");
-  await page.getByRole("button", { name: "Remove GitHub App" }).click();
+  await page.getByRole("button", { name: "More actions for GitHub" }).click();
+  await page.getByRole("menuitem", { name: "Remove GitHub App" }).click();
   const dialog = page.getByRole("alertdialog", { name: `Remove ${APP}` });
   await expect(dialog).toBeVisible();
   const confirm = dialog.getByRole("button", { name: "Remove GitHub App" });
@@ -303,9 +306,9 @@ test("removing the App forgets it here and says where to delete it on GitHub; cr
   const { state } = await createTheApp(page, consoleServer);
   await page.goto(`/integrations/github/callback?code=console-code-3&state=${state}`);
   await expect(page).toHaveURL(/\/settings\/integrations$/);
-  await expect(page.getByText("Next: install the App")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Install it on an account" })).toBeVisible();
   await page.getByRole("button", { name: "Sync installations" }).click();
   await expect(toasts(page).getByText("Synced 2 installations from GitHub")).toBeVisible();
   await expect(page.getByRole("table", { name: "GitHub App installations" }).getByRole("row")).toHaveCount(3);
-  await expect(page.getByRole("region", { name: "Push and pull request events" }).getByText("Receiving events")).toBeVisible();
+  await expect(page.getByText("Receiving pushes")).toBeVisible();
 });

@@ -19,6 +19,11 @@ export interface ErrorBlockProps {
   onRetry?: () => void;
   retrying?: boolean;
   /**
+   * One follow-up besides Try again, after the system's words: "View output", "Open the
+   * log". A small button or a link; never a second retry.
+   */
+  action?: ReactNode;
+  /**
    * Announce it: for the outcome of something the operator just did. Leave off for a section
    * that failed to load, or a machine that is down would shout from every section at once.
    */
@@ -33,7 +38,7 @@ export interface ErrorBlockProps {
  * not use is said as such ("web-2 is not answering"), whatever the page was loading: the
  * node, not the page, is what failed.
  */
-export function ErrorBlock({ error, title: pageTitle, hint, onRetry, retrying = false, live = false, compact = false, className }: ErrorBlockProps) {
+export function ErrorBlock({ error, title: pageTitle, hint, onRetry, retrying = false, action, live = false, compact = false, className }: ErrorBlockProps) {
   const t = useT();
   const { node } = useNode();
   const described = describeError(error);
@@ -60,7 +65,7 @@ export function ErrorBlock({ error, title: pageTitle, hint, onRetry, retrying = 
     <div
       {...(live ? { role: "alert" } : {})}
       className={cx(
-        "flex min-w-0 flex-col gap-2 rounded-card border border-fail/30 bg-fail-soft/50",
+        "flex min-w-0 flex-col gap-2 rounded-card border border-fail-border bg-fail-soft",
         compact ? "p-3" : "p-4",
         className,
       )}
@@ -87,11 +92,14 @@ export function ErrorBlock({ error, title: pageTitle, hint, onRetry, retrying = 
           {output}
         </SystemOutput>
       ) : null}
-      {onRetry !== undefined ? (
-        <div>
-          <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={retrying} onClick={onRetry}>
-            {t("common.errorBlock.tryAgain")}
-          </Button>
+      {onRetry !== undefined || (action !== undefined && action !== null) ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {onRetry !== undefined ? (
+            <Button size="sm" icon={<RotateCw aria-hidden="true" />} loading={retrying} onClick={onRetry}>
+              {t("common.errorBlock.tryAgain")}
+            </Button>
+          ) : null}
+          {action}
         </div>
       ) : null}
     </div>
