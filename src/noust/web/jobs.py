@@ -24,6 +24,7 @@ import logging
 import queue
 import sqlite3
 import threading
+import time
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -371,6 +372,51 @@ class JobContext:
             self._job.scrubber.add(app_secret_values(value))
 
 
+#: How long a console that came up during its own update waits for it to end.
+UPDATE_FOLLOW_SECONDS = 900
+UPDATE_FOLLOW_INTERVAL = 5.0
+
+
+def _settle_update_job(store: NoustStore, job_id: str, *, sleep: Any = time.sleep) -> None:
+    """
+    Record how a self-update ended on the job that followed it.
+
+    Args:
+        store: The store.
+        job_id: The job.
+        sleep: Waits between looks; replaced in a test.
+    """
+    from noust.managers.self_update import SelfUpdate
+
+    manager = SelfUpdate()
+    waited = 0.0
+    while waited <= UPDATE_FOLLOW_SECONDS:
+        try:
+            record = manager.read()
+            if record is not None and record.job_id == job_id:
+                record = manager.settle(record)
+                if record.status in ("succeeded", "failed"):
+                    store.update_job(
+                        job_id,
+                        status=JobStatus.COMPLETED.value
+                        if record.status == "succeeded"
+                        else JobStatus.FAILED.value,
+                        error="" if record.status == "succeeded" else (record.error or ""),
+                        finished_at=datetime.now().isoformat(),
+                    )
+                    return
+        except _RECORDING_ERRORS as exc:
+            logger.warning("Could not follow the self-update of job %s: %s", job_id, exc)
+        sleep(UPDATE_FOLLOW_INTERVAL)
+        waited += UPDATE_FOLLOW_INTERVAL
+    store.update_job(
+        job_id,
+        status=JobStatus.FAILED.value,
+        error=f"{INTERRUPTED_REASON}; the update did not say how it ended",
+        finished_at=datetime.now().isoformat(),
+    )
+
+
 class JobManager:
     """
     Runs queued jobs on a worker thread, at most :data:`MAX_CONCURRENT_JOBS` at
@@ -452,12 +498,13 @@ class JobManager:
         """
         try:
             store = get_store()
-            restores = [
+            unfinished = [
                 job
                 for status in (JobStatus.RUNNING.value, JobStatus.PENDING.value)
                 for job in store.list_jobs(limit=1000, status=status)
-                if job.type == JobType.RESTORE.value
             ]
+            restores = [job for job in unfinished if job.type == JobType.RESTORE.value]
+            updates = [job for job in unfinished if job.type == JobType.SELF_UPDATE.value]
             changed = store.fail_interrupted_jobs(INTERRUPTED_REASON)
         except _RECORDING_ERRORS as exc:
             logger.warning("Could not check for interrupted jobs at startup: %s", exc)
@@ -465,6 +512,37 @@ class JobManager:
         if changed:
             logger.warning("%d job(s) marked failed after a panel restart", changed)
         self._report_interrupted_restores(store, restores)
+        self._follow_interrupted_updates(store, updates)
+
+    @staticmethod
+    def _follow_interrupted_updates(store: NoustStore, jobs: list[JobRecord]) -> None:
+        """
+        Give each self-update the restart cut off the ending it really had.
+
+        Noust updating itself is the one job a restart is part of: the package
+        restarts the console that follows the update, so its job was always
+        recorded "Interrupted by a panel restart" while the update, in its own
+        unit, went on and succeeded - every fleet update left one such failure
+        on every node. The update keeps its own record
+        (:mod:`noust.managers.self_update`); the job is set running again and
+        a thread asks that record until it says how the update ended.
+
+        Args:
+            store: The store.
+            jobs: The self-update jobs the previous process left unfinished.
+        """
+        from noust.managers.self_update import SelfUpdate
+
+        for job in jobs:
+            try:
+                record = SelfUpdate().read()
+            except _RECORDING_ERRORS as exc:
+                logger.warning("Could not read the self-update record: %s", exc)
+                return
+            if record is None or record.job_id != job.id:
+                continue
+            store.update_job(job.id, status=JobStatus.RUNNING.value, error="")
+            threading.Thread(target=_settle_update_job, args=(store, job.id), daemon=True).start()
 
     @staticmethod
     def _report_interrupted_restores(store: NoustStore, jobs: list[JobRecord]) -> None:
