@@ -10,7 +10,7 @@
 #
 
 Name:           noust
-Version:        3.1.11
+Version:        3.1.12
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -390,6 +390,8 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Thu Oct 01 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.12-1
+- pnpm installs recreate node_modules without asking: the first sandboxed update of an in-place pnpm application met a tree a root build had made with another store, and pnpm aborted with ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY
 * Thu Oct 01 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.11-1
 - The monitor consolidates the metrics history again: under its unit's ProtectSystem=strict, SQLite could not write the temporary file a large sort needs and every consolidation failed with 'disk I/O error' once the history had grown; temporary tables now live in memory and the unit has its own /tmp
 * Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.10-1
