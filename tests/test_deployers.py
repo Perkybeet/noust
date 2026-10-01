@@ -453,7 +453,11 @@ def test_auto_falls_back_when_nothing_matches(tmp_path: Path, store: NoustStore)
     ("package_manager", "install", "run_build"),
     [
         ("npm", ["npm", "ci"], ["npm", "run", "build"]),
-        ("pnpm", ["pnpm", "install", "--frozen-lockfile"], ["pnpm", "run", "build"]),
+        (
+            "pnpm",
+            ["pnpm", "install", "--frozen-lockfile", "--config.confirm-modules-purge=false"],
+            ["pnpm", "run", "build"],
+        ),
         ("yarn", ["yarn", "install", "--frozen-lockfile"], ["yarn", "build"]),
         ("bun", ["bun", "install", "--frozen-lockfile"], ["bun", "run", "build"]),
     ],
@@ -1444,7 +1448,9 @@ def test_monorepo_update_runs_the_same_steps_the_cli_used_to_drive(
     assert result.is_static is False
     assert "Installing dependencies" in steps
     assert "Building applications" in steps
-    assert runner.ran("pnpm", "install", "--frozen-lockfile")
+    assert runner.ran(
+        "pnpm", "install", "--frozen-lockfile", "--config.confirm-modules-purge=false"
+    )
     assert runner.ran("pnpm", "build")
 
 

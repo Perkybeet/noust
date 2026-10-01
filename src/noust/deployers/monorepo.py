@@ -81,6 +81,7 @@ from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers.databases import provision_database
 from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
+from noust.deployers.helpers.package_manager import PNPM_INSTALL
 from noust.deployers.helpers.permissions import escapes, hand_over_tree
 from noust.deployers.helpers.preflight import repository_unreachable
 from noust.deployers.helpers.registration import StoreRegistrar
@@ -1333,7 +1334,7 @@ class MonorepoDeployer(AppDeployer):
         self.package_manager = self._pm_helper.verify("pnpm", negotiable=False)
 
         result = self._run(
-            ["pnpm", "install", "--frozen-lockfile"],
+            list(PNPM_INSTALL),
             timeout=600,
             phase=BuildPhase.INSTALL,
         )

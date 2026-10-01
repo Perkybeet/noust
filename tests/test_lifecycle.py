@@ -453,7 +453,12 @@ def test_npm_without_a_lockfile_installs_instead_of_failing(tmp_path: Path) -> N
     assert helper.get_install_command("npm", tmp_path) == ["npm", "install"]
     (tmp_path / "package-lock.json").write_text("{}")
     assert helper.get_install_command("npm", tmp_path) == ["npm", "ci"]
-    assert helper.get_install_command("pnpm", tmp_path) == ["pnpm", "install", "--frozen-lockfile"]
+    assert helper.get_install_command("pnpm", tmp_path) == [
+        "pnpm",
+        "install",
+        "--frozen-lockfile",
+        "--config.confirm-modules-purge=false",
+    ]
 
 
 class WarningLogger(Logger):

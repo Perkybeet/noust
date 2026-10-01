@@ -270,7 +270,12 @@ def test_inspect_detects_package_manager_from_the_lock_file(
     result = inspect_source(str(project))
 
     assert result.package_manager == "pnpm"
-    assert result.install_command == ["pnpm", "install", "--frozen-lockfile"]
+    assert result.install_command == [
+        "pnpm",
+        "install",
+        "--frozen-lockfile",
+        "--config.confirm-modules-purge=false",
+    ]
     assert result.build_command == ["pnpm", "run", "build"]
     assert result.start_command == "pnpm run start"
 

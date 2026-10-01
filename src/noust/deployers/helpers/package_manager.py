@@ -33,6 +33,20 @@ PackageManager = Literal["npm", "pnpm", "bun", "yarn", "auto"]
 SUPPORTED_PACKAGE_MANAGERS: tuple[str, ...] = ("npm", "pnpm", "yarn", "bun")
 
 
+#: pnpm's install. It recreates node_modules when the store it was built from
+#: changes - the sandbox has its own, so the first sandboxed update of every
+#: in-place pnpm application meets a tree a root build made - and without a
+#: terminal it asks, then aborts (ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY).
+#: The flag answers yes; only the command line works (pnpm 8 to 11 accept it,
+#: and ignore ``npm_config_``/``pnpm_config_`` for this setting).
+PNPM_INSTALL: tuple[str, ...] = (
+    "pnpm",
+    "install",
+    "--frozen-lockfile",
+    "--config.confirm-modules-purge=false",
+)
+
+
 class PackageManagerHelper:
     """
     Helper for package manager operations.
@@ -199,7 +213,7 @@ class PackageManagerHelper:
             return ["npm", "install"]
 
         commands = {
-            "pnpm": ["pnpm", "install", "--frozen-lockfile"],
+            "pnpm": list(PNPM_INSTALL),
             "bun": ["bun", "install", "--frozen-lockfile"],
             "yarn": ["yarn", "install", "--frozen-lockfile"],
             "npm": ["npm", "ci"],

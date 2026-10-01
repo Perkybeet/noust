@@ -153,7 +153,13 @@ def test_a_sandboxed_monorepo_installs_and_builds_as_its_units_account(
         assert spec.network == "full"
         assert spec.working_dir == root
     env = runner.envs[
-        index_of(runner, lambda c: c[-3:] == ("pnpm", "install", "--frozen-lockfile"))
+        index_of(
+            runner,
+            lambda c: (
+                c[-4:]
+                == ("pnpm", "install", "--frozen-lockfile", "--config.confirm-modules-purge=false")
+            ),
+        )
     ]
     assert env is not None
     assert env["HOME"] == str(cache)
@@ -173,7 +179,13 @@ def test_the_tree_is_handed_to_the_units_account_before_the_install(
 
     account = f"{Config().service_user}:{Config().service_group}"
     handed = index_of(runner, lambda c: c == ("chown", "-R", account, str(root)))
-    install = index_of(runner, lambda c: c[-3:] == ("pnpm", "install", "--frozen-lockfile"))
+    install = index_of(
+        runner,
+        lambda c: (
+            c[-4:]
+            == ("pnpm", "install", "--frozen-lockfile", "--config.confirm-modules-purge=false")
+        ),
+    )
     assert handed < install
 
 
@@ -233,7 +245,12 @@ def test_a_monorepo_from_before_builds_as_root_with_its_environment_and_a_warnin
 
     deployer(root, runner).update()
 
-    install = index_of(runner, lambda c: c == ("pnpm", "install", "--frozen-lockfile"))
+    install = index_of(
+        runner,
+        lambda c: (
+            c == ("pnpm", "install", "--frozen-lockfile", "--config.confirm-modules-purge=false")
+        ),
+    )
     build = index_of(runner, lambda c: c == ("pnpm", "build"))
     assert runner.sandboxes[install] is None and runner.sandboxes[build] is None
     # As before 3.1: only the sandbox starts from a clean environment.
