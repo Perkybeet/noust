@@ -1110,3 +1110,43 @@ def test_wasm_own_units_never_resolve_to_an_application_of_the_same_name(
     (tmp_path / f"{own.removeprefix('wasm-')}.service").write_text("[Unit]\n")
 
     assert manager._resolve_service_name(own) == own
+
+
+# ---------------------------------------------------------------------------
+# Rewriting a unit Noust manages
+# ---------------------------------------------------------------------------
+
+
+def test_rewrite_unit_replaces_a_managed_unit(
+    manager: ServiceManager, runner: FakeRunner, unit_dirs: dict[str, Path]
+) -> None:
+    path = unit_dirs["managed"] / "shop.service"
+    path.write_text(f'# {UNIT_MARKER}\n[Service]\nEnvironment="A=1"\nExecStart=/bin/true\n')
+    body = f"# {UNIT_MARKER}\n[Service]\nEnvironmentFile=-/srv/shop/.env\nExecStart=/bin/true\n"
+
+    written = manager.rewrite_unit("shop", body)
+
+    assert written == path
+    assert path.read_text() == body
+    assert ("systemctl", "daemon-reload") in runner.calls
+
+
+def test_rewrite_unit_refuses_a_unit_noust_did_not_write(
+    manager: ServiceManager, unit_dirs: dict[str, Path]
+) -> None:
+    path = unit_dirs["managed"] / "postgresql.service"
+    path.write_text("[Service]\nExecStart=/usr/lib/postgresql/bin/postgres\n")
+
+    with pytest.raises(ServiceError, match="does not manage"):
+        manager.rewrite_unit("postgresql", f"# {UNIT_MARKER}\n[Service]\nExecStart=/bin/true\n")
+    assert "postgres" in path.read_text()
+
+
+def test_rewrite_unit_refuses_a_missing_unit_and_an_unmarked_body(
+    manager: ServiceManager, unit_dirs: dict[str, Path]
+) -> None:
+    with pytest.raises(ServiceError):
+        manager.rewrite_unit("ghost", f"# {UNIT_MARKER}\n[Service]\nExecStart=/bin/true\n")
+    (unit_dirs["managed"] / "shop.service").write_text(f"# {UNIT_MARKER}\n[Service]\n")
+    with pytest.raises(ServiceError):
+        manager.rewrite_unit("shop", "[Service]\nExecStart=/bin/true\n")

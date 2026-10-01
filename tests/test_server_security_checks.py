@@ -184,7 +184,7 @@ class TestChecks:
         report = _run(runner, host, risks)
 
         assert [check.id for check in report.checks] == list(CATALOG)
-        assert len(CATALOG) == 31
+        assert len(CATALOG) == 32
 
     def test_debian_defaults_show_the_expected_findings(self, runner, host, risks):
         report = _run(runner, host, risks, host_checks=False)

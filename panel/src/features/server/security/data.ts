@@ -55,6 +55,7 @@ const TITLES: Readonly<Record<string, PlainKey>> = {
   "sys.journal_volatile": "server.checks.titles.sysJournalVolatile",
   "noust.web_not_unit": "server.checks.titles.noustWebNotUnit",
   "noust.fleet_key_root": "server.checks.titles.noustFleetKeyRoot",
+  "noust.inline_secrets": "server.checks.titles.noustInlineSecrets",
 };
 
 /** A check's name in the active language; one this console does not know keeps the API's words. */

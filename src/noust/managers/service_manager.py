@@ -1959,6 +1959,41 @@ class ServiceManager(BaseManager):
         self._write_unit_atomically(self._get_service_file(unit), content)
         self.daemon_reload()
 
+    def rewrite_unit(self, name: str, content: str) -> Path:
+        """
+        Replace the body of a unit Noust already manages.
+
+        For a change to an existing unit that no template renders again, such
+        as moving an application's inline variables into its ``.env``
+        (:mod:`noust.deployers.unit_environment`). The same rules as every
+        other write: the unit must exist and be Noust's, and the new body must
+        carry the marker.
+
+        Args:
+            name: Unit name, with or without ``.service``.
+            content: The complete new body.
+
+        Returns:
+            The unit file written.
+
+        Raises:
+            ServiceError: When the unit does not exist or is not Noust's, the
+                body lacks the marker, or the write fails.
+            ValidationError: When the name is not a safe unit name.
+        """
+        unit = validate_service_name(str(name).removesuffix(".service"))
+        self._check_unit_body(unit, content)
+        info = self.inspect_unit(unit, serving=False)
+        if not info.exists or not info.managed:
+            raise ServiceError(
+                f"Refusing to rewrite a unit Noust does not manage: {unit}",
+                details=info.reason or f"No unit {unit}.service exists.",
+            )
+        path = self._unit_path(unit)
+        self._write_unit_atomically(path, content)
+        self.daemon_reload()
+        return path
+
     def install_unit(self, name: str, template: str, context: Mapping[str, Any]) -> Path:
         """
         Write one of Noust's own units under exactly the name given.

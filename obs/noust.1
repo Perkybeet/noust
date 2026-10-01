@@ -2892,6 +2892,19 @@ Remove any override and judge this variable by its name and value again.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust env migrate
+Move an application's variables from its systemd unit into its .env (WASM 1.x units).
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-all
+Every application whose unit still carries variables.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust env show
 List the variables an application runs with, secrets hidden.
 .TP

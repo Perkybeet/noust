@@ -409,6 +409,7 @@ export const server: Catalog<typeof en> = {
       sysJournalVolatile: "Los registros del sistema se pierden en cada reinicio",
       noustWebNotUnit: "La consola no arranca con el servidor",
       noustFleetKeyRoot: "El túnel de una central entra como root",
+      noustInlineSecrets: "Algunas aplicaciones guardan sus variables donde cualquier usuario del servidor puede leerlas",
     },
   },
   fix: {

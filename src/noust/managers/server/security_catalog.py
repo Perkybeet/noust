@@ -102,6 +102,12 @@ CATALOG: dict[str, CheckSpec] = {
             "warning",
         ),
         CheckSpec("noust.fleet_key_root", "noust", "A central's tunnel logs in as root", "info"),
+        CheckSpec(
+            "noust.inline_secrets",
+            "noust",
+            "Application units carry variables any local user can read",
+            "critical",
+        ),
     )
 }
 

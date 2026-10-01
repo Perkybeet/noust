@@ -324,6 +324,57 @@ def _env_mark(domain: str, name: str, mark: str, verbose: bool) -> int:
     return 0
 
 
+def _env_migrate(domain: str | None, every: bool, verbose: bool) -> int:
+    """
+    Move inline unit variables into the .env, one application or all of them.
+
+    Args:
+        domain: The application, unless ``every``.
+        every: Every application whose unit still carries variables.
+        verbose: Whether to log verbosely.
+
+    Returns:
+        The exit code.
+
+    Raises:
+        click.UsageError: Neither or both of a domain and ``--all``.
+    """
+    from noust.deployers import unit_environment
+
+    if (domain is None) == (not every):
+        raise click.UsageError("Name one application, or pass --all.")
+    logger = Logger(verbose=verbose)
+    domains = [domain] if domain else [name for name, _ in unit_environment.candidates()]
+    if not domains:
+        logger.success("No application's unit carries variables inline")
+        return 0
+    failed = 0
+    for name in domains:
+        try:
+            result = unit_environment.migrate(name, logger=logger)
+        except NoustError as exc:
+            failed += 1
+            logger.error(exc.message)
+            if exc.details:
+                logger.info(exc.details)
+            continue
+        if result is None:
+            logger.info(f"{name}: its unit carries no variables to move")
+            continue
+        logger.success(
+            f"{name}: {len(result.moved)} variable(s) moved to {result.env_file}; "
+            f"{result.unit}.service loads them from there and answers"
+        )
+        if result.replaced:
+            logger.warning(
+                f"{name}: the .env had another value for {', '.join(result.replaced)}; "
+                "it now has the one the application was running with"
+            )
+    if failed:
+        raise SystemExit(1)
+    return 0
+
+
 def _env_export(domain: str, output: str, verbose: bool) -> int:
     """
     Copy an application's variables into a file.
@@ -375,7 +426,8 @@ def configure(state: Context, domain: str) -> None:
     _env_configure(domain, state.verbose)
 
 
-@cli.command("show")
+# Hiding the secrets, it only reads; --unmask prints them, which is on record.
+@cli.command("show", read_only=lambda params: not params.get("unmask"))
 @click.argument("domain")
 @click.option(
     "--unmask",
@@ -407,6 +459,17 @@ def show(state: Context, domain: str, unmask: bool) -> None:
 def export(state: Context, domain: str, output: str) -> None:
     """Write an application's variables to a file, owner-readable only."""
     _env_export(domain, output, state.verbose)
+
+
+@cli.command("migrate")
+@click.argument("domain", required=False)
+@click.option(
+    "--all", "every", is_flag=True, help="Every application whose unit still carries variables."
+)
+@pass_context
+def migrate(state: Context, domain: str | None, every: bool) -> None:
+    """Move an application's variables from its systemd unit into its .env (WASM 1.x units)."""
+    _env_migrate(domain, every, state.verbose)
 
 
 @cli.command("mark")

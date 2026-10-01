@@ -56,7 +56,7 @@ from noust.core import paths
 from noust.core.exceptions import NoustError
 from noust.core.fs import get_fs
 from noust.fleet.authorize import key_removal_command
-from noust.managers.server.host import PROBE_TIMEOUT, read_os_release
+from noust.managers.server.host import PROBE_TIMEOUT, read_os_release, read_text
 from noust.managers.server.security_catalog import CATALOG, SEVERITIES
 from noust.managers.server.security_fail2ban import Fail2ban
 from noust.managers.server.security_firewall import Firewall, FirewallState, PortExposure
@@ -1262,6 +1262,7 @@ class HardeningChecks:
             )
         except _PROBE_ERRORS as exc:
             results.append(_other("noust.units_not_enabled", "unknown", _message(exc)))
+        results.append(self._inline_secrets_check())
         root = self.probe.keys_of("root")
         centrals = root.keys("central") if root else []
         removals = [
@@ -1293,6 +1294,47 @@ class HardeningChecks:
             )
         )
         return results
+
+    def _inline_secrets_check(self) -> Check:
+        """
+        Find application units that still carry their variables inline (WASM 1.x).
+
+        A unit is 0644 and ``systemctl show`` prints its environment to any
+        local user; the variables belong in the application's 0600 ``.env``.
+
+        Returns:
+            The check: critical when a secret is among them.
+        """
+        from noust.deployers.unit_environment import movable, secret_names
+
+        directory = self.probe.host.at("/etc/systemd/system")
+        found: list[tuple[str, list[str]]] = []
+        inline: dict[str, str] = {}
+        for unit in sorted(directory.glob("*.service")) if directory.is_dir() else []:
+            text = read_text(unit)
+            if text is None or not paths.carries_unit_marker(text):
+                continue
+            variables = movable(text)
+            if variables:
+                found.append((unit.stem, sorted(variables)))
+                inline.update(variables)
+        secrets = secret_names(inline)
+        return _result(
+            "noust.inline_secrets",
+            not found,
+            f"{len(found)} application unit(s) carry their variables inline, where any local "
+            "user reads them with systemctl show"
+            + (f", secrets among them ({', '.join(secrets)})." if secrets else ".")
+            if found
+            else "No application unit carries its variables inline.",
+            [f"{unit}.service: {', '.join(names)}" for unit, names in found],
+            _guided(
+                "Move them into each application's .env (0600), which the unit then loads; "
+                "each application restarts behind its health check",
+                "noust env migrate --all",
+            ),
+            severity=None if secrets else "warning",
+        )
 
     # The run ---------------------------------------------------------------------
 

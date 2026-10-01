@@ -396,6 +396,7 @@ export const server = {
       sysJournalVolatile: "The system logs are lost at every reboot",
       noustWebNotUnit: "The console does not start with the server",
       noustFleetKeyRoot: "A central's tunnel logs in as root",
+      noustInlineSecrets: "Application units carry variables any local user can read",
     },
   },
   fix: {
