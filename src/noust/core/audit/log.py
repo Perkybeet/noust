@@ -123,6 +123,11 @@ class PurgeReport:
     last_mac: str | None
 
 
+#: The shortest key :meth:`AuditLog.find` also tries as an id when it is all
+#: digits: the console and the CLI show ids by their first ten characters.
+MIN_ID_PREFIX = 8
+
+
 class AuditLog:
     """
     Append to, read, verify and prune one chained audit log.
@@ -854,9 +859,11 @@ class AuditLog:
         """
         Find one event by sequence number or id.
 
-        Digits are a ``seq`` first, and an ``id`` when no event has that
-        sequence number: an id is hexadecimal, and one made only of digits
-        was never found.
+        Digits are a ``seq`` first, and an ``id`` prefix when no event has
+        that sequence number and the key is long enough to name one
+        (:data:`MIN_ID_PREFIX`): an id is hexadecimal, and one made only of
+        digits was never found, while "99" is a sequence number, not the
+        first two characters of whichever id happens to start with them.
 
         Args:
             key: A ``seq`` (digits) or an ``id`` (or a prefix of one).
@@ -866,11 +873,12 @@ class AuditLog:
             starts with it; None when there is neither.
         """
         wanted_seq = int(key) if key.isdigit() else None
+        id_too = wanted_seq is None or len(key) >= MIN_ID_PREFIX
         by_id: dict[str, Any] | None = None
         for entry in self.iter_newest_first():
             if wanted_seq is not None and entry.get("seq") == wanted_seq:
                 return entry
-            if by_id is None and str(entry.get("id", "")).startswith(key):
+            if id_too and by_id is None and str(entry.get("id", "")).startswith(key):
                 if wanted_seq is None:
                     return entry
                 by_id = entry
