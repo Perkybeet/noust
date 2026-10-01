@@ -24,6 +24,14 @@ updates:
         dependency-type: production
       console-tooling:
         dependency-type: development
+    ignore:
+      # The console builds with TypeScript 6 (7 is a rewrite whose checks differ)
+      # and runs on the Node major in panel/.nvmrc: their types follow it, not
+      # the newest Node. Moving either is a decision, not a weekly bump.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: /
