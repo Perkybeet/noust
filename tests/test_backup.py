@@ -515,3 +515,48 @@ class TestBackupIntegration:
 
         assert result == 0  # Success
         mock_rollback.rollback.assert_called_once()
+
+
+class TestEveryRollbackIsHeldLikeADeploy:
+    """
+    A rollback to a backup from the console restored an Astro site without dist/,
+    found no type in the tree, did not rebuild, had no gate, and reported success
+    while every page answered 404.
+    """
+
+    @pytest.fixture
+    def site(self, monkeypatch: pytest.MonkeyPatch):
+        from types import SimpleNamespace
+
+        import noust.deployers.lifecycle as lifecycle
+        import noust.managers.backup_manager as backup_manager
+
+        app = SimpleNamespace(domain="picconia.example", app_type="vite")
+        store = SimpleNamespace(get_app=lambda domain: app if domain == app.domain else None)
+        monkeypatch.setattr(backup_manager, "get_store", lambda: store)
+        asked: list[str] = []
+
+        def gate_for(app_row, store_row, logger):
+            return SimpleNamespace(
+                restart_and_probe=lambda: (asked.append(app_row.domain), (False, "404 on /"))[1]
+            )
+
+        monkeypatch.setattr(lifecycle, "health_gate_for", gate_for)
+        return SimpleNamespace(app=app, asked=asked)
+
+    def test_the_type_and_the_gate_come_from_the_store(self, site) -> None:
+        app_type, gate = RollbackManager()._held_like_a_deploy("picconia.example", None, None)
+
+        assert app_type == "vite"
+        assert gate is not None and gate() == (False, "404 on /")
+        assert site.asked == ["picconia.example"]
+
+    def test_what_the_caller_passed_wins(self, site) -> None:
+        own = lambda: (True, "")  # noqa: E731
+
+        app_type, gate = RollbackManager()._held_like_a_deploy("picconia.example", "nodejs", own)
+
+        assert app_type == "nodejs" and gate is own
+
+    def test_an_application_the_store_does_not_know_is_left_as_given(self, site) -> None:
+        assert RollbackManager()._held_like_a_deploy("other.example", None, None) == (None, None)

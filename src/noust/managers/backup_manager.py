@@ -3842,6 +3842,7 @@ class RollbackManager:
         """
         require_server_role("Rollbacks")
         self.last_deployment_id = None
+        app_type, gate = self._held_like_a_deploy(domain, app_type, gate)
         with app_lock(domain, "rollback"):
             if backup_id:
                 metadata = self.backup_manager.get_backup(backup_id)
@@ -3950,6 +3951,47 @@ class RollbackManager:
             recorder.finish_success()
             return True
 
+    def _held_like_a_deploy(
+        self,
+        domain: str,
+        app_type: str | None,
+        gate: Callable[[], tuple[bool, str]] | None,
+    ) -> tuple[str | None, Callable[[], tuple[bool, str]] | None]:
+        """
+        Give every rollback the type and the health gate the store implies.
+
+        Going back to a deployment passed both; going back to a backup, from
+        the console or the CLI, passed neither. On the owner's central such a
+        rollback of an Astro site restored its source without ``dist/`` (a
+        backup never holds the build), found no type in the tree (Astro has no
+        vite.config) and returned without rebuilding or saying so; with no gate
+        to ask, it reported success while every page answered 404.
+
+        Args:
+            domain: The application.
+            app_type: What the caller passed.
+            gate: What the caller passed.
+
+        Returns:
+            The type (the store's when the caller had none) and the gate (the
+            one a deploy uses when the caller had none).
+        """
+        try:
+            store = get_store()
+            app = store.get_app(domain)
+        except NoustError as exc:
+            self.logger.warning(f"Could not read {domain} from the store: {exc}")
+            return app_type, gate
+        if app is None:
+            return app_type, gate
+        if gate is None:
+            from noust.deployers.lifecycle import health_gate_for
+
+            def gate() -> tuple[bool, str]:
+                return health_gate_for(app, store, self.logger).restart_and_probe()
+
+        return app_type or app.app_type, gate
+
     def _rebuild(
         self,
         domain: str,
@@ -3980,11 +4022,13 @@ class RollbackManager:
 
         app_type = app_type or detect_app_type(app_path, verbose=self.verbose)
         if not app_type:
+            message = f"Cannot tell what kind of application the restored tree of {domain} is"
             if strict:
                 raise DeploymentError(
-                    f"Cannot tell what kind of application the restored tree of {domain} is",
+                    message,
                     details="Nothing was rebuilt. Redeploy it with: noust update " + domain,
                 )
+            self.logger.warning(f"{message}; nothing was rebuilt (noust update {domain})")
             return
         deployer = get_deployer(app_type, verbose=self.verbose)
         # The rebuild happens through the deployer's own logger; capturing it

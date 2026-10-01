@@ -1724,7 +1724,15 @@ class BaseDeployer(AppDeployer):
             self.logger.substep(f"SSL: {'enabled' if with_ssl else 'pending certificate'}")
 
         # Check if site already exists (update vs create)
-        if manager.site_exists(self.domain):
+        if manager.site_exists(self.domain) and not manager.site_is_noust(self.domain):
+            # The operator's own site (no marker): a release update rewrote it
+            # with the template, which put back the access_log a whistleblowing
+            # channel had removed on purpose. It is kept, and said so.
+            self.logger.warning(
+                f"{self.domain} has a site configuration Noust did not write; it is kept as "
+                "it is. Check it still points at this application."
+            )
+        elif manager.site_exists(self.domain):
             manager.update_site(self.domain, template=template, context=context)
         else:
             manager.create_site(self.domain, template=template, context=context)

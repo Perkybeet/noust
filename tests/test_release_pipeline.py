@@ -210,12 +210,17 @@ class FakeWeb:
 
     def __init__(self) -> None:
         self.sites: dict[str, dict[str, Any]] = {}
+        #: Sites the operator wrote, which a deploy must keep.
+        self.own: set[str] = set()
 
     def is_running(self) -> bool:
         return True
 
     def site_exists(self, domain: str) -> bool:
-        return domain in self.sites
+        return domain in self.sites or domain in self.own
+
+    def site_is_noust(self, domain: str) -> bool:
+        return domain in self.sites and domain not in self.own
 
     def create_site(self, domain: str, template: str, context: dict[str, Any]) -> bool:
         self.sites[domain] = {"template": template, "context": context}
@@ -1373,3 +1378,23 @@ def test_a_rehearsed_release_deploy_changes_nothing(
     assert store.list_deployments(DOMAIN) == []
     # Only probes reached the machine.
     assert all(is_read_only(call) for call in inner.calls), inner.calls
+
+
+def test_a_release_update_keeps_a_site_the_operator_wrote(
+    tmp_path: Path,
+    root: Path,
+    store: NoustStore,
+    machine: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """canaletico's own nginx site (no access_log) would have been replaced by the template."""
+    machine.git.publish(node_tree(tmp_path / "v1"))
+    deploy_new(root, machine)
+    web = machine.web
+    before = dict(web.sites[DOMAIN])
+    web.own.add(DOMAIN)
+    machine.git.publish(node_tree(tmp_path / "v2", lockfile='{"lockfileVersion": 3, "v": 2}\n'))
+
+    update(machine, monkeypatch)
+
+    assert web.sites[DOMAIN] == before
