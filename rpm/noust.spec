@@ -10,7 +10,7 @@
 #
 
 Name:           noust
-Version:        3.1.12
+Version:        3.1.13
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -390,6 +390,10 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Thu Oct 01 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.13-1
+- Applications created with WASM 1.x carried their variables (DATABASE_URL, secrets) as Environment= lines in a 0644 unit that any local user reads with systemctl show, and their builds ran without them; 'noust env migrate <domain>' (or --all) moves them into the 0600 .env the unit then loads, restarting behind the health gate and putting everything back if the application does not answer
+- New security check noust.inline_secrets: critical when an application unit carries a secret inline
+- noust env show needs no --reason under ens-medium unless --unmask prints the secrets
 * Thu Oct 01 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.12-1
 - pnpm installs recreate node_modules without asking: the first sandboxed update of an in-place pnpm application met a tree a root build had made with another store, and pnpm aborted with ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY
 * Thu Oct 01 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.11-1
