@@ -14,7 +14,7 @@ from importlib.metadata import version as _installed_version
 #: as an OBS build directory. The single source of truth is the ``version``
 #: field of pyproject.toml; ``scripts/release.py`` keeps this literal and the
 #: distribution packaging files in step with it.
-_FALLBACK_VERSION = "3.1.16"
+_FALLBACK_VERSION = "3.1.17"
 
 #: The distribution names this package has been published under: ``noust``
 #: from 3.0, ``wasm-cli`` before (and as the transitional package after).
