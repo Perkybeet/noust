@@ -195,6 +195,9 @@ class FakeServices:
     def service_exists(self, name: str) -> bool:
         return name in self.units
 
+    def serving_units(self, app: Any) -> list[str]:
+        return [self.app_root.name]
+
     def delete_service(self, name: str) -> None:
         self.units.pop(name, None)
 

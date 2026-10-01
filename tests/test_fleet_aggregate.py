@@ -358,7 +358,9 @@ class TestCacheAndDeadline:
         central.nodes["web-2"].gate = gate
         central.nodes["web-2"].apps = APPS
 
-        slow = gather("apps", manager=central.manager, deadline=0.2)
+        # web-2 is held until the gate opens, so it times out whatever the
+        # deadline; a second leaves web-3 time to answer under a loaded run.
+        slow = gather("apps", manager=central.manager, deadline=1.0)
 
         outcome = slow.outcome("web-2")
         assert (outcome.status, outcome.code) == ("unreachable", "timeout")

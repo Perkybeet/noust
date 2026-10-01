@@ -1404,13 +1404,13 @@ def health_gate_for(
         # FastCGI, with the same path, expectation and timeout.
         return php_health_gate_for_app(app, log)
     services = ServiceManager()
-    service = store.get_service_by_app_id(app.id) if app.id is not None else None
     if not app.is_static:
-        unit = service.name if service is not None else app_root(app).name
-        if app.zero_downtime:
-            # The instance that serves, on its own port: restarting it is a
-            # cut, which only a caller that asked for a restart gets.
-            unit = services.serving_units(app)[0]
+        # The one mapping from an application to its unit: it knows a row
+        # named without the legacy wasm- prefix whose installed unit has it,
+        # and, in zero-downtime mode, the instance that serves (restarting it
+        # is a cut, which only a caller that asked for a restart gets).
+        units = services.serving_units(app)
+        unit = units[0] if units else app_root(app).name
         check = HealthCheck.for_app(app)
         return HealthGate(
             unit=unit,

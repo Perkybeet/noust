@@ -283,3 +283,14 @@ def test_units_that_load_their_env_file_pass(tmp_path: Path) -> None:
     body = unit_environment.rewritten(WASM_UNIT, Path("/srv/app/.env"))
 
     assert _check(tmp_path, {"taller-example-com": body}).status == "pass"
+
+
+def test_a_unit_kept_under_its_legacy_wasm_name_is_found(machine) -> None:
+    """grupotambor's admon app: the row says admon-..., the installed unit is wasm-admon-...."""
+    legacy = machine.units / "wasm-taller-example-com.service"
+    (machine.units / "taller-example-com.service").rename(legacy)
+
+    result = _migrate(machine)
+
+    assert result is not None and result.unit == "wasm-taller-example-com"
+    assert "DATABASE_URL" not in legacy.read_text()

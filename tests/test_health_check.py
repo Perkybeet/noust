@@ -77,6 +77,9 @@ class FakeUnits:
     def logs(self, name: str, lines: int = 50) -> str:
         return ""
 
+    def serving_units(self, app: Any) -> list[str]:
+        return [app.domain.replace(".", "-")]
+
 
 class RecordingProbe:
     """Stands in for wait_until_healthy and keeps what it was asked."""

@@ -264,6 +264,10 @@ class FakeUnits:
     def logs(self, name: str, lines: int = 50) -> str:
         return "Out of memory: Killed process 4242 (node)"
 
+    def serving_units(self, app: Any) -> list[str]:
+        rows = lifecycle.get_store().list_services()
+        return sorted(row.name for row in rows if row.app_id == app.id)
+
 
 @pytest.fixture
 def sqlite_store(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:

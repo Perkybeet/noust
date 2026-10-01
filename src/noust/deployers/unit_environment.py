@@ -241,8 +241,10 @@ def _unit_of(app: App, store: NoustStore) -> str:
             f"{app.domain} runs as zero-downtime instances",
             details="Their unit is written by every deploy; redeploy it to move its variables.",
         )
-    service = store.get_service_by_app_id(app.id) if app.id is not None else None
-    return service.name if service is not None else app_root(app).name
+    units = ServiceManager().app_units(app)
+    if not units:
+        raise ValidationError(f"{app.domain} has no unit of its own to carry variables")
+    return units[0]
 
 
 def _owner(unit_text: str) -> str:
@@ -319,6 +321,11 @@ def migrate(
         raise ValidationError(f"No application named {domain}")
     unit = _unit_of(app, store)
     path = Path(ServiceManager.SYSTEMD_DIR) / f"{unit}.service"
+    if not path.is_file():
+        raise ValidationError(
+            f"{domain} runs as {unit}.service, which is not in {ServiceManager.SYSTEMD_DIR}",
+            details="Only a unit Noust wrote there can be rewritten.",
+        )
     before = path.read_text(encoding="utf-8")
     moving = movable(before)
     if not moving:
