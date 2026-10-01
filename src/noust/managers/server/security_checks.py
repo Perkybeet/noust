@@ -1311,6 +1311,9 @@ class HardeningChecks:
         found: list[tuple[str, list[str]]] = []
         inline: dict[str, str] = {}
         for unit in sorted(directory.glob("*.service")) if directory.is_dir() else []:
+            # Noust's own units set their own environment (HOME for git and npm).
+            if unit.stem in paths.OWN_UNITS or unit.stem.startswith(paths.OWN_UNIT_PREFIXES):
+                continue
             text = read_text(unit)
             if text is None or not paths.carries_unit_marker(text):
                 continue

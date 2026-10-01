@@ -146,6 +146,8 @@ def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
         return SimpleNamespace(restart_and_probe=lambda: (healthy, "" if healthy else "502 from /"))
 
     monkeypatch.setattr("noust.deployers.lifecycle.health_gate_for", gate)
+    state = tmp_path / "state"
+    monkeypatch.setattr("noust.core.paths.state_dir", lambda: state)
     return SimpleNamespace(
         units=units,
         env_file=app_dir / ".env",
@@ -153,6 +155,7 @@ def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
         services=FakeServices(units),
         runner=runner,
         gates=gates,
+        state=state,
     )
 
 
@@ -180,6 +183,28 @@ def test_the_variables_move_into_the_env_file_and_the_unit_loads_it(machine) -> 
     unit = (machine.units / "taller-example-com.service").read_text()
     assert "DATABASE_URL" not in unit and f"EnvironmentFile=-{machine.env_file}" in unit
     assert ("chown", "www-data:www-data", str(machine.env_file)) in machine.runner.calls
+
+
+def test_a_build_time_value_keeps_the_one_builds_used_and_the_old_env_is_kept(machine) -> None:
+    """A unit said localhost:3000 while every build had inlined the real URL from the .env."""
+    unit = machine.units / "taller-example-com.service"
+    unit.write_text(
+        WASM_UNIT.replace('"FEATURE=on"', '"FEATURE=on" "NEXT_PUBLIC_URL=http://localhost:3000"')
+    )
+    machine.env_file.write_text("NEXT_PUBLIC_URL=https://taller.example.com/\nFEATURE=off\n")
+
+    result = _migrate(machine)
+
+    values = EnvManager().read_env_file(machine.env_file)
+    assert values["NEXT_PUBLIC_URL"] == "https://taller.example.com/"
+    assert values["FEATURE"] == "on"
+    assert result.kept == ("NEXT_PUBLIC_URL",)
+    assert result.replaced == ("FEATURE",)
+    assert (
+        result.previous is not None and result.previous.parent == machine.state / "env-migrations"
+    )
+    assert "localhost" not in result.previous.read_text()
+    assert oct(os.stat(result.previous).st_mode & 0o777) == "0o600"
 
 
 def test_an_application_that_does_not_answer_gets_its_unit_and_env_back(machine) -> None:
@@ -243,6 +268,15 @@ def test_only_harmless_variables_inline_is_a_warning(tmp_path: Path) -> None:
     check = _check(tmp_path, {"shop": body})
 
     assert check.status == "warn" and check.severity == "warning"
+
+
+def test_nousts_own_units_and_compose_settings_are_not_findings(tmp_path: Path) -> None:
+    own = f"# {UNIT_MARKER}\n[Service]\nEnvironment=HOME=/root USER=root LOGNAME=root\n"
+    stack = f'# {UNIT_MARKER}\n[Service]\nEnvironment="COMPOSE_FILE=docker-compose.yml"\n'
+
+    check = _check(tmp_path, {"noust-web": own, "noust-monitor": own, "licitaciones": stack})
+
+    assert check.status == "pass"
 
 
 def test_units_that_load_their_env_file_pass(tmp_path: Path) -> None:

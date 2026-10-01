@@ -365,6 +365,13 @@ def _env_migrate(domain: str | None, every: bool, verbose: bool) -> int:
             f"{name}: {len(result.moved)} variable(s) moved to {result.env_file}; "
             f"{result.unit}.service loads them from there and answers"
         )
+        if result.kept:
+            logger.info(
+                f"{name}: kept the .env's value for {', '.join(result.kept)}: builds read it, "
+                "so it is the one the application was built with"
+            )
+        if result.previous is not None:
+            logger.info(f"{name}: the .env as it was is kept in {result.previous}")
         if result.replaced:
             logger.warning(
                 f"{name}: the .env had another value for {', '.join(result.replaced)}; "

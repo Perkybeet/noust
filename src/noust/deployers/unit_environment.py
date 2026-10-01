@@ -42,9 +42,25 @@ from noust.deployers.helpers.env_manager import EnvManager
 from noust.deployers.helpers.layout import app_root, env_file_for
 from noust.managers.service_manager import ServiceManager
 
-#: What a unit keeps inline: not secret, and Noust's to decide. systemd lets
-#: ``EnvironmentFile=`` override ``Environment=``, so they stay out of the file.
-INLINE = frozenset({"PORT", "NODE_ENV"})
+#: What a unit keeps inline: not secret, and Noust's to decide (the port, the
+#: mode, which Compose file a stack runs). systemd lets ``EnvironmentFile=``
+#: override ``Environment=``, so they stay out of the file.
+INLINE = frozenset({"PORT", "NODE_ENV", "COMPOSE_FILE", "COMPOSE_PROJECT_NAME"})
+
+#: Variables a framework copies into the code when it builds. For them the
+#: value that was in use is the ``.env``'s, which every build read, not the
+#: unit's, which the process got after the build had already inlined the other:
+#: on the owner's central a unit said ``NEXT_PUBLIC_URL=http://localhost:3000``
+#: while every build had baked in the real URL from the ``.env``.
+BUILD_TIME_PREFIXES = (
+    "NEXT_PUBLIC_",
+    "VITE_",
+    "REACT_APP_",
+    "PUBLIC_",
+    "NUXT_PUBLIC_",
+    "GATSBY_",
+    "EXPO_PUBLIC_",
+)
 
 
 @dataclass(frozen=True)
@@ -58,6 +74,10 @@ class Migration:
         env_file: The file the variables went to.
         moved: The names moved, sorted.
         replaced: Names the ``.env`` had with another value, now the unit's.
+        kept: Build-time names (:data:`BUILD_TIME_PREFIXES`) where both had
+            a value and the ``.env``'s stayed, because builds used it.
+        previous: Where the ``.env`` as it was is kept, or None when there
+            was none.
     """
 
     domain: str
@@ -65,6 +85,8 @@ class Migration:
     env_file: Path
     moved: tuple[str, ...]
     replaced: tuple[str, ...] = ()
+    kept: tuple[str, ...] = ()
+    previous: Path | None = None
 
 
 def _items(value: str) -> list[str]:
@@ -235,6 +257,34 @@ def _owner(unit_text: str) -> str:
     return f"{user}:{group}"
 
 
+def _keep_previous(app: App, text: str) -> Path:
+    """
+    Keep an application's ``.env`` as it was before its variables moved in.
+
+    The migration decides, for each name both had, which value stays; the
+    file as it was is the way back from a wrong call. Kept under Noust's state
+    directory, root-only, not in the application's tree.
+
+    Args:
+        app: The application.
+        text: The file's content.
+
+    Returns:
+        Where it is.
+    """
+    from datetime import datetime, timezone
+
+    from noust.core import paths
+
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    directory = paths.state_dir() / "env-migrations"
+    fs = get_fs()
+    fs.make_dir(directory, mode=0o700)
+    copy = directory / f"{app_root(app).name}-{stamp}.env"
+    fs.write_text(copy, text, mode=0o600)
+    return copy
+
+
 def migrate(
     domain: str,
     *,
@@ -278,19 +328,31 @@ def migrate(
     env = EnvManager()
     previous_env = env_file.read_text(encoding="utf-8") if env_file.exists() else None
     current = env.read_env_file(env_file)
-    replaced = sorted(
+    differing = [
         name for name, value in moving.items() if name in current and current[name] != value
-    )
+    ]
+    kept = sorted(name for name in differing if name.startswith(BUILD_TIME_PREFIXES))
+    replaced = sorted(name for name in differing if name not in kept)
+    merged = {**current, **{name: value for name, value in moving.items() if name not in kept}}
+    previous_copy = _keep_previous(app, previous_env) if previous_env is not None else None
     after = rewritten(before, env_file)
 
     log.substep(f"Moving {len(moving)} variable(s) of {domain} from {unit}.service to {env_file}")
-    env.write_env_file(env_file, {**current, **moving})
+    env.write_env_file(env_file, merged)
     get_runner().run(["chown", _owner(before), str(env_file)], timeout=30, check=True)
     services.rewrite_unit(unit, after)
 
     healthy, evidence = health_gate_for(app, store, log).restart_and_probe()
     if healthy:
-        return Migration(domain, unit, env_file, tuple(sorted(moving)), tuple(replaced))
+        return Migration(
+            domain,
+            unit,
+            env_file,
+            tuple(sorted(moving)),
+            tuple(replaced),
+            tuple(kept),
+            previous_copy,
+        )
 
     log.warning(f"{domain} did not come back; putting its previous unit and .env back")
     services.rewrite_unit(unit, before)
