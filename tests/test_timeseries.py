@@ -672,3 +672,8 @@ def test_a_log_cursor_survives_and_is_pruned(store: MetricsStore) -> None:
 
     assert store.read_log_cursor("/var/log/nginx/a.access.log") == (42, 2000)
     assert store.read_log_cursor("/var/log/nginx/b.access.log") is None
+
+
+def test_temporary_tables_live_in_memory(store: MetricsStore) -> None:
+    """The monitor's ProtectSystem=strict leaves /tmp read-only: a spilled sort failed with EIO."""
+    assert store._get_connection().execute("PRAGMA temp_store").fetchone()[0] == 2  # MEMORY

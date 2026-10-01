@@ -390,6 +390,12 @@ class MetricsStore:
             # answer.
             connection.execute("PRAGMA journal_mode=WAL")
             connection.execute("PRAGMA synchronous=NORMAL")
+            # Consolidation sorts more than fits in SQLite's page cache, and a
+            # spilled sort is a temporary file in /var/tmp or /tmp, which the
+            # monitor's ProtectSystem=strict makes read-only: every
+            # consolidation failed with "disk I/O error" on a server whose
+            # history had grown, and the history was never consolidated.
+            connection.execute("PRAGMA temp_store=MEMORY")
             self._local.connection = connection
         return connection
 

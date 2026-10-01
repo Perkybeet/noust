@@ -1058,6 +1058,9 @@ Nice=10
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=read-only
+# Its own writable /tmp: strict leaves /tmp and /var/tmp read-only, and SQLite
+# spills a large sort into a temporary file there ("disk I/O error" otherwise).
+PrivateTmp=true
 # StateDirectory and LogsDirectory rather than ReadWritePaths: systemd creates
 # these before the unit starts and adds them to the writable set itself.
 # ReadWritePaths does neither, so on a machine where /var/lib/noust did not

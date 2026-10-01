@@ -136,6 +136,11 @@ def test_the_unit_is_still_confined(unit: str) -> None:
     assert named.get("RestrictSUIDSGID") == ["true"]
 
 
+def test_sqlite_has_a_writable_temporary_directory(unit: str) -> None:
+    """strict leaves /tmp read-only; consolidating the metrics spilled a sort there and failed."""
+    assert directives(unit).get("PrivateTmp") == ["true"]
+
+
 def test_the_unit_restarts_but_not_instantly(unit: str) -> None:
     """
     A crash loop with no delay is a busy loop. Thirty seconds is what let the
