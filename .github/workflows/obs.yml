@@ -30,12 +30,12 @@ jobs:
       # release's own tree from its tag: re-running the upload of a published
       # tag after a fix to the scripts must not need a new version.
       - name: Checkout the publishing scripts
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: tools
 
       - name: Checkout the release
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ inputs.tag }}
           path: release
