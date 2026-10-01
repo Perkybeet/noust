@@ -506,7 +506,7 @@ function UpdatesView() {
         </div>
       </div>
       <RecentRuns />
-      <CommandHint command="noust server updates apply --security" label={t("server.fromTerminal")} />
+      <CommandHint command="noust server updates apply --security-only" label={t("server.fromTerminal")} />
       {applying !== null ? <ApplyDialog scope={applying} keptBack={data.kept_back} onClose={() => setApplying(null)} /> : null}
     </div>
   );

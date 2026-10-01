@@ -940,7 +940,7 @@ class HardeningChecks:
                     [f"{p.name} {p.installed or ''} -> {p.candidate}" for p in security[:10]],
                     _action(
                         "Install the security updates",
-                        "noust server updates apply --security",
+                        "noust server updates apply --security-only",
                         "POST /api/server/updates/apply",
                     ),
                     severity=None if serious or not security else "warning",

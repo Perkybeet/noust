@@ -83,7 +83,7 @@ const SECURITY_PENDING = {
   status: "fail",
   reason: "4 security updates are pending.",
   evidence: [],
-  fix: { kind: "action", summary: "Install them", cli: "noust server updates apply --security", endpoint: "POST /api/server/updates/apply", steps: [], blocked: "", reverts: false },
+  fix: { kind: "action", summary: "Install them", cli: "noust server updates apply --security-only", endpoint: "POST /api/server/updates/apply", steps: [], blocked: "", reverts: false },
 } satisfies Checks["checks"][number];
 
 export const SECURITY: SecurityOverview = {
