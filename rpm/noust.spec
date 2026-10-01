@@ -10,7 +10,7 @@
 #
 
 Name:           noust
-Version:        3.1.14
+Version:        3.1.15
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -390,6 +390,9 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Thu Oct 01 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.15-1
+- The health gate (activation, rollback, migration, limits) and noust env migrate find an application's unit when its row lacks the legacy wasm- prefix the installed unit still has; before, the gate restarted a unit that did not exist
+- noust env migrate refuses a unit outside the managed directory with a message instead of a traceback
 * Thu Oct 01 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.14-1
 - noust env migrate keeps the .env's value for build-time variables (NEXT_PUBLIC_*, VITE_*, REACT_APP_*...) when the unit had another: builds inlined the .env's, so it is the one in use
 - noust env migrate keeps the previous .env under the state directory (env-migrations/, root only) and says where
