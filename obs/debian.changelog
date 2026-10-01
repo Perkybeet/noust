@@ -1,3 +1,11 @@
+noust (3.1.14-1) unstable; urgency=medium
+
+  * noust env migrate keeps the .env's value for build-time variables (NEXT_PUBLIC_*, VITE_*, REACT_APP_*...) when the unit had another: builds inlined the .env's, so it is the one in use
+  * noust env migrate keeps the previous .env under the state directory (env-migrations/, root only) and says where
+  * The noust.inline_secrets check no longer reports Noust's own units or a Compose stack's COMPOSE_FILE
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Thu, 01 Oct 2026 13:41:21 +0000
+
 noust (3.1.13-1) unstable; urgency=medium
 
   * Applications created with WASM 1.x carried their variables (DATABASE_URL, secrets) as Environment= lines in a 0644 unit that any local user reads with systemctl show, and their builds ran without them; 'noust env migrate <domain>' (or --all) moves them into the 0600 .env the unit then loads, restarting behind the health gate and putting everything back if the application does not answer

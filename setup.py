@@ -9,7 +9,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="noust",
-    version="3.1.13",
+    version="3.1.14",
     description="Noust - deploy and manage web applications on Linux servers",
     url="https://github.com/Perkybeet/noust",
     author="Yago López Prado",
