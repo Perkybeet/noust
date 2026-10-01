@@ -1,3 +1,9 @@
+noust (3.1.16-1) unstable; urgency=medium
+
+  * Updating Noust from the console or the fleet no longer leaves a failed 'Update Noust' job behind when the update succeeded: the restarted console follows the update's own record and records how it really ended
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Thu, 01 Oct 2026 15:18:32 +0000
+
 noust (3.1.15-1) unstable; urgency=medium
 
   * The health gate (activation, rollback, migration, limits) and noust env migrate find an application's unit when its row lacks the legacy wasm- prefix the installed unit still has; before, the gate restarted a unit that did not exist

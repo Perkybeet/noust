@@ -10,7 +10,7 @@
 #
 
 Name:           noust
-Version:        3.1.15
+Version:        3.1.16
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -390,6 +390,8 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Thu Oct 01 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.16-1
+- Updating Noust from the console or the fleet no longer leaves a failed 'Update Noust' job behind when the update succeeded: the restarted console follows the update's own record and records how it really ended
 * Thu Oct 01 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.15-1
 - The health gate (activation, rollback, migration, limits) and noust env migrate find an application's unit when its row lacks the legacy wasm- prefix the installed unit still has; before, the gate restarted a unit that did not exist
 - noust env migrate refuses a unit outside the managed directory with a message instead of a traceback
