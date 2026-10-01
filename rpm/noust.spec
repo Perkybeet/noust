@@ -10,7 +10,7 @@
 #
 
 Name:           noust
-Version:        3.1.10
+Version:        3.1.11
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -390,6 +390,8 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Thu Oct 01 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.11-1
+- The monitor consolidates the metrics history again: under its unit's ProtectSystem=strict, SQLite could not write the temporary file a large sort needs and every consolidation failed with 'disk I/O error' once the history had grown; temporary tables now live in memory and the unit has its own /tmp
 * Wed Sep 30 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.1.10-1
 - Server > Security is fast: one reading of sshd's login history serves every view for a minute; on a server the Internet probes all day it took 2.4 s and was read up to twice per view, so SSH, firewall and checks took 5 to 7 s and removing a key waited for it
 - A view still loading after two seconds says what it is reading, with a spinner, instead of a bare skeleton

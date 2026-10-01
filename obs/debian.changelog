@@ -1,3 +1,9 @@
+noust (3.1.11-1) unstable; urgency=medium
+
+  * The monitor consolidates the metrics history again: under its unit's ProtectSystem=strict, SQLite could not write the temporary file a large sort needs and every consolidation failed with 'disk I/O error' once the history had grown; temporary tables now live in memory and the unit has its own /tmp
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Thu, 01 Oct 2026 11:37:52 +0000
+
 noust (3.1.10-1) unstable; urgency=medium
 
   * Server > Security is fast: one reading of sshd's login history serves every view for a minute; on a server the Internet probes all day it took 2.4 s and was read up to twice per view, so SSH, firewall and checks took 5 to 7 s and removing a key waited for it
