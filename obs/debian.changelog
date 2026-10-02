@@ -1,3 +1,17 @@
+noust (3.2.0-1) unstable; urgency=medium
+
+  * Docker Compose deploys properly: pre/post-deploy hooks from noust.yaml, zero-downtime relay, adopting a running stack, stack database dumps before each update, operator sites respected, aliases and certificates
+  * Schema-aware rollback: going back past a deployment that changed the database asks first, on every way back
+  * Deploy by tags and GitHub releases; Prisma migrations that fail now abort the update
+  * The web server at a glance: lossless nginx/Apache analyzer, structured editor, animated diagram and Try a URL; config tests run in the live nginx.conf
+  * Investigate a chart's stretch: journal, audit, deployments, monitor findings and the busiest processes per minute
+  * Jobs in transient units survive a console restart; notifications when an application stops answering
+  * Sandboxed builds by default after a trial build; per-app system accounts for new applications
+  * Security: git never runs as root in a tree another account owns; compose privileges cannot be gained through adopt or an update; site analysis and config tests cannot read or leak host files
+  * Owner items 53-64: image removal, time zone selector, processes table, feature states, headless workers, fleet job logs, chart interactions
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Fri, 02 Oct 2026 22:31:21 +0000
+
 noust (3.1.17-1) unstable; urgency=medium
 
   * A rollback to a backup (console or CLI) now rebuilds with the application's recorded type and passes the same health gate as a deploy; before, a static site built by Astro was restored without its dist/ and the rollback reported success while every page answered 404
