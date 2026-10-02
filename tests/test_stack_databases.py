@@ -864,9 +864,17 @@ class TestTheScriptThatRunsInsideTheContainer:
         assert self.report(result.stdout)["program"] == "mysqldump"
 
     def test_a_client_the_image_does_not_have_is_said_so_and_fails(self, clients: Path) -> None:
-        (clients / "pg_dump").unlink()
+        import shutil
 
-        result = self.run_client(clients, POSTGRES, "dump", {})
+        from noust.core.runner import SubprocessRunner
+
+        (clients / "pg_dump").unlink()
+        # Only the fake clients on PATH: a host with a real pg_dump (GitHub's runners have
+        # one in /usr/bin) would otherwise run it, and the test would see its exit code.
+        argv = list(client_command(POSTGRES, "dump"))
+        argv[0] = shutil.which(argv[0]) or argv[0]
+
+        result = SubprocessRunner().run(argv, env={"PATH": str(clients)}, timeout=30)
 
         assert result.exit_code == 127
         assert "pg_dump" in result.stderr
