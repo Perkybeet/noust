@@ -86,6 +86,26 @@ When the new package is installed, and from the next update of each application:
 - **`POST /api/server/storage/analyze` needs `server.read`**, not `server.manage`: measuring
   what takes the space changes nothing, so a central with the `read` ceiling may ask for it.
 
+### Stricter checks found by the 3.2 security review
+
+- **Git in an application's tree runs as the tree's owner.** Noust no longer runs git as root
+  with `safe.directory=*` inside a tree another account owns: reading runs as that owner, and
+  root's own git there refuses configuration that would run a program. A checkout whose
+  `.git/config` sets a `credential.helper`, a `filter.*` (Git LFS) or `core.fsmonitor` is refused
+  on update with the key named; remove it from that checkout's configuration (the remote's
+  credentials belong in Noust's source credentials).
+- **Testing or saving a site checks the files it reads.** `include`, `ssl_certificate*`,
+  `ssl_trusted_certificate`, `*_log` and `auth_basic_user_file` paths must sit under the web
+  server's configuration directory, `/etc/letsencrypt`, `/etc/ssl`, `/etc/pki`, `/var/log` or
+  the application's directory; Lua, Perl and njs directives, `load_module` and piped logs are
+  refused in a site. An operator site that uses another location still serves as before, but
+  saving it from the console, or `noust site` edits, ask you to move the file first.
+- **`noust.nginx.yaml` `custom_directives` is a closed list** of header, cache, compression and
+  proxy-tuning directives; anything else belongs in your own site, which Noust keeps.
+- **A Compose stack that gains `privileged` or the Docker socket** in an update, compared with
+  the compose file that was serving, is refused until the exception is recorded
+  (`noust app sandbox compose-exception DOMAIN --reason '...'`), as for a new stack.
+
 ## What does not change
 
 - **Your applications**: their units, directories, sites, certificates, `.env` files and
