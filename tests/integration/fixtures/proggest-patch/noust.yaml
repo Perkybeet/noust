@@ -1,0 +1,14 @@
+# Added to the harness's clone of Proggest only (tests/integration/run.py,
+# proggest_compose_stack): what deploy.sh does by hand before recreating anything,
+# declared for Noust. The migrations run in a one-off container of the backend image
+# the update just built, before a single container is recreated; a failure stops the
+# update with the old stack still serving.
+hooks:
+  pre_deploy:
+    - run: /app/node_modules/.pnpm/node_modules/.bin/prisma migrate deploy
+      service: backend
+      workdir: /app
+      timeout: 600
+      migrates: true
+backup:
+  databases: auto

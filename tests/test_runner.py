@@ -463,6 +463,20 @@ class TestReadOnlyClassification:
             ["nginx", "-t"],
             ["certbot", "certificates"],
             ["git", "rev-parse", "HEAD"],
+            # SourceManager.get_repo_info reading where a checkout fetches from: without
+            # it, `noust --dry-run app adopt` refused every checkout as having no origin.
+            [
+                "git",
+                "-c",
+                "protocol.ext.allow=never",
+                "-c",
+                "protocol.file.allow=never",
+                "-c",
+                "safe.directory=*",
+                "config",
+                "--get",
+                "remote.origin.url",
+            ],
             ["docker", "ps"],
             ["journalctl", "-u", "wasm-example-com"],
             ["node", "--version"],
@@ -488,6 +502,7 @@ class TestReadOnlyClassification:
             ["nginx", "-s", "reload"],
             ["certbot", "certonly", "-d", "example.com"],
             ["git", "clone", "https://example.com/x.git"],
+            ["git", "config", "remote.origin.url", "https://example.com/x.git"],
             ["docker", "compose", "up", "-d"],
             ["rm", "-rf", "/var/www/apps/x"],
             ["apt-get", "install", "-y", "nginx"],

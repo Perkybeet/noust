@@ -2410,6 +2410,9 @@ def _git_probes() -> tuple[tuple[object, ...], ...]:
         ("rev-parse", ...),
         ("status", ...),
         ("describe", ...),
+        # One value read by name: where a checkout fetches from (get_repo_info). Without it
+        # `noust --dry-run app adopt` found no origin and refused every checkout.
+        ("config", "--get", "*"),
         # The tags a commit contains, which is what an update by tag compares.
         ("tag", "--merged", "*"),
         ("log", "-1", "--format=%s"),

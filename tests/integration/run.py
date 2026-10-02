@@ -17,6 +17,7 @@ Usage:
     .venv/bin/python tests/integration/run.py --keep
     .venv/bin/python tests/integration/run.py --scenario node_app_update
     .venv/bin/python tests/integration/run.py --scenario compose
+    .venv/bin/python tests/integration/run.py --scenario proggest   (optional, slow)
 
 Requires Docker (tested against Docker 29) with a working systemd-in-Docker
 setup: cgroup v2, ``--privileged``, ``--cgroupns=host`` and the host cgroup
@@ -31,16 +32,21 @@ does not have a command it drives yet, reports SKIP with the reason, never PASS.
 from __future__ import annotations
 
 import argparse
+import base64
+import contextlib
 import difflib
 import hashlib
 import hmac
 import json
+import os
 import re
 import secrets
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -6719,6 +6725,1163 @@ def scenario_deploy_by_tag(sc: Scenario) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Proggest: a real production stack, locally (optional: --scenario proggest)
+# ---------------------------------------------------------------------------
+
+#: Proggest's repository on the host; NOUST_IT_PROGGEST names another checkout. Only its
+#: committed files are used, through a clone the harness patches: never its .env, never its
+#: backups, never its working tree, never its Docker objects (they live in the host's daemon,
+#: which this harness never talks to).
+PROGGEST_SOURCE = Path(os.environ.get("NOUST_IT_PROGGEST") or REPO_ROOT.parent / "proggest")
+
+#: The files the harness adds to its clone, and copies into the container with the fixtures.
+PROGGEST_PATCH = FIXTURES_DIR / "proggest-patch"
+PROGGEST_PATCH_IN_CONTAINER = "/root/fixtures/proggest-patch"
+
+PROGGEST_DOMAIN = "proggest.test"
+PROGGEST_APP = app_name_of(PROGGEST_DOMAIN)
+#: Where deploy.sh runs from on the server (its nginx site aliases /assets/ there).
+PROGGEST_DIR = "/var/www/proggest"
+PROGGEST_PROJECT = "proggest"
+#: The operator's site file, named as on the server: not after the domain.
+PROGGEST_SITE = "proggest"
+PROGGEST_SITE_PATH = f"/etc/nginx/sites-available/{PROGGEST_SITE}"
+PROGGEST_LIMITS = "/etc/nginx/conf.d/proggest-limits.conf"
+PROGGEST_COMPOSE_FILE = "docker-compose.prod.yml"
+PROGGEST_COMPOSE = f"docker compose -p {PROGGEST_PROJECT} -f {PROGGEST_COMPOSE_FILE}"
+PROGGEST_REPO = "/root/fixtures/proggest"
+PROGGEST_URL = "git://127.0.0.1/proggest"
+PROGGEST_IMAGES = ("node:22-alpine", "postgres:16-alpine", "redis:7-alpine")
+#: deploy.sh's own path to the CLI: `npx prisma` does not find it in the runtime image.
+PROGGEST_PRISMA = "/app/node_modules/.pnpm/node_modules/.bin/prisma"
+PROGGEST_MIGRATION = "20261002120000_noust_it_probe"
+#: The pnpm monorepo builds two images with a 4 GB Node heap each; cold, with every package
+#: downloaded, it takes a good part of an hour. The inner Docker's layer cache, on the data
+#: volume, makes the retries minutes.
+PROGGEST_BUILD_TIMEOUT = 5400
+#: How long the stack gets to answer through nginx: the backend's healthcheck has a 40 s
+#: start period in the compose file.
+PROGGEST_READY_TIMEOUT = 300
+#: deploy.sh's HEALTH_TIMEOUT, given to Noust's gate the same way an operator would.
+PROGGEST_HEALTH_TIMEOUT = 120
+PROGGEST_DRAIN = 5
+#: Lines of a long command's log kept in the evidence; the whole log stays in the container.
+PROGGEST_LOG_TAIL = 60
+
+#: The two probes the relay runs under, each one request every PROBE_INTERVAL through nginx:
+#: (name, path, the load generator's accepted leading digits, the exact status that counts).
+PROGGEST_PROBES: tuple[tuple[str, str, str, int], ...] = (
+    ("health", "/api/v1/health", "2", 200),
+    ("root", "/", "3", 307),
+)
+
+#: Every https URL of proggest.es or one of its subdomains, in the compose file.
+_PROGGEST_HTTPS = re.compile(r"https://((?:[a-z0-9-]+\.)*)proggest\.es")
+
+
+@dataclass
+class Ledger:
+    """How long each step took, and the numbers worth reporting, for the scenario's summary."""
+
+    laps: list[tuple[str, float]] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)
+
+    @contextlib.contextmanager
+    def lap(self, name: str) -> Iterator[None]:
+        """Time a step, whether it passes or fails."""
+        started = time.monotonic()
+        try:
+            yield
+        finally:
+            self.laps.append((name, time.monotonic() - started))
+
+    def render(self) -> str:
+        """The timings and the notes, one per line."""
+        lines = ["[proggest] timings:"]
+        lines += [f"  {seconds:8.1f}s  {name}" for name, seconds in self.laps]
+        lines.append(f"  {sum(s for _, s in self.laps):8.1f}s  total")
+        if self.notes:
+            lines.append("[proggest] numbers:")
+            lines += [f"  {note}" for note in self.notes]
+        return "\n".join(lines)
+
+
+def _replace_once(text: str, old: str, new: str, what: str) -> str:
+    """Replace a fragment that must be there, so a change upstream fails here, loudly."""
+    if old not in text:
+        raise HarnessError(
+            f"Proggest's {what} no longer contains {old!r}: adapt the harness's patch "
+            "(tests/integration/run.py, proggest_compose_stack) to the new file"
+        )
+    return text.replace(old, new)
+
+
+def proggest_compose(text: str) -> str:
+    """
+    Point Proggest's production compose file at the harness's local names.
+
+    Every https URL of proggest.es and its subdomains becomes http on proggest.test (the build
+    args NEXT_PUBLIC_API_URL, CORS_ORIGIN, PASSKEY_ORIGINS, FRONTEND_URL, NEXTAUTH_URL and
+    PUBLIC_BASE_URL's default), the passkey RP ID and the cookie domain follow, and storage is
+    local instead of S3. The Docker socket mount and its group_add stay: the stack runs as it
+    does in production, and Noust is expected to warn about it and run it under the recorded
+    compose exception.
+
+    Args:
+        text: docker-compose.prod.yml as committed.
+
+    Returns:
+        The patched file.
+
+    Raises:
+        HarnessError: A fragment the patch rewrites is gone, or a value outside a comment
+            still names proggest.es.
+    """
+    text = _replace_once(
+        text, "STORAGE_TYPE: ${STORAGE_TYPE:-s3}", "STORAGE_TYPE: local", "compose"
+    )
+    text = _replace_once(
+        text, "PASSKEY_RP_ID: proggest.es", f"PASSKEY_RP_ID: {PROGGEST_DOMAIN}", "compose"
+    )
+    text = _replace_once(
+        text,
+        "AUTH_COOKIE_DOMAIN: .proggest.es",
+        f"AUTH_COOKIE_DOMAIN: .{PROGGEST_DOMAIN}",
+        "compose",
+    )
+    text, count = _PROGGEST_HTTPS.subn(r"http://\1proggest.test", text)
+    if count < 5:
+        raise HarnessError(f"Proggest's compose file names https://proggest.es {count} times")
+    left = [
+        line
+        for line in text.splitlines()
+        if "proggest.es" in line and not line.lstrip().startswith("#")
+    ]
+    if left:
+        raise HarnessError("Proggest's compose file still names proggest.es:\n" + "\n".join(left))
+    return text
+
+
+def proggest_site(text: str, *, relay: bool) -> str:
+    """
+    Adapt Proggest's nginx site (infra/nginx/proggest.es) to the harness: plain HTTP on .test.
+
+    The HTTP server that only redirects to HTTPS goes, and the HTTPS server listens on port 80
+    without its certificate: there is no TLS here. Every location, upstream, limit and header
+    stays as written. With ``relay``, each upstream includes Noust's servers file instead of
+    naming its port, which is the change the relay asks of an operator's site.
+
+    Args:
+        text: The committed site.
+        relay: Write the include lines.
+
+    Returns:
+        The adapted site.
+
+    Raises:
+        HarnessError: A fragment the adaptation rewrites is gone.
+    """
+    start = text.find("# HTTP server (redirect to HTTPS)")
+    end = text.find("# HTTPS server")
+    if start < 0 or end < start:
+        raise HarnessError("Proggest's site no longer has its HTTP and HTTPS servers in order")
+    text = text[:start] + text[end:]
+    text = _replace_once(
+        text,
+        "# HTTPS server",
+        "# Served on port 80: the harness has no certificate, TLS is not validated locally",
+        "site",
+    )
+    text = _replace_once(
+        text,
+        "    listen 443 ssl;\n    http2 on;\n    listen [::]:443 ssl;\n",
+        "    listen 80;\n    listen [::]:80;\n",
+        "site",
+    )
+    text, removed = re.subn(r"(?m)^    ssl_[^\n]*\n", "", text)
+    if removed < 5:
+        raise HarnessError(f"Proggest's site has {removed} ssl_ lines, expected its TLS block")
+    text = _replace_once(text, "proggest.es", PROGGEST_DOMAIN, "site")
+    if relay:
+        for upstream, port, service in (
+            ("nextjs_upstream", 3001, "frontend"),
+            ("nestjs_upstream", 3000, "backend"),
+        ):
+            text = _replace_once(
+                text,
+                f"upstream {upstream} {{\n    server 127.0.0.1:{port};",
+                f"upstream {upstream} {{\n    include "
+                f"/etc/nginx/noust-upstreams/{PROGGEST_APP}/{service}.servers;",
+                "site",
+            )
+    header = (
+        "# Proggest's infra/nginx/proggest.es, adapted by Noust's integration harness: "
+        f"{PROGGEST_DOMAIN}, plain HTTP.\n"
+    )
+    return header + text
+
+
+def prepare_proggest_clone(sc: Scenario) -> str:
+    """
+    Clone Proggest, patch only the clone, commit there, and serve it from the harness's git.
+
+    ``git clone --local`` of the committed tree into a temporary directory on the host; the
+    compose file and a ``.test`` copy of the nginx site patched, ``noust.yaml`` added, one
+    commit; then a one-commit clone of that is what goes into the container and git daemon
+    serves. The source repository is only read.
+
+    Args:
+        sc: The scenario.
+
+    Returns:
+        The adapted site as it is before the relay (upstreams naming their ports), which is
+        how the operator's server has it.
+    """
+    with tempfile.TemporaryDirectory(prefix="noust-it-proggest-") as tmp:
+        clone = Path(tmp) / "clone"
+        sh(["git", "clone", "--local", "-q", str(PROGGEST_SOURCE), str(clone)], timeout=300)
+        compose = clone / PROGGEST_COMPOSE_FILE
+        compose.write_text(proggest_compose(compose.read_text(encoding="utf-8")), encoding="utf-8")
+        original = (clone / "infra" / "nginx" / "proggest.es").read_text(encoding="utf-8")
+        (clone / "infra" / "nginx" / PROGGEST_DOMAIN).write_text(
+            proggest_site(original, relay=True), encoding="utf-8"
+        )
+        shutil.copyfile(PROGGEST_PATCH / "noust.yaml", clone / "noust.yaml")
+        git = ["git", "-C", str(clone), "-c", "core.hooksPath=/dev/null"]
+        sh([*git, "add", "-A"], timeout=60)
+        sh(
+            [
+                *git,
+                "-c",
+                "user.email=noust-it@example.com",
+                "-c",
+                "user.name=Noust Integration",
+                "-c",
+                "commit.gpgsign=false",
+                "commit",
+                "-q",
+                "-m",
+                f"noust-it: local values ({PROGGEST_DOMAIN}, plain HTTP, local storage), "
+                "noust.yaml, the site with Noust's servers files",
+            ],
+            timeout=60,
+        )
+        served = Path(tmp) / "proggest"
+        sh(["git", "clone", "-q", "--depth", "1", f"file://{clone}", str(served)], timeout=300)
+        sh(["git", "-C", str(served), "remote", "remove", "origin"], timeout=30)
+        sc.run(f"rm -rf {PROGGEST_REPO}", timeout=60, label=f"rm -rf {PROGGEST_REPO}")
+        sh(["docker", "cp", str(served), f"{sc.container}:{PROGGEST_REPO}"], timeout=600)
+    sc.run(
+        f"chown -R root:root {PROGGEST_REPO} && cd {PROGGEST_REPO} && {GIT_IDENTITY} && "
+        f"git log --oneline -1 && git show --stat --format= HEAD | tail -1 && "
+        f"git ls-remote --exit-code {PROGGEST_URL} HEAD",
+        timeout=60,
+        label=f"(fixture repo) {PROGGEST_REPO}: a clean clone of {PROGGEST_SOURCE}, patched and "
+        f"committed, served at {PROGGEST_URL}",
+    )
+    return proggest_site(original, relay=False)
+
+
+def proggest_env(docker_gid: str) -> str:
+    """
+    The stack's test ``.env``: generated values, never the repository's own.
+
+    The 64-hex keys are what ``openssl rand -hex 32`` gives, the passwords are hex so they go
+    into DATABASE_URL as they are. NEXT_SERVER_ACTIONS_ENCRYPTION_KEY is a build argument of
+    the frontend: it is derived from a fixed string, so the Docker layer cache holds across
+    runs instead of the frontend being rebuilt from scratch every time.
+
+    Args:
+        docker_gid: The gid of the docker group, for the backend's group_add.
+
+    Returns:
+        The file's text.
+    """
+    server_actions = base64.b64encode(
+        hashlib.sha256(b"noust-it proggest server actions").digest()
+    ).decode()
+    values = {
+        "DB_PASSWORD": secrets.token_hex(16),
+        "REDIS_PASSWORD": secrets.token_hex(16),
+        "JWT_SECRET": secrets.token_hex(32),
+        "AUTH_SECRET": secrets.token_hex(32),
+        "INTERNAL_API_KEY": secrets.token_hex(32),
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": server_actions,
+        "BULL_BOARD_USER": "admin",
+        "BULL_BOARD_PASSWORD": secrets.token_hex(16),
+        "SMTP_HOST": "127.0.0.1",
+        "SMTP_PORT": "2525",
+        "SMTP_USER": "",
+        "SMTP_PASS": "",
+        "MAIL_FROM": f"noreply@{PROGGEST_DOMAIN}",
+        "TWO_FACTOR_ENCRYPTION_KEY": secrets.token_hex(32),
+        "INTEGRATION_ENCRYPTION_KEY": secrets.token_hex(32),
+        "PERSONNEL_ENCRYPTION_KEY": secrets.token_hex(32),
+        "STORAGE_TYPE": "local",
+        "PUBLIC_BASE_URL": f"http://{PROGGEST_DOMAIN}",
+        "DOCKER_GID": docker_gid,
+    }
+    return "".join(f"{key}={value}\n" for key, value in values.items())
+
+
+def logged(
+    sc: Scenario, command: str, *, log: str, label: str, timeout: int, check: bool = True
+) -> subprocess.CompletedProcess[str]:
+    """
+    Run a long command with its output in a file in the container, keeping its end as evidence.
+
+    A pnpm build prints tens of thousands of lines; the whole log stays at ``log`` for whoever
+    keeps the container (``--keep``), and the evidence gets its last lines.
+
+    Args:
+        sc: The scenario.
+        command: The command.
+        log: Where its output goes, in the container.
+        label: What it is, for the evidence.
+        timeout: Seconds it may take.
+        check: Fail the scenario when it fails.
+
+    Returns:
+        The finished command, its stdout being the end of the log.
+    """
+    return sc.run(
+        f"( {command} ) > {log} 2>&1; rc=$?; tail -n {PROGGEST_LOG_TAIL} {log}; exit $rc",
+        timeout=timeout,
+        check=check,
+        label=f"{label}  [full output: {log}]",
+    )
+
+
+def proggest_status(sc: Scenario, path: str) -> str:
+    """The status nginx answers for a path of the stack's site: ``000`` when nothing answers."""
+    return docker_exec(
+        sc.container,
+        f"curl -s -o /dev/null -m 10 -w '%{{http_code}}' -H 'Host: {PROGGEST_DOMAIN}' "
+        f"'http://127.0.0.1{path}'",
+        timeout=30,
+        check=False,
+    ).stdout.strip()
+
+
+def wait_proggest(sc: Scenario, path: str, expected: int) -> None:
+    """Wait until the site answers a path with a status, and fail when it never does."""
+    deadline = time.monotonic() + PROGGEST_READY_TIMEOUT
+    status = ""
+    while time.monotonic() < deadline:
+        status = proggest_status(sc, path)
+        if status == str(expected):
+            break
+        time.sleep(3)
+    sc.evidence.append(f"$ (until it answers) GET {path} as {PROGGEST_DOMAIN}\n{status}")
+    sc.check(status == str(expected), f"{path} answers {status}, not {expected}")
+
+
+def proggest_psql(sc: Scenario, sql: str, label: str) -> str:
+    """Run SQL against the stack's PostgreSQL as deploy.sh does, and return what it printed.
+
+    The SQL goes in on stdin, so its quotes never meet the shell's.
+    """
+    return sc.run(
+        "docker exec -i proggest-postgres sh -c "
+        "'PGPASSWORD=$POSTGRES_PASSWORD psql -v ON_ERROR_STOP=1 -U $POSTGRES_USER "
+        f"-d $POSTGRES_DB -tA' <<'EOF'\n{sql};\nEOF",
+        timeout=60,
+        label=f"{label}: {sql}",
+    ).stdout.strip()
+
+
+def proggest_containers(sc: Scenario, label: str) -> dict[str, str]:
+    """Each container of the project by name, with its id and start time."""
+    proc = sc.run(
+        "docker inspect -f '{{.Name}} {{.Id}} {{.State.StartedAt}}' "
+        f"$(docker ps -q -f label=com.docker.compose.project={PROGGEST_PROJECT})",
+        timeout=30,
+        label=label,
+    )
+    found: dict[str, str] = {}
+    for line in proc.stdout.splitlines():
+        name, _, rest = line.strip().lstrip("/").partition(" ")
+        if name:
+            found[name] = rest
+    return found
+
+
+def proggest_servers(sc: Scenario, label: str) -> dict[str, str]:
+    """What each of the stack's servers files names."""
+    found: dict[str, str] = {}
+    for service in ("backend", "frontend"):
+        found[service] = sc.run(
+            f"cat /etc/nginx/noust-upstreams/{PROGGEST_APP}/{service}.servers 2>/dev/null",
+            timeout=15,
+            check=False,
+            label=f"{label}: {service}.servers",
+        ).stdout.strip()
+    return found
+
+
+def proggest_backups(sc: Scenario, label: str) -> list[dict[str, Any]]:
+    """The stack's backups, as ``noust backup list --json`` gives them."""
+    listing = json_of(
+        sc.run(f"noust backup list {PROGGEST_DOMAIN} --json", timeout=60, label=label),
+        "noust backup list",
+    )
+    backups: list[dict[str, Any]] = (
+        listing if isinstance(listing, list) else listing.get("backups") or listing.get("items")
+    ) or []
+    return backups
+
+
+def proggest_pre_update_backup(sc: Scenario, before: set[str], update: str, ledger: Ledger) -> str:
+    """
+    Find the backup an update took, and check it holds a dump of the stack's PostgreSQL.
+
+    Args:
+        sc: The scenario.
+        before: The backup ids there were before the update.
+        update: Which update, for the messages.
+        ledger: Where its size goes.
+
+    Returns:
+        Its id.
+    """
+    new = [b for b in proggest_backups(sc, f"the backups after {update}") if b["id"] not in before]
+    sc.check(len(new) == 1, f"{update} took {len(new)} backups, not one: {new!r}")
+    backup_id = str(new[0]["id"])
+    info = json_of(
+        sc.run(
+            f"noust backup info {backup_id} --json", timeout=60, label=f"what {backup_id} holds"
+        ),
+        "noust backup info",
+    )
+    metadata = info.get("backup", info)
+    dumps = metadata.get("database_backups") or []
+    sc.check(bool(dumps), f"the backup before {update} holds no database dump: {info!r}")
+    ledger.notes.append(
+        f"pre-update backup before {update}: {backup_id}, "
+        f"{metadata.get('size_bytes', '?')} bytes, dumps: " + json.dumps(dumps)[:300]
+    )
+    return backup_id
+
+
+def start_proggest_probes(sc: Scenario) -> dict[str, int]:
+    """
+    Start one probe per path, one request through nginx every PROBE_INTERVAL seconds.
+
+    Returns:
+        Each probe's log line count once it runs: the first phase's start.
+    """
+    install_tools(sc)
+    for name, path, accept, _ in PROGGEST_PROBES:
+        unit, log = f"noust-it-pg-{name}", f"/root/pg-probe-{name}.log"
+        sc.run(
+            f"systemctl stop {unit} 2>/dev/null; systemctl reset-failed {unit} 2>/dev/null; "
+            f"rm -f {log}; systemd-run --unit {unit} --collect /usr/bin/python3 "
+            f"{CONTAINER_TOOLS}/load.py {PROGGEST_DOMAIN} {log} {PROBE_INTERVAL} {path} {accept}",
+            timeout=30,
+            label=f"start the probe: GET {path} as {PROGGEST_DOMAIN} through nginx every "
+            f"{int(PROBE_INTERVAL * 1000)} ms",
+        )
+    deadline = time.time() + 30
+    marks: dict[str, int] = {}
+    while time.time() < deadline:
+        marks = {
+            name: int(
+                docker_exec(
+                    sc.container, f"wc -l < /root/pg-probe-{name}.log 2>/dev/null || echo 0"
+                ).stdout.strip()
+                or 0
+            )
+            for name, *_ in PROGGEST_PROBES
+        }
+        if all(count >= 10 for count in marks.values()):
+            return marks
+        time.sleep(0.5)
+    raise AssertionError(f"the probes are not writing their logs: {marks!r}")
+
+
+def stop_proggest_probes(sc: Scenario) -> None:
+    """Stop the probes, whether or not they run."""
+    units = " ".join(f"noust-it-pg-{name}" for name, *_ in PROGGEST_PROBES)
+    sc.run(f"systemctl stop {units}; true", timeout=30, check=False, label="stop the probes")
+
+
+def proggest_probe_phase(
+    sc: Scenario, phase: str, marks: dict[str, int], ledger: Ledger, *, minimum: int = 20
+) -> dict[str, int]:
+    """
+    Judge what each probe saw since its mark: every answer must be its exact expected status.
+
+    Args:
+        sc: The scenario.
+        phase: What was happening.
+        marks: Where each probe's phase starts.
+        ledger: Where the counts go.
+        minimum: The fewest requests per probe for the phase's silence to mean something.
+
+    Returns:
+        Where the next phase starts.
+    """
+    time.sleep(1)
+    after: dict[str, int] = {}
+    problems: list[str] = []
+    for name, path, _, expected in PROGGEST_PROBES:
+        text = docker_exec(
+            sc.container, f"tail -n +{marks[name] + 1} /root/pg-probe-{name}.log", timeout=30
+        ).stdout
+        lines = text[: text.rfind("\n") + 1].splitlines()
+        statuses: dict[str, int] = {}
+        failed = []
+        for line in lines:
+            parts = line.split(" ", 3)
+            status = parts[2] if len(parts) > 2 else "?"
+            statuses[status] = statuses.get(status, 0) + 1
+            if not line.startswith("OK ") or status != str(expected):
+                failed.append(line)
+        seconds = (
+            float(lines[-1].split(" ", 2)[1]) - float(lines[0].split(" ", 2)[1]) if lines else 0.0
+        )
+        summary = (
+            f"{phase}: GET {path} {len(lines)} requests over {seconds:.1f}s, "
+            f"{len(failed)} not {expected}; statuses {statuses}"
+        )
+        ledger.notes.append(summary)
+        sc.evidence.append(f"[probe] {summary}" + "".join(f"\n  {line}" for line in failed[:30]))
+        running = docker_exec(sc.container, f"systemctl is-active noust-it-pg-{name}", check=False)
+        if running.stdout.strip() != "active":
+            problems.append(f"the {path} probe died during {phase}")
+        if len(lines) < minimum:
+            problems.append(f"{phase}: only {len(lines)} requests to {path}")
+        if failed:
+            problems.append(f"{phase}: {len(failed)} of {len(lines)} requests to {path} failed")
+        after[name] = marks[name] + len(lines)
+    sc.check(not problems, "; ".join(problems))
+    return after
+
+
+def proggest_update(
+    sc: Scenario, ledger: Ledger, number: int, what: str, *, check: bool = True
+) -> subprocess.CompletedProcess[str]:
+    """Run ``noust -v update`` on the stack, timed, its output in a log of its own.
+
+    Verbose, because the relay's steps (which container starts where, when nginx moves) are
+    substeps, and they are the evidence that each service was relayed.
+    """
+    with ledger.lap(f"noust update #{number}: {what}"):
+        return logged(
+            sc,
+            f"noust -v update {PROGGEST_DOMAIN}",
+            log=f"/root/pg-update-{number}.log",
+            label=f"noust -v update {PROGGEST_DOMAIN}  ({what})",
+            timeout=PROGGEST_BUILD_TIMEOUT,
+            check=check,
+        )
+
+
+def in_log(sc: Scenario, log: str, text: str, label: str) -> bool:
+    """Whether a log in the container holds a fixed string."""
+    return (
+        sc.run(f"grep -F -m 3 -- '{text}' {log}", timeout=30, check=False, label=label).returncode
+        == 0
+    )
+
+
+def no_relay_left(sc: Scenario, label: str) -> None:
+    """Fail when a relay container exists."""
+    left = sc.run(
+        "docker ps -a --format '{{.Names}}' | grep -- '-relay$' || true", timeout=30, label=label
+    ).stdout.strip()
+    sc.check(not left, f"a relay container was left behind: {left!r}")
+
+
+@scenario("proggest_compose_stack")
+def scenario_proggest_compose_stack(sc: Scenario) -> None:
+    """
+    Proggest's production stack, brought up the way deploy.sh does, adopted and updated by Noust.
+
+    A clean clone of Proggest (its committed files only), patched in the clone to local values
+    and served by the harness's git: postgres, redis, a NestJS backend and a Next.js frontend
+    built from a pnpm monorepo, and its own hand-written nginx site with its own upstream names
+    and rate limits. Then: adopted with a clean `--dry-run`; the relay switched on (first
+    refused with the exact include line its site lacks, then accepted once the site has it);
+    two updates (a trivial one, then one with an additive Prisma migration) under two probes
+    every 0.2 s through nginx (/api/v1/health must answer 200 and / 307, every time), each
+    with a pre-update PostgreSQL dump and the migrations run by the noust.yaml hook; a backend
+    that cannot start refused at its relay with the old one serving; a rollback past the
+    migration refused until confirmed; the site's structure and the route of
+    /api/v1/auth/login from the console's API; and `noust delete` keeping the directory.
+    """
+    require_cli(sc, "app adopt", what="adopting a running stack")
+    require_cli(sc, "app hooks", what="deploy hooks (noust.yaml)")
+    require_module(sc, "noust.deployers.compose_relay", what="the Compose relay")
+    require_module(sc, "noust.managers.stack_databases", what="the stack's database copies")
+    require_docker(sc)
+    if not (PROGGEST_SOURCE / ".git").exists():
+        raise ScenarioSkipped(
+            f"no Proggest checkout at {PROGGEST_SOURCE} (NOUST_IT_PROGGEST names another)"
+        )
+    ledger = Ledger()
+    try:
+        with ledger.lap("pull the base images"):
+            pull_images(sc, *PROGGEST_IMAGES)
+        with ledger.lap("clone Proggest, patch and commit the clone, serve it"):
+            plain_site = prepare_proggest_clone(sc)
+        _proggest_by_hand(sc, ledger, plain_site)
+        _proggest_adopt(sc, ledger)
+        _proggest_relay_on(sc, ledger)
+        marks = start_proggest_probes(sc)
+        marks, before_migration = _proggest_updates(sc, ledger, marks)
+        marks = _proggest_broken(sc, ledger, marks)
+        marks = _proggest_rollback_refused(sc, ledger, marks, before_migration)
+        stop_proggest_probes(sc)
+        _proggest_site_api(sc, ledger)
+        _proggest_sizes(sc, ledger)
+        _proggest_delete(sc, ledger)
+    except AssertionError:
+        journal_tail(sc, f"-u {PROGGEST_APP} -u 'noust*' -u nginx", "journalctl (on failure)")
+        sc.run(
+            f"cd {PROGGEST_DIR} && {PROGGEST_COMPOSE} ps -a; "
+            f"{PROGGEST_COMPOSE} logs --tail 40 --no-color backend frontend",
+            timeout=60,
+            check=False,
+            label="the stack's containers and their last lines (on failure)",
+        )
+        raise
+    finally:
+        stop_proggest_probes(sc)
+        sc.run(
+            f"noust web stop; noust delete {PROGGEST_DOMAIN} -f 2>/dev/null; "
+            f"cd {PROGGEST_DIR} 2>/dev/null && {PROGGEST_COMPOSE} down -v --remove-orphans; "
+            "docker ps -aq -f name=-relay | xargs -r docker rm -f; "
+            f"rm -rf {PROGGEST_DIR} {PROGGEST_SITE_PATH} /etc/nginx/sites-enabled/{PROGGEST_SITE} "
+            f"{PROGGEST_LIMITS} /etc/nginx/noust-upstreams/{PROGGEST_APP}; nginx -s reload; true",
+            timeout=300,
+            check=False,
+            label="cleanup: the application, the stack and its volumes (its images stay: they "
+            "are the next run's cache), the site",
+        )
+        report = ledger.render()
+        sc.evidence.append(report)
+        print(report)
+
+
+def _proggest_by_hand(sc: Scenario, ledger: Ledger, plain_site: str) -> None:
+    """Step 1: the stack and its site, the way deploy.sh and the operator left them."""
+    gid = docker_exec(
+        sc.container, "getent group docker | cut -d: -f3", timeout=15, check=False
+    ).stdout.strip()
+    sc.run(
+        f"rm -rf {PROGGEST_DIR} && git clone -q {PROGGEST_URL} {PROGGEST_DIR} && "
+        f"git -C {PROGGEST_DIR} log --oneline -1",
+        timeout=300,
+        label=f"the operator's checkout: git clone {PROGGEST_URL} {PROGGEST_DIR}",
+    )
+    sc.run(
+        f"umask 077 && cat > {PROGGEST_DIR}/.env <<'EOF'\n{proggest_env(gid or '999')}EOF\n"
+        f"git -C {PROGGEST_DIR} status --short",
+        timeout=30,
+        label=f"write {PROGGEST_DIR}/.env with generated test values (withheld); git status",
+    )
+    sc.run(
+        f"cp {PROGGEST_PATCH_IN_CONTAINER}/limits.conf {PROGGEST_LIMITS}",
+        timeout=15,
+        label=f"the rate-limit zones the site uses, in {PROGGEST_LIMITS}",
+    )
+    with ledger.lap("docker compose build (backend + frontend, as deploy.sh)"):
+        logged(
+            sc,
+            f"cd {PROGGEST_DIR} && {PROGGEST_COMPOSE} build",
+            log="/root/pg-build.log",
+            label=f"cd {PROGGEST_DIR} && {PROGGEST_COMPOSE} build",
+            timeout=PROGGEST_BUILD_TIMEOUT,
+        )
+    with ledger.lap("start postgres and redis"):
+        sc.run(
+            f"cd {PROGGEST_DIR} && {PROGGEST_COMPOSE} up -d --wait postgres redis",
+            timeout=300,
+            label=f"{PROGGEST_COMPOSE} up -d --wait postgres redis",
+        )
+    # Proggest's history does not replay on an empty database: 20260407125531_fix_schema drops
+    # an index only production ever had. A new database is baselined the way Prisma documents
+    # it (the schema pushed, every migration marked applied), then deploy.sh's own step runs.
+    baseline = (
+        f"B={PROGGEST_PRISMA} && $B db push && for m in $(ls prisma/migrations | grep ^[0-9]); "
+        "do $B migrate resolve --applied $m >/dev/null || exit 1; done"
+    )
+    with ledger.lap("baseline the empty database (db push + migrate resolve --applied x99)"):
+        logged(
+            sc,
+            f"cd {PROGGEST_DIR} && {PROGGEST_COMPOSE} run --rm --no-deps --entrypoint sh "
+            f"backend -c 'cd /app && {baseline}'",
+            log="/root/pg-baseline.log",
+            label="baseline the empty database: prisma db push, then migrate resolve --applied "
+            "for every committed migration",
+            timeout=900,
+        )
+    with ledger.lap("migrations, as deploy.sh runs them"):
+        logged(
+            sc,
+            f"cd {PROGGEST_DIR} && {PROGGEST_COMPOSE} run --rm --no-deps --entrypoint sh "
+            f"backend -c 'cd /app && {PROGGEST_PRISMA} migrate deploy'",
+            log="/root/pg-migrate.log",
+            label=f"{PROGGEST_COMPOSE} run --rm --no-deps --entrypoint sh backend -c "
+            f"'cd /app && {PROGGEST_PRISMA} migrate deploy'",
+            timeout=900,
+        )
+    with ledger.lap("docker compose up -d"):
+        sc.run(
+            f"cd {PROGGEST_DIR} && {PROGGEST_COMPOSE} up -d",
+            timeout=600,
+            label=f"{PROGGEST_COMPOSE} up -d",
+        )
+    sc.run(
+        f"cat > {PROGGEST_SITE_PATH} <<'EOF'\n{plain_site}EOF\n"
+        f"ln -sf {PROGGEST_SITE_PATH} /etc/nginx/sites-enabled/{PROGGEST_SITE} && "
+        "nginx -t && nginx -s reload",
+        timeout=30,
+        label=f"the operator's site, {PROGGEST_SITE_PATH} (upstreams naming 3000 and 3001)",
+    )
+    with ledger.lap("until /api/v1/health is 200 and / is 307 through nginx"):
+        wait_proggest(sc, "/api/v1/health", 200)
+        wait_proggest(sc, "/", 307)
+
+
+def _proggest_adopt(sc: Scenario, ledger: Ledger) -> None:
+    """Step 1, continued: `noust app adopt`, rehearsed first; nothing it finds is touched."""
+    before = proggest_containers(sc, "the stack's containers before adopting")
+    sc.check(len(before) == 4, f"the stack does not run four containers: {before!r}")
+    site_sum = sc.run(f"sha256sum {PROGGEST_SITE_PATH}", timeout=15, label="the site's checksum")
+    adopt = (
+        f"app adopt {PROGGEST_DOMAIN} --path {PROGGEST_DIR} --compose-file {PROGGEST_COMPOSE_FILE}"
+    )
+    # A --dry-run never creates the store, and refuses without one: on a server where Noust
+    # has never run a command, the rehearsal would fail for that alone.
+    sc.run("noust list", timeout=60, label="noust list (the store exists, as on any server)")
+    with ledger.lap("noust --dry-run app adopt"):
+        rehearsal = sc.run(
+            f"noust --dry-run {adopt} --json", timeout=300, label=f"noust --dry-run {adopt} --json"
+        )
+    plan = json_of(rehearsal, "noust --dry-run app adopt")
+    sc.check(plan.get("adopted") is False, f"the rehearsal adopted: {plan!r}")
+    sc.check(plan.get("changes") == [], f"the rehearsal is not clean: {plan.get('changes')!r}")
+    sc.check(plan.get("project") == PROGGEST_PROJECT, f"project {plan.get('project')!r}")
+    sc.check(plan.get("site") == PROGGEST_SITE, f"site {plan.get('site')!r}")
+    sc.check(plan.get("port") == 3001, f"the port in front is {plan.get('port')!r}, not 3001")
+    ledger.notes.append(
+        f"adopt --dry-run: changes {plan.get('changes')}, warnings {plan.get('warnings')}"
+    )
+    sc.check(
+        not store_rows(
+            sc,
+            "SELECT id FROM apps WHERE domain = @domain",
+            domain=PROGGEST_DOMAIN,
+            label="the rehearsal registered nothing",
+        ),
+        "the rehearsal registered the application",
+    )
+    with ledger.lap("noust app adopt"):
+        sc.run(f"noust {adopt} -y", timeout=300, label=f"noust {adopt} -y")
+    sc.check(
+        proggest_containers(sc, "the stack's containers after adopting") == before,
+        "adopting touched the containers",
+    )
+    sc.check(
+        sc.run(f"sha256sum {PROGGEST_SITE_PATH}", timeout=15, label="its checksum after").stdout
+        == site_sum.stdout,
+        "adopting rewrote the operator's site",
+    )
+    row = store_rows(
+        sc,
+        "SELECT layout, compose_project, site_name, port, app_path FROM apps "
+        "WHERE domain = @domain",
+        domain=PROGGEST_DOMAIN,
+        label="the adopted application's row",
+    )[0]
+    sc.check(
+        row
+        == {
+            "layout": "inplace",
+            "compose_project": PROGGEST_PROJECT,
+            "site_name": PROGGEST_SITE,
+            "port": 3001,
+            "app_path": PROGGEST_DIR,
+        },
+        f"the adopted row: {row!r}",
+    )
+
+
+def _proggest_relay_on(sc: Scenario, ledger: Ledger) -> None:
+    """Step 2: `noust app zero-downtime on`, refused with the line the site lacks, then on."""
+    sc.run(
+        f"noust app sandbox compose-exception {PROGGEST_DOMAIN} -y --reason "
+        "'the backend reads container state through the Docker socket (super-admin system page)'",
+        timeout=60,
+        label=f"noust app sandbox compose-exception {PROGGEST_DOMAIN} --reason '...'",
+    )
+    sc.run(
+        f"noust app health {PROGGEST_DOMAIN} --timeout {PROGGEST_HEALTH_TIMEOUT}",
+        timeout=60,
+        label=f"noust app health {PROGGEST_DOMAIN} --timeout {PROGGEST_HEALTH_TIMEOUT} "
+        "(deploy.sh's HEALTH_TIMEOUT)",
+    )
+    command = f"noust app zero-downtime {PROGGEST_DOMAIN} on --drain {PROGGEST_DRAIN}"
+    refused = sc.run(command, timeout=120, check=False, label=f"{command}  (site without include)")
+    line = f"include /etc/nginx/noust-upstreams/{PROGGEST_APP}/backend.servers;"
+    sc.check(refused.returncode != 0, "the relay was turned on for a site that cannot use it")
+    sc.check(line in command_output(refused), f"the refusal does not give the line {line!r}")
+    with ledger.lap("the operator installs the site with the include lines"):
+        sc.run(
+            f"cp {PROGGEST_DIR}/infra/nginx/{PROGGEST_DOMAIN} {PROGGEST_SITE_PATH} && "
+            "nginx -t && nginx -s reload",
+            timeout=30,
+            label=f"cp {PROGGEST_DIR}/infra/nginx/{PROGGEST_DOMAIN} {PROGGEST_SITE_PATH}; reload",
+        )
+    with ledger.lap("noust app zero-downtime on"):
+        sc.run(command, timeout=120, label=command)
+    servers = proggest_servers(sc, "the servers files")
+    sc.check(
+        servers == {"backend": "server 127.0.0.1:3000;", "frontend": "server 127.0.0.1:3001;"},
+        f"the servers files: {servers!r}",
+    )
+    sc.check(
+        sc.run(
+            f"cmp {PROGGEST_DIR}/infra/nginx/{PROGGEST_DOMAIN} {PROGGEST_SITE_PATH}",
+            timeout=15,
+            check=False,
+            label="the operator's site is unchanged by switching the relay on",
+        ).returncode
+        == 0,
+        "switching the relay on rewrote the operator's site",
+    )
+    wait_proggest(sc, "/api/v1/health", 200)
+
+
+def _proggest_check_update(sc: Scenario, number: int, revision: int) -> dict[str, Any]:
+    """What every good update leaves: success, the hook, the relays gone, the new images."""
+    log = f"/root/pg-update-{number}.log"
+    row = last_deployment(sc, PROGGEST_DOMAIN)
+    sc.check(row["status"] == "success", f"update #{number}'s row: {row!r}")
+    sc.check("migrate deploy" in (row["hooks"] or ""), f"the hook did not run: {row!r}")
+    for service in ("backend", "frontend"):
+        sc.check(
+            in_log(sc, log, f"proggest-{service}-relay", f"update #{number} relayed {service}"),
+            f"update #{number} did not relay {service}",
+        )
+        value = sc.run(
+            "docker inspect -f '{{index .Config.Labels \"noust-it.revision\"}}' "
+            f"proggest-{service}",
+            timeout=30,
+            check=False,
+            label=f"the revision of the image proggest-{service} runs",
+        ).stdout.strip()
+        sc.check(value == str(revision), f"proggest-{service} runs revision {value!r}")
+    sc.check(
+        in_log(sc, log, f"allowed for {PROGGEST_DOMAIN} by", "the compose exception is named"),
+        "the Docker socket mount was not reported as allowed by the recorded exception",
+    )
+    no_relay_left(sc, f"no relay container is left after update #{number}")
+    servers = proggest_servers(sc, f"the servers files after update #{number}")
+    sc.check(
+        servers == {"backend": "server 127.0.0.1:3000;", "frontend": "server 127.0.0.1:3001;"},
+        f"the servers files were not given back to the stack's ports: {servers!r}",
+    )
+    return row
+
+
+def _proggest_updates(
+    sc: Scenario, ledger: Ledger, marks: dict[str, int]
+) -> tuple[dict[str, int], str]:
+    """Step 3: a trivial update, then one with an additive migration, under the probes."""
+    marks = proggest_probe_phase(sc, "idle, before the first update", marks, ledger, minimum=1)
+    # A label on both images: new images, every layer from the cache. Anything in the build
+    # context would rebuild both from `COPY . .` on (apps/*/Dockerfile included: Proggest's
+    # .dockerignore leaves out only the root Dockerfile).
+    commit_to(
+        sc,
+        PROGGEST_REPO,
+        "sed -i 's#^      dockerfile: apps/\\(erp-backend\\|web-gateway\\)/Dockerfile$#&\\n"
+        '      labels:\\n        noust-it.revision: "2"#\' '
+        f"{PROGGEST_COMPOSE_FILE} && "
+        f"test $(grep -c 'noust-it.revision: \"2\"' {PROGGEST_COMPOSE_FILE}) = 2",
+        "noust-it: revision 2 (a label on both images)",
+    )
+    before = {b["id"] for b in proggest_backups(sc, "the backups before update #1")}
+    proggest_update(sc, ledger, 1, "a trivial change to both images")
+    marks = proggest_probe_phase(sc, "update #1 (trivial)", marks, ledger)
+    row = _proggest_check_update(sc, 1, 2)
+    ledger.notes.append(f"update #1 schema_changed={row['schema_changed']} (the hook migrates)")
+    proggest_pre_update_backup(sc, before, "update #1", ledger)
+
+    migration_dir = f"packages/database/prisma/migrations/{PROGGEST_MIGRATION}"
+    commit_to(
+        sc,
+        PROGGEST_REPO,
+        f"mkdir -p {migration_dir} && "
+        f"cp {PROGGEST_PATCH_IN_CONTAINER}/migration.sql {migration_dir}/migration.sql && "
+        'sed -i \'s/noust-it.revision: "2"/noust-it.revision: "3"/\' '
+        f"{PROGGEST_COMPOSE_FILE}",
+        "noust-it: revision 3, an additive migration",
+    )
+    before = {b["id"] for b in proggest_backups(sc, "the backups before update #2")}
+    proggest_update(
+        sc, ledger, 2, "an additive Prisma migration (rebuilds from COPY . . when not cached)"
+    )
+    marks = proggest_probe_phase(sc, "update #2 (migration)", marks, ledger)
+    row = _proggest_check_update(sc, 2, 3)
+    sc.check(row["schema_changed"] == 1, f"the migration did not mark the schema: {row!r}")
+    sc.check(PROGGEST_MIGRATION in (row["hooks"] or ""), f"the hook's output: {row!r}")
+    applied = proggest_psql(
+        sc,
+        "SELECT count(*) FROM _prisma_migrations WHERE migration_name LIKE '%_noust_it_probe' "
+        "AND finished_at IS NOT NULL",
+        "the migration is recorded as applied",
+    )
+    sc.check(applied == "1", f"_prisma_migrations: {applied!r}")
+    table = proggest_psql(
+        sc, "SELECT to_regclass('public.noust_it_probe')", "the table the migration adds"
+    )
+    sc.check(table == "noust_it_probe", f"the migration's table: {table!r}")
+    before_migration = proggest_pre_update_backup(sc, before, "update #2", ledger)
+    return marks, before_migration
+
+
+def _proggest_broken(sc: Scenario, ledger: Ledger, marks: dict[str, int]) -> dict[str, int]:
+    """Step 4: a backend that cannot start is refused at its relay; the old one serves."""
+    serving = proggest_containers(sc, "the containers before the broken update")
+    head = sc.run(
+        f"git -C {PROGGEST_DIR} rev-parse HEAD", timeout=15, label="the commit that serves"
+    ).stdout.strip()
+    commit_to(
+        sc,
+        PROGGEST_REPO,
+        "sed -i 's#^    container_name: proggest-backend$#&\\n"
+        '    command: ["node", "dist/noust-it-missing.js"]#\' '
+        f"{PROGGEST_COMPOSE_FILE} && grep -q noust-it-missing {PROGGEST_COMPOSE_FILE}",
+        "noust-it: a backend that cannot start (its command names a file the image lacks)",
+    )
+    failed = proggest_update(sc, ledger, 3, "a backend that cannot start", check=False)
+    marks = proggest_probe_phase(sc, "update #3 (broken backend)", marks, ledger, minimum=5)
+    output = command_output(failed)
+    sc.check(failed.returncode != 0, "an update whose backend cannot start succeeded")
+    sc.check(
+        in_log(
+            sc,
+            "/root/pg-update-3.log",
+            "did not answer in its relay",
+            "the error says the relay never answered",
+        ),
+        f"the error does not say the relay never answered: {output[-2000:]!r}",
+    )
+    sc.check(
+        proggest_containers(sc, "the containers after the broken update") == serving,
+        "a container that served was touched by an update whose backend never started",
+    )
+    no_relay_left(sc, "no relay container is left after the broken update")
+    sc.check(
+        sc.run(
+            f"git -C {PROGGEST_DIR} rev-parse HEAD", timeout=15, label="the checkout after it"
+        ).stdout.strip()
+        == head,
+        "the checkout was not put back on the commit that serves",
+    )
+    sc.check(proggest_status(sc, "/api/v1/health") == "200", "the backend no longer answers")
+    row = last_deployment(sc, PROGGEST_DOMAIN)
+    ledger.notes.append(
+        f"update #3 (broken): exit {failed.returncode}, row status {row['status']}, "
+        f"schema_changed={row['schema_changed']}"
+    )
+    return marks
+
+
+def _proggest_rollback_refused(
+    sc: Scenario, ledger: Ledger, marks: dict[str, int], backup_id: str
+) -> dict[str, int]:
+    """Step 5: going back past the migration asks for --schema-changed-ok and moves nothing."""
+    serving = proggest_containers(sc, "the containers before the rollback")
+    head = sc.run(
+        f"git -C {PROGGEST_DIR} rev-parse HEAD", timeout=15, label="the commit that serves"
+    ).stdout.strip()
+    command = f"noust rollback {PROGGEST_DOMAIN} {backup_id}"
+    with ledger.lap("noust rollback past the migration (refused)"):
+        refused = sc.run(
+            command, timeout=600, check=False, label=f"{command}  (the backup before the migration)"
+        )
+    sc.check(refused.returncode != 0, "a rollback past a migration went ahead unasked")
+    sc.check(
+        "--schema-changed-ok" in command_output(refused),
+        "the refusal does not name the flag that confirms it",
+    )
+    sc.check(
+        proggest_containers(sc, "the containers after the refused rollback") == serving,
+        "the refused rollback touched the containers",
+    )
+    sc.check(
+        sc.run(
+            f"git -C {PROGGEST_DIR} rev-parse HEAD", timeout=15, label="the checkout after it"
+        ).stdout.strip()
+        == head,
+        "the refused rollback moved the checkout",
+    )
+    return proggest_probe_phase(sc, "the refused rollback", marks, ledger, minimum=5)
+
+
+def api_json(
+    sc: Scenario, token: str, method: str, path: str, body: dict[str, Any], label: str
+) -> tuple[int, Any]:
+    """Call the console's API with a JSON body and a Bearer token kept out of the evidence."""
+    payload = json.dumps(body)
+    sc.check("'" not in payload, "a JSON body cannot carry a single quote through the heredoc")
+    proc = docker_exec(
+        sc.container,
+        f"curl -sS -X {method} -H 'Authorization: Bearer {token}' "
+        "-H 'Content-Type: application/json' --data-binary @- "
+        f"-w '\\n%{{http_code}}' {PANEL_URL}{path} <<'EOF'\n{payload}\nEOF",
+        timeout=30,
+        check=False,
+    )
+    text, _, code = proc.stdout.rpartition("\n")
+    try:
+        answer: Any = json.loads(text) if text.strip() else None
+    except json.JSONDecodeError:
+        answer = text
+    sc.evidence.append(f"$ {label}\n{payload}\n{code} {str(answer)[:4000]}")
+    return int(code or 0), answer
+
+
+def _locations(node: Any) -> Iterator[dict[str, Any]]:
+    """Every location in a site's structure, nested ones included."""
+    if isinstance(node, dict):
+        if "modifier" in node and "path" in node and "id" in node:
+            yield node
+        for value in node.values():
+            yield from _locations(value)
+    elif isinstance(node, list):
+        for item in node:
+            yield from _locations(item)
+
+
+def _proggest_site_api(sc: Scenario, ledger: Ledger) -> None:
+    """Step 6: the console's API reads the operator's site and routes a URL to its location."""
+    issued = docker_exec(
+        sc.container, f"noust token create it-proggest-{secrets.token_hex(4)} --scope admin"
+    )
+    token_match = re.search(r"Token:\s*(\S+)", issued.stdout)
+    sc.check(token_match is not None, "noust token create printed no token")
+    token = token_match.group(1) if token_match else ""
+    sc.evidence.append("$ noust token create it-proggest-... --scope admin\n(token issued)")
+    wait_for_console(sc)
+    with ledger.lap("GET structure + POST route x3"):
+        code, structure = api(
+            sc, token, "GET", f"/api/sites/{PROGGEST_DOMAIN}/structure", "GET structure"
+        )
+        sc.check(code == 200, f"GET /api/sites/{PROGGEST_DOMAIN}/structure answered {code}")
+        by_path = {loc["path"]: loc["id"] for loc in _locations(structure)}
+        ledger.notes.append(f"structure: {len(by_path)} locations")
+        for path, expected, upstream in (
+            ("/api/v1/auth/login", "/api/v1/auth/login", "nestjs_upstream"),
+            ("/api/v1/health", "/api/", "nestjs_upstream"),
+            ("/", "/", "nextjs_upstream"),
+        ):
+            sc.check(expected in by_path, f"the structure has no location {expected}: {by_path}")
+            code, routed = api_json(
+                sc,
+                token,
+                "POST",
+                f"/api/sites/{PROGGEST_DOMAIN}/route",
+                {"host": PROGGEST_DOMAIN, "path": path, "scheme": "http"},
+                f"POST route {path}",
+            )
+            sc.check(code == 200, f"POST route {path} answered {code}")
+            sc.check(
+                isinstance(routed, dict) and routed.get("location_id") == by_path[expected],
+                f"{path} was routed to {routed!r}, not to location {expected} "
+                f"({by_path[expected]})",
+            )
+            sc.check(
+                f"u:{upstream}" in (routed.get("highlight") or []),
+                f"{path} does not reach {upstream}: {routed.get('highlight')!r}",
+            )
+            ledger.notes.append(f"route {path}: {routed.get('location_id')} -> {upstream}")
+
+
+def _proggest_sizes(sc: Scenario, ledger: Ledger) -> None:
+    """The images' sizes and the inner Docker's disk use, for the report."""
+    images = sc.run(
+        "docker image ls --format '{{.Repository}}:{{.Tag}} {{.Size}}' | grep -i proggest",
+        timeout=60,
+        check=False,
+        label="the stack's images",
+    ).stdout.split("\n")
+    ledger.notes.extend(f"image {line}" for line in images if line.strip())
+    usage = sc.run(
+        "docker system df --format '{{.Type}} {{.Size}}'; du -sh /var/backups/noust 2>/dev/null",
+        timeout=120,
+        check=False,
+        label="the inner Docker's disk use, and the backups",
+    ).stdout.split("\n")
+    ledger.notes.extend(f"disk {line}" for line in usage if line.strip())
+
+
+def _proggest_delete(sc: Scenario, ledger: Ledger) -> None:
+    """Step 7: `noust delete` without --remove-adopted-directory keeps the stack's directory."""
+    with ledger.lap("noust delete"):
+        deleted = sc.run(
+            f"noust delete {PROGGEST_DOMAIN} -f",
+            timeout=600,
+            check=False,
+            label=f"noust delete {PROGGEST_DOMAIN} -f",
+        )
+    # The operator's site and the servers files it includes are kept on purpose, and the
+    # command reports them as warnings, the same channel a unit it failed to remove would use:
+    # it exits 1. Accepted here only with every warning being one of those two.
+    said = command_output(deleted)
+    sc.check(deleted.returncode in (0, 1), f"noust delete exited {deleted.returncode}")
+    if deleted.returncode == 1:
+        sc.check(
+            "Noust did not write; it is left in place" in said
+            and "was not removed" not in said
+            and "failed" not in said.lower(),
+            "noust delete failed at something other than keeping the operator's site",
+        )
+    ledger.notes.append(f"noust delete of the adopted stack: exit {deleted.returncode}")
+    containers = sc.run(
+        f"docker ps -aq -f label=com.docker.compose.project={PROGGEST_PROJECT}",
+        timeout=30,
+        label="the stack's containers after the delete",
+    ).stdout.split()
+    sc.check(not containers, f"the stack still has containers: {containers}")
+    kept = sc.run(
+        f"test -d {PROGGEST_DIR}/.git && test -f {PROGGEST_DIR}/.env && "
+        f"test -f {PROGGEST_DIR}/{PROGGEST_COMPOSE_FILE} && echo kept",
+        timeout=15,
+        check=False,
+        label=f"{PROGGEST_DIR}, its checkout and its .env",
+    )
+    sc.check(kept.stdout.strip() == "kept", f"noust delete removed {PROGGEST_DIR}")
+    sc.check(
+        sc.run(
+            f"test -f {PROGGEST_SITE_PATH}", timeout=15, check=False, label="the operator's site"
+        ).returncode
+        == 0,
+        "noust delete removed the operator's site",
+    )
+    volumes = sc.run(
+        f"docker volume ls -q -f label=com.docker.compose.project={PROGGEST_PROJECT}",
+        timeout=30,
+        label="the stack's volumes",
+    ).stdout.split()
+    sc.check(f"{PROGGEST_PROJECT}_pgdata" in volumes, f"the database's volume is gone: {volumes}")
+    sc.check(
+        not store_rows(
+            sc,
+            "SELECT id FROM apps WHERE domain = @domain",
+            domain=PROGGEST_DOMAIN,
+            label="the application is gone from the store",
+        ),
+        "the application is still registered",
+    )
+
+
+# ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
 
@@ -6794,10 +7957,24 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+#: Scenarios that run only when a --scenario pattern holds their key, never in the default
+#: suite nor matched by a broader pattern such as "compose": they are slow and need something
+#: outside this repository (Proggest's checkout).
+OPTIONAL_SCENARIOS = {"proggest_compose_stack": "proggest"}
+
+
 def selected_scenarios(names: list[str] | None) -> list[tuple[str, ScenarioFn]]:
+    def wanted(name: str) -> bool:
+        key = OPTIONAL_SCENARIOS.get(name)
+        return key is None or any(key in pattern for pattern in names or [])
+
     if not names:
-        return list(SCENARIOS)
-    selected = [(name, fn) for name, fn in SCENARIOS if any(pattern in name for pattern in names)]
+        return [(name, fn) for name, fn in SCENARIOS if wanted(name)]
+    selected = [
+        (name, fn)
+        for name, fn in SCENARIOS
+        if any(pattern in name for pattern in names) and wanted(name)
+    ]
     if not selected:
         raise HarnessError(f"no scenario matches {names!r}; available: {[n for n, _ in SCENARIOS]}")
     return selected
