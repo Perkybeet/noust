@@ -92,8 +92,6 @@ def test_a_tree_whose_owner_has_no_account_is_not_read(
 @pytest.mark.parametrize(
     "config",
     [
-        "[core]\n\tfsmonitor = /tmp/pwn.sh\n",
-        "[core]\n\thooksPath = /tmp/hooks\n",
         '[filter "x"]\n\tclean = /tmp/pwn.sh\n',
         "[core] sshCommand = /tmp/pwn.sh\n",
         "[log]\n\tshowSignature = true\n[gpg]\n\tprogram = /tmp/pwn.sh\n",
@@ -172,3 +170,28 @@ def test_the_commit_subject_of_a_foreign_tree_is_read_as_its_owner(
     deployer._runner = runner
     assert deployer._commit_message_for_recording() == "Fix the thing"
     assert runner.calls[-1][:4] == ("runuser", "-u", OWNER, "--")
+
+
+@pytest.mark.parametrize(
+    "config",
+    [
+        # husky writes this into every JavaScript checkout it is installed in.
+        "[core]\n\thooksPath = .husky/_\n",
+        "[core]\n\tfsmonitor = /tmp/pwn.sh\n",
+        "[log]\n\tshowSignature = true\n",
+    ],
+)
+def test_keys_root_switches_off_on_the_command_line_do_not_block_an_update(
+    tmp_path: Path, as_root: None, config: str
+) -> None:
+    """A command-line -c wins over the tree's config: refusing these blocked every husky app."""
+    _checkout(tmp_path, config)
+    runner = FakeRunner()
+    runner.script([*GIT], stdout="0" * 40 + "\n")
+    SourceManager(runner=runner).checkout_commit(tmp_path, "0" * 40)
+    rooted = [call for call in runner.calls if call[: len(GIT)] == GIT and "--global" not in call]
+    assert rooted
+    for call in rooted:
+        assert "core.hooksPath=/dev/null" in call
+        assert "core.fsmonitor=false" in call
+        assert "log.showSignature=false" in call

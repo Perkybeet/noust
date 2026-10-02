@@ -164,8 +164,9 @@ _GIT_FOREIGN_HARDENING = (
 #: differently cannot hide one.
 _EXECUTABLE_GIT_KEYS = frozenset(
     {
-        "fsmonitor",
-        "hookspath",
+        # core.hooksPath, core.fsmonitor and log.showSignature are not here: the
+        # -c of _GIT_FOREIGN_HARDENING wins over the tree's config, and refusing
+        # them blocked the update of every checkout husky had set hooksPath in.
         "sshcommand",
         "gitproxy",
         "askpass",
@@ -183,7 +184,6 @@ _EXECUTABLE_GIT_KEYS = frozenset(
         "process",
         "helper",
         "program",
-        "showsignature",
         "packobjectshook",
         "uploadpack",
         "receivepack",

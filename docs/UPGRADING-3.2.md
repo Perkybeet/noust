@@ -91,7 +91,7 @@ When the new package is installed, and from the next update of each application:
 - **Git in an application's tree runs as the tree's owner.** Noust no longer runs git as root
   with `safe.directory=*` inside a tree another account owns: reading runs as that owner, and
   root's own git there refuses configuration that would run a program. A checkout whose
-  `.git/config` sets a `credential.helper`, a `filter.*` (Git LFS) or `core.fsmonitor` is refused
+  `.git/config` sets a `credential.helper` or a `filter.*` (Git LFS) is refused
   on update with the key named; remove it from that checkout's configuration (the remote's
   credentials belong in Noust's source credentials).
 - **Testing or saving a site checks the files it reads.** `include`, `ssl_certificate*`,
