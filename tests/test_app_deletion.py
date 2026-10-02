@@ -263,7 +263,10 @@ def test_an_operator_s_site_is_kept_and_said_so(
     outcome = lifecycle.delete_app(DOMAIN)
 
     assert asked[0]["keep_operator_sites"] is True
-    assert any("noust site delete" in warning for warning in outcome.warnings)
+    # Kept on purpose, so said but not a failure: `noust delete` of an adopted stack with a
+    # hand-written site used to exit 1 for doing exactly what it should (found by X2).
+    assert any("noust site delete" in note for note in outcome.kept)
+    assert outcome.warnings == ()
 
 
 # ---------------------------------------------------------------------------
@@ -440,4 +443,5 @@ def test_servers_files_an_operator_site_still_includes_stay(
     outcome = lifecycle.delete_app(DOMAIN)
 
     assert (servers / "web.servers").is_file()
-    assert any(str(servers) in warning for warning in outcome.warnings), outcome.warnings
+    assert any(str(servers) in note for note in outcome.kept), outcome.kept
+    assert outcome.warnings == ()

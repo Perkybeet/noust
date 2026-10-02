@@ -94,6 +94,36 @@ class TestRunningAPhase:
         assert outcome.ran[0]["output"] == "Applied 2"
         assert all(entry["ok"] for entry in outcome.ran)
 
+    @pytest.mark.parametrize(
+        "said",
+        [
+            'Datasource "db": PostgreSQL database\n\n100 migrations found in prisma/migrations\n\nNo pending migrations to apply.',
+            "Operations to perform:\n  Apply all migrations: auth, shop\nRunning migrations:\n  No migrations to apply.",
+            "Nothing to migrate.",
+            "Already up to date",
+            "No migrations were executed, database schema was already up to date.",
+            "No migrations are pending",
+            "[notice] No migrations to execute.",
+            "Schema `public` is up to date. No migration necessary.",
+            "no change",
+        ],
+    )
+    def test_a_migrating_hook_that_applied_nothing_changes_no_schema(self, said: str) -> None:
+        # Found with Proggest in the harness: every update counted as a schema change, and a
+        # failed one said the database had been changed when Prisma had applied nothing.
+        executor = Scripted(ok(said), ok())
+
+        outcome = run_hooks("pre_deploy", HOOKS, executor, Logger())
+
+        assert outcome.schema_changed is False
+
+    def test_a_migrating_hook_that_says_both_applied_something(self) -> None:
+        executor = Scripted(
+            ok("Applying migration `20261002_add_notes`\nNo pending migrations to apply."), ok()
+        )
+
+        assert run_hooks("pre_deploy", HOOKS, executor, Logger()).schema_changed is True
+
     def test_the_first_failure_stops_the_phase_with_its_output_verbatim(self) -> None:
         executor = Scripted(failed('ERROR: relation "users" does not exist', code=3))
 

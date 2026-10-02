@@ -3285,6 +3285,9 @@ class AppDeletion:
         kept_directory: The application's directory, when it is outside
             Noust's apps directory and was kept for that reason (an adopted
             stack); None otherwise.
+        kept: What was left in place on purpose (the operator's own site and
+            the servers files it includes), each with how to remove it. Not
+            failures: a deletion that kept them still succeeded.
     """
 
     domain: str
@@ -3295,6 +3298,7 @@ class AppDeletion:
     files_removed: bool
     warnings: tuple[str, ...]
     kept_directory: str | None = None
+    kept: tuple[str, ...] = ()
 
 
 def is_in_apps_directory(app_path: Path) -> bool:
@@ -3574,17 +3578,20 @@ def _delete_app(
         delete_certificate=remove_certificate,
         keep_operator_sites=True,
     )
+    kept: list[str] = []
     for webserver in deletion.kept_operator:
         # The application goes; what the operator wrote by hand is theirs to
         # remove, and it may still serve something else or use the certificate.
-        warnings.append(
+        kept.append(
             f"{domain} has a {webserver} site configuration Noust did not write; it is "
             "left in place, and its certificate with it. Remove it by hand if nothing "
             f"should answer on {domain} any more: noust site delete {domain}"
         )
-        log.warning(warnings[-1])
+        log.info(kept[-1])
     if relayed:
-        _remove_servers_files(domain_to_app_name(domain), deletion.kept_operator, warnings, log)
+        _remove_servers_files(
+            domain_to_app_name(domain), deletion.kept_operator, warnings, kept, log
+        )
 
     files_removed = False
     if keep_adopted and app_path.exists():
@@ -3629,11 +3636,16 @@ def _delete_app(
         files_removed=files_removed,
         warnings=tuple(warnings),
         kept_directory=str(app_path) if keep_adopted and app_path.exists() else None,
+        kept=tuple(kept),
     )
 
 
 def _remove_servers_files(
-    app_name: str, kept_operator: Sequence[str], warnings: list[str], log: Logger
+    app_name: str,
+    kept_operator: Sequence[str],
+    warnings: list[str],
+    kept: list[str],
+    log: Logger,
 ) -> None:
     """
     Remove the servers files of a stack updated through relays, once nothing includes them.
@@ -3645,7 +3657,8 @@ def _remove_servers_files(
     Args:
         app_name: The application's name, which names their directory.
         kept_operator: The web servers whose operator's site was kept.
-        warnings: Where what is left is added.
+        warnings: Where what could not be removed is added.
+        kept: Where what stays on purpose is added.
         log: Where the details are reported.
     """
     from noust.managers import webserver
@@ -3654,11 +3667,11 @@ def _remove_servers_files(
     if not os.path.lexists(directory):
         return
     if "nginx" in kept_operator:
-        warnings.append(
+        kept.append(
             f"{directory} stays: the nginx site kept above includes the servers files in it. "
             "Remove the include lines from that site, or the site, and then the directory."
         )
-        log.warning(warnings[-1])
+        log.info(kept[-1])
         return
     try:
         if webserver.remove_servers(app_name):

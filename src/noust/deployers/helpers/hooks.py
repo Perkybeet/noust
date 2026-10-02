@@ -85,6 +85,24 @@ _OUTPUT_KEPT = 4000
 _PRISMA_APPLIED = re.compile(r"^\s*Applying migration\b", re.MULTILINE)
 _PRISMA_NOTHING = re.compile(r"No pending migrations to apply", re.IGNORECASE)
 
+#: What the common migration tools print when they had nothing to apply, each in
+#: its own words: Prisma, Django, Laravel, Knex, Sequelize, TypeORM, Doctrine,
+#: Flyway and golang-migrate (a whole line "no change", never the phrase inside
+#: another line). A hook marked ``migrates`` whose output says one of these, and
+#: nothing applied, did not change the schema.
+_NOTHING_APPLIED = re.compile(
+    r"No pending migrations to apply"
+    r"|No migrations to apply\."
+    r"|Nothing to migrate\."
+    r"|^\s*Already up to date\s*$"
+    r"|No migrations were executed, database schema was already up to date"
+    r"|No migrations are pending"
+    r"|No migrations to execute"
+    r"|is up to date\. No migration necessary"
+    r"|^\s*no change\s*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+
 
 @dataclass(frozen=True)
 class Hook:
@@ -373,7 +391,7 @@ def run_hooks(
             )
         )
         if ok:
-            if hook.migrates:
+            if hook.migrates and migration_applied(output):
                 outcome.schema_changed = True
             continue
         how = (
@@ -472,6 +490,23 @@ def _entry(
         "duration_s": round(duration, 2) if duration is not None else None,
         "output": output[-_OUTPUT_KEPT:],
     }
+
+
+def migration_applied(output: str) -> bool:
+    """
+    Tell from a ``migrates`` hook's output whether it may have changed the schema.
+
+    Args:
+        output: What the hook printed, standard output and error.
+
+    Returns:
+        False only when the tool said, in its own words, that it had nothing to
+        apply and nothing says it applied one; True otherwise, because a schema
+        that may have changed must be treated as one that did.
+    """
+    if _PRISMA_APPLIED.search(output):
+        return True
+    return not _NOTHING_APPLIED.search(output)
 
 
 def prisma_applied_migrations(output: str) -> bool:
