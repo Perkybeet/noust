@@ -958,3 +958,22 @@ class TestAStoreStampedV12WithoutItsTables:
 
         assert {t: _raw_columns(db_path, t) for t in _raw_tables(db_path)} == complete
         assert _raw_max_version(db_path) == SCHEMA_VERSION
+
+    def test_a_v12_store_missing_v12_tables_still_climbs_to_v13(self, fresh, tmp_path):
+        # The climb to v13 alters a v12 table (build_sandbox): a store stamped 12 without it
+        # failed to open at all, on every command (packaging review of 3.2).
+        db_path = tmp_path / "noust.db"
+        NoustStore(db_path, fs=RecordingFileSystem())
+        NoustStore.reset_instance()
+        complete = {table: _raw_columns(db_path, table) for table in _raw_tables(db_path)}
+        conn = sqlite3.connect(db_path)
+        conn.execute("DROP TABLE build_sandbox")
+        conn.execute("DROP TABLE app_hooks")
+        conn.execute("UPDATE schema_version SET version = 12 WHERE version > 12")
+        conn.commit()
+        conn.close()
+
+        NoustStore(db_path, fs=RecordingFileSystem())
+
+        assert {t: _raw_columns(db_path, t) for t in _raw_tables(db_path)} == complete
+        assert _raw_max_version(db_path) == SCHEMA_VERSION

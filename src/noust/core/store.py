@@ -1846,6 +1846,10 @@ class NoustStore:
 
         if current < SCHEMA_VERSION:
             self._keep_copy_before_migrating(current)
+            if current >= schema_v12.VERSION:
+                # The climb to v13 alters v12's tables (build_sandbox): a store an
+                # intermediate 3.1 build stamped 12 without them is completed first.
+                self._complete_v12()
             self._run_migrations(current)
         elif current >= schema_v12.VERSION:
             self._complete_v12()
