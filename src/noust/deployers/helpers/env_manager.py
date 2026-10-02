@@ -26,6 +26,7 @@ import os
 import re
 import secrets
 import stat
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar
@@ -54,6 +55,25 @@ __all__ = [
     "is_secret_env_name",
     "redact_url_credentials",
 ]
+
+
+#: The marker words of a Spanish ``.env.example`` (``genera-clave-hex-64-caracteres``,
+#: ``CAMBIAR_ESTO``, ``tu-proveedor.com``, ``pon-aqui-el-valor``), matched against the
+#: lower-cased default. Unlike the English substrings in
+#: :attr:`EnvManager.PLACEHOLDER_PATTERNS` they must start a word: ``tu-`` is also the end
+#: of ``virtu-al``, and a real value would be taken for a template.
+_SPANISH_PLACEHOLDER = re.compile(r"(?<![a-z0-9])(?:(?:genera|generar|tu|pon)[-_]|cambiar)")
+
+#: A key that says it is hexadecimal, and perhaps how long: ``hex-64``, ``hex_32_bytes``,
+#: ``HEX_256_BITS``. Looked for in the placeholder and in the variable's name.
+_HEX_HINT = re.compile(r"(?<![a-z])hex(?![a-z])(?:[-_ ]?(\d+)(?:[-_ ]?(bytes?|bits?))?)?")
+
+#: What a key that says "hex" and not how long gets: 32 bytes, an AES-256 key.
+_DEFAULT_HEX_LENGTH = 64
+
+#: The lengths of a hex secret worth believing. A placeholder that says ``hex-999999`` is
+#: a joke or a typo, and 1024 characters is already a key nobody uses.
+_HEX_LENGTH_RANGE = range(8, 1025)
 
 
 def _is_real_directory(path: Path) -> bool:
@@ -176,7 +196,10 @@ class EnvManager:
     #: A secret whose default is a placeholder is regenerated: baking
     #: "your-secret-key-here" into a systemd unit as Environment= overrides the
     #: real .env the application reads at runtime, and the failure surfaces
-    #: much later as an authentication error nobody connects to a deploy.
+    #: much later as an authentication error nobody connects to a deploy. The
+    #: Spanish markers (``genera-``, ``cambiar``, ``tu-``, ``pon-``) are the
+    #: regular expression :data:`_SPANISH_PLACEHOLDER`, because they need a word
+    #: boundary these substrings do not.
     PLACEHOLDER_PATTERNS = [
         "your-",
         "your_",
@@ -406,9 +429,11 @@ class EnvManager:
         """
         Determine if a default value looks like a template placeholder.
 
-        Used to decide whether a secret default copied from .env.example is
-        safe to keep or should be regenerated. Matching is case-insensitive
-        against PLACEHOLDER_PATTERNS.
+        Used to decide whether a default copied from .env.example is safe to
+        keep: a secret that holds one is regenerated and anything else has to be
+        supplied, because a template value deployed as if it were real is how
+        ``genera-clave-hex-64-caracteres`` ended up as a key. Matching is
+        case-insensitive, against PLACEHOLDER_PATTERNS and the Spanish markers.
 
         Args:
             value: Default value to inspect.
@@ -419,7 +444,9 @@ class EnvManager:
         if not value:
             return False
         lower = value.lower()
-        return any(pattern in lower for pattern in self.PLACEHOLDER_PATTERNS)
+        if any(pattern in lower for pattern in self.PLACEHOLDER_PATTERNS):
+            return True
+        return _SPANISH_PLACEHOLDER.search(lower) is not None
 
     @staticmethod
     def generate_secret(length: int = 32) -> str:
@@ -433,6 +460,62 @@ class EnvManager:
             URL-safe random string.
         """
         return secrets.token_urlsafe(length)
+
+    @staticmethod
+    def generate_hex_secret(length: int = _DEFAULT_HEX_LENGTH) -> str:
+        """
+        Generate a cryptographically secure random hexadecimal secret.
+
+        Args:
+            length: Number of hexadecimal characters.
+
+        Returns:
+            Exactly ``length`` characters of ``0-9a-f``.
+        """
+        return secrets.token_hex((length + 1) // 2)[:length]
+
+    @staticmethod
+    def hex_length(variable: EnvVariable) -> int | None:
+        """
+        Read from a variable whether its secret has to be hexadecimal, and how long.
+
+        An application that decodes ``INTEGRATION_ENCRYPTION_KEY`` as 64 hex
+        characters refuses to start on the url-safe text this module generates
+        for every other secret, so the placeholder (``genera-clave-hex-64-caracteres``)
+        and then the name (``WEBHOOK_SECRET_HEX_32``) are asked first.
+
+        Args:
+            variable: The variable, with the placeholder as its default.
+
+        Returns:
+            The number of hex characters, or None when neither says ``hex``.
+            ``hex`` alone is 64; ``hex-32-bytes`` and ``hex-256-bits`` are counted
+            in characters like ``hex-64``; a length nobody could mean is ignored.
+        """
+        for text in (variable.default.lower(), variable.name.lower()):
+            found = _HEX_HINT.search(text)
+            if not found:
+                continue
+            if found.group(1) is None:
+                return _DEFAULT_HEX_LENGTH
+            count, unit = int(found.group(1)), found.group(2) or ""
+            length = count * 2 if unit.startswith("byte") else count // 4 if unit else count
+            if length in _HEX_LENGTH_RANGE:
+                return length
+        return None
+
+    def _generate_for(self, variable: EnvVariable) -> str:
+        """
+        Generate the secret a variable asks for, in the shape it asks for it.
+
+        Args:
+            variable: A secret whose default is empty or a placeholder.
+
+        Returns:
+            Hexadecimal when the variable says so, url-safe text otherwise.
+        """
+        length = self.hex_length(variable)
+        return self.generate_hex_secret(length) if length else self.generate_secret()
 
     def prompt_variables(
         self,
@@ -454,6 +537,7 @@ class EnvManager:
         """
         existing = existing_values or {}
         result = {}
+        unanswered: list[str] = []
 
         # Group by category
         categories: dict[str, list[EnvVariable]] = {}
@@ -469,12 +553,17 @@ class EnvManager:
             self.logger.info(f"\n  [{category}]")
 
             for var in cat_vars:
-                current = existing.get(var.name, var.default)
+                # A template value is not offered as the one to accept: Enter on
+                # "genera-clave-hex-64-caracteres" is how it reached a .env.
+                template = self._is_placeholder(var.default)
+                if var.name in existing:
+                    current = existing[var.name]
+                else:
+                    current = "" if template else var.default
 
                 # Auto-generate secrets if no existing value
                 if var.secret and not current:
-                    generated = self.generate_secret()
-                    result[var.name] = generated
+                    result[var.name] = self._generate_for(var)
                     self.logger.substep(f"{var.name} = [auto-generated]")
                     continue
 
@@ -483,6 +572,8 @@ class EnvManager:
 
                 if current:
                     prompt_msg += f" [{current}]"
+                elif template:
+                    prompt_msg += " [needs a value]"
 
                 if prompts.AVAILABLE:
                     # A secret is not echoed. It ends up in a systemd unit and
@@ -495,36 +586,50 @@ class EnvManager:
                 else:
                     value = input(f"{prompt_msg}: ").strip()
 
+                if template and not (value or current):
+                    unanswered.append(var.name)
+                    continue
                 result[var.name] = value or current or ""
 
+        if unanswered:
+            self._warn_needs_value(unanswered)
         return result
 
     def prompt_non_interactive(
         self,
         variables: list[EnvVariable],
+        supplied: Mapping[str, str] | None = None,
     ) -> dict[str, str]:
         """
         Fill variable values non-interactively.
 
-        For secrets, regenerates whenever the default is empty or matches a
-        known placeholder pattern (e.g. "your-secret-key-here"); otherwise the
-        existing default is kept. For non-secret variables with a placeholder
-        default a warning is logged so users notice that the unit will be
-        deployed with template values, but the default is preserved to keep
-        backward compatibility with existing .env.example layouts.
+        A template value from ``.env.example`` is never written as if it were
+        real. For a secret (by its name), an empty default or a placeholder
+        (``your-secret-key-here``, ``genera-clave-hex-64-caracteres``) is
+        replaced by a generated value, hexadecimal when the placeholder or the
+        name says so; a real default is kept. For anything else a placeholder
+        default is left out, not invented: only the operator knows the SMTP host
+        or the bucket, so it is named in one warning with the way to give it, and
+        the application starts without the variable instead of with a lie.
 
         Args:
             variables: List of variables.
+            supplied: Names the operator already gave a value for (``--env-file``,
+                the create request); they are not reported as missing, and they
+                are not written from here either, since the caller merges them.
 
         Returns:
-            Dictionary of variable name -> value.
+            Dictionary of variable name -> value, without the variables that
+            have to be supplied.
         """
+        given = supplied or {}
         result = {}
+        missing: list[str] = []
         for var in variables:
             default_is_placeholder = self._is_placeholder(var.default)
 
             if var.secret and (not var.default or default_is_placeholder):
-                result[var.name] = self.generate_secret()
+                result[var.name] = self._generate_for(var)
                 if default_is_placeholder:
                     self.logger.debug(
                         f"Regenerated secret for {var.name} (placeholder default detected)"
@@ -532,15 +637,28 @@ class EnvManager:
                 continue
 
             if default_is_placeholder:
-                self.logger.warning(
-                    f"{var.name} has a placeholder default "
-                    f"({var.default!r}); pass --env-file or run "
-                    f"'noust env set' to provide a real value before the "
-                    f"application starts."
-                )
+                if var.name not in given:
+                    missing.append(var.name)
+                continue
 
             result[var.name] = var.default
+
+        if missing:
+            self._warn_needs_value(missing)
         return result
+
+    def _warn_needs_value(self, names: list[str]) -> None:
+        """
+        Tell the operator which variables were left out because they need a real value.
+
+        Args:
+            names: The variables, in the order the example declares them.
+        """
+        self.logger.warning(
+            f"Not written, .env.example only gives a template value: {', '.join(names)}. "
+            f"Pass them with --env-file, or run 'noust env configure <domain>' to be asked, "
+            f"before the application needs them."
+        )
 
     def write_env_files(
         self,

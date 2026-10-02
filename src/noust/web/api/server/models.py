@@ -580,6 +580,40 @@ class TimeOut(BaseModel):
     offset_seconds: float | None = None
 
 
+class TimezoneOut(BaseModel):
+    """
+    One time zone the server can be set to, as it is right now.
+
+    Attributes:
+        name: The tz database name, such as ``Europe/Madrid``.
+        region: Its first part (``Europe``); ``Etc`` for the fixed offsets, ``UTC`` for ``UTC``.
+        city: What follows the region, readable: ``Madrid``, ``Argentina / Buenos Aires``.
+        offset: The offset from UTC now: ``UTC+02:00``, ``UTC-03:30``, or ``UTC``.
+        abbreviation: ``CEST``; empty when the database only numbers the zone.
+        offset_minutes: The offset in minutes east of UTC.
+    """
+
+    name: str
+    region: str
+    city: str
+    offset: str
+    abbreviation: str
+    offset_minutes: int
+
+
+class TimezonesOut(BaseModel):
+    """
+    The zones the managed server knows.
+
+    Attributes:
+        generated_at: The moment the offsets were read at, ISO 8601 in UTC.
+        timezones: ``Etc/UTC`` and ``UTC`` first, then every zone by offset and name.
+    """
+
+    generated_at: str
+    timezones: list[TimezoneOut]
+
+
 class TimeChangeRequest(BaseModel):
     """
     Change the time zone, the synchronisation, or both.

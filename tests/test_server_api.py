@@ -131,6 +131,9 @@ class TestPermissionsAreDeclared:
         assert permissions[("GET", "/api/server/logs")] == "secrets.reveal"
         assert permissions[("POST", "/api/server/updates/apply")] == "server.manage"
         assert permissions[("GET", "/api/server/updates")] == "server.read"
+        # Measuring what takes space changes nothing: a read-only central may ask for it
+        # (item 59), as it may re-run the security checks.
+        assert permissions[("POST", "/api/server/storage/analyze")] == "server.read"
 
     def test_every_write_asks_for_sudo_mode_except_cancelling_and_measuring(self, api) -> None:
         schema = api.app.openapi()

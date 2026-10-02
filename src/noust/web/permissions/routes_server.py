@@ -51,7 +51,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/server/storage/analyze/latest"): Permission.SERVER_READ,
     ("GET", "/api/server/storage/docker/images"): Permission.SERVER_READ,
     ("GET", "/api/server/storage/cleanup/plan"): Permission.SERVER_READ,
-    ("POST", "/api/server/storage/analyze"): Permission.SERVER_MANAGE,
+    # It only measures; nothing on the server changes (item 59), like checks/refresh.
+    ("POST", "/api/server/storage/analyze"): Permission.SERVER_READ,
     ("POST", "/api/server/storage/cleanup"): Permission.SERVER_MANAGE,
     # Swap
     ("GET", "/api/server/swap"): Permission.SERVER_READ,
@@ -60,6 +61,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("PUT", "/api/server/swap/swappiness"): Permission.SERVER_MANAGE,
     # The system
     ("GET", "/api/server/time"): Permission.SERVER_READ,
+    ("GET", "/api/server/clock/timezones"): Permission.SERVER_READ,
     ("PUT", "/api/server/time"): Permission.SERVER_MANAGE,
     ("GET", "/api/server/identity"): Permission.SERVER_READ,
     ("PUT", "/api/server/identity/hostname"): Permission.SERVER_MANAGE,

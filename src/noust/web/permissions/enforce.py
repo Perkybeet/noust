@@ -26,7 +26,7 @@ from typing import Any
 
 from fastapi import HTTPException, Request
 
-from noust.fleet.policy import HOST_PERMISSIONS, NEVER_FLEET_PERMISSIONS
+from noust.fleet.policy import DEPLOY_PERMISSIONS, HOST_PERMISSIONS, NEVER_FLEET_PERMISSIONS
 from noust.web.permissions import PUBLIC, Permission
 from noust.web.permissions.principal import permissions_of
 from noust.web.permissions.registry import (
@@ -190,10 +190,16 @@ def _ceiling_hint(permission: str) -> str:
         )
     if permission in HOST_PERMISSIONS:
         return (
-            "It reaches the host itself: if this central should, run "
+            "It reaches the host itself. To let this central do it, run "
             "'noust fleet access --level admin --host-access on' on this server, as root."
         )
-    return "If this central should, run 'noust fleet access --level admin' on this server, as root."
+    # The lowest ceiling that grants it: raising a read-only node to admin to let it run a
+    # backup would give away far more than was asked for.
+    level = "deploy" if permission in DEPLOY_PERMISSIONS else "admin"
+    return (
+        f"To let this central do it, run 'noust fleet access --level {level}' "
+        "on this server, as root."
+    )
 
 
 def _route_index(request: Request) -> RouteIndex:

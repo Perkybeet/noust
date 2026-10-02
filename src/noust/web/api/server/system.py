@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-``/api/server/time``, ``/identity`` and ``/processes``: the system tab.
+``/api/server/time``, ``/clock/timezones``, ``/identity`` and ``/processes``: the system tab.
 
 The clock and the host name are changed in place and answered with what the tool
 said, verbatim; they take a moment and there is nothing to follow, so they are not
@@ -13,6 +13,7 @@ from here, on purpose.
 from __future__ import annotations
 
 from dataclasses import asdict
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
@@ -35,6 +36,8 @@ from noust.web.api.server.models import (
     TimeChangeOut,
     TimeChangeRequest,
     TimeOut,
+    TimezoneOut,
+    TimezonesOut,
     UnitProcessesOut,
 )
 from noust.web.auth import sees_command_lines
@@ -61,6 +64,30 @@ def get_time(session: Annotated[dict, Depends(get_current_session)]) -> TimeOut:
         ServerError: timedatectl cannot be run, carrying its output.
     """
     return TimeOut(**get_server_context().clock.status().to_dict())
+
+
+@router.get("/clock/timezones", response_model=TimezonesOut)
+def list_timezones(session: Annotated[dict, Depends(get_current_session)]) -> TimezonesOut:
+    """
+    List the time zones the server can be set to.
+
+    The managed server computes it, not the browser: the names are the ones its
+    tz database has (so the change never refuses one), and the offsets are the ones
+    in force now, daylight saving included. On a fleet the node answers.
+
+    Args:
+        session: The authenticated session.
+
+    Returns:
+        Every zone with its region, city, offset now and abbreviation, ``Etc/UTC``
+        and ``UTC`` first and the rest by offset and name.
+    """
+    moment = datetime.now(timezone.utc)
+    zones = get_server_context().clock.timezones(now=moment)
+    return TimezonesOut(
+        generated_at=moment.isoformat(),
+        timezones=[TimezoneOut(**zone.to_dict()) for zone in zones],
+    )
 
 
 @router.put("/time", response_model=TimeChangeOut)

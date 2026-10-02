@@ -13,6 +13,8 @@ Redis form and used to come out in clear.
 """
 
 import ast
+import re
+import types
 from pathlib import Path
 
 import pytest
@@ -38,6 +40,14 @@ from noust.deployers.helpers.env_manager import (
 def env_manager():
     """Create an EnvManager instance."""
     return EnvManager(verbose=False)
+
+
+@pytest.fixture
+def warnings(env_manager, monkeypatch):
+    """What the manager warns the operator about, instead of printing it."""
+    messages: list[str] = []
+    monkeypatch.setattr(env_manager.logger, "warning", messages.append)
+    return messages
 
 
 @pytest.fixture
@@ -365,8 +375,8 @@ class TestNonInteractivePrompt:
         result = env_manager.prompt_non_interactive(variables)
         assert result["API_TOKEN"] != "changeme"
 
-    def test_keeps_non_secret_placeholder_default(self, env_manager):
-        """Non-secret placeholders are preserved (warning only) for compat."""
+    def test_a_non_secret_placeholder_is_not_written_and_is_named(self, env_manager, warnings):
+        """A template value is not a value: the operator has to give a real one."""
         variables = [
             EnvVariable(
                 name="DATABASE_URL",
@@ -375,7 +385,8 @@ class TestNonInteractivePrompt:
             ),
         ]
         result = env_manager.prompt_non_interactive(variables)
-        assert result["DATABASE_URL"] == "mysql://user:password@localhost:3306/db"
+        assert "DATABASE_URL" not in result
+        assert any("DATABASE_URL" in message for message in warnings)
 
 
 class TestPlaceholderDetection:
@@ -406,6 +417,278 @@ class TestPlaceholderDetection:
         assert env_manager._is_placeholder("production") is False
         assert env_manager._is_placeholder("my-fixed-secret") is False
         assert env_manager._is_placeholder("postgresql://app:K8j2x@db.example.com/app") is False
+
+
+class TestSpanishPlaceholders:
+    """The marker words of a Spanish ``.env.example`` are markers too."""
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "genera-clave-hex-64-caracteres",
+            "genera-password-seguro-aqui",
+            "GENERA-SECRETO",
+            "generar-un-secreto",
+            "cambiar",
+            "CAMBIAR_ESTO",
+            "cambiar-por-tu-clave",
+            "tu-api-key-google-maps",
+            "tu-usuario-smtp",
+            "smtp.tu-proveedor.com",
+            "noreply@tu-dominio.com",
+            "pon-aqui-el-valor",
+            "PON-TU-TOKEN",
+        ],
+    )
+    def test_is_a_placeholder(self, env_manager, value):
+        assert env_manager._is_placeholder(value) is True
+
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "general-purpose",
+            "generated-by-ci",
+            "virtu-al.example.com",
+            "kitu-1",
+            "caponi-x",
+            "stu-dio",
+            "3000",
+            "proggest_dev_password",
+            "postgresql://proggest:K8j2x@db.example.com/proggest",
+        ],
+    )
+    def test_a_real_value_that_contains_the_letters_is_not(self, env_manager, value):
+        assert env_manager._is_placeholder(value) is False
+
+
+class TestPlaceholdersAreNeverWrittenVerbatim:
+    """What ``.env.example`` writes down as a to-do is never deployed as a value."""
+
+    def test_a_secret_with_a_spanish_placeholder_is_generated(self, env_manager):
+        variables = [
+            EnvVariable(name="REDIS_PASSWORD", secret=True, default="genera-password-seguro-aqui"),
+            EnvVariable(name="JWT_SECRET", secret=True, default="CAMBIAR_ESTO"),
+        ]
+
+        result = env_manager.prompt_non_interactive(variables)
+
+        assert not result["REDIS_PASSWORD"].startswith("genera")
+        assert len(result["REDIS_PASSWORD"]) > 10
+        assert result["JWT_SECRET"] != "CAMBIAR_ESTO"
+
+    def test_a_key_the_placeholder_says_is_64_hex_characters_is_64_hex_characters(
+        self, env_manager
+    ):
+        """The case that took Proggest's backend down: the key was written as the text."""
+        variables = [
+            EnvVariable(
+                name="INTEGRATION_ENCRYPTION_KEY",
+                secret=True,
+                default="genera-clave-hex-64-caracteres",
+            ),
+            EnvVariable(
+                name="PERSONNEL_ENCRYPTION_KEY",
+                secret=True,
+                default="genera-clave-hex-64-caracteres",
+            ),
+        ]
+
+        result = env_manager.prompt_non_interactive(variables)
+
+        for name in ("INTEGRATION_ENCRYPTION_KEY", "PERSONNEL_ENCRYPTION_KEY"):
+            assert re.fullmatch(r"[0-9a-f]{64}", result[name]), result[name]
+        assert result["INTEGRATION_ENCRYPTION_KEY"] != result["PERSONNEL_ENCRYPTION_KEY"]
+
+    @pytest.mark.parametrize(
+        ("default", "length"),
+        [
+            ("genera-clave-hex-32", 32),
+            ("change-me-hex-128-chars", 128),
+            ("genera-clave-hex-32-bytes", 64),
+            ("change-me-hex-256-bits", 64),
+            ("cambiar-hex_48", 48),
+        ],
+    )
+    def test_the_length_is_read_from_the_placeholder(self, env_manager, default, length):
+        variables = [EnvVariable(name="SIGNING_KEY", secret=True, default=default)]
+
+        value = env_manager.prompt_non_interactive(variables)["SIGNING_KEY"]
+
+        assert re.fullmatch(rf"[0-9a-f]{{{length}}}", value), value
+
+    def test_the_name_can_say_it_is_hex_too(self, env_manager):
+        variables = [
+            EnvVariable(name="WEBHOOK_SECRET_HEX_32", secret=True, default=""),
+            EnvVariable(name="APP_ENCRYPTION_KEY_HEX", secret=True, default="CAMBIAR_X"),
+        ]
+
+        result = env_manager.prompt_non_interactive(variables)
+
+        assert re.fullmatch(r"[0-9a-f]{32}", result["WEBHOOK_SECRET_HEX_32"])
+        # No length said anywhere: 32 bytes, the size of an AES-256 key.
+        assert re.fullmatch(r"[0-9a-f]{64}", result["APP_ENCRYPTION_KEY_HEX"])
+
+    def test_a_secret_that_says_nothing_about_hex_is_not_hex(self, env_manager):
+        variables = [EnvVariable(name="JWT_SECRET", secret=True, default="genera-secreto-jwt-aqui")]
+
+        value = env_manager.prompt_non_interactive(variables)["JWT_SECRET"]
+
+        assert not re.fullmatch(r"[0-9a-f]+", value)
+
+    def test_a_hex_length_nobody_could_mean_is_ignored(self, env_manager):
+        variables = [EnvVariable(name="X_KEY", secret=True, default="change-me-hex-999999")]
+
+        value = env_manager.prompt_non_interactive(variables)["X_KEY"]
+
+        assert len(value) < 100
+
+    @pytest.mark.parametrize(
+        ("name", "default"),
+        [
+            ("SMTP_HOST", "smtp.tu-proveedor.com"),
+            ("MAIL_FROM", "noreply@tu-dominio.com"),
+            ("AWS_S3_BUCKET", "tu-bucket-s3"),
+            ("SMTP_USER", "tu-usuario-smtp"),
+            ("DATABASE_URL", "postgresql://user:password@localhost:5432/db"),
+            ("SMTP_HOST_EN", "smtp.your-provider.com"),
+        ],
+    )
+    def test_a_placeholder_that_is_not_a_secret_has_to_be_supplied(
+        self, env_manager, warnings, name, default
+    ):
+        variables = [
+            EnvVariable(name="PORT", default="3000"),
+            EnvVariable(name=name, default=default, required=False),
+        ]
+
+        result = env_manager.prompt_non_interactive(variables)
+
+        assert result == {"PORT": "3000"}
+        (message,) = warnings
+        assert name in message
+        assert "noust env" in message  # how to give it
+
+    def test_a_value_supplied_by_the_operator_is_not_reported_missing(self, env_manager, warnings):
+        variables = [EnvVariable(name="SMTP_HOST", default="smtp.tu-proveedor.com")]
+
+        result = env_manager.prompt_non_interactive(variables, supplied={"SMTP_HOST": "mx.acme.io"})
+
+        assert result == {}
+        assert warnings == []
+
+    def test_one_warning_names_every_variable_that_is_missing(self, env_manager, warnings):
+        variables = [
+            EnvVariable(name="SMTP_HOST", default="smtp.tu-proveedor.com"),
+            EnvVariable(name="SMTP_USER", default="tu-usuario-smtp"),
+        ]
+
+        env_manager.prompt_non_interactive(variables)
+
+        (message,) = warnings
+        assert "SMTP_HOST" in message
+        assert "SMTP_USER" in message
+
+    def test_real_defaults_and_empty_secrets_behave_as_before(self, env_manager, warnings):
+        variables = [
+            EnvVariable(name="PORT", default="3000"),
+            EnvVariable(name="JWT_SECRET", secret=True, default=""),
+            EnvVariable(name="API_TOKEN", secret=True, default="my-fixed-token"),
+            EnvVariable(name="OPTIONAL", default=""),
+        ]
+
+        result = env_manager.prompt_non_interactive(variables)
+
+        assert result["PORT"] == "3000"
+        assert len(result["JWT_SECRET"]) > 10
+        assert result["API_TOKEN"] == "my-fixed-token"
+        assert result["OPTIONAL"] == ""
+        assert warnings == []
+
+    def test_the_example_of_a_real_project_comes_out_without_a_single_marker(
+        self, env_manager, tmp_path, warnings
+    ):
+        (tmp_path / ".env.example").write_text(
+            "# Cifra las credenciales por empresa\n"
+            "INTEGRATION_ENCRYPTION_KEY=genera-clave-hex-64-caracteres\n"
+            "REDIS_PASSWORD=genera-password-seguro-aqui\n"
+            "STORAGE_TYPE=s3\n"
+            "SMTP_HOST=smtp.tu-proveedor.com\n"
+            "AWS_ACCESS_KEY_ID=tu-access-key-id\n"
+        )
+
+        result = env_manager.prompt_non_interactive(env_manager.discover(tmp_path))
+
+        assert re.fullmatch(r"[0-9a-f]{64}", result["INTEGRATION_ENCRYPTION_KEY"])
+        assert result["STORAGE_TYPE"] == "s3"
+        assert "SMTP_HOST" not in result
+        assert all(not env_manager._is_placeholder(v) for v in result.values()), result
+
+
+class TestAskingForVariables:
+    """The interactive path never offers a placeholder as the value to accept."""
+
+    @pytest.fixture
+    def typed(self, env_manager, monkeypatch):
+        """Answer the prompts with these lines and keep what was asked."""
+        from noust.cli import prompts
+
+        monkeypatch.setattr(prompts, "AVAILABLE", False)
+        answers: list[str] = []
+        asked: list[str] = []
+
+        def fake_input(message: str = "") -> str:
+            asked.append(message)
+            return answers.pop(0)
+
+        monkeypatch.setattr("builtins.input", fake_input)
+        return types.SimpleNamespace(answers=answers, asked=asked)
+
+    def test_a_secret_placeholder_is_generated_without_asking(self, env_manager, typed):
+        variables = [
+            EnvVariable(name="PERSONNEL_ENCRYPTION_KEY", secret=True, default="genera-hex-64")
+        ]
+
+        result = env_manager.prompt_variables(variables)
+
+        assert re.fullmatch(r"[0-9a-f]{64}", result["PERSONNEL_ENCRYPTION_KEY"])
+        assert typed.asked == []
+
+    def test_the_placeholder_is_not_offered_as_the_default(self, env_manager, typed):
+        typed.answers.append("mx.acme.io")
+        variables = [EnvVariable(name="SMTP_HOST", default="smtp.tu-proveedor.com")]
+
+        result = env_manager.prompt_variables(variables)
+
+        assert result == {"SMTP_HOST": "mx.acme.io"}
+        assert "smtp.tu-proveedor.com" not in typed.asked[0]
+
+    def test_an_empty_answer_leaves_the_variable_out_and_says_so(
+        self, env_manager, typed, warnings
+    ):
+        typed.answers.append("")
+        variables = [EnvVariable(name="SMTP_HOST", default="smtp.tu-proveedor.com")]
+
+        result = env_manager.prompt_variables(variables)
+
+        assert result == {}
+        assert any("SMTP_HOST" in message for message in warnings)
+
+    def test_what_the_application_already_has_wins_over_the_example(self, env_manager, typed):
+        typed.answers.append("")
+        variables = [EnvVariable(name="SMTP_HOST", default="smtp.tu-proveedor.com")]
+
+        result = env_manager.prompt_variables(variables, {"SMTP_HOST": "mx.acme.io"})
+
+        assert result == {"SMTP_HOST": "mx.acme.io"}
+
+    def test_a_real_default_is_still_offered_and_accepted(self, env_manager, typed):
+        typed.answers.append("")
+        variables = [EnvVariable(name="PORT", default="3000")]
+
+        result = env_manager.prompt_variables(variables)
+
+        assert result == {"PORT": "3000"}
+        assert "[3000]" in typed.asked[0]
 
 
 class TestEnvFileWriting:

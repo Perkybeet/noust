@@ -172,3 +172,20 @@ def test_a_permission_the_role_lacks_still_names_the_role(app: Any, fleet_token:
 
     assert denied.status_code == 403
     assert "which operator does not hold" in denied.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    ("permission", "level"),
+    [("apps.deploy", "deploy"), ("backups.run", "deploy"), ("server.manage", "admin")],
+)
+def test_the_hint_names_the_lowest_ceiling_that_grants_the_permission(
+    permission: str, level: str
+) -> None:
+    from noust.web.permissions.enforce import _ceiling_hint
+
+    hint = _ceiling_hint(permission)
+
+    assert hint == (
+        f"To let this central do it, run 'noust fleet access --level {level}' "
+        "on this server, as root."
+    )

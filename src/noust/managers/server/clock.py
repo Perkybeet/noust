@@ -14,7 +14,10 @@ change lists the ones it moves.
 
 from __future__ import annotations
 
+import logging
+import os
 import re
+import zoneinfo
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -37,6 +40,33 @@ _ZONE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_+\-]*(/[A-Za-z0-9][A-Za-z0-9_+\-]*){
 
 #: The package that keeps a clock right, on every family Noust manages.
 NTP_PACKAGE = "chrony"
+
+log = logging.getLogger(__name__)
+
+#: The tz database's own regions. Everything else at the top of a zone directory is
+#: either a copy of the database (``posix/``, ``right/``, ``SystemV/``) or a name kept
+#: for programs written before 1993 (``US/``, ``Brazil/``, ``EST5EDT``, ``GMT``).
+_ZONE_REGIONS = frozenset(
+    {
+        "Africa",
+        "America",
+        "Antarctica",
+        "Arctic",
+        "Asia",
+        "Atlantic",
+        "Australia",
+        "Europe",
+        "Indian",
+        "Pacific",
+    }
+)
+
+#: What of ``Etc/`` is worth offering: UTC, GMT and the fixed offsets, not the
+#: synonyms (``Zulu``, ``Greenwich``, ``GMT0``, ``GMT+0``) that name the same thing.
+_ETC_ZONE = re.compile(r"^Etc/(UTC|GMT|GMT[+-]([1-9]|1[0-4]))$")
+
+#: Where the tz database lives on the managed server.
+_ZONEINFO_DIR = "/usr/share/zoneinfo"
 
 _STATUS_KEYS = {
     "Time zone": "Timezone",
@@ -82,6 +112,40 @@ class TimeStatus:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class TimezoneInfo:
+    """
+    One time zone the server can be set to, as it is at a given moment.
+
+    Attributes:
+        name: The tz database name, such as ``Europe/Madrid``.
+        region: Its first part (``Europe``); ``Etc`` for the fixed offsets and
+            ``UTC`` for the bare ``UTC``.
+        city: What follows the region, readable: ``Madrid``,
+            ``Argentina / Buenos Aires``.
+        offset: The offset from UTC then, as ``UTC+02:00``, ``UTC-03:30`` or ``UTC``.
+        abbreviation: What the zone calls itself then (``CEST``); empty when the
+            database only numbers it (``-03``), which says nothing the offset does not.
+        offset_minutes: The offset in minutes, for sorting and for searching.
+    """
+
+    name: str
+    region: str
+    city: str
+    offset: str
+    abbreviation: str
+    offset_minutes: int
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Render the zone as JSON-serialisable data.
+
+        Returns:
+            Every field, by name.
+        """
+        return asdict(self)
+
+
 @dataclass
 class TimezoneChange:
     """
@@ -99,6 +163,60 @@ class TimezoneChange:
     timezone: str
     moved_timers: list[str] = field(default_factory=list)
     output: str = ""
+
+
+def format_offset(minutes: int) -> str:
+    """
+    Write an offset from UTC the way the console shows it.
+
+    Args:
+        minutes: Minutes east of UTC; negative is west.
+
+    Returns:
+        ``UTC+02:00``, ``UTC-03:30``, or plain ``UTC`` for zero.
+    """
+    if minutes == 0:
+        return "UTC"
+    hours, remainder = divmod(abs(minutes), 60)
+    return f"UTC{'-' if minutes < 0 else '+'}{hours:02d}:{remainder:02d}"
+
+
+def is_offered_zone(name: str) -> bool:
+    """
+    Tell whether a name of the tz database is one to put in front of an operator.
+
+    Args:
+        name: A name the database knows.
+
+    Returns:
+        True for ``Region/City`` names of the database's own regions, ``Etc/UTC``,
+        ``Etc/GMT`` and the fixed offsets, and the bare ``UTC``. The copies of the
+        database and the legacy aliases are not offered, but they stay valid: a
+        server already on ``US/Pacific`` keeps working.
+    """
+    if name == "UTC":
+        return True
+    if not _ZONE.match(name) or "/" not in name:
+        return False
+    if name.startswith("Etc/"):
+        return bool(_ETC_ZONE.match(name))
+    return name.split("/", 1)[0] in _ZONE_REGIONS
+
+
+def _describe_zone(name: str) -> tuple[str, str]:
+    """
+    Split a zone name into its region and a readable city.
+
+    Args:
+        name: ``America/Argentina/Buenos_Aires``.
+
+    Returns:
+        ``("America", "Argentina / Buenos Aires")``; ``("UTC", "UTC")`` for ``UTC``.
+    """
+    region, _, rest = name.partition("/")
+    if not rest:
+        return region, region
+    return region, " / ".join(part.replace("_", " ") for part in rest.split("/"))
 
 
 def _yes(value: str) -> bool:
@@ -266,6 +384,106 @@ class ClockManager:
             pass
         # A Debian without tzdata Python packages still has the files.
         return self.host.at(f"/usr/share/zoneinfo/{name}").is_file()
+
+    def timezones(self, now: datetime | None = None) -> list[TimezoneInfo]:
+        """
+        List the time zones this server can be set to, with their offsets at a moment.
+
+        The names are the ones the tz database of the managed server knows, which is
+        what ``timedatectl set-timezone`` accepts, so the console never offers a name
+        the change would refuse. The offset is the one in force at ``now``: Madrid is
+        ``UTC+01:00`` in January and ``UTC+02:00`` in July.
+
+        Args:
+            now: The moment the offsets are read at; the current time when omitted.
+                A naive value is taken as UTC.
+
+        Returns:
+            ``Etc/UTC`` and ``UTC`` first, then every other zone by offset and name.
+        """
+        moment = datetime.now(timezone.utc) if now is None else now
+        if moment.tzinfo is None:
+            moment = moment.replace(tzinfo=timezone.utc)
+
+        zones = []
+        for name in sorted(filter(is_offered_zone, self._zone_names())):
+            zone = self._load_zone(name)
+            if zone is None:
+                continue
+            local = moment.astimezone(zone)
+            offset = local.utcoffset()
+            if offset is None:  # pragma: no cover - a ZoneInfo always has an offset
+                continue
+            minutes = round(offset.total_seconds() / 60)
+            abbreviation = local.tzname() or ""
+            region, city = _describe_zone(name)
+            zones.append(
+                TimezoneInfo(
+                    name=name,
+                    region=region,
+                    city=city,
+                    offset=format_offset(minutes),
+                    # "-03" repeats the offset and makes a search for "-03" match twice.
+                    abbreviation="" if abbreviation[:1] in "+-" else abbreviation,
+                    offset_minutes=minutes,
+                )
+            )
+        # The two names every operator looks for go ahead of the whole list.
+        first = {"Etc/UTC": 0, "UTC": 1}
+        return sorted(zones, key=lambda z: (first.get(z.name, 2), z.offset_minutes, z.name))
+
+    def _zone_names(self) -> set[str]:
+        """
+        Name every zone the machine has.
+
+        Returns:
+            What ``zoneinfo`` finds; the zone directory of the managed server when it
+            finds nothing (a Python whose search path is not where the distribution
+            keeps the database).
+        """
+        names = set(zoneinfo.available_timezones())
+        if names:
+            return names
+        root = self.host.at(_ZONEINFO_DIR)
+        found: set[str] = set()
+        for directory, subdirectories, files in os.walk(root):
+            relative = os.path.relpath(directory, root)
+            if relative == ".":
+                # Only the regions are worth walking: posix/ and right/ are whole copies
+                # of the database, and a symlink there must not be followed anywhere.
+                subdirectories[:] = [d for d in subdirectories if d in _ZONE_REGIONS or d == "Etc"]
+            prefix = "" if relative == "." else relative.replace(os.sep, "/") + "/"
+            found.update(prefix + file for file in files)
+        return found
+
+    def _load_zone(self, name: str) -> zoneinfo.ZoneInfo | None:
+        """
+        Read one zone from the managed server's database.
+
+        The server's own file wins over Python's copy of the database, because it is
+        the one ``timedatectl`` will apply.
+
+        Args:
+            name: A name that passed :func:`is_offered_zone`.
+
+        Returns:
+            The zone, or None when it cannot be read; the rest of the list is
+            still good, so one broken file does not take the selector down.
+        """
+        path = self.host.at(f"{_ZONEINFO_DIR}/{name}")
+        try:
+            with path.open("rb") as handle:
+                return zoneinfo.ZoneInfo.from_file(handle, key=name)
+        except FileNotFoundError:
+            pass
+        except (OSError, ValueError) as exc:
+            log.debug("Skipping time zone %s: %s", name, exc)
+            return None
+        try:
+            return zoneinfo.ZoneInfo(name)
+        except (zoneinfo.ZoneInfoNotFoundError, OSError, ValueError) as exc:
+            log.debug("Skipping time zone %s: %s", name, exc)
+            return None
 
     def affected_timers(self) -> list[str]:
         """
