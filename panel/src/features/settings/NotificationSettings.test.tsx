@@ -124,7 +124,9 @@ describe("Settings > Notifications", () => {
     expect(within(row("Email")).getByRole("button", { name: "Set up Email" })).toBeInTheDocument();
     // Every event, by area, each group saying how many of its events are sent.
     expect(screen.getByText("Deploys", { selector: "summary *" })).toBeInTheDocument();
-    expect(screen.getAllByText("3 of 4 sent")).toHaveLength(2);
+    // Deploys: deploy_hook_failed is missing from the file, so it is sent (on by default).
+    expect(screen.getAllByText("4 of 5 sent")).toHaveLength(1);
+    expect(screen.getAllByText("3 of 4 sent")).toHaveLength(1);
     expect(screen.getByText("Servers you manage", { selector: "summary *" })).toBeInTheDocument();
     // One save bar for the form, and nothing to save yet.
     expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument();
@@ -293,7 +295,7 @@ describe("Settings > Notifications", () => {
     });
     const events = written("notifications.events")?.body as { path: string; value: Record<string, boolean> };
     expect(events.value).toMatchObject({ backup_success: true, deploy_started: false, restore_failed: true });
-    expect(Object.keys(events.value)).toHaveLength(18);
+    expect(Object.keys(events.value)).toHaveLength(21);
     expect(written("notifications.language")?.body).toEqual({ path: "notifications.language", value: "es" });
   });
 

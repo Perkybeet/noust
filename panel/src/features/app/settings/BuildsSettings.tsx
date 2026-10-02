@@ -18,13 +18,13 @@ import { Card } from "../../../components/ui/Card";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Mono } from "../../../components/ui/Mono";
+import { FeatureState } from "../../../components/ui/FeatureState";
 import { Notice } from "../../../components/ui/Notice";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import { useSudoFirst } from "./formParts";
 import { sandboxQuery, settingsKeys } from "./queries";
 import type { Sandbox } from "./queries";
-import { SettingState } from "./SettingState";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
 
 /** The one type whose builds do not go through the sandbox (`UNSUPPORTED_TYPES` in the backend). */
@@ -199,24 +199,27 @@ function SandboxCard({ app, sandbox }: { app: App; sandbox: Sandbox }) {
   }, [job, domain, queryClient]);
 
   const trialPassed = sandbox.trial?.passed === true;
-  const state = sandbox.enabled ? t("appSettings.builds.on") : sandbox.mode === "off" ? t("appSettings.builds.off") : t("appSettings.builds.notYet");
-
   return (
-    <Card title={t("appSettings.builds.cardTitle")} actions={<SettingState on={sandbox.enabled} label={state} />}>
+    <Card title={t("appSettings.builds.cardTitle")}>
       <div className="flex flex-col gap-4">
         {sandbox.enabled ? (
-          <OnFacts sandbox={sandbox} />
+          <>
+            <FeatureState state="on" title={t("appSettings.builds.on")}>
+              {t("appSettings.builds.onBody")}
+            </FeatureState>
+            <OnFacts sandbox={sandbox} />
+          </>
         ) : sandbox.mode === "off" ? (
-          <Notice tone="warning" title={t("appSettings.builds.offTitle", { who: sandbox.changed_by ?? t("appSettings.builds.anOperator") })}>
+          <FeatureState state="off" title={t("appSettings.builds.offTitle", { who: sandbox.changed_by ?? t("appSettings.builds.anOperator") })}>
             <span className="flex flex-col gap-1">
-              <span className="text-fg">{sandbox.reason}</span>
-              {sandbox.changed_at ? <span>{t.rich("appSettings.builds.offSince", { time: <RelativeTime value={sandbox.changed_at} /> })}</span> : null}
+              <span>{sandbox.reason}</span>
+              {sandbox.changed_at ? <span className="text-fg-muted">{t.rich("appSettings.builds.offSince", { time: <RelativeTime value={sandbox.changed_at} /> })}</span> : null}
             </span>
-          </Notice>
+          </FeatureState>
         ) : (
-          <Notice tone="warning" title={t("appSettings.builds.legacyTitle")}>
+          <FeatureState state="off" title={t("appSettings.builds.legacyTitle")}>
             {t("appSettings.builds.legacyBody")}
-          </Notice>
+          </FeatureState>
         )}
 
         <Trial sandbox={sandbox} />

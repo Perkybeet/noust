@@ -24,6 +24,7 @@ import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
+import { FeatureState } from "../../../components/ui/FeatureState";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { TextLink } from "../../../components/ui/TextLink";
@@ -35,7 +36,6 @@ import { useConfirmItsYou } from "../useDeleteApp";
 import type { FormPart } from "./formParts";
 import { RETENTION_MAX, RETENTION_MIN, parseRetention } from "./healthCheck";
 import { MigrationPlanView } from "./MigrationPlanView";
-import { SettingState } from "./SettingState";
 
 // ---------------------------------------------------------------------------------------------
 // How many versions are kept: a part of the Deploys form, on an app with instant rollback.
@@ -183,12 +183,11 @@ function Versions({ domain }: { domain: string }) {
 function RollbackOn({ app, retention }: { app: App; retention: RetentionPart }) {
   const t = useT();
   return (
-    <Card
-      title={t("appSettings.releases.title")}
-      description={t("appSettings.releases.descriptionOn")}
-      actions={<SettingState on label={t("appSettings.releases.on")} />}
-    >
+    <Card title={t("appSettings.releases.title")}>
       <div className="flex flex-col gap-4">
+        <FeatureState state="on" title={t("appSettings.releases.on")}>
+          {t("appSettings.releases.descriptionOn")}
+        </FeatureState>
         <Versions domain={app.domain} />
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <Field
@@ -230,18 +229,25 @@ function RollbackOn({ app, retention }: { app: App; retention: RetentionPart }) 
 function RollbackOff({ onTurnOn }: { onTurnOn: () => void }) {
   const t = useT();
   return (
-    <Card title={t("appSettings.releases.title")} actions={<SettingState on={false} label={t("appSettings.releases.off")} />}>
+    <Card title={t("appSettings.releases.title")}>
       <div className="flex flex-col gap-4">
-        <p className="max-w-measure text-14 text-pretty text-fg">{t("appSettings.releases.benefit")}</p>
+        <FeatureState
+          state="off"
+          title={t("appSettings.releases.off")}
+          action={
+            <Button size="sm" onClick={onTurnOn}>
+              {t("appSettings.releases.turnOn")}
+            </Button>
+          }
+        >
+          {t("appSettings.releases.benefit")}
+        </FeatureState>
         <ul className="flex max-w-measure list-disc flex-col gap-1.5 pl-5 text-13 text-pretty text-fg-muted marker:text-fg-faint">
           <li>{t.rich("appSettings.releases.onDiskChange", { releases: <Mono>releases/</Mono>, shared: <Mono>shared/</Mono> })}</li>
           <li>{t("appSettings.releases.restartOnce")}</li>
           <li>{t("appSettings.releases.undoesItself")}</li>
         </ul>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <Button onClick={onTurnOn}>{t("appSettings.releases.turnOn")}</Button>
-          <p className="text-12 text-fg-muted">{t("appSettings.releases.dryRunFirst")}</p>
-        </div>
+        <p className="text-12 text-fg-muted">{t("appSettings.releases.dryRunFirst")}</p>
       </div>
     </Card>
   );

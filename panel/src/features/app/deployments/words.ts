@@ -60,3 +60,12 @@ export function releaseBadge(t: T, status: string): ReleaseBadge {
 export function shortCommit(commit: string | null | undefined): string | null {
   return commit ? commit.slice(0, 7) : null;
 }
+
+/**
+ * A deployment's status word for its pill: one that succeeded but carries warnings (a
+ * post_deploy hook failed once it served) is "deployed with warnings", not a plain success.
+ */
+export function deploymentStatusWord(deployment: { status: string; warnings?: string | null }): string {
+  const succeeded = deployment.status === "success" || deployment.status === "completed";
+  return succeeded && deployment.warnings ? "deployed_with_warnings" : deployment.status;
+}

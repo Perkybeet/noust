@@ -254,6 +254,8 @@ export const server: Catalog<typeof en> = {
       schedule: "Programar reinicio",
     },
     auto: {
+      onTitle: "Las actualizaciones automáticas están activadas",
+      offTitle: "Las actualizaciones automáticas están desactivadas",
       label: "Actualizaciones de seguridad automáticas",
       description: "Instala las actualizaciones de seguridad cada día. Nunca reinicia el servidor por su cuenta.",
       descriptionReboots: "Instala las actualizaciones de seguridad cada día y reinicia el servidor por su cuenta cuando alguna lo necesita.",
@@ -752,6 +754,13 @@ export const server: Catalog<typeof en> = {
     },
   },
   clock: {
+    zoneCurrent: "En uso",
+    zoneSearch: "Busca por ciudad, zona o desfase, como madrid o +2",
+    zoneOffset: "Con esta zona el servidor va con {offset}.",
+    zoneTime: "Su reloj marcaría ahora {time}.",
+    zoneOlderServer: "Este servidor tiene una versión anterior de Noust y no lista sus zonas: escribe un nombre de la base de datos de zonas horarias, como Europe/Madrid.",
+    zonesFailed: "No se pudieron listar las zonas horarias del servidor",
+    zonesLoading: "Cargando las zonas horarias del servidor",
     title: "Reloj",
     loadFailed: "No se pudo leer el reloj",
     localTime: "Hora local",

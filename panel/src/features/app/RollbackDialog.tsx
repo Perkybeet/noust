@@ -14,6 +14,8 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatBytes } from "../../lib/format";
 import { useAppActions } from "../apps/useAppActions";
+import { schemaChangeRefusal } from "./schemaChange";
+import { useSchemaChangeConfirmation } from "./SchemaChangeDialog";
 import { versionTitle } from "./versionTitle";
 
 interface Target {
@@ -104,6 +106,7 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
   const points = useQuery({ ...rollbackPointsQuery(domain), enabled: open && inPlace });
   const { activateRelease, rollbackToBackup } = useAppActions(domain, onJobQueued ? { onJobQueued } : {});
   const action = inPlace ? rollbackToBackup : activateRelease;
+  const schema = useSchemaChangeConfirmation(domain);
 
   const targets: Target[] | undefined = inPlace
     ? points.data?.items.map((point) => ({
@@ -137,14 +140,26 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
 
   const choose = (id: string): void => {
     setChosen(id);
-    action.mutate(id, {
-      onSuccess: () => {
-        close(false);
+    action.mutate(
+      { id },
+      {
+        onSuccess: () => {
+          close(false);
+        },
+        onError: (error) => {
+          // Past a schema change the question moves to its own dialog, which names the
+          // deployments and their migrations; this one closes behind it.
+          const asked = schema.intercept(schemaChangeRefusal(error), () => action.mutateAsync({ id, schemaChangedOk: true }));
+          if (asked) {
+            action.reset();
+            close(false);
+          }
+        },
+        onSettled: () => {
+          setChosen(null);
+        },
       },
-      onSettled: () => {
-        setChosen(null);
-      },
-    });
+    );
   };
 
   let body;
@@ -174,6 +189,7 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
   }
 
   return (
+    <>
     <Dialog
       open={open}
       onOpenChange={close}
@@ -190,5 +206,7 @@ export function RollbackDialog({ domain, layout, open, onOpenChange, onJobQueued
         {action.isError ? <ErrorBlock live compact error={action.error} title={t("appPages.rollback.notStarted")} /> : null}
       </div>
     </Dialog>
+    {schema.dialog}
+    </>
   );
 }

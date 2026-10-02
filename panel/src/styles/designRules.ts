@@ -190,6 +190,13 @@ export const DESIGN_RULES: readonly DesignRule[] = [
     applies: except("components/ui/ConfirmDialog.tsx"),
   },
   {
+    // Owner item 56: whether a feature is on was a neutral notice in which only a word changed.
+    id: "feature-state-notice",
+    fix: "Show whether a feature is on with FeatureState (on, off, problem), never a Notice whose title or text is an on/off word.",
+    pattern: /<Notice\b[^>]*\btitle=\{t\("[\w.]+\.(?:on|off|onTitle|offTitle|enabled|disabled|stateOn|stateOff)"\)|<Notice\b[^>]*>\s*\{t\("[\w.]+\.(?:on|off|onTitle|offTitle|enabled|disabled|stateOn|stateOff)"\)/g,
+    applies: outsideKit,
+  },
+  {
     id: "page-without-template",
     fix: "Compose the page from a template (ListPage, DetailPage, SettingsLayout, DashboardPage, Wizard, FileEditorPage, AuthLayout).",
     pattern: /<PageHeader\b/g,

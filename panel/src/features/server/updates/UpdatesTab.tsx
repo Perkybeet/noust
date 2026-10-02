@@ -26,6 +26,7 @@ import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import type { Status } from "../../../components/ui/StatusPill";
+import { FeatureState } from "../../../components/ui/FeatureState";
 import { Switch } from "../../../components/ui/Switch";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
@@ -199,21 +200,26 @@ function AutoUpdates({ updates }: { updates: Updates }) {
     onError: (error) => reportActionError(t("server.job.auto.failed"), explainServerError(t, error, node)),
   });
   return (
-    <Card padding="sm">
-      <div className="flex min-w-0 flex-col gap-2">
+    <FeatureState
+      state={auto.enabled ? "on" : "off"}
+      title={auto.enabled ? t("server.updates.auto.onTitle") : t("server.updates.auto.offTitle")}
+      action={
         <Switch
           label={t("server.updates.auto.label")}
-          description={
-            auto.supported
-              ? auto.reboots
-                ? t("server.updates.auto.descriptionReboots")
-                : t("server.updates.auto.description")
-              : t("server.updates.auto.unsupported")
-          }
           checked={auto.enabled}
           disabled={!auto.supported || change.isPending || jobs.busy}
           onCheckedChange={(checked) => change.mutate(checked)}
         />
+      }
+    >
+      <div className="flex min-w-0 flex-col gap-2">
+        <p>
+          {auto.supported
+            ? auto.reboots
+              ? t("server.updates.auto.descriptionReboots")
+              : t("server.updates.auto.description")
+            : t("server.updates.auto.unsupported")}
+        </p>
         <p className="text-12 text-fg-muted">
           {t.rich("server.updates.auto.mechanism", { mechanism: <Mono>{auto.mechanism}</Mono> })}
           {auto.enabled && auto.security_only === false ? ` ${t("server.updates.auto.allUpdates")}` : ""}
@@ -226,7 +232,7 @@ function AutoUpdates({ updates }: { updates: Updates }) {
         </p>
         {!auto.supported && auto.detail !== "" ? <p className="text-12 text-fg-muted">{auto.detail}</p> : null}
       </div>
-    </Card>
+    </FeatureState>
   );
 }
 

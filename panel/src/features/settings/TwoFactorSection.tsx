@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ShieldOff, Smartphone } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
 
@@ -19,6 +18,7 @@ import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Dialog } from "../../components/ui/Dialog";
 import { Field } from "../../components/ui/Field";
+import { FeatureState } from "../../components/ui/FeatureState";
 import { ICONS } from "../../components/ui/icons";
 import { Input } from "../../components/ui/Input";
 import { Skeleton } from "../../components/ui/Skeleton";
@@ -365,29 +365,25 @@ function Status({ t, status, account }: { t: T; status: TwoFactorStatus; account
   if (status.enabled) {
     const few = status.backup_codes_remaining <= FEW_CODES;
     return (
-      <div className="flex min-w-0 items-start gap-3">
-        <Smartphone aria-hidden="true" className="mt-0.5 size-icon-lg shrink-0 text-fg-muted" />
+      <FeatureState state="on" title={t("settings.security.twoFactor.status.onTitle")}>
         <div className="flex min-w-0 flex-col gap-0.5">
-          <p className="text-14 font-medium text-fg">{t("settings.security.twoFactor.status.onTitle")}</p>
-          <p className="text-13 text-fg-muted">{account ? t("auth.security.factorOnAccount") : t("settings.security.twoFactor.status.onDescription")}</p>
-          <p className="mt-1 flex items-center gap-1.5 text-13 text-fg-muted">
+          <p>{account ? t("auth.security.factorOnAccount") : t("settings.security.twoFactor.status.onDescription")}</p>
+          <p className="mt-1 flex items-center gap-1.5 text-fg-muted">
             {few ? <ICONS.warning aria-hidden="true" className={cx("size-icon-sm", stateTextClass("warning"))} /> : null}
             <span className="tabular-nums">{t("auth.security.codesLeft", { count: status.backup_codes_remaining })}</span>
           </p>
-          {few ? <p className="text-13 text-fg-muted">{t("settings.security.twoFactor.status.codesLow")}</p> : null}
+          {few ? <p className="text-fg-muted">{t("settings.security.twoFactor.status.codesLow")}</p> : null}
         </div>
-      </div>
+      </FeatureState>
     );
   }
   return (
-    <div className="flex min-w-0 items-start gap-3">
-      <ShieldOff aria-hidden="true" className="mt-0.5 size-icon-lg shrink-0 text-fg-muted" />
+    <FeatureState state="off" title={t("settings.security.twoFactor.status.offTitle")}>
       <div className="flex min-w-0 flex-col gap-0.5">
-        <p className="text-14 font-medium text-fg">{t("settings.security.twoFactor.status.offTitle")}</p>
-        <p className="text-13 text-fg-muted">{account ? t("auth.security.factorOffAccount") : t("settings.security.twoFactor.status.offDescription")}</p>
-        {status.pending ? <p className="mt-1 text-13 text-fg-muted">{t("settings.security.twoFactor.status.pending")}</p> : null}
+        <p>{account ? t("auth.security.factorOffAccount") : t("settings.security.twoFactor.status.offDescription")}</p>
+        {status.pending ? <p className="mt-1 text-fg-muted">{t("settings.security.twoFactor.status.pending")}</p> : null}
       </div>
-    </div>
+    </FeatureState>
   );
 }
 

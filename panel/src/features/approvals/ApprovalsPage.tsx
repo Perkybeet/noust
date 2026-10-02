@@ -22,6 +22,7 @@ import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { Field } from "../../components/ui/Field";
 import { Mono } from "../../components/ui/Mono";
+import { FeatureState } from "../../components/ui/FeatureState";
 import { Notice } from "../../components/ui/Notice";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { Textarea } from "../../components/ui/Textarea";
@@ -215,7 +216,9 @@ export function ApprovalsPage({ search, onSearchChange }: ApprovalsPageProps) {
   return (
     <Sections>
       {policy.data !== undefined && !policy.data.enabled ? (
-        <Notice title={t("approvals.page.offTitle")}>{t("approvals.page.off")}</Notice>
+        <FeatureState state="off" title={t("approvals.page.offTitle")}>
+          {t("approvals.page.off")}
+        </FeatureState>
       ) : null}
       <Section
         title={t("approvals.page.title")}

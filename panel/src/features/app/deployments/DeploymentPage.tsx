@@ -25,7 +25,7 @@ import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
-import { StatusPill } from "../../../components/ui/StatusPill";
+import { StatusGlyph, StatusPill } from "../../../components/ui/StatusPill";
 import { TextLink } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
@@ -37,7 +37,7 @@ import { PhaseTimeline, phaseDoing } from "./PhaseTimeline";
 import { currentPhase, logClockOffset, outcomeOf, timeline } from "./phases";
 import type { PhaseKey, PhaseView } from "./phases";
 import { useDeploymentJob } from "./useDeploymentJob";
-import { shortCommit, triggerWords } from "./words";
+import { deploymentStatusWord, shortCommit, triggerWords } from "./words";
 
 const RUNNING = new Set(["queued", "running"]);
 
@@ -127,6 +127,68 @@ function Facts({ deployment, t }: { deployment: Deployment; t: T }) {
         <Elapsed deployment={deployment} t={t} />
       </Fact>
     </dl>
+  );
+}
+
+type HookRun = NonNullable<Deployment["hooks"]>[number];
+
+/** How one hook ended, as a glyph and a word. */
+function hookOutcome(t: T, hook: HookRun): { state: "running" | "failed" | "unknown"; word: string } {
+  if (hook.timed_out) return { state: "failed", word: t("appPages.deployments.hooks.timedOut") };
+  if (hook.exit_code === null || hook.exit_code === undefined) return { state: "unknown", word: t("appPages.deployments.hooks.didNotRun") };
+  if (hook.ok) return { state: "running", word: t("appPages.deployments.hooks.succeeded") };
+  return { state: "failed", word: t("appPages.deployments.hooks.exited", { code: hook.exit_code }) };
+}
+
+/**
+ * What the deploy hooks ran, in order (spec 3.2, section 1.1): before the new version served
+ * and after it did, each with how it ended and the end of its output verbatim; and whether the
+ * deploy changed the database's schema, which going back past it asks about.
+ */
+function HooksSection({ deployment, t }: { deployment: Deployment; t: T }) {
+  const hooks = deployment.hooks ?? [];
+  if (hooks.length === 0 && !deployment.schema_changed) return null;
+  return (
+    <Section
+      title={t("appPages.deployments.hooks.title")}
+      level={3}
+      description={deployment.schema_changed ? t("appPages.deployments.hooks.schemaChanged") : t("appPages.deployments.hooks.schemaUnchanged")}
+    >
+      {hooks.length > 0 ? (
+        <Card padding="none">
+          <ul aria-label={t("appPages.deployments.hooks.listLabel", { id: String(deployment.id) })} className="flex flex-col divide-y divide-border">
+            {hooks.map((hook, index) => {
+              const outcome = hookOutcome(t, hook);
+              return (
+                <li key={`${hook.phase}-${String(index)}`} className="flex min-w-0 flex-col gap-2 px-4 py-3">
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-13">
+                      <span className="text-fg-muted">
+                        {hook.phase === "post_deploy" ? t("appPages.deployments.hooks.postDeploy") : t("appPages.deployments.hooks.preDeploy")}
+                      </span>
+                      <Mono truncate title={hook.run}>
+                        {hook.run}
+                      </Mono>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1.5 text-12 text-fg-muted">
+                      <StatusGlyph state={outcome.state} />
+                      {outcome.word}
+                      {hook.duration_s !== null && hook.duration_s !== undefined ? <Mono tone="muted">{formatDuration(hook.duration_s, t.locale)}</Mono> : null}
+                    </span>
+                  </div>
+                  <span className="flex flex-wrap gap-x-3 text-12 text-fg-muted">
+                    {hook.automatic === "prisma" ? <span>{t("appPages.deployments.hooks.prismaAutomatic")}</span> : null}
+                    {hook.service ? <span>{t("appPages.deployments.hooks.inService", { service: hook.service })}</span> : null}
+                    {hook.migrates ? <span>{t("appPages.deployments.hooks.migrates")}</span> : null}
+                  </span>
+                  {hook.output !== "" ? <SystemOutput label={t("appPages.deployments.hooks.outputLabel", { run: hook.run })}>{hook.output}</SystemOutput> : null}
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      ) : null}
+    </Section>
   );
 }
 
@@ -296,7 +358,7 @@ function Deploy({ domain, deployment, t }: { domain: string; deployment: Deploym
         title={t("appPages.deployments.page.heading", { id: String(deployment.id) })}
         badge={
           <span className="flex items-center gap-2">
-            <DeployStatePill status={deployment.status} />
+            <DeployStatePill status={deploymentStatusWord(deployment)} />
             {job.socket === "reconnecting" ? <StatusPill state="deploying" label={t("appPages.common.reconnecting")} appearance="inline" size="sm" /> : null}
           </span>
         }
@@ -314,6 +376,14 @@ function Deploy({ domain, deployment, t }: { domain: string; deployment: Deploym
             ) : null}
           </div>
         </Card>
+        {deployment.warnings && failure === null ? (
+          <Notice tone="warning" title={t("appPages.deployments.hooks.warningsTitle")}>
+            <div className="flex flex-col gap-2">
+              <p>{t("appPages.deployments.hooks.warningsBody")}</p>
+              <SystemOutput label={t("appPages.deployments.hooks.warningsLabel")}>{deployment.warnings}</SystemOutput>
+            </div>
+          </Notice>
+        ) : null}
         {failure !== null ? (
           <div className="flex flex-col gap-2">
             <ErrorBlock
@@ -328,6 +398,7 @@ function Deploy({ domain, deployment, t }: { domain: string; deployment: Deploym
         ) : null}
       </Section>
 
+      <HooksSection deployment={deployment} t={t} />
       <LogSection
         domain={domain}
         deployment={deployment}

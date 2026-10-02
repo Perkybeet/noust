@@ -1,7 +1,7 @@
 /**
  * The charts' reading and enlarging against the real backend: a card beside the cursor with the
- * reading (dismissable with Escape, pinned with a click), the same moment marked in every chart of
- * the grid, the arrow keys stepping through the readings and saying each one politely, and Expand
+ * reading (dismissable with Escape; a click never freezes it), the same moment marked by the
+ * crosshair in every chart of the grid, the arrow keys stepping through the readings and saying each one politely, and Expand
  * opening the chart large, where zooming reads the stretch again and the numbers are a tab of the
  * same height, never a reflow of the page. The Overview's machine charts are fed by the live
  * collector (a young history); an application's charts by thirty days of seeded history. Both
@@ -49,25 +49,25 @@ test("hovering reads the moment in a card beside the cursor, and in every chart 
   // The newest cell may be empty yet (the read ended a moment after the last tick): the card
   // then says so in words, never a blank.
   await expect(card).toContainText(/\d+(\.\d+)?%|No reading: nothing was recorded at this moment\./);
-  // The same moment in the row of the chart beside it, without a card of its own.
-  await expect(memory.locator("[data-readout-time] time")).toHaveAttribute("datetime", /^\d{4}-/);
+  // The chart beside it follows with its crosshair only: no card, and its row keeps the newest
+  // values, so only the chart under the pointer says a moment (owner item 62).
   await expect(memory.locator("[data-chart-card]")).toHaveAttribute("data-chart-card", "hidden");
-  const cpuTime = await cpu.locator("[data-readout-time] time").getAttribute("datetime");
-  await expect(memory.locator("[data-readout-time] time")).toHaveAttribute("datetime", cpuTime ?? "");
+  await expect(memory.locator("[data-readout-time]")).toHaveText("Latest");
 
   // WCAG 1.4.13: Escape puts the card away without moving the pointer.
   await page.keyboard.press("Escape");
   await expect(card).toHaveAttribute("data-chart-card", "hidden");
 
-  // A click pins it: it stays, and another click elsewhere lets it go.
+  // A click is only a click: the card keeps following the pointer, nothing freezes (item 62).
   await pointAt(page, cpu.getByRole("img"), 1);
   await page.mouse.down();
   await page.mouse.up();
-  await expect(card).toHaveAttribute("data-chart-card", "pinned");
+  await expect(card).toHaveAttribute("data-chart-card", "floating");
+  const before = await cpu.locator("[data-readout-time] time").getAttribute("datetime");
+  await pointAt(page, cpu.getByRole("img"), 0.5);
+  await expect(cpu.locator("[data-readout-time] time")).not.toHaveAttribute("datetime", before ?? "");
   await settle(page);
-  await expectNoA11yViolations(page, "the overview with a pinned reading");
-  await page.mouse.click(5, 300);
-  await expect(card).not.toHaveAttribute("data-chart-card", "pinned");
+  await expectNoA11yViolations(page, "the overview with a reading");
 
   // Off the chart: back to the newest values everywhere.
   await page.mouse.move(5, 5);
@@ -86,7 +86,7 @@ test("the arrow keys step through the readings and say each one", async ({ page,
   await page.keyboard.press("PageUp");
   await expect(cpu.locator("[data-readout-time] time")).toBeVisible();
   await page.keyboard.press("Enter");
-  await expect(cpu.locator("[data-chart-card]")).toHaveAttribute("data-chart-card", "pinned");
+  await expect(cpu.locator("[data-chart-card]")).toHaveAttribute("data-chart-card", "floating");
   await page.keyboard.press("Escape");
   await expect(cpu.locator("[data-readout-time]")).toHaveText("Latest");
   await settle(page);

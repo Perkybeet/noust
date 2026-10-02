@@ -1,4 +1,4 @@
-import { Maximize2, ZoomIn, ZoomOut } from "lucide-react";
+import { Maximize2, ScanSearch, ZoomIn, ZoomOut } from "lucide-react";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ReactElement, ReactNode } from "react";
 import uPlot from "uplot";
@@ -151,6 +151,12 @@ export interface ChartProps extends ChartData {
   rangeSelector?: ChartRangeSelector;
   /** Zooming that reads the stretch again; the dialog stretches the page's readings without it. */
   zoom?: ChartZoom;
+  /**
+   * "Investigate this stretch" in the enlarged chart: what opens for the stretch on screen, the
+   * dragged selection once zoomed or else the whole window. Rendered inside the dialog, so a
+   * drawer it opens stacks above the chart; `close` puts it away.
+   */
+  investigate?: (stretch: ChartWindow, close: () => void) => ReactNode;
   className?: string;
 }
 
@@ -1377,13 +1383,15 @@ interface DialogProps {
   plot: Omit<PlotProps, "summary" | "derived" | "view" | "height" | "grouped" | "onZoom" | "title">;
   rangeSelector: ChartRangeSelector | undefined;
   zoom: ChartZoom | undefined;
+  investigate: ChartProps["investigate"];
   summaryOf: (derived: Derived, view: ChartWindow | null) => string;
 }
 
 /** The chart enlarged: the page's range, a zoom that reads again, the readout and the data. */
-function ChartDialog({ open, onOpenChange, title, description, derived, plot, rangeSelector, zoom, summaryOf }: DialogProps) {
+function ChartDialog({ open, onOpenChange, title, description, derived, plot, rangeSelector, zoom, investigate, summaryOf }: DialogProps) {
   const t = useT();
   const [tab, setTab] = useState<"chart" | "data">("chart");
+  const [investigating, setInvestigating] = useState<ChartWindow | null>(null);
   // Without a page that reads each stretch again, the zoom stretches what is here, and it
   // belongs to the range it was made in: a new range starts whole.
   const [local, setLocal] = useState<{ range: string; window: ChartWindow } | null>(null);
@@ -1412,6 +1420,19 @@ function ChartDialog({ open, onOpenChange, title, description, derived, plot, ra
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>{rangeSelector?.control}</div>
           <div className="flex flex-wrap items-center gap-1">
+            {investigate ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={<ScanSearch />}
+                className="mr-1"
+                onClick={() => {
+                  setInvestigating(shownWindow);
+                }}
+              >
+                {t("common.chart.investigate")}
+              </Button>
+            ) : null}
             <IconButton
               label={t("common.chart.zoomIn")}
               icon={<ZoomIn />}
@@ -1469,7 +1490,14 @@ function ChartDialog({ open, onOpenChange, title, description, derived, plot, ra
             </div>
           </TabPanel>
         </Tabs>
-        <p className="text-12 text-pretty text-fg-faint">{active === null ? t("common.chart.dragToZoom") : t("common.chart.zoomedHint")}</p>
+        <p className="text-12 text-pretty text-fg-faint">
+          {active !== null ? t("common.chart.zoomedHint") : investigate ? t("common.chart.dragToInvestigate") : t("common.chart.dragToZoom")}
+        </p>
+        {investigate && investigating !== null
+          ? investigate(investigating, () => {
+              setInvestigating(null);
+            })
+          : null}
       </div>
     </Dialog>
   );
@@ -1560,6 +1588,7 @@ export function Chart({
   empty,
   rangeSelector,
   zoom,
+  investigate,
   className,
 }: ChartProps) {
   const t = useT();
@@ -1643,6 +1672,7 @@ export function Chart({
           plot={plot}
           rangeSelector={rangeSelector}
           zoom={zoom}
+          investigate={investigate}
           summaryOf={summaryOf}
         />
       ) : null}

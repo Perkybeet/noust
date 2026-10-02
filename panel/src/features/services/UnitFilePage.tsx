@@ -21,6 +21,7 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
+import { changedLines } from "../../lib/lineDiff";
 import { useNode } from "../../nodes/useNode";
 import { ConfigEditor } from "../domains/ConfigEditor";
 import { serviceState } from "./data";
@@ -29,15 +30,6 @@ import { useServiceActions } from "./useServiceActions";
 import { useServiceRecord } from "./useServiceRecord";
 
 type Outcome = { kind: "rejected"; output: string } | { kind: "passed"; output: string } | { kind: "saved"; output: string } | null;
-
-/** How many lines differ between two versions of a file: what the save bar counts. */
-export function changedLines(before: string, after: string): number {
-  const a = before.split("\n");
-  const b = after.split("\n");
-  let changed = Math.abs(a.length - b.length);
-  for (let index = 0; index < Math.min(a.length, b.length); index += 1) if (a[index] !== b[index]) changed += 1;
-  return changed;
-}
 
 export function UnitFilePage({ name }: { name: string }) {
   const t = useT();

@@ -5,7 +5,7 @@ import type { AppInfo, Deployment } from "../apps/data";
 import { collectAttention } from "./attention";
 
 function app(domain: string, status: string): AppInfo {
-  return { domain, name: domain, status, active: status === "running", enabled: true, app_type: "nextjs", layout: "inplace", webhook_enabled: false, keep_releases: 5, zero_downtime: false };
+  return { domain, name: domain, status, active: status === "running", enabled: true, app_type: "nextjs", layout: "inplace", webhook_enabled: false, keep_releases: 5, zero_downtime: false, backup_before_update: true };
 }
 
 function deploy(id: number, domain: string, status: string, error: string | null = null): Deployment {
@@ -22,6 +22,7 @@ function deploy(id: number, domain: string, status: string, error: string | null
     error,
     has_log: true,
     rollback_available: false,
+    schema_changed: false,
   };
 }
 

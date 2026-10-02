@@ -5,23 +5,19 @@ import { useState } from "react";
 
 import { ElevationCancelledError } from "../../api/client";
 import { DetailPage } from "../../components/page/DetailPage";
-import { KeyValueList } from "../../components/page/KeyValueList";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Button } from "../../components/ui/Button";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { Dialog } from "../../components/ui/Dialog";
-import { Drawer } from "../../components/ui/Drawer";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph, StatusPill, stateTextClass } from "../../components/ui/StatusPill";
-import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { cx } from "../../lib/cx";
 import { formatDuration, parseTimestamp } from "../../lib/format";
 import { describeActor } from "../activity/data";
 import { PlanView } from "./BulkActionDialog";
@@ -35,14 +31,13 @@ import {
   isJobRunning,
   isKnownAction,
   jobStatusView,
-  nodeErrorOf,
   nodeJobState,
   retryFleetJob,
   retryable,
-  textOf,
 } from "./data";
 import type { FleetJob, FleetNodeState, NodeJobState } from "./data";
 import { HrefLink } from "./links";
+import { NodeJobDrawer } from "./NodeJobDrawer";
 
 /** The order a job's counts are said in: what went wrong first. */
 const COUNT_ORDER: readonly NodeJobState[] = ["failed", "unreachable", "refused", "interrupted", "running", "queued", "succeeded", "skipped", "cancelled"];
@@ -142,81 +137,6 @@ function columns(t: T, canary: unknown, onOpen: (node: FleetNodeState) => void):
       ),
     },
   ];
-}
-
-/** One server's part of the job: what happened there, the central's words and the node's own. */
-function NodeDrawer({ t, node, onClose }: { t: T; node: FleetNodeState; onClose: () => void }) {
-  const view = NODE_JOB_VIEW[nodeJobState(node.state)];
-  const error = nodeErrorOf(node);
-  const items = node.items ?? [];
-  return (
-    <Drawer
-      open
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      size="lg"
-      title={t("fleet.jobs.drawerTitle", { name: node.node })}
-      description={t(view.label)}
-    >
-      <div className="flex flex-col gap-5">
-        <KeyValueList
-          items={[
-            { label: t("fleet.column.state"), value: <StatusPill state={view.state} label={t(view.label)} appearance="inline" size="sm" />, copy: false, mono: false },
-            ...(reasonWords(t, node) !== null ? [{ label: t("fleet.jobs.why"), value: reasonWords(t, node), copy: false as const, mono: false }] : []),
-            { label: t("fleet.column.step"), value: node.step ?? null },
-            { label: t("fleet.jobs.started"), value: node.started_at !== null && node.started_at !== undefined ? <RelativeTime value={node.started_at} /> : null, copy: false, mono: false },
-            ...(node.node_jobs !== undefined && node.node_jobs.length > 0 ? [{ label: t("fleet.jobs.nodeJobs"), value: node.node_jobs.join(", ") }] : []),
-          ]}
-          empty={t("fleet.jobs.notYet")}
-        />
-        {error.message !== null ? (
-          <Notice tone="error" title={error.message}>
-            {error.hint}
-          </Notice>
-        ) : null}
-        {node.output !== null && node.output !== undefined && node.output !== "" ? (
-          <div className="flex flex-col gap-1.5">
-            <p className="text-13 font-medium text-fg">{t("fleet.jobs.output", { name: node.node })}</p>
-            <SystemOutput label={t("fleet.jobs.output", { name: node.node })} maxHeight="max-h-96">
-              {node.output}
-            </SystemOutput>
-          </div>
-        ) : null}
-        {items.length > 0 ? (
-          <div className="flex flex-col gap-1.5">
-            <p className="text-13 font-medium text-fg">{t("fleet.jobs.items")}</p>
-            <ul className="flex flex-col divide-y divide-border">
-              {items.map((item, index) => {
-                const name = textOf(item["domain"]) ?? textOf(item["name"]) ?? String(index + 1);
-                const state = nodeJobState(textOf(item["state"]) ?? "failed");
-                const itemView = NODE_JOB_VIEW[state];
-                const message = textOf(item["message"]);
-                const output = textOf(item["output"]);
-                return (
-                  <li key={`${name}-${String(index)}`} className="flex min-w-0 flex-col gap-1 py-2">
-                    <span className="flex min-w-0 items-center gap-2">
-                      <span className={cx("inline-flex items-center gap-1 text-13", stateTextClass(itemView.state))}>
-                        <StatusGlyph state={itemView.state} size={10} />
-                        <span className="text-fg">{t(itemView.label)}</span>
-                      </span>
-                      <Mono truncate>{name}</Mono>
-                    </span>
-                    {message !== null ? <span className="text-13 text-fg-muted">{message}</span> : null}
-                    {output !== null ? (
-                      <SystemOutput label={t("fleet.jobs.output", { name })} maxHeight="max-h-40">
-                        {output}
-                      </SystemOutput>
-                    ) : null}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ) : null}
-      </div>
-    </Drawer>
-  );
 }
 
 function Counts({ t, job }: { t: T; job: FleetJob }) {
@@ -381,9 +301,10 @@ export function FleetJobPage({ id }: { id: string }) {
         </div>
       )}
       {open !== null ? (
-        <NodeDrawer
-          t={t}
+        <NodeJobDrawer
           node={data?.nodes?.find((node) => node.node === open.node) ?? open}
+          action={data?.action ?? ""}
+          canary={data?.request["canary"] ?? null}
           onClose={() => {
             setOpen(null);
           }}

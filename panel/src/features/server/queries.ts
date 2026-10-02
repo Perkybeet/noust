@@ -73,6 +73,7 @@ export const serverKeys = {
   dockerImages: ["server", "storage", "docker-images"] as const,
   swap: ["server", "swap"] as const,
   time: ["server", "time"] as const,
+  timezones: ["server", "time", "zones"] as const,
   identity: ["server", "identity"] as const,
   processes: (sort: ProcessSort, byUnit: boolean, limit: number) => ["server", "processes", { sort, byUnit, limit }] as const,
   journal: (filters: JournalFilters) => ["server", "logs", filters] as const,
@@ -173,6 +174,18 @@ export const timeQuery = () =>
   queryOptions({
     queryKey: serverKeys.time,
     queryFn: ({ signal }) => request("get", "/api/server/time", { signal }),
+  });
+
+/**
+ * The time zones the server knows, each with its offset now, its abbreviation, its region and
+ * a readable city, UTC first. Computed by the server being managed (on a fleet, the node), not
+ * by the browser: they are the names it will accept.
+ */
+export const timezonesQuery = () =>
+  queryOptions({
+    queryKey: serverKeys.timezones,
+    queryFn: ({ signal }) => request("get", "/api/server/clock/timezones", { signal }),
+    staleTime: 10 * 60_000,
   });
 
 export const identityQuery = () =>

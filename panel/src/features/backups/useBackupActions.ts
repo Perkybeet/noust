@@ -32,6 +32,8 @@ export interface RestoreBackupInput {
   targetDomain?: string | undefined;
   restoreEnv: boolean;
   verify: boolean;
+  /** Going back past deployments that changed the database schema was confirmed (SchemaChangeDialog). */
+  schemaChangedOk?: boolean;
 }
 
 export interface ScheduleDestinationInput {
@@ -117,7 +119,12 @@ export function useBackupActions() {
     mutationFn: (input: RestoreBackupInput) =>
       request("post", "/api/backups/{backup_id}/restore", {
         params: { backup_id: input.backupId },
-        body: { target_domain: input.targetDomain ?? null, restore_env: input.restoreEnv, verify: input.verify },
+        body: {
+          target_domain: input.targetDomain ?? null,
+          restore_env: input.restoreEnv,
+          verify: input.verify,
+          schema_changed_ok: input.schemaChangedOk ?? false,
+        },
       }),
     onSuccess: (result) => {
       queueJob(result, t("backups.toast.restoreQueuedDescription"));

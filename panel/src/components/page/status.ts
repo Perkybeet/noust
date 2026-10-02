@@ -85,6 +85,8 @@ const DEPLOY_STATES: Readonly<Record<string, KnownState>> = {
   completed: { state: "running", labelKey: "common.deployState.succeeded", attention: false },
   failed: { state: "failed", labelKey: "common.deployState.failed", attention: true },
   rolled_back: { state: "stopped", labelKey: "common.deployState.rolledBack", attention: true },
+  // It serves, but a post_deploy hook failed once it did: the deployment's `warnings` say why.
+  deployed_with_warnings: { state: "warning", labelKey: "common.deployState.withWarnings", attention: true },
   cancelled: { state: "stopped", labelKey: "common.deployState.cancelled", attention: false },
 };
 

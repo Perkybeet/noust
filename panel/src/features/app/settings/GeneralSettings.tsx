@@ -9,7 +9,10 @@ import { hasUnit } from "../../apps/AppRowActions";
 import { useTypeName } from "../../apps/data";
 import { sourceLink } from "../SourceLink";
 import { BranchActions } from "./BranchPin";
+import { FollowTagsActions } from "./FollowTags";
+import { IdentityCard } from "./Identity";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { WorkerCard, isComposeStack } from "./StackSettings";
 
 /**
  * General: what the app is and how it runs, as facts. They are set when the app is deployed;
@@ -51,6 +54,18 @@ export function GeneralSettings() {
           </span>,
           { ...prose, hint: t("appSettings.general.noBranchHint") },
         ),
+    ...(git
+      ? [
+          fact(
+            t("appSettings.general.tags"),
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2">
+              {app.follow_tags ? <Mono>{app.follow_tags}</Mono> : <span>{t("appSettings.general.noTags")}</span>}
+              <FollowTagsActions app={app} />
+            </span>,
+            { ...prose, copy: app.follow_tags ?? false, hint: app.follow_tags ? t("appSettings.general.tagsHint") : t("appSettings.general.noTagsHint") },
+          ),
+        ]
+      : []),
     buildCommand !== null
       ? fact(t("appSettings.general.buildCommand"), buildCommand)
       : fact(t("appSettings.general.buildCommand"), t("appSettings.general.noCommand"), prose),
@@ -75,6 +90,8 @@ export function GeneralSettings() {
         <KeyValueList empty={t("appSettings.general.notRecorded")} items={items} className="px-5 py-1" />
       </Card>
       <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("appSettings.general.readOnlyNote")}</p>
+      {isComposeStack(app) && app.port !== null && app.port !== undefined ? <WorkerCard app={app} /> : null}
+      {unit ? <IdentityCard domain={app.domain} /> : null}
       <CommandHint command={`noust app branch ${app.domain} <branch>`} label={t("appSettings.fromTerminal")} />
     </Section>
   );

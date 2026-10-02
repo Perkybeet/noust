@@ -45,6 +45,7 @@ import { DatabaseStep, NO_DATABASE, NO_DATABASE_STEP_TYPES, databaseSummary, use
 import type { DatabaseChoice } from "../databases/wizard/DatabaseStep";
 import { useServerStep, withServerStep } from "./ServerStep";
 import { SourceStep } from "./SourceStep";
+import { useAdoption } from "./AdoptStack";
 import type { SourceMode } from "./SourceStep";
 import { useDomainDnsCheck } from "./useDomainDnsCheck";
 import type { LandingTarget } from "./useDeploymentLanding";
@@ -215,6 +216,8 @@ export function NewAppWizard() {
 
   const githubStatus = github.data ?? null;
   const sourceMode: SourceMode = chosenMode ?? (githubStatus?.configured === true ? "github" : "manual");
+  // A stack that already runs: its own form and its two presses, preview then adopt.
+  const adoption = useAdoption();
   const kind = kindOf(sourceMode);
   // The order Continue and Back follow; the server step is reached on its own.
   // Not for a static site (nothing runs to read it), nor a monorepo or a compose project, which provision their own.
@@ -435,6 +438,7 @@ export function NewAppWizard() {
   // The steps
 
   const sourceActions = (): WizardActionsProps => {
+    if (sourceMode === "adopt") return adoption.actions;
     if (kind === "recipe") {
       return {
         next: { onClick: () => go("address") },
@@ -492,7 +496,15 @@ export function NewAppWizard() {
       case "source":
         return {
           title: t("newApp.source.heading"),
-          description: t(kind === "recipe" ? "newApp.source.introRecipe" : kind === "import" ? "newApp.source.introImport" : "newApp.source.intro"),
+          description: t(
+            sourceMode === "adopt"
+              ? "newApp.source.introAdopt"
+              : kind === "recipe"
+                ? "newApp.source.introRecipe"
+                : kind === "import"
+                  ? "newApp.source.introImport"
+                  : "newApp.source.intro",
+          ),
           content: (
             <SourceStep
               form={source}
@@ -549,6 +561,7 @@ export function NewAppWizard() {
                 />
               }
               importer={<ImportFile loaded={loaded} problem={importProblem} types={typeList} onFile={readFile} />}
+              adopter={adoption.content}
             />
           ),
           actions: sourceActions(),

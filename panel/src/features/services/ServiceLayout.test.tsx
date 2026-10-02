@@ -6,7 +6,7 @@ import { renderConsole } from "../../test/console";
 import { SERVICES, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { onDesktop, serverRoutes } from "../server/testing";
-import { changedLines } from "./UnitFilePage";
+import { changedLines } from "../../lib/lineDiff";
 
 beforeEach(onDesktop);
 
@@ -89,9 +89,11 @@ describe("a service's page", () => {
 });
 
 describe("a service's unit file", () => {
-  it("counts the lines that changed", () => {
+  it("counts the lines that changed as a site's configuration does: a block inserted counts its own lines", () => {
     expect(changedLines("a\nb\nc", "a\nb\nc")).toBe(0);
     expect(changedLines("a\nb\nc", "a\nB\nc\nd")).toBe(2);
+    // One line added at the top of a unit is one change, not every line after it.
+    expect(changedLines("[Unit]\nDescription=x\n[Service]\nExecStart=/bin/x", "# note\n[Unit]\nDescription=x\n[Service]\nExecStart=/bin/x")).toBe(1);
   });
 
   it("is tested before it is saved, and says what systemd-analyze said when it refuses", async () => {

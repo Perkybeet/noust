@@ -50,6 +50,11 @@ from tests.test_webserver_managers import (  # noqa: F401
         "server { ssl_certificate_key engine:pkcs11:x; }\n",
         # A candidate the analyzer cannot parse is still not tested blind.
         "include /etc/shadow; server {\n",
+        # ... nor with the include hidden after another directive on its line.
+        "server { listen 80; include /etc/shadow;\n    listen 8080\n",
+        "server { listen 80; ssl_certificate '/etc/sha''dow'\n",
+        # A quote never closed: nothing can be told about it.
+        'server { listen 80; include "/etc/shadow;\n',
     ],
 )
 def test_a_candidate_naming_a_file_outside_its_roots_is_refused_unrun(
@@ -130,3 +135,23 @@ def test_saving_runs_the_same_check(
 ) -> None:
     with pytest.raises(ValidationError):
         nginx.validate_config_text("include /etc/shadow;\n", domain="example.com")
+
+
+def test_a_syntax_error_in_a_site_with_its_usual_files_still_reaches_nginx(
+    nginx: NginxManager, runner: FakeRunner, validation_tmp: Path
+) -> None:
+    """A lost semicolon must give nginx's own words, not a refusal (the console's contract)."""
+    from noust.managers.cert_manager import CertManager
+
+    live = CertManager.LETSENCRYPT_DIR / "live" / "example.com"
+    candidate = (
+        "server {\n    listen 443 ssl;\n    server_name example.com;\n"
+        f"    ssl_certificate {live}/fullchain.pem;\n"
+        f"    ssl_certificate_key {live}/privkey.pem;\n"
+        "    access_log /var/log/nginx/example.access.log;\n"
+        "    listen 8080\n}\n"
+    )
+
+    nginx.test_config_text(candidate, domain="example.com")
+
+    assert any(call[:2] == ("nginx", "-t") for call in runner.calls)

@@ -13,6 +13,11 @@ export interface SaveBarProps {
   /** The id of the form Save submits (its validation and its Enter key keep working). */
   form?: string;
   saving?: boolean;
+  /**
+   * A change is still being applied to the draft: Discard and Save wait for it, or they would
+   * act on a draft that is about to change under them.
+   */
+  busy?: boolean;
   /** "Save" by default; "Test and save" in a file editor. */
   saveLabel?: string;
   /** One more action before Save: "Test" in a file editor. */
@@ -26,7 +31,7 @@ export interface SaveBarProps {
  * is nothing to save, so its arrival never pushes the page; Save becomes the view's primary
  * action only while there is something to save.
  */
-export function SaveBar({ changes, onDiscard, onSave, form, saving = false, saveLabel, secondary, className }: SaveBarProps) {
+export function SaveBar({ changes, onDiscard, onSave, form, saving = false, busy = false, saveLabel, secondary, className }: SaveBarProps) {
   const t = useT();
   const dirty = changes > 0;
   return (
@@ -49,13 +54,13 @@ export function SaveBar({ changes, onDiscard, onSave, form, saving = false, save
         )}
       </p>
       <div className="flex flex-wrap items-center gap-2">
-        <Button variant="ghost" disabled={!dirty || saving} onClick={onDiscard}>
+        <Button variant="ghost" disabled={!dirty || saving || busy} onClick={onDiscard}>
           {t("common.saveBar.discard")}
         </Button>
         {secondary}
         <Button
           variant={dirty ? "primary" : "secondary"}
-          disabled={!dirty}
+          disabled={!dirty || busy}
           loading={saving}
           {...(form !== undefined ? { type: "submit" as const, form } : {})}
           {...(onSave !== undefined ? { onClick: onSave } : {})}

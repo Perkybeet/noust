@@ -17,6 +17,8 @@ export interface FileEditorBar {
   onTestAndSave: () => void;
   testing?: boolean;
   saving?: boolean;
+  /** A change is still being applied to the draft: every action of the bar waits for it. */
+  busy?: boolean;
 }
 
 export interface FileEditorPageProps {
@@ -47,7 +49,10 @@ export function FileEditorPage({ header, notice, meta, children, bar, footer, cl
         <PageHeader {...header} flush />
       </div>
       {notice !== undefined || meta !== undefined ? (
-        <div className="mt-4 flex min-w-0 flex-col gap-2 lg:flex-row lg:items-center lg:justify-between lg:gap-6">
+        // From lg, two columns of fixed share rather than a row the two divide between them: a
+        // notice sized by the facts beside it wrapped to another line when they arrived (or
+        // grew), and pushed the editor down.
+        <div className="mt-4 flex min-w-0 flex-col gap-2 lg:grid lg:grid-cols-2 lg:items-center lg:gap-6">
           {notice !== undefined ? (
             <div data-slot="notice" className="min-w-0">
               {notice}
@@ -56,7 +61,7 @@ export function FileEditorPage({ header, notice, meta, children, bar, footer, cl
           {meta !== undefined ? (
             // One line beside the notice from lg: the facts truncate rather than wrap, so one that
             // arrives late (or a longer language) never pushes the editor down.
-            <div data-slot="meta" className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-13 text-fg-muted lg:flex-nowrap">
+            <div data-slot="meta" className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-13 text-fg-muted lg:col-start-2 lg:flex-nowrap lg:justify-end">
               {meta}
             </div>
           ) : null}
@@ -70,9 +75,10 @@ export function FileEditorPage({ header, notice, meta, children, bar, footer, cl
         onDiscard={bar.onDiscard}
         onSave={bar.onTestAndSave}
         saving={bar.saving ?? false}
+        busy={bar.busy ?? false}
         saveLabel={t("common.fileEditor.testAndSave")}
         secondary={
-          <Button loading={bar.testing ?? false} onClick={bar.onTest}>
+          <Button loading={bar.testing ?? false} disabled={bar.busy ?? false} onClick={bar.onTest}>
             {t("common.fileEditor.test")}
           </Button>
         }

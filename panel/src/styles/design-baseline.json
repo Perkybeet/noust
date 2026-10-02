@@ -54,6 +54,7 @@
     "confirm-hand-rolled": {},
     "dashed-empty": {},
     "empty-cell": {},
+    "feature-state-notice": {},
     "focus-ring-repeat": {
       "app/LanguageSwitch.tsx": 1,
       "app/PageHeader.tsx": 2,

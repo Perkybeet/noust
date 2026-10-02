@@ -83,10 +83,12 @@ function SetupStep({ number, done, title, state, action, children }: { number: n
 }
 
 /** Where the connection stands, in one line, with what can be done to it. */
-function Connection({ status, onRotate, onDisable }: { status: WebhookStatus; onRotate: () => void; onDisable: () => void }) {
+function Connection({ status, followTags, onRotate, onDisable }: { status: WebhookStatus; followTags: string | null; onRotate: () => void; onDisable: () => void }) {
   const t = useT();
   const view = connectionView(status.state, t.locale);
   const branch = status.branch.tracked;
+  // An app that follows tags deploys a published release or a pushed tag, never a push to a branch.
+  const tags = followTags !== null && followTags !== "" ? <Mono>{followTags}</Mono> : null;
   const forge = forgeName(status.forge.forge, t.locale);
   const lastPush = status.deliveries.last_push_at;
   const lastSeen = status.deliveries.last_verified_at;
@@ -96,13 +98,20 @@ function Connection({ status, onRotate, onDisable }: { status: WebhookStatus; on
   } else if (status.state === "problem") {
     detail = t("appSettings.webhook.detailProblem", { count: status.deliveries.refused_since_last_verified, forge });
   } else if (status.state === "waiting") {
-    detail = branch
-      ? t.rich("appSettings.webhook.detailWaitingBranch", { branch: <Mono>{branch}</Mono>, forge })
-      : t("appSettings.webhook.detailWaitingAny", { forge });
+    detail =
+      tags !== null
+        ? t.rich("appSettings.webhook.detailWaitingTags", { pattern: tags, forge })
+        : branch
+          ? t.rich("appSettings.webhook.detailWaitingBranch", { branch: <Mono>{branch}</Mono>, forge })
+          : t("appSettings.webhook.detailWaitingAny", { forge });
   } else {
     detail = (
       <>
-        {branch ? t.rich("appSettings.webhook.detailConnectedBranch", { branch: <Mono>{branch}</Mono> }) : t("appSettings.webhook.detailConnectedAny")}{" "}
+        {tags !== null
+          ? t.rich("appSettings.webhook.detailConnectedTags", { pattern: tags })
+          : branch
+            ? t.rich("appSettings.webhook.detailConnectedBranch", { branch: <Mono>{branch}</Mono> })
+            : t("appSettings.webhook.detailConnectedAny")}{" "}
         {lastPush
           ? t.rich("appSettings.webhook.lastPush", { time: <RelativeTime value={lastPush} /> })
           : lastSeen
@@ -443,9 +452,9 @@ export function DeployOnPush() {
         <ErrorBlock error={status.error} title={t("appSettings.webhook.statusFailed")} onRetry={() => void status.refetch()} retrying={status.isRefetching} />
       ) : (
         <>
-          <Connection status={data} onRotate={() => elevated(() => setConfirm("rotate"))} onDisable={() => elevated(() => setConfirm("disable"))} />
+          <Connection status={data} followTags={app.follow_tags ?? null} onRotate={() => elevated(() => setConfirm("rotate"))} onDisable={() => elevated(() => setConfirm("disable"))} />
           <GitHubApp status={data} />
-          {data.branch.any_push_deploys ? (
+          {data.branch.any_push_deploys && !app.follow_tags ? (
             <Notice
               tone="warning"
               title={t("appSettings.webhook.anyBranchTitle")}

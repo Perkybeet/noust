@@ -296,6 +296,7 @@ export function MetricsTab({ domain, range, onRangeChange }: MetricsTabProps) {
             height={CHART_HEIGHT}
             rangeControl={control}
             couldNotLoad={t("appPages.metrics.chartLoadError", { title: spec.title })}
+            investigateApp={domain}
           />
         ))}
       </div>

@@ -217,6 +217,7 @@ export const common = {
     failed: "Failed",
     rolledBack: "Rolled back",
     cancelled: "Cancelled",
+    withWarnings: "Deployed with warnings",
     unknown: "Unknown",
   },
   errorBlock: {
@@ -274,6 +275,7 @@ export const common = {
     zoomIn: "Zoom in",
     zoomOut: "Zoom out",
     resetZoom: "Reset zoom",
+    investigate: "Investigate this stretch",
     expand: "Expand {title}",
     viewsLabel: "{title}: chart or data",
     chartTab: "Chart",
@@ -298,6 +300,7 @@ export const common = {
       hours: "{count}-hour average",
       days: "{count}-day average",
     },
+    dragToInvestigate: "Drag across the chart to zoom into a stretch of time, then investigate what happened in it.",
     dragToZoom: "Drag across the chart to zoom into a stretch of time; it is read again at a finer step.",
     zoomedHint: "Double-click the chart or reset the zoom to see the whole window again.",
     keyboardHint:

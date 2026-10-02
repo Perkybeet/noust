@@ -38,6 +38,7 @@ const OUTCOME: Readonly<Record<string, { state: Status; label: PlainKey }>> = {
   preview_started: { state: "running", label: "appSettings.webhook.outcomePreviewStarted" },
   ping: { state: "running", label: "appSettings.webhook.outcomePing" },
   ignored_branch: { state: "stopped", label: "appSettings.webhook.outcomeIgnoredBranch" },
+  ignored_tag: { state: "stopped", label: "appSettings.webhook.outcomeIgnoredTag" },
   ignored_event: { state: "stopped", label: "appSettings.webhook.outcomeIgnoredEvent" },
   ignored_pull_request: { state: "stopped", label: "appSettings.webhook.outcomeIgnoredPullRequest" },
   duplicate: { state: "stopped", label: "appSettings.webhook.outcomeDuplicate" },

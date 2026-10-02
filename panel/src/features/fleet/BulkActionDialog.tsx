@@ -150,6 +150,16 @@ function skipWords(t: T, node: FleetNodeState): string {
 }
 
 /** What the plan will do to one server: run in a batch, or be skipped and why. */
+/**
+ * The step the central's plan gives a server whose system update includes Noust's own package
+ * (`NOUST_PENDING_STEP` in noust.web.fleet_jobs): said in the operator's words, not the central's.
+ */
+export const NOUST_PENDING_STEP = "Also updates Noust: the node's console will restart";
+
+function updatesNoust(node: Pick<FleetNodeState, "step">): boolean {
+  return node.step === NOUST_PENDING_STEP;
+}
+
 function planColumns(t: T, canary: unknown): Column<FleetNodeState>[] {
   return [
     {
@@ -167,9 +177,12 @@ function planColumns(t: T, canary: unknown): Column<FleetNodeState>[] {
         if (state === "queued") {
           const batch = batchOf(node, canary);
           return (
-            <span className="inline-flex items-center gap-1.5 text-13 text-fg">
-              <StatusGlyph state="queued" size={12} className="text-warn" />
-              {batch.canary ? t("fleet.bulk.plan.canary") : t("fleet.bulk.plan.batch", { batch: batch.number })}
+            <span className="flex min-w-0 flex-col">
+              <span className="inline-flex items-center gap-1.5 text-13 text-fg">
+                <StatusGlyph state="queued" size={12} className="text-warn" />
+                {batch.canary ? t("fleet.bulk.plan.canary") : t("fleet.bulk.plan.batch", { batch: batch.number })}
+              </span>
+              {updatesNoust(node) ? <span className="text-12 text-fg-muted">{t("fleet.bulk.plan.alsoNoust")}</span> : null}
             </span>
           );
         }
@@ -221,6 +234,9 @@ export function PlanView({ t, plan, action }: { t: T; plan: FleetPlan; action: K
       {plan.requires_elevation ? <Notice>{t("fleet.bulk.plan.elevation")}</Notice> : null}
       {action === "noust_update" ? <Notice>{t("fleet.bulk.plan.centralLast")}</Notice> : null}
       {action === "os_updates" ? <Notice tone="warning">{t("fleet.bulk.plan.noReboot")}</Notice> : null}
+      {action === "os_updates" && plan.nodes.some(updatesNoust) ? (
+        <Notice>{t("fleet.bulk.plan.alsoNoustNote", { count: plan.nodes.filter(updatesNoust).length })}</Notice>
+      ) : null}
     </div>
   );
 }

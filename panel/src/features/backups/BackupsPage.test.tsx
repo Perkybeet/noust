@@ -333,7 +333,7 @@ describe("the Backups tab", () => {
     await waitFor(() => {
       expect(backend.callsTo("POST /api/backups/b-new/restore")).toHaveLength(1);
     });
-    expect(backend.callsTo("POST /api/backups/b-new/restore")[0]?.body).toEqual({ target_domain: null, restore_env: false, verify: true });
+    expect(backend.callsTo("POST /api/backups/b-new/restore")[0]?.body).toEqual({ target_domain: null, restore_env: false, verify: true, schema_changed_ok: false });
   });
 
   it("backs one application up from its row, the application already chosen", async () => {

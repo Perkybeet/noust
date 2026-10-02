@@ -116,6 +116,26 @@ export const appPages = {
     notStarted: "The rollback did not start",
   },
 
+  schemaChange: {
+    title: "Going back passes a change to the database",
+    description: {
+      one: "Noust puts the code back, never the database: the older code will run against the schema this deployment left. Check it works with it, or put the database back as well.",
+      other: "Noust puts the code back, never the database: the older code will run against the schema these {count} deployments left. Check it works with it, or put the database back as well.",
+    },
+    descriptionUnnamed: "Noust puts the code back, never the database: the older code will run against the schema later deployments left. Check it works with it, or put the database back as well.",
+    ahead: {
+      one: "Deployment {ids} changed the database schema after this one. You will be asked to confirm going back past it.",
+      other: "Deployments {ids} changed the database schema after this one. You will be asked to confirm going back past them.",
+    },
+    listLabel: "Deployments that changed the database schema",
+    noHookRecorded: "No migration was recorded for it.",
+    prismaAutomatic: "Prisma, automatically:",
+    inService: "in the {service} service",
+    restoreTitle: "Putting the database back too",
+    restoreKnown: "Backup {id} was taken before the first of them. Restore it from a terminal:",
+    restoreUnknown: "Restore the backup taken before the first of them, from a terminal:",
+    goBackAnyway: "Go back anyway",
+  },
   sourceLink: {
     opensInNewTab: "(opens in a new tab)",
   },
@@ -196,6 +216,26 @@ export const appPages = {
   },
 
   deployments: {
+    hooks: {
+      title: "Deploy hooks",
+      listLabel: "Hooks deployment {id} ran",
+      schemaChanged: "This deploy changed the database schema: going back past it asks first, and names it.",
+      schemaUnchanged: "This deploy did not change the database schema.",
+      schemaChangedBadge: "Database changed",
+      preDeploy: "Before serving",
+      postDeploy: "After serving",
+      succeeded: "Succeeded",
+      exited: "Exited with {code}",
+      timedOut: "Ran out of time",
+      didNotRun: "Did not run",
+      prismaAutomatic: "Prisma's migrations, run automatically",
+      inService: "In the {service} service",
+      migrates: "Changes the database schema",
+      outputLabel: "What {run} printed",
+      warningsTitle: "Deployed with warnings",
+      warningsBody: "The new version serves, but a hook that runs after it started failed. Nothing was undone: going back after serving is worse than a warning.",
+      warningsLabel: "The warnings, as recorded",
+    },
     words: {
       trigger: {
         webhook: { label: "Push", by: "a push to the repository" },

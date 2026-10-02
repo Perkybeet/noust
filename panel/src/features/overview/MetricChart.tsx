@@ -6,8 +6,10 @@ import { ErrorBlock } from "../../components/page/QueryState";
 import { Card } from "../../components/ui/Card";
 import { Chart, ChartMessage, ChartSkeleton } from "../../components/ui/Chart";
 import { SM_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
-import type { ChartLimit, ChartMarker } from "../../components/ui/Chart";
+import type { ChartLimit, ChartMarker, ChartWindow } from "../../components/ui/Chart";
 import { useT } from "../../i18n";
+import { useNodeCapability } from "../../nodes/capability";
+import { TimelineDrawer } from "../timeline/TimelineDrawer";
 import { ceilingOf, chartData, prepareRead, useZoomRead } from "./metricsData";
 import type { PreparedRead, SeriesSpec } from "./metricsData";
 import { rangeSpec } from "./ranges";
@@ -34,6 +36,8 @@ export interface MetricChartProps {
   rangeControl: ReactNode;
   empty?: string;
   couldNotLoad: string;
+  /** "Investigate this stretch" narrows the timeline to this application, by domain. */
+  investigateApp?: string;
 }
 
 /**
@@ -57,11 +61,16 @@ export function MetricChart({
   rangeControl,
   empty,
   couldNotLoad,
+  investigateApp,
 }: MetricChartProps) {
   const t = useT();
   const wide = useMediaQuery(SM_UP);
   const metrics = series.map((spec) => spec.metric);
   const zoom = useZoomRead(metrics, range);
+  // A node on an older Noust (3.1) has no timeline: the action is not offered there, rather
+  // than offered to answer 404. While its schema is read it waits, like the other gated views.
+  const timeline = useNodeCapability("GET /api/timeline");
+  const investigable = timeline.status === "available" || timeline.status === "unknown";
 
   let body: ReactNode;
   if (prepared === undefined && read.isError) {
@@ -102,6 +111,7 @@ export function MetricChart({
         {...(empty !== undefined ? { empty } : {})}
         rangeSelector={{ value: range, control: rangeControl }}
         zoom={{ value: zoom.zoom, onChange: zoom.setZoom, data: zoomed, loading: zoom.loading }}
+        {...(investigable ? { investigate: (stretch: ChartWindow, close: () => void) => <TimelineDrawer stretch={stretch} app={investigateApp} onClose={close} /> } : {})}
       />
     );
   }

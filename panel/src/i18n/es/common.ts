@@ -214,6 +214,7 @@ export const common: Catalog<typeof en> = {
     failed: "Fallido",
     rolledBack: "Revertido",
     cancelled: "Cancelado",
+    withWarnings: "Desplegado con avisos",
     unknown: "Desconocido",
   },
   errorBlock: {
@@ -271,6 +272,7 @@ export const common: Catalog<typeof en> = {
     zoomIn: "Acercar",
     zoomOut: "Alejar",
     resetZoom: "Restablecer zoom",
+    investigate: "Investigar este intervalo",
     expand: "Ampliar {title}",
     viewsLabel: "{title}: gráfica o datos",
     chartTab: "Gráfica",
@@ -295,6 +297,7 @@ export const common: Catalog<typeof en> = {
       hours: "media de {count} h",
       days: "media de {count} d",
     },
+    dragToInvestigate: "Arrastra sobre la gráfica para acercar un tramo de tiempo y después investiga qué pasó en él.",
     dragToZoom: "Arrastra sobre la gráfica para acercar un tramo de tiempo; se vuelve a leer con más detalle.",
     zoomedHint: "Haz doble clic en la gráfica o restablece el zoom para volver a ver el intervalo completo.",
     keyboardHint:

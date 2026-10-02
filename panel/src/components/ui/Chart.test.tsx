@@ -601,6 +601,75 @@ describe("Chart expanded", () => {
   });
 });
 
+describe("Chart investigate", () => {
+  const TEN = Array.from({ length: 10 }, (_, i) => T0 + i * 60);
+  const TEN_DOMAIN: ChartWindow = [T0, T0 + 540];
+
+  async function expand(investigate?: ChartProps["investigate"]) {
+    const user = userEvent.setup();
+    render(
+      <Chart
+        title="CPU"
+        description="Last 10 minutes"
+        timestamps={TEN}
+        series={[{ label: "shop.example.com", values: [12, 48, 30, 5, 6, 7, 8, 9, 10, 11] }]}
+        formatValue={percent}
+        domain={TEN_DOMAIN}
+        step={60}
+        resolution="1-minute averages"
+        {...(investigate ? { investigate } : {})}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: "Expand CPU" }));
+    const dialog = await screen.findByRole("dialog", { name: "CPU" });
+    const plot = plots.at(-1);
+    if (plot === undefined) throw new Error("the enlarged chart built no plot");
+    return { user, dialog, plot };
+  }
+
+  function Panel({ stretch, close }: { stretch: ChartWindow; close: () => void }) {
+    return (
+      <div role="group" aria-label="Investigation">
+        <p>{`${String(stretch[0])}-${String(stretch[1])}`}</p>
+        <button type="button" onClick={close}>
+          Done
+        </button>
+      </div>
+    );
+  }
+
+  const investigate = (stretch: ChartWindow, close: () => void) => <Panel stretch={stretch} close={close} />;
+
+  it("is not offered where the page has nothing to open", async () => {
+    const { dialog } = await expand();
+    expect(within(dialog).queryByRole("button", { name: "Investigate this stretch" })).not.toBeInTheDocument();
+    expect(dialog).toHaveTextContent("Drag across the chart to zoom into a stretch of time; it is read again at a finer step.");
+  });
+
+  it("opens what the page gives it for the whole window when nothing is selected, and closes it", async () => {
+    const { user, dialog } = await expand(investigate);
+    expect(dialog).toHaveTextContent("Drag across the chart to zoom into a stretch of time, then investigate what happened in it.");
+    await user.click(within(dialog).getByRole("button", { name: "Investigate this stretch" }));
+    const panel = screen.getByRole("group", { name: "Investigation" });
+    expect(panel).toHaveTextContent(`${String(T0)}-${String(T0 + 540)}`);
+    await user.click(within(panel).getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("group", { name: "Investigation" })).not.toBeInTheDocument();
+  });
+
+  it("investigates the dragged selection once the chart has zoomed into it", async () => {
+    const { user, dialog, plot } = await expand(investigate);
+    act(() => {
+      plot.select = { left: plot.valToPos(T0 + 60), top: 0, width: plot.valToPos(T0 + 240) - plot.valToPos(T0 + 60), height: 100 };
+      plot.fire("setSelect");
+    });
+    await waitFor(() => {
+      expect(plot.scales.x).toEqual({ min: T0 + 60, max: T0 + 240 });
+    });
+    await user.click(within(dialog).getByRole("button", { name: "Investigate this stretch" }));
+    expect(screen.getByRole("group", { name: "Investigation" })).toHaveTextContent(`${String(T0 + 60)}-${String(T0 + 240)}`);
+  });
+});
+
 describe("Chart helpers", () => {
   it("continues a description after the title", () => {
     expect(continuing("Last hour.")).toBe("last hour");

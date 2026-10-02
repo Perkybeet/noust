@@ -144,13 +144,14 @@ function InspectFailure({ failure, source, onManual }: { failure: unknown; sourc
 }
 
 /** Where the application comes from: code (GitHub, or a typed source), a recipe, or an export. */
-export type SourceMode = "github" | "manual" | "recipe" | "import";
+export type SourceMode = "github" | "manual" | "recipe" | "import" | "adopt";
 
 const MODES: readonly { value: SourceMode; label: PlainKey }[] = [
   { value: "github", label: "newApp.modes.github" },
   { value: "manual", label: "newApp.modes.manual" },
   { value: "recipe", label: "newApp.modes.recipe" },
   { value: "import", label: "newApp.modes.import" },
+  { value: "adopt", label: "newApp.modes.adopt" },
 ];
 
 export interface SourceStepProps {
@@ -175,6 +176,8 @@ export interface SourceStepProps {
   recipes: ReactNode;
   /** What stands in the step's place when the application is imported from an export. */
   importer: ReactNode;
+  /** What stands in the step's place when a stack that already runs is adopted. */
+  adopter: ReactNode;
 }
 
 /**
@@ -196,6 +199,7 @@ export function SourceStep({
   onModeChange,
   recipes,
   importer,
+  adopter,
 }: SourceStepProps) {
   const t = useT();
   const kind = sourceKind(form.source);
@@ -220,6 +224,8 @@ export function SourceStep({
         recipes
       ) : mode === "import" ? (
         importer
+      ) : mode === "adopt" ? (
+        adopter
       ) : (
         <form id={SOURCE_FORM} onSubmit={submit} noValidate className="flex flex-col gap-5">
           {mode === "github" && github?.configured === true ? (

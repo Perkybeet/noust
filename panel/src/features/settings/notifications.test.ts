@@ -133,10 +133,13 @@ describe("the notification settings", () => {
       "deploy_success",
       "deploy_failed",
       "deploy_rolled_back",
+      "deploy_hook_failed",
       "restore_success",
       "restore_failed",
       "cert_expiring",
       "unit_failed",
+      "app_unreachable",
+      "app_recovered",
       "disk_threshold",
       "backup_failed",
       "backup_success",
@@ -153,6 +156,7 @@ describe("the notification settings", () => {
     expect(new Set(grouped).size).toBe(grouped.length);
     expect(events(en).filter((event) => event.offByDefault === true).map((event) => event.kind)).toEqual(["deploy_started", "backup_success"]);
     expect(eventSpec(en, "node_host_key_changed").label).toBe("Server's identity changed");
+    expect(eventSpec(en, "deploy_hook_failed").label).toBe("Deployed with warnings");
   });
 
   it("translates the events and channels into Spanish, key for key", async () => {

@@ -59,7 +59,7 @@ test("the subsections are URLs of their own, and on a phone the list is a page o
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings`);
   const nav = page.getByRole("navigation", { name: "Application settings" }).first();
-  await expect(nav.getByRole("link")).toHaveText(["General", "Deploys", "Deploy on push", "Builds", "Resources", "Previews", "Export", "Delete"]);
+  await expect(nav.getByRole("link")).toHaveText(["General", "Deploys", "Deploy on push", "Deploy hooks", "Builds", "Resources", "Previews", "Export", "Delete"]);
   await nav.getByRole("link", { name: "Deploy on push" }).click();
   await expect(page).toHaveURL(new RegExp(`/apps/${escapeRegExp(RELEASE_APP)}/settings/deploy-on-push$`));
   await expect(page.getByRole("heading", { level: 2, name: "Deploy on push" })).toBeVisible();

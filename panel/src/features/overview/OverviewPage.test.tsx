@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
+import { fakeBackend, json, onNode, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { MACHINE_METRICS } from "./MachineCharts";
 import { metricsReadFixture, overviewFixture } from "./testFixtures";
@@ -182,6 +182,31 @@ describe("the overview", () => {
     expect(calls[0]?.search.getAll("metric")).toEqual([...MACHINE_METRICS]);
     expect(calls[0]?.search.get("window")).toBe("24h");
     expect(within(machine).getByText(/^Showing .+, 1-minute averages\. History since /)).toBeInTheDocument();
+  });
+
+  it("offers to investigate a stretch only on a server that has the timeline", async () => {
+    const { user } = await overview();
+    const machine = await screen.findByRole("region", { name: "Machine" });
+    await user.click(await within(machine).findByRole("button", { name: "Expand CPU" }));
+    expect(within(await screen.findByRole("dialog", { name: "CPU" })).getByRole("button", { name: "Investigate this stretch" })).toBeInTheDocument();
+  });
+
+  it("does not offer to investigate on a node whose Noust has no timeline", async () => {
+    fakeBackend({
+      ...signedInRoutes(),
+      "GET /api/nodes": () => json(200, { items: [{ name: "web-2", status: "reachable", version: "3.1.0" }], total: 1 }),
+      "GET /api/fleet/summary": () => json(200, { resource: "summary", generated_at: "2026-09-29T21:40:00Z", partial: false, nodes: [], items: [] }),
+      ...onNode("web-2", {
+        ...routes(),
+        "GET /api/openapi.json": () => json(200, { paths: { "/api/overview": { get: {} }, "/api/metrics/query": { get: {} } } }),
+      }),
+    });
+    const { user } = renderConsole("/n/web-2");
+    const machine = await screen.findByRole("region", { name: "Machine" });
+    await user.click(await within(machine).findByRole("button", { name: "Expand CPU" }));
+    const dialog = await screen.findByRole("dialog", { name: "CPU" });
+    expect(dialog).toHaveTextContent("Drag across the chart to zoom into a stretch of time; it is read again at a finer step.");
+    expect(within(dialog).queryByRole("button", { name: "Investigate this stretch" })).not.toBeInTheDocument();
   });
 
   it("folds a chart with no reading in its whole window into one line on a phone", async () => {

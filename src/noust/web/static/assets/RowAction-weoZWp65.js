@@ -1,0 +1,1 @@
+import{It as e}from"./Button-B4-wDu12.js";import{n as t}from"./errors-c7lQVv1V.js";var n=e();function r({label:e,text:r,icon:i,onClick:a,loading:o=!1}){return(0,n.jsx)(t,{size:`sm`,variant:`ghost`,"aria-label":e,icon:i,loading:o,onClick:a,children:(0,n.jsx)(`span`,{className:`max-sm:sr-only`,children:r})})}export{r as t};

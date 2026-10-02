@@ -22,6 +22,8 @@ import { formatBytes } from "../../../lib/format";
 import { versionTitle } from "../versionTitle";
 import { useNode } from "../../../nodes/useNode";
 import { useAppActions } from "../../apps/useAppActions";
+import { schemaChangeRefusal } from "../schemaChange";
+import { useSchemaChangeConfirmation } from "../SchemaChangeDialog";
 import { releaseBadge, shortCommit } from "./words";
 
 function ListSkeleton() {
@@ -94,6 +96,7 @@ function Releases({ domain, releases, t }: { domain: string; releases: Release[]
   const queryClient = useQueryClient();
   const { node } = useNode();
   const { activateRelease } = useAppActions(domain);
+  const schema = useSchemaChangeConfirmation(domain);
   const [chosen, setChosen] = useState<Release | null>(null);
   const active = releases.find((release) => release.active);
   const older = chosen !== null && active !== undefined && chosen.id < active.id;
@@ -128,14 +131,22 @@ function Releases({ domain, releases, t }: { domain: string; releases: Release[]
         actionLabel={older ? t("appPages.deployments.releases.goBack") : t("appPages.deployments.releases.activate")}
         onConfirm={async () => {
           if (chosen === null) return;
-          try {
-            await activateRelease.mutateAsync(chosen.id);
-          } finally {
+          const id = chosen.id;
+          const settle = (): void => {
             // The switch is recorded as a deploy of its own, whether it held or was put back.
             void queryClient.invalidateQueries({ queryKey: deploymentKeys.all });
+          };
+          try {
+            await activateRelease.mutateAsync({ id });
+          } catch (error) {
+            // Past a schema change this question closes and the one that names them opens.
+            if (!schema.intercept(schemaChangeRefusal(error), () => activateRelease.mutateAsync({ id, schemaChangedOk: true }).finally(settle))) throw error;
+          } finally {
+            settle();
           }
         }}
       />
+      {schema.dialog}
     </>
   );
 }
@@ -168,6 +179,7 @@ function RollbackPoints({ domain, t }: { domain: string; t: T }) {
   const { node } = useNode();
   const points = useQuery(rollbackPointsQuery(domain));
   const { rollbackToBackup } = useAppActions(domain);
+  const schema = useSchemaChangeConfirmation(domain);
   const [chosen, setChosen] = useState<RollbackPoint | null>(null);
   return (
     <Section
@@ -215,9 +227,16 @@ function RollbackPoints({ domain, t }: { domain: string; t: T }) {
         description={t("appPages.deployments.releases.restoreDescription", { domain, id: chosen?.id ?? "" })}
         actionLabel={t("appPages.deployments.releases.goBack")}
         onConfirm={async () => {
-          if (chosen !== null) await rollbackToBackup.mutateAsync(chosen.id);
+          if (chosen === null) return;
+          const id = chosen.id;
+          try {
+            await rollbackToBackup.mutateAsync({ id });
+          } catch (error) {
+            if (!schema.intercept(schemaChangeRefusal(error), () => rollbackToBackup.mutateAsync({ id, schemaChangedOk: true }))) throw error;
+          }
         }}
       />
+      {schema.dialog}
     </Section>
   );
 }

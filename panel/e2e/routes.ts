@@ -38,6 +38,7 @@ export const ROUTES: readonly ConsoleRoute[] = [
   // 3.1: each subsection of an app's settings is a URL of its own.
   { name: "app-settings-deploys", path: "/apps/tienda.example.org/settings/deploys" },
   { name: "app-settings-push", path: "/apps/tienda.example.org/settings/deploy-on-push" },
+  { name: "app-settings-hooks", path: "/apps/tienda.example.org/settings/hooks" },
   { name: "app-settings-builds", path: "/apps/tienda.example.org/settings/builds" },
   { name: "app-settings-resources", path: "/apps/shop.example.net/settings/resources" },
   { name: "app-settings-delete", path: "/apps/shop.example.net/settings/delete" },

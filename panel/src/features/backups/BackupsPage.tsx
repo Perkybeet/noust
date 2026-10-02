@@ -12,7 +12,7 @@ import { ErrorBlock } from "../../components/page/QueryState";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { EmptyState } from "../../components/ui/EmptyState";
-import { Notice } from "../../components/ui/Notice";
+import { FeatureState } from "../../components/ui/FeatureState";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
 import { BackupHistoryDrawer } from "./BackupHistoryDrawer";
@@ -96,7 +96,9 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
   const notice = misplaced ? (
     <MisplacedBackupsNotice />
   ) : noneBackedUp ? (
-    <Notice
+    // Scheduled backups are off for every application: the feature's state, not a message.
+    <FeatureState
+      state="off"
       title={t("backups.coverage.noneBackedUp.title")}
       action={
         <Button size="sm" onClick={() => setOpen({ kind: "schedule", domain: "", existing: null })}>
@@ -105,7 +107,7 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
       }
     >
       {t("backups.coverage.noneBackedUp.description")}
-    </Notice>
+    </FeatureState>
   ) : undefined;
 
   let content;

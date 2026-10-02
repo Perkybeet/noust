@@ -44,9 +44,10 @@ describe("sandboxed builds", () => {
       [`POST /api/apps/${DOMAIN}/sandbox/enable`]: () => json(200, ON),
     });
     expect(screen.getByText(/as an account that cannot read this server's secrets or change the system/)).toBeInTheDocument();
-    await screen.findByText("Not yet");
+    await screen.findByText("Its builds still run as root");
     const card = part("Sandboxed builds");
-    expect(within(card).getByText("Its builds still run as root")).toBeInTheDocument();
+    // Off, at a glance: the grey state with a switch drawn off, not a notice to read.
+    expect(card.querySelector("[data-feature-state]")).toHaveAttribute("data-state", "off");
     expect(within(card).getByText("No test build yet.")).toBeInTheDocument();
     expect(within(card).queryByRole("button", { name: "Turn on sandboxed builds" })).not.toBeInTheDocument();
     expect(within(card).getByText("It can be turned on once a test build passes.")).toBeInTheDocument();
@@ -144,11 +145,11 @@ describe("sandboxed builds", () => {
 
   it("has no accessibility violations, and speaks Spanish", async () => {
     await builds(() => ({ ...LEGACY, trial: PASSED }));
-    await screen.findByText("Not yet");
+    await screen.findByText("Its builds still run as root");
     await expectNoAxeViolations(screen.getByRole("main"));
     await act(() => setLocale("es"));
     expect(await screen.findByRole("heading", { level: 2, name: "Compilaciones" })).toBeInTheDocument();
-    expect(screen.getByText("Todavía no")).toBeInTheDocument();
+    expect(screen.getByText("Sus compilaciones todavía se ejecutan como root")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Activar las compilaciones aisladas" })).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });

@@ -29,6 +29,7 @@ import { ExternalLink } from "../../../components/ui/ExternalLink";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
+import { FeatureState } from "../../../components/ui/FeatureState";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
@@ -54,7 +55,6 @@ import {
   samePreviewDraft,
 } from "./previews";
 import type { PreviewDraft, PreviewErrors, PreviewField, TtlUnit } from "./previews";
-import { SettingState } from "./SettingState";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
 
 type Disabled = ResponseOf<"/api/apps/{domain}/previews/settings", "delete">;
@@ -574,7 +574,6 @@ export function PreviewsSettings() {
     <Section
       title={t("appSettings.previews.title")}
       description={t("appSettings.previews.description")}
-      badge={data !== undefined ? <SettingState on={data.enabled} label={data.enabled ? t("appSettings.previews.on") : t("appSettings.previews.off")} /> : undefined}
     >
       {previews.isPending ? (
         <div aria-busy="true" className="flex flex-col gap-4">
@@ -586,6 +585,9 @@ export function PreviewsSettings() {
         <ErrorBlock error={previews.error} title={t("appSettings.previews.readFailed")} onRetry={() => void previews.refetch()} retrying={previews.isRefetching} />
       ) : (
         <>
+          <FeatureState state={data.enabled ? "on" : "off"} title={data.enabled ? t("appSettings.previews.on") : t("appSettings.previews.off")}>
+            {data.enabled ? t("appSettings.previews.onBody") : t("appSettings.previews.offBody")}
+          </FeatureState>
           {/* What previews need is the way in: once they are on, only what they get stays said. */}
           {data.enabled ? (
             <Notice tone="warning" title={t("appSettings.previews.secretsWarningTitle")}>

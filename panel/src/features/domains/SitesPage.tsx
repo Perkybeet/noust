@@ -13,12 +13,14 @@ import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import type { Column } from "../../components/ui/DataTable";
 import { DataTable } from "../../components/ui/DataTable";
+import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { StatusPill } from "../../components/ui/StatusPill";
+import { TextLink } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import { CreateSiteDialog } from "./CreateSiteDialog";
@@ -108,6 +110,40 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
     },
     { id: "tls", header: t("domains.sitesTab.servesColumn"), width: "w-32", cell: (site) => <Tls secure={site.has_ssl} />, sortValue: (site) => (site.has_ssl ? 0 : 1) },
     { id: "names", header: t("domains.sitesTab.namesColumn"), hideBelow: "md", card: "hidden", cell: (site) => <ServedNames names={site.server_names} /> },
+    {
+      id: "writtenBy",
+      header: t("domains.sitesTab.writtenByColumn"),
+      width: "w-32",
+      hideBelow: "sm",
+      card: "meta",
+      // An attribute, not a state: neutral, with the file's name when it is not the domain.
+      cell: (site) => (
+        <span className="flex min-w-0 flex-col">
+          <span className={site.noust_managed ? "text-fg" : "text-fg-muted"}>{site.noust_managed ? t("domains.sitesTab.writtenByNoust") : t("domains.sitesTab.writtenByHand")}</span>
+          {site.site_name !== site.name ? (
+            <Mono tone="faint" truncate title={site.config_path}>
+              {site.site_name}
+            </Mono>
+          ) : null}
+        </span>
+      ),
+      sortValue: (site) => (site.noust_managed ? 0 : 1),
+    },
+    {
+      id: "app",
+      header: t("domains.sitesTab.appColumn"),
+      hideBelow: "md",
+      card: "meta",
+      cell: (site) =>
+        site.app ? (
+          <TextLink to="/apps/$domain" params={{ domain: site.app }} onClick={(event) => event.stopPropagation()}>
+            <Mono>{site.app}</Mono>
+          </TextLink>
+        ) : (
+          <EmptyCell reason={t("domains.sitesTab.noApp")} />
+        ),
+      sortValue: (site) => site.app ?? "",
+    },
   ];
 
   const createButton = (variant: "primary" | "secondary") => (

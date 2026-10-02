@@ -9,13 +9,15 @@ import { hasUnit } from "../../apps/AppRowActions";
 import { useSaveBar } from "./formParts";
 import { InstantRollbackCard, useRetention } from "./InstantRollback";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
+import { BackupBeforeUpdateCard, isComposeStack } from "./StackSettings";
 import { StartupCheckCard, StaticStartupNote, useStartupCheck } from "./StartupCheck";
 import { ZeroDowntimeCard, useDrain } from "./ZeroDowntime";
 
 /**
  * Deploys: how a new version reaches production. Instant rollback (on, with how many versions
  * are kept; or off, with the guided way to turn it on), the startup check every new version
- * passes, and zero-downtime deploys where the app can have them. The fields of all three are
+ * passes, zero-downtime deploys where the app can have them, and for a Compose stack the copy of
+ * its databases each update takes first. The fields of all three are
  * one form, saved from the one save bar.
  */
 export function DeploysSettings() {
@@ -39,6 +41,7 @@ export function DeploysSettings() {
         <InstantRollbackCard app={app} retention={retention} />
         {unit ? <StartupCheckCard app={app} check={check} /> : <StaticStartupNote />}
         {unit ? <ZeroDowntimeCard app={app} status={zeroDowntime} drain={drain} /> : null}
+        {isComposeStack(app) ? <BackupBeforeUpdateCard app={app} /> : null}
         <CommandHint
           command={releases ? `noust releases list ${domain}` : `noust app migrate ${domain}`}
           label={t("appSettings.fromTerminal")}

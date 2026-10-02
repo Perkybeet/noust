@@ -298,3 +298,116 @@ test("on a phone the domains pages keep to the screen", async ({ page, consoleSe
   }
   await expectNoA11yViolations(page, "a site on a phone");
 });
+
+/** The Structure view's group for one location, named by its match and path. */
+function locationGroup(page: Page, name: string) {
+  return page.getByRole("group", { name, exact: true });
+}
+
+test("Proggest's site in its three views: one draft, the locations in nginx's order, and the route a URL takes", async ({ page, consoleServer }) => {
+  const site = "proggest.es";
+  await signIn(page, consoleServer, `/domains/sites/${site}?view=structure`);
+  await expect(page.getByRole("radio", { name: "Structure" })).toBeChecked();
+  const login = locationGroup(page, "/api/v1/auth/login");
+  await expect(login).toBeVisible();
+  // The operator's own comments, as notes beside what they explain.
+  await expect(page.getByText("Catch-all API -> NestJS backend")).toBeVisible();
+  // nginx tries /api/v1/auth/login long before the catch-all /api/, whatever the file's order.
+  const order = await page.locator('li > [role="group"]').evaluateAll((groups) => groups.map((group) => document.getElementById(group.getAttribute("aria-labelledby") ?? "")?.textContent ?? ""));
+  expect(order.indexOf("/api/v1/auth/login")).toBeGreaterThan(-1);
+  expect(order.indexOf("/api/v1/auth/login")).toBeLessThan(order.indexOf("/api/"));
+  await expect(login.getByRole("textbox", { name: /^Rate limit/ })).toHaveValue("zone=auth_limit burst=20 nodelay");
+  await settle(page);
+  await expectNoA11yViolations(page, "a site's Structure view");
+
+  // A read timeout set here is an operation on the draft: the text has it, the bar counts it.
+  const edited = page.waitForResponse((response) => response.url().endsWith(`/api/sites/${site}/config/edit`));
+  const timeout = login.getByRole("textbox", { name: /^Read timeout/ });
+  await timeout.fill("90s");
+  await timeout.press("Enter");
+  expect((await edited).status()).toBe(200);
+  await expect(page.getByText("1 unsaved change")).toBeVisible();
+  await expect(login.getByText("Changed")).toBeVisible();
+  await stillness(page);
+  await expectNoA11yViolations(page, "a changed location");
+
+  await page.getByRole("radio", { name: "Text" }).click();
+  await expect(page.getByRole("dialog", { name: "Leave without saving?" })).toHaveCount(0);
+  const editor = page.getByRole("textbox", { name: `Configuration of ${site}` });
+  await expect(editor).toHaveValue(/proxy_read_timeout 90s;/);
+  await expect(page).toHaveURL(new RegExp(`/domains/sites/${site.replace(".", "\\.")}$`));
+
+  // The diagram draws the draft, and "Try a URL" lights only the location nginx chooses.
+  await page.getByRole("radio", { name: "Diagram" }).click();
+  await expect(page).toHaveURL(/\?view=diagram$/);
+  const diagram = page.getByRole("figure", { name: `How ${site} answers` });
+  await expect(diagram).toBeVisible();
+  await expect(diagram.getByRole("button", { name: /^Backend 127\.0\.0\.1:3200, Service backend of the Compose project proggest: Responds$/ })).toBeVisible();
+  const traced = page.waitForResponse((response) => response.url().endsWith(`/api/sites/${site}/route`));
+  await page.getByRole("textbox", { name: "Try a URL" }).fill(`https://${site}/api/v1/auth/login`);
+  await page.getByRole("button", { name: "Try", exact: true }).click();
+  expect((await traced).status()).toBe(200);
+  await expect(page.getByText(`/api/v1/auth/login of ${site} answers https://${site}/api/v1/auth/login.`)).toBeVisible();
+  await expect(page.getByRole("list", { name: "How nginx chooses" })).toContainText("the longest wins, /api/v1/auth/login.");
+  const exact = diagram.getByRole("button", { name: /^Location \/api\/v1\/auth\/login$/ });
+  await expect(exact).toHaveAttribute("data-active", "");
+  await expect(diagram.getByRole("button", { name: /^Location \/api\/$/ })).not.toHaveAttribute("data-active", "");
+  await expect(diagram.getByRole("button", { name: /^Upstream nestjs_upstream/ })).toHaveAttribute("data-active", "");
+  await expect(diagram.getByRole("button", { name: /^Upstream nextjs_upstream/ })).not.toHaveAttribute("data-active", "");
+  await stillness(page);
+  await expectNoA11yViolations(page, "a site's Diagram view with a route");
+
+  await page.getByRole("button", { name: "Discard", exact: true }).click();
+  await expect(page.getByText("No unsaved changes")).toBeVisible();
+});
+
+test("a draft that does not parse is never drawn by halves, and Go to text finds its line", async ({ page, consoleServer }) => {
+  const site = "proggest.es";
+  await signIn(page, consoleServer, `/domains/sites/${site}`);
+  const editor = page.getByRole("textbox", { name: `Configuration of ${site}` });
+  await expect(editor).toHaveValue(/upstream nextjs_upstream/);
+  const original = await editor.inputValue();
+  await editor.fill(`${original}\nserver {\n`);
+  await page.getByRole("radio", { name: "Structure" }).click();
+  await expect(page.getByText("This draft cannot be shown as a structure")).toBeVisible();
+  await expect(page.locator('li > [role="group"]')).toHaveCount(0);
+  await stillness(page);
+  await expectNoA11yViolations(page, "a draft that does not parse");
+  await page.getByRole("button", { name: "Go to text" }).click();
+  await expect(editor).toBeFocused();
+  await page.getByRole("button", { name: "Discard", exact: true }).click();
+});
+
+test("a server whose Noust has no structure routes keeps the text", async ({ page, consoleServer, problems }) => {
+  const site = "proggest.es";
+  // What a 3.1 node answers through a 3.2 central: the routes do not exist.
+  problems.expect(/status of 404 .*\/api\/sites\/proggest\.es\/(structure|topology)$/);
+  await page.route(/\/api\/sites\/proggest\.es\/(structure|topology)$/, (route) =>
+    route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not_found", detail: "Not Found", hint: null, fields: null, output: null }) }),
+  );
+  await signIn(page, consoleServer, `/domains/sites/${site}?view=diagram`);
+  await expect(page.getByText("This server runs an older Noust")).toBeVisible();
+  await stillness(page);
+  await expectNoA11yViolations(page, "an older Noust without the diagram");
+  await page.getByRole("button", { name: "Edit as text" }).click();
+  await expect(page.getByRole("textbox", { name: `Configuration of ${site}` })).toHaveValue(/upstream nextjs_upstream/);
+});
+
+test("on a phone a site's Structure and Diagram keep to the screen", async ({ page, consoleServer }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const site = "proggest.es";
+  await signIn(page, consoleServer, `/domains/sites/${site}?view=structure`);
+  await expect(locationGroup(page, "/api/v1/auth/login")).toBeVisible();
+  await settle(page);
+  let overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow, "structure").toBeLessThanOrEqual(0);
+  await expectNoA11yViolations(page, "a site's Structure view on a phone");
+
+  await page.getByRole("radio", { name: "Diagram" }).click();
+  // Below 640px the diagram is a list per column, each element saying where it leads.
+  await expect(page.getByRole("list", { name: "Locations" })).toBeVisible();
+  await settle(page);
+  overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow, "diagram").toBeLessThanOrEqual(0);
+  await expectNoA11yViolations(page, "a site's Diagram view on a phone");
+});

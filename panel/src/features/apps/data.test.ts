@@ -4,7 +4,7 @@ import type { AppInfo, Deployment } from "./data";
 import { appLimits, appNameOf, appReading, deployMoment, latestDeployByDomain, previewParentOf, readsApps } from "./data";
 
 function deploy(id: number, domain: string, status = "success"): Deployment {
-  return { id, domain, status, triggered_by: "cli", has_log: true, started_at: "2026-09-25T10:00:00", finished_at: null, rollback_available: false };
+  return { id, domain, status, triggered_by: "cli", has_log: true, started_at: "2026-09-25T10:00:00", finished_at: null, rollback_available: false, schema_changed: false };
 }
 
 describe("latestDeployByDomain", () => {
@@ -43,7 +43,7 @@ describe("appReading", () => {
 });
 
 describe("appLimits", () => {
-  const base: AppInfo = { domain: "a.com", name: "a.com", status: "running", active: true, enabled: true, layout: "releases", webhook_enabled: false, keep_releases: 5, zero_downtime: false };
+  const base: AppInfo = { domain: "a.com", name: "a.com", status: "running", active: true, enabled: true, layout: "releases", webhook_enabled: false, keep_releases: 5, zero_downtime: false, backup_before_update: true };
 
   it("reads the unit's limits in bytes and percent", () => {
     expect(appLimits({ ...base, memory_max_mb: 512, cpu_quota_percent: 50, tasks_max: 256 })).toEqual({

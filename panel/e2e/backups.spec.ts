@@ -114,7 +114,7 @@ test("restoring the latest backup is confirmed by typing the target domain", asy
   );
   await elevate.getByRole("button", { name: "Confirm" }).click();
   const body = (await requested).postDataJSON() as { target_domain: string | null; restore_env: boolean; verify: boolean };
-  expect(body).toEqual({ target_domain: null, restore_env: false, verify: true });
+  expect(body).toEqual({ target_domain: null, restore_env: false, verify: true, schema_changed_ok: false });
   await expect(elevate).toBeHidden();
   await expect(toasts(page).getByText("Restore queued for shop.example.net", { exact: true })).toBeVisible();
 });

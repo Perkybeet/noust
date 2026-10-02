@@ -16,6 +16,7 @@ const SUBSECTIONS: readonly { path: string; label: PlainKey; danger?: boolean }[
   { path: "", label: "appSettings.nav.general" },
   { path: "/deploys", label: "appSettings.nav.deploys" },
   { path: "/deploy-on-push", label: "appSettings.nav.push" },
+  { path: "/hooks", label: "appSettings.nav.hooks" },
   { path: "/builds", label: "appSettings.nav.builds" },
   { path: "/resources", label: "appSettings.nav.resources" },
   { path: "/previews", label: "appSettings.nav.previews" },

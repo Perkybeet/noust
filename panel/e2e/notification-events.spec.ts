@@ -28,7 +28,7 @@ async function storedEvents(page: Page): Promise<{ events: Record<string, boolea
 test("turns the deploy started event on and the rolled back one off, with the language, and back", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/settings/notifications");
   const deploys = group(page, "Deploys");
-  await expect(deploys.locator("summary")).toContainText("3 of 4 sent");
+  await expect(deploys.locator("summary")).toContainText("4 of 5 sent");
   await deploys.locator("summary").click();
   const started = deploys.getByRole("checkbox", { name: /^Deploy started/ });
   const rolledBack = deploys.getByRole("checkbox", { name: /^Deploy rolled back/ });
@@ -55,7 +55,7 @@ test("turns the deploy started event on and the rolled back one off, with the la
   expect(stored.language).toBe("es");
 
   await page.reload();
-  await expect(group(page, "Deploys").locator("summary")).toContainText("3 of 4 sent");
+  await expect(group(page, "Deploys").locator("summary")).toContainText("4 of 5 sent");
   await group(page, "Deploys").locator("summary").click();
   await expect(group(page, "Deploys").getByRole("checkbox", { name: /^Deploy started/ })).toBeChecked();
 

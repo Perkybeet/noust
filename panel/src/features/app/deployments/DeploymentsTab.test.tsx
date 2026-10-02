@@ -161,7 +161,7 @@ describe("the deployments tab", { timeout: 20_000 }, () => {
     const dialog = await screen.findByRole("alertdialog", { name: "Go back to this backup?" });
     await user.click(within(dialog).getByRole("button", { name: "Go back to this version" }));
     await waitFor(() => {
-      expect(backend.callsTo("POST /api/jobs/rollback")[0]?.body).toEqual({ domain: TAB_DOMAIN, backup_id: "shop-example-com_20260923_182035" });
+      expect(backend.callsTo("POST /api/jobs/rollback")[0]?.body).toEqual({ domain: TAB_DOMAIN, backup_id: "shop-example-com_20260923_182035", schema_changed_ok: false });
     });
   });
 

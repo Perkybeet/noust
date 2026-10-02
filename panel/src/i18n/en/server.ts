@@ -241,6 +241,8 @@ export const server = {
       schedule: "Schedule reboot",
     },
     auto: {
+      onTitle: "Automatic updates are on",
+      offTitle: "Automatic updates are off",
       label: "Automatic security updates",
       description: "Installs security updates every day. It never reboots the server by itself.",
       descriptionReboots: "Installs security updates every day, and reboots the server by itself when one needs it.",
@@ -739,6 +741,13 @@ export const server = {
     },
   },
   clock: {
+    zoneCurrent: "In use",
+    zoneSearch: "Search by city, zone or offset, such as madrid or +2",
+    zoneOffset: "With this zone the server runs on {offset}.",
+    zoneTime: "Its clock would read {time} now.",
+    zoneOlderServer: "This server has an older version of Noust and does not list its zones: type a name from the time zone database, such as Europe/Madrid.",
+    zonesFailed: "Could not list the server's time zones",
+    zonesLoading: "Loading the server's time zones",
     title: "Clock",
     loadFailed: "Could not read the clock",
     localTime: "Local time",

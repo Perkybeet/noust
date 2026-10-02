@@ -2059,10 +2059,15 @@ def _roots_for(kind: str, conf_root: Path, upstreams: Path | None) -> tuple[Path
     Returns:
         The roots.
     """
+    # certbot's directory as the certificate manager knows it (rule 3): it is
+    # /etc/letsencrypt on a server, and a sandbox moves it.
+    from noust.managers.cert_manager import CertManager
+
+    letsencrypt = CertManager.LETSENCRYPT_DIR
     if kind == "include":
-        return (conf_root, Path("/etc/letsencrypt"), *((upstreams,) if upstreams else ()))
+        return (conf_root, letsencrypt, *((upstreams,) if upstreams else ()))
     if kind == "cert":
-        return (conf_root, *_CERT_ROOTS)
+        return (conf_root, letsencrypt, *_CERT_ROOTS)
     if kind == "log":
         return (*_LOG_ROOTS, paths.log_dir(), Config().apps_directory)
     if kind == "auth":
@@ -2130,20 +2135,105 @@ def _file_problem(value: str, kind: str, conf_root: Path, roots: Sequence[Path])
     return None
 
 
-def _first_words(text: str) -> list[str]:
+def _rough_statements(text: str, kind: Kind) -> list[tuple[int, list[str]]] | None:
     """
-    The first word of every statement in a text the analyzer cannot parse.
+    Split a text the analyzer cannot parse into statements and their words.
+
+    nginx statements end at ``;``, ``{`` or ``}``; Apache's at the end of a line
+    (continuations joined). Quotes, escapes and comments are honoured, so a
+    word cannot hide a separator; the words come unquoted, as the server reads
+    them.
 
     Args:
         text: The candidate.
+        kind: ``nginx`` or ``apache``.
 
     Returns:
-        The words, lowercased; over-inclusive on purpose.
+        ``(line, words)`` for every statement with words, or None when a quote
+        is never closed, which leaves where a statement ends unknowable.
     """
-    return [
-        match.group(1).lower()
-        for match in re.finditer(r"(?:^|[;{}\n])\s*<?\s*([A-Za-z_][\w.-]*)", text)
-    ]
+    statements: list[tuple[int, list[str]]] = []
+    words: list[str] = []
+    word: list[str] = []
+    in_word = False
+    quote: str | None = None
+    line = 1
+    start = 1
+    i = 0
+
+    def end_word() -> None:
+        nonlocal in_word
+        if in_word:
+            words.append("".join(word))
+            word.clear()
+            in_word = False
+
+    def end_statement() -> None:
+        end_word()
+        if words:
+            statements.append((start, list(words)))
+            words.clear()
+
+    while i < len(text):
+        char = text[i]
+        if quote is not None:
+            if char == "\\" and i + 1 < len(text):
+                word.append(text[i + 1])
+                i += 2
+                continue
+            if char == quote:
+                quote = None
+            else:
+                if char == "\n":
+                    line += 1
+                word.append(char)
+            i += 1
+            continue
+        if char == "\\" and i + 1 < len(text):
+            if kind == "apache" and text[i + 1] == "\n":
+                line += 1
+                i += 2
+                continue
+            word.append(text[i + 1])
+            in_word = True
+            i += 2
+            continue
+        if char in "\"'":
+            if not words and not in_word:
+                start = line
+            quote = char
+            in_word = True
+            i += 1
+            continue
+        if char == "#":
+            while i < len(text) and text[i] != "\n":
+                i += 1
+            continue
+        if char == "\n":
+            if kind == "apache":
+                end_statement()
+            else:
+                end_word()
+            line += 1
+            i += 1
+            continue
+        if char.isspace():
+            end_word()
+            i += 1
+            continue
+        if kind == "nginx" and char in ";{}":
+            end_statement()
+            i += 1
+            continue
+        if not words and not in_word:
+            start = line
+        word.append(char)
+        in_word = True
+        i += 1
+    if quote is not None:
+        return None
+    end_statement()
+    return statements
 
 
 def unsafe_directives(
@@ -2171,13 +2261,30 @@ def unsafe_directives(
     try:
         tree = parse_site(text, kind)
     except ParseError as exc:
-        words = _first_words(text)
-        if any(word in files or runs_code(word) for word in words):
+        # The server reads directives in order and stops at the error, so what
+        # comes before it runs: every statement is still checked, from the
+        # words, and only a text whose statements cannot even be told apart (a
+        # quote never closed) is refused without being tested.
+        statements = _rough_statements(text, kind)
+        if statements is None:
             return [
-                "The configuration does not parse here, and it names files or code: "
-                f"{exc.message} (line {exc.line}); fix the syntax first"
+                "The configuration does not parse here, and where its statements end cannot "
+                f"be told: {exc.message} (line {exc.line}); fix the syntax first"
             ]
-        return []
+        found_problems: list[str] = []
+        for line, words in statements:
+            name = words[0].lower().lstrip("<")
+            if runs_code(name):
+                found_problems.append(f"{words[0]} (line {line}) runs or loads code as root")
+                continue
+            rough_kind = files.get(name)
+            if rough_kind is None or len(words) < 2:
+                continue
+            roots = _roots_for(rough_kind, conf_root, upstreams)
+            found = _file_problem(words[1], rough_kind, conf_root, roots)
+            if found:
+                found_problems.append(f"{words[0]} {words[1]} (line {line}) {found}")
+        return found_problems
     problems: list[str] = []
     for node in _statements(tree):
         name = node.name.value.lower().lstrip("<")

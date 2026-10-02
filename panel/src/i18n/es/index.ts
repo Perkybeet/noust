@@ -30,3 +30,4 @@ export { services } from "./services";
 export { settings } from "./settings";
 export { shell } from "./shell";
 export { time } from "./time";
+export { timeline } from "./timeline";

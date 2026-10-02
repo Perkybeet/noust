@@ -171,10 +171,13 @@ export const EVENT_KINDS: readonly string[] = [
   "deploy_success",
   "deploy_failed",
   "deploy_rolled_back",
+  "deploy_hook_failed",
   "restore_success",
   "restore_failed",
   "cert_expiring",
   "unit_failed",
+  "app_unreachable",
+  "app_recovered",
   "disk_threshold",
   "backup_failed",
   "backup_success",
@@ -198,9 +201,12 @@ export type EventGroupId = "deploys" | "backups" | "server" | "fleet" | "approva
 
 /** The events by what they are about, in the order an operator looks for them. */
 export const EVENT_GROUPS: readonly { id: EventGroupId; kinds: readonly string[] }[] = [
-  { id: "deploys", kinds: ["deploy_failed", "deploy_rolled_back", "deploy_success", "deploy_started"] },
+  { id: "deploys", kinds: ["deploy_failed", "deploy_rolled_back", "deploy_hook_failed", "deploy_success", "deploy_started"] },
   { id: "backups", kinds: ["backup_failed", "restore_failed", "restore_success", "backup_success"] },
-  { id: "server", kinds: ["unit_failed", "disk_threshold", "cert_expiring", "server_rebooted", "server_back"] },
+  {
+    id: "server",
+    kinds: ["unit_failed", "app_unreachable", "app_recovered", "disk_threshold", "cert_expiring", "server_rebooted", "server_back"],
+  },
   { id: "fleet", kinds: ["node_unreachable", "node_host_key_changed", "node_recovered"] },
   { id: "approvals", kinds: ["approval_requested", "approval_decided"] },
 ];
@@ -226,10 +232,13 @@ type EventCatalogKey =
   | "deploySuccess"
   | "deployFailed"
   | "deployRolledBack"
+  | "deployHookFailed"
   | "restoreSuccess"
   | "restoreFailed"
   | "certExpiring"
   | "unitFailed"
+  | "appUnreachable"
+  | "appRecovered"
   | "diskThreshold"
   | "backupFailed"
   | "backupSuccess"

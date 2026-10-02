@@ -21,6 +21,7 @@ import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
+import { FeatureState } from "../../../components/ui/FeatureState";
 import { Notice } from "../../../components/ui/Notice";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
@@ -29,8 +30,30 @@ import { splitErrors } from "../../settings/formErrors";
 import { useSudoFirst } from "./formParts";
 import type { FormPart } from "./formParts";
 import { JobFailedError, waitForJob } from "./queries";
-import { SettingState } from "./SettingState";
 import { DRAIN_MAX, DRAIN_MIN, instanceName, parseDrain } from "./zeroDowntime";
+
+/** Compose's app type: zero-downtime deploys relay its web services instead of running two units. */
+const COMPOSE = "docker-compose";
+
+/**
+ * What stands in the way, each with its fix, as the backend lists them ("- one per line"); a
+ * hint that is not a list is its own sentence. Shown as written: they name files and lines.
+ */
+function Problems({ hint, label }: { hint: string | null; label: string }) {
+  if (hint === null || hint.trim() === "") return null;
+  const lines = hint.split("\n").filter((line) => line.trim() !== "");
+  const listed = lines.every((line) => line.startsWith("- "));
+  if (!listed) return <p className="break-words">{hint}</p>;
+  return (
+    <ul aria-label={label} className="flex list-disc flex-col gap-1 pl-5">
+      {lines.map((line) => (
+        <li key={line} className="break-words">
+          {line.slice(2)}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 /** Asks for the mode and waits for the job it queues: done means done, not queued. */
 async function setMode(queryClient: ReturnType<typeof useQueryClient>, domain: string, body: { enabled: boolean; drain_seconds?: number }): Promise<void> {
@@ -144,7 +167,19 @@ function Instances({ status }: { status: ZeroDowntime }) {
 }
 
 /** Turning it on: what two copies at once asks of the app, and how long the old one stays up. */
-function TurnOnDialog({ domain, drainSeconds, open, onOpenChange }: { domain: string; drainSeconds: number; open: boolean; onOpenChange: (open: boolean) => void }) {
+function TurnOnDialog({
+  domain,
+  drainSeconds,
+  compose,
+  open,
+  onOpenChange,
+}: {
+  domain: string;
+  drainSeconds: number;
+  compose: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
   const t = useT();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState(String(drainSeconds));
@@ -178,7 +213,7 @@ function TurnOnDialog({ domain, drainSeconds, open, onOpenChange }: { domain: st
         onOpenChange(next);
       }}
       title={t("appSettings.zeroDowntime.confirmTurnOnTitle", { domain })}
-      description={t("appSettings.zeroDowntime.confirmTurnOnDescription")}
+      description={compose ? t("appSettings.zeroDowntime.composeConfirmTurnOnDescription") : t("appSettings.zeroDowntime.confirmTurnOnDescription")}
       footer={
         <>
           <Button disabled={turnOn.isPending} onClick={() => onOpenChange(false)}>
@@ -191,8 +226,8 @@ function TurnOnDialog({ domain, drainSeconds, open, onOpenChange }: { domain: st
       }
     >
       <form id="zero-downtime-on" onSubmit={submit} noValidate className="flex flex-col gap-4">
-        <Notice tone="warning" title={t("appSettings.zeroDowntime.twoCopiesTitle")}>
-          {t("appSettings.zeroDowntime.twoCopiesBody")}
+        <Notice tone="warning" title={compose ? t("appSettings.zeroDowntime.composeTwoCopiesTitle") : t("appSettings.zeroDowntime.twoCopiesTitle")}>
+          {compose ? t("appSettings.zeroDowntime.composeTwoCopiesBody") : t("appSettings.zeroDowntime.twoCopiesBody")}
         </Notice>
         <Field label={t("appSettings.zeroDowntime.drainLabel")} description={t("appSettings.zeroDowntime.drainDescription", { min: DRAIN_MIN, max: DRAIN_MAX })} error={error}>
           <Input mono inputMode="numeric" autoComplete="off" suffix="s" value={draft} onValueChange={(value: string) => setDraft(value)} className="w-32" />
@@ -253,34 +288,41 @@ export function ZeroDowntimeCard({ app, status, drain }: { app: App; status: Use
       </Card>
     );
   }
+  const compose = app.app_type === COMPOSE;
+  const description = compose ? t("appSettings.zeroDowntime.composeDescription") : t("appSettings.zeroDowntime.description");
   if (!data.enabled && !data.eligible) {
     return (
-      <Card title={title} description={t("appSettings.zeroDowntime.description")}>
-        {app.layout !== "releases" ? (
-          <p className="text-13 text-pretty text-fg-muted">{t("appSettings.zeroDowntime.needsRollback")}</p>
+      <Card title={title} description={description}>
+        {app.layout !== "releases" && !compose ? (
+          <FeatureState state="off" title={t("appSettings.zeroDowntime.off")}>
+            {t("appSettings.zeroDowntime.needsRollback")}
+          </FeatureState>
         ) : (
-          <Notice title={<span className="break-words">{data.reason ?? t("appSettings.zeroDowntime.notEligibleDefault")}</span>}>
-            {data.hint ?? undefined}
-          </Notice>
+          <FeatureState state="off" title={t("appSettings.zeroDowntime.offCannot")}>
+            <div className="flex flex-col gap-2">
+              <p className="break-words">{data.reason ?? t("appSettings.zeroDowntime.notEligibleDefault")}</p>
+              <Problems hint={data.hint ?? null} label={t("appSettings.zeroDowntime.problemsLabel")} />
+            </div>
+          </FeatureState>
         )}
       </Card>
     );
   }
 
   return (
-    <Card
-      title={title}
-      description={t("appSettings.zeroDowntime.description")}
-      actions={<SettingState on={data.enabled} label={data.enabled ? t("appSettings.zeroDowntime.on") : t("appSettings.zeroDowntime.off")} />}
-    >
+    <Card title={title} description={description}>
       {data.enabled ? (
         <div className="flex flex-col gap-4">
-          <Instances status={data} />
           {data.reason ? (
-            <Notice tone="warning" title={<span className="break-words">{data.reason}</span>}>
-              {data.hint ?? undefined}
-            </Notice>
-          ) : null}
+            <FeatureState state="problem" title={<span className="break-words">{data.reason}</span>}>
+              <Problems hint={data.hint ?? null} label={t("appSettings.zeroDowntime.problemsLabel")} />
+            </FeatureState>
+          ) : (
+            <FeatureState state="on" title={t("appSettings.zeroDowntime.on")}>
+              {compose ? t("appSettings.zeroDowntime.composeOnBody") : t("appSettings.zeroDowntime.onBody")}
+            </FeatureState>
+          )}
+          {compose && (data.instances ?? []).length === 0 ? null : <Instances status={data} />}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <Field
               label={t("appSettings.zeroDowntime.drainLabel")}
@@ -305,12 +347,19 @@ export function ZeroDowntimeCard({ app, status, drain }: { app: App; status: Use
           ) : null}
         </div>
       ) : (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <Button onClick={() => ask(() => setTurningOn(true))}>{t("appSettings.zeroDowntime.turnOnEllipsis")}</Button>
-          <p className="text-12 text-fg-muted">{t("appSettings.zeroDowntime.offNote")}</p>
-        </div>
+        <FeatureState
+          state="off"
+          title={t("appSettings.zeroDowntime.off")}
+          action={
+            <Button size="sm" onClick={() => ask(() => setTurningOn(true))}>
+              {t("appSettings.zeroDowntime.turnOnEllipsis")}
+            </Button>
+          }
+        >
+          {t("appSettings.zeroDowntime.offNote")}
+        </FeatureState>
       )}
-      <TurnOnDialog key={String(turningOn)} domain={domain} drainSeconds={data.drain_seconds} open={turningOn} onOpenChange={setTurningOn} />
+      <TurnOnDialog key={String(turningOn)} domain={domain} drainSeconds={data.drain_seconds} compose={compose} open={turningOn} onOpenChange={setTurningOn} />
       <ConfirmDialog
         open={turningOff}
         onOpenChange={setTurningOff}

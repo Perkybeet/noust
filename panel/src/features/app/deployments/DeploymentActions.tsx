@@ -18,6 +18,9 @@ import { Notice } from "../../../components/ui/Notice";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { RollbackDialog } from "../RollbackDialog";
+import { schemaChangeRefusal } from "../schemaChange";
+import type { SchemaChangeRefusal } from "../schemaChange";
+import { useSchemaChangeConfirmation } from "../SchemaChangeDialog";
 import { shortCommit } from "./words";
 
 const RUNNING = new Set(["queued", "running"]);
@@ -159,6 +162,7 @@ function RollbackToDeploymentDialog({
   onOpenChange,
   onQueued,
   onChooseAnother,
+  onSchemaChange,
   t,
 }: {
   domain: string;
@@ -168,16 +172,34 @@ function RollbackToDeploymentDialog({
   onOpenChange: (open: boolean) => void;
   onQueued: (job: Job) => void;
   onChooseAnother: () => void;
+  /** Hands a refusal to go back past a schema change to the dialog that names it. */
+  onSchemaChange: (refusal: SchemaChangeRefusal, retry: () => Promise<unknown>) => void;
   t: T;
 }) {
+  const go = (schemaChangedOk: boolean) =>
+    request("post", "/api/apps/{domain}/deployments/{deployment_id}/rollback", {
+      params: { domain, deployment_id: deployment.id },
+      body: { schema_changed_ok: schemaChangedOk },
+    });
   const rollback = useMutation({
-    mutationFn: () =>
-      request("post", "/api/apps/{domain}/deployments/{deployment_id}/rollback", { params: { domain, deployment_id: deployment.id } }),
+    mutationFn: go,
     onSuccess: (accepted) => {
       onOpenChange(false);
       onQueued(accepted.job as unknown as Job);
     },
+    onError: (error) => {
+      const refusal = schemaChangeRefusal(error);
+      if (refusal === null) return;
+      rollback.reset();
+      onOpenChange(false);
+      onSchemaChange(refusal, async () => {
+        const accepted = await go(true);
+        onQueued(accepted.job as unknown as Job);
+      });
+    },
   });
+  // Said before the button is pressed: going back past these asks again, naming their migrations.
+  const passes = deployment.schema_changed_between ?? [];
   const close = (next: boolean): void => {
     if (!next && rollback.isPending) return;
     if (!next) rollback.reset();
@@ -197,13 +219,16 @@ function RollbackToDeploymentDialog({
           <Button disabled={rollback.isPending} onClick={() => close(false)}>
             {t("appPages.common.cancel")}
           </Button>
-          <Button variant="primary" loading={rollback.isPending} onClick={() => rollback.mutate()}>
+          <Button variant="primary" loading={rollback.isPending} onClick={() => rollback.mutate(false)}>
             {t("appPages.deployments.actions.goBack")}
           </Button>
         </>
       }
     >
-      {rollback.isError ? <ErrorBlock live compact error={rollback.error} title={t("appPages.rollback.notStarted")} /> : null}
+      <div className="flex flex-col gap-3">
+        {passes.length > 0 ? <Notice tone="warning">{t("appPages.schemaChange.ahead", { count: passes.length, ids: passes.map((id) => `#${String(id)}`).join(", ") })}</Notice> : null}
+        {rollback.isError ? <ErrorBlock live compact error={rollback.error} title={t("appPages.rollback.notStarted")} /> : null}
+      </div>
     </Dialog>
   );
 }
@@ -228,6 +253,7 @@ export function useDeploymentActions(domain: string, deployment: Deployment): De
   const t = useT();
   const app = useQuery(appQuery(domain));
   const action = useDeploymentAction(domain, t);
+  const schema = useSchemaChangeConfirmation(domain);
   const [dialog, setDialog] = useState<"rebuild" | "rollback" | "chooser" | null>(null);
   const running = RUNNING.has(deployment.status);
   const layout = app.data?.layout ?? null;
@@ -312,9 +338,13 @@ export function useDeploymentActions(domain: string, deployment: Deployment): De
           onOpenChange={setOpen("rollback")}
           onQueued={queued("rollback")}
           onChooseAnother={() => setDialog("chooser")}
+          onSchemaChange={(refusal, retry) => {
+            schema.intercept(refusal, retry);
+          }}
           t={t}
         />
       ) : null}
+      {schema.dialog}
       <RollbackDialog domain={domain} layout={layout} open={dialog === "chooser"} onOpenChange={setOpen("chooser")} onJobQueued={queued("rollback")} />
     </>
   );

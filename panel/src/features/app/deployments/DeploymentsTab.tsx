@@ -22,7 +22,7 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatCount, formatDuration, parseTimestamp } from "../../../lib/format";
 import { ReleasesSection } from "./ReleasesSection";
-import { shortCommit, triggerWords } from "./words";
+import { deploymentStatusWord, shortCommit, triggerWords } from "./words";
 
 /** Rows per page. The store keeps the last twenty deploys of an app. */
 export const DEPLOYMENTS_PAGE = 10;
@@ -60,7 +60,7 @@ function columns(domain: string, t: T): Column<Deployment>[] {
       header: t("appPages.deployments.tab.statusColumn"),
       width: "w-36",
       card: "status",
-      cell: (row) => <DeployStatePill status={row.status} appearance="inline" size="sm" />,
+      cell: (row) => <DeployStatePill status={deploymentStatusWord(row)} appearance="inline" size="sm" />,
     },
     {
       id: "commit",
@@ -76,6 +76,7 @@ function columns(domain: string, t: T): Column<Deployment>[] {
                   {row.git_branch}
                 </Mono>
               ) : null}
+              {row.schema_changed ? <Badge className="shrink-0">{t("appPages.deployments.hooks.schemaChangedBadge")}</Badge> : null}
             </span>
             {row.commit_message ? (
               <span title={row.commit_message} className="hidden max-w-96 truncate text-12 text-fg-faint md:block">

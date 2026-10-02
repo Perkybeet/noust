@@ -313,7 +313,13 @@ export interface JobStream {
  */
 export function useJobStream(
   id: string | null,
-  options: Pick<LogStreamOptions, "getTicket" | "connect"> = {},
+  options: Pick<LogStreamOptions, "getTicket" | "connect"> & {
+    /**
+     * The server whose job it is, when it is not the one on screen: a fleet job's page shows
+     * a node's job while "All servers" is selected. The central relays it all the same.
+     */
+    node?: string | null;
+  } = {},
 ): JobStream {
   const queryClient = useQueryClient();
   const [state, setState] = useState<JobStream>(INITIAL_JOB_STREAM);
@@ -323,7 +329,8 @@ export function useJobStream(
     setState(INITIAL_JOB_STREAM);
   }
   const injected = useRef(options);
-  const { node } = useNode();
+  const selected = useNode().node;
+  const node = options.node !== undefined ? options.node : selected;
 
   useEffect(() => {
     if (id === null) return;

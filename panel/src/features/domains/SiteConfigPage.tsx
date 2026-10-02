@@ -1,17 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useBlocker, useNavigate } from "@tanstack/react-router";
 import { CornerDownRight, FileX, Play, RotateCw, Square } from "lucide-react";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
 import { ElevationCancelledError, isApiError, request } from "../../api/client";
 import { appsQuery } from "../../api/queries/apps";
 import { siteConfigQuery, siteKeys, siteQuery } from "../../api/queries/sites";
-import type { SiteConfig } from "../../api/queries/sites";
+import type { SiteConfig, SiteEditOp, SiteStructureResponse } from "../../api/queries/sites";
 import { CommandHint } from "../../components/page/CommandHint";
 import { FileEditorPage } from "../../components/page/FileEditorPage";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { Dialog } from "../../components/ui/Dialog";
@@ -25,11 +26,18 @@ import { SystemOutput } from "../../components/ui/SystemOutput";
 import { TextLink } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
+import { changedLines } from "../../lib/lineDiff";
+import { useNodeCapability } from "../../nodes/capability";
 import { ConfigEditor } from "./ConfigEditor";
 import type { ConfigEditorHandle } from "./ConfigEditor";
 import { configRejection, failingLine } from "./configErrors";
 import type { ConfigRejection } from "./configErrors";
+import { SiteDiagramView } from "./SiteDiagramView";
 import { SiteState, Tls } from "./SitesPage";
+import { SiteStructureView } from "./SiteStructureView";
+import { OlderNoust } from "./SiteViewStates";
+import { hasStructure } from "./siteViews";
+import type { SiteView } from "./siteViews";
 import { useSiteActions } from "./useSiteActions";
 
 type Outcome =
@@ -37,17 +45,6 @@ type Outcome =
   | { kind: "rejected"; rejection: ConfigRejection }
   | { kind: "tested"; ok: boolean; output: string; line: number | null }
   | null;
-
-/** How many lines differ from what is saved: the save bar's count of unsaved changes. */
-export function changedLines(saved: string, draft: string): number {
-  const before = saved.split("\n");
-  const after = draft.split("\n");
-  let changed = 0;
-  for (let index = 0; index < Math.max(before.length, after.length); index += 1) {
-    if (before[index] !== after[index]) changed += 1;
-  }
-  return changed;
-}
 
 /**
  * The web server refused the text: the console's usual error block with its own words
@@ -91,14 +88,27 @@ function Passed({ id, title, output, action }: { id: string; title: string; outp
   );
 }
 
+export interface SiteConfigPageProps {
+  site: string;
+  /** The view in the URL (`?view=`); nginx and Apache sites have all three. */
+  view?: SiteView;
+  onViewChange?: (view: SiteView) => void;
+}
+
 /**
  * One web server site's configuration file, in the file editor (T6): the editor takes the
  * screen's height and the bar at its foot tests, or tests and saves. Saving always tests the
  * text with the web server first; a refusal is shown in the server's own words, the line it
  * names is marked, and the file on disk is left as it was. Deleting the site is behind "More
  * actions", never on the page beside the editor.
+ *
+ * An nginx or Apache site is also shown as its Structure (edited visually) and its Diagram
+ * (how a request travels through it). The three views share one draft, the text: a change in
+ * the Structure is an operation the backend applies to that text (`/config/edit`), so the
+ * Text view shows it, the Diagram draws it and the bar counts it. Saving has one way, the
+ * same `PUT /config` whatever view made the change.
  */
-export function SiteConfigPage({ site }: { site: string }) {
+export function SiteConfigPage({ site, view = "text", onViewChange }: SiteConfigPageProps) {
   const t = useT();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -110,9 +120,25 @@ export function SiteConfigPage({ site }: { site: string }) {
   const outcomeId = useId();
   const pathId = useId();
 
-  const [draft, setDraft] = useState<string | null>(null);
+  const [draft, setDraftState] = useState<string | null>(null);
+  // The draft as the last handler left it, for the answers that arrive after other handlers
+  // ran: an edit's answer applies only to the text it was computed from.
+  const latestDraft = useRef<string | null>(null);
+  const setDraft = (next: string | null): void => {
+    latestDraft.current = next;
+    setDraftState(next);
+  };
+  // Every `/config/edit` request is numbered; a discard ignores the answers to the ones sent
+  // before it. TanStack's reset() only detaches the observer: the mutation's own onSuccess
+  // still runs, and without this it put the discarded draft back.
+  const editSequence = useRef(0);
+  const discardedThrough = useRef(0);
   const [outcome, setOutcome] = useState<Outcome>(null);
   const [deleting, setDeleting] = useState(false);
+  // A line the Structure or Diagram view sent the operator to: the editor goes there once the
+  // Text view is on screen.
+  const [pendingLine, setPendingLine] = useState<number | null>(null);
+  const capability = useNodeCapability("GET /api/sites/{domain}/topology");
 
   const saved = config.data?.config ?? "";
   const text = draft ?? saved;
@@ -128,7 +154,8 @@ export function SiteConfigPage({ site }: { site: string }) {
   const gone = useRef(false);
   const blocker = useBlocker({
     // Signing in again after the session expired is not leaving: the draft could not be saved.
-    shouldBlockFn: ({ next }) => dirty && !gone.current && next.pathname !== "/login",
+    // Neither is switching between the views of this page: they share the draft.
+    shouldBlockFn: ({ current, next }) => dirty && !gone.current && next.pathname !== "/login" && next.pathname !== current.pathname,
     enableBeforeUnload: () => dirty && !gone.current,
     withResolver: true,
   });
@@ -141,9 +168,13 @@ export function SiteConfigPage({ site }: { site: string }) {
     },
     onSuccess: (_result, next) => {
       queryClient.setQueryData<SiteConfig>(siteKeys.config(site), (current) => (current ? { ...current, config: next } : current));
-      setDraft(null);
+      // An edit that landed while this was being written is a change still to save, not part
+      // of what was saved.
+      if (latestDraft.current === next) setDraft(null);
       setOutcome({ kind: "saved", webserver });
       refresh(site);
+      void queryClient.invalidateQueries({ queryKey: siteKeys.structure(site, null) });
+      void queryClient.invalidateQueries({ queryKey: siteKeys.topology(site) });
     },
     onError: (error) => {
       const rejection = configRejection(error);
@@ -169,6 +200,41 @@ export function SiteConfigPage({ site }: { site: string }) {
     // an affirmative result about to be outdated by the edit does not.
     if (outcome?.kind === "saved" || (outcome?.kind === "tested" && outcome.ok)) setOutcome(null);
   };
+
+  // The Structure view's changes: operations the backend applies to the draft, never a file
+  // write. The model it answers with is the new draft's, so the views read it from the cache.
+  const edit = useMutation({
+    mutationFn: ({ config, ops }: { config: string; ops: SiteEditOp[]; sequence: number }) =>
+      request("post", "/api/sites/{domain}/config/edit", { params: { domain: site }, body: { config, ops } }),
+    onSuccess: (result, { config: base, sequence }) => {
+      if (sequence <= discardedThrough.current) return;
+      // The text the operator has now: the draft, or the file once a save cleared it. An answer
+      // computed from another text would replace a change made since (or bring back one saved).
+      const current = latestDraft.current ?? queryClient.getQueryData<SiteConfig>(siteKeys.config(site))?.config ?? saved;
+      if (current !== base) return;
+      const path = config.data?.path ?? "";
+      queryClient.setQueryData<SiteStructureResponse>(siteKeys.structure(site, result.config === saved ? null : result.config), {
+        site,
+        webserver,
+        path,
+        structure: result.structure,
+        error: null,
+      });
+      onChange(result.config);
+    },
+  });
+
+  const structured = hasStructure(webserver) && onViewChange !== undefined;
+  const shown: SiteView = structured ? view : "text";
+  const goToText = (line?: number): void => {
+    if (line !== undefined) setPendingLine(line);
+    onViewChange?.("text");
+  };
+  useEffect(() => {
+    if (shown !== "text" || pendingLine === null || editor.current === null) return;
+    editor.current.goToLine(pendingLine);
+    setPendingLine(null);
+  }, [shown, pendingLine, config.data]);
 
   if ((info.isError && isApiError(info.error) && info.error.status === 404) || (config.isError && isApiError(config.error) && config.error.status === 404)) {
     return (
@@ -311,13 +377,16 @@ export function SiteConfigPage({ site }: { site: string }) {
         bar={{
           changes: dirty ? changedLines(saved, text) : 0,
           onDiscard: () => {
+            discardedThrough.current = editSequence.current;
             setDraft(null);
+            edit.reset();
             setOutcome(null);
           },
           onTest: () => test.mutate(text),
           onTestAndSave: () => save.mutate(text),
           testing: test.isPending,
           saving: save.isPending,
+          busy: edit.isPending,
         }}
         footer={<CommandHint command={`noust site show ${site}`} label={t("domains.fromTerminal")} />}
       >
@@ -330,17 +399,55 @@ export function SiteConfigPage({ site }: { site: string }) {
           </div>
         ) : (
           <div className="flex h-full min-h-0 flex-col gap-3">
+            {structured ? (
+              <SegmentedControl<SiteView>
+                label={t("domains.siteViews.label")}
+                value={shown}
+                onValueChange={(next) => onViewChange(next)}
+                options={[
+                  { value: "text", label: t("domains.siteViews.text") },
+                  { value: "structure", label: t("domains.siteViews.structure") },
+                  { value: "diagram", label: t("domains.siteViews.diagram") },
+                ]}
+                className="self-start"
+              />
+            ) : null}
             {result}
-            <ConfigEditor
-              ref={editor}
-              value={text}
-              onChange={onChange}
-              label={t("domains.siteConfigPage.configurationOfAriaLabel", { site })}
-              describedBy={describedBy}
-              errorLine={outcome?.kind === "rejected" ? outcome.rejection.line : outcome?.kind === "tested" ? outcome.line : null}
-              disabled={save.isPending || test.isPending}
-              className="flex-1"
-            />
+            {shown === "text" ? (
+              <ConfigEditor
+                ref={editor}
+                value={text}
+                onChange={onChange}
+                label={t("domains.siteConfigPage.configurationOfAriaLabel", { site })}
+                describedBy={describedBy}
+                errorLine={outcome?.kind === "rejected" ? outcome.rejection.line : outcome?.kind === "tested" ? outcome.line : null}
+                disabled={save.isPending || test.isPending || edit.isPending}
+                className="flex-1"
+              />
+            ) : (
+              // The views below are taller than the screen: they scroll inside the editor's
+              // place, so the save bar stays where it always is.
+              <div className="min-h-0 flex-1 overflow-auto pr-1 scroll-thin">
+                {capability.status === "missing" ? (
+                  <OlderNoust onText={() => goToText()} />
+                ) : shown === "structure" ? (
+                  <SiteStructureView
+                    site={site}
+                    webserver={webserver}
+                    text={text}
+                    dirty={dirty}
+                    onEdit={(ops) => {
+                      if (ops.length > 0) edit.mutate({ config: text, ops, sequence: (editSequence.current += 1) });
+                    }}
+                    editing={edit.isPending || save.isPending}
+                    editError={edit.error}
+                    onGoToText={goToText}
+                  />
+                ) : (
+                  <SiteDiagramView site={site} webserver={webserver} text={text} dirty={dirty} onGoToText={goToText} />
+                )}
+              </div>
+            )}
           </div>
         )}
       </FileEditorPage>

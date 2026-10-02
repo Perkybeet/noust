@@ -289,7 +289,7 @@ describe("an application's page", () => {
     const dialog = await screen.findByRole("dialog", { name: `Roll back ${DOMAIN}` });
     await user.click(await within(dialog).findByRole("button", { name: "Go back to shop-example-com_20260923_182035" }));
     await waitFor(() => {
-      expect(backend.callsTo("POST /api/jobs/rollback")[0]?.body).toEqual({ domain: DOMAIN, backup_id: "shop-example-com_20260923_182035" });
+      expect(backend.callsTo("POST /api/jobs/rollback")[0]?.body).toEqual({ domain: DOMAIN, backup_id: "shop-example-com_20260923_182035", schema_changed_ok: false });
     });
   });
 

@@ -111,6 +111,26 @@ export const appPages: Catalog<typeof en> = {
     notStarted: "La vuelta atrás no se inició",
   },
 
+  schemaChange: {
+    title: "Volver atrás pasa por un cambio en la base de datos",
+    description: {
+      one: "Noust devuelve el código, nunca la base de datos: el código anterior funcionará con el esquema que dejó este despliegue. Comprueba que funciona con él, o devuelve también la base de datos.",
+      other: "Noust devuelve el código, nunca la base de datos: el código anterior funcionará con el esquema que dejaron estos {count} despliegues. Comprueba que funciona con él, o devuelve también la base de datos.",
+    },
+    descriptionUnnamed: "Noust devuelve el código, nunca la base de datos: el código anterior funcionará con el esquema que dejaron los despliegues posteriores. Comprueba que funciona con él, o devuelve también la base de datos.",
+    ahead: {
+      one: "El despliegue {ids} cambió el esquema de la base de datos después de este. Se te pedirá confirmar que vuelves atrás más allá de él.",
+      other: "Los despliegues {ids} cambiaron el esquema de la base de datos después de este. Se te pedirá confirmar que vuelves atrás más allá de ellos.",
+    },
+    listLabel: "Despliegues que cambiaron el esquema de la base de datos",
+    noHookRecorded: "No consta ninguna migración suya.",
+    prismaAutomatic: "Prisma, automáticamente:",
+    inService: "en el servicio {service}",
+    restoreTitle: "Devolver también la base de datos",
+    restoreKnown: "La copia {id} se hizo antes del primero de ellos. Restáurala desde una terminal:",
+    restoreUnknown: "Restaura la copia hecha antes del primero de ellos, desde una terminal:",
+    goBackAnyway: "Volver atrás igualmente",
+  },
   sourceLink: {
     opensInNewTab: "(se abre en una pestaña nueva)",
   },
@@ -191,6 +211,26 @@ export const appPages: Catalog<typeof en> = {
   },
 
   deployments: {
+    hooks: {
+      title: "Ganchos del despliegue",
+      listLabel: "Ganchos que ejecutó el despliegue {id}",
+      schemaChanged: "Este despliegue cambió el esquema de la base de datos: volver atrás más allá de él pregunta antes y lo nombra.",
+      schemaUnchanged: "Este despliegue no cambió el esquema de la base de datos.",
+      schemaChangedBadge: "Base de datos cambiada",
+      preDeploy: "Antes de servir",
+      postDeploy: "Después de servir",
+      succeeded: "Correcto",
+      exited: "Terminó con {code}",
+      timedOut: "Se quedó sin tiempo",
+      didNotRun: "No se ejecutó",
+      prismaAutomatic: "Las migraciones de Prisma, ejecutadas automáticamente",
+      inService: "En el servicio {service}",
+      migrates: "Cambia el esquema de la base de datos",
+      outputLabel: "Lo que imprimió {run}",
+      warningsTitle: "Desplegado con avisos",
+      warningsBody: "La versión nueva sirve, pero falló un gancho que se ejecuta después de arrancarla. No se deshizo nada: volver atrás después de servir es peor que un aviso.",
+      warningsLabel: "Los avisos, tal como se registraron",
+    },
     words: {
       trigger: {
         webhook: { label: "Push", by: "un push al repositorio" },

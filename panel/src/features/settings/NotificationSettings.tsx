@@ -20,6 +20,7 @@ import { CopyButton } from "../../components/ui/CopyButton";
 import { Field } from "../../components/ui/Field";
 import { Mono } from "../../components/ui/Mono";
 import { Skeleton } from "../../components/ui/Skeleton";
+import { FeatureState } from "../../components/ui/FeatureState";
 import { Switch } from "../../components/ui/Switch";
 import { Textarea } from "../../components/ui/Textarea";
 import { TextLink } from "../../components/ui/TextLink";
@@ -66,17 +67,32 @@ function useDelivery(settings: Settings, channelsOn: number) {
     : channelsOn === 0
       ? t("settings.notifications.delivery.onNoChannel")
       : t("settings.notifications.delivery.on", { count: channelsOn });
+  // On but with nowhere to go is not on: amber, not green (DESIGN, FeatureState).
+  const state = !checked ? "off" : channelsOn === 0 ? "problem" : "on";
+  const title =
+    state === "off"
+      ? t("settings.notifications.delivery.offTitle")
+      : state === "problem"
+        ? t("settings.notifications.delivery.problemTitle")
+        : t("settings.notifications.delivery.onTitle");
   return {
-    description,
-    control: (
-      <Switch
-        label={t("settings.notifications.delivery.switchLabel")}
-        checked={checked}
-        disabled={toggle.isPending}
-        onCheckedChange={(next) => {
-          toggle.mutate(next);
-        }}
-      />
+    state: (
+      <FeatureState
+        state={state}
+        title={title}
+        action={
+          <Switch
+            label={t("settings.notifications.delivery.switchLabel")}
+            checked={checked}
+            disabled={toggle.isPending}
+            onCheckedChange={(next) => {
+              toggle.mutate(next);
+            }}
+          />
+        }
+      >
+        {description}
+      </FeatureState>
     ),
   };
 }
@@ -255,7 +271,8 @@ function Channels({ settings, smtp }: { settings: Settings; smtp: SmtpSettings |
   const specs = channels(t);
   const delivery = useDelivery(settings, channelsOn(t, settings, smtp));
   return (
-    <Section title={t("settings.notifications.channels.title")} description={delivery.description} actions={delivery.control}>
+    <Section title={t("settings.notifications.channels.title")}>
+      {delivery.state}
       <Card padding="none">
         <ul aria-label={t("settings.notifications.channels.listLabel")} className="flex min-w-0 flex-col divide-y divide-border">
           {specs.map((spec) =>

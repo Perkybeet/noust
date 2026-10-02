@@ -13,6 +13,12 @@ import type { T } from "../../i18n";
 import { describeError } from "../../lib/errors";
 import { reportHeld } from "../../lib/held";
 
+/** A way back: what to go back to (a backup or a release id), and whether going past a schema change was confirmed. */
+export interface GoBack {
+  id: string;
+  schemaChangedOk?: boolean;
+}
+
 export interface AppActionOptions {
   /**
    * Called with a job the API queued (update, rollback). The app page tracks it in
@@ -160,16 +166,22 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
     },
   });
 
+  // Going back is refused (409 schema_changed) past deployments that changed the database
+  // schema, until it is asked again confirmed: features/app/SchemaChangeDialog.
   const rollbackToBackup = useMutation({
-    mutationFn: (backupId: string) => request("post", "/api/jobs/rollback", { body: { domain, backup_id: backupId } }),
+    mutationFn: ({ id, schemaChangedOk = false }: GoBack) =>
+      request("post", "/api/jobs/rollback", { body: { domain, backup_id: id, schema_changed_ok: schemaChangedOk } }),
     onSuccess: (result) => {
       queued(result.job, "rollback");
     },
   });
 
   const activateRelease = useMutation({
-    mutationFn: (releaseId: string) =>
-      request("post", "/api/apps/{domain}/releases/{release_id}/activate", { params: { domain, release_id: releaseId } }),
+    mutationFn: ({ id, schemaChangedOk = false }: GoBack) =>
+      request("post", "/api/apps/{domain}/releases/{release_id}/activate", {
+        params: { domain, release_id: id },
+        ...(schemaChangedOk ? { query: { schema_changed_ok: true } } : {}),
+      }),
     onSuccess: (result) => {
       refresh();
       // `rolled_back` says the release is older than the one it replaced. A release that fails

@@ -870,6 +870,18 @@ function Charts() {
             formatValue={(v) => `${v.toFixed(0)}%`}
             yRange={[0, 100]}
             markers={weekMarkers}
+            investigate={(stretch, close) => (
+              <Drawer
+                open
+                onOpenChange={(open) => {
+                  if (!open) close();
+                }}
+                title="What happened in this stretch"
+                description={`${new Date(stretch[0] * 1000).toISOString()} to ${new Date(stretch[1] * 1000).toISOString()}`}
+              >
+                <p className="text-13 text-fg-muted">The page renders its own investigation of the stretch here; the console's is the timeline drawer.</p>
+              </Drawer>
+            )}
           />
         </Card>
       </div>

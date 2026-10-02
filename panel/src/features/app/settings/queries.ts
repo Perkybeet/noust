@@ -1,7 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 
-import { request } from "../../../api/client";
+import { isApiError, request } from "../../../api/client";
 import type { ResponseOf } from "../../../api/client";
 import { isJobFinished, jobQuery } from "../../../api/queries/jobs";
 import type { Job } from "../../../api/queries/jobs";
@@ -11,6 +11,8 @@ export type WebhookReceived = ResponseOf<"/api/apps/{domain}/webhook/received", 
 export type ReceivedDelivery = WebhookReceived["items"][number];
 export type WebhookSecret = ResponseOf<"/api/apps/{domain}/webhook-secret", "post">;
 export type Sandbox = ResponseOf<"/api/apps/{domain}/sandbox", "get">;
+export type AppHooks = ResponseOf<"/api/apps/{domain}/hooks", "get">;
+export type Identity = ResponseOf<"/api/apps/{domain}/identity", "get">;
 
 /** How many deliveries "Pushes received" lists: the newest, enough to see a pattern. */
 export const RECEIVED_SHOWN = 8;
@@ -23,6 +25,9 @@ export const settingsKeys = {
   webhook: (domain: string) => ["app", domain, "webhook"] as const,
   received: (domain: string) => ["app", domain, "webhook-received"] as const,
   sandbox: (domain: string) => ["app", domain, "sandbox"] as const,
+  hooks: (domain: string) => ["app", domain, "hooks"] as const,
+  identity: (domain: string) => ["app", domain, "identity"] as const,
+  headless: (domain: string) => ["app", domain, "headless"] as const,
 };
 
 /** Read again every few seconds while the setup waits for the forge's first delivery. */
@@ -55,6 +60,36 @@ export const sandboxQuery = (domain: string) =>
     queryKey: settingsKeys.sandbox(domain),
     queryFn: ({ signal }) => request("get", "/api/apps/{domain}/sandbox", { params: { domain }, signal }),
   });
+
+/** The deploy hooks that apply, where they come from, and the operator's document when there is one. */
+export const hooksQuery = (domain: string) =>
+  queryOptions({
+    queryKey: settingsKeys.hooks(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/hooks", { params: { domain }, signal }),
+  });
+
+/** The account the app runs as, and whether it can move to one of its own. Changes nothing. */
+export const identityQuery = (domain: string) =>
+  queryOptions({
+    queryKey: settingsKeys.identity(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/identity", { params: { domain }, signal }),
+  });
+
+/** Whether a Compose stack is a worker that still has a port recorded (`noust app headless`). */
+export const headlessQuery = (domain: string) =>
+  queryOptions({
+    queryKey: settingsKeys.headless(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/headless", { params: { domain }, signal }),
+  });
+
+/**
+ * True when the server answered that it has no such endpoint: a node on an older Noust (3.1)
+ * behind a 3.2 central, which has neither deploy hooks nor accounts per application. The
+ * application itself exists, or its settings would not be open.
+ */
+export function olderServer(error: unknown): boolean {
+  return isApiError(error) && (error.status === 404 || error.status === 405);
+}
 
 /** How often a job a save queued is read again while the save waits for it. */
 const JOB_WAIT_MS = 750;

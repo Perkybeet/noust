@@ -440,6 +440,42 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/backup-before-update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Patch Backup Before Update
+         * @description Switch the copy of a Docker Compose stack's databases before an update.
+         *
+         *     On by default: an update dumps each database the stack runs into the
+         *     backup it takes first, and stops when a dump fails, so a migration can
+         *     always be undone. Off for a database backed up another way.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The setting.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The setting now and what it was.
+         *
+         *     Raises:
+         *         HTTPException: 404 when nothing is deployed at the domain.
+         *         ValidationError: It is not a Docker Compose stack (400).
+         */
+        patch: operations["patch_backup_before_update_api_apps__domain__backup_before_update_patch"];
+        trace?: never;
+    };
     "/api/apps/{domain}/branch": {
         parameters: {
             query?: never;
@@ -682,8 +718,9 @@ export interface paths {
          *     Raises:
          *         HTTPException: 404 for an unknown deployment of the application, 409
          *             ``rollback_unavailable`` with the reason when it cannot be gone
-         *             back to, 409 ``schema_changed`` with the deployments when it was
-         *             not confirmed.
+         *             back to.
+         *         SchemaChangedError: 409 ``schema_changed`` with the deployments when
+         *             going back past them was not confirmed.
          */
         post: operations["rollback_deployment_api_apps__domain__deployments__deployment_id__rollback_post"];
         delete?: never;
@@ -1021,6 +1058,59 @@ export interface paths {
          *         SourceError: Not deployed from git.
          */
         patch: operations["update_app_follow_tags_api_apps__domain__follow_tags_patch"];
+        trace?: never;
+    };
+    "/api/apps/{domain}/headless": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Headless
+         * @description Say whether a stack is a worker that still has a port recorded.
+         *
+         *     Reads the compose file and the site; nothing is changed or run.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The check.
+         *
+         *     Raises:
+         *         HTTPException: 404 when nothing is deployed at the domain.
+         */
+        get: operations["get_headless_api_apps__domain__headless_get"];
+        put?: never;
+        /**
+         * Post Headless
+         * @description Record a Docker Compose stack that publishes no port as a worker.
+         *
+         *     Its port is cleared, so every health reader judges it by its containers.
+         *     Its site is removed only when ``remove_site`` says so, Noust wrote it and
+         *     it answers no other name.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated, elevated session.
+         *         body: Whether to remove its site too.
+         *
+         *     Returns:
+         *         The port cleared and what became of the site.
+         *
+         *     Raises:
+         *         HTTPException: 404 when nothing is deployed at the domain.
+         *         ValidationError: It is not a Compose stack, or it publishes a port (400).
+         *         AppBusyError: Another operation is running on it (409).
+         */
+        post: operations["post_headless_api_apps__domain__headless_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/apps/{domain}/health": {
@@ -8413,7 +8503,7 @@ export interface paths {
          *         The queued job.
          *
          *     Raises:
-         *         HTTPException: 409 ``schema_changed`` when it was not confirmed.
+         *         SchemaChangedError: 409 ``schema_changed`` when it was not confirmed.
          */
         post: operations["create_rollback_job_api_jobs_rollback_post"];
         delete?: never;
@@ -13082,12 +13172,20 @@ export interface components {
          *             upstream (blue/green); details at ``/zero-downtime``.
          *         preview_parent: The application it previews a pull request of, or
          *             None when it is not a preview.
+         *         backup_before_update: Whether an update of a Docker Compose stack
+         *             copies its databases first (on by default; meaningless for any
+         *             other kind). Set through ``PATCH .../backup-before-update``.
          */
         AppInfo: {
             /** Active */
             active: boolean;
             /** App Type */
             app_type?: string | null;
+            /**
+             * Backup Before Update
+             * @default true
+             */
+            backup_before_update: boolean;
             /** Branch */
             branch?: string | null;
             /** Build Command */
@@ -13845,6 +13943,29 @@ export interface components {
             message: string;
             /** Success */
             success: boolean;
+        };
+        /**
+         * BackupBeforeUpdateRequest
+         * @description Switch the copy of a stack's databases before an update on or off.
+         */
+        BackupBeforeUpdateRequest: {
+            /**
+             * Enabled
+             * @description Dump the stack's databases before each update
+             */
+            enabled: boolean;
+        };
+        /**
+         * BackupBeforeUpdateResponse
+         * @description Whether an update copies a stack's databases first, and what it was.
+         */
+        BackupBeforeUpdateResponse: {
+            /** Backup Before Update */
+            backup_before_update: boolean;
+            /** Domain */
+            domain: string;
+            /** Previous */
+            previous: boolean;
         };
         /**
          * BackupConfig
@@ -17700,6 +17821,56 @@ export interface components {
         HTTPValidationError: {
             /** Detail */
             detail?: components["schemas"]["ValidationError"][];
+        };
+        /**
+         * HeadlessCheckResponse
+         * @description Whether a stack is a worker, and what clearing its port would offer.
+         */
+        HeadlessCheckResponse: {
+            /** Domain */
+            domain: string;
+            /**
+             * Headless
+             * @description It is a Compose stack that publishes no port
+             */
+            headless: boolean;
+            /**
+             * Recorded Port
+             * @description The port recorded for it, which nothing listens on
+             */
+            recorded_port?: number | null;
+            /**
+             * Site Retirable
+             * @description Its site was written by Noust and answers no other name, so it can go too
+             */
+            site_retirable: boolean;
+        };
+        /**
+         * HeadlessRequest
+         * @description Record a stack that publishes no port as a worker.
+         */
+        HeadlessRequest: {
+            /**
+             * Remove Site
+             * @description Also remove the site Noust wrote for it. Never implied: a worker serves nothing, but removing a site is the operator's call
+             * @default false
+             */
+            remove_site: boolean;
+        };
+        /**
+         * HeadlessResponse
+         * @description What recording a stack as a worker did.
+         */
+        HeadlessResponse: {
+            /** Domain */
+            domain: string;
+            /** Previous Port */
+            previous_port?: number | null;
+            /**
+             * Site
+             * @enum {string}
+             */
+            site: "removed" | "kept" | "kept_operator" | "kept_aliases" | "absent";
         };
         /**
          * HealthCheckOut
@@ -26534,6 +26705,41 @@ export interface operations {
             };
         };
     };
+    patch_backup_before_update_api_apps__domain__backup_before_update_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupBeforeUpdateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupBeforeUpdateResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_app_branch_api_apps__domain__branch_patch: {
         parameters: {
             query?: never;
@@ -27128,6 +27334,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FollowTagsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_headless_api_apps__domain__headless_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeadlessCheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_headless_api_apps__domain__headless_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["HeadlessRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeadlessResponse"];
                 };
             };
             /** @description Validation Error */

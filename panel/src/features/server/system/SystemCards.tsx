@@ -5,7 +5,7 @@
  */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useId, useState } from "react";
+import { useState } from "react";
 
 import { request } from "../../../api/client";
 import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/KeyValueList";
@@ -30,7 +30,7 @@ import { ServerErrorBlock, explainServerError } from "../errors";
 import { usePowerDialog } from "../PowerDialog";
 import { dayOf, identityQuery, serverKeys, summaryQuery, timeQuery } from "../queries";
 import type { Identity } from "../queries";
-import { knownTimeZones } from "./data";
+import { TimeZoneField } from "../TimeZoneField";
 
 function Loading({ title }: { title: string }) {
   const t = useT();
@@ -53,7 +53,6 @@ export function ClockCard() {
   const [installOpen, setInstallOpen] = useState(false);
   const [zone, setZone] = useState("");
   const [install, setInstall] = useState(true);
-  const zonesId = useId();
   const refresh = (): void => {
     void queryClient.invalidateQueries({ queryKey: serverKeys.time });
     void queryClient.invalidateQueries({ queryKey: serverKeys.summary });
@@ -136,14 +135,7 @@ export function ClockCard() {
             });
           }}
         >
-          <Field label={t("server.clock.zoneLabel")} description={t("server.clock.zoneHelp")}>
-            <Input mono list={zonesId} value={zone} onValueChange={(value: string) => setZone(value)} autoComplete="off" spellCheck={false} />
-          </Field>
-          <datalist id={zonesId}>
-            {knownTimeZones().map((name) => (
-              <option key={name} value={name} />
-            ))}
-          </datalist>
+          <TimeZoneField value={zone} onValueChange={setZone} current={data.timezone} label={t("server.clock.zoneLabel")} />
         </ActionDialog>
       ) : null}
       {installOpen ? (

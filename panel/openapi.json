@@ -1565,7 +1565,7 @@
         "type": "object"
       },
       "AppInfo": {
-        "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`noust.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit) or ``unknown`` (systemd could not be\n        asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    follow_tags: The glob of git tags it deploys instead of a branch\n        (``v*``), or None when it follows its branch.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.",
+        "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`noust.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit) or ``unknown`` (systemd could not be\n        asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    follow_tags: The glob of git tags it deploys instead of a branch\n        (``v*``), or None when it follows its branch.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.\n    backup_before_update: Whether an update of a Docker Compose stack\n        copies its databases first (on by default; meaningless for any\n        other kind). Set through ``PATCH .../backup-before-update``.",
         "properties": {
           "active": {
             "title": "Active",
@@ -1581,6 +1581,11 @@
               }
             ],
             "title": "App Type"
+          },
+          "backup_before_update": {
+            "default": true,
+            "title": "Backup Before Update",
+            "type": "boolean"
           },
           "branch": {
             "anyOf": [
@@ -3122,6 +3127,45 @@
           "message"
         ],
         "title": "BackupActionResponse",
+        "type": "object"
+      },
+      "BackupBeforeUpdateRequest": {
+        "description": "Switch the copy of a stack's databases before an update on or off.",
+        "properties": {
+          "enabled": {
+            "description": "Dump the stack's databases before each update",
+            "title": "Enabled",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ],
+        "title": "BackupBeforeUpdateRequest",
+        "type": "object"
+      },
+      "BackupBeforeUpdateResponse": {
+        "description": "Whether an update copies a stack's databases first, and what it was.",
+        "properties": {
+          "backup_before_update": {
+            "title": "Backup Before Update",
+            "type": "boolean"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "previous": {
+            "title": "Previous",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain",
+          "backup_before_update",
+          "previous"
+        ],
+        "title": "BackupBeforeUpdateResponse",
         "type": "object"
       },
       "BackupConfig": {
@@ -10473,6 +10517,94 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HeadlessCheckResponse": {
+        "description": "Whether a stack is a worker, and what clearing its port would offer.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "headless": {
+            "description": "It is a Compose stack that publishes no port",
+            "title": "Headless",
+            "type": "boolean"
+          },
+          "recorded_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The port recorded for it, which nothing listens on",
+            "title": "Recorded Port"
+          },
+          "site_retirable": {
+            "description": "Its site was written by Noust and answers no other name, so it can go too",
+            "title": "Site Retirable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain",
+          "headless",
+          "site_retirable"
+        ],
+        "title": "HeadlessCheckResponse",
+        "type": "object"
+      },
+      "HeadlessRequest": {
+        "description": "Record a stack that publishes no port as a worker.",
+        "properties": {
+          "remove_site": {
+            "default": false,
+            "description": "Also remove the site Noust wrote for it. Never implied: a worker serves nothing, but removing a site is the operator's call",
+            "title": "Remove Site",
+            "type": "boolean"
+          }
+        },
+        "title": "HeadlessRequest",
+        "type": "object"
+      },
+      "HeadlessResponse": {
+        "description": "What recording a stack as a worker did.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "previous_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Port"
+          },
+          "site": {
+            "enum": [
+              "removed",
+              "kept",
+              "kept_operator",
+              "kept_aliases",
+              "absent"
+            ],
+            "title": "Site",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "site"
+        ],
+        "title": "HeadlessResponse",
         "type": "object"
       },
       "HealthCheckOut": {
@@ -27556,6 +27688,61 @@
         "x-noust-permission": "apps.read"
       }
     },
+    "/api/apps/{domain}/backup-before-update": {
+      "patch": {
+        "description": "Switch the copy of a Docker Compose stack's databases before an update.\n\nOn by default: an update dumps each database the stack runs into the\nbackup it takes first, and stops when a dump fails, so a migration can\nalways be undone. Off for a database backed up another way.\n\nArgs:\n    domain: Domain of the application.\n    body: The setting.\n    session: The authenticated, elevated session.\n\nReturns:\n    The setting now and what it was.\n\nRaises:\n    HTTPException: 404 when nothing is deployed at the domain.\n    ValidationError: It is not a Docker Compose stack (400).",
+        "operationId": "patch_backup_before_update_api_apps__domain__backup_before_update_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackupBeforeUpdateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupBeforeUpdateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Patch Backup Before Update",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/apps/{domain}/branch": {
       "patch": {
         "description": "Pin the branch an application deploys from, or unpin it.\n\nWith a branch pinned, the webhook ignores pushes to any other branch and\nevery update builds it; unpinned, any push deploys. The branch is checked\non the remote first; nothing is fetched or rebuilt until the next update.\nChanging what deploys needs sudo mode, like the health check and the limits.\n\nArgs:\n    domain: Domain of the application.\n    body: The branch, or null.\n    session: The authenticated, elevated session.\n\nReturns:\n    The branch it deploys from now, its head, and the one before.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    SourceError: Not deployed from git, not a branch name, no such branch\n        on the remote, or the remote cannot be read (400, git's words in\n        ``output``).",
@@ -27965,7 +28152,7 @@
     },
     "/api/apps/{domain}/deployments/{deployment_id}/rollback": {
       "post": {
-        "description": "Queue going back to what a deployment produced.\n\nOn releases its release is activated behind the health gate. In place in\na git checkout its commit is rebuilt where the application runs, behind\nthe same gate; in place without history its snapshot backup (taken by\nthe update that followed it) is restored after a safety backup, rebuilt\nand gated, keeping the deployed ``.env``. See\n:func:`~noust.deployers.lifecycle.rollback_to_deployment`.\n\nGoing back past later deployments that changed the database's schema\nis refused with 409 ``schema_changed``, naming them, unless the body says\n``schema_changed_ok``: Noust puts code back, never a database.\n\nArgs:\n    domain: Domain of the application.\n    deployment_id: The deployment to go back to.\n    session: The authenticated session.\n    body: The operator's confirmation, when the schema changed since.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 for an unknown deployment of the application, 409\n        ``rollback_unavailable`` with the reason when it cannot be gone\n        back to, 409 ``schema_changed`` with the deployments when it was\n        not confirmed.",
+        "description": "Queue going back to what a deployment produced.\n\nOn releases its release is activated behind the health gate. In place in\na git checkout its commit is rebuilt where the application runs, behind\nthe same gate; in place without history its snapshot backup (taken by\nthe update that followed it) is restored after a safety backup, rebuilt\nand gated, keeping the deployed ``.env``. See\n:func:`~noust.deployers.lifecycle.rollback_to_deployment`.\n\nGoing back past later deployments that changed the database's schema\nis refused with 409 ``schema_changed``, naming them, unless the body says\n``schema_changed_ok``: Noust puts code back, never a database.\n\nArgs:\n    domain: Domain of the application.\n    deployment_id: The deployment to go back to.\n    session: The authenticated session.\n    body: The operator's confirmation, when the schema changed since.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 for an unknown deployment of the application, 409\n        ``rollback_unavailable`` with the reason when it cannot be gone\n        back to.\n    SchemaChangedError: 409 ``schema_changed`` with the deployments when\n        going back past them was not confirmed.",
         "operationId": "rollback_deployment_api_apps__domain__deployments__deployment_id__rollback_post",
         "parameters": [
           {
@@ -28544,6 +28731,110 @@
           }
         },
         "summary": "Update App Follow Tags",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/headless": {
+      "get": {
+        "description": "Say whether a stack is a worker that still has a port recorded.\n\nReads the compose file and the site; nothing is changed or run.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The check.\n\nRaises:\n    HTTPException: 404 when nothing is deployed at the domain.",
+        "operationId": "get_headless_api_apps__domain__headless_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeadlessCheckResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Headless",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "Record a Docker Compose stack that publishes no port as a worker.\n\nIts port is cleared, so every health reader judges it by its containers.\nIts site is removed only when ``remove_site`` says so, Noust wrote it and\nit answers no other name.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated, elevated session.\n    body: Whether to remove its site too.\n\nReturns:\n    The port cleared and what became of the site.\n\nRaises:\n    HTTPException: 404 when nothing is deployed at the domain.\n    ValidationError: It is not a Compose stack, or it publishes a port (400).\n    AppBusyError: Another operation is running on it (409).",
+        "operationId": "post_headless_api_apps__domain__headless_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/HeadlessRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeadlessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Headless",
         "tags": [
           "Applications"
         ],
@@ -40911,7 +41202,7 @@
     },
     "/api/jobs/rollback": {
       "post": {
-        "description": "Queue a rollback.\n\nRestoring a backup puts the files back, never the database: going back\npast later deployments that changed the schema is refused with 409\n``schema_changed``, naming them, unless the body says ``schema_changed_ok``.\n\nArgs:\n    request: The rollback request.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 409 ``schema_changed`` when it was not confirmed.",
+        "description": "Queue a rollback.\n\nRestoring a backup puts the files back, never the database: going back\npast later deployments that changed the schema is refused with 409\n``schema_changed``, naming them, unless the body says ``schema_changed_ok``.\n\nArgs:\n    request: The rollback request.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    SchemaChangedError: 409 ``schema_changed`` when it was not confirmed.",
         "operationId": "create_rollback_job_api_jobs_rollback_post",
         "requestBody": {
           "content": {
