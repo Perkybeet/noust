@@ -1140,3 +1140,58 @@ class TestSwitchingTheCopyOff:
 
         assert "Docker Compose" in raised.value.message
         assert audited == []
+
+
+class TestConfigIsAReadOnlyProbe:
+    """A dry run may read the stack's configuration to say what an update would dump."""
+
+    @pytest.mark.parametrize(
+        "argv",
+        [
+            [
+                "docker",
+                "compose",
+                "-f",
+                "/srv/shop/docker-compose.yml",
+                "config",
+                "--format",
+                "json",
+            ],
+            [
+                "docker",
+                "compose",
+                "-p",
+                "shop",
+                "-f",
+                "/srv/shop/compose.yml",
+                "config",
+                "--format",
+                "json",
+            ],
+            [
+                "docker",
+                "compose",
+                "-f",
+                "/srv/c.yml",
+                "--profile",
+                "web",
+                "config",
+                "--format",
+                "json",
+            ],
+        ],
+    )
+    def test_config_is_read_only(self, argv):
+        from noust.core.runner import forget_declared_probes, is_read_only
+
+        forget_declared_probes()
+        assert is_read_only(argv)
+
+    def test_anything_else_of_compose_is_not(self):
+        from noust.core.runner import forget_declared_probes, is_read_only
+
+        forget_declared_probes()
+        assert not is_read_only(["docker", "compose", "-f", "/srv/c.yml", "up", "-d"])
+        assert not is_read_only(
+            ["docker", "compose", "-f", "/srv/c.yml", "config", "--format", "json", "-o", "/etc/x"]
+        )

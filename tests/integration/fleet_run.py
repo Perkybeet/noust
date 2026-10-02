@@ -543,6 +543,16 @@ def fleet_scenario(name: str) -> Callable[[FleetScenarioFn], FleetScenarioFn]:
 
 def provision_ssh(name: str) -> None:
     """Give a container a fresh host key and a running sshd."""
+    # The image carries Docker for run.py's Compose scenarios, but a fleet container has no
+    # /var/lib/docker volume: docker.service fails there and systemd reports "degraded",
+    # which the fleet's own health checks would then read as a sick node.
+    docker_exec(
+        name,
+        "systemctl mask --now docker.service docker.socket containerd.service; "
+        "systemctl reset-failed",
+        timeout=60,
+        check=False,
+    )
     docker_exec(name, "rm -f /etc/ssh/ssh_host_*_key*", timeout=15)
     docker_exec(name, "ssh-keygen -A", timeout=30)
     docker_exec(name, "systemctl enable --now ssh", timeout=30)

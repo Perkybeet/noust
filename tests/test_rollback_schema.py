@@ -384,8 +384,6 @@ def test_the_backup_rollback_route_is_409_until_confirmed(
     assert str(history.rows[1].id) in refused.text
     assert queued == []
 
-    client.post(
-        "/api/jobs/rollback", json={"domain": DOMAIN, "schema_changed_ok": True}
-    )
+    client.post("/api/jobs/rollback", json={"domain": DOMAIN, "schema_changed_ok": True})
     [job] = queued
     assert job["kwargs"]["schema_changed_ok"] is True

@@ -652,7 +652,7 @@ def test_deleting_an_application_and_its_files_removes_its_account(
     monkeypatch.setattr(
         lifecycle,
         "delete_site_completely",
-        lambda *a, **k: SimpleNamespace(certificate_removed=False),
+        lambda *a, **k: SimpleNamespace(certificate_removed=False, kept_operator=()),
     )
 
     lifecycle.delete_app(DOMAIN, remove_files=True)

@@ -2574,7 +2574,10 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
 #: Modules that declare read-only probes of their own, each in a module-level
 #: ``READ_ONLY_PROBES`` tuple written in the same language. Imported the first
 #: time a command is classified, so this module stays importable on its own.
-PROBE_MODULES: tuple[str, ...] = ("noust.managers.server.probes",)
+PROBE_MODULES: tuple[str, ...] = (
+    "noust.managers.server.probes",
+    "noust.managers.stack_databases",
+)
 
 #: Options that turn any declared probe of a program into a change. Checked
 #: before the shapes, so an open-ended declaration (``journalctl ...``) cannot

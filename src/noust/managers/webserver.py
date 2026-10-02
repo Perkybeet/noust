@@ -2159,9 +2159,7 @@ def delete_site_completely(
 
     kept_operator = (
         tuple(
-            manager.backend.name
-            for manager in (nginx, apache)
-            if is_operator_site(manager, domain)
+            manager.backend.name for manager in (nginx, apache) if is_operator_site(manager, domain)
         )
         if keep_operator_sites
         else ()

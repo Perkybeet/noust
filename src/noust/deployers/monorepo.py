@@ -1970,7 +1970,7 @@ class MonorepoDeployer(AppDeployer):
 
     def _register_site_in_store(self, workspace: MonorepoWorkspace, with_ssl: bool) -> None:
         """Register a site in the store."""
-        from noust.core.config import NGINX_SITES_AVAILABLE
+        from noust.managers.nginx_manager import NginxManager
 
         app = self.store.get_app(self.domain)
         app_id = app.id if app else None
@@ -1984,7 +1984,8 @@ class MonorepoDeployer(AppDeployer):
             app_id=app_id,
             domain=subdomain,
             webserver=self.webserver,
-            config_path=str(NGINX_SITES_AVAILABLE / self.domain),
+            # Every workspace is served from the monorepo's one site file.
+            config_path=str(NginxManager().config_path(self.domain)),
             enabled=True,
             is_static=False,
             proxy_port=workspace.port,

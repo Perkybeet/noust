@@ -70,6 +70,41 @@ from noust.core.runner import CommandResult, CommandRunner
 from noust.core.store import AppType, get_store
 from noust.validators.names import validate_filename
 
+
+def _config_probes() -> tuple[tuple[object, ...], ...]:
+    """
+    The exact shapes of ``docker compose ... config --format json`` this module runs.
+
+    Reading a stack's resolved configuration changes nothing, so a dry run may
+    run it to say which databases an update would dump. The shapes are spelled
+    out because a probe only matches a trailing ``...``, and ``-p`` and the
+    profiles sit in the middle of the command.
+
+    Returns:
+        One shape per combination of an optional ``-p`` and up to three profiles.
+    """
+    shapes: list[tuple[object, ...]] = []
+    for project in ((), ("-p", "*")):
+        for profiles in range(4):
+            shapes.append(
+                (
+                    "docker",
+                    "compose",
+                    *project,
+                    "-f",
+                    "*",
+                    *(("--profile", "*") * profiles),
+                    "config",
+                    "--format",
+                    "json",
+                )
+            )
+    return tuple(shapes)
+
+
+#: Read by :mod:`noust.core.runner` (listed in its ``PROBE_MODULES``).
+READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = _config_probes()
+
 __all__ = [
     "AUTO",
     "CLIENT_SCRIPT",

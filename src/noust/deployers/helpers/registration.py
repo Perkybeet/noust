@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from noust.core.config import APACHE_SITES_AVAILABLE, NGINX_SITES_AVAILABLE, SYSTEMD_DIR
+from noust.core.config import SYSTEMD_DIR
 from noust.core.store import App, NoustStore, Service, Site
 
 
@@ -175,7 +175,12 @@ class StoreRegistrar:
         Returns:
             The stored site row.
         """
-        sites_dir = NGINX_SITES_AVAILABLE if webserver == "nginx" else APACHE_SITES_AVAILABLE
+        from noust.managers.apache_manager import ApacheManager
+        from noust.managers.nginx_manager import NginxManager
+
+        # The manager is the one place a domain becomes a file (rule 4): it knows
+        # Apache's ".conf" and an adopted site's own name ("proggest").
+        manager = NginxManager() if webserver == "nginx" else ApacheManager()
         is_static = template == "static"
         app = self.store.get_app(domain)
         existing = self.store.get_site(domain)
@@ -185,7 +190,7 @@ class StoreRegistrar:
             app_id=app.id if app else None,
             domain=domain,
             webserver=webserver,
-            config_path=str(sites_dir / domain),
+            config_path=str(manager.config_path(domain)),
             enabled=True,
             is_static=is_static,
             document_root=str(app_path) if is_static else None,
