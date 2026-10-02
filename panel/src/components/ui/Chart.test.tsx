@@ -380,12 +380,14 @@ describe("Chart keyboard", () => {
     expect(readoutTime()).toHaveTextContent("Latest");
   });
 
-  it("keeps the reading on screen with Enter, until Escape", async () => {
+  it("never freezes: neither Enter nor a click pins a reading (owner item 62)", async () => {
     const user = userEvent.setup();
     render(<Example />);
+    // uPlot's own lock is what a click toggled: off, a click is just a click.
+    expect((plots[0]?.options as { cursor?: { lock?: boolean } }).cursor?.lock).toBe(false);
     screen.getByRole("application", { name: "CPU" }).focus();
     await user.keyboard("{Home}{Enter}");
-    expect(card()).toHaveAttribute("data-chart-card", "pinned");
+    expect(card()).toHaveAttribute("data-chart-card", "floating");
     await user.keyboard("{Escape}");
     expect(card()).toHaveAttribute("data-chart-card", "hidden");
   });
@@ -422,7 +424,10 @@ describe("Chart group", () => {
     expect(memory.setCursor).toHaveBeenLastCalledWith({ left: memory.valToPos(T0 + 60, "x"), top: -10 }, false);
     const [cpuFigure, memoryFigure] = screen.getAllByRole("figure");
     if (cpuFigure === undefined || memoryFigure === undefined) throw new Error("two figures");
-    expect(within(memoryFigure).getByText("2 GB")).toBeInTheDocument();
+    // The other chart follows with its crosshair only: its row keeps the newest values until
+    // the pointer is on it (owner item 62), so only one chart at a time says a moment.
+    expect(readoutTime(memoryFigure)).toHaveTextContent("Latest");
+    expect(within(memoryFigure).getByText("3 GB")).toBeInTheDocument();
     expect(card(cpuFigure)).toHaveAttribute("data-chart-card", "floating");
     expect(card(memoryFigure)).toHaveAttribute("data-chart-card", "hidden");
     hover(cpu, null);

@@ -112,6 +112,8 @@
   --animate-pulse-once: pulse-once 0.9s var(--ease-out) 1;
   --animate-breathe: breathe 1.6s ease-in-out infinite;
   --animate-indeterminate: indeterminate 1.4s var(--ease-out) infinite;
+  --animate-flow: flow 1.2s linear infinite;
+  --animate-flow-fast: flow 0.6s linear infinite;
 }
 
 @keyframes spin {
@@ -147,6 +149,16 @@
   }
   to {
     transform: translateX(250%);
+  }
+}
+
+/*
+ * Traffic along a FlowDiagram edge: the dashes (4 drawn, 12 skipped: one period of 16) advance
+ * along the path. A CSS animation, never SMIL, so the reduced-motion rule below stops it.
+ */
+@keyframes flow {
+  to {
+    stroke-dashoffset: -16;
   }
 }
 
@@ -290,8 +302,12 @@
   .uplot {
     font-family: var(--font-mono);
   }
+  /* The stretch being dragged in an enlarged chart: a tint the series shows through, with
+     solid edges that say exactly where it starts and ends (owner item 63). --selection is
+     opaque, meant for selected text, and hid the very readings being picked. */
   .uplot .u-select {
-    background: var(--selection);
+    background: color-mix(in oklab, var(--accent) 12%, transparent);
+    border-inline: 2px solid var(--accent);
   }
   .uplot .u-cursor-x,
   .uplot .u-cursor-y {

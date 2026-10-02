@@ -10,7 +10,7 @@ import { formatDecimal, formatMoment } from "../../lib/format";
 import { isHttpUrl } from "../../lib/url";
 import { Button } from "./Button";
 import { useChartGroupCursor, useChartGroupStore } from "./chart/group";
-import { JOINED_CELLS, historyBands, inferStep, isolatedIndices, markersInRange, nearestIndex, readingSpan, seriesStats, valueRange, zoomStep } from "./chart/model";
+import { JOINED_CELLS, historyBands, inferStep, isolatedIndices, markersInRange, readingSpan, seriesStats, valueRange, zoomStep } from "./chart/model";
 import type { ChartBand, ChartWindow, SeriesStats } from "./chart/model";
 import { SECONDS_SPAN, formatChartTime, momentNeedsDate, spanNeedsDate } from "./chart/time";
 import { Dialog } from "./Dialog";
@@ -641,7 +641,6 @@ function ChartPlot({
   const [overlays, setOverlays] = useState<Overlays>(NO_OVERLAYS);
   // The moment under this chart's own pointer or keyboard; the group's when another chart has it.
   const [own, setOwn] = useState<number | null>(null);
-  const [pinned, setPinned] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [spoken, setSpoken] = useState("");
   const announcement = useThrottled(spoken, ANNOUNCE_EVERY_MS);
@@ -738,7 +737,9 @@ function ChartPlot({
       legend: { show: false },
       cursor: {
         y: false,
-        lock: true,
+        // A click is only a click: uPlot's lock froze this chart and, through the group, every
+        // other one until the next click (owner item 62).
+        lock: false,
         drag: { x: zoomable, y: false, setScale: false },
         points: { size: 7, width: 2, fill: (_u, si) => colour(si - 1), stroke: (_u, si) => colour(si - 1) },
         bind: {
@@ -856,8 +857,6 @@ function ChartPlot({
             if (syncingRef.current) return;
             const idx = u.cursor.idx;
             const left = u.cursor.left ?? -1;
-            const locked = (u.cursor as { _lock?: boolean })._lock === true;
-            setPinned(locked);
             if (idx === null || idx === undefined || left < 0) {
               onPointerRef.current(null, null);
               return;
@@ -935,15 +934,16 @@ function ChartPlot({
   const cursorAt = groupCursor.source !== null && groupCursor.source !== selfId ? groupCursor.at : null;
   useEffect(() => {
     const plot = plotRef.current;
-    if (!plot || pinned || groupCursor.source === selfId) return;
+    if (!plot || groupCursor.source === selfId) return;
     syncingRef.current = true;
     if (cursorAt === null) plot.setCursor({ left: -10, top: -10 }, false);
     else plot.setCursor({ left: plot.valToPos(cursorAt, "x"), top: -10 }, false);
     syncingRef.current = false;
-  }, [cursorAt, pinned, groupCursor.source, selfId]);
+  }, [cursorAt, groupCursor.source, selfId]);
 
-  const followed = cursorAt === null ? null : nearestIndex(timestamps, cursorAt);
-  const shown = own ?? followed;
+  // Only the chart under the pointer (or the keyboard) says a moment; the others follow with
+  // their crosshair alone and keep the newest values in their row (owner item 62).
+  const shown = own;
   const cardVisible = own !== null && !dismissed;
 
   // The card's first frame at a new moment: placed before it paints, not a frame late.
@@ -951,36 +951,17 @@ function ChartPlot({
     if (cardVisible) placeCardNow();
   }, [cardVisible, own, placeCardNow]);
 
-  // WCAG 1.4.13: the card goes away with Escape without moving the pointer or the focus; a
-  // pinned card also lets go on a click anywhere else.
+  // WCAG 1.4.13: the card goes away with Escape without moving the pointer or the focus.
   useEffect(() => {
     if (!cardVisible) return;
-    // Letting go of a pinned reading lets go of the moment too: the pointer may be anywhere by
-    // now, and uPlot ignored its leaving while the reading was pinned.
-    const unpin = (): void => {
-      const plot = plotRef.current;
-      setPinned(false);
-      onPointerRef.current(null, null);
-      if (!plot) return;
-      (plot.cursor as { _lock?: boolean })._lock = false;
-      plot.setCursor({ left: -10, top: -10 }, false);
-    };
     const onKey = (event: globalThis.KeyboardEvent): void => {
-      if (event.key !== "Escape") return;
-      if (pinned) unpin();
-      setDismissed(true);
-    };
-    const onDown = (event: PointerEvent): void => {
-      if (!pinned || hostRef.current?.contains(event.target as Node)) return;
-      unpin();
+      if (event.key === "Escape") setDismissed(true);
     };
     document.addEventListener("keydown", onKey);
-    document.addEventListener("pointerdown", onDown);
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("pointerdown", onDown);
     };
-  }, [cardVisible, pinned]);
+  }, [cardVisible]);
 
   const visibleRange = useMemo(() => {
     let lo = timestamps.findIndex((at) => at >= visible[0]);
@@ -993,29 +974,20 @@ function ChartPlot({
   }, [timestamps, visible]);
 
   /** Moves the cursor to a cell from the keyboard (null hides it) and says so. */
-  const moveCursor = (index: number | null, pin = false): void => {
+  const moveCursor = (index: number | null): void => {
     const plot = plotRef.current;
     if (index === null) {
       setSpoken("");
-      if (plot) {
-        (plot.cursor as { _lock?: boolean })._lock = false;
-        plot.setCursor({ left: -10, top: -10 });
-      }
-      setPinned(false);
+      plot?.setCursor({ left: -10, top: -10 });
       return;
     }
     const at = timestamps[index];
     if (at === undefined) return;
     setSpoken(readoutWords(when(at), series, index, formatValue, t));
     if (plot) {
-      (plot.cursor as { _lock?: boolean })._lock = false;
       const value = series[0]?.values[index];
       const top = value === null || value === undefined ? plot.bbox.height / (2 * (uPlot.pxRatio || 1)) : plot.valToPos(value, "y");
       plot.setCursor({ left: plot.valToPos(at, "x"), top });
-      if (pin) {
-        (plot.cursor as { _lock?: boolean })._lock = true;
-        setPinned(true);
-      }
     }
   };
 
@@ -1024,7 +996,6 @@ function ChartPlot({
     const [lo, hi] = visibleRange;
     const current = own !== null && own >= lo && own <= hi ? own : null;
     let next: number | null;
-    let pin = false;
     switch (event.key) {
       case "ArrowLeft":
         next = current === null ? hi : Math.max(lo, current - 1);
@@ -1047,7 +1018,6 @@ function ChartPlot({
       case "Enter":
       case " ":
         next = current ?? hi;
-        pin = true;
         break;
       case "Escape":
         // With nothing to clear, Escape is the enclosing dialog's to close.
@@ -1059,7 +1029,7 @@ function ChartPlot({
         return;
     }
     event.preventDefault();
-    moveCursor(next, pin);
+    moveCursor(next);
   };
 
   const shownAt = shown === null ? undefined : timestamps[shown];
@@ -1199,14 +1169,14 @@ function ChartPlot({
 
         {/* The reading beside the cursor. Its values are also in the row above, which does not
             depend on the pointer, so the card is a convenience and hidden from assistive
-            technology; pinned (a click, Enter), it stays and its text can be selected. */}
+            technology. */}
         <div
           ref={cardRef}
           aria-hidden="true"
-          data-chart-card={pinned ? "pinned" : cardVisible ? "floating" : "hidden"}
+          data-chart-card={cardVisible ? "floating" : "hidden"}
           className={cx(
             "absolute top-0 left-0 flex min-w-40 flex-col gap-1.5 rounded-control border border-border bg-surface-raised px-3 py-2 text-12 shadow-overlay",
-            pinned ? "select-text" : "pointer-events-none",
+            "pointer-events-none",
             !cardVisible && "invisible",
           )}
         >
@@ -1245,7 +1215,6 @@ function ChartPlot({
                   })}
                 </ul>
               )}
-              {pinned ? <span className="text-fg-faint">{t("common.chart.pinnedHint")}</span> : null}
             </>
           ) : null}
         </div>
