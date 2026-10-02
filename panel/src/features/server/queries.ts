@@ -6,7 +6,7 @@
  * (api/nodeScope.ts), and their cache entries are the node's: nothing here knows.
  */
 
-import { queryOptions } from "@tanstack/react-query";
+import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 
 import { request } from "../../api/client";
 import type { ResponseOf } from "../../api/client";
@@ -47,7 +47,8 @@ export type PendingChange = ResponseOf<"/api/server/security/changes", "get">[nu
 export const SERVER_CAPABILITY = "/api/server/summary";
 
 export type UpdateScope = "security" | "all";
-export type ProcessSort = "cpu" | "memory";
+/** What the server sorts the processes by; CPU and memory busiest first, PID and name in order. */
+export type ProcessSort = "cpu" | "memory" | "pid" | "name";
 
 export interface JournalFilters {
   unit?: string | undefined;
@@ -73,7 +74,7 @@ export const serverKeys = {
   swap: ["server", "swap"] as const,
   time: ["server", "time"] as const,
   identity: ["server", "identity"] as const,
-  processes: (sort: ProcessSort, byUnit: boolean) => ["server", "processes", { sort, byUnit }] as const,
+  processes: (sort: ProcessSort, byUnit: boolean, limit: number) => ["server", "processes", { sort, byUnit, limit }] as const,
   journal: (filters: JournalFilters) => ["server", "logs", filters] as const,
   journalUnits: ["server", "logs", "units"] as const,
   boots: ["server", "logs", "boots"] as const,
@@ -182,9 +183,12 @@ export const identityQuery = () =>
 
 export const processesQuery = (sort: ProcessSort, byUnit: boolean, limit: number) =>
   queryOptions({
-    queryKey: serverKeys.processes(sort, byUnit),
+    // The limit is in the key: without it, "Show 50" read the cached first ten again (item 55).
+    queryKey: serverKeys.processes(sort, byUnit, limit),
     queryFn: ({ signal }) =>
       request("get", "/api/server/processes", { query: { sort_by: sort, limit, ...(byUnit ? { group: "unit" } : {}) }, signal }),
+    // The rows already listed stay while the longer list or another order loads.
+    placeholderData: keepPreviousData,
   });
 
 export const journalQuery = (filters: JournalFilters) =>

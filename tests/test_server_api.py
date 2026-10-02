@@ -574,6 +574,27 @@ class TestStorage:
         assert response.status_code == 400
         assert api.jobs.queued == []
 
+    def test_removing_one_image_is_a_job_audited_with_the_image(self, api) -> None:
+        # Owner item 53: the image id travelled as "target" next to the audit's
+        # own target=, a TypeError after the job was queued - a 500 that said
+        # "nothing changed" while the image was removed, unaudited.
+        api.machine.runner.script(
+            ["docker", "image", "ls"],
+            stdout='{"Containers":"0","ID":"728109567b7e","Repository":"old","Size":"5MB","Tag":"1"}',
+        )
+
+        response = api.client.post(
+            "/api/server/storage/cleanup",
+            json={"action": "docker-image", "target": "728109567b7e", "confirm": True},
+        )
+
+        assert response.status_code == 202
+        assert api.jobs.queued[0]["kwargs"]["params"] == {"target": "728109567b7e"}
+        record = api.audit.records[0]
+        assert record["target"] == "storage"
+        assert record["details"]["cleanup"] == "docker-image"
+        assert record["details"]["image"] == "728109567b7e"
+
     def test_unused_images_are_listed(self, api) -> None:
         api.machine.runner.script(
             ["docker", "image", "ls"],

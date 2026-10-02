@@ -411,7 +411,9 @@ def cleanup_job(
             "removed": result.removed,
         }
 
-    return _audited("server.storage", "storage", work, action="cleanup", cleanup=action)
+    # Named "image", never "target": that is the record's own field (item 53).
+    named = {("image" if key == "target" else key): value for key, value in (params or {}).items()}
+    return _audited("server.storage", "storage", work, action="cleanup", cleanup=action, **named)
 
 
 def swap_job(

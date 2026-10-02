@@ -802,9 +802,6 @@ export const server = {
     caption: "Processes",
     unitsCaption: "Processes by service",
     byUnit: "Group by service",
-    sortLabel: "Sort by",
-    sortCpu: "CPU",
-    sortMemory: "Memory",
     process: "Process",
     pid: "PID",
     user: "User",
@@ -815,6 +812,7 @@ export const server = {
     none: "No process was reported.",
     loadFailed: "Could not list the processes",
     showMore: "Show {count}",
+    showFirst: "Show the first {count} of {total}",
   },
   network: {
     title: "Network interfaces",

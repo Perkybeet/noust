@@ -14,7 +14,7 @@ import { SegmentedControl } from "../../../components/page/SegmentedControl";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { DataTable } from "../../../components/ui/DataTable";
-import type { Column } from "../../../components/ui/DataTable";
+import type { Column, SortState } from "../../../components/ui/DataTable";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
@@ -34,6 +34,21 @@ import type { SystemView } from "./data";
 const FEW = 10;
 const MANY = 50;
 
+/**
+ * Each column's own direction: the busiest first for CPU and memory, in order for the PID and
+ * the name. The server sorts, so the list is the busiest processes, not the first ten re-sorted.
+ */
+const NATURAL: Record<ProcessSort, SortState["direction"]> = {
+  cpu: "descending",
+  memory: "descending",
+  pid: "ascending",
+  name: "ascending",
+};
+
+function isProcessSort(column: string): column is ProcessSort {
+  return column in NATURAL;
+}
+
 type ProcessRow = Processes["processes"][number];
 type UnitRow = Processes["units"][number];
 
@@ -48,21 +63,27 @@ function ProcessesView() {
       id: "name",
       header: t("server.processes.process"),
       card: "title",
+      sortValue: (row) => row.name,
       // The command line can be pages long: it is the name's tooltip, not a line of the row.
       cell: (row) => <Mono {...(row.command ? { title: row.command } : {})}>{row.name}</Mono>,
     },
-    { id: "pid", header: t("server.processes.pid"), align: "end", width: "w-20", mono: true, cell: (row) => String(row.pid) },
+    { id: "pid", header: t("server.processes.pid"), align: "end", width: "w-20", mono: true, sortValue: (row) => row.pid, cell: (row) => String(row.pid) },
     { id: "user", header: t("server.processes.user"), hideBelow: "sm", cell: (row) => <Mono tone="muted">{row.user}</Mono> },
     { id: "unit", header: t("server.processes.unit"), hideBelow: "lg", cell: (row) => (row.unit ? <Mono tone="muted">{row.unit}</Mono> : <EmptyCell />) },
-    { id: "cpu", header: t("server.processes.cpu"), align: "end", width: "w-20", mono: true, cell: (row) => formatPercent(row.cpu_percent, t.locale) },
-    { id: "memory", header: t("server.processes.memory"), align: "end", width: "w-28", mono: true, cell: (row) => formatBytes(row.memory_mb * 1024 ** 2, t.locale) },
+    { id: "cpu", header: t("server.processes.cpu"), align: "end", width: "w-20", mono: true, sortValue: (row) => row.cpu_percent, cell: (row) => formatPercent(row.cpu_percent, t.locale) },
+    { id: "memory", header: t("server.processes.memory"), align: "end", width: "w-28", mono: true, sortValue: (row) => row.memory_mb, cell: (row) => formatBytes(row.memory_mb * 1024 ** 2, t.locale) },
   ];
   const unitColumns: Column<UnitRow>[] = [
     { id: "unit", header: t("server.processes.unit"), card: "title", cell: (row) => <Mono>{row.unit}</Mono> },
     { id: "count", header: t("server.processes.count"), align: "end", width: "w-24", mono: true, cell: (row) => String(row.processes) },
-    { id: "cpu", header: t("server.processes.cpu"), align: "end", width: "w-20", mono: true, cell: (row) => formatPercent(row.cpu_percent, t.locale) },
-    { id: "memory", header: t("server.processes.memory"), align: "end", width: "w-28", mono: true, cell: (row) => formatBytes(row.memory_mb * 1024 ** 2, t.locale) },
+    { id: "cpu", header: t("server.processes.cpu"), align: "end", width: "w-20", mono: true, sortValue: (row) => row.cpu_percent, cell: (row) => formatPercent(row.cpu_percent, t.locale) },
+    { id: "memory", header: t("server.processes.memory"), align: "end", width: "w-28", mono: true, sortValue: (row) => row.memory_mb, cell: (row) => formatBytes(row.memory_mb * 1024 ** 2, t.locale) },
   ];
+  const tableSort: SortState = { column: sort, direction: NATURAL[sort] };
+  // A header picks the column; its direction is the column's own (see NATURAL).
+  const sortBy = (next: SortState): void => {
+    if (isProcessSort(next.column)) setSort(next.column);
+  };
   const total = processes.data?.total ?? 0;
   const shown = byUnit ? (processes.data?.units.length ?? 0) : (processes.data?.processes.length ?? 0);
   return (
@@ -71,18 +92,15 @@ function ProcessesView() {
       description={t("server.processes.description")}
       padding="none"
       actions={
-        <div className="flex flex-wrap items-center gap-3">
-          <Switch label={t("server.processes.byUnit")} checked={byUnit} onCheckedChange={setByUnit} />
-          <SegmentedControl<ProcessSort>
-            label={t("server.processes.sortLabel")}
-            value={sort}
-            onValueChange={setSort}
-            options={[
-              { value: "cpu", label: t("server.processes.sortCpu") },
-              { value: "memory", label: t("server.processes.sortMemory") },
-            ]}
-          />
-        </div>
+        <Switch
+          label={t("server.processes.byUnit")}
+          checked={byUnit}
+          onCheckedChange={(next) => {
+            setByUnit(next);
+            // A service has no PID nor a name of its own to sort by.
+            if (next && (sort === "pid" || sort === "name")) setSort("cpu");
+          }}
+        />
       }
     >
       {processes.isError && processes.data === undefined ? (
@@ -95,6 +113,8 @@ function ProcessesView() {
           rows={processes.data?.units ?? []}
           getRowId={(row) => row.unit}
           caption={t("server.processes.unitsCaption")}
+          sort={tableSort}
+          onSortChange={sortBy}
           loading={processes.isPending}
           skeletonRows={limit}
           density="compact"
@@ -107,6 +127,8 @@ function ProcessesView() {
           rows={processes.data?.processes ?? []}
           getRowId={(row) => String(row.pid)}
           caption={t("server.processes.caption")}
+          sort={tableSort}
+          onSortChange={sortBy}
           loading={processes.isPending}
           skeletonRows={limit}
           density="compact"
@@ -117,7 +139,9 @@ function ProcessesView() {
       {processes.data !== undefined && limit === FEW && (byUnit ? shown >= FEW : total > FEW) ? (
         <div className="border-t border-border px-5 py-2">
           <Button size="sm" variant="ghost" onClick={() => setLimit(MANY)}>
-            {t("server.processes.showMore", { count: MANY })}
+            {byUnit
+              ? t("server.processes.showMore", { count: MANY })
+              : t("server.processes.showFirst", { count: MANY, total })}
           </Button>
         </div>
       ) : null}

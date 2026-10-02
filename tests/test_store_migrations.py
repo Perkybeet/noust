@@ -25,8 +25,9 @@ from pathlib import Path
 import pytest
 
 from noust.core import store as store_module
+from noust.core.exceptions import ValidationError
 from noust.core.fs import RecordingFileSystem
-from noust.core.store import SCHEMA_VERSION, NoustStore
+from noust.core.store import SCHEMA_VERSION, App, NoustStore
 from tests.test_store import V1_SCHEMA_SQL, V2_DEPLOYMENTS_SQL, V4_JOBS_SQL
 
 
@@ -571,7 +572,7 @@ class TestSchemaV12Migration:
 
         store = NoustStore(db_path, fs=RecordingFileSystem())
 
-        assert _raw_max_version(db_path) == SCHEMA_VERSION == 12
+        assert _raw_max_version(db_path) == SCHEMA_VERSION == 13
         assert store.get_app("v8.example.com") is not None
 
     def test_the_fresh_schema_and_the_migration_agree_on_every_table(self, fresh, tmp_path):
@@ -595,6 +596,129 @@ class TestSchemaV12Migration:
             store._migrate_v11_to_v12(cursor)
 
         assert {table: _raw_columns(db_path, table) for table in _raw_tables(db_path)} == before
+
+
+class TestSchemaV13Migration:
+    """Schema v13: hooks, schema-aware rollback, adopted stacks, tags, identities (3.2)."""
+
+    def test_a_v10_database_gains_the_v13_tables_and_columns(self, fresh, tmp_path):
+        db_path = tmp_path / "noust.db"
+        _create_v10_database(db_path)
+
+        NoustStore(db_path, fs=RecordingFileSystem())
+
+        assert "app_hooks" in _raw_tables(db_path)
+        assert {"schema_changed", "hooks", "warnings"} <= set(_raw_columns(db_path, "deployments"))
+        assert {
+            "compose_project",
+            "site_name",
+            "follow_tags",
+            "backup_before_update",
+            "identity",
+        } <= set(_raw_columns(db_path, "apps"))
+
+    def test_an_upgraded_app_keeps_its_row_with_the_v13_defaults(self, fresh, tmp_path):
+        db_path = tmp_path / "noust.db"
+        _create_v10_database(db_path)
+
+        app = NoustStore(db_path, fs=RecordingFileSystem()).get_app("v8.example.com")
+
+        assert app is not None
+        assert app.compose_project is None
+        assert app.site_name is None
+        assert app.follow_tags is None
+        assert app.backup_before_update is True
+        assert app.identity is None
+
+    def test_the_v13_step_is_idempotent(self, fresh, tmp_path):
+        db_path = tmp_path / "noust.db"
+        store = NoustStore(db_path, fs=RecordingFileSystem())
+        before = {table: _raw_columns(db_path, table) for table in _raw_tables(db_path)}
+
+        with store._ddl_transaction() as cursor:
+            store._migrate_v12_to_v13(cursor)
+
+        assert {table: _raw_columns(db_path, table) for table in _raw_tables(db_path)} == before
+
+
+class TestV13Setters:
+    """Every v13 column has one writer, and a redeploy never blanks it."""
+
+    def _store_with_app(self, tmp_path):
+        store = NoustStore(tmp_path / "noust.db", fs=RecordingFileSystem())
+        store.create_app(
+            App(domain="shop.example.com", app_type="docker-compose", app_path="/opt/shop")
+        )
+        return store
+
+    def test_setters_write_and_a_full_row_update_keeps_them(self, fresh, tmp_path):
+        store = self._store_with_app(tmp_path)
+
+        assert store.set_app_compose_project("shop.example.com", "shop")
+        assert store.set_app_site_name("shop.example.com", "shop")
+        assert store.set_app_follow_tags("shop.example.com", "v*")
+        assert store.set_app_backup_before_update("shop.example.com", False)
+        assert store.set_app_identity("shop.example.com", "noust-app-shop-example-com")
+        # A deploy writes back the row it read before the setters ran.
+        stale = App(domain="shop.example.com", app_type="docker-compose", app_path="/opt/shop")
+        stale.id = store.get_app("shop.example.com").id
+        store.update_app(stale)
+
+        app = store.get_app("shop.example.com")
+        assert app.compose_project == "shop"
+        assert app.site_name == "shop"
+        assert app.follow_tags == "v*"
+        assert app.backup_before_update is False
+        assert app.identity == "noust-app-shop-example-com"
+
+    def test_setters_refuse_values_that_cannot_name_what_they_name(self, fresh, tmp_path):
+        store = self._store_with_app(tmp_path)
+
+        with pytest.raises(ValidationError):
+            store.set_app_compose_project("shop.example.com", "Bad Name!")
+        with pytest.raises(ValidationError):
+            store.set_app_site_name("shop.example.com", "../etc/passwd")
+        with pytest.raises(ValidationError):
+            store.set_app_follow_tags("shop.example.com", "")
+
+    def test_setters_on_a_missing_app_return_false(self, fresh, tmp_path):
+        store = NoustStore(tmp_path / "noust.db", fs=RecordingFileSystem())
+
+        assert store.set_app_site_name("nope.example.com", "nope") is False
+
+    def test_app_hooks_round_trip_and_clear(self, fresh, tmp_path):
+        store = self._store_with_app(tmp_path)
+
+        assert store.get_app_hooks("shop.example.com") is None
+        store.set_app_hooks("shop.example.com", "hooks:\n  pre_deploy: []\n", updated_by="yago")
+        assert store.get_app_hooks("shop.example.com") == "hooks:\n  pre_deploy: []\n"
+        store.set_app_hooks("shop.example.com", None, updated_by="yago")
+        assert store.get_app_hooks("shop.example.com") is None
+
+    def test_a_deployment_records_its_hooks_schema_change_and_warnings(self, fresh, tmp_path):
+        store = self._store_with_app(tmp_path)
+        deployment_id = store.record_deployment_start("shop.example.com", "cli")
+
+        store.record_deployment_hooks(
+            deployment_id,
+            hooks='[{"run": "migrate"}]',
+            schema_changed=True,
+            warnings="post_deploy hook ./purge.sh exited 1",
+        )
+
+        record = store.get_deployment(deployment_id)
+        assert record.schema_changed is True
+        assert record.hooks == '[{"run": "migrate"}]'
+        assert record.warnings == "post_deploy hook ./purge.sh exited 1"
+
+    def test_an_older_deployment_reads_as_no_schema_change(self, fresh, tmp_path):
+        store = self._store_with_app(tmp_path)
+        deployment_id = store.record_deployment_start("shop.example.com", "cli")
+
+        record = store.get_deployment(deployment_id)
+        assert record.schema_changed is False
+        assert record.hooks is None
+        assert record.warnings is None
 
 
 def _node(name: str, **overrides) -> "store_module.NodeRecord":

@@ -270,6 +270,11 @@ def cleanup_storage(
         metadata={"action": body.action},
         actor=actor,
     )
+    # The image id is the action's "target", a name the audit record already
+    # uses for what it is about: passed through as is, it collided with
+    # target="storage" (a TypeError after the job was queued, so the image went
+    # and the console said nothing had changed).
+    details = {("image" if key == "target" else key): value for key, value in params.items()}
     audit_event(
         "server.storage",
         target="storage",
@@ -277,7 +282,7 @@ def cleanup_storage(
         job=job.id,
         action="cleanup",
         cleanup=body.action,
-        **params,
+        **details,
     )
     return accepted(job, "Cleanup queued")
 

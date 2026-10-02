@@ -23,6 +23,7 @@ cannot stop.
 import json
 import logging
 import os
+import re
 import sqlite3
 import stat
 import threading
@@ -35,7 +36,7 @@ from pathlib import Path
 from typing import Any, NoReturn, Optional, TypeVar
 from urllib.parse import quote
 
-from noust.core import paths, schema_v12
+from noust.core import paths, schema_v12, schema_v13
 from noust.core.exceptions import DomainConflictError, DomainError, NoustError, ValidationError
 from noust.core.fs import (
     SECRET_DIR_MODE,
@@ -228,7 +229,19 @@ _OWN_SETTER_COLUMNS = (
     "env_secret_marks",
     "github_installation_id",
     "preview_parent",
+    "compose_project",
+    "site_name",
+    "follow_tags",
+    "backup_before_update",
+    "identity",
 )
+
+#: A Compose project name as Compose itself accepts it.
+_COMPOSE_PROJECT = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
+#: A glob over git tag names.
+_TAG_PATTERN = re.compile(r"^[A-Za-z0-9._/+*-]{1,100}$")
+#: A system account name (useradd's portable subset).
+_SYSTEM_ACCOUNT = re.compile(r"^[a-z_][a-z0-9_-]{0,31}$")
 
 #: The two instances of an application in zero-downtime mode.
 BLUE_GREEN_COLORS = ("blue", "green")
@@ -288,6 +301,18 @@ class App:
     github_installation_id: int | None = None
     # The application this one previews a pull request of, if it is one.
     preview_parent: str | None = None
+    # Schema v13, each written only through its own setter.
+    # The Compose project an adopted stack already runs as (None: derived).
+    compose_project: str | None = None
+    # The web server file that serves this app when it is not named after
+    # the domain (an adopted operator site such as "proggest").
+    site_name: str | None = None
+    # A tag pattern the app deploys instead of following a branch ("v*").
+    follow_tags: str | None = None
+    # Dump the databases a Compose stack runs before updating it.
+    backup_before_update: bool = True
+    # The system account the app runs as when it has its own (3.2).
+    identity: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -298,6 +323,7 @@ class App:
             d["persistent_paths"] = json.dumps(d["persistent_paths"])
         d["env_secret_marks"] = json.dumps(d.get("env_secret_marks") or {}, sort_keys=True)
         d["zero_downtime"] = 1 if d.get("zero_downtime") else 0
+        d["backup_before_update"] = 1 if d.get("backup_before_update", True) else 0
         return d
 
     @classmethod
@@ -321,6 +347,7 @@ class App:
         data["persistent_paths"] = _decode_paths(data.get("persistent_paths"))
         data["env_secret_marks"] = _decode_marks(data.get("env_secret_marks"))
         data["zero_downtime"] = bool(data.get("zero_downtime"))
+        data["backup_before_update"] = bool(data.get("backup_before_update", 1))
         return cls(**data)
 
 
@@ -516,6 +543,14 @@ class DeploymentRecord:
     #: Schema v9: the backup holding exactly what this deployment produced,
     #: taken by the next in-place update before it changed anything.
     snapshot_backup: str | None = None
+    #: Schema v13: a hook or Prisma changed the database's schema, so going
+    #: back past this deployment needs the operator's explicit yes.
+    schema_changed: bool = False
+    #: Schema v13: what each hook ran and how it ended, as JSON.
+    hooks: str | None = None
+    #: Schema v13: why a successful deployment carries warnings (a
+    #: post-deploy hook that failed after the new version was serving).
+    warnings: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -524,7 +559,9 @@ class DeploymentRecord:
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> "DeploymentRecord":
         """Create from database row."""
-        return cls(**dict(row))
+        data = dict(row)
+        data["schema_changed"] = bool(data.get("schema_changed"))
+        return cls(**data)
 
 
 @dataclass
@@ -984,7 +1021,7 @@ def _decode_object(raw: Any) -> dict[str, Any]:
 
 
 # Schema version for migrations
-SCHEMA_VERSION = 12
+SCHEMA_VERSION = 13
 
 _DEPLOYMENT_STATUSES_SQL = ", ".join(f"'{status.value}'" for status in DeploymentStatus)
 _DEPLOYMENT_TRIGGERS_SQL = ", ".join(f"'{trigger.value}'" for trigger in DeploymentTrigger)
@@ -1781,6 +1818,8 @@ class NoustStore:
             self._run_migrations(current)
         elif current >= schema_v12.VERSION:
             self._complete_v12()
+            if current >= schema_v13.VERSION:
+                self._complete_v13()
 
     def _schema_version(self) -> int | None:
         """
@@ -1860,6 +1899,20 @@ class NoustStore:
         with self._ddl_transaction() as ddl:
             schema_v12.apply_v12(ddl, _run_script)
 
+    def _complete_v13(self) -> None:
+        """
+        Add what a v13 store lacks of v13, when it lacks anything.
+
+        The same guard as :meth:`_complete_v12`, for a build of 3.2 that
+        stamped v13 before every area had its fragment.
+        """
+        cursor = self._get_connection().cursor()
+        if not schema_v13.incomplete(cursor):
+            return
+        logger.warning("The store is at v13 without all of v13's tables; adding them")
+        with self._ddl_transaction() as ddl:
+            schema_v13.apply_v13(ddl, _run_script)
+
     def _create_fresh_schema(self) -> bool:
         """
         Create every table at the current version, for a database that has none.
@@ -1882,6 +1935,7 @@ class NoustStore:
             _run_script(cursor, SCHEMA_SQL)
             # v12 is one function for fresh and upgraded stores alike.
             schema_v12.apply_v12(cursor, _run_script)
+            schema_v13.apply_v13(cursor, _run_script)
             cursor.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
         return True
 
@@ -1934,6 +1988,7 @@ class NoustStore:
             10: self._migrate_v9_to_v10,
             11: self._migrate_v10_to_v11,
             12: self._migrate_v11_to_v12,
+            13: self._migrate_v12_to_v13,
         }
 
         for version in range(from_version + 1, SCHEMA_VERSION + 1):
@@ -2125,6 +2180,17 @@ class NoustStore:
             cursor: Cursor the migration runs on.
         """
         schema_v12.apply_v12(cursor, _run_script)
+
+    def _migrate_v12_to_v13(self, cursor: sqlite3.Cursor) -> None:
+        """
+        Add everything Noust 3.2 stores (schema v13).
+
+        The tables and columns live in :mod:`noust.core.schema_v13`.
+
+        Args:
+            cursor: Cursor the migration runs on.
+        """
+        schema_v13.apply_v13(cursor, _run_script)
 
     # =========================================================================
     # Application CRUD
@@ -2460,6 +2526,192 @@ class NoustStore:
                 (*values, datetime.now().isoformat(), domain),
             )
             return cursor.rowcount > 0
+
+    def _set_app_column(self, domain: str, column: str, value: Any) -> bool:
+        """
+        Write one of the v13 setter-only columns of an application.
+
+        Args:
+            domain: Application domain.
+            column: One of the v13 columns; code, never input.
+            value: The already validated value.
+
+        Returns:
+            True if the application exists and the row was updated.
+        """
+        with self._transaction() as cursor:
+            cursor.execute(
+                f"UPDATE apps SET {column} = ?, updated_at = ? WHERE domain = ?",
+                (value, datetime.now().isoformat(), domain),
+            )
+            return cursor.rowcount > 0
+
+    def set_app_compose_project(self, domain: str, project: str | None) -> bool:
+        """
+        Store the Compose project an application's stack runs as.
+
+        An adopted stack keeps the name it already had: every compose command
+        and the unit pass it with ``-p``, so its containers and volumes are
+        the ones already holding the data.
+
+        Args:
+            domain: Application domain.
+            project: The project name, or None to derive it as Compose does.
+
+        Returns:
+            True if the application exists and the row was updated.
+
+        Raises:
+            ValidationError: The name is not one Compose accepts.
+        """
+        if project is not None and not _COMPOSE_PROJECT.match(project):
+            raise ValidationError(
+                f"{project!r} is not a Docker Compose project name",
+                details="Use lower-case letters, digits, '-' and '_', starting with a letter "
+                "or digit, as 'docker compose ls' shows it.",
+                field="compose_project",
+            )
+        return self._set_app_column(domain, "compose_project", project)
+
+    def set_app_site_name(self, domain: str, site_name: str | None) -> bool:
+        """
+        Store the web server file that serves an application, when not its domain.
+
+        Args:
+            domain: Application domain.
+            site_name: The file name in ``sites-available`` (``proggest``), or
+                None for the domain itself.
+
+        Returns:
+            True if the application exists and the row was updated.
+
+        Raises:
+            ValidationError: The name could leave the sites directory or is
+                not a name the web server could use.
+        """
+        if site_name is not None:
+            from noust.validators.domain import DOMAIN_PATTERN
+
+            if not DOMAIN_PATTERN.match(site_name) or ".." in site_name:
+                raise ValidationError(
+                    f"{site_name!r} is not a site file name",
+                    details="Name the file as it is in sites-available, such as 'proggest' "
+                    "or 'shop.example.com': letters, digits, '-' and '.', nothing else.",
+                    field="site_name",
+                )
+        return self._set_app_column(domain, "site_name", site_name)
+
+    def set_app_follow_tags(self, domain: str, pattern: str | None) -> bool:
+        """
+        Store the tag pattern an application deploys instead of a branch.
+
+        Args:
+            domain: Application domain.
+            pattern: A glob over tag names (``v*``), or None to follow its branch.
+
+        Returns:
+            True if the application exists and the row was updated.
+
+        Raises:
+            ValidationError: The pattern is empty, too long or has characters
+                a tag cannot.
+        """
+        if pattern is not None and not _TAG_PATTERN.match(pattern):
+            raise ValidationError(
+                f"{pattern!r} is not a tag pattern",
+                details="Use a glob over tag names such as 'v*' or 'release-*': letters, "
+                "digits and . _ - / + *, at most 100 characters.",
+                field="follow_tags",
+            )
+        return self._set_app_column(domain, "follow_tags", pattern)
+
+    def set_app_backup_before_update(self, domain: str, enabled: bool) -> bool:
+        """
+        Store whether an update dumps the stack's databases first.
+
+        Args:
+            domain: Application domain.
+            enabled: Dump them (the default) or not.
+
+        Returns:
+            True if the application exists and the row was updated.
+        """
+        return self._set_app_column(domain, "backup_before_update", 1 if enabled else 0)
+
+    def set_app_identity(self, domain: str, account: str | None) -> bool:
+        """
+        Store the system account an application runs as, when it has its own.
+
+        Args:
+            domain: Application domain.
+            account: The account name, or None for the shared service account.
+
+        Returns:
+            True if the application exists and the row was updated.
+
+        Raises:
+            ValidationError: Not a name a system account can have.
+        """
+        if account is not None and not _SYSTEM_ACCOUNT.match(account):
+            raise ValidationError(
+                f"{account!r} is not a system account name",
+                details="Lower-case letters, digits, '-' and '_', starting with a letter, "
+                "at most 32 characters.",
+                field="identity",
+            )
+        return self._set_app_column(domain, "identity", account)
+
+    def get_app_hooks(self, domain: str) -> str | None:
+        """
+        Read the hooks the operator declared for an application.
+
+        Args:
+            domain: Application domain.
+
+        Returns:
+            The YAML document as written, or None when the operator declared
+            none (the repository's own apply then).
+        """
+        with self._transaction() as cursor:
+            cursor.execute(
+                "SELECT h.document FROM app_hooks h JOIN apps a ON a.id = h.app_id "
+                "WHERE a.domain = ?",
+                (domain,),
+            )
+            row = cursor.fetchone()
+            return str(row[0]) if row else None
+
+    def set_app_hooks(self, domain: str, document: str | None, *, updated_by: str | None) -> bool:
+        """
+        Store, or clear, the hooks the operator declared for an application.
+
+        The document is stored as written; it is validated by
+        :mod:`noust.deployers.helpers.project_file` before it gets here.
+
+        Args:
+            domain: Application domain.
+            document: The YAML document, or None to clear it.
+            updated_by: Who changed it, for the record.
+
+        Returns:
+            True if the application exists.
+        """
+        with self._transaction() as cursor:
+            cursor.execute("SELECT id FROM apps WHERE domain = ?", (domain,))
+            row = cursor.fetchone()
+            if row is None:
+                return False
+            if document is None:
+                cursor.execute("DELETE FROM app_hooks WHERE app_id = ?", (row[0],))
+            else:
+                cursor.execute(
+                    "INSERT INTO app_hooks (app_id, document, updated_by, updated_at) "
+                    "VALUES (?, ?, ?, ?) ON CONFLICT(app_id) DO UPDATE SET "
+                    "document = excluded.document, updated_by = excluded.updated_by, "
+                    "updated_at = excluded.updated_at",
+                    (row[0], document, updated_by, datetime.now().isoformat()),
+                )
+            return True
 
     def set_keep_releases(self, domain: str, keep: int) -> bool:
         """
@@ -3310,6 +3562,30 @@ class NoustStore:
         with self._transaction() as cursor:
             cursor.execute(f"UPDATE deployments SET {', '.join(updates)} WHERE id = ?", params)
             return cursor.rowcount > 0
+
+    def record_deployment_hooks(
+        self,
+        deployment_id: int,
+        *,
+        hooks: str | None,
+        schema_changed: bool,
+        warnings: str | None = None,
+    ) -> None:
+        """
+        Record what a deployment's hooks ran and whether they changed the schema.
+
+        Args:
+            deployment_id: The deployment.
+            hooks: What each hook ran and how it ended, as JSON.
+            schema_changed: A hook marked ``migrates`` or Prisma applied a
+                migration.
+            warnings: Why a successful deployment carries warnings, if it does.
+        """
+        with self._transaction() as cursor:
+            cursor.execute(
+                "UPDATE deployments SET hooks = ?, schema_changed = ?, warnings = ? WHERE id = ?",
+                (hooks, 1 if schema_changed else 0, warnings, deployment_id),
+            )
 
     def mark_deployment_rolled_back(self, deployment_id: int) -> bool:
         """

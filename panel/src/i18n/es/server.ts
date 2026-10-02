@@ -818,9 +818,6 @@ export const server: Catalog<typeof en> = {
     caption: "Procesos",
     unitsCaption: "Procesos por servicio",
     byUnit: "Agrupar por servicio",
-    sortLabel: "Ordenar por",
-    sortCpu: "CPU",
-    sortMemory: "Memoria",
     process: "Proceso",
     pid: "PID",
     user: "Usuario",
@@ -831,6 +828,7 @@ export const server: Catalog<typeof en> = {
     none: "No se informó de ningún proceso.",
     loadFailed: "No se pudieron listar los procesos",
     showMore: "Ver {count}",
+    showFirst: "Ver los {count} primeros de {total}",
   },
   network: {
     title: "Interfaces de red",

@@ -9,7 +9,8 @@ export type CronPreview = ResponseOf<"/api/cron/preview", "post">;
 
 export const cronKeys = {
   all: ["cron"] as const,
-  runs: (name: string) => ["cron", name, "runs"] as const,
+  // The limit is in the key (item 55): a longer list is another request, not the cached one.
+  runs: (name: string, limit?: number) => ["cron", name, "runs", ...(limit === undefined ? [] : [{ limit }])] as const,
   preview: (schedule: string) => ["cron", "preview", schedule] as const,
 };
 
@@ -21,7 +22,7 @@ export const cronJobsQuery = () =>
 
 export const cronRunsQuery = (name: string, limit = 20) =>
   queryOptions({
-    queryKey: cronKeys.runs(name),
+    queryKey: cronKeys.runs(name, limit),
     queryFn: ({ signal }) => request("get", "/api/cron/{name}/runs", { params: { name }, query: { limit }, signal }),
   });
 

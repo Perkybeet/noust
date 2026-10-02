@@ -584,6 +584,48 @@ describe("the Storage, Logs and System tabs", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
+  it("list more processes when asked, and sort them by a column's header (item 55)", async () => {
+    const process = (pid: number) => ({
+      pid,
+      name: `worker-${pid}`,
+      user: "www-data",
+      unit: null,
+      cpu_percent: 1,
+      memory_mb: 10,
+      command: `worker-${pid}`,
+    });
+    const { user, backend } = server("/server/system", {
+      "GET /api/server/processes": (request) => {
+        const limit = Number(request.search.get("limit"));
+        return json(200, {
+          processes: Array.from({ length: limit }, (_, index) => process(index + 1)),
+          units: [],
+          total: 213,
+        });
+      },
+    });
+    const table = await screen.findByRole("table", { name: "Processes" });
+    await waitFor(() => {
+      expect(within(table).getAllByRole("row")).toHaveLength(11);
+    });
+    // The sort is the column headers', not a control beside the table that read like tabs.
+    expect(screen.queryByRole("radio", { name: "Memory" })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Show the first 50 of 213" }));
+
+    await waitFor(() => {
+      expect(within(table).getAllByRole("row")).toHaveLength(51);
+    });
+    expect(backend.callsTo("GET /api/server/processes").at(-1)?.search.get("limit")).toBe("50");
+
+    await user.click(within(table).getByRole("button", { name: "Memory" }));
+
+    await waitFor(() => {
+      expect(backend.callsTo("GET /api/server/processes").at(-1)?.search.get("sort_by")).toBe("memory");
+    });
+    expect(within(table).getByRole("columnheader", { name: "Memory" })).toHaveAttribute("aria-sort", "descending");
+  });
+
   it("show the clock, the name, the system and the power, and pass axe", async () => {
     server("/server/system");
     expect(await screen.findByText("Europe/Madrid")).toBeInTheDocument();
