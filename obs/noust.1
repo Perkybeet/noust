@@ -1554,7 +1554,7 @@ Build every deploy as a release behind a health gate, or in place. Defaults to t
 Keep this path, relative to the app, in shared/ across releases. Repeat for several.
 .TP
 .B \-\-force
-Deploy into an app directory that already holds files: in place they are replaced, .env included; on releases a release is added beside them.
+Deploy into an app directory that already holds files: in place a git checkout is brought up to date, keeping what git does not track (.env, data), and anything else is refused, never emptied; on releases a release is added beside them.
 .TP
 .B \-v, \-\-verbose
 Show the detail of each step.
