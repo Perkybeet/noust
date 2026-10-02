@@ -30,6 +30,11 @@ they are deployed in place, as before; asking for `--layout releases` explicitly
 rather than a silent downgrade. Their updates still pass the health gate and go back to what
 was serving when they fail it; see [Docker Compose and monorepo applications](#docker-compose-and-monorepo-applications).
 
+A Docker Compose stack that already ran before Noust (`noust app adopt`) is registered in
+place at the directory it runs from, which can be outside the apps directory (`/opt/proggest`,
+say). Noust never converts, cleans or deletes such a directory on its own; see
+[Adopting a running stack](compose.md#adopting-a-running-stack).
+
 ## Layout on disk
 
 ```
@@ -74,20 +79,30 @@ run the same sequence:
    reinstalled. The deploy log says `Dependencies reused from <release>`. Otherwise the
    install runs normally.
 4. **Build** inside the release.
-5. **Hand the tree over** to the service user.
+5. **Hand the tree over** to the service user, then run the `pre_deploy` hooks the project or
+   the operator declared, if any. Nothing serves the new release yet, so a hook that fails
+   ends the deploy here with `current` where it was. See
+   [Hooks and schema-aware rollback](#hooks-and-schema-aware-rollback).
 
 Steps 3 and 4, and a deployer's own hooks, run in the build sandbox for applications created
 from 3.1 on and for those where it was enabled: a transient systemd unit, as the unprivileged
 `noust-build` account, able to write the release and the application's own cache in
 `/var/cache/noust/build/<app>` and nothing else. The release belongs to `noust-build` while it
 builds and is handed to the service user afterwards. Migrations (the release phase, `prisma
-migrate deploy`) run as the application, with its own environment. See
+migrate deploy`) and the `pre_deploy` and `post_deploy` hooks run as the application, with its
+own environment, and are not part of the build; an application that still builds as root runs
+them as root, as its migrations always did, until its sandbox is on. See
 [Builds in the sandbox](#builds-in-the-sandbox).
 6. **Write the site, the certificate and the unit**, all pointing at `current`. Only a
    deploy (`noust create`, `POST /api/apps`) does this; an update skips it, because the unit
    and the site already point at `current`.
-7. **Activate behind the health gate.** See the next two sections.
+7. **Activate behind the health gate.** See the next two sections. Once the gate passes, the
+   `post_deploy` hooks run.
 8. **Prune** releases beyond the retention.
+
+When Prisma is detected, its client is generated and `prisma migrate deploy` runs between steps
+3 and 4, in the release phase. Since 3.2 a migration that fails ends the update (it was a
+warning): see [Hooks and schema-aware rollback](#hooks-and-schema-aware-rollback).
 
 `noust update` on an application on `releases` takes no backup first: the release that was
 serving stays on disk and is what an automatic or manual rollback returns to.
@@ -158,7 +173,8 @@ noust releases rollback shop.example.com 20260924-101500-9f8e7d6
 Nothing is rebuilt: `current` is re-pointed and the unit restarted, behind the same health
 gate. If the target does not answer, the release that was serving is put back and the command
 fails with the probe's and the journal's output. Rolling forward works the same way: name a
-newer release.
+newer release. Going back past a deployment that changed the database schema is refused until
+you confirm it: see [Hooks and schema-aware rollback](#hooks-and-schema-aware-rollback).
 
 In the console, the Deployments tab of an application lists its releases; activating one is
 the same operation. Over the API:
@@ -240,6 +256,13 @@ With a branch pinned, the webhook ignores pushes to any other branch and records
 ignored (`noust app webhook deliveries DOMAIN`). With no branch to go by at all, any push
 deploys; `noust app webhook show` warns about it.
 
+An application can follow **tags** instead of a branch (`noust create --follow-tags 'v*'`, or
+`noust app follow-tags DOMAIN 'v*'`; `--off` returns to a branch). It deploys the newest tag
+that matches the glob, in version order, and never an older tag than the one deployed;
+`noust update DOMAIN` with no tag deploys that newest tag, and `noust update DOMAIN --tag v1.2.3`
+a named one. See [Deploying by tag](compose.md#deploying-by-tag) and the webhook's handling of
+releases and tag pushes in [api.md](api.md#deploy-webhooks).
+
 ## Nothing new to deploy
 
 Before an update from the console or from `noust update`, Noust asks the remote for the head
@@ -275,7 +298,10 @@ Every deployment in the history says whether it can be gone back to:
 `GET /api/deployments` and `GET /api/deployments/{id}` carry `rollback_available` and, when it
 is false, `rollback_unavailable_reason`. `POST /api/apps/{domain}/deployments/{id}/rollback`
 queues it as a job (`202`), with `apps.deploy`; a deployment that cannot be gone back to
-answers `409 rollback_unavailable` with the reason.
+answers `409 rollback_unavailable` with the reason, and one that would pass a deployment that
+changed the database schema answers `409 schema_changed` until the body says
+`{"schema_changed_ok": true}` (see
+[Hooks and schema-aware rollback](#hooks-and-schema-aware-rollback)).
 
 - **On releases**, going back to a deployment activates the release it built, behind the
   health gate. It must still be on disk, not already active, and not one that failed its
@@ -315,6 +341,127 @@ answers `409 rollback_unavailable` with the reason.
   and Docker Compose applications without history are not offered it: a restored tree does not
   bring back their workspaces' builds or their images. A snapshot whose backup was rotated
   away is no longer offered either.
+
+## Hooks and schema-aware rollback
+
+A project often has something to run around a deploy that Noust cannot know: apply the database
+migrations before the new code serves, purge a cache after it does. And going back to older code
+is safe for the code and not for the database: Noust puts code back, never a database. 3.2 adds
+hooks for the first and a confirmation for the second.
+
+### Deploy hooks
+
+Hooks are declared in a `noust.yaml` (or `.noust.yaml`) at the root of the repository, or by the
+operator for one application, who then replaces the repository's wholesale (they are never
+merged):
+
+```yaml
+hooks:
+  pre_deploy:
+    - run: ./node_modules/.bin/prisma migrate deploy
+      timeout: 600        # seconds, 1 to 3600 (default 600)
+      migrates: true      # it changes the database's schema
+  post_deploy:
+    - run: ./scripts/purge-cache.sh
+```
+
+```bash
+noust app hooks show shop.example.com                 # which hooks the next deploy runs, and where they come from
+noust app hooks set shop.example.com --file hooks.yaml
+noust app hooks clear shop.example.com                # the repository's noust.yaml applies again
+```
+
+The full schema (`service`, `workdir`, `backup.databases`), the validation rules and the
+operator's hooks are in [compose.md](compose.md#noustyaml) and
+[compose.md](compose.md#operator-hooks). What every type shares:
+
+- **`pre_deploy` runs after the build and before anything serves the new version.** On
+  releases that is after the tree is handed to the service user and before `current` moves; in
+  place, before the restart; a monorepo runs them at its root, before any unit restarts. Hooks
+  run in order, each as an argv (never through a shell), in the release phase, the one
+  its migrations use: as the account the application runs as, with its `.env`, in the tree
+  being deployed, in a transient unit when the application builds in the sandbox, and as root
+  when it still builds as root, like its build. The first that exits non-zero or runs out of time ends the
+  deployment: the release is abandoned like a failed build, `current` and the running unit are
+  untouched, and the error carries the hook's output verbatim.
+- **`post_deploy` runs once the new version passed its health gate.** A failure does not undo
+  what already serves: the deployment is recorded as successful with warnings (`warnings` on
+  the deployment, a `deploy_hook_failed` notification) and the output is in its log.
+- **Static sites have no hooks**, nor does any site that is only files the web server serves
+  (a Vite build without a server). Nothing of them runs, so declaring some is refused with the
+  reason. A Docker Compose stack runs each hook in a one-off container of its new image; see
+  [compose.md](compose.md#noustyaml).
+
+### Prisma
+
+A project that uses Prisma and declares no hooks keeps getting `prisma migrate deploy` after the
+install, as before. Two things changed in 3.2:
+
+- **A failing migration now ends the update.** Until 3.1 its failure was a warning in the log
+  and the new code went on to serve against the schema it was not written for. It is treated
+  as a failed `pre_deploy` hook: nothing is switched over and the error carries Prisma's own
+  output.
+- **Declared hooks replace it.** When `noust.yaml` or the operator declares any hook, the
+  automatic migration does not run and the log says so. What the project states explicitly wins.
+
+### What the history records
+
+Each deployment row keeps the hooks it ran, including Prisma's automatic migration (marked
+`automatic: prisma`): the command, its exit code, whether it timed out, how long it took and
+the end of its output (the whole output is in the deployment's log). The console shows them on
+the deployment's page and the CLI in the deploy's output.
+
+A deployment is marked **`schema_changed`** when a hook declared `migrates: true` succeeded, or
+Prisma applied at least one migration. A `migrates` hook that printed, in its tool's own
+words, that it had nothing to apply (Prisma, Django, Laravel, Knex, Sequelize, TypeORM,
+Doctrine, Flyway and golang-migrate are recognised) did not change the schema; one whose
+output says neither counts as a change, because a schema that may have changed is treated as
+one that did. Prisma's automatic migration that fails after applying some is marked too. A
+declared hook that fails is not (only the ones that succeeded before it are), so read the
+output of a failed migration before going back.
+
+### Going back past a schema change
+
+Going back past one or more deployments marked `schema_changed` is refused, naming them, until
+the operator confirms that the older code works with the schema as it is now. Every way back
+passes the same guard:
+
+| Way back | Confirm with |
+|---|---|
+| `noust rollback DOMAIN [BACKUP_ID]` (restore a backup) | `--schema-changed-ok` |
+| `noust releases rollback DOMAIN [RELEASE]` and the console's **Activate** | `--schema-changed-ok`; `?schema_changed_ok=true` on `POST /api/apps/{domain}/releases/{release_id}/activate` |
+| `noust update DOMAIN --commit SHA`, when the commit is older than a deployment that changed the schema | `--schema-changed-ok` |
+| `POST /api/apps/{domain}/deployments/{id}/rollback` | `{"schema_changed_ok": true}` in the body |
+| `noust backup restore BACKUP_ID`, files only | `--schema-changed-ok`; `schema_changed_ok` in the body of `POST /api/backups/{backup_id}/restore` |
+| `POST /api/jobs/rollback` | `schema_changed_ok` in the body |
+
+The refusal says "Going back to release 20260924-101500-9f8e7d6 of shop.example.com passes
+deployment 41, which changed the database schema", and then how to go on: restore the database
+from the backup taken before that deployment (`noust backup list shop.example.com`, then
+`noust backup restore BACKUP_ID`), or confirm that the older code works with the new schema.
+
+Over the API the refusal is `409` with `error: "schema_changed"` and the deployment ids in
+`deployments`; nothing was touched. In the console, **Roll back to this**, **Activate** and the
+backups' **Restore** answer it with a dialog that names the deployments and the migrations each
+ran, and shows the backup taken before the first of them with the command that restores it.
+
+- **A restore that puts the database back is not asked.** A backup that carries a Compose
+  stack's database dumps restores them with its files (see
+  [compose.md](compose.md#rolling-back-past-a-migration)); `--databases-only` puts back just
+  those. A restore into another domain (`--target-domain`) is a copy and is not asked either.
+- **The automatic way back is not refused.** When the health gate fails, the previous release
+  (or the previous containers, or the in-place tree) is put back whatever the attempt did,
+  because the alternative is an application that stays down. If the attempt had changed the
+  schema, the first sentence of the error says so: "The database schema was changed by this
+  attempt and was not undone." The row in the history is marked too.
+- **Before pressing the button.** `GET /api/deployments` and `GET /api/deployments/{id}` carry
+  `schema_changed` (this deployment changed it) and `schema_changed_between` (the later
+  deployments of the application that did, which going back to this one passes), next to
+  `rollback_available`. The console and the fleet show them before the click.
+
+For a stack, an update copies its databases first (on by default, and it stops the update when
+the copy fails), which is the backup the refusal proposes:
+[Docker Compose](#docker-compose) below and [compose.md](compose.md#stack-database-backups-and-restore).
 
 ## Persistent paths and `shared/`
 
@@ -421,6 +568,13 @@ for a stack, the image each running container was created from.
 
 ### Docker Compose
 
+Before the steps below, the update takes its usual backup, and for a stack that backup carries a
+dump of each database the stack runs (Postgres, MySQL, MariaDB and MongoDB, found in the
+compose file). The copy is on by default and **stops the update when it cannot be made**,
+because without it a migration cannot be undone; `noust app backup-before-update DOMAIN off`
+(or `backup.databases: off` in `noust.yaml`) turns it off. See
+[compose.md](compose.md#stack-database-backups-and-restore).
+
 1. **Record what serves.** `docker compose ps -q` lists the running containers and
    `docker inspect` reads, for each, the image it runs, the image name it was created from and
    its Compose service and project. Each image is also tagged
@@ -431,13 +585,24 @@ for a stack, the image each running container was created from.
    tree is checked out at the previous commit and every image name is pointed back at the image
    that served, so the next start of the unit (after a reboot, say) does not bring up the half of
    the stack that did build.
-3. **Recreate** with `docker compose up -d --remove-orphans`.
-4. **Judge.** A stack with a web port is probed like any other application, on the port the
+3. **Run the `pre_deploy` hooks**, if any, each in a one-off container of the image just
+   built (`docker compose run --rm --no-deps`), with the service's own environment and network
+   and before anything is recreated. A hook that fails is handled like a failed build: nothing
+   was recreated, the tree and the image names are put back, and the error carries the hook's
+   output. See [compose.md](compose.md#noustyaml).
+4. **Recreate** with `docker compose up -d --remove-orphans`. With zero-downtime on, each web
+   service the site reaches through Noust's servers file is recreated first while a relay
+   container of its new image serves it, one at a time in `depends_on` order, and the rest of
+   the stack follows with `up -d`; see
+   [compose.md](compose.md#zero-downtime-updates-the-relay).
+5. **Judge.** A stack with a web port is probed like any other application, on the port the
    site proxies to. Every stack then has its containers read with `docker compose ps -a`: a
    container that keeps restarting, is dead, exited with a non-zero code or reports itself
    `unhealthy` fails the update. A container that ran once and exited 0 (a migration, a seed)
    is fine. A headless stack (no ports) is judged by its containers alone.
-5. **Go back** when it does not pass: the last 40 lines of the containers' output are read
+6. **Run the `post_deploy` hooks**, if any, once the stack passed. A failure is a warning on
+   the deployment, not a failure of the update.
+7. **Go back** when it does not pass: the last 40 lines of the containers' output are read
    first (`docker compose logs --tail 40`), then the tree is checked out at the previous commit,
    every image name is pointed back at the image that served (`docker image tag`), and
    `docker compose up -d --no-build --remove-orphans` recreates the containers from them, in
@@ -449,7 +614,10 @@ Volumes are never touched. Nothing on the way runs `docker compose down`, `-v`, 
 `--renew-anon-volumes` or any `docker volume` command: recreating a container reattaches its
 named volumes by name and carries its anonymous ones over. That also means a database
 migration the failed version ran inside its container is not undone; the previous version
-runs against the data as the new one left it.
+runs against the data as the new one left it. That is what the database copy taken before the
+update is for: when a failure error opens with "The database schema was changed by this attempt
+and was not undone", put the data back with `noust backup restore BACKUP_ID --databases-only`
+(see [Going back past a schema change](#going-back-past-a-schema-change)).
 
 When nothing was running before the update, there is nothing to go back to and nothing is
 put back. When the tree is not a git checkout, the images go back but the compose file cannot;
@@ -462,6 +630,12 @@ probed, so the stretch in which some workspaces run the new build and others the
 as short as it can be. Then each unit is probed on its own port with the application's health
 check; a unit without a port (a worker) has to be running. One workspace that does not answer
 fails the update, however many of its siblings do.
+
+Deploy hooks run at the root of the monorepo, in the release phase: `pre_deploy` once the build
+is done and before any unit restarts (a hook that fails restarts nothing), `post_deploy` once
+every workspace answered. The project's Prisma migration (`pnpm db:migrate`, or Prisma's own
+command) aborts the update when it fails, and is skipped when hooks are declared, as for any
+other type; see [Hooks and schema-aware rollback](#hooks-and-schema-aware-rollback).
 
 Going back checks the tree out at the previous commit and rebuilds it: `pnpm install`,
 Prisma's client generated again (no migration runs: it cannot be undone, and the previous
@@ -502,9 +676,18 @@ noust app sandbox disable shop.example.com --reason "..."   # build as root: rec
 ```
 
 - **Who builds in it**: applications and previews created from 3.1 on, and every application
-  where it was enabled. Applications deployed before 3.1 keep building as root, flagged on their
-  page and in `noust health`, until `test` passes and `enable` turns it on (`--force` skips the
-  test). It becomes the default for every application in 3.2.
+  where it was enabled. An application deployed before 3.1 still building as root is tried in
+  the sandbox by Noust itself, once, on its **next update** (3.2): after the source is in place
+  and before the build, the update builds what it is about to build in a scratch copy, as
+  `noust app sandbox test` does. If that passes, the sandbox is turned on and the update builds
+  in it; if it fails, the update builds as root exactly as before, the failure is recorded and
+  warned about (the application's page, `noust health`, `noust ens check`) and sent as a
+  `deploy_failed` notification with the build's output, and Noust does not try again by itself:
+  fix the build and run `noust app sandbox test`, then `enable` (`--force` skips the test).
+  Nothing is tried, and nothing changes, for an application whose operator recorded a decision
+  to build as root (`noust app sandbox disable --reason`), for a type with nothing to build
+  (static) or that builds in Docker (Compose), or on a server where the sandbox does not hold
+  (the self-test fails: containers, WSL without mount namespaces).
 - **What the build sees**: its release, read-write; its own cache under
   `/var/cache/noust/build/<app>`; the application's `.env`, handed in by systemd, which
   `noust-build` itself cannot open; a clean environment; no `/root`, no `/etc/noust`, no store,
@@ -531,9 +714,44 @@ noust app sandbox disable shop.example.com --reason "..."   # build as root: rec
 - A build killed for its time or memory limit says which; cancelling a deploy stops its build
   unit.
 
+## The account an application runs as
+
+Until 3.1 every application ran as the one configured service account (`www-data`), so a
+compromised application could read and write every other application's tree. From 3.2 an
+application created by Noust runs as an account of its own, `noust-app-<name>` (a long name is
+shortened and given a hash, to stay within 32 characters): a system account with its own group,
+no home and no login shell, which owns the application's tree, its `.env` and its caches. The
+unit says `User=` that account; a PHP application's FPM pool runs as it, one pool per account.
+The web server still reads what it serves: a deployed tree is world-readable except its `.env`
+files. Deleting the application with its files removes its account too.
+
+```bash
+noust app identity status shop.example.com    # the account it runs as, and whether it is its own
+noust app identity migrate shop.example.com   # move an existing application onto its own account
+```
+
+- **Applications from before 3.2 keep the shared account** through every redeploy until you
+  move them. `migrate` creates the account, hands it the files the shared account owned (tree,
+  `.env`, build cache), rewrites the unit or the pool and restarts the application behind the
+  health gate. If it does not answer, the owners of the files it changed, the unit or pool and
+  the records are put back exactly and the application is restarted as it was. Over the API
+  it is `POST /api/apps/{domain}/identity/migrate`, which is root-equivalent, needs sudo mode
+  and is subject to four-eyes approval when approvals apply.
+- **Not every application can have one.** A Docker Compose stack (its processes are the
+  containers'), a monorepo (several units, which stay on the shared account for now) and a
+  static site (nothing runs) keep the shared account; `status` says why. An application in
+  zero-downtime mode must have it turned off to migrate. Creating and migrating need root.
+
 ## Deploy history
 
 Every deploy, update, activation and migration writes a row to the deployment history with
 its build log, whatever the layout, monorepo and Docker Compose included. See it with the
 console's Deployments tab or `GET /api/deployments?domain=<domain>`; the last 20 per
 application are kept.
+
+Since 3.2 a row also says what the deploy hooks did: `hooks` (each hook, and Prisma's automatic
+migration, with its command, exit code, duration and the end of its output), `schema_changed`
+(a migration changed the database's schema: going back past it asks first) and `warnings` (why a
+successful deployment went live with warnings: a `post_deploy` hook failed). Older rows have
+none of them. An adopted stack's history starts with one row, the adoption, at the commit that
+was checked out. See [Hooks and schema-aware rollback](#hooks-and-schema-aware-rollback).

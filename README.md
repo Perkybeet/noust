@@ -1,8 +1,15 @@
-> **Noust 3.1** adds accounts with roles, an audit trail with integrity, management of the
+> **Noust 3.2** makes Docker Compose projects first-class: deploy hooks in a `noust.yaml`,
+> updates without a cut, adopting a stack that already runs, and a copy of its database before
+> every update. It shows a site's web server configuration as a structure and a diagram,
+> tells you when an application stops answering, and runs every new application as its own
+> account. See [docs/CHANGELOG-3.2.md](docs/CHANGELOG-3.2.md), and read
+> [docs/UPGRADING-3.2.md](docs/UPGRADING-3.2.md) before upgrading a server that deploys Compose
+> projects, or a fleet.
+>
+> **Noust 3.1** added accounts with roles, an audit trail with integrity, management of the
 > server itself (updates, SSH, firewall, disks), fleet-wide views and bulk actions, databases
-> per application, and builds that no longer run as root. See
-> [docs/CHANGELOG-3.1.md](docs/CHANGELOG-3.1.md), and read
-> [docs/UPGRADING-3.1.md](docs/UPGRADING-3.1.md) before upgrading a 3.0 server or a fleet.
+> per application, and builds that no longer run as root
+> ([docs/CHANGELOG-3.1.md](docs/CHANGELOG-3.1.md)).
 >
 > **WASM is now Noust** since 3.0.0: the command is `noust`, the paths are `/etc/noust`,
 > `/var/lib/noust` and `/var/backups/noust`, and `wasm` keeps working as an alias for the whole
@@ -61,10 +68,13 @@ from the CLI, a browser console and a JSON API.
 - **Atomic deploys with instant rollback.** Each deploy builds in its own directory, is
   activated behind a health check, rolls back by itself when it does not answer, and any
   release still on disk can be reactivated in seconds. Blue/green activation, opt-in per
-  application, keeps the old version serving until the new one answers.
+  application, keeps the old version serving until the new one answers; a Docker Compose
+  stack gets the same through a relay. A repository's `noust.yaml` runs its migrations before
+  anything serves the new version, and stops the deploy when they fail.
 - **Per-application resource limits** with cgroups: memory, CPU and tasks.
 - **Builds without root.** Dependencies install and build as an unprivileged account in a
-  systemd sandbox that cannot read the rest of the machine.
+  systemd sandbox that cannot read the rest of the machine, and every application created from
+  3.2 runs as a system account of its own.
 - **A console and an API** over exactly what the CLI does, with accounts and roles, passkeys
   and two-factor authentication, sudo mode, four-eyes approvals and a tamper-evident audit log.
 - **The server too**: operating-system updates, SSH, the firewall, fail2ban, disks and swap,
@@ -77,11 +87,12 @@ from the CLI, a browser console and a JSON API.
   (see [The fleet](#the-fleet)); it does not schedule work across them.
 - **A container platform.** Applications run as ordinary processes. Docker is only needed if
   you deploy a Docker Compose project, which Noust then runs as a unit.
-- **An isolation boundary between running applications.** They run as the same service
-  account by default; the build sandbox separates builds, not what runs afterwards. Deploy
-  only code you trust, as you would on any server you administer.
-- **Zero-downtime by default.** Activating a release restarts the unit, unless blue/green is
-  turned on for the application. There is no web terminal.
+- **A container boundary between running applications.** Each application created from 3.2
+  runs as an account of its own, so one cannot read another's tree, but they share the kernel
+  and the machine; those from before keep the shared service account until `noust app identity
+  migrate`. Deploy only code you trust, as you would on any server you administer.
+- **Zero-downtime by default.** Activating a release restarts the unit, unless blue/green (or,
+  for a Compose stack, the relay) is turned on for the application. There is no web terminal.
 
 ---
 
@@ -251,9 +262,12 @@ mode) and stay confirmed for 10 minutes.
 It covers everything the CLI does: an overview of what needs attention; applications with
 their deployments, releases, live logs, metrics, environment, database, domains, diagnosis and
 settings; databases with a data browser and a SQL console; backups, schedules and remote
-destinations; certificates and sites; the server (updates, security, storage, services, logs,
-system); cron; an activity timeline; and settings, accounts, approvals, the audit log and
-compliance. On a central, fleet-wide views and bulk actions.
+destinations; certificates and sites, each site as text, as a structure you can edit visually
+and as an animated diagram of what reaches what, with a "try a URL" that shows which location
+answers; the server (updates, security, storage, services, logs, system); cron; an activity
+timeline, and a panel that answers "what happened here" for any stretch you select on a chart;
+and settings, accounts, approvals, the audit log and compliance. On a central, fleet-wide views
+and bulk actions.
 The new-application wizard deploys from a repository, a recipe or an exported application.
 It speaks English and Spanish, following the browser, switched from the top bar; what
 nginx, systemd or certbot print is shown verbatim, as they wrote it. Every page is built from
@@ -295,7 +309,14 @@ See [docs/console.md](docs/console.md).
   `noust releases keep DOMAIN N` changes it.
 - **The branch it deploys.** `noust app branch DOMAIN main` pins it: every update builds it and
   the webhook ignores pushes to other branches. `noust update --branch X` pins `X` when it
-  succeeds.
+  succeeds. `noust app follow-tags DOMAIN 'v*'` deploys the newest matching tag instead, from a
+  GitHub release or a tag push, and never an older one.
+- **Hooks and migrations.** `hooks.pre_deploy` in a repository's `noust.yaml` runs before the
+  new version serves, in the application's identity, and a failure stops the deploy with what
+  served before still serving; `post_deploy` runs after the health gate and a failure leaves
+  the deployment deployed with warnings. A deployment whose hook changed the database schema
+  makes going back past it ask first (`--schema-changed-ok`): Noust puts code back, never a
+  database.
 
 Applications deployed in place (by WASM 1.x, or with `--layout inplace`) stay in place until
 you run `noust app migrate DOMAIN` (rehearse it first with `noust --dry-run app migrate
@@ -315,8 +336,9 @@ Installing dependencies and building run in a transient systemd unit as the unpr
 configuration, the store, root's home or any other application's `.env`. A self-test proves the
 sandbox holds before the first build; where it does not (a container or WSL without mount
 namespaces) the build stops rather than running as root. Applications and previews created from
-3.1 on build this way; applications from before keep building as root, flagged by `noust
-health`, until you test and enable it for each. `--network strict` also builds without a
+3.1 on build this way. An application from before builds this exact commit in the sandbox on its
+next update: when that passes it builds there from then on, and when it fails it builds as root
+as before and says so (`noust health`, a notification). `--network strict` also builds without a
 network.
 
 ### Blue/green
@@ -331,7 +353,42 @@ instance on the new release, passes the health gate on its port, moves the upstr
 `nginx -t` and a reload, and stops the old instance after a drain (10 seconds by default). A
 failed gate stops the new instance; the old one never stopped. Only for applications on
 releases, with a process, behind nginx; the application must tolerate two copies running
-for a few seconds.
+for a few seconds. A Docker Compose stack uses the same command and gets
+[a relay](#docker-compose) instead.
+
+---
+
+## Docker Compose
+
+A project with a `docker-compose.prod.yml` (or any compose file) deploys as a stack under a
+systemd unit, with nginx in front of its published ports, the health gate, and a way back to the
+images that served when an update does not pass. 3.2 adds what a project with a database needs:
+
+```bash
+noust create -d shop.example.com -s https://github.com/you/shop.git        # detects the compose file
+noust app zero-downtime shop.example.com on          # updates without a cut: a relay per web service
+noust app adopt shop.example.com --path /opt/shop    # register a stack that already runs, untouched
+noust app backup-before-update shop.example.com on   # on by default: databases dumped before an update
+noust backup restore BACKUP_ID --databases-only      # put the stack's databases back
+```
+
+- **Hooks.** A `noust.yaml` at the root of the repository declares `hooks.pre_deploy` (your
+  migrations, run in a one-off container of the image just built, before anything is recreated;
+  a failure stops the update) and `hooks.post_deploy`. The project's own steps live in its
+  repository, hung from the hooks Noust gives it, and Noust stays generic.
+- **No cut.** The relay starts a twin of each web service from the new image, passes the health
+  gate against it, points nginx at it, recreates the real container, and moves nginx back. A
+  site you wrote yourself includes one line (`include /etc/nginx/noust-upstreams/<app>/<service>.servers;`)
+  that the command prints; it is never rewritten for you.
+- **A way back from a migration.** Every update dumps the stack's Postgres, MySQL, MariaDB or
+  MongoDB through the engine's own client, and stops if it cannot; going back past a deployment
+  that changed the schema asks before it goes.
+- **Your own site, respected.** A site without Noust's marker is never rewritten or deleted.
+  `noust app adopt` records the file serving the domain, whatever it is called.
+- **Workers.** A stack that publishes no port is judged by its containers, not by a probe of a
+  port nothing listens on.
+
+See [docs/compose.md](docs/compose.md).
 
 ---
 
@@ -411,6 +468,8 @@ noust domain remove shop.example.com shop.example.org
 Every name is rendered into the site, tested by the web server before it is reloaded, and,
 when the application serves TLS, added to its certificate. `noust create --www` records
 `www.<domain>` as a redirect. The console checks where each name resolves before you add it.
+It works for Docker Compose and monorepo applications too. A site you wrote yourself is never
+rewritten or deleted, and the console edits any site as text, as a structure or as a diagram.
 See [docs/domains.md](docs/domains.md).
 
 ---
@@ -465,7 +524,9 @@ noust rollback shop.example.com            # restore the latest backup, after a 
 A backup is one `.tar.gz` under `/var/backups/noust/<app>/`, mode `0600`, with a SHA-256
 checksum: the application (for one on releases, the active release and `shared/`), its `.env`
 unless `--no-env`, and on request its database dumps (`--include-databases`) and Docker
-volumes, so it restores on a server that knows nothing about this one. Schedules are systemd
+volumes, so it restores on a server that knows nothing about this one. For a Docker Compose
+stack, `--include-databases` dumps the databases its containers run, and `noust backup restore
+--databases-only` puts them back. Schedules are systemd
 timers named `noust-backup-<app>`, and their retention applies only to the backups they
 made: manual and safety backups are never removed by a schedule.
 
@@ -539,8 +600,9 @@ Notifications go to a webhook (JSON, optionally signed), Slack, Discord, Telegra
 each written for its channel, on deploys (`deploy_started` off by default, `deploy_success`,
 `deploy_failed`, `deploy_rolled_back`), restores, backups (`backup_failed`, and
 `backup_success` if you want a heartbeat), `cert_expiring`, `unit_failed`, `disk_threshold`,
-reboots, approvals and, on a central, a server unreachable, recovered or with a changed host
-key. They come from every deployment: the CLI's, the console's, webhooks' and previews'. A
+`app_unreachable` and `app_recovered` (an application whose unit runs but no longer answers, and
+its first answer after), `deploy_hook_failed`, reboots, approvals and, on a central, a server
+unreachable, recovered or with a changed host key. They come from every deployment: the CLI's, the console's, webhooks' and previews'. A
 failure carries the health gate's evidence, and every message names its server
 (`server.name`). Configure
 them in the console (Settings > Notifications) or with
@@ -553,7 +615,8 @@ Deploy on push: in the console (application > Settings > Webhook) or with
 `POST /api/apps/{domain}/webhook-secret`, create a secret, and point a GitHub, Gitea or
 GitLab webhook at `https://<console>/hooks/deploy/<domain>`, which the forge must be able to
 reach. Signatures are verified; only pushes to the branch the application deploys update it
-(pin one with `noust app branch`).
+(pin one with `noust app branch`), or, for an application that follows tags, a published
+release or a tag push.
 `noust app webhook show|rotate|disable|deliveries DOMAIN` does the same from the terminal: how
 far the setup is (public URL, secret, branch, GitHub App), the secret, and every delivery the
 forge sent, including the ones that were ignored or had a wrong signature.
@@ -720,12 +783,12 @@ See [docs/security.md](docs/security.md), which also says how to report a vulner
 | `noust list` | List deployed applications (`--json`) |
 | `noust status` | Show how an application is configured and whether it runs (`--json`) |
 | `noust start`, `stop`, `restart` | Control an application |
-| `noust update` | Pull, rebuild and redeploy an application |
+| `noust update` | Pull, rebuild and redeploy an application (`--commit`, `--tag`) |
 | `noust delete` | Delete an application and everything deployed with it |
 | `noust logs` | Show or follow an application's log (`-f`, `--json`) |
 | `noust env` | Show, configure, mark or export an application's environment |
 | `noust releases` | List releases, set their retention and roll back to one instantly |
-| `noust app` | Migrate to releases; limits, health check, blue/green, branch, build sandbox, deploy webhook; export and import |
+| `noust app` | Migrate to releases; limits, health check, blue/green and the Compose relay, branch and tags, hooks, adopt a running stack, workers, database copy, build sandbox, account, deploy webhook; export and import |
 | `noust domain` | Add, list and remove aliases and redirects |
 | `noust preview` | Pull request previews |
 | `noust recipe` | List and show the ready-made applications |
@@ -789,7 +852,7 @@ completions`. `wasm` runs the same program throughout 3.x.
 | `php-fpm` | `composer.json` with a front controller, or a root `index.php` | A PHP-FPM pool per application on its own socket, `composer` when there is a `composer.json`, a fastcgi site (nginx only); `public/` detected | Yes |
 | `static` | `index.html`, and no project manifest | Served by the web server from `public`, `dist`, `build`, `www`, `html` or the root | Yes |
 | `monorepo` | `turbo.json`, pnpm workspaces and at least two apps under `apps/` | pnpm; one unit and one subdomain per workspace | In place |
-| `docker-compose` | A compose file (`docker-compose.prod.yml` first) | `docker compose` v2 under a systemd unit, nginx in front of published ports | In place |
+| `docker-compose` | A compose file (`docker-compose.prod.yml` first) | `docker compose` v2 under a systemd unit, nginx in front of published ports; hooks, relay, database copy | In place |
 
 Detection tries the most specific type first: monorepo, Docker Compose, Next.js, PHP, Vite,
 Python, Node.js, static. When nothing matches, Noust falls back to Node.js and says so; pass
@@ -830,6 +893,7 @@ is documented in [docs/CONFIG.md](docs/CONFIG.md). `NOUST_APPS_DIR`,
 /var/backups/noust/           backup archives
 /var/cache/noust/build/<app>/ build caches, owned by the noust-build account
 /var/log/noust/               Noust's own log files
+/etc/nginx/noust-upstreams/   servers files a Compose relay switches (<app>/<service>.servers)
 /etc/systemd/system/          units: <app>.service, noust-web, noust-monitor, noust-cron-*,
                               noust-backup-*, noust-previews
 ```
@@ -853,6 +917,9 @@ is.
 
 ## Documentation
 
+- [docs/CHANGELOG-3.2.md](docs/CHANGELOG-3.2.md): what changed in 3.2
+- [docs/UPGRADING-3.2.md](docs/UPGRADING-3.2.md): upgrading a 3.1 server or fleet to 3.2, and rolling back
+- [docs/compose.md](docs/compose.md): Docker Compose projects: `noust.yaml`, hooks, the relay, adopting a stack, database copies, tags
 - [docs/CHANGELOG-3.1.md](docs/CHANGELOG-3.1.md): what changed in 3.1
 - [docs/UPGRADING-3.1.md](docs/UPGRADING-3.1.md): upgrading a 3.0 server or fleet to 3.1, and rolling back
 - [docs/CHANGELOG-3.0.md](docs/CHANGELOG-3.0.md): what changed in 3.0

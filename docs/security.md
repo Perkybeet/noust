@@ -15,7 +15,8 @@ can decide how to expose it.
 - The console's master token: root-equivalent while no account exists, and emergency access
   afterwards.
 - Accounts with the `admin` role, and tokens that hold `root_equivalent`: they can write units,
-  cron commands and site configuration that run as root. Four-eyes approvals (below) put a
+  cron commands and site configuration that run as root, and an application's deploy hooks, code
+  that runs with its identity and its secrets on every deploy. Four-eyes approvals (below) put a
   second person in front of exactly those changes.
 
 **Defended against**
@@ -36,7 +37,13 @@ can decide how to expose it.
 - **Install and build scripts**: an application's dependencies install and build as the
   unprivileged `noust-build` account in a sandbox, unable to read Noust's configuration, the
   store, root's home or other applications' `.env` (see [Builds](#builds)). Applications
-  deployed before 3.1 are covered once the sandbox is enabled for them.
+  deployed before 3.1 are tried in the sandbox on their next update, and covered when that
+  passes.
+- **Untrusted deploy hooks**: a repository's `noust.yaml` is read with a closed schema, and a hook
+  is an argument list, never a shell, that runs as the application's account (or, while the
+  application still builds as root, as Noust itself, as its migrations always did) and never
+  with more privileges than the compose file already gives its service (see
+  [Deploy hooks](#deploy-hooks)).
 - **A compromised central**: each server enforces its own ceiling on what any central may do
   there, and a central never gets a shell (see [The fleet](#the-fleet)).
 - **Unprivileged local users**: secrets never travel in a command line (which `ps` shows to
@@ -47,10 +54,15 @@ can decide how to expose it.
 
 **Not defended against**
 
-- **Applications from each other at run time.** Every application's unit runs as the same
-  account by default (`service_user`, `www-data`), so one compromised application can read the
-  files, including the `.env`, of every other one. Noust is not a multi-tenant isolation
-  boundary. The build sandbox separates builds, not running applications.
+- **Applications from each other at run time, where they share an account.** From 3.2 an
+  application Noust creates runs as its own system account, `noust-app-<name>`, with no home and
+  no shell, owning its tree, `.env` and caches, so one compromised application cannot read
+  another's files. An application from before 3.2 keeps the shared account (`service_user`,
+  `www-data`) until `noust app identity migrate` moves it, and while it does, it can read the
+  files, including the `.env`, of every other application on that account. A Docker Compose
+  stack, a monorepo and a static site have no account of their own. Applications still share the
+  kernel, the network and the machine: Noust is not a multi-tenant isolation boundary, and the
+  build sandbox separates builds, not running applications.
 - **A compromised application reaching the console on loopback.** It still needs a
   credential, but it is on the same host.
 - **Anything with root**, including an application built as root because its sandbox was
@@ -111,15 +123,45 @@ applications run as.
   own directory and must fail to write outside it, into `/root`, or to read a file placed in
   `/etc/noust`. Containers and WSL without mount namespaces ignore `ProtectSystem` silently; the
   self-test is what notices, and the build stops rather than running as root.
-- **Scope.** Applications and previews created from 3.1 on build in the sandbox. Applications
-  from before keep building as root, flagged by `noust health` and `noust ens check`, until the
-  sandbox is tested (`noust app sandbox test`) and enabled for them. An in-place application
+- **Scope.** Applications and previews created from 3.1 on build in the sandbox. From 3.2,
+  the next update of an application that still builds as root first builds that commit in the
+  sandbox, once: when it passes the sandbox is turned on, and when it fails the update builds as
+  root as before, flagged by `noust health` and `noust ens check` and by a notification, until
+  `noust app sandbox test` passes and `noust app sandbox enable` is run. An in-place application
   builds in its live tree as the service account, still with the rest of the machine hidden.
   Building one application as root is a per-application decision recorded with a name and a
   reason (`noust app sandbox disable DOMAIN --reason ...`, permission `root_equivalent`).
 - **Docker Compose** builds run in the Docker daemon, outside any sandbox Noust controls. A new
   stack is refused `privileged: true` and a mounted Docker socket, both of which are root on the
   host, unless the application has a recorded exception.
+
+## Deploy hooks
+
+A project can run commands around its own deploy (`hooks.pre_deploy` and `hooks.post_deploy`, in
+a `noust.yaml` at the root of the repository, or set by the operator for one application). A hook
+is code that runs on every deploy with the application's identity and secrets, so it is treated
+as such:
+
+- **A repository's `noust.yaml` is untrusted input.** The schema is closed (an unknown key is
+  refused, not ignored, and names the field), a path that climbs with `..` is refused, an absolute
+  working directory is accepted only inside a Compose service's container, a link instead of a
+  file is refused unread, and the file is at most 64 KiB. It cannot choose a user, `privileged` or
+  a mount for a hook.
+- **A hook is an argument list.** `run` is split with `shlex` and run through `CommandRunner`:
+  never a shell, always with a timeout (1 to 3600 seconds).
+- **Where it runs bounds what it can do.** In a Docker Compose stack, in a one-off container of
+  the image the deploy built, with the service's own environment, networks and volumes, and the
+  privileges the compose file already gives that service (which the compose file check watches).
+  In every other application, in the release phase of the build: as the application's account,
+  with its `.env`, in a transient unit, never as `noust-build`. An application that still builds
+  as root (an explicit decision, or one whose sandbox trial has not passed) runs its hooks as
+  Noust itself, as root, exactly as its migrations always ran: a further reason to put every
+  application in the sandbox.
+- **The operator's hooks need `root_equivalent`**, sudo mode and, when approvals are on, a second
+  person, and replace the repository's whole: two sources are never merged, so what runs is
+  always one document someone wrote. Every change is audited (`apps.hooks`).
+- **A hook's output is kept**, in the deployment's log and, the last 4000 characters of each, in
+  its history, like any build output: a hook should not print a secret.
 
 ## Secrets via --stdin
 
@@ -342,7 +384,7 @@ once in `noust.web.permissions.roles`:
 | `backups.run` | Take and verify backups | | yes | yes | | |
 | `apps.manage` | Create, configure and delete applications, sites, certificates, domains | | | yes | | |
 | `secrets.reveal` | `.env` in clear, connection strings, exports with secrets, command lines of processes | | | yes | | |
-| `root_equivalent` | Raw units, cron commands, backup hooks, raw site configuration, building as root | | | yes | | |
+| `root_equivalent` | Raw units, cron commands, backup hooks, raw site configuration, an application's deploy hooks, building as root, moving an application to its own account | | | yes | | |
 | `server.manage` | Updates, reboots, storage, swap, time, host name | | | yes | | |
 | `server.host_access` | SSH keys and sshd, the firewall, shutting down | | | yes | | |
 | `databases.write`, `databases.manage` | Create, change and delete databases, users, rows | | | yes | | |
@@ -367,8 +409,11 @@ once in `noust.web.permissions.roles`:
 
 Creating an application and inspecting a source are `apps.manage`: both fetch whatever source
 the caller names and build or read it. Process listings (`GET /api/system/processes`,
-`GET /api/monitor/processes`, monitor observations) show command lines, which often carry
-passwords, only with `secrets.reveal`; everyone else sees the process name.
+`GET /api/monitor/processes`, monitor observations, the busiest processes in
+`GET /api/timeline`) show command lines, which often carry passwords, only with `secrets.reveal`;
+everyone else sees the process name. The timeline keeps each source's own permission: the journal
+needs `secrets.reveal`, the audit trail `audit.read`, and a source the caller may not read is
+named as withheld with the permission it needs.
 
 **Noust's own units.** The console (`noust-web`), the monitor (`noust-monitor`) and the
 `noust-cron-*` and `noust-backup-*` units behind cron jobs and backup schedules cannot be
@@ -437,7 +482,8 @@ never the header it arrived in.
 
 With `approval.enabled: true`, and always under the `ens-medium` profile, the changes that are
 root on the host by another name need a second person: raw units, cron commands, backup hooks,
-raw site configuration and building as root (`root_equivalent`); SQL that writes, row edits
+raw site configuration, deploy hooks, moving an application to its own account and building as
+root (`root_equivalent`); SQL that writes, row edits
 and `EXPLAIN ANALYZE` included; deploying from a directory on the server; adding and removing
 fleet servers; and role grants (a role change, a new account, a recovery invitation). The
 OpenAPI schema marks those routes with `x-noust-requires-approval`.
@@ -618,6 +664,17 @@ turns it off.
 - Release ids are validated before they reach the disk, and a commit id must be hexadecimal
   before it becomes part of a directory name.
 - `ServiceManager` refuses to touch a unit that Noust does not own, whatever the caller.
+- A repository's `noust.yaml` and `noust.nginx.yaml` are read with closed schemas: an unknown key
+  is refused, and the values of a route (its path, sizes, timeouts, rates and redirect target) are
+  checked to be exactly what their directive takes. A `static` route stays inside the application.
+  `custom_directives` in `noust.nginx.yaml` is the exception: its lines go into the site's
+  `server` block as written, behind only the web server's own test, so read it as you would read
+  a site before deploying a repository you do not control.
+- A web server site that someone else wrote is never rewritten or deleted by a deploy: Noust
+  recognises its own sites by their marker, and leaves any other file alone.
+- The servers files of a Compose relay (`/etc/nginx/noust-upstreams/<app>/<service>.servers`)
+  hold only `server 127.0.0.1:<port>;` lines, are written atomically, never through a link, and
+  names that become their path are validated as a single inert component.
 
 ## Files
 
@@ -641,7 +698,8 @@ turns it off.
 | `/var/lib/noust/deploy-logs/` | `0750`, files `0640` | Build logs, readable by an admin group |
 | `/var/cache/noust/build/<app>/` | owned by `noust-build` | An application's build caches (npm, pip, ...), one directory per application |
 | `/run/noust/sandbox/` | root | Scratch space of the build sandbox and its self-test |
-| `.env`, `shared/.env` | `0600` | Application environment, owned by the service account |
+| `.env`, `shared/.env` | `0600` | Application environment, owned by the application's account (the service account for one from before 3.2) |
+| `/etc/nginx/noust-upstreams/<app>/` | root | The servers files a Compose relay switches while a service is recreated |
 | `/etc/systemd/system/*.service` | `0644` | Units. See the note below. |
 
 The store falls back to `~/.local/share/noust/` when `/var/lib/noust` is not writable; `noust
@@ -650,7 +708,7 @@ store path` prints where it is. The console state directory can be moved with
 
 Environment variables given when an application is created (`noust create --env-file`, or
 `env_vars` in `POST /api/apps`) are written into its `.env` file (`0600`, owned by the
-service account, `shared/.env` on the releases layout), and the unit loads it with
+application's account, `shared/.env` on the releases layout), and the unit loads it with
 `EnvironmentFile=`. Only `PORT` and `NODE_ENV` - not secret, and Noust's to decide - stay
 inline in the unit as `Environment=` lines. systemd lets `EnvironmentFile=` override
 `Environment=`, so `noust env configure` and the console's Environment tab both refuse to set
@@ -755,7 +813,9 @@ organisation's, is in [ENS.md](ENS.md).
 
 `noust monitor` reports what it sees and does nothing else: it never signals or kills a
 process, never deletes or modifies a file other than its own unit, and never decides anything
-from a process's command line. See [MONITOR.md](MONITOR.md).
+from a process's command line. Each minute it keeps the busiest processes, with their command
+lines redacted, for the timeline of a stretch of time; the redacted line is shown only to who may
+read command lines, and is kept for 26 hours. See [MONITOR.md](MONITOR.md).
 
 ## Reporting a vulnerability
 

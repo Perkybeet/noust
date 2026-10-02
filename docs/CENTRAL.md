@@ -235,7 +235,8 @@ central's token is admitted, whatever the central claims for its operator:
 `host access` (off by default) additionally lets a central with `admin` reach the host itself:
 change how the server is reached (SSH keys, sshd, the firewall, system accounts) and make
 root-equivalent changes (raw systemd units, cron commands, backup hooks, raw site
-configuration), each of which runs as root and so is host access by another name. A
+configuration, an application's deploy hooks, moving an application to its own account), each of
+which runs as root, or with an application's secrets, and so is host access by another name. A
 compromised central is held to the ceiling of each server; the server's own accounts, tokens
 and two-factor sign-in are never a central's to change.
 
@@ -303,12 +304,26 @@ there by hand. The Fleet page starts the same jobs.
 System updates never reboot a server; `noust_update` updates Noust with the server's own
 installation method (the package manager or pip).
 
+A system update that includes the `noust` package restarts that server's console in the middle.
+The plan says so ("Also updates Noust"), Noust is installed last (on apt and dnf), and the
+central waits for the console to come back and for the job to say how it ended, instead of
+counting a failure and skipping the other servers. The job runs in its own systemd unit on the
+server, and the console that starts again reads how the unit ended. A server older than 3.2
+marks that job interrupted; the central then waits for the server's own record of the update.
+In the console, the detail of each server in a fleet job shows the job's log on that server and
+what it returned (see [console.md](console.md#fleet)).
+
 ## A fleet on different versions
 
 A 3.1 central drives 3.0 servers, and a 3.0 central drives 3.1 servers. A 3.0 server shows as
 `unsupported` in the fleet views it does not offer, bulk actions skip it with the reason, and its
 ceiling shows as `unknown`. Upgrade the central first, then each server, then move each server to
 the tunnel account. See [UPGRADING-3.1.md](UPGRADING-3.1.md#upgrading-a-fleet).
+
+A 3.2 central drives 3.1 servers the same way: the pages that call routes a 3.1 server does not
+have (a site's structure and diagram, the time zone list, the timeline, hooks) say that the
+server runs an older Noust, and the rest works as before. See
+[UPGRADING-3.2.md](UPGRADING-3.2.md#upgrading-a-fleet).
 
 ## Notifications
 

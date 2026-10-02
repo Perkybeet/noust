@@ -62,9 +62,9 @@ upgrade runs `noust config upgrade` and then `noust config clean`.
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `apps_directory` | `/var/www/apps` | Where applications are deployed, one directory per domain. Must be an absolute path. |
+| `apps_directory` | `/var/www/apps` | Where applications are deployed, one directory per domain. Must be an absolute path. A Docker Compose stack adopted with `noust app adopt` stays where it already ran (`/opt/proggest`, say), outside this directory; deleting it keeps that directory unless `noust delete --remove-adopted-directory` names it (see [compose.md](compose.md#adopting-a-running-stack)). |
 | `webserver` | `nginx` | The web server new sites are written for: `nginx` or `apache`. |
-| `service_user` | `www-data` | The Unix user application units run as and application files belong to. |
+| `service_user` | `www-data` | The Unix user the units of applications without an account of their own run as, and their files belong to. From 3.2 an application Noust creates runs as its own account, `noust-app-<name>`, and one from before moves to its own with `noust app identity migrate`; Docker Compose stacks, monorepos and static sites keep this account (see [releases.md](releases.md#the-account-an-application-runs-as)). |
 | `service_group` | `www-data` | Its group. |
 | `deploy.layout` | `releases` | Layout of applications created from now on: `releases` builds each deploy in its own directory behind a health gate; `inplace` is the 1.x layout. An application keeps its layout until it is migrated explicitly. |
 | `ssl.email` | empty | The address certbot registers certificates with. Empty registers without one. |
@@ -87,7 +87,7 @@ used, with their default in the code, so a file that lacks them behaves as docum
 | `server.name` | empty | The name this server goes by in every notification and, on a central, in the fleet. Empty means the machine's short hostname. At most 64 characters, one line. |
 | `central.role` | `server` | What this Noust is for: `server` deploys and serves applications (and may also manage other servers), `hub` only manages other servers (a central on a NAS or in a container) and refuses applications, sites and certificates. `NOUST_CENTRAL_ROLE` overrides it. |
 | `central.name` | the host name | The name a central goes by to the servers it manages. Not in the defaults. |
-| `metrics.retention_days` | `400` | Days the hourly tier of the charts' history is kept (35 to 3650). The finer tiers are fixed: 5 s for 2 hours, 1 minute for 26 hours, 10 minutes for 8 days. |
+| `metrics.retention_days` | `400` | Days the hourly tier of the charts' history is kept (35 to 3650). The finer tiers are fixed: 5 s for 2 hours, 1 minute for 26 hours, 10 minutes for 8 days. The per-minute process samples behind the charts are kept as long as the minute tier (26 hours); the unit failures and recoveries the timeline reads, as long as the hourly tier (see [MONITOR.md](MONITOR.md#process-samples)). |
 
 ## Console
 
@@ -165,14 +165,14 @@ used, with their default in the code, so a file that lacks them behaves as docum
 | `notifications.allow_private_hosts` | none | Hosts a webhook channel may deliver to although they resolve to a private address. Not in the defaults. |
 | `notifications.events.deploy_started` | `false` | Notify when a deployment starts. Off: it fires once per attempt with no outcome, and would double the volume of every deploy that also succeeds or fails. |
 | `notifications.events.deploy_success` | `true` | Notify when a deployment succeeds. |
-| `notifications.events.deploy_failed` | `true` | Notify when a deployment fails. |
+| `notifications.events.deploy_failed` | `true` | Notify when a deployment fails. Also carries the warning that Noust's own trial build of an application in the sandbox failed before one of its updates, which then built as root as before (see [releases.md](releases.md#builds-in-the-sandbox)). |
 | `notifications.events.deploy_rolled_back` | `true` | Notify when a failed activation put the previous release back. |
 | `notifications.events.deploy_hook_failed` | `true` | Notify when a deployment went live with warnings: a `post_deploy` hook failed once the new version was serving. |
 | `notifications.events.restore_success` | `true` | Notify when a restore succeeds. |
 | `notifications.events.restore_failed` | `true` | Notify when a restore fails. |
 | `notifications.events.cert_expiring` | `true` | Notify when a certificate is about to expire. |
 | `notifications.events.unit_failed` | `true` | Notify when a watched unit fails. |
-| `notifications.events.app_unreachable` | `true` | Notify when an application whose unit is running stops answering its health check: three failed probes over at least a minute, once per outage. A stack with no published port is judged by its containers instead. |
+| `notifications.events.app_unreachable` | `true` | Notify when an application whose unit is running stops answering its health check: three failed probes over at least a minute, once per outage; not asked while the application is being deployed or runs a job, nor when its unit was stopped on purpose or failed (that is `unit_failed`). A stack with no published port is judged by its containers instead. |
 | `notifications.events.app_recovered` | `true` | Notify when an application that was reported unreachable answers again. |
 | `notifications.events.disk_threshold` | `true` | Notify when a disk crosses its threshold. |
 | `notifications.events.backup_failed` | `true` | Notify when a backup fails. |

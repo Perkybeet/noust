@@ -346,7 +346,8 @@ def _other_settings(service: dict[str, Any], proposal: Proposal) -> None:
     if isinstance(service.get("scaling"), dict):
         proposal.warn("Autoscaling has no equivalent; a Noust application runs one instance.")
     if text_value(service, "preDeployCommand"):
-        proposal.warn("preDeployCommand has no equivalent; run migrations from the build script.")
+        proposal.warn("preDeployCommand is a pre_deploy hook in Noust: declare it in noust.yaml "
+        "(hooks.pre_deploy, with migrates: true for migrations; see docs/compose.md).")
     root_dir = text_value(service, "rootDir")
     if root_dir and root_dir not in (".", "./"):
         proposal.warn(

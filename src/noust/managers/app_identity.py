@@ -464,7 +464,7 @@ def refuse_migration(app: App) -> None:
         raise ValidationError(
             f"{app.domain} runs in zero-downtime mode, whose two instances are not moved yet",
             details=f"Turn it off, migrate, and turn it on again: noust app zero-downtime "
-            f"{app.domain} --off; noust app identity migrate {app.domain}",
+            f"{app.domain} off; noust app identity migrate {app.domain}",
         )
     if not running_as_root():
         raise ValidationError(

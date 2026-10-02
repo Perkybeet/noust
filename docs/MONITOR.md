@@ -9,7 +9,9 @@ It reports and does nothing else:
 
 - it never signals, terminates or restarts a process;
 - it never deletes or modifies a file, except the systemd unit it installs;
-- it never decides anything from a process's command line;
+- it never decides anything from a process's command line (the process samples keep a redacted,
+  truncated copy of the busiest processes' command lines so an operator can read what ran; see
+  [Process samples](#process-samples));
 - what it sends leaves the machine only through channels you configured: raw observations by
   email when `monitor.notify` is on, and the disk, certificate and unit events through
   whichever notification channels you set up - webhook, Slack, Discord, Telegram or email (see
@@ -69,8 +71,8 @@ Every scan interval (60 seconds by default, never less than 10):
 |---|---|---|
 | Process names | The executable's name starts with a known miner or malware name: `xmrig`, `minerd`, `cpuminer`, `cgminer`, `bfgminer`, `ethminer`, `ccminer`, `kdevtmpfsi`, `kinsing`, `kerberods`, `watchdogs`. Common daemons are never flagged. | `warning` |
 | Process resource use | A process uses more CPU or memory than `monitor.cpu_threshold` or `monitor.memory_threshold` percent (80 by default). | `notice` |
-| Units | A unit Noust manages, or one listed in `monitor.watch_units`, fails: it is `failed`, it crash-loops (its automatic restarts grow between two scans), or it stopped after a failed run. A unit stopped on purpose does not count. All units are read with one `systemctl show` per scan; one message per outage. | notification `unit_failed` |
-| Applications | An application whose unit runs stops answering what the deploy's health gate asks (its health path and expected statuses, on the port that serves now): three failed probes in a row, the first and the last at least a minute apart, so a restart or a deploy is never announced. One message per outage, and one when the first probe passes again. Not asked while a deploy, update, rollback or job of that application runs, nor when its unit was stopped on purpose or failed (that is `unit_failed`). A Compose stack that publishes no port is judged by its containers instead: one that exited with an error or keeps restarting is an outage. The run of failures is kept in `app-reachability.json` next to the observations, so a restart of the monitor neither forgets it nor repeats the message. | notifications `app_unreachable`, `app_recovered` |
+| Units | A unit Noust manages, or one listed in `monitor.watch_units`, fails: it is `failed`, it crash-loops (its automatic restarts grow between two scans), or it stopped after a failed run. A unit stopped on purpose does not count. All units are read with one `systemctl show` per scan; one message per outage. Each failure and each recovery is also kept in the metrics database (for `metrics.retention_days`), where the [timeline](#what-happened-in-a-stretch) reads it. | notification `unit_failed` |
+| Applications | An application whose unit runs stops answering what the deploy's health gate asks (its health path and expected statuses, on the port that serves now): three failed probes in a row, the first and the last at least a minute apart, so a restart or a deploy is never announced. One message per outage, and one when the first probe passes again. Not asked while a deploy, update, rollback or job of that application runs, nor when its unit was stopped on purpose or failed (that is `unit_failed`). A Compose stack that publishes no port is judged by its containers instead: one that exited with an error or keeps restarting is an outage. A static site and a PHP-FPM pool have no process to ask and are never reported. Up to eight applications are asked at once, so one that hangs does not hold up the rest. The run of failures is kept in `app-reachability.json` next to the observation database (`/var/lib/noust`), so a restart of the monitor neither forgets it nor repeats the message; a gap of more than ten minutes between two probes (the monitor was stopped) starts the count again, but an outage already announced is kept so its end is still told. | notifications `app_unreachable`, `app_recovered` |
 | Certificates | A certificate has less than 14 days left; at most one message per certificate per day. | notification `cert_expiring` |
 | Disks | A filesystem crosses 90% used; one message per crossing. | notification `disk_threshold` |
 
@@ -125,6 +127,56 @@ of one CPU. To tell the workers of one PHP-FPM pool from another's, the monitor 
 FPM gives each worker (`php-fpm: pool <name>`): the only process title it reads, and nothing
 is decided from it.
 
+## Process samples
+
+A chart says that the CPU peaked five hours ago, not what did it. Wherever the metrics history
+is recorded (the monitor, or a console that records it itself), the collector also keeps, once a
+minute, the five processes that used the most CPU and the five that used the most memory:
+
+| Field | What it holds |
+|---|---|
+| `pid`, `name`, `user` | The process, and the account it runs as |
+| `cpu_percent` | CPU over the minute that just ended, 100 being one core. Measured from the CPU seconds the process used between two samples, so the first minute after the collector starts only primes the counters |
+| `memory_bytes`, `memory_percent` | Resident memory at the sample |
+| `app`, `owner_kind`, `owner` | Who it belongs to, read from its control group like the application charts: a Noust application (`app` is its domain), a Docker Compose container of its stack, a PHP-FPM pool, or the systemd unit its cgroup names. Empty for a login shell or a kernel thread |
+| `command` | Its command line, redacted and cut at 200 characters |
+
+- **Retention.** The samples live as long as the per-minute metrics they explain (26 hours; see
+  the table above), in the same database, `/var/lib/noust/metrics.db`. There is no history from
+  before the collector first ran with 3.2, and a process that started and ended between two
+  minutes is never seen. There is no setting to turn the samples off.
+- **Command lines are secrets carriers**, so each argument is redacted before it is stored: the
+  value of an option or a `NAME=value` whose name looks secret (`--password`, `--api-key`,
+  `DB_PASS=`), `-p<password>` of the MySQL clients, any argument that looks like a token or a key
+  on its own, and the password inside every URL. What is stored is shown only to a caller who
+  holds `secrets.reveal`; anyone else gets the process name. The monitor decides nothing from
+  the command line.
+- **Where they are read.** `GET /api/timeline` (below), and the console's **Investigate this
+  stretch** on a chart ([console.md](console.md)).
+
+## What happened in a stretch
+
+`GET /api/timeline?start=<epoch>&end=<epoch>` merges, ordered by time, everything Noust knows
+about a stretch of up to 31 days: the process samples above, and
+
+| Source | What | Needs |
+|---|---|---|
+| `journal` | The journal of every unit, warnings and worse (all priorities for one application) | `secrets.reveal` |
+| `audit` | CLI commands, console and central actions, sign-ins | `audit.read` |
+| `deployments` | Deployments that ran in the stretch | `apps.read` |
+| `jobs` | Background jobs: deploys, backups, cron runs | `apps.read` |
+| `monitor` | The observations above, unit failures and recoveries, server boots | `server.read` |
+| `processes` | The process samples | `server.read` |
+
+The route itself needs `server.read`, and each source keeps the permission its own page needs.
+A source the caller may not read comes back as `withheld` with the permission it lacks, never
+silently dropped; one that cannot be read says why, with the system's own words, and the rest
+are still answered. `app=<domain>` narrows the stretch to one application: its units' journal,
+the audit events that name it, its deployments and jobs, its units' failures and its processes.
+`sources=journal,audit` (repeated or comma-separated) asks for only some. Each source has a
+ceiling and says when it reached it. On a central the call goes through the node's proxy, and
+each server answers for what it saw.
+
 ## Email
 
 ```bash
@@ -165,7 +217,7 @@ enabled, or an address that is not `name@domain` are refused with the reason, wh
 | `monitor.memory_threshold` | `80.0` | Memory percent above which a process is recorded |
 | `monitor.watch_units` | `[]` | Units watched in addition to every unit Noust manages |
 | `monitor.notify` | `false` | Mail new observations |
-| `metrics.retention_days` | `400` | Days the hourly tier of the metrics history is kept (35 to 3650) |
+| `metrics.retention_days` | `400` | Days the hourly tier of the metrics history is kept (35 to 3650); also how long the unit failures and recoveries the timeline reads are kept. The process samples are kept 26 hours whatever it says |
 | `monitor.retention_days` | `30` | Days observations are kept |
 | `monitor.max_observations` | `5000` | Observations kept at most |
 | `monitor.email_recipients` | `[]` | Who receives the mail |
@@ -186,6 +238,14 @@ channels (webhook, Slack, Discord, Telegram, email), which are configured under
 only when `notifications.enabled` is on and the event is enabled. Test a channel with
 `noust notify test <channel>`.
 
+`app_unreachable` and `app_recovered` are on by default, like `unit_failed`
+(`notifications.events.*`, see [CONFIG.md](CONFIG.md)). The first names the application, says
+since when it has not answered, quotes the last probe verbatim (the request and what came back,
+or one line per container that is not fine for a stack with no published port) and points at
+`noust diagnose DOMAIN`; the second says how long it was down. An application stopped on
+purpose, being deployed or running a job, or whose unit failed (that is `unit_failed`) is not
+announced.
+
 ## API
 
 | Endpoint | |
@@ -194,6 +254,7 @@ only when `notifications.enabled` is on and the event is enabled. Test a channel
 | `GET /api/monitor/config` | Settings in effect |
 | `GET /api/monitor/metrics` | One live reading of CPU, load, memory, swap, disks, network |
 | `GET /api/metrics/query` | The recorded history: several series, a window, mean and maximum per bucket |
+| `GET /api/timeline` | Everything that happened in a stretch (journal, audit, deployments, jobs, what the monitor saw) with the process samples; see [What happened in a stretch](#what-happened-in-a-stretch) |
 | `GET /api/monitor/processes` | The process table, sortable, at most 500 |
 | `POST /api/monitor/scan` | Run one scan now |
 | `GET /api/monitor/observations` | Recorded observations and their counts |
@@ -217,3 +278,10 @@ only when `notifications.enabled` is on and the event is enabled. Test a channel
 - **Too many resource-use observations.** Raise `monitor.cpu_threshold` or
   `monitor.memory_threshold`. The same process with the same signal is recorded at most once
   an hour.
+- **A chart has no process samples for the stretch.** They are kept 26 hours and only exist
+  from the minute the collector first ran with 3.2; an older peak has the chart and nothing
+  that explains it. The console says so instead of showing an empty list.
+- **An application is announced as unreachable and answers when you try.** The monitor asks
+  what the deploy's health gate asks: its health path and expected statuses
+  (`noust app health DOMAIN`), on the port that serves now. Fix the check, not the monitor. A
+  Compose stack with no published port is judged by its containers (`docker compose ps -a`).

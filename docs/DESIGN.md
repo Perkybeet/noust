@@ -1082,6 +1082,7 @@ The ratchet's rules (`designRules.ts`):
 | `focus-ring-repeat` | `focus-visible:outline-2` | the global ring |
 | `confirm-hand-rolled` | `AlertDialog.Popup` outside `ConfirmDialog` | `ConfirmDialog` |
 | `page-without-template` | `<PageHeader>` written by a feature | a template's `header` prop |
+| `feature-state-notice` | a `Notice` whose title or text is an on/off key (`.on`, `.offTitle`, `.enabled`...) | `FeatureState` |
 
 **Exceptions.** A line that has to break a rule says so, on that line or the one above:
 `// design-exception: <rule-id> <reason>`. For a lint rule, the same words go after the

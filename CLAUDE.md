@@ -82,12 +82,21 @@ src/noust/
   managers/         adapters: web server, systemd, certs, backups, databases, source, cron
     diagnose.py     why an app is down: read-only probes, most likely cause first
     health.py       the server-wide report behind `noust health` and /api/system/health
+    siteconf/       the one nginx/Apache parser: lossless tree, structured model, edit
+                    operations, request routing (rule 3: nothing reads a site with a regex)
+    stack_databases.py  a Compose stack's databases: detect, dump, restore
+    app_identity.py the one answer to "which account does this app run as"
+    site_topology.py, timeline.py   what a site reaches, live; one timeline over a stretch
   deployers/        strategies over a declarative pipeline (base.py), one per app type
     releases.py     ReleaseManager: the only code that knows releases/, current, shared/
     lifecycle.py    the one "update an app"; release activation; resource limits
     migrate.py      in-place to releases, explicit only, undone exactly on failure
     domains.py      the one "names an app answers on": store, site, certificate, DNS check
-    helpers/        layout.py (which layout, where .env lives), health_gate.py, release_build.py
+    compose_relay.py  zero-downtime for Compose: a twin of each web service while it is recreated
+    compose_adopt.py  `noust app adopt`: register a stack that already runs, touching nothing
+    helpers/        layout.py (which layout, where .env lives), health_gate.py, release_build.py,
+                    project_file.py (noust.yaml), hooks.py (which hooks run), site.py (the one
+                    writer and deleter of an app's site), compose_ports.py (the one port reader)
   fleet/            node enrollment: authorize.py installs the restricted key and prints the
                     join code; keys.py the per-node keypair; tunnels.py the SSH tunnels
                     (through CommandRunner); client.py a node's API over its own tunnel;
@@ -101,6 +110,7 @@ src/noust/
     server.py       security middleware, CSP, serves the console
     events.py       the /events SSE stream the console listens to
     jobs.py         background jobs, persisted with their logs
+    job_reconcile.py  a job in a transient systemd unit is followed again after a restart
     static/         the console's committed Vite build (generated from panel/, never edited)
   cli/              Click tree (app.py, commands/, including fleet.py, node.py, central.py);
                     handlers hold no business logic
@@ -119,10 +129,11 @@ tests/integration/run.py    real deploys in a systemd container (Docker); not pa
 4. Register with `DeployerRegistry.register(MyTypeDeployer)` at the end of the file.
 5. Add a `detect()` test with a fake file tree, including the ambiguous cases.
 
-Build on `BaseDeployer` and the type gets releases, the health gate, domains and limits for
-free. `MonorepoDeployer` and `DockerComposeDeployer` implement `AppDeployer` directly, which
-is why they deploy in place and refuse aliases (`SUPPORTS_RELEASES` is read with `getattr`,
-defaulting to false).
+Build on `BaseDeployer` and the type gets releases, the health gate, domains, limits and deploy
+hooks for free. `MonorepoDeployer` and `DockerComposeDeployer` implement `AppDeployer` directly,
+which is why they deploy in place (`SUPPORTS_RELEASES` is read with `getattr`, defaulting to
+false); they share the hooks, the site writer and the domain capability (`helpers/hooks.py`,
+`helpers/site.py`) rather than re-implementing them.
 
 ---
 
@@ -161,6 +172,10 @@ Rules:
   all call it.
 - **Nothing is written through a symlink found in a release or in `shared/`.** A repository
   is untrusted input.
+- **`app_path` is not always under the apps directory.** An adopted stack lives where it
+  already ran (`/opt/proggest`). Never build `apps_directory / app_name`: use the store's
+  `app_path` (`lifecycle`, `BackupManager` and deletion already do), and never remove a directory
+  Noust did not create unless the operator names it (`--remove-adopted-directory`).
 
 ---
 
@@ -183,6 +198,65 @@ Rules:
   area's `probes.py`); a command is never read-only because one of its arguments looks harmless.
 - **The ENS profile** (`security.profile: ens-medium`) lives in one module, `core/ens/profile.py`;
   every area reads its defaults from there.
+
+## Compose, hooks and the web server (3.2)
+
+Design: `docs/superpowers/specs/2026-10-02-noust-3.2-design.md`; the execution log is in its
+plan. Operator documentation is `docs/compose.md`.
+
+- **`noust.yaml` is untrusted input and the schema is closed.** `project_file.py` reads it
+  (`hooks.pre_deploy`, `hooks.post_deploy`, `backup.databases`); an unknown key, `..`, a link or
+  an absolute path outside a container is a `ValidationError` naming the field, never ignored.
+  `hooks.resolve_hooks` is the one answer to "which hooks run": the operator's document (store
+  `app_hooks`, root-equivalent to write) replaces the repository's whole, never merged. A hook is
+  an argv (shlex, never a shell) through `CommandRunner`: in Compose a one-off container of the
+  new image (`docker compose run --rm --no-deps`), elsewhere the release phase of the sandbox.
+  `pre_deploy` failing aborts before any traffic moves; `post_deploy` failing is a deployment
+  with `warnings` and the `deploy_hook_failed` notification. Prisma's automatic migration aborts
+  on failure and does not run when hooks are declared.
+- **Schema changes are a decision.** A hook marked `migrates` (read against the migration tools'
+  "nothing applied" wording) or Prisma applying a migration sets `deployments.schema_changed`;
+  every way back (`rollback`, `releases rollback`, `update --commit`, files-only restore, the
+  API and the console) goes through `lifecycle.require_schema_change_confirmed` and refuses
+  without `schema_changed_ok`. Noust puts code back, never a database. The automatic go-back
+  after a failed gate still happens and says so first.
+- **An operator's site is never rewritten or deleted** (`helpers/site.py`; the "Generated by
+  Noust" marker decides). A domain becomes a site file in one place, `webserver.config_path`
+  through `site_name_for`, because an adopted app's file may not be named after its domain
+  (`proggest` for `proggest.es`).
+- **The relay** (`compose_relay.py`) shares its parts with blue/green and is opt-in through the
+  same `zero-downtime` command. nginx reaches each relayed service through
+  `/etc/nginx/noust-upstreams/<app>/<service>.servers` (`core/paths.py`; upstream names keep the
+  `wasm_bg_` prefix); an operator's site includes it itself and Noust prints the exact line. An
+  interrupted update leaves a relay that the next update and `noust setup doctor` resolve.
+- **Adopting never changes what runs.** `compose_adopt.py` reads the project from the
+  containers' labels (`apps.compose_project`, passed as `-p` everywhere), proves the stack with
+  `up --dry-run --no-build`, creates and enables the unit without starting it. No Compose
+  update cleans a checkout: it is brought to the branch and what git does not track (the `.env`,
+  bind-mounted data) stays.
+- **A stack's databases are dumped before every Compose update**, in the pre-update backup, and a
+  failed dump stops the update (`StackBackupError`): without it a migration cannot be undone.
+  Passwords are read inside the container, never in argv. `backup_before_update` and
+  `backup.databases: off` turn it off.
+- **`siteconf` is the one nginx/Apache parser.** `render(parse(text)) == text` for any text the
+  server accepts; edit operations change only the bytes of the element they name; `route` applies
+  the server's own location algorithm. The API (`structure`, `config/edit`, `route`, `topology`)
+  writes nothing: the visual editor produces text and saves it through the one `PUT .../config`
+  (rule 3 and 4). A site's config test runs inside the live `nginx.conf` with the enabled sites.
+- **One definition of a worker**: `compose_ports.is_headless_stack` (no TCP port published).
+  Deploy, store, `diagnose`, the monitor and the summaries judge it by its containers.
+- **Accounts and the sandbox.** `app_identity.service_account` is the only answer to "as whom";
+  new apps get `noust-app-<name>`, existing ones only by `noust app identity migrate`. The
+  sandbox is the default for apps from before 3.1 through `sandbox_trial.trial_before_update`: it
+  never breaks an update that worked.
+- **Monitor and jobs.** `app_unreachable`/`app_recovered` come from the monitor's `reachability`
+  (three failures over a minute, the deploy's own `HealthCheck`); process samples (top 5 CPU and
+  memory per minute, commands redacted) feed `GET /api/timeline`; a job records its transient
+  unit (`jobs.unit`) so `job_reconcile` finishes it after a console restart.
+- **Store v13** is `core/schema_v13.py`; every new column has its own validated setter and
+  survives a redeploy's full-row write. The harness (`tests/integration/run.py`) now has Docker
+  inside; `--scenario proggest` deploys a clean clone of Proggest, and nothing ever runs against
+  the host's Docker or its `proggest*` containers.
 
 ## Fleet
 
@@ -247,6 +321,8 @@ See `docs/CENTRAL.md` for running a central, sealing its secrets and adding a se
   `wasm.branch`, the `wasm-previous` image tag and the remote folder `wasm-backups`. Do not
   rename them within 3.x; accept both names where a new one was added (`noust.nginx.yaml`
   and `wasm.nginx.yaml`, `noust_tok_` and `wasm_tok_`, `noust_only` and `wasm_only`).
+- Owner feedback is numbered: items 1-52 shipped in 3.1; 3.2 continues from 53 (53-64 are in the
+  spec's section 8). Specs, plans and commit bodies cite them as "item N".
 - Google-style docstrings on everything public, with Args/Returns/Raises.
 - Type hints everywhere, modern syntax (`X | None`, `list[str]`).
 - Actionable errors: `raise DeploymentError("what happened", details="how to fix it")`.

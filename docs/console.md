@@ -167,6 +167,42 @@ way to fix it) beside recent activity as a timeline, then the machine's charts a
 When the charts' history is not being recorded, it says why and what to run. A server with
 nothing deployed shows first steps instead. On a hub, the home page is the fleet summary.
 
+### Charts
+
+The charts drawn from the [metrics history](MONITOR.md#metrics-history) (the Overview's machine
+charts, an application's Metrics tab and a database's Overview and Metrics tabs) behave the same
+way everywhere.
+
+- **A group of charts** shares one crosshair: pointing at one marks the same moment on the others,
+  but only the chart under the pointer says the moment and its readings, and the rest keep the
+  newest values in their row. A click no longer freezes anything: until 3.2 it froze that chart and,
+  through the group, every other one until the next click. The keyboard still steps through the
+  readings, and Escape hides the card.
+- **Expanded**, a chart has the range selector and the zoom. Dragging across it selects a stretch
+  of time, drawn as a translucent tint with solid edges so the readings under it stay visible, and
+  zooms into it: the stretch is read again at a finer step.
+- **Investigate this stretch** is a button of the expanded chart. It acts on the stretch on screen
+  (the one you zoomed to, or the whole window) and opens a panel, "What happened in this stretch",
+  with what Noust knows about it in one place, up to 31 days:
+  - **Busiest processes**: the five processes with the most CPU and the five with the most memory
+    in each minute, with the service, application or container each belongs to, the account, and
+    (with `secrets.reveal`) its command line. A row selects that minute and lists its processes below; when the stretch is long,
+    only its busiest minutes are listed, and the panel says so. This is what answers "why this
+    peak". The monitor takes these samples once a minute while it runs, so there are none from
+    before it started: the panel says "No process samples before ..." with the time they begin.
+  - **Events**, oldest first, filtered by source, level and service: the system journal from
+    warnings up, the audit log (commands, console and central actions, sign-ins, with who), what
+    the monitor saw (processes over a threshold, units that failed or recovered, server boots),
+    and the deployments and jobs that ran.
+  - **Deployments and jobs**, each opening its page.
+
+  On an application's Metrics tab the stretch is narrowed to that application: its journal (every
+  priority), the audit events that name it, its deployments and jobs, and its processes. On a
+  database's charts and the Overview it covers the whole server. A source you may not read is
+  named with the permission it needs, never left out silently: the journal needs `secrets.reveal`,
+  the audit log `audit.read`. A source that failed shows the system's own words. On a central,
+  each server answers for what it saw. The same data is `GET /api/timeline`, see [api.md](api.md).
+
 ### Fleet
 
 A [central's](CENTRAL.md) own pages, hidden on a plain server. Tabs: **Summary** (the fleet's
@@ -181,6 +217,27 @@ update Noust, apply system updates) are chosen from a list of servers or by labe
 plan first (which servers, in which batches, what is skipped and why), and run as a fleet job
 with each server's outcome and a button to retry the servers that failed. **Add a server**
 starts the same flow as **Settings > Servers**.
+
+On a fleet job's page, **Details** on a server's row opens what happened there:
+
+- **A failure first**, with the server's own words verbatim and the suggested fix above them.
+- **Its state**, how long it really took (or has been running), its batch, and what the job
+  returned in words: for a system update, how many packages and which, whether a reboot is due
+  (nothing is rebooted) and which services still run old libraries; for Noust's update, the version
+  it went from and to; for a certificate renewal, each certificate renewed and its new expiry. A
+  server older than 3.2 does not say which certificates, so nothing is guessed.
+- **The job's log on that server**, in the log viewer (search, copy, download, follow the end):
+  live while it runs, over the job WebSocket the central relays through the tunnel, and whole once
+  it ended. A server that ran several jobs for the action has one tab per job.
+- **Each application**, only for the actions that work per application (update, restart, back up,
+  verify backups), with its domain, its result and a link to its deployment or its backup.
+- **Open on the server**, a link to that job in the server's own Activity.
+
+An operating system update that upgrades the `noust` package restarts the node's console in the
+middle. The plan says so beforehand ("Also updates Noust: its console restarts, and the job waits for it"; Noust is installed last), and the
+central waits for the node to come back and reads the result instead of counting a failure: the
+node's console follows a job that runs in a transient systemd unit again after it restarts (see
+[Live updates](#live-updates)), so the job ends as the unit did.
 
 ![Fleet](assets/console/fleet.png)
 
@@ -209,6 +266,17 @@ detected type (editable), install, build and start commands, port, and the varia
 streams the build log until the application answers. Switched to a server of the fleet, the
 wizard deploys there.
 
+The Source step also offers **A running stack**, for a Docker Compose stack that already runs on
+this server and that Noust did not deploy (one started by its own `deploy.sh`, say). You give the
+domain it serves and the directory it runs from, and under **More options** its compose file, the
+site file that serves the domain, the repository updates fetch from and the branch. **Preview**
+reads the project from the running containers' labels, finds the site, and shows the output of
+`docker compose up --dry-run` verbatim: it must say nothing would be recreated. **Adopt** then
+registers the stack without cloning, cleaning, rebuilding or restarting anything, and installs its
+service without starting it. If the rehearsal lists changes, the adoption is refused with
+Compose's own output, unless you tick **Adopt anyway, recreating what Compose lists** after reading
+it. Adopting needs sudo mode. See [compose.md](compose.md#adopting-a-running-stack).
+
 ![New application](assets/console/apps-new.png)
 
 ### One application
@@ -225,7 +293,7 @@ down, with a link to **Diagnose**. Tabs:
 | Metrics | CPU and memory (requests and errors for a static site) over an hour, a day, a week or a month, against its limits, with deploys marked; or why there is nothing to show |
 | Environment | The `.env`, redacted; revealing and editing need sudo mode. Changes are staged and reviewed before saving; a restart applies them |
 | Database | The databases it uses, creating and linking one, and its connection string |
-| Domains | Primary, aliases and redirects, with a DNS check per name; add a name as an alias or a redirect |
+| Domains | Primary, aliases and redirects, with a DNS check per name; add a name as an alias or a redirect (Docker Compose stacks that publish a port and monorepos included; see [domains.md](domains.md)) |
 | Settings | One page per subsection, below |
 
 ![Application](assets/console/app-overview.png)
@@ -234,21 +302,43 @@ Each deployment has its own page: commit, trigger, duration, a phase timeline, t
 (live while it runs, with "Show the whole log" when it was truncated), and on failure a link
 to Diagnose plus Roll back and Redeploy.
 
+A deployment that ran [deploy hooks](releases.md#hooks-and-schema-aware-rollback) lists them
+under **Deploy hooks**, in the order they ran, before the new version served and after it did.
+Each shows how it ended (succeeded, exited with a code, ran out of time, did not run), how long it
+took, the service it ran in on a Compose stack, and the end of its output verbatim; Prisma's
+automatic migration is listed the same way. The section also says whether the deploy changed the
+database schema, and the list of deployments marks such a deploy with a **Database changed**
+badge. When a hook that runs after serving failed, the page says **Deployed with warnings**: the
+new version serves, nothing was undone, and the hook's output is shown (the `deploy_hook_failed`
+notification says the same).
+
 ![Deployment](assets/console/app-deployment.png)
 
 With instant rollback, rolling back switches `current` and restarts behind the health gate in
 seconds, and is not a job. On an application in a single folder (in place), rolling back
 restores a backup and runs as a job. See [releases.md](releases.md).
 
+**Going back past a change to the database.** Noust puts code back, never a database. When later
+deployments changed the schema, every way back asks first: rolling back to a deployment,
+activating a release, the Roll back dialog's backups, and restoring a backup's files. Before you
+press the button, the deployment's dialog says which deployments changed the schema after it. If
+you go ahead, **Going back passes a change to the database** lists those deployments with the
+migrations each one ran, names the backup taken before the first of them and the
+`noust backup restore` command that puts the database back (for a Compose stack,
+`--databases-only`), and **Go back anyway** repeats the request confirmed. A failed health gate
+still puts back what served before, whatever the attempt changed. See
+[releases.md](releases.md#hooks-and-schema-aware-rollback).
+
 **Settings** has a side navigation, a URL per subsection, and a save bar ("N unsaved changes ·
 Discard · Save"):
 
 | Subsection | What it has |
 |---|---|
-| General | Type, port, source, the branch it deploys from (pin or unpin it), commands, how deploys work, the service |
-| Deploys | **Instant rollback**: what it gives you, what changes on disk, the migration plan and a rehearsal, then the migration; releases kept; the health check; blue/green |
-| Deploy on push | The webhook as a guided setup: the public URL (`noust web expose-hooks`), the secret, the values to enter at the forge, the branch that deploys, and the last deliveries, ignored ones included |
-| Builds | Whether it builds in the sandbox or as root and why; **Test in the sandbox**, then enable; the network profile; building as root with a reason |
+| General | Type, port, source, the branch it deploys from (pin or unpin it), the tags it deploys (**Follow tags...**: a pattern such as `v*`; see [compose.md](compose.md#deploying-by-tag)), commands, how deploys work, the service and the account it runs as (**Give it its own account...**: its service, files and `.env` move to an account of its own and the app restarts once; if it does not answer afterwards everything is put back exactly as it was). On a Compose stack that publishes no port but still has one recorded, **A worker reported as down** offers **Record it as a worker...**, which clears the port and judges the stack by its containers |
+| Deploys | **Instant rollback**: what it gives you, what changes on disk, the migration plan and a rehearsal, then the migration; releases kept; the health check; **Zero-downtime deploys** (blue/green; on a Docker Compose stack, the relay, which says what to change first when the stack or its site cannot use it); and on a Compose stack, **Copy of the databases before an update** |
+| Deploy on push | The webhook as a guided setup: the public URL (`noust web expose-hooks`), the secret, the values to enter at the forge, the branch that deploys, and the last deliveries, ignored ones included. An app that follows tags says so here: releases and tags that match deploy, pushes to a branch do not, and a delivery for an older or unmatched tag is listed as ignored |
+| Deploy hooks | The commands each deploy runs before the new version serves and after it does, where they come from (**From the repository**: the `noust.yaml` of the running code; or **From the operator**, which replaces it whole), each with its service, directory, time limit and whether it changes the schema. The operator's hooks are written here as YAML in the shape of a `noust.yaml`; saving asks for sudo mode and may wait for a second person's approval. An invalid `noust.yaml` is shown with the reason, and the next deploy fails with it until it is fixed or replaced by the operator's hooks. A static site has no hooks |
+| Builds | Whether it builds in the sandbox or as root and why; **Test a sandboxed build**, then turn it on (the trial Noust runs by itself before the next update of an app that still builds as root is recorded here like one you ran, passed or failed); the network profile; building as root with a reason |
 | Resources | Memory (MB, at least 64), CPU (percent of one core) and tasks (at least 16), optionally restarting so they apply now |
 | Previews | Pull request previews and their settings |
 | Export | The application as a file to import elsewhere |
@@ -263,6 +353,9 @@ state, the port it listens on, an HTTP probe straight to the application and one
 the last journal lines, nginx's error log for the domain, the certificate, the last deployment,
 OOM kills in the last seven days and disk space. The most likely cause comes first, with each
 check's evidence verbatim. Every probe only reads. The same report is `noust diagnose DOMAIN`.
+A Docker Compose stack that publishes no port (a worker) has no port or site to probe: it is
+judged by its containers, and the evidence is their state and the last lines of `docker compose
+logs`; when a port is still recorded for it, the report says so and names `noust app headless`.
 
 ### Databases
 
@@ -293,13 +386,89 @@ due, renew one now, revoke, delete. **Sites**: every nginx or Apache site; creat
 disable, delete, and edit a site's configuration in a full-height editor with "Test" and "Test
 and save": the web server tests it before it is installed.
 
+The list shows every site file the web server has, the ones Noust wrote and the ones you wrote:
+**Written by** says "Noust" or "By hand", and **Application** names the application whose site it
+is, or says it is not an application's. A site written by hand is never rewritten by a deploy
+(see [domains.md](domains.md#operator-sites)).
+
 ![Domains and certificates](assets/console/domains.png)
+
+#### A site as text, structure and diagram
+
+A site's page (`/domains/sites/<site>`) shows its configuration in three views, chosen with the
+**View** control and kept in the URL (`?view=structure`, `?view=diagram`; the Text view has none).
+Only nginx and Apache sites have all three. The views share **one draft**, the text: what you
+change in one appears in the others, the bar at the foot (changed lines, **Discard**, **Test**,
+**Test and save**) is the same, and leaving the page with changes asks first. There is **one way
+to save**: the same `PUT /api/sites/{domain}/config` whichever view made the change, which needs
+sudo mode, may need a second person's approval, and tests the whole text with the web server before
+it writes anything. A site whose text cannot be read (a draft with a syntax error) shows the
+analyzer's own message with its line and column and a **Go to text** button, never half a
+structure.
+
+- **Text** is the editor, as before.
+- **Structure** shows the site as what it is:
+  - a card per `server`: where it listens as chips (`443 · TLS · HTTP/2`, with `default_server` where it is one), its names, its
+    certificate with the days left, its maximum body size, and a note when it answers every
+    request itself with a `return`;
+  - the **locations in the order the web server tries them**, not the order of the file (exact
+    matches first, then the longest prefix, regular expressions in file order unless a `^~` prefix
+    stops them). Each has its kind of match, its path, and where it goes: an upstream (a chip that
+    scrolls to that upstream's card), a proxied address, the files of a directory, a redirect,
+    FastCGI. The settings used most are fields in the row (read timeout, maximum body size, rate
+    limit, WebSocket, buffering), and **More directives** opens every other directive of the
+    location as written, editable;
+  - **Upstreams** with their servers, how many locations use each, and "Defined in ..., read only
+    here" for one an included file declares; **Other directives** (maps, zones, anything the
+    structure does not model) and **Included files**, as written: nothing is hidden;
+  - the comments of the file as notes next to the element they belong to;
+  - **Add location** (**Proxy**, **Static files** or **Redirect**), and from each location's menu
+    **Duplicate**, **Move up in the file**, **Move down in the file** and **Remove**. Moving is only
+    ever what you ask for: the structure never reorders the file to tidy it.
+
+  A text field applies when you press Enter or leave it, not on every key, and Escape puts back
+  what the file says. Each change is an operation sent to the backend
+  (`POST /api/sites/{domain}/config/edit`), which changes only the bytes of the element concerned
+  and keeps its indentation; the rest of the file stays identical, comments and blank lines
+  included. The answer is the new draft, and the changed elements are marked **Changed**. Nothing
+  is written to disk until **Test and save**.
+- **Diagram** is read only. It draws how a request travels, in columns: **Ports**, **Names**,
+  **Locations**, **Destinations** and **Backends**. Every element has a shape and a text label;
+  colour only says whether a backend answers (responds, not responding, unknown), always with its
+  glyph and word, and a backend says who holds its port: a Noust application, a service of a
+  Compose project, a container, a systemd unit or another process. Dashes move along each
+  connection in the direction of the traffic, faster where the connection is encrypted, and a
+  WebSocket is drawn as a double line; with `prefers-reduced-motion` they stand still. Pointing at
+  or focusing an element lights its whole path, and pressing it keeps it lit. Under the drawing
+  are a written summary (how many connections, which elements do not respond) and the same
+  connections as a table behind **Show the connections as a table**. On a phone each column is a
+  list. Whether a backend answers is the result of a one-second connection to its loopback port,
+  cached for ten seconds; a draft is drawn from the unsaved text but its backends' state comes from
+  the saved file.
+- **Try a URL**, above the diagram, takes a full address or a path
+  (`https://shop.example.com/api/`) and asks the backend which server and location answer it
+  (`POST /api/sites/{domain}/route`); nothing is requested, the web server's rules are replayed over
+  the file (or the unsaved draft). Only that path is lit and animated, a sentence says which
+  location of which server answers the URL (or that the server answers it itself because no
+  location matches, or that no server takes it), and a numbered explanation gives each step of the
+  web server's choice: which server by port and name, which location by exact match, longest
+  prefix or regular expression, and what that location does. It is the way to see why
+  `/api/v1/auth/login` reaches the location it reaches and not the one you expected.
+
+A server whose Noust is older than 3.2 (a 3.1 node reached through a 3.2 central) has no such
+views: the page says "This server runs an older Noust" and **Edit as text** goes back to the
+editor, which works as before.
 
 ### Backups
 
 Three tabs: **Backups** (storage used per application, every backup: verify, restore, delete;
 "New backup" with the same options as `noust backup create`), **Schedules** and
-**Destinations** (remote places, their test and their key).
+**Destinations** (remote places, their test and their key). The backup an update of a Docker
+Compose stack takes first holds a dump of each database the stack runs, unless the application
+turned that off under Settings > Deploys; putting the databases back is `noust backup restore
+BACKUP_ID --databases-only` from a terminal. Restoring only the files past a deployment that
+changed the database schema asks first, as going back does (see
+[above](#one-application)).
 
 ### Activity
 
@@ -322,6 +491,21 @@ Seven tabs, each with its URL:
 
 `/services` redirects to Server > Services.
 
+**Time zone.** On the System tab, **Change time zone** opens a dialog with a searchable list of the
+zones the managed server itself knows (`GET /api/server/clock/timezones`; on a central, the
+selected server computes them, not your browser). Type a name, a city, an abbreviation or an
+offset (`madrid`, `cest`, `+2`, `utc+1`) and the list narrows; zones are grouped by region, each
+option shows the name (`Europe/Madrid`), the city and its offset and abbreviation now
+(`UTC+02:00 · CEST`), and the zone in use is marked **In use**. Under the list, the time the
+server's clock will read with the zone you chose. Cron jobs and scheduled backups run at local
+times, so their timers move with the zone, and the toast says how many moved. A server whose Noust
+is older than 3.2 does not list its zones: the dialog says so and the name is typed, as before.
+
+**Processes.** Click a column header (Process, PID, CPU, Memory) to sort; the order is applied by
+the server, each column in its natural direction (CPU and Memory busiest first, PID and Process in order),
+and the CPU and Memory headers sort the view grouped by service. The button under the table says how many there are ("Show the first 50 of 213") and keeps
+the rows already listed while the longer list loads. The console never signals a process.
+
 ### Settings
 
 A side navigation with a page per section. On a central, each section says whose it is: the
@@ -330,7 +514,7 @@ selected server's, or this central's.
 | Section | Scope | What it has |
 |---|---|---|
 | General | Server | Applications directory, web server, certificate email, backups, the server's name, and the console address `--open` links use |
-| Notifications | Server | Channels (webhook, Slack, Discord, Telegram, email) in drawers, with a test each; which events notify; private destinations allowed |
+| Notifications | Server | Whether notifications are on, at the top (amber when they are on but no channel is set up; see [Features that are on or off](#features-that-are-on-or-off)); channels (webhook, Slack, Discord, Telegram, email) in drawers, with a test each; which events notify, among them **Deployed with warnings** (`deploy_hook_failed`), **Application not answering** (`app_unreachable`) and **Application answering again** (`app_recovered`), all on by default; private destinations allowed |
 | Integrations | Server | The GitHub App |
 | About | Server | Version and updates, installation, CLI equivalents, links |
 | Servers | Central | Every server, its reachability, version, ceiling and labels; **Add a server** walks through `noust fleet authorize` and the join code; test and remove |
@@ -349,6 +533,24 @@ on the server.
 ![Settings > Servers](assets/console/settings-servers.png)
 
 Writing any setting needs sudo mode.
+
+## Features that are on or off
+
+A page that configures a feature opens with its state in one block, at the top, where earlier
+versions had a neutral message in which only a word changed. The state is a colour, a glyph and a
+word at once, so it reads without reading the sentence under it:
+
+| State | Shown as | Beside the title |
+|---|---|---|
+| On | The running green, a switch drawn on, "Enabled" in strong type | What it does for you |
+| Off | Grey, a switch drawn off, "Disabled" | What being off means for you, and the action that turns it on |
+| On with a problem | Amber and a warning triangle, never green: it is on but cannot do what it says | The problem by name ("Enabled, but no channel"), and the action that fixes it |
+
+The block appears on Settings > Notifications, Settings > Approvals, the second factor in
+Settings > Security, scheduled backups on the Backups page, automatic updates on Server > Updates,
+and in an application's settings for instant rollback, zero-downtime deploys, builds in the
+sandbox and pull request previews. A change of state pulses once; with `prefers-reduced-motion`
+it does not. The block is the design system's `FeatureState`, see [DESIGN.md](DESIGN.md).
 
 ## Keyboard
 
@@ -376,7 +578,8 @@ keys or `Ctrl N` / `Ctrl P` move, `Enter` runs, `Esc` closes.
 
 Destructive and credential-changing actions (deleting anything, restoring a backup, revealing
 or editing an `.env`, moving to instant rollback, changing limits, editing a unit or a site,
-SQL in write mode, server changes, managing accounts, changing settings, issuing a token) ask
+writing an application's deploy hooks, adopting a Compose stack, SQL in write mode, server
+changes, managing accounts, changing settings, issuing a token) ask
 you to confirm it is you: a dialog titled "Confirm it's you" asks for your passkey, or your
 password and a code from your authenticator app (for the access token, its code, or the token
 itself when it has none). The confirmation covers the next 10 minutes, and the action you were
@@ -394,6 +597,17 @@ states, job progress and notifications, and opens a WebSocket for a log or a run
 while you look at it. If the connection drops it reconnects with backoff and refreshes
 everything it shows. Log viewers render ANSI colours, search, follow the newest line (pausing
 when you scroll up, with a "Jump to latest" button), wrap, copy and download.
+
+A job runs on a thread of the console, so a console that restarts ends the jobs it was running:
+they are marked "Interrupted by a panel restart". The exception is work that runs in a transient
+systemd unit of its own (applying operating system updates, and Noust updating itself), which
+keeps going when the console restarts, and a `noust` package among the updates is precisely what
+restarts it. The job records its unit, and the console that starts again follows it
+instead of failing it: when the unit ended well the job completes with the unit's output appended
+to its log, when it failed the job fails with systemd's result and the unit's own words, and when
+it is still running the job stays running, its log grows as the unit writes, and it ends with the
+unit, or gives up after a deadline and says how to follow it. A job with no unit recorded is still
+marked interrupted.
 
 ## Themes
 
@@ -427,7 +641,10 @@ The console targets WCAG 2.2 level AA, and that is tested rather than declared:
 - Every chart has a text summary, works from the keyboard (arrow keys step through readings,
   announced in a live region), and its expanded view has a Data tab with the readings as a
   table.
-- With `prefers-reduced-motion`, transitions are instant.
+- A site's diagram has a written summary under it and the same connections as a table; every
+  element can be focused from the keyboard and has an accessible name that includes its state.
+- With `prefers-reduced-motion`, transitions are instant and the moving dashes of the diagram
+  stand still.
 
 If something in the console is not usable with your assistive technology, please open an
 issue on GitHub.

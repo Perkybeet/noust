@@ -266,8 +266,9 @@ def _procfile(text: str, proposal: Proposal) -> None:
             proposal.start_command = command
         elif process == "release":
             proposal.warn(
-                f"The release command ({command}) has no equivalent; run migrations from "
-                "the build script, or by hand after the deploy."
+                f"The release command ({command}) is a pre_deploy hook in Noust: declare it "
+                "in noust.yaml (hooks.pre_deploy, with migrates: true for migrations; see "
+                "docs/compose.md)."
             )
         else:
             proposal.warn(

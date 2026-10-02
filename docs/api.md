@@ -190,6 +190,16 @@ Every error from every router has the same shape:
 Refusals made before routing (address not allowed, TLS required, body too large, rate limit,
 lockout) have the same keys except `output`.
 
+**`schema_changed`** (`409`, since 3.2) is the refusal of every way back: activating a release,
+rolling back to a deployment, restoring a backup's files, and the job that restores a backup
+for a rollback. Noust puts code back, never a database, so going back past one or more
+deployments that changed the schema waits for the caller's yes. The body has the usual keys
+plus `deployments`, the ids of those deployments, oldest first, and `fields` names
+`schema_changed_ok`. Repeat the call with `schema_changed_ok` set to confirm (a query parameter
+on `POST /api/apps/{domain}/releases/{release_id}/activate`, a body field everywhere else), or
+restore the database from the backup taken before the first of them. See
+[releases.md](releases.md#going-back-past-a-schema-change).
+
 | Status | When |
 |---|---|
 | `400` | Invalid input Noust checked itself: a domain, a name, a path, a configuration value, a source; a `Host` not in `web.allowed_hosts` |
@@ -197,7 +207,7 @@ lockout) have the same keys except `output`.
 | `202` | `approval_required`: the call became a four-eyes request; see [Approvals](#approvals) |
 | `403` | Permission missing, sudo mode required, second factor or notice pending, address not allowed |
 | `404` | Unknown application, database, job, release... |
-| `409` | Conflict: the domain is taken, the database exists, the application is in place and has no releases; `app_busy` when another deploy, update, rollback, migration, restore or deletion is running on the application (`detail` names it; wait for it, or follow it in Jobs) |
+| `409` | Conflict: the domain is taken, the database exists, the application is in place and has no releases; `app_busy` when another deploy, update, rollback, migration, restore or deletion is running on the application (`detail` names it; wait for it, or follow it in Jobs); `schema_changed` when going back would pass deployments that changed the database schema (see below); `rollback_unavailable`, with the reason; `adopt` refused because starting the stack as Noust would recreate containers (`output` has Compose's own dry run) |
 | `413` | Request body over the limit, checked before authentication: 1 MiB, or 5 MiB under `/hooks/` |
 | `422` | Request body failed validation; see `fields` |
 | `429` | Rate limit (120 requests a minute per address by default) or lockout |
@@ -210,8 +220,17 @@ lockout) have the same keys except `output`.
   restoring and issuing certificates answer `202` with `{job_id, status, message, job}`.
   Follow the job with `GET /api/jobs/{id}`, its log with `GET /api/jobs/{id}/log?tail=N`, the
   `job` events on `/events`, or `/ws/jobs/{id}`. A finished deploy or update job carries the
-  `deployment_id` of its history row. Jobs and their logs are persisted; a job left
-  running when the console restarts is marked failed with "Interrupted by a panel restart".
+  `deployment_id` of its history row. Jobs and their logs are persisted. A job left
+  running when the console restarts is marked failed with "Interrupted by a panel restart",
+  except one whose work runs in a transient systemd unit of its own (an operating system
+  update, Noust updating itself): it records that unit, and the console that starts again reads
+  how the unit ended instead of guessing. A unit that ended well completes the job, with what
+  the unit wrote appended to its log; one that failed fails it with systemd's result and the
+  unit's own words; one still running keeps the job running until it ends, or until that kind
+  of job's deadline, which the log says. This matters because the `noust` package among the
+  upgrades is what restarts the console. A central's fleet job waits for the node to come back
+  and reads the reconciled result rather than counting a failure. Each reconciliation is
+  audited. A job with no recorded unit is still marked interrupted.
   Only a job that has not started can be cancelled (`POST /api/jobs/{id}/cancel`).
 - **Lists** answer an object with the items and a count: `{apps, total}`,
   `{backups, total}`, `{items, total}`, and so on. The one exception is
@@ -358,6 +377,179 @@ curl -s -H "Authorization: Bearer $TOKEN" \
 curl -s -H "Authorization: Bearer $TOKEN" "https://panel.example.com/api/deployments/42/log"
 ```
 
+A deployment says what its hooks did and whether it changed the database's schema (3.2):
+`schema_changed`, `schema_changed_between` (the later deployments of the application that did:
+going back to this one passes them), `hooks` (each hook, and Prisma's automatic migration with
+`automatic: "prisma"`, with `phase`, `run`, `service`, `migrates`, `exit_code`, `ok`,
+`timed_out`, `duration_s` and the end of its `output`) and `warnings` (why a successful
+deployment went live with warnings: a `post_deploy` hook failed). `GET /api/apps/{domain}`
+carries `follow_tags` (the glob of tags it deploys, or null) and `backup_before_update`.
+
+### Deploy hooks and going back past a migration
+
+```bash
+# Which hooks the next deployment runs, and where they come from
+curl -s -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/apps/shop.example.com/hooks
+# {"domain", "source": "repo" | "operator" | "none", "pre_deploy": [...], "post_deploy": [...],
+#  "document": null, "repository_error": null}
+
+# Set the operator's own, which replace the repository's noust.yaml whole (sudo mode, four-eyes)
+curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"document": "hooks:\n  pre_deploy:\n    - run: ./scripts/migrate.sh\n      timeout: 300\n      migrates: true\n"}' \
+  https://panel.example.com/api/apps/shop.example.com/hooks
+# 200 the same shape, "source": "operator". An invalid document answers 400 and names the field:
+# {"error": "validationerror", "fields": {"hooks.pre_deploy[0].timeout": "..."}}
+
+curl -s -X DELETE -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/apps/shop.example.com/hooks
+```
+
+`document` is the shape of a `noust.yaml` holding only `hooks` (at most 64 KiB); `source:
+"operator"` means it replaces the repository's. Writing hooks is root-equivalent because a hook
+runs with the application's identity and secrets. `repository_error` says why the running code's
+own `noust.yaml` is not valid, when it is not: the next deployment fails with it. See
+[compose.md](compose.md#noustyaml) and [compose.md](compose.md#operator-hooks).
+
+Going back to a deployment that would pass one that changed the schema is refused until it is
+confirmed:
+
+```bash
+curl -s -X POST -H "Authorization: Bearer $TOKEN" \
+  https://panel.example.com/api/apps/shop.example.com/deployments/41/rollback
+# 409 {"error": "schema_changed", "detail": "Going back to deployment 41 of shop.example.com
+#      passes deployment 43, which changed the database schema", "hint": "...",
+#      "fields": {"schema_changed_ok": "..."}, "deployments": [43]}
+
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"schema_changed_ok": true}' \
+  https://panel.example.com/api/apps/shop.example.com/deployments/41/rollback
+# 202 {"job_id": "...", ...}
+```
+
+The same field, `schema_changed_ok`, confirms `POST /api/jobs/rollback` and
+`POST /api/backups/{backup_id}/restore` (in the body), and
+`POST /api/apps/{domain}/releases/{release_id}/activate` (as a query parameter).
+
+### Adopting a Docker Compose stack
+
+`POST /api/apps/adopt` registers a stack that already runs, without touching it. It needs
+`apps.manage` and sudo mode. `preview: true` answers what the adoption would record and changes
+nothing, which is what the console shows before asking:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"domain": "proggest.es", "path": "/opt/proggest", "preview": true}' \
+  https://panel.example.com/api/apps/adopt
+# {"domain", "app_name", "app_path", "compose_file", "project", "project_from", "containers",
+#  "running", "source", "branch", "commit", "site", "site_name", "ssl", "port", "headless",
+#  "dry_run", "changes", "warnings", "adopted": false, "unit", "deployment_id": null}
+```
+
+The request also takes `compose_file`, `source`, `branch`, `site` (the file in `sites-available`
+that serves the domain, when its name is not the domain's), `port` and `accept_recreate`. When
+`docker compose up --dry-run` says starting the stack as Noust would create, recreate or remove
+something, the call answers `409` with Compose's own output in `output` and the lines in
+`changes`, and adopts nothing unless `accept_recreate` is true. `dry_run` carries that output
+verbatim on success. See [compose.md](compose.md#adopting-a-running-stack).
+
+The same family: `PATCH /api/apps/{domain}/backup-before-update` with `{"enabled": false}`
+(sudo mode; answers `{domain, backup_before_update, previous}`) switches off the copy of a
+stack's databases an update takes first; `GET /api/apps/{domain}/headless` says whether a
+Compose stack publishes no port (`headless`), which port is still recorded (`recorded_port`) and
+whether its site can go too (`site_retirable`), and `POST` with `{"remove_site": true}` records
+it as a worker (sudo mode); `PATCH /api/apps/{domain}/follow-tags` with `{"pattern": "v*"}` (or
+`null`) makes it deploy tags instead of a branch. `PUT /api/apps/{domain}/zero-downtime` also
+accepts a Compose stack, for which the mode means each web service is updated behind a relay:
+`instances` is empty and `reason` and `hint` say what is missing (a published port, the line an
+operator's own site must include). See
+[compose.md](compose.md#zero-downtime-updates-the-relay),
+[compose.md](compose.md#stack-database-backups-and-restore),
+[compose.md](compose.md#workers-without-a-web-port) and
+[compose.md](compose.md#deploying-by-tag).
+
+`DELETE /api/apps/{domain}` (and `POST /api/jobs/delete`) never removes an adopted stack's
+directory, which is outside Noust's apps directory, with the files; name it exactly in
+`remove_adopted_directory` to remove it too. The operator's own site and the servers files it
+includes are kept and reported as kept.
+
+### Reading a site: structure, edits, routes
+
+None of these writes anything; the console's visual editor turns their results into text and
+saves it through `PUT /api/sites/{domain}/config`, the one way a site is written. All need
+`apps.read`.
+
+```bash
+# The model of the saved file: servers, locations in the order the web server tries them,
+# upstreams, includes (resolved when they are Noust's own or under /etc/nginx), comments, and
+# every directive it has no field for, as raw text
+curl -s -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/sites/proggest.es/structure
+# {"site", "webserver", "path", "structure": {"kind": "nginx", "servers": [...], "upstreams": [...],
+#  "includes": [...], "directives": [...], "notes": [...]}, "error": null}
+
+# The same for a draft; text that does not parse is an answer, not a failure
+curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"config": "server { listen 80;"}' https://panel.example.com/api/sites/proggest.es/structure
+# {"site", "webserver", "path", "structure": null, "error": {"line", "column", "message"}}
+
+# Apply edit operations to a text, in order; the result is text, and only the bytes of the
+# element each operation names change
+curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"config": "...", "ops": [{"op": "set_directive", "parent": "s0/l3", "name": "proxy_read_timeout", "args": ["120s"]}]}' \
+  https://panel.example.com/api/sites/proggest.es/config/edit
+# {"config": "...", "structure": {...}, "changed_lines": 1}
+
+# Which server and location answer a request, and why (a draft in "config", or the saved file)
+curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"host": "proggest.es", "path": "/api/v1/auth/login", "scheme": "https"}' \
+  https://panel.example.com/api/sites/proggest.es/route
+# {"server_id", "location_id", "steps": ["one sentence per step"], "trace": [{"code", "params", "text"}],
+#  "highlight": [ids along the path, the upstream last as "u:<name>"], "redirect": null}
+```
+
+Ids are positions: `s1` is the second server, `s1/l3` its fourth location, `u:name` an
+upstream, `d3` a directive. The operations are `set_directive`, `add_directive`,
+`remove_directive`, `add_block` (with a `body` or a `template` of `proxy`, `static` or
+`redirect`), `remove_block`, `duplicate_block` and `move_block`; at most 200 per request and a
+text of at most 1 MiB. A malformed operation answers `400` naming it (`ops[2].target`); text that
+does not parse answers `400` with the line.
+
+`GET /api/sites/{domain}/topology` is the structure plus what is behind it now: for each
+address the site reaches, who holds the port (a Noust application, a Compose service by its
+labels, a container, a systemd unit, a process), whether it accepts a connection (only on this
+machine, a one second connection, cached for ten seconds) and, for each server, the expiry of
+its certificate. `POST /api/sites/{domain}/config/test` tests the candidate inside the live
+`nginx.conf` (or `apache2.conf`), with this site's file swapped for it, so a site that uses a
+`limit_req_zone`, a `map` or a `log_format` declared there passes and a second `upstream` of an
+existing name fails, as at the reload. `GET /api/sites` lists the files in the web server's
+sites directory together with the store's: each entry says whether Noust wrote it
+(`noust_managed`), the application it serves (`app`) and the file's name (`site_name`), which is
+not the domain for a site the operator named. A site the operator wrote is never rewritten by a
+deploy; see [domains.md](domains.md#operator-sites).
+
+### What happened in a stretch
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" \
+  "https://panel.example.com/api/timeline?start=1790000000&end=1790003600&app=shop.example.com&sources=journal,audit"
+# {"start", "end", "app", "events": [{"at", "source", "kind", "level", "text", "unit", "app",
+#  "actor", "status", "ref", "priority", "details"}], "processes": {"minutes": [{"at", "cpu": [...],
+#  "memory": [...]}], "total_minutes", "since", "commands"}, "sources": [{"source", "state", "count",
+#  "truncated", "permission", "message", "evidence"}]}
+```
+
+`start` and `end` are epoch seconds, at most 31 days apart and not in the future. `app` narrows
+the answer to one application; `sources` (repeated or comma-separated) to some of `journal`,
+`audit`, `deployments`, `jobs`, `monitor` and `processes`. The route needs `server.read`, and
+each source keeps its own permission (`journal` needs `secrets.reveal`, `audit` needs
+`audit.read`); a source the caller may not read is answered with `state: "withheld"` and the
+permission it lacks, never dropped, and one that failed says why in `message` and `evidence`.
+`processes.commands` says whether the redacted command lines are included (only for callers
+holding `secrets.reveal`). See [MONITOR.md](MONITOR.md#what-happened-in-a-stretch).
+
+`GET /api/server/clock/timezones` lists the zones the managed server knows, each with its
+region, city, offset now (`UTC+02:00`, with `offset_minutes`) and abbreviation, `Etc/UTC` and
+`UTC` first and the rest by offset and name; the server computes it, so on a central the node
+answers.
+
 ## Deploy webhooks
 
 `POST /api/apps/{domain}/webhook-secret` (`apps.manage`, sudo mode) creates or replaces an application's webhook
@@ -374,6 +566,16 @@ A push to a branch other than the one the application deploys (its pinned branch
 pin, the branch its checkout is on in place or its recorded branch on releases) answers
 `200 {"status": "ignored", "reason": "branch"}`; with no branch at all to go by, any push
 deploys. A forge's ping is answered and recorded; a forge retry of the same delivery answers `"reason": "duplicate"`.
+An application that **follows tags** (`noust app follow-tags DOMAIN 'v*'`, `PATCH
+/api/apps/{domain}/follow-tags`) reads its deliveries differently (3.2): a published `release` of
+GitHub or Gitea (not a draft or a pre-release) and a pushed tag (GitHub, Gitea or GitLab)
+deploy that tag, once even though a forge may send both for one version (`202 {job_id,
+status}`); a draft or a pre-release, a tag that does not match the pattern, is not a version,
+or is not newer than what is deployed answers `200 {"status":
+"ignored", "reason": "tag", "detail": ...}` and a release action that publishes nothing
+answers `200` with `"reason": "action"`; and a push to a branch is ignored (`"reason":
+"branch"`) because there is no branch to deploy. The update job re-checks the tag when it runs.
+See [compose.md](compose.md#deploying-by-tag).
 An accepted delivery queues an update (`202 {job_id, status}`), exactly like `noust update`.
 An unknown application and one without a secret both answer `404`; a bad signature answers
 `401` and counts against that application: after 10 in 15 minutes its hook answers `429`
@@ -410,25 +612,32 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | Endpoint | Method, permission | |
 |---|---|---|
 | `/api/apps` | GET `apps.read`; POST `apps.manage`, four-eyes | List; deploy a new application (job). A local path needs sudo mode |
+| `/api/apps/adopt` | POST `apps.manage`, sudo | Register a Docker Compose stack that already runs, without touching it; `preview: true` answers what it would record. `409` with Compose's dry run when starting it would recreate something |
 | `/api/apps/import` | POST `apps.manage`, sudo |  |
 | `/api/apps/inspect` | POST `apps.manage` | Preview a source without deploying. A local path needs sudo mode |
 | `/api/apps/types` | GET `apps.read` |  |
-| `/api/apps/{domain}` | GET `apps.read`; DELETE `apps.manage`, sudo |  |
+| `/api/apps/{domain}` | GET `apps.read`; DELETE `apps.manage`, sudo | Delete (job). An adopted stack's directory, outside the apps directory, is kept unless `remove_adopted_directory` names it |
+| `/api/apps/{domain}/backup-before-update` | PATCH `apps.manage`, sudo | `{enabled}`: whether an update of a Compose stack dumps its databases first |
 | `/api/apps/{domain}/branch` | PATCH `apps.manage`, sudo | Pin the branch it deploys from, or unpin it |
 | `/api/apps/{domain}/databases` | GET `databases.read`; POST `databases.write` |  |
 | `/api/apps/{domain}/databases/link` | POST `databases.write` |  |
 | `/api/apps/{domain}/databases/{engine}/{name}` | DELETE `databases.manage` |  |
 | `/api/apps/{domain}/databases/{engine}/{name}/url` | POST `secrets.reveal`, sudo |  |
 | `/api/apps/{domain}/deployments/{deployment_id}/rebuild` | POST `apps.deploy` |  |
-| `/api/apps/{domain}/deployments/{deployment_id}/rollback` | POST `apps.deploy` |  |
+| `/api/apps/{domain}/deployments/{deployment_id}/rollback` | POST `apps.deploy` | Go back to what a deployment produced (job). `409 schema_changed` unless `{"schema_changed_ok": true}` |
 | `/api/apps/{domain}/diagnose` | GET `apps.read` |  |
-| `/api/apps/{domain}/domains` | GET `apps.read`; POST `apps.manage` |  |
+| `/api/apps/{domain}/domains` | GET `apps.read`; POST `apps.manage` | Aliases and redirects, also for Compose and monorepo applications since 3.2 |
 | `/api/apps/{domain}/domains/{name}` | DELETE `apps.manage`, sudo |  |
 | `/api/apps/{domain}/domains/{name}/dns` | GET `apps.read` |  |
 | `/api/apps/{domain}/env` | GET `apps.read`; PUT `apps.manage`, sudo | `.env`, redacted (`?unmask=true` needs `secrets.reveal` and sudo mode); replace it |
 | `/api/apps/{domain}/env/marks` | PUT `apps.manage`, sudo |  |
 | `/api/apps/{domain}/export` | GET `secrets.reveal` |  |
+| `/api/apps/{domain}/follow-tags` | PATCH `apps.manage`, sudo | `{pattern}`: deploy the newest git tag that matches a glob (`v*`) instead of a branch; null follows a branch again |
+| `/api/apps/{domain}/headless` | GET `apps.read`; POST `apps.manage`, sudo | Whether a Compose stack publishes no port; record it as a worker (`{remove_site}` also retires the site Noust wrote) |
 | `/api/apps/{domain}/health` | PATCH `apps.manage`, sudo | `{path, expect, timeout}` of the health gate; null is the default |
+| `/api/apps/{domain}/hooks` | GET `apps.read`; PUT `root_equivalent`, sudo, four-eyes; DELETE `apps.manage` | The hooks the next deployment runs and where they come from; set the operator's own (`{document}`, a YAML `hooks:`), which replace the repository's `noust.yaml`; clear them |
+| `/api/apps/{domain}/identity` | GET `apps.read` | The system account it runs as, whether it is its own, and why not when it cannot be |
+| `/api/apps/{domain}/identity/migrate` | POST `root_equivalent`, sudo, four-eyes | Move it to its own account behind the health gate (job) |
 | `/api/apps/{domain}/limits` | PATCH `apps.manage`, sudo | `{memory_max_mb, cpu_quota_percent, tasks_max, restart}`; null removes a limit |
 | `/api/apps/{domain}/logs` | GET `apps.read` |  |
 | `/api/apps/{domain}/metrics` | GET `apps.read` |  |
@@ -439,7 +648,7 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}/previews/{number}` | DELETE `apps.manage`, sudo |  |
 | `/api/apps/{domain}/releases` | GET `apps.read` |  |
 | `/api/apps/{domain}/releases/retention` | PATCH `apps.manage`, sudo | `{keep}`, 1 to 50; prunes now |
-| `/api/apps/{domain}/releases/{release_id}/activate` | POST `apps.deploy` | Instant rollback or roll forward, behind the health gate |
+| `/api/apps/{domain}/releases/{release_id}/activate` | POST `apps.deploy` | Instant rollback or roll forward, behind the health gate. `409 schema_changed` unless `?schema_changed_ok=true` |
 | `/api/apps/{domain}/restart` | POST `apps.operate` |  |
 | `/api/apps/{domain}/rollback-points` | GET `apps.read` |  |
 | `/api/apps/{domain}/sandbox` | GET `apps.read` | How it builds: sandbox or root, and why |
@@ -454,7 +663,7 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}/webhook/deliveries` | GET `apps.read` | Deployments webhooks triggered |
 | `/api/apps/{domain}/webhook/received` | GET `apps.read` | Every delivery received, ignored and refused ones included |
 | `/api/apps/{domain}/webhook/reveal` | POST `secrets.reveal`, sudo |  |
-| `/api/apps/{domain}/zero-downtime` | GET `apps.read`; PUT `apps.manage`, sudo |  |
+| `/api/apps/{domain}/zero-downtime` | GET `apps.read`; PUT `apps.manage`, sudo | `{enabled, drain_seconds}`; a Docker Compose stack is accepted since 3.2, updated behind relays |
 
 ### Jobs and deployments
 
@@ -468,9 +677,9 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/jobs/backup` | POST `backups.run` |  |
 | `/api/jobs/cert` | POST `apps.manage` |  |
 | `/api/jobs/cleanup` | DELETE `audit.manage` | Forget finished jobs in memory; the history stays |
-| `/api/jobs/delete` | POST `apps.manage`, sudo | `{domain, remove_files, remove_ssl}` |
-| `/api/jobs/rollback` | POST `apps.deploy` | `{domain, backup_id}`: restore a backup |
-| `/api/jobs/update` | POST `apps.deploy` | `{domain}` |
+| `/api/jobs/delete` | POST `apps.manage`, sudo | `{domain, remove_files, remove_ssl, remove_adopted_directory}` |
+| `/api/jobs/rollback` | POST `apps.deploy` | `{domain, backup_id, schema_changed_ok}`: restore a backup. `409 schema_changed` unless confirmed |
+| `/api/jobs/update` | POST `apps.deploy` | `{domain, force}` |
 | `/api/jobs/{job_id}` | GET `apps.read` |  |
 | `/api/jobs/{job_id}/cancel` | POST `apps.operate` |  |
 | `/api/jobs/{job_id}/log` | GET `apps.read` |  |
@@ -485,14 +694,18 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/certs/{domain}/renew` | POST `apps.operate` |  |
 | `/api/certs/{domain}/revoke` | POST `apps.manage`, sudo |  |
 | `/api/domains/dns` | GET `apps.read` |  |
-| `/api/sites` | GET `apps.read`; POST `apps.manage` |  |
+| `/api/sites` | GET `apps.read`; POST `apps.manage` | Every site file in the web server's directory together with the store's: `noust_managed`, `app` and `site_name` on each |
 | `/api/sites/reload` | POST `apps.operate` |  |
 | `/api/sites/templates` | GET `apps.read` |  |
 | `/api/sites/{domain}` | GET `apps.read`; DELETE `apps.manage`, sudo |  |
 | `/api/sites/{domain}/config` | GET `apps.read`; PUT `root_equivalent`, sudo, four-eyes |  |
-| `/api/sites/{domain}/config/test` | POST `apps.operate` |  |
+| `/api/sites/{domain}/config/edit` | POST `apps.read` | Apply edit operations to a text (`{config, ops}`); answers the new text, its structure and `changed_lines`; writes nothing |
+| `/api/sites/{domain}/config/test` | POST `apps.operate` | Test a candidate inside the live `nginx.conf` or `apache2.conf` |
 | `/api/sites/{domain}/disable` | POST `apps.manage` |  |
 | `/api/sites/{domain}/enable` | POST `apps.manage` |  |
+| `/api/sites/{domain}/route` | POST `apps.read` | Which server and location answer `{host, path, scheme}` and why; a draft in `config` or the saved file |
+| `/api/sites/{domain}/structure` | GET `apps.read`; POST `apps.read` | The structured model of the saved file; of a draft (`{config}`, writes nothing) |
+| `/api/sites/{domain}/topology` | GET `apps.read` | The structure plus what is behind it now: who holds each port, whether it answers, certificate expiry |
 
 ### Services and cron
 
@@ -533,7 +746,7 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/backups/storage` | GET `backups.read` |  |
 | `/api/backups/{backup_id}` | GET `backups.read`; DELETE `backups.manage`, sudo |  |
 | `/api/backups/{backup_id}/push` | POST `backups.manage`, sudo |  |
-| `/api/backups/{backup_id}/restore` | POST `backups.manage`, sudo |  |
+| `/api/backups/{backup_id}/restore` | POST `backups.manage`, sudo | Restore (job). Putting back only the files past a deployment that changed the schema is `409 schema_changed` unless `schema_changed_ok` |
 | `/api/backups/{backup_id}/verify` | POST `backups.run` |  |
 
 ### Databases
@@ -622,6 +835,7 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/monitor/uninstall` | POST `server.manage` |  |
 | `/api/overview` | GET `server.read` | The Overview page in one answer |
 | `/api/server/capabilities` | GET `server.read` |  |
+| `/api/server/clock/timezones` | GET `server.read` | The time zones the managed server knows, with region, city, offset now and abbreviation |
 | `/api/server/identity` | GET `server.read` |  |
 | `/api/server/identity/hostname` | PUT `server.manage`, sudo |  |
 | `/api/server/logs` | GET `secrets.reveal` | The journal of any unit |
@@ -654,7 +868,7 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/server/security/ssh/keys` | GET `server.read`; POST `server.host_access`, sudo |  |
 | `/api/server/security/ssh/keys/remove` | POST `server.host_access`, sudo |  |
 | `/api/server/storage` | GET `server.read` |  |
-| `/api/server/storage/analyze` | POST `server.manage` |  |
+| `/api/server/storage/analyze` | POST `server.read` | Measure what takes space; it changes nothing, so a read-only credential may ask |
 | `/api/server/storage/analyze/latest` | GET `server.read` |  |
 | `/api/server/storage/cleanup` | POST `server.manage`, sudo |  |
 | `/api/server/storage/cleanup/plan` | GET `server.read` |  |
@@ -682,6 +896,7 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/system/processes` | GET `server.read` |  |
 | `/api/system/update` | GET `server.read`; POST `server.manage`, sudo | Noust's own version, and updating it |
 | `/api/system/version` | GET `server.read` |  |
+| `/api/timeline` | GET `server.read` | Everything that happened in a stretch (journal, audit, deployments, jobs, what the monitor saw) with the busiest processes per minute; each source keeps its own permission |
 
 ### The fleet
 

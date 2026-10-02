@@ -162,6 +162,8 @@ MONITOR_SCOPE: tuple[str, ...] = (
     "Never sends data about the machine anywhere except the configured SMTP relay.",
     "Never inspects a process command line to decide anything about a process; the one "
     "title it reads is a PHP-FPM worker's, to tell which application's pool it belongs to.",
+    "Keeps the busiest processes of each minute, with their command lines redacted, so a "
+    "chart's stretch can be investigated; it never acts on them.",
 )
 
 

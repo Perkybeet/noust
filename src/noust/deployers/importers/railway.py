@@ -171,8 +171,8 @@ def _deploy_settings(deploy: dict[str, Any], proposal: Proposal) -> None:
         )
     if text_value(deploy, "preDeployCommand") or isinstance(deploy.get("preDeployCommand"), list):
         proposal.warn(
-            "preDeployCommand has no equivalent; run migrations from the build script, or "
-            "by hand after the deploy."
+            "preDeployCommand is a pre_deploy hook in Noust: declare it in noust.yaml "
+            "(hooks.pre_deploy, with migrates: true for migrations; see docs/compose.md)."
         )
     if deploy.get("sleepApplication"):
         proposal.warn("sleepApplication has no equivalent; a Noust application keeps running.")
