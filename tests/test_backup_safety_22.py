@@ -239,7 +239,7 @@ class TestRotationProtections:
         rollback.backup_manager = manager
         seen: dict[str, Any] = {}
 
-        def safety(domain: str, description: str = "", *, protect: Any = ()) -> None:
+        def safety(domain: str, description: str = "", *, protect: Any = (), **_: Any) -> None:
             seen["protect"] = list(protect)
 
         restored: list[str] = []

@@ -1036,9 +1036,55 @@
       "omitted": 0
     }
   },
-  "restore.completed": {
+  "deploy.hook_failed": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000000019",
+    "event": "deploy_hook_failed",
+    "code": "deploy.hook_failed",
+    "state": "warning",
+    "locale": "en",
+    "title": "Deployed with warnings: shop.example.com",
+    "summary": "The new version is serving, but a post-deploy hook failed once it took over.",
+    "body": "The new version is serving, but a post-deploy hook failed once it took over.\n\nServer: web-1\nCommand: ./scripts/purge-cache.sh --all\nInspect with: noust app hooks show shop.example.com\n\nWhat the system reported:\n  curl: (22) The requested URL returned error: 403\n  purge failed\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "command",
+        "label": "Command",
+        "value": "./scripts/purge-cache.sh --all"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "noust app hooks show shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "curl: (22) The requested URL returned error: 403",
+        "purge failed"
+      ],
+      "omitted": 0
+    }
+  },
+  "restore.completed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000020",
     "event": "restore_success",
     "code": "restore.completed",
     "state": "ok",
@@ -1072,7 +1118,7 @@
   },
   "restore.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000020",
+    "id": "00000000-0000-4000-8000-000000000021",
     "event": "restore_failed",
     "code": "restore.failed",
     "state": "failed",
@@ -1113,7 +1159,7 @@
   },
   "backup.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000021",
+    "id": "00000000-0000-4000-8000-000000000022",
     "event": "backup_failed",
     "code": "backup.failed",
     "state": "failed",
@@ -1148,7 +1194,7 @@
   },
   "backup.upload_failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000022",
+    "id": "00000000-0000-4000-8000-000000000023",
     "event": "backup_failed",
     "code": "backup.upload_failed",
     "state": "warning",
@@ -1189,7 +1235,7 @@
   },
   "backup.schedule_missing": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000023",
+    "id": "00000000-0000-4000-8000-000000000024",
     "event": "backup_failed",
     "code": "backup.schedule_missing",
     "state": "warning",
@@ -1223,7 +1269,7 @@
   },
   "backup.completed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000024",
+    "id": "00000000-0000-4000-8000-000000000025",
     "event": "backup_success",
     "code": "backup.completed",
     "state": "ok",
@@ -1267,7 +1313,7 @@
   },
   "cert.expiring": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000025",
+    "id": "00000000-0000-4000-8000-000000000026",
     "event": "cert_expiring",
     "code": "cert.expiring",
     "state": "warning",
@@ -1306,7 +1352,7 @@
   },
   "cert.expired": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000026",
+    "id": "00000000-0000-4000-8000-000000000027",
     "event": "cert_expiring",
     "code": "cert.expired",
     "state": "failed",
@@ -1345,7 +1391,7 @@
   },
   "unit.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000027",
+    "id": "00000000-0000-4000-8000-000000000028",
     "event": "unit_failed",
     "code": "unit.failed",
     "state": "failed",
@@ -1390,7 +1436,7 @@
   },
   "unit.crash_loop": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000028",
+    "id": "00000000-0000-4000-8000-000000000029",
     "event": "unit_failed",
     "code": "unit.crash_loop",
     "state": "failed",
@@ -1445,7 +1491,7 @@
   },
   "unit.stopped_on_failure": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000029",
+    "id": "00000000-0000-4000-8000-000000000030",
     "event": "unit_failed",
     "code": "unit.stopped_on_failure",
     "state": "failed",
@@ -1489,7 +1535,7 @@
   },
   "unit.recovered": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000030",
+    "id": "00000000-0000-4000-8000-000000000031",
     "event": "unit_failed",
     "code": "unit.recovered",
     "state": "ok",
@@ -1518,7 +1564,7 @@
   },
   "disk.threshold": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000031",
+    "id": "00000000-0000-4000-8000-000000000032",
     "event": "disk_threshold",
     "code": "disk.threshold",
     "state": "warning",
@@ -1557,7 +1603,7 @@
   },
   "disk.recovered": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000032",
+    "id": "00000000-0000-4000-8000-000000000033",
     "event": "disk_threshold",
     "code": "disk.recovered",
     "state": "ok",
@@ -1591,7 +1637,7 @@
   },
   "test": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000033",
+    "id": "00000000-0000-4000-8000-000000000034",
     "event": "test",
     "code": "test",
     "state": "info",
@@ -1614,7 +1660,7 @@
   },
   "node.unreachable": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000034",
+    "id": "00000000-0000-4000-8000-000000000035",
     "event": "node_unreachable",
     "code": "node.unreachable",
     "state": "failed",
@@ -1659,7 +1705,7 @@
   },
   "node.recovered": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000035",
+    "id": "00000000-0000-4000-8000-000000000036",
     "event": "node_recovered",
     "code": "node.recovered",
     "state": "ok",
@@ -1693,7 +1739,7 @@
   },
   "node.host_key_changed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000036",
+    "id": "00000000-0000-4000-8000-000000000037",
     "event": "node_host_key_changed",
     "code": "node.host_key_changed",
     "state": "failed",
@@ -1742,7 +1788,7 @@
   },
   "report.observations": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000037",
+    "id": "00000000-0000-4000-8000-000000000038",
     "event": "report",
     "code": "report.observations",
     "state": "warning",
@@ -1775,7 +1821,7 @@
   },
   "server.rebooted": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000038",
+    "id": "00000000-0000-4000-8000-000000000039",
     "event": "server_rebooted",
     "code": "server.rebooted",
     "state": "warning",
@@ -1809,7 +1855,7 @@
   },
   "server.back": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000039",
+    "id": "00000000-0000-4000-8000-000000000040",
     "event": "server_back",
     "code": "server.back",
     "state": "ok",
@@ -1858,7 +1904,7 @@
   },
   "approval.requested": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000040",
+    "id": "00000000-0000-4000-8000-000000000041",
     "event": "approval_requested",
     "code": "approval.requested",
     "state": "progress",
@@ -1922,7 +1968,7 @@
   },
   "approval.approved": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000041",
+    "id": "00000000-0000-4000-8000-000000000042",
     "event": "approval_decided",
     "code": "approval.approved",
     "state": "ok",
@@ -1986,7 +2032,7 @@
   },
   "approval.rejected": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000042",
+    "id": "00000000-0000-4000-8000-000000000043",
     "event": "approval_decided",
     "code": "approval.rejected",
     "state": "warning",
@@ -2045,7 +2091,7 @@
   },
   "database.backup.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000043",
+    "id": "00000000-0000-4000-8000-000000000044",
     "event": "backup_failed",
     "code": "database.backup.failed",
     "state": "failed",
@@ -2081,7 +2127,7 @@
   },
   "database.backup.upload_failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000044",
+    "id": "00000000-0000-4000-8000-000000000045",
     "event": "backup_failed",
     "code": "database.backup.upload_failed",
     "state": "warning",
@@ -2121,7 +2167,7 @@
   },
   "database.backup.completed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000045",
+    "id": "00000000-0000-4000-8000-000000000046",
     "event": "backup_success",
     "code": "database.backup.completed",
     "state": "ok",
@@ -2165,7 +2211,7 @@
   },
   "database.restore.completed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000046",
+    "id": "00000000-0000-4000-8000-000000000047",
     "event": "restore_success",
     "code": "database.restore.completed",
     "state": "ok",
@@ -2199,7 +2245,7 @@
   },
   "database.restore.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000047",
+    "id": "00000000-0000-4000-8000-000000000048",
     "event": "restore_failed",
     "code": "database.restore.failed",
     "state": "failed",
@@ -2233,6 +2279,53 @@
       "label": "What the system reported",
       "lines": [
         "pg_restore: error: relation \"orders\" already exists"
+      ],
+      "omitted": 0
+    }
+  },
+  "sandbox.trial_failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000049",
+    "event": "deploy_failed",
+    "code": "sandbox.trial_failed",
+    "state": "warning",
+    "locale": "en",
+    "title": "Sandbox build failed: shop.example.com",
+    "summary": "Its build was tried without root before the update and failed, so the update built as root, as it did before.",
+    "body": "Its build was tried without root before the update and failed, so the update built as root, as it did before.\n\nServer: web-1\nCommit: 4f2a9c1\nInspect with: noust app sandbox status shop.example.com\n\nWhat the system reported:\n  npm ci failed (exit code 1)\n  npm ERR! code E401\n  npm ERR! 401 Unauthorized - GET https://npm.registry.local/@shop%2fui\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "commit",
+        "label": "Commit",
+        "value": "4f2a9c1"
+      },
+      {
+        "key": "inspect",
+        "label": "Inspect with",
+        "value": "noust app sandbox status shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "excerpt": {
+      "label": "What the system reported",
+      "lines": [
+        "npm ci failed (exit code 1)",
+        "npm ERR! code E401",
+        "npm ERR! 401 Unauthorized - GET https://npm.registry.local/@shop%2fui"
       ],
       "omitted": 0
     }

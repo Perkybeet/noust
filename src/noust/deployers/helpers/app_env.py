@@ -34,6 +34,7 @@ from noust.deployers.helpers.layout import (
 )
 from noust.deployers.helpers.permissions import hand_over_file
 from noust.deployers.releases import ReleaseManager
+from noust.managers.app_identity import service_account
 from noust.validators.environment import EnvironmentValidationError, validate_environment
 
 #: Variables the unit sets inline with ``Environment=`` (see
@@ -200,8 +201,8 @@ def write_app_env(
     config = Config()
     hand_over_file(
         env_file,
-        user=config.service_user,
-        group=config.service_group,
+        user=service_account(app, config)[0],
+        group=service_account(app, config)[1],
         mode=SECRET_MODE,
         runner=runner or get_runner(),
         logger=log,

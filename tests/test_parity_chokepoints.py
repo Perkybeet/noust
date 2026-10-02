@@ -227,6 +227,34 @@ class TestSiteDeleteWalksBothEnginesAndTheCertificate:
         assert not apache.site_exists("example.com")
         assert certs.deleted == ["example.com"]
 
+    def test_an_application_s_deletion_keeps_the_operator_s_site_and_its_certificate(
+        self, tmp_path: Path, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Deleting an app is not ``noust site delete``: a site Noust did not write stays."""
+        monkeypatch.setattr("noust.managers.webserver.get_store", lambda: _FakeStore())
+        nginx = WebServerManager(_sandbox_backend(NGINX_BACKEND, tmp_path, "nginx"))
+        apache = WebServerManager(_sandbox_backend(APACHE_BACKEND, tmp_path, "apache"))
+        written_by_hand = "server {\n    server_name example.com;\n}\n"
+        nginx.config_path("example.com").write_text(written_by_hand)
+        apache.create_site("example.com", context={"port": 3000, "ssl": False})
+        certs = _StubCertManager(has_cert=True)
+
+        deletion = delete_site_completely(
+            "example.com",
+            nginx=nginx,
+            apache=apache,
+            cert_manager=certs,
+            keep_operator_sites=True,
+        )
+
+        assert deletion.kept_operator == ("nginx",)
+        assert nginx.config_path("example.com").read_text() == written_by_hand
+        assert deletion.nginx_removed is False
+        # Noust's own site still goes; the certificate the kept one uses stays.
+        assert deletion.apache_removed is True
+        assert deletion.certificate_removed is False
+        assert certs.deleted == []
+
     def test_nothing_to_delete_reports_nothing_removed(
         self, tmp_path: Path, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -268,6 +296,9 @@ class TestSiteDeleteWalksBothEnginesAndTheCertificate:
 
 class _FakeStore:
     """A store stand-in the sandboxed managers register sites with, and forget."""
+
+    def get_app(self, domain: str) -> None:
+        return None
 
     def get_site(self, domain: str) -> None:
         return None

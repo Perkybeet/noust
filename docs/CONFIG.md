@@ -167,6 +167,7 @@ used, with their default in the code, so a file that lacks them behaves as docum
 | `notifications.events.deploy_success` | `true` | Notify when a deployment succeeds. |
 | `notifications.events.deploy_failed` | `true` | Notify when a deployment fails. |
 | `notifications.events.deploy_rolled_back` | `true` | Notify when a failed activation put the previous release back. |
+| `notifications.events.deploy_hook_failed` | `true` | Notify when a deployment went live with warnings: a `post_deploy` hook failed once the new version was serving. |
 | `notifications.events.restore_success` | `true` | Notify when a restore succeeds. |
 | `notifications.events.restore_failed` | `true` | Notify when a restore fails. |
 | `notifications.events.cert_expiring` | `true` | Notify when a certificate is about to expire. |

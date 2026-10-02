@@ -41,6 +41,7 @@ from noust.cli.panel_links import open_in_panel
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
 from noust.managers.backup_manager import BackupManager, BackupMetadata, RollbackManager
+from noust.managers.stack_databases import StackDatabase
 
 #: Alternative spellings for the actions under ``noust backup``. They are in
 #: scripts and in muscle memory, so they resolve rather than fail.
@@ -1017,6 +1018,24 @@ def _list_backups(
     return 0
 
 
+def _stack_databases_of(metadata: BackupMetadata) -> list[StackDatabase]:
+    """
+    List the databases of a Compose stack a backup holds a copy of.
+
+    Args:
+        metadata: The backup.
+
+    Returns:
+        One entry per dump; empty for a backup that holds none.
+    """
+    found = (
+        StackDatabase.from_entry(entry["stack"])
+        for entry in metadata.database_backups
+        if isinstance(entry.get("stack"), dict)
+    )
+    return [database for database in found if database is not None]
+
+
 def _restore_backup(
     *,
     logger: Logger,
@@ -1025,6 +1044,7 @@ def _restore_backup(
     restore_env: bool = True,
     verify: bool = True,
     force: bool = False,
+    databases_only: bool = False,
 ) -> int:
     """
     Restore an application from a backup.
@@ -1036,6 +1056,8 @@ def _restore_backup(
         restore_env: Restore the ``.env`` files from the archive.
         verify: Check the archive against its recorded checksum first.
         force: Do not ask for confirmation.
+        databases_only: Put back only the databases of the stack the backup
+            holds, leaving every file as it is.
 
     Returns:
         0 on success, 1 if the restore failed or the backup is unknown.
@@ -1049,13 +1071,37 @@ def _restore_backup(
             return 1
 
         target = target_domain or metadata.domain
+        stack = _stack_databases_of(metadata)
+        names = ", ".join(database.label for database in stack)
 
-        if not force and not click.confirm(
-            f"Replace the files of {target} with backup {backup_id} "
-            f"({metadata.size_human}, taken {metadata.age}). "
-            "Anything deployed there now is overwritten. Continue?",
-            default=False,
-        ):
+        if databases_only and not stack:
+            logger.error(
+                f"Backup {backup_id} holds no copy of a database of the stack",
+                "Only a backup taken before an update of a Docker Compose application, or with "
+                "--include-databases, does. 'noust backup list' shows the others.",
+            )
+            return 1
+
+        if databases_only:
+            question = (
+                f"Replace the databases of {target} ({names}) with the copy in backup "
+                f"{backup_id} (taken {metadata.age}). The application is stopped meanwhile, "
+                "its files are not touched, and what the databases hold now is lost. Continue?"
+            )
+        else:
+            question = (
+                f"Replace the files of {target} with backup {backup_id} "
+                f"({metadata.size_human}, taken {metadata.age}). "
+                "Anything deployed there now is overwritten."
+                + (
+                    f" It also puts back the databases it holds ({names}): "
+                    "what they hold now is replaced."
+                    if stack
+                    else ""
+                )
+                + " Continue?"
+            )
+        if not force and not click.confirm(question, default=False):
             logger.info("Cancelled")
             return 0
 
@@ -1068,18 +1114,29 @@ def _restore_backup(
                     logger.error(f"  - {err}")
                 return 1
 
-        logger.step(2, 3, f"Restoring to {target}")
-        manager.restore(
-            backup_id=backup_id,
-            target_domain=target_domain,
-            restore_env=restore_env,
-            verify_checksum=verify,
-        )
+        if databases_only:
+            logger.step(2, 3, f"Restoring the databases of {target}")
+            restored = manager.restore_stack_databases(backup_id)
+        else:
+            logger.step(2, 3, f"Restoring to {target}")
+            manager.restore(
+                backup_id=backup_id,
+                target_domain=target_domain,
+                restore_env=restore_env,
+                verify_checksum=verify,
+            )
     except NoustError as exc:
-        logger.error(f"Restore failed: {exc}")
+        # The engine's or Docker's own words, verbatim, under the error.
+        logger.error(f"Restore failed: {exc}", exc.output or "")
         return 1
 
     logger.step(3, 3, "Restore complete")
+    if databases_only:
+        logger.success(
+            f"Put back {', '.join(database.label for database in restored)} of {target} "
+            f"from {backup_id}"
+        )
+        return 0
     logger.success(f"Successfully restored {target} from {backup_id}")
     return 0
 
@@ -1428,6 +1485,7 @@ def _rollback_app(
     domain: str,
     backup_id: str | None = None,
     rebuild: bool = True,
+    schema_changed_ok: bool = False,
 ) -> int:
     """
     Roll an application back to a backup.
@@ -1441,27 +1499,36 @@ def _rollback_app(
         domain: Domain of the application to roll back.
         backup_id: Backup to return to, defaulting to the most recent one.
         rebuild: Rebuild the application after the files are back.
+        schema_changed_ok: Go back even past deployments, made after the
+            backup, that changed the database schema.
 
     Returns:
-        0 on success, 1 if there is nothing to roll back to or the restore
-        failed.
+        0 on success, 1 if there is nothing to roll back to, going back past
+        a schema change was not confirmed, or the restore failed.
     """
     try:
         rollback_manager = RollbackManager(verbose=logger.verbose)
 
         if not backup_id:
-            backups = rollback_manager.list_rollback_points(domain)
-            if not backups:
+            if not rollback_manager.list_rollback_points(domain):
                 logger.error(f"No backups found for {domain}")
                 return 1
-
-            logger.info(f"Rolling back to latest backup: {backups[0].id}")
-            logger.info(f"  Created: {backups[0].age}")
-            if backups[0].description:
-                logger.info(f"  Description: {backups[0].description}")
+            # The one the manager restores, so what is said is what happens.
+            target = rollback_manager.rollback_target(domain)
+            logger.info(f"Rolling back to backup: {target.id}")
+            logger.info(f"  Created: {target.age}")
+            if target.description:
+                logger.info(f"  Description: {target.description}")
 
         logger.step(1, 2, "Restoring from backup")
-        rollback_manager.rollback(domain=domain, backup_id=backup_id, rebuild=rebuild)
+        # The manager asks before going back past a schema change, for every
+        # caller; the flag is the operator's answer.
+        rollback_manager.rollback(
+            domain=domain,
+            backup_id=backup_id,
+            rebuild=rebuild,
+            schema_changed_ok=schema_changed_ok,
+        )
     except NoustError as exc:
         logger.error(f"Rollback failed: {exc}")
         return 1
@@ -1649,6 +1716,12 @@ def backup_list(
 @click.option("--target-domain", help="Restore into this domain instead of the original one.")
 @click.option("--no-env", is_flag=True, help="Keep the current .env files.")
 @click.option("--no-verify", is_flag=True, help="Skip the checksum check before restoring.")
+@click.option(
+    "--databases-only",
+    is_flag=True,
+    help="Put back only the databases of a Compose stack the backup holds, leaving every file "
+    "as it is. The application is stopped meanwhile.",
+)
 @click.option("-f", "--force", is_flag=True, help="Do not ask for confirmation.")
 @pass_context
 def backup_restore(
@@ -1659,14 +1732,24 @@ def backup_restore(
     target_domain: str | None,
     no_env: bool,
     no_verify: bool,
+    databases_only: bool,
     force: bool,
 ) -> None:
     """
     Put an application back the way a backup left it.
 
-    The files under the target domain are replaced by the ones in the archive.
-    With --from, the backup is downloaded from a remote destination first.
+    The files under the target domain are replaced by the ones in the archive,
+    and so are the databases of a Docker Compose stack when the backup holds a
+    copy of them (the application is stopped meanwhile). With --databases-only,
+    only the databases are put back: what to do after a rollback over a
+    migration. With --from, the backup is downloaded from a remote destination
+    first.
     """
+    if databases_only and (target_domain or from_destination):
+        raise click.UsageError(
+            "--databases-only puts the copy back into the application it was taken from, from "
+            "a backup on this server: drop --target-domain and --from."
+        )
     if from_destination:
         _finish(
             _restore_from_destination(
@@ -1689,6 +1772,7 @@ def backup_restore(
             restore_env=not no_env,
             verify=not no_verify,
             force=force,
+            databases_only=databases_only,
         )
     )
 
@@ -2137,13 +2221,27 @@ def schedule_delete(state: Context, domain: str) -> None:
 @click.argument("domain")
 @click.argument("backup_id", required=False)
 @click.option("--no-rebuild", is_flag=True, help="Do not rebuild after the files are back.")
+@click.option(
+    "--schema-changed-ok",
+    is_flag=True,
+    default=False,
+    help="Go back even past deployments that changed the database schema.",
+)
 @pass_context
-def rollback(state: Context, domain: str, backup_id: str | None, no_rebuild: bool) -> None:
+def rollback(
+    state: Context,
+    domain: str,
+    backup_id: str | None,
+    no_rebuild: bool,
+    schema_changed_ok: bool,
+) -> None:
     """
     Return an application to its most recent backup.
 
     Takes a safety backup of the current state first, then restores. Name a
-    backup id to go somewhere other than the latest one.
+    backup id to go somewhere other than the latest one. Going back past a
+    deployment that changed the database schema is refused, naming it, unless
+    --schema-changed-ok: the files go back, the database does not.
     """
     _finish(
         _rollback_app(
@@ -2151,6 +2249,7 @@ def rollback(state: Context, domain: str, backup_id: str | None, no_rebuild: boo
             domain=domain,
             backup_id=backup_id,
             rebuild=not no_rebuild,
+            schema_changed_ok=schema_changed_ok,
         )
     )
 
@@ -2291,4 +2390,5 @@ def handle_rollback(args: Namespace) -> int:
         domain=domain,
         backup_id=getattr(args, "backup_id", None),
         rebuild=not getattr(args, "no_rebuild", False),
+        schema_changed_ok=getattr(args, "schema_changed_ok", False),
     )

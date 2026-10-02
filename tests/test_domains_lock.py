@@ -19,6 +19,7 @@ import pytest
 
 from noust.core.applock import AppBusyError, app_lock, is_held_here
 from noust.deployers import domains
+from noust.deployers.base import BaseDeployer
 from tests.test_applock import Holder
 from tests.test_domains import Machine, certs, machine, store, web
 
@@ -62,13 +63,14 @@ def test_the_site_is_rendered_under_the_lock(
 ) -> None:
     machine.deploy()
     seen: list[bool] = []
-    original = domains.BaseDeployer.refresh_site
+    # domains asks any deployer that ServesDomains; this application's is a BaseDeployer.
+    original = BaseDeployer.refresh_site
 
-    def spy(self: domains.BaseDeployer, *, with_ssl: bool) -> None:
+    def spy(self: BaseDeployer, *, with_ssl: bool) -> None:
         seen.append(is_held_here("example.com"))
         original(self, with_ssl=with_ssl)
 
-    monkeypatch.setattr(domains.BaseDeployer, "refresh_site", spy)
+    monkeypatch.setattr(BaseDeployer, "refresh_site", spy)
 
     domains.add_domain("example.com", "shop.example.com")
 

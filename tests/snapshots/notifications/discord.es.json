@@ -795,6 +795,35 @@
       "parse": []
     }
   },
+  "deploy.hook_failed": {
+    "embeds": [
+      {
+        "title": "▲ Desplegado con avisos · shop.example.com",
+        "description": "La nueva versión está en servicio, pero un gancho posterior al despliegue ha fallado después del relevo.\n\n**Revísalo con:** `noust app hooks show shop.example.com`\n\n*Lo que ha informado el sistema*\n```\ncurl: (22) The requested URL returned error: 403\npurge failed\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Comando",
+            "value": "`./scripts/purge-cache.sh --all`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
   "restore.completed": {
     "embeds": [
       {
@@ -1754,6 +1783,35 @@
         },
         "timestamp": "2026-09-29T10:45:51+00:00",
         "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "sandbox.trial_failed": {
+    "embeds": [
+      {
+        "title": "▲ Compilación aislada fallida · shop.example.com",
+        "description": "Se ha probado su compilación sin root antes de la actualización y ha fallado, así que la actualización ha compilado como root, igual que antes.\n\n**Revísalo con:** `noust app sandbox status shop.example.com`\n\n*Lo que ha informado el sistema*\n```\nnpm ci failed (exit code 1)\nnpm ERR! code E401\nnpm ERR! 401 Unauthorized - GET https://npm.registry.local/@shop%2fui\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "`4f2a9c1`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
       }
     ],
     "allowed_mentions": {

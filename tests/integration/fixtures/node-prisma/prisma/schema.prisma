@@ -1,0 +1,10 @@
+// What makes Noust see a Prisma project: this directory and its migrations. The prisma
+// command itself is the stand-in in ../fake-prisma, so nothing is downloaded.
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id Int @id @default(autoincrement())
+}

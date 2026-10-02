@@ -36,13 +36,14 @@ from noust.cli.panel_links import open_in_panel
 from noust.core.app_state import RUNNING, STATIC, resolve_states
 from noust.core.config import Config
 from noust.core.dependencies import check_deployment_ready
-from noust.core.exceptions import DeploymentError, NoustError, ServiceError
+from noust.core.exceptions import DeploymentError, NoustError, ServiceError, SourceError
 from noust.core.logger import Logger, state, styled
 from noust.core.runner import (
     CommandResult,
     get_runner,
 )
-from noust.core.store import DeploymentTrigger, get_store
+from noust.core.store import DeploymentTrigger, get_store, validate_tag_pattern
+from noust.core.tags import newest_tag
 from noust.core.utils import domain_to_app_name
 from noust.deployers import get_deployer
 from noust.deployers.docker_compose import DockerComposeDeployer
@@ -52,8 +53,10 @@ from noust.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
 from noust.deployers.helpers.php_fpm import is_php_fpm
 from noust.deployers.lifecycle import (
     NOTHING_NEW_HINT,
+    AppUpdate,
     check_upstream,
     delete_app,
+    set_follow_tags,
     update_app,
 )
 from noust.deployers.monorepo import MonorepoDeployer
@@ -63,6 +66,7 @@ from noust.managers.apache_manager import ApacheManager
 from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ResourceLimits, ServiceManager
+from noust.managers.source_manager import SourceManager
 from noust.recipes import RecipeError, get_recipe
 from noust.recipes.deploy import finish_recipe, plan_recipe, refuse_conflicts
 from noust.validators.domain import should_include_www, validate_domain
@@ -389,6 +393,59 @@ def _create_app(
             )
 
     return 0
+
+
+def _newest_followed_tag(source: str, pattern: str) -> str:
+    """
+    Pick the tag a new application that follows tags is first deployed at.
+
+    Asked of the remote before anything is fetched or built, so a pattern that
+    matches nothing fails at once instead of after a deploy of the wrong thing.
+
+    Args:
+        source: The git source.
+        pattern: The glob to follow.
+
+    Returns:
+        The newest tag matching it, by version.
+
+    Raises:
+        ValidationError: The pattern is not a tag glob.
+        SourceError: The source is not git, cannot be read, or has no tag
+            matching the pattern.
+    """
+    validate_tag_pattern(pattern)
+    newest = newest_tag(SourceManager().remote_tags(source), pattern)
+    if newest is None:
+        raise SourceError(
+            f"The repository has no tag matching {pattern}",
+            details="Tag a release that does, deploy a branch with --branch, or change the "
+            "pattern. Only tags that are version numbers (v1.2.3) are ordered.",
+        )
+    return newest
+
+
+def _follow_tags_after_create(domain: str, pattern: str, tag: str) -> None:
+    """
+    Record that a new application follows tags, once it has been deployed at one.
+
+    The deployer recorded the tag as the ref it built; it is not a branch to
+    return to, so it is forgotten when it is exactly that.
+
+    Args:
+        domain: The application's domain.
+        pattern: The glob it follows.
+        tag: The tag it was deployed at.
+
+    Raises:
+        NoustError: The application could not be made to follow the pattern.
+    """
+    set_follow_tags(domain, pattern)
+    store = get_store()
+    app = store.get_app(domain)
+    if app is not None and app.branch == tag:
+        app.branch = None
+        store.update_app(app)
 
 
 def _import_options(
@@ -1024,8 +1081,10 @@ def _update_app(
     source: str | None = None,
     branch: str | None = None,
     commit: str | None = None,
+    tag: str | None = None,
     package_manager: str = "auto",
     force: bool = False,
+    schema_changed_ok: bool = False,
 ) -> int:
     """
     Rebuild a deployed application from its source, then restart it.
@@ -1044,8 +1103,11 @@ def _update_app(
         source: Fetch from this source instead of the recorded one.
         branch: Git branch to update from.
         commit: Deploy this commit instead of the head of the branch.
+        tag: Deploy the commit this tag points at.
         package_manager: Node package manager, or ``auto``.
         force: Rebuild without asking when there is nothing new.
+        schema_changed_ok: Rebuild an earlier commit even past deployments
+            that changed the database schema.
 
     Returns:
         Exit code.
@@ -1053,9 +1115,9 @@ def _update_app(
     Raises:
         NoustError: When the application is unknown or a step fails.
     """
-    # A commit or a new source is explicit about what to build; only a plain
-    # update can be "the same thing again".
-    if commit is None and source is None:
+    # A commit, a tag or a new source is explicit about what to build; only a
+    # plain update can be "the same thing again".
+    if commit is None and source is None and tag is None:
         upstream = check_upstream(domain, branch=branch, logger=logger)
         if upstream is not None and not upstream.has_new_commits:
             logger.info(upstream.summary)
@@ -1069,7 +1131,9 @@ def _update_app(
             else:
                 logger.info("Not a terminal, so nobody to ask: rebuilding it anyway")
 
-    logger.header(f"Updating: {domain}" + (f" at {commit}" if commit else ""))
+    logger.header(
+        f"Updating: {domain}" + (f" at {commit}" if commit else "") + (f" to {tag}" if tag else "")
+    )
     logger.blank()
 
     outcome = update_app(
@@ -1077,13 +1141,16 @@ def _update_app(
         source=source,
         branch=branch,
         commit=commit,
+        tag=tag,
         package_manager=package_manager,
         trigger=DeploymentTrigger.CLI.value,
         on_phase=logger.step,
         on_step=logger.substep,
         logger=logger,
         verbose=logger.verbose,
+        schema_changed_ok=schema_changed_ok,
     )
+    _report_hooks(logger, outcome)
 
     if outcome.is_static:
         logger.success(f"Application updated successfully: {outcome.domain}")
@@ -1111,6 +1178,24 @@ def _update_app(
     if outcome.prisma_updated:
         logger.key_value("Prisma", "Updated")
     return 0
+
+
+def _report_hooks(logger: Logger, outcome: AppUpdate) -> None:
+    """
+    Say what the deploy hooks did: the warnings first, then each hook.
+
+    Args:
+        logger: Logger of the current command.
+        outcome: What the update did.
+    """
+    for entry in outcome.hooks:
+        label = "Prisma migration" if entry.get("automatic") else f"Hook ({entry.get('phase')})"
+        state = "ok" if entry.get("ok") else f"failed, exit {entry.get('exit_code')}"
+        logger.key_value(label, f"{entry.get('run')}: {state}")
+    if outcome.schema_changed:
+        logger.key_value("Database schema", "changed by this update")
+    if outcome.warnings:
+        logger.warning(f"Deployed with warnings: {outcome.warnings}")
 
 
 def _delete_app(
@@ -1542,6 +1627,7 @@ def _handle_update(args: Namespace) -> int:
         source=getattr(args, "source", None),
         branch=getattr(args, "branch", None),
         commit=getattr(args, "commit", None),
+        tag=getattr(args, "tag", None),
         package_manager=getattr(args, "package_manager", "auto") or "auto",
         force=bool(getattr(args, "force", False)),
     )
@@ -1654,6 +1740,13 @@ def cli() -> None:
     help="Web server that fronts the application.",
 )
 @click.option("-b", "--branch", help="Git branch to deploy.")
+@click.option(
+    "--follow-tags",
+    "follow_tags",
+    metavar="PATTERN",
+    help="Deploy the newest git tag that matches this glob (such as 'v*') and keep deploying "
+    "new ones, from a release or a tag push, instead of following a branch.",
+)
 @click.option("--no-ssl", is_flag=True, help="Serve over plain HTTP, without a certificate.")
 @click.option(
     "--www",
@@ -1735,6 +1828,7 @@ def create(
     port: int | None,
     webserver: str,
     branch: str | None,
+    follow_tags: str | None,
     no_ssl: bool,
     www: bool,
     env_file: Path | None,
@@ -1760,6 +1854,16 @@ def create(
     database = _parse_database(database_spec) if database_spec is not None else None
     if recipe is not None and database is not None:
         raise click.UsageError("--database cannot be used with --recipe: the recipe has its own.")
+    if follow_tags is not None:
+        if branch is not None or recipe is not None:
+            raise click.UsageError(
+                "--follow-tags says what to deploy: not with --branch or --recipe."
+            )
+        if not source:
+            raise click.UsageError("Missing option '-s' / '--source'.")
+        # The tag becomes the ref the deployer builds; a branch is what it
+        # would have followed otherwise.
+        branch = _newest_followed_tag(source, follow_tags)
     if recipe is not None:
         _exit(
             _create_from_recipe(
@@ -1809,6 +1913,9 @@ def create(
             database=database,
         ),
     )
+    # Reached only when the deploy succeeded: _exit leaves on a failure code.
+    if follow_tags is not None and branch is not None:
+        _follow_tags_after_create(domain, follow_tags, branch)
 
 
 @cli.command(name="list")
@@ -1889,6 +1996,12 @@ def restart(ctx: Context, domain: str) -> None:
     help="Deploy this commit (full or abbreviated) instead of the head of the branch.",
 )
 @click.option(
+    "--tag",
+    metavar="TAG",
+    help="Deploy the commit this tag points at. Never an older tag than one already "
+    "deployed: use 'noust rollback' for that.",
+)
+@click.option(
     "--package-manager",
     "--pm",
     "package_manager",
@@ -1903,6 +2016,12 @@ def restart(ctx: Context, domain: str) -> None:
     is_flag=True,
     help="Rebuild without asking when the branch has nothing new since the live commit.",
 )
+@click.option(
+    "--schema-changed-ok",
+    is_flag=True,
+    default=False,
+    help="With --commit, go back even past deployments that changed the database schema.",
+)
 @global_flags
 @pass_context
 def update(
@@ -1911,8 +2030,10 @@ def update(
     source: str | None,
     branch: str | None,
     commit: str | None,
+    tag: str | None,
     package_manager: str,
     force: bool,
+    schema_changed_ok: bool,
 ) -> None:
     """
     Pull the latest code, rebuild and restart an application.
@@ -1929,7 +2050,12 @@ def update(
     skips the question. --commit deploys that exact commit: on releases an
     existing release of it is activated, otherwise it is built; in place the
     checkout is put on it, and the next update follows the branch again.
+    --tag does the same for the commit a tag points at. An application that
+    follows tags (noust app follow-tags) and is updated with none deploys the
+    newest tag that matches.
     """
+    if tag is not None and (commit is not None or source is not None or branch is not None):
+        raise click.UsageError("--tag names exactly what to deploy: not with --commit, -s or -b.")
     _exit(
         _update_app(
             domain,
@@ -1937,8 +2063,10 @@ def update(
             source=source,
             branch=branch,
             commit=commit,
+            tag=tag,
             package_manager=package_manager,
             force=force,
+            schema_changed_ok=schema_changed_ok,
         ),
     )
 

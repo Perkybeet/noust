@@ -16,10 +16,16 @@ Usage:
     .venv/bin/python tests/integration/run.py
     .venv/bin/python tests/integration/run.py --keep
     .venv/bin/python tests/integration/run.py --scenario node_app_update
+    .venv/bin/python tests/integration/run.py --scenario compose
 
 Requires Docker (tested against Docker 29) with a working systemd-in-Docker
 setup: cgroup v2, ``--privileged``, ``--cgroupns=host`` and the host cgroup
 filesystem bind-mounted. run.py wires all of that itself.
+
+The container runs its own Docker daemon and Compose plugin (for the Docker Compose
+scenarios), on a dedicated named volume: see ``DOCKER_DATA_VOLUME``. A scenario that cannot
+run here, because the machine lacks Docker or a registry, or because the build under test
+does not have a command it drives yet, reports SKIP with the reason, never PASS.
 """
 
 from __future__ import annotations
@@ -45,6 +51,25 @@ FIXTURES_DIR = INTEGRATION_DIR / "fixtures"
 VENV_PYTHON = REPO_ROOT / ".venv" / "bin" / "python"
 DOCKERFILE = INTEGRATION_DIR / "Dockerfile.systemd"
 IMAGE_TAG = "noust-integration:latest"
+
+#: The harness container runs its own Docker daemon (the Compose scenarios deploy real stacks),
+#: and that daemon keeps its data in this dedicated named volume mounted on /var/lib/docker.
+#: Overlay-on-overlay does not work on the container's own root filesystem, so the volume is what
+#: lets overlay2 run at all; it also keeps the pulled base images between runs. Never the host's
+#: docker.sock and never a host container or volume: the host's Docker holds real data
+#: (proggest_*) that no scenario may see, name or touch.
+DOCKER_DATA_VOLUME = "noust-integration-docker"
+
+#: What the harness container's own Docker is cleared of when a run starts and ends: every
+#: container, volume and network (the images stay, they are the cache). It runs inside the
+#: container, where the only daemon it can reach is the container's own.
+INNER_DOCKER_CLEAR = (
+    "docker ps -aq | xargs -r docker rm -f >/dev/null 2>&1; "
+    "docker volume prune -af >/dev/null 2>&1; docker network prune -f >/dev/null 2>&1"
+)
+
+#: How long the container's own Docker daemon gets to answer after systemd is up.
+INNER_DOCKER_READY_TIMEOUT = 60
 
 #: How long the whole container gets to reach "running" or "degraded".
 SYSTEMD_READY_TIMEOUT = 90
@@ -122,7 +147,13 @@ class HarnessError(RuntimeError):
 
 
 class ScenarioSkipped(Exception):
-    """Raised by a scenario that cannot run here (no network), with the reason."""
+    """Raised by a scenario that cannot run here, with the reason.
+
+    A scenario that cannot run reports SKIP and says why: it is never a PASS (nothing was
+    checked) and never a FAIL (nothing broke). Two things raise it: the machine (no network,
+    no Docker) and the build under test, which does not have a command or an option the
+    scenario drives yet (:func:`require_cli`, :func:`require_module`).
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -203,8 +234,33 @@ def build_image() -> None:
     )
 
 
+def docker_data_volume(name: str) -> str:
+    """Choose the named volume the container's own Docker daemon keeps its data in.
+
+    One daemon per data directory: two daemons on the same /var/lib/docker corrupt it, so a
+    second harness running while the first (or a ``--keep`` container) still holds
+    :data:`DOCKER_DATA_VOLUME` gets a volume of its own, named after its container and removed
+    with it by :func:`remove_container`. It starts cold (the base images are pulled again), which
+    is slower and correct.
+
+    Args:
+        name: The container the volume is for.
+
+    Returns:
+        The volume's name.
+    """
+    holders = sh(
+        ["docker", "ps", "-q", "--filter", f"volume={DOCKER_DATA_VOLUME}"], timeout=30, check=False
+    )
+    if holders.stdout.strip():
+        volume = f"{DOCKER_DATA_VOLUME}-{name}"
+        print(f"[setup] {DOCKER_DATA_VOLUME} is in use by another container: using {volume}")
+        return volume
+    return DOCKER_DATA_VOLUME
+
+
 def start_container(name: str) -> None:
-    """Start the privileged, systemd-as-PID-1 container."""
+    """Start the privileged, systemd-as-PID-1 container, with its own Docker data volume."""
     print(f"[setup] starting container {name}")
     sh(
         [
@@ -217,6 +273,8 @@ def start_container(name: str) -> None:
             "--cgroupns=host",
             "-v",
             "/sys/fs/cgroup:/sys/fs/cgroup:rw",
+            "-v",
+            f"{docker_data_volume(name)}:/var/lib/docker",
             "--tmpfs",
             "/run",
             "--tmpfs",
@@ -490,8 +548,73 @@ def wheel_version(wheel: Path) -> str:
 
 
 def remove_container(name: str) -> None:
-    """Best-effort container teardown; never raises."""
+    """Best-effort container teardown; never raises.
+
+    The container's own Docker is cleared and stopped first, so its data volume is left
+    consistent (images only) for the next run instead of holding containers a killed daemon
+    never stopped; the per-container volume :func:`docker_data_volume` hands out when the shared
+    one is busy goes with it.
+    """
+    try:
+        subprocess.run(
+            [
+                "docker",
+                "exec",
+                name,
+                "bash",
+                "-lc",
+                f"{INNER_DOCKER_CLEAR}; systemctl stop docker.socket docker.service",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    except subprocess.TimeoutExpired:
+        print(f"[teardown] the Docker inside {name} did not stop within 120s; removing it anyway")
     subprocess.run(["docker", "rm", "-f", name], capture_output=True, text=True, timeout=60)
+    subprocess.run(
+        ["docker", "volume", "rm", "-f", f"{DOCKER_DATA_VOLUME}-{name}"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+
+def prepare_inner_docker(name: str) -> bool:
+    """Wait for the container's own Docker daemon and clear what a killed run left in it.
+
+    Not fatal when it never answers: only the Docker scenarios need it, and each of them
+    reports SKIP with the daemon's journal (:func:`require_docker`) rather than the whole run
+    failing for scenarios that have nothing to do with Docker.
+
+    Args:
+        name: Container name.
+
+    Returns:
+        Whether the daemon answered.
+    """
+    print("[setup] waiting for the container's own Docker daemon")
+    deadline = time.time() + INNER_DOCKER_READY_TIMEOUT
+    while time.time() < deadline:
+        probe = docker_exec(name, "docker info >/dev/null 2>&1", timeout=30, check=False)
+        if probe.returncode == 0:
+            break
+        time.sleep(2)
+    else:
+        print(
+            f"[setup] WARNING: the Docker inside {name} did not answer in "
+            f"{INNER_DOCKER_READY_TIMEOUT}s; the Docker scenarios will be skipped"
+        )
+        return False
+    docker_exec(name, INNER_DOCKER_CLEAR, timeout=120, check=False)
+    version = docker_exec(
+        name,
+        "docker version --format '{{.Server.Version}}' && docker compose version --short",
+        timeout=30,
+        check=False,
+    )
+    print(f"[setup] Docker inside the container: {' / compose '.join(version.stdout.split())}")
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -541,6 +664,111 @@ def scenario(name: str) -> Callable[[ScenarioFn], ScenarioFn]:
         return fn
 
     return decorator
+
+
+#: Set by ``--ignore-requirements``: run a scenario even when the build under test lacks the
+#: command or module it needs, to see how far it gets while the feature is half-built.
+IGNORE_REQUIREMENTS = False
+
+
+def require_cli(sc: Scenario, command: str, *, option: str | None = None, what: str) -> None:
+    """Skip the scenario, saying why, until the installed CLI has a command or an option.
+
+    Asks the real CLI (``noust <command> --help``), so it is the build under test that answers:
+    a scenario for a feature another flow is still building goes green by itself the day the
+    command lands, with no list of versions to keep up to date.
+
+    Args:
+        sc: The scenario.
+        command: The command words, such as ``"app hooks"`` or ``"update"``.
+        option: An option its help must list, such as ``"--tag"``; None for the command alone.
+        what: The feature the scenario tests, for the reason.
+
+    Raises:
+        ScenarioSkipped: The command does not exist, or its help does not list the option.
+    """
+    if IGNORE_REQUIREMENTS:
+        return
+    probe = docker_exec(sc.container, f"noust {command} --help", timeout=60, check=False)
+    if probe.returncode != 0:
+        raise ScenarioSkipped(f"`noust {command}` does not exist in this build yet ({what})")
+    if option is not None and option not in probe.stdout:
+        raise ScenarioSkipped(f"`noust {command}` has no {option} in this build yet ({what})")
+
+
+def require_module(sc: Scenario, module: str, *, what: str) -> None:
+    """Skip the scenario, saying why, until the installed Noust has a Python module.
+
+    For a feature with no command of its own to ask about: the zero-downtime relay is switched
+    on by a command that already exists and means something else until the engine does.
+
+    Args:
+        sc: The scenario.
+        module: Dotted module path, such as ``"noust.deployers.compose_relay"``.
+        what: The feature the scenario tests, for the reason.
+
+    Raises:
+        ScenarioSkipped: The module cannot be imported.
+    """
+    if IGNORE_REQUIREMENTS:
+        return
+    probe = docker_exec(sc.container, f"/opt/noust/bin/python -c 'import {module}'", check=False)
+    if probe.returncode != 0:
+        raise ScenarioSkipped(f"{module} does not exist in this build yet ({what})")
+
+
+def require_docker(sc: Scenario) -> None:
+    """Skip the scenario, saying why, when the container's own Docker cannot run a stack.
+
+    Args:
+        sc: The scenario.
+
+    Raises:
+        ScenarioSkipped: ``docker info`` or ``docker compose version`` fails, with the daemon's
+            own journal.
+    """
+    probe = docker_exec(
+        sc.container,
+        "docker info >/dev/null 2>&1 && docker compose version --short",
+        timeout=60,
+        check=False,
+    )
+    if probe.returncode != 0:
+        journal = docker_exec(
+            sc.container, "journalctl --no-pager -n 15 -u docker -u containerd", check=False
+        )
+        raise ScenarioSkipped(
+            "Docker is not usable inside the harness container "
+            f"(docker info / docker compose version failed):\n{journal.stdout.strip()}"
+        )
+
+
+def pull_images(sc: Scenario, *images: str) -> None:
+    """Make sure the container's own Docker has base images, pulling the ones it lacks.
+
+    The images stay in the data volume, so only the first run on a machine pulls them. A scenario
+    that cannot pull has no network to the registry, which is the machine's and not the
+    build's: it is skipped, never failed.
+
+    Args:
+        sc: The scenario.
+        *images: Image references, such as ``"python:3.12-alpine"``.
+
+    Raises:
+        ScenarioSkipped: An image is missing and cannot be pulled.
+    """
+    for image in images:
+        have = docker_exec(sc.container, f"docker image inspect {image}", check=False)
+        if have.returncode == 0:
+            continue
+        pulled = sc.run(
+            f"docker pull -q {image}", timeout=300, check=False, label=f"docker pull {image}"
+        )
+        if pulled.returncode != 0:
+            raise ScenarioSkipped(
+                f"{image} is not in the container's Docker and cannot be pulled: "
+                f"{(pulled.stderr or pulled.stdout).strip()}"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -1572,23 +1800,11 @@ def scenario_compose_rollback(sc: Scenario) -> None:
     The web service is built from the repository, so going back needs the
     image the old container ran, not a rebuild. A file written into a named
     volume before the update must still be there after the way back.
-    Skipped, with a note, when Docker is not reachable inside the container.
+    Skipped, saying why, when Docker is not usable inside the container: a scenario that
+    checked nothing is not a PASS.
     """
-    probe = sc.run(
-        "command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1 "
-        "&& echo available || echo unavailable",
-        timeout=30,
-        check=False,
-        label="check whether Docker is reachable inside the container",
-    )
-    if probe.stdout.strip() != "available":
-        sc.evidence.append(
-            "NOTE: Docker is not reachable inside the integration container "
-            "(tests/integration/Dockerfile.systemd does not install it), so this scenario "
-            "is SKIPPED. Its behaviour is covered with a fake runner by "
-            "tests/test_inplace_health_gate.py."
-        )
-        return
+    require_docker(sc)
+    pull_images(sc, "nginx:alpine")
 
     sc.run(
         f"mkdir -p {COMPOSE_GATE_REPO}/html && cd {COMPOSE_GATE_REPO} && "
@@ -1605,16 +1821,11 @@ def scenario_compose_rollback(sc: Scenario) -> None:
         f"git -C {COMPOSE_GATE_REPO} rev-parse HEAD", timeout=15, label="the first commit"
     ).stdout.strip()
 
-    create = (
-        f"noust create -d {COMPOSE_GATE_DOMAIN} -s {COMPOSE_GATE_URL} -t docker-compose --no-ssl"
-    )
-    sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
-    page = sc.run(
-        f"curl -sS -H 'Host: {COMPOSE_GATE_DOMAIN}' http://127.0.0.1/",
-        timeout=30,
-        label=f"curl -H 'Host: {COMPOSE_GATE_DOMAIN}' http://127.0.0.1/",
-    )
-    sc.check("gate v1" in page.stdout, f"the stack did not serve v1: {page.stdout!r}")
+    # --port: this scenario is about the way back, not about where the site goes. Without it a
+    # stack got a free port that its site proxied to, whatever the stack published (the
+    # published-ports scenario checks that Noust finds the port by itself).
+    compose_create(sc, COMPOSE_GATE_DOMAIN, COMPOSE_GATE_URL, port=18091)
+    wait_served(sc, COMPOSE_GATE_DOMAIN, "gate v1")
     compose_gate_web(sc, "echo kept > /data/marker", "write a marker into the named volume")
 
     # nginx refuses to start on a broken configuration: the container exits.
@@ -1830,9 +2041,24 @@ def recorded_notifications(sc: Scenario, label: str) -> list[dict[str, Any]]:
 # -- Load --------------------------------------------------------------------
 
 
-def start_load(sc: Scenario, host: str) -> int:
+def start_load(
+    sc: Scenario,
+    host: str,
+    *,
+    interval: float = LOAD_INTERVAL,
+    path: str = "/",
+    accept: str = "2",
+) -> int:
     """
-    Start one request through nginx every 50 ms as ``host``, and wait for the first answers.
+    Start one request through nginx every ``interval`` seconds as ``host``, and wait for answers.
+
+    Args:
+        sc: The scenario.
+        host: The ``Host`` header, which picks the site.
+        interval: Seconds between requests.
+        path: What to ask for.
+        accept: The leading digits of the statuses that count as served: ``"2"`` for 2xx,
+            ``"23"`` when the application answers with a redirect.
 
     Returns:
         The log's line count once it is running: the first phase's start.
@@ -1841,9 +2067,9 @@ def start_load(sc: Scenario, host: str) -> int:
     sc.run(
         f"systemctl stop {LOAD_UNIT} 2>/dev/null; systemctl reset-failed {LOAD_UNIT} 2>/dev/null; "
         f"rm -f {LOAD_LOG}; systemd-run --unit {LOAD_UNIT} --collect /usr/bin/python3 "
-        f"{CONTAINER_TOOLS}/load.py {host} {LOAD_LOG} {LOAD_INTERVAL}",
+        f"{CONTAINER_TOOLS}/load.py {host} {LOAD_LOG} {interval} {path} {accept}",
         timeout=30,
-        label=f"start the load: GET / as {host} through nginx every {int(LOAD_INTERVAL * 1000)} ms",
+        label=f"start the load: GET {path} as {host} through nginx every {int(interval * 1000)} ms",
     )
     deadline = time.time() + 15
     while time.time() < deadline:
@@ -1860,9 +2086,18 @@ def load_mark(sc: Scenario) -> int:
     return int(proc.stdout.strip() or 0)
 
 
-def load_phase(sc: Scenario, phase: str, since: int) -> int:
+@dataclass
+class LoadReport:
+    """What the load saw during one phase."""
+
+    requests: int
+    failures: list[str]
+    mark: int
+
+
+def load_report(sc: Scenario, phase: str, since: int) -> LoadReport:
     """
-    Count what the load saw since a mark, put it in the evidence, and fail on any error.
+    Count what the load saw since a mark and put it in the evidence; judge nothing.
 
     Args:
         sc: The scenario.
@@ -1870,7 +2105,7 @@ def load_phase(sc: Scenario, phase: str, since: int) -> int:
         since: The mark the phase started at.
 
     Returns:
-        The mark the next phase starts at.
+        The requests made, the failed ones, and the mark the next phase starts at.
     """
     # Requests in flight when the command returned land within the timeout.
     time.sleep(1)
@@ -1895,16 +2130,34 @@ def load_phase(sc: Scenario, phase: str, since: int) -> int:
     sc.evidence.append(
         f"[load] {phase}: {len(lines)} requests through nginx over {seconds:.1f}s, "
         f"{len(failures)} failed; answers in order of appearance: {summary}"
-        + ("\n" + "\n".join(failures[:30]) if failures else "")
+        + ("\n" + "\n".join(f"  {line}" for line in failures[:30]) if failures else "")
     )
+    return LoadReport(requests=len(lines), failures=failures, mark=since + len(lines))
+
+
+def load_phase(sc: Scenario, phase: str, since: int, *, minimum: int = 20) -> int:
+    """
+    Count what the load saw since a mark, put it in the evidence, and fail on any error.
+
+    Args:
+        sc: The scenario.
+        phase: What was happening, for the evidence.
+        since: The mark the phase started at.
+        minimum: The fewest requests the phase must have seen for its silence to mean something.
+
+    Returns:
+        The mark the next phase starts at.
+    """
+    report = load_report(sc, phase, since)
     running = docker_exec(sc.container, f"systemctl is-active {LOAD_UNIT}", check=False)
     sc.check(running.stdout.strip() == "active", f"the load generator died during {phase}")
-    sc.check(len(lines) >= 20, f"{phase}: only {len(lines)} requests were made")
+    sc.check(report.requests >= minimum, f"{phase}: only {report.requests} requests were made")
     sc.check(
-        not failures,
-        f"{phase}: {len(failures)} of {len(lines)} requests failed: {failures[:5]}",
+        not report.failures,
+        f"{phase}: {len(report.failures)} of {report.requests} requests failed: "
+        f"{report.failures[:5]}",
     )
-    return since + len(lines)
+    return report.mark
 
 
 # -- Blue/green ----------------------------------------------------------------
@@ -5030,6 +5283,1442 @@ def run_upgrade_30_mode(wheel: Path, *, variants: list[bool], keep: bool) -> int
 
 
 # ---------------------------------------------------------------------------
+# Noust 3.2: Docker Compose stacks, deploy hooks, relay, adoption, copies, tags
+# ---------------------------------------------------------------------------
+#
+# Scenarios over small generic fixtures (tests/integration/fixtures/compose and the node-hooks
+# and node-prisma overlays): a web service with a health endpoint, a worker with no port, a
+# PostgreSQL next to a web service, a version that does not start. Every scenario drives the real
+# CLI. The ones for a feature that is still being built check, first, that the build under test
+# has the command or module they need (require_cli, require_module) and SKIP with the reason
+# until it does: they turn on by themselves when the feature lands, and run today with
+# --ignore-requirements to see how far they get.
+
+COMPOSE_FIXTURES = "/root/fixtures/compose"
+COMPOSE_BASE_IMAGE = "python:3.12-alpine"
+COMPOSE_DB_IMAGE = "postgres:16-alpine"
+
+#: Seconds between the requests of the probe the relay scenarios run: the spec's 0.2 s.
+PROBE_INTERVAL = 0.2
+
+#: How long a stack gets to come up and answer through nginx after the CLI returns.
+STACK_READY_TIMEOUT = 60
+
+
+def app_name_of(domain: str) -> str:
+    """The application name Noust derives from a domain: dots as dashes."""
+    return domain.replace(".", "-")
+
+
+def compose_project(domain: str) -> str:
+    """The Compose project of a stack Noust deployed on ``domain``: named after its application."""
+    return app_name_of(domain)
+
+
+def make_compose_repo(
+    sc: Scenario, name: str, *fixtures: str, port: int | None = None, port2: int | None = None
+) -> tuple[str, str]:
+    """
+    Create a git repository from Compose fixtures, served by git daemon, at its first version.
+
+    Fixtures are directories under ``fixtures/compose``, copied in order: a later one adds to or
+    replaces files of an earlier one (``database`` and ``two-webs`` hold only the compose file
+    that replaces the web fixture's). ``@PORT@`` and ``@PORT2@`` in them become the host ports,
+    because scenarios share the container's ports and each one takes its own.
+
+    Args:
+        sc: The scenario.
+        name: Path under /root/fixtures, such as ``hooks-stack``.
+        *fixtures: The fixture directories to copy, such as ``"web"`` or ``"web", "database"``.
+        port: The host port for ``@PORT@``.
+        port2: The host port for ``@PORT2@``.
+
+    Returns:
+        The repository's path in the container and its git:// URL.
+    """
+    repo = f"/root/fixtures/{name}"
+    copies = " && ".join(f"cp -a {COMPOSE_FIXTURES}/{fixture}/. {repo}/" for fixture in fixtures)
+    substitutions = "".join(
+        f"grep -rl '{token}' {repo} --exclude-dir=.git | xargs -r sed -i 's/{token}/{value}/g' && "
+        for token, value in (("@PORT@", port), ("@PORT2@", port2))
+        if value is not None
+    )
+    sc.run(
+        f"rm -rf {repo} && mkdir -p {repo} && {copies} && {substitutions}"
+        f"cd {repo} && git init -q -b main && {GIT_IDENTITY} && "
+        "git add -A && git commit -q -m 'v1'",
+        timeout=30,
+        label=f"(fixture repo) {repo}: {' + '.join(fixtures)}, served at git://127.0.0.1/{name}",
+    )
+    return repo, f"git://127.0.0.1/{name}"
+
+
+def compose_create(
+    sc: Scenario, domain: str, url: str, *, port: int | None, ssl: bool = False
+) -> subprocess.CompletedProcess[str]:
+    """
+    Deploy a Compose stack the way an operator does: ``noust create -t docker-compose``.
+
+    ``--port`` is passed unless ``port`` is None: before 3.2 a stack without it got a free port
+    that its site proxied to, whatever ports the stack published, so only the scenario that is
+    about that (``compose_site_follows_the_published_ports``) leaves it out.
+
+    Args:
+        sc: The scenario.
+        domain: The domain to serve.
+        url: The repository.
+        port: The stack's published port, or None to leave Noust to find it.
+        ssl: Ask for a certificate instead of ``--no-ssl``.
+
+    Returns:
+        The finished command.
+    """
+    command = f"noust create -d {domain} -s {url} -t docker-compose"
+    if port is not None:
+        command += f" --port {port}"
+    if not ssl:
+        command += " --no-ssl"
+    return sc.run(command, timeout=DEPLOY_TIMEOUT, label=command)
+
+
+def compose_ids(sc: Scenario, domain: str, service: str) -> list[str]:
+    """The full ids of the running containers of one service of a stack (not one-off ones)."""
+    proc = docker_exec(
+        sc.container,
+        "docker ps -q --no-trunc "
+        f"-f label=com.docker.compose.project={compose_project(domain)} "
+        f"-f label=com.docker.compose.service={service} "
+        "-f label=com.docker.compose.oneoff=False",
+        timeout=30,
+        check=False,
+    )
+    return proc.stdout.split()
+
+
+def compose_exec(
+    sc: Scenario, domain: str, service: str, script: str, label: str
+) -> subprocess.CompletedProcess[str]:
+    """Run a shell script inside a stack's service container; ``script`` holds no single quote."""
+    return sc.run(
+        "docker exec "
+        f"$(docker ps -q -f label=com.docker.compose.project={compose_project(domain)} "
+        f"-f label=com.docker.compose.service={service} "
+        "-f label=com.docker.compose.oneoff=False | head -1) "
+        f"sh -c '{script}'",
+        timeout=60,
+        check=False,
+        label=label,
+    )
+
+
+def compose_logs(sc: Scenario, domain: str, service: str) -> str:
+    """The last lines a stack's service printed."""
+    return docker_exec(
+        sc.container,
+        f"docker logs --tail 30 $(docker ps -aq -f label=com.docker.compose.project="
+        f"{compose_project(domain)} -f label=com.docker.compose.service={service} | head -1) 2>&1",
+        timeout=30,
+        check=False,
+    ).stdout
+
+
+def site_files(sc: Scenario, domain: str) -> str:
+    """The nginx site files of a domain that exist, one per line: empty when it has none."""
+    return docker_exec(
+        sc.container,
+        f"ls /etc/nginx/sites-enabled/{domain} /etc/nginx/sites-available/{domain} 2>/dev/null",
+        timeout=15,
+        check=False,
+    ).stdout.strip()
+
+
+def compose_clean(sc: Scenario, domain: str) -> None:
+    """Remove an application, then anything of its stack that is left, whatever the scenario did."""
+    project = compose_project(domain)
+    sc.run(
+        f"noust delete {domain} -f",
+        timeout=180,
+        check=False,
+        label=f"cleanup: noust delete {domain}",
+    )
+    sc.run(
+        f"docker ps -aq -f label=com.docker.compose.project={project} | xargs -r docker rm -f; "
+        f"docker volume ls -q -f label=com.docker.compose.project={project} "
+        "| xargs -r docker volume rm -f; true",
+        timeout=120,
+        check=False,
+        label=f"cleanup: what is left of the {project} stack",
+    )
+
+
+def stop_load(sc: Scenario) -> None:
+    """Stop the load generator, whether or not it is running."""
+    sc.run(f"systemctl stop {LOAD_UNIT}; true", timeout=30, check=False, label="stop the load")
+
+
+def wait_served(sc: Scenario, host: str, expected: str, *, path: str = "/") -> str:
+    """
+    Wait until the site answers with ``expected`` in its body, and fail when it never does.
+
+    A stack is up when the CLI returns, but its container may still be starting: the first
+    answers through nginx can be a 502 for a moment.
+
+    Args:
+        sc: The scenario.
+        host: The ``Host`` header, which picks the site.
+        expected: What the body must contain.
+        path: What to ask for.
+
+    Returns:
+        The body that contained it.
+    """
+    deadline = time.monotonic() + STACK_READY_TIMEOUT
+    body = ""
+    while time.monotonic() < deadline:
+        body = docker_exec(
+            sc.container,
+            f"curl -sS -m 5 -H 'Host: {host}' 'http://127.0.0.1{path}'",
+            timeout=30,
+            check=False,
+        ).stdout.strip()
+        if expected in body:
+            break
+        time.sleep(1)
+    sc.evidence.append(
+        f"$ (until it answers) curl -H 'Host: {host}' http://127.0.0.1{path}\n{body}"
+    )
+    sc.check(expected in body, f"{host}{path} answered {body!r}, not {expected!r}")
+    return body
+
+
+def store_rows(sc: Scenario, sql: str, *, domain: str, label: str) -> list[dict[str, Any]]:
+    """
+    Run a query against the store and return its rows, with the domain as a bound parameter.
+
+    The query is a literal that names ``@domain``, never a string built from the domain:
+    sqlite3's ``.parameter`` binds it, which is what keeps the harness's queries literals.
+
+    Args:
+        sc: The scenario.
+        sql: The query, such as ``"SELECT port FROM apps WHERE domain = @domain"``.
+        domain: What ``@domain`` is bound to.
+        label: What the query is for, in the evidence.
+
+    Returns:
+        One dict per row.
+    """
+    proc = sc.run(
+        f'sqlite3 -json -cmd ".parameter set @domain \'{domain}\'" {NOUST_DB} "{sql}"',
+        timeout=15,
+        label=label,
+    )
+    rows: list[dict[str, Any]] = json.loads(proc.stdout or "[]")
+    return rows
+
+
+def recorded_port(sc: Scenario, domain: str) -> int | None:
+    """The port the store has for an application: None when it has none."""
+    rows = store_rows(
+        sc,
+        "SELECT port FROM apps WHERE domain = @domain",
+        domain=domain,
+        label=f"the port recorded for {domain}",
+    )
+    sc.check(bool(rows), f"{domain} is not in the store")
+    port: int | None = rows[0]["port"]
+    return port
+
+
+def last_deployment(sc: Scenario, domain: str) -> dict[str, Any]:
+    """The newest row of an application's deployment history, as the store holds it."""
+    rows = store_rows(
+        sc,
+        "SELECT id, status, schema_changed, hooks, warnings, error, git_commit "
+        "FROM deployments WHERE domain = @domain ORDER BY id DESC LIMIT 1",
+        domain=domain,
+        label=f"the newest deployment of {domain} in the history",
+    )
+    sc.check(bool(rows), f"{domain} has no deployment in the history")
+    return rows[0]
+
+
+def command_output(proc: subprocess.CompletedProcess[str]) -> str:
+    """Everything a finished command printed."""
+    return proc.stdout + proc.stderr
+
+
+# -- The generic stack scenarios that run on the build as it is --------------------------------
+
+GAP_DOMAIN = "gap.test"
+GAP_PORT = 18101
+
+
+@scenario("compose_update_probe_sees_the_gap")
+def scenario_compose_gap(sc: Scenario) -> None:
+    """
+    A plain Compose update leaves the site without an answer while the new container starts.
+
+    The control for the relay scenario, and a real update of a real stack under load: the new
+    version takes four seconds to listen, so recreating the container leaves its port empty for
+    that long and nginx answers 502. A probe of one request every 0.2 s through nginx must see
+    it, because if it could not, the relay scenario's "zero failures" would prove nothing.
+    """
+    require_docker(sc)
+    pull_images(sc, COMPOSE_BASE_IMAGE)
+    repo, url = make_compose_repo(sc, "gap-stack", "web", port=GAP_PORT)
+    compose_create(sc, GAP_DOMAIN, url, port=GAP_PORT)
+    try:
+        wait_served(sc, GAP_DOMAIN, "web v1")
+        mark = start_load(sc, GAP_DOMAIN, interval=PROBE_INTERVAL, accept="23")
+        commit_to(
+            sc,
+            repo,
+            "printf 'v2\\n' > VERSION && printf '4\\n' > DELAY",
+            "v2: four seconds to start",
+        )
+        sc.run(
+            f"noust update {GAP_DOMAIN}", timeout=DEPLOY_TIMEOUT, label=f"noust update {GAP_DOMAIN}"
+        )
+        report = load_report(sc, "a plain update of a stack that takes 4 s to start", mark)
+        sc.check(report.requests >= 20, f"only {report.requests} requests were made")
+        sc.check(
+            len(report.failures) >= 1,
+            "the probe saw no failed request while the container was recreated with an empty "
+            "port for 4 s: it cannot show that the relay closes the gap",
+        )
+        wait_served(sc, GAP_DOMAIN, "web v2")
+    finally:
+        stop_load(sc)
+        compose_clean(sc, GAP_DOMAIN)
+
+
+WORKER_DOMAIN = "worker.test"
+
+
+@scenario("compose_worker_deploys_without_a_site")
+def scenario_compose_worker(sc: Scenario) -> None:
+    """
+    A stack that publishes no port is deployed and updated with no site and no web probe.
+
+    A worker (the shape of licitaciones in production): running, healthy, nothing for a browser.
+    No nginx site is written for it, its container runs, and an update recreates it with the
+    new version, still without a site.
+    """
+    require_docker(sc)
+    pull_images(sc, COMPOSE_BASE_IMAGE)
+    repo, url = make_compose_repo(sc, "worker-stack", "worker")
+    compose_create(sc, WORKER_DOMAIN, url, port=None)
+    try:
+        ids = compose_ids(sc, WORKER_DOMAIN, "worker")
+        sc.check(len(ids) == 1, f"expected one worker container, found {ids!r}")
+        state = sc.run(
+            f"docker inspect -f '{{{{.State.Status}}}} {{{{.RestartCount}}}}' {ids[0]}",
+            timeout=15,
+            label="the worker container's state and restart count",
+        )
+        sc.check(state.stdout.strip() == "running 0", f"the worker is not steady: {state.stdout!r}")
+        written = site_files(sc, WORKER_DOMAIN)
+        sc.evidence.append(f"$ ls the nginx site files of {WORKER_DOMAIN}\n{written or '(none)'}")
+        sc.check(not written, f"a site was written for a stack that publishes no port: {written!r}")
+        logs = compose_logs(sc, WORKER_DOMAIN, "worker")
+        sc.check("worker v1 heartbeat" in logs, f"the worker is not beating: {logs!r}")
+
+        commit_to(sc, repo, "printf 'v2\\n' > VERSION", "v2")
+        sc.run(
+            f"noust update {WORKER_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust update {WORKER_DOMAIN}",
+        )
+        deadline = time.monotonic() + 30
+        logs = ""
+        while "worker v2 heartbeat" not in logs and time.monotonic() < deadline:
+            time.sleep(1)
+            logs = compose_logs(sc, WORKER_DOMAIN, "worker")
+        sc.check("worker v2 heartbeat" in logs, f"the update did not recreate the worker: {logs!r}")
+        again = site_files(sc, WORKER_DOMAIN)
+        sc.check(not again, f"the update wrote a site for a stack with no port: {again!r}")
+    finally:
+        compose_clean(sc, WORKER_DOMAIN)
+
+
+# -- Port reader, headless, hooks, relay and the rest: features other flows are building --------
+
+PORTS_DOMAIN = "ports.test"
+PORTS_FRONT = 18108
+PORTS_BACK = 18109
+
+
+@scenario("compose_site_follows_the_published_ports")
+def scenario_compose_ports(sc: Scenario) -> None:
+    """
+    Without --port, the site goes to the port the stack publishes, and `/` to the web in front.
+
+    A frontend that depends on a backend, the backend published on loopback only
+    (``127.0.0.1:P:C``). No ``--port`` and no ``noust.nginx.yaml``: Noust reads the ports from
+    the compose file, sends ``/`` to the service that depends on the other web service, and does
+    not invent a ``/backend`` route (before 3.2 the backend got ``/`` and the frontend
+    ``/frontend``, and the site proxied to a free port that nothing listened on).
+    """
+    require_module(sc, "noust.deployers.helpers.compose_ports", what="the Compose port reader")
+    require_docker(sc)
+    pull_images(sc, COMPOSE_BASE_IMAGE)
+    _, url = make_compose_repo(
+        sc, "ports-stack", "web", "two-webs", port=PORTS_FRONT, port2=PORTS_BACK
+    )
+    compose_create(sc, PORTS_DOMAIN, url, port=None)
+    try:
+        wait_served(sc, PORTS_DOMAIN, "frontend v1")
+        root = curl_host(sc, PORTS_DOMAIN).strip()
+        sc.check(root == "frontend v1", f"/ went to {root!r}, not to the frontend")
+        invented = curl_host(sc, PORTS_DOMAIN, "/backend/").strip()
+        sc.check(
+            invented != "backend v1",
+            "a /backend route was invented: only what noust.nginx.yaml declares is routed",
+        )
+        port = recorded_port(sc, PORTS_DOMAIN)
+        sc.check(port == PORTS_FRONT, f"the store recorded port {port!r}, not the frontend's")
+        sc.run("nginx -t", timeout=15, label="nginx -t")
+    finally:
+        compose_clean(sc, PORTS_DOMAIN)
+
+
+@scenario("compose_worker_is_not_a_down_web")
+def scenario_compose_worker_not_down(sc: Scenario) -> None:
+    """
+    A stack with no port is judged by its containers, and a mis-registered one is fixed on request.
+
+    Item 57 (licitaciones): a worker deployed by WASM 1.x kept port 3000 and an nginx site, and
+    `noust diagnose`, the monitor and the health report called it down because nothing answered
+    on a port it never had. Now: a healthy worker diagnoses healthy; a worker that crashes in a
+    loop diagnoses down with its container state and last log lines (not an HTTP probe);
+    `noust health` points a worker still registered with a port at `noust app headless`, which
+    clears the port and removes the site Noust wrote, and never does it by itself.
+    """
+    require_cli(sc, "app headless", what="a Compose stack with no web (item 57)")
+    require_docker(sc)
+    pull_images(sc, COMPOSE_BASE_IMAGE)
+    domain = "workerok.test"
+    _, url = make_compose_repo(sc, "worker-ok-stack", "worker")
+    compose_create(sc, domain, url, port=None)
+    try:
+        port = recorded_port(sc, domain)
+        sc.check(port is None, f"a stack that publishes nothing was given port {port!r}")
+        diagnosis = json_of(
+            sc.run(f"noust diagnose {domain} --json", timeout=60, check=False, label="diagnose"),
+            "noust diagnose",
+        )
+        sc.check(
+            diagnosis["verdict"] == "healthy",
+            f"a running worker with no port was diagnosed {diagnosis['verdict']!r}: "
+            f"{diagnosis.get('probable_cause')!r}",
+        )
+        health = sc.run("noust health", timeout=60, check=False, label="noust health")
+        sc.check(
+            f"noust app headless {domain}" not in command_output(health),
+            "noust health sends a correct worker to `noust app headless`",
+        )
+
+        # A stack that crashes in a loop: the version file the process reads at start says so.
+        compose_exec(
+            sc, domain, "worker", "echo crash > /app/VERSION", "make the worker crash on start"
+        )
+        sc.run(
+            f"docker restart $(docker ps -aq -f label=com.docker.compose.project="
+            f"{compose_project(domain)} -f label=com.docker.compose.service=worker)",
+            timeout=60,
+            label="restart the worker into its crash loop",
+        )
+        time.sleep(5)
+        down = json_of(
+            sc.run(f"noust diagnose {domain} --json", timeout=60, check=False, label="diagnose"),
+            "noust diagnose",
+        )
+        sc.check(
+            down["verdict"] == "down", f"a worker in a crash loop was diagnosed {down['verdict']!r}"
+        )
+        sc.check(
+            "this version crashes" in json.dumps(down),
+            "the diagnosis does not show the stack's own last log lines",
+        )
+
+        compose_exec(
+            sc, domain, "worker", "echo v1 > /app/VERSION", "give the worker its version back"
+        )
+        sc.run(
+            f"docker restart $(docker ps -aq -f label=com.docker.compose.project="
+            f"{compose_project(domain)} -f label=com.docker.compose.service=worker)",
+            timeout=60,
+            label="restart the worker, steady again",
+        )
+        time.sleep(3)
+
+        # Registered the way WASM 1.x left it: a port, and a site Noust wrote for it.
+        store_rows(
+            sc,
+            "UPDATE apps SET port = 3000 WHERE domain = @domain",
+            domain=domain,
+            label="register the worker with a port, as WASM 1.x did",
+        )
+        sc.run(
+            f"noust site create -d {domain} --port 3000 --no-ssl",
+            timeout=60,
+            label="the site WASM 1.x wrote for it",
+        )
+        health = sc.run("noust health", timeout=60, check=False, label="noust health")
+        sc.check(
+            f"noust app headless {domain}" in command_output(health),
+            "noust health does not say how to fix a worker registered with a port",
+        )
+        sc.check(bool(site_files(sc, domain)), "the site was removed before anyone asked")
+        sc.run(
+            f"yes | noust app headless {domain}",
+            timeout=60,
+            label=f"noust app headless {domain} (answering yes)",
+        )
+        port = recorded_port(sc, domain)
+        sc.check(port is None, f"noust app headless left port {port!r} recorded")
+        left = site_files(sc, domain)
+        sc.check(not left, f"noust app headless left the site Noust had written: {left!r}")
+        sc.run("nginx -t", timeout=15, label="nginx -t (after removing the site)")
+    finally:
+        compose_clean(sc, domain)
+
+
+HOOKS_DOMAIN = "hooks.test"
+HOOKS_PORT = 18102
+
+
+@scenario("compose_hooks_pass_and_fail")
+def scenario_compose_hooks(sc: Scenario) -> None:
+    """
+    Deploy hooks in noust.yaml: they run in the new image, and a failing one moves nothing.
+
+    v2 adds a pre_deploy migration (``migrates: true``) and a post_deploy: both run inside the
+    new image against the service's own volume, and the deployment is recorded as one that
+    changed the schema. v3 makes the migration fail: the update stops with the hook's own output,
+    the container that served is the same one, still on v2. v4 makes only the post_deploy fail:
+    the new version stays deployed, with a warning in the history.
+    """
+    require_cli(sc, "app hooks", what="deploy hooks (noust.yaml)")
+    require_docker(sc)
+    pull_images(sc, COMPOSE_BASE_IMAGE)
+    repo, url = make_compose_repo(sc, "hooks-stack", "web", port=HOOKS_PORT)
+    compose_create(sc, HOOKS_DOMAIN, url, port=HOOKS_PORT)
+    try:
+        wait_served(sc, HOOKS_DOMAIN, "web v1")
+
+        commit_to(
+            sc,
+            repo,
+            f"printf 'v2\\n' > VERSION && cp {COMPOSE_FIXTURES}/yaml/hooks.yaml noust.yaml",
+            "v2: a migration and a cache purge",
+        )
+        sc.run(
+            f"noust update {HOOKS_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust update {HOOKS_DOMAIN}",
+        )
+        wait_served(sc, HOOKS_DOMAIN, "web v2")
+        migrated = compose_exec(
+            sc,
+            HOOKS_DOMAIN,
+            "web",
+            "cat /data/migrations.log /data/purge.log",
+            "what the hooks wrote",
+        )
+        sc.check(
+            "migrated by v2" in migrated.stdout, f"pre_deploy did not run: {migrated.stdout!r}"
+        )
+        sc.check("purged by v2" in migrated.stdout, f"post_deploy did not run: {migrated.stdout!r}")
+        row = last_deployment(sc, HOOKS_DOMAIN)
+        sc.check(row["status"] == "success", f"the update's row: {row!r}")
+        sc.check(row["schema_changed"] == 1, f"a migrates hook did not mark the schema: {row!r}")
+        sc.check(
+            "migrate.sh" in (row["hooks"] or ""), f"the history lacks the hooks that ran: {row!r}"
+        )
+
+        served_by = compose_ids(sc, HOOKS_DOMAIN, "web")
+        commit_to(
+            sc,
+            repo,
+            "printf 'v3\\n' > VERSION && touch FAIL_HOOK",
+            "v3: the migration cannot apply",
+        )
+        failed = sc.run(
+            f"noust update {HOOKS_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            check=False,
+            label=f"noust update {HOOKS_DOMAIN} (the migration fails)",
+        )
+        sc.check(failed.returncode != 0, "an update whose pre_deploy hook failed succeeded")
+        sc.check(
+            "migration exploded: table users is locked" in command_output(failed),
+            "the error does not carry the hook's own output",
+        )
+        sc.check(
+            compose_ids(sc, HOOKS_DOMAIN, "web") == served_by,
+            "the container that served was recreated by a deploy that never got past its hook",
+        )
+        sc.check(curl_host(sc, HOOKS_DOMAIN).strip() == "web v2", "what served is not serving v2")
+        row = last_deployment(sc, HOOKS_DOMAIN)
+        sc.check(row["status"] == "failed", f"the failed update's row: {row!r}")
+        sc.check(row["schema_changed"] == 0, f"a migration that failed marked the schema: {row!r}")
+
+        commit_to(
+            sc,
+            repo,
+            "printf 'v4\\n' > VERSION && rm FAIL_HOOK && touch FAIL_POST",
+            "v4: the cache purge fails",
+        )
+        sc.run(
+            f"noust update {HOOKS_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            check=False,
+            label=f"noust update {HOOKS_DOMAIN} (the post_deploy hook fails)",
+        )
+        wait_served(sc, HOOKS_DOMAIN, "web v4")
+        row = last_deployment(sc, HOOKS_DOMAIN)
+        sc.check(
+            row["status"] in ("success", "deployed_with_warnings")
+            and "cache purge failed" in json.dumps(row),
+            f"a post_deploy that failed was not recorded as a warning: {row!r}",
+        )
+    finally:
+        compose_clean(sc, HOOKS_DOMAIN)
+
+
+NODE_HOOKS_PORT = 3722
+
+
+def node_overlay_repo(sc: Scenario, repo: str, fixture: str, message: str) -> None:
+    """Copy a fixture directory over a Node repository and commit it."""
+    commit_to(sc, repo, f"cp -a /root/fixtures/{fixture}/. .", message)
+
+
+@scenario("node_prisma_failure_aborts_the_update")
+def scenario_prisma_failure(sc: Scenario) -> None:
+    """
+    A Prisma migration that fails stops the update: the code that serves is not replaced.
+
+    Until 3.2 the failure was a warning and the new code served against the old schema. The
+    ``prisma`` here is a stand-in with the real one's output (tests/integration/fixtures/
+    node-prisma/fake-prisma), driven by files in the commit. A code-only update applies
+    nothing and does not mark the schema; one with a new migration does; a failing migrate
+    aborts, the release that served keeps serving and the error carries the tool's output.
+    """
+    require_cli(sc, "app hooks", what="Prisma failures aborting the update (H1)")
+    domain = "prisma.test"
+    repo, url = make_node_repo(sc, "prisma-app")
+    node_overlay_repo(sc, repo, "node-prisma", "a Prisma project")
+    sc.run(
+        f"cd {repo} && npm pkg set devDependencies.prisma=file:./fake-prisma && "
+        "npm install --package-lock-only && git add -A && git commit -q -m 'depend on prisma'",
+        timeout=120,
+        label="(fixture repo) the Node fixture depends on the stand-in prisma",
+    )
+    create = f"noust create -d {domain} -s {url} -t nodejs --no-ssl --layout releases --port 3721"
+    sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
+    try:
+        sc.check(curl_host(sc, domain).strip() == "ok 1", "the app is not serving version 1")
+
+        commit_to(sc, repo, "echo 2 > VERSION", "version 2: code only")
+        sc.run(f"noust update {domain}", timeout=DEPLOY_TIMEOUT, label=f"noust update {domain}")
+        sc.check(curl_host(sc, domain).strip() == "ok 2", "version 2 is not serving")
+        row = last_deployment(sc, domain)
+        sc.check(row["schema_changed"] == 0, f"nothing was migrated, yet: {row!r}")
+
+        commit_to(
+            sc,
+            repo,
+            "echo 3 > VERSION && mkdir prisma/migrations/20260201000000_add_orders && "
+            "echo 'CREATE TABLE orders (id int);' > "
+            "prisma/migrations/20260201000000_add_orders/migration.sql",
+            "version 3: a new migration",
+        )
+        sc.run(f"noust update {domain}", timeout=DEPLOY_TIMEOUT, label=f"noust update {domain}")
+        sc.check(curl_host(sc, domain).strip() == "ok 3", "version 3 is not serving")
+        row = last_deployment(sc, domain)
+        sc.check(
+            row["schema_changed"] == 1, f"an applied migration did not mark the schema: {row!r}"
+        )
+
+        release = active_release_of(sc, domain)
+        commit_to(
+            sc, repo, "echo 4 > VERSION && touch prisma/FAIL", "version 4: the migration fails"
+        )
+        failed = sc.run(
+            f"noust update {domain}",
+            timeout=DEPLOY_TIMEOUT,
+            check=False,
+            label=f"noust update {domain} (prisma migrate deploy fails)",
+        )
+        sc.check(failed.returncode != 0, "an update whose Prisma migration failed succeeded")
+        sc.check("P3009" in command_output(failed), "the error does not carry prisma's own output")
+        sc.check(curl_host(sc, domain).strip() == "ok 3", "what served was replaced anyway")
+        sc.check(active_release_of(sc, domain) == release, "the active release changed")
+        row = last_deployment(sc, domain)
+        sc.check(row["status"] == "failed", f"the failed update's row: {row!r}")
+    finally:
+        sc.run(f"noust delete {domain} -f", timeout=180, check=False, label="cleanup")
+
+
+def active_release_of(sc: Scenario, domain: str) -> str:
+    """What the ``current`` link of a release application points at."""
+    link = sc.run(
+        f"readlink /var/www/apps/{app_name_of(domain)}/current",
+        timeout=15,
+        check=False,
+        label=f"the active release of {domain}",
+    )
+    return link.stdout.strip()
+
+
+@scenario("release_rollback_over_a_schema_change")
+def scenario_schema_rollback(sc: Scenario) -> None:
+    """
+    Going back by hand over a migration needs an explicit yes; going back over none does not.
+
+    A Node app on releases with a ``migrates: true`` pre_deploy hook. Rolling back past the
+    update that migrated is refused with the flag that confirms it, and nothing moves; with the
+    flag it goes. An update that declares no migration can be rolled back without asking.
+    """
+    require_cli(
+        sc,
+        "releases rollback",
+        option="--schema-changed-ok",
+        what="manual rollbacks over a schema change",
+    )
+    require_cli(sc, "app hooks", what="deploy hooks (noust.yaml)")
+    domain = "schema.test"
+    repo, url = make_node_repo(sc, "schema-app")
+    node_overlay_repo(sc, repo, "node-hooks", "a migrating pre_deploy hook")
+    create = (
+        f"noust create -d {domain} -s {url} -t nodejs --no-ssl --layout releases "
+        f"--port {NODE_HOOKS_PORT}"
+    )
+    sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
+    try:
+        commit_to(sc, repo, "echo 2 > VERSION", "version 2: its hook migrates")
+        sc.run(f"noust update {domain}", timeout=DEPLOY_TIMEOUT, label=f"noust update {domain}")
+        sc.check(curl_host(sc, domain).strip() == "ok 2", "version 2 is not serving")
+        row = last_deployment(sc, domain)
+        sc.check(row["schema_changed"] == 1, f"the migrating hook did not mark the schema: {row!r}")
+        release = active_release_of(sc, domain)
+
+        refused = sc.run(
+            f"noust releases rollback {domain}",
+            timeout=120,
+            check=False,
+            label=f"noust releases rollback {domain} (over a migration)",
+        )
+        sc.check(refused.returncode != 0, "a rollback over a schema change went ahead unasked")
+        sc.check(
+            "--schema-changed-ok" in command_output(refused),
+            "the refusal does not name the flag that confirms it",
+        )
+        sc.check(active_release_of(sc, domain) == release, "the refused rollback moved the link")
+        sc.check(
+            curl_host(sc, domain).strip() == "ok 2", "the refused rollback changed what serves"
+        )
+
+        sc.run(
+            f"noust releases rollback {domain} --schema-changed-ok",
+            timeout=120,
+            label=f"noust releases rollback {domain} --schema-changed-ok",
+        )
+        sc.check(
+            curl_host(sc, domain).strip() == "ok 1", "the confirmed rollback is not serving v1"
+        )
+
+        commit_to(
+            sc,
+            repo,
+            "echo 3 > VERSION && sed -i 's/migrates: true/migrates: false/' noust.yaml",
+            "version 3: no migration",
+        )
+        sc.run(f"noust update {domain}", timeout=DEPLOY_TIMEOUT, label=f"noust update {domain}")
+        sc.check(curl_host(sc, domain).strip() == "ok 3", "version 3 is not serving")
+        row = last_deployment(sc, domain)
+        sc.check(
+            row["schema_changed"] == 0, f"a hook that does not migrate marked the schema: {row!r}"
+        )
+        sc.run(
+            f"noust releases rollback {domain}",
+            timeout=120,
+            label=f"noust releases rollback {domain} (over an update that changed nothing)",
+        )
+        sc.check(curl_host(sc, domain).strip() == "ok 2", "the rollback did not go back to v2")
+    finally:
+        sc.run(f"noust delete {domain} -f", timeout=180, check=False, label="cleanup")
+
+
+RELAY_DOMAIN = "relay.test"
+RELAY_PORT = 18103
+
+
+@scenario("compose_relay_without_cuts")
+def scenario_compose_relay(sc: Scenario) -> None:
+    """
+    With the relay on, a Compose update and a broken one cost the visitor nothing.
+
+    The same stack as the gap scenario (the new version takes four seconds to listen), with
+    `noust app zero-downtime on`: the site reads its upstream from a servers file of Noust's, a
+    relay container with the new image takes the traffic while the container is recreated, and
+    a probe of one request every 0.2 s through nginx sees no failed answer. Then a version
+    that cannot start: the update fails and the container that served is the same one, still
+    serving, with no relay left behind.
+    """
+    require_module(sc, "noust.deployers.compose_relay", what="the Compose relay")
+    require_docker(sc)
+    pull_images(sc, COMPOSE_BASE_IMAGE)
+    repo, url = make_compose_repo(sc, "relay-stack", "web", port=RELAY_PORT)
+    compose_create(sc, RELAY_DOMAIN, url, port=RELAY_PORT)
+    app = compose_project(RELAY_DOMAIN)
+    servers = f"/etc/nginx/noust-upstreams/{app}/web.servers"
+    try:
+        wait_served(sc, RELAY_DOMAIN, "web v1")
+        sc.run(
+            f"noust app zero-downtime {RELAY_DOMAIN} on --drain 2",
+            timeout=120,
+            label=f"noust app zero-downtime {RELAY_DOMAIN} on --drain 2",
+        )
+        listed = sc.run(f"cat {servers}", timeout=15, label="the servers file the site includes")
+        sc.check(
+            listed.stdout.strip() == f"server 127.0.0.1:{RELAY_PORT};",
+            f"the servers file does not point at the stack's port: {listed.stdout!r}",
+        )
+        included = sc.run(
+            f"grep -F '{servers}' /etc/nginx/sites-available/{RELAY_DOMAIN}",
+            timeout=15,
+            check=False,
+            label="the site includes the servers file",
+        )
+        sc.check(included.returncode == 0, "the site does not include the servers file")
+
+        mark = start_load(sc, RELAY_DOMAIN, interval=PROBE_INTERVAL, accept="23")
+        commit_to(
+            sc,
+            repo,
+            "printf 'v2\\n' > VERSION && printf '4\\n' > DELAY",
+            "v2: four seconds to start",
+        )
+        sc.run(
+            f"noust update {RELAY_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust update {RELAY_DOMAIN}",
+        )
+        mark = load_phase(sc, "a relayed update of a stack that takes 4 s to start", mark)
+        wait_served(sc, RELAY_DOMAIN, "web v2")
+        left = sc.run(
+            "docker ps -a --format '{{.Names}}' | grep -- '-relay' || true",
+            timeout=30,
+            label="no relay container is left",
+        )
+        sc.check(not left.stdout.strip(), f"a relay container was left behind: {left.stdout!r}")
+        listed = sc.run(f"cat {servers}", timeout=15, label="the servers file after the update")
+        sc.check(
+            listed.stdout.strip() == f"server 127.0.0.1:{RELAY_PORT};",
+            f"the servers file was not given back to the stack's own port: {listed.stdout!r}",
+        )
+
+        serving = compose_ids(sc, RELAY_DOMAIN, "web")
+        commit_to(sc, repo, "printf 'broken\\n' > VERSION", "v3: the image cannot start")
+        failed = sc.run(
+            f"noust update {RELAY_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            check=False,
+            label=f"noust update {RELAY_DOMAIN} (an image that cannot start)",
+        )
+        sc.check(failed.returncode != 0, "an update to an image that cannot start succeeded")
+        mark = load_phase(sc, "a relayed update to an image that cannot start", mark, minimum=5)
+        sc.check(
+            compose_ids(sc, RELAY_DOMAIN, "web") == serving,
+            "the container that served was touched by an update whose image never started",
+        )
+        sc.check(curl_host(sc, RELAY_DOMAIN).strip() == "web v2", "what served is not serving v2")
+        left = sc.run(
+            "docker ps -a --format '{{.Names}}' | grep -- '-relay' || true",
+            timeout=30,
+            label="no relay container is left after the failure",
+        )
+        sc.check(not left.stdout.strip(), f"a relay container was left behind: {left.stdout!r}")
+
+        sc.run(
+            f"noust app zero-downtime {RELAY_DOMAIN} off",
+            timeout=120,
+            label=f"noust app zero-downtime {RELAY_DOMAIN} off",
+        )
+        sc.check(
+            curl_host(sc, RELAY_DOMAIN).strip() == "web v2", "switching the relay off cut the site"
+        )
+    finally:
+        stop_load(sc)
+        compose_clean(sc, RELAY_DOMAIN)
+
+
+ADOPT_DOMAIN = "adopt.test"
+ADOPT_PORT = 18104
+ADOPT_DIR = "/srv/adopt-stack"
+ADOPT_PROJECT = "adoptstack"
+ADOPT_SITE = "shop-front"
+
+#: The site an operator wrote long before Noust: its file is not named after the domain.
+ADOPT_SITE_TEXT = """# Written by hand, long before Noust.
+server {
+    listen 80;
+    server_name @DOMAIN@;
+    add_header X-Operator "hand-written" always;
+    location / {
+        proxy_pass http://127.0.0.1:@PORT@;
+        proxy_set_header Host $host;
+    }
+}
+"""
+
+
+@scenario("compose_adopt_a_running_stack")
+def scenario_compose_adopt(sc: Scenario) -> None:
+    """
+    A stack brought up by hand is adopted without a single container being touched.
+
+    ``docker compose -p adoptstack up`` from a clone in /srv, and a site in sites-available
+    whose name is not the domain, both as an operator leaves them. `noust app adopt` registers
+    the stack: the same containers (same ids, same start time), the project name it already
+    runs as, the site file found by the names it serves and left byte for byte as it was, a unit
+    enabled but not started. The next update then works inside that project and that directory.
+    """
+    require_cli(sc, "app adopt", what="adopting a running stack")
+    require_docker(sc)
+    pull_images(sc, COMPOSE_BASE_IMAGE)
+    repo, url = make_compose_repo(sc, "adopt-stack", "web", port=ADOPT_PORT)
+    site = ADOPT_SITE_TEXT.replace("@DOMAIN@", ADOPT_DOMAIN).replace("@PORT@", str(ADOPT_PORT))
+    site_path = f"/etc/nginx/sites-available/{ADOPT_SITE}"
+    try:
+        sc.run(
+            f"rm -rf {ADOPT_DIR} && git clone -q {url} {ADOPT_DIR} && cd {ADOPT_DIR} && "
+            f"docker compose -p {ADOPT_PROJECT} up -d --build",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"the operator's own `docker compose -p {ADOPT_PROJECT} up -d --build` in {ADOPT_DIR}",
+        )
+        sc.run(
+            f"cat > {site_path} <<'EOF'\n{site}EOF\n"
+            f"ln -sf {site_path} /etc/nginx/sites-enabled/{ADOPT_SITE} && nginx -t && nginx -s reload",
+            timeout=30,
+            label=f"the operator's own site, {site_path}",
+        )
+        wait_served(sc, ADOPT_DOMAIN, "web v1")
+        before = sc.run(
+            f"docker inspect -f '{{{{.Id}}}} {{{{.State.StartedAt}}}}' "
+            f"$(docker ps -q -f label=com.docker.compose.project={ADOPT_PROJECT})",
+            timeout=30,
+            label="the stack's containers before",
+        ).stdout
+        site_sum = sc.run(f"sha256sum {site_path}", timeout=15, label="the site's checksum").stdout
+
+        sc.run(
+            f"yes | noust app adopt {ADOPT_DOMAIN} --path {ADOPT_DIR} --source {url}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust app adopt {ADOPT_DOMAIN} --path {ADOPT_DIR} --source {url}",
+        )
+
+        after = sc.run(
+            f"docker inspect -f '{{{{.Id}}}} {{{{.State.StartedAt}}}}' "
+            f"$(docker ps -q -f label=com.docker.compose.project={ADOPT_PROJECT})",
+            timeout=30,
+            label="the stack's containers after",
+        ).stdout
+        sc.check(before == after, f"adopting touched the containers:\n{before}\n{after}")
+        sc.check(
+            sc.run(f"sha256sum {site_path}", timeout=15, label="the site's checksum after").stdout
+            == site_sum,
+            "adopting rewrote the operator's site",
+        )
+        row = store_rows(
+            sc,
+            "SELECT * FROM apps WHERE domain = @domain",
+            domain=ADOPT_DOMAIN,
+            label="the adopted application's row",
+        )[0]
+        sc.check(row["layout"] == "inplace", f"adopted with layout {row['layout']!r}")
+        sc.check(
+            row["compose_project"] == ADOPT_PROJECT,
+            f"the project it already ran as was not recorded: {row['compose_project']!r}",
+        )
+        sc.check(
+            row["site_name"] == ADOPT_SITE,
+            f"the site's file name was not recorded: {row['site_name']!r}",
+        )
+        unit = f"{compose_project(ADOPT_DOMAIN)}"
+        enabled = sc.run(
+            f"systemctl is-enabled {unit}", timeout=15, check=False, label="is the unit enabled?"
+        )
+        active = sc.run(
+            f"systemctl is-active {unit}", timeout=15, check=False, label="is the unit active?"
+        )
+        sc.check(enabled.stdout.strip() == "enabled", f"the unit is {enabled.stdout.strip()!r}")
+        sc.check(active.stdout.strip() != "active", "adopting started the unit")
+        history = last_deployment(sc, ADOPT_DOMAIN)
+        sc.check(history["status"] == "success", f"the adoption's history row: {history!r}")
+
+        commit_to(sc, repo, "printf 'v2\\n' > VERSION", "v2")
+        sc.run(
+            f"noust update {ADOPT_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust update {ADOPT_DOMAIN}",
+        )
+        wait_served(sc, ADOPT_DOMAIN, "web v2")
+        projects = sc.run("docker compose ls -a -q", timeout=30, label="the Compose projects")
+        sc.check(
+            projects.stdout.split() == [ADOPT_PROJECT],
+            f"the update made another project beside the adopted one: {projects.stdout!r}",
+        )
+        sc.check(
+            sc.run(
+                f"curl -sS http://127.0.0.1:{ADOPT_PORT}/", timeout=30, label="the stack directly"
+            ).stdout.strip()
+            == "web v2",
+            "the adopted stack's own port does not serve v2",
+        )
+    finally:
+        compose_clean(sc, ADOPT_DOMAIN)
+        sc.run(
+            f"cd {ADOPT_DIR} && docker compose -p {ADOPT_PROJECT} down -v; "
+            f"rm -rf {ADOPT_DIR} /etc/nginx/sites-enabled/{ADOPT_SITE} {site_path}; "
+            "nginx -s reload; true",
+            timeout=120,
+            check=False,
+            label="cleanup: the operator's stack and site",
+        )
+
+
+OPSITE_DOMAIN = "opsite.test"
+OPSITE_PORT = 18105
+
+OPSITE_TEXT = """# My own site, written by hand: Noust did not generate it and must never rewrite it.
+server {
+    listen 80;
+    server_name @DOMAIN@;
+    add_header X-Operator "hand-written" always;
+    location / {
+        proxy_pass http://127.0.0.1:@PORT@;
+        proxy_set_header Host $host;
+    }
+}
+"""
+
+
+@scenario("compose_operator_site_survives_update")
+def scenario_compose_operator_site(sc: Scenario) -> None:
+    """
+    A site the operator wrote is left alone by an update, and by deleting the application.
+
+    The site Noust wrote for a stack is replaced by one written by hand (no Noust marker). An
+    update must leave the file byte for byte as it was, and the site keeps serving the new
+    version with the operator's own header. Deleting the application leaves the file, and says so.
+    """
+    require_module(sc, "noust.deployers.helpers.site", what="the operator's site on Compose")
+    require_docker(sc)
+    pull_images(sc, COMPOSE_BASE_IMAGE)
+    repo, url = make_compose_repo(sc, "opsite-stack", "web", port=OPSITE_PORT)
+    compose_create(sc, OPSITE_DOMAIN, url, port=OPSITE_PORT)
+    site_path = f"/etc/nginx/sites-available/{OPSITE_DOMAIN}"
+    text = OPSITE_TEXT.replace("@DOMAIN@", OPSITE_DOMAIN).replace("@PORT@", str(OPSITE_PORT))
+    try:
+        wait_served(sc, OPSITE_DOMAIN, "web v1")
+        sc.run(
+            f"cat > {site_path} <<'EOF'\n{text}EOF\nnginx -t && nginx -s reload",
+            timeout=30,
+            label=f"replace {site_path} with a site written by hand",
+        )
+        before = sc.run(f"sha256sum {site_path}", timeout=15, label="the site's checksum").stdout
+
+        commit_to(sc, repo, "printf 'v2\\n' > VERSION", "v2")
+        sc.run(
+            f"noust update {OPSITE_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust update {OPSITE_DOMAIN}",
+        )
+        wait_served(sc, OPSITE_DOMAIN, "web v2")
+        after = sc.run(
+            f"sha256sum {site_path}", timeout=15, label="the site's checksum after"
+        ).stdout
+        sc.check(before == after, "the update rewrote a site Noust did not write")
+        headers = curl_host(sc, OPSITE_DOMAIN, head=True)
+        sc.check(
+            "X-Operator: hand-written" in headers, f"the operator's header is gone: {headers!r}"
+        )
+
+        deleted = sc.run(
+            f"noust delete {OPSITE_DOMAIN} -f",
+            timeout=180,
+            label=f"noust delete {OPSITE_DOMAIN} -f",
+        )
+        sc.check(
+            sc.run(
+                f"sha256sum {site_path}", timeout=15, check=False, label="the site after the delete"
+            ).stdout
+            == before,
+            "deleting the application removed or changed the operator's site",
+        )
+        said = command_output(deleted).lower()
+        sc.check(
+            any(word in said for word in ("kept", "left", "operator")),
+            "deleting the application did not say that it left the site",
+        )
+    finally:
+        compose_clean(sc, OPSITE_DOMAIN)
+        sc.run(
+            f"rm -f /etc/nginx/sites-enabled/{OPSITE_DOMAIN} {site_path}; nginx -s reload; true",
+            timeout=30,
+            check=False,
+            label="cleanup: the operator's site",
+        )
+
+
+TLS_DOMAIN = "tls.test"
+TLS_PORT = 18106
+
+
+def install_fake_certbot(sc: Scenario) -> None:
+    """Put the self-signing certbot stand-in on PATH for this scenario (see :func:`remove_fake_certbot`)."""
+    install_tools(sc)
+    sc.run(
+        f"ln -sf {CONTAINER_TOOLS}/fake_certbot.py /usr/local/bin/certbot && "
+        f"chmod +x {CONTAINER_TOOLS}/fake_certbot.py",
+        timeout=15,
+        label="install the certbot stand-in that issues self-signed certificates",
+    )
+
+
+def remove_fake_certbot(sc: Scenario) -> None:
+    """Take the stand-in and its certificates away: every other scenario runs without certbot."""
+    sc.run(
+        "rm -f /usr/local/bin/certbot; rm -rf /etc/letsencrypt; true",
+        timeout=30,
+        check=False,
+        label="remove the certbot stand-in and its certificates",
+    )
+
+
+def tls_san(sc: Scenario, name: str) -> str:
+    """The subjectAltName entries of the certificate nginx presents for ``name`` on :443."""
+    return sc.run(
+        f"openssl s_client -connect 127.0.0.1:443 -servername {name} </dev/null 2>/dev/null "
+        "| openssl x509 -noout -ext subjectAltName",
+        timeout=30,
+        check=False,
+        label=f"the certificate presented for {name}",
+    ).stdout
+
+
+def curl_tls(sc: Scenario, host: str, *, flags: str = "") -> str:
+    """Ask nginx over TLS on loopback for ``/`` as ``host``, trusting the self-signed certificate."""
+    return sc.run(
+        f"curl -sSk {flags} --resolve {host}:443:127.0.0.1 https://{host}/",
+        timeout=30,
+        check=False,
+        label=f"curl -k https://{host}/",
+    ).stdout
+
+
+@scenario("compose_alias_with_selfsigned_certificate")
+def scenario_compose_alias_tls(sc: Scenario) -> None:
+    """
+    A Compose stack answers on an alias and redirects another name, over TLS, through an update.
+
+    A certbot stand-in issues self-signed certificates (tools/fake_certbot.py), so Noust's whole
+    certificate path runs without an ACME server: the stack is created with a certificate, an
+    alias extends it to cover the new name, a redirect sends the third name to the primary over
+    HTTPS, and an update keeps the aliases, the redirect and the certificate.
+    """
+    require_module(sc, "noust.deployers.helpers.site", what="aliases and certificates on Compose")
+    require_docker(sc)
+    pull_images(sc, COMPOSE_BASE_IMAGE)
+    alias = "www.tls.test"
+    redirect = "old-tls.test"
+    repo, url = make_compose_repo(sc, "tls-stack", "web", port=TLS_PORT)
+    install_fake_certbot(sc)
+    try:
+        compose_create(sc, TLS_DOMAIN, url, port=TLS_PORT, ssl=True)
+        sc.check(
+            curl_tls(sc, TLS_DOMAIN).strip() == "web v1",
+            "the stack does not serve over TLS on its primary domain",
+        )
+        sc.run(
+            f"noust domain add {TLS_DOMAIN} {alias} --kind alias",
+            timeout=120,
+            label=f"noust domain add {TLS_DOMAIN} {alias} --kind alias",
+        )
+        sc.run(
+            f"noust domain add {TLS_DOMAIN} {redirect} --kind redirect",
+            timeout=120,
+            label=f"noust domain add {TLS_DOMAIN} {redirect} --kind redirect",
+        )
+        sc.check(
+            f"DNS:{alias}" in tls_san(sc, alias),
+            "the certificate was not extended to cover the alias",
+        )
+        sc.check(curl_tls(sc, alias).strip() == "web v1", f"{alias} does not serve the stack")
+        moved = curl_tls(sc, redirect, flags="-o /dev/null -w '%{http_code} %{redirect_url}'")
+        sc.check(
+            moved.strip().startswith("301 ") and TLS_DOMAIN in moved,
+            f"{redirect} did not redirect to {TLS_DOMAIN}: {moved!r}",
+        )
+
+        commit_to(sc, repo, "printf 'v2\\n' > VERSION", "v2")
+        sc.run(
+            f"noust update {TLS_DOMAIN}", timeout=DEPLOY_TIMEOUT, label=f"noust update {TLS_DOMAIN}"
+        )
+        deadline = time.monotonic() + STACK_READY_TIMEOUT
+        body = curl_tls(sc, alias).strip()
+        while body != "web v2" and time.monotonic() < deadline:
+            time.sleep(1)
+            body = curl_tls(sc, alias).strip()
+        sc.check(body == "web v2", f"the alias does not serve the update: {body!r}")
+        sc.check(
+            f"DNS:{alias}" in tls_san(sc, alias),
+            "the update lost the alias from the certificate",
+        )
+        kinds = json_of(
+            sc.run(f"noust domain list {TLS_DOMAIN} --json", timeout=30, label="noust domain list"),
+            "noust domain list",
+        )
+        names = {item["domain"]: item["kind"] for item in kinds["items"]}
+        sc.check(
+            names == {TLS_DOMAIN: "primary", alias: "alias", redirect: "redirect"},
+            f"the update changed the domains: {names!r}",
+        )
+        sc.run("nginx -t", timeout=15, label="nginx -t")
+    finally:
+        compose_clean(sc, TLS_DOMAIN)
+        remove_fake_certbot(sc)
+
+
+DB_DOMAIN = "dbstack.test"
+DB_PORT = 18107
+
+#: What the database scenarios put in the stack's PostgreSQL before an update.
+DB_SEED_SQL = (
+    "CREATE TABLE orders (id int PRIMARY KEY, quantity int); "
+    "INSERT INTO orders VALUES (1, 10), (2, 20);"
+)
+
+
+def stack_psql(sc: Scenario, domain: str, sql: str, label: str) -> subprocess.CompletedProcess[str]:
+    """Run SQL against the stack's PostgreSQL, as its own user, inside its container."""
+    return compose_exec(sc, domain, "db", f'psql -U shop -d shop -tA -c "{sql}"', label)
+
+
+@scenario("compose_database_copied_before_update_and_restored")
+def scenario_compose_database_backup(sc: Scenario) -> None:
+    """
+    The stack's PostgreSQL is dumped before an update, and the dump brings the data back.
+
+    A web service and an official `postgres:16-alpine` whose credentials sit in its environment,
+    which is what Noust detects. Two rows go in; an update takes the pre-update backup with a
+    dump of that database in it; the table is then dropped, the way a bad migration would;
+    `noust backup restore` of that backup gives the rows back. The password never being on a
+    command line is a property of how the dump is made, covered by tests/test_stack_databases.py.
+    """
+    require_module(sc, "noust.managers.stack_databases", what="the stack's database copies")
+    require_docker(sc)
+    pull_images(sc, COMPOSE_BASE_IMAGE, COMPOSE_DB_IMAGE)
+    repo, url = make_compose_repo(sc, "db-stack", "web", "database", port=DB_PORT)
+    compose_create(sc, DB_DOMAIN, url, port=DB_PORT)
+    try:
+        wait_served(sc, DB_DOMAIN, "web v1")
+        stack_psql(sc, DB_DOMAIN, DB_SEED_SQL, "put two rows in the stack's database")
+        count = stack_psql(sc, DB_DOMAIN, "SELECT count(*) FROM orders", "count them")
+        sc.check(count.stdout.strip() == "2", f"the seed did not land: {count.stdout!r}")
+
+        commit_to(sc, repo, "printf 'v2\\n' > VERSION", "v2")
+        sc.run(
+            f"noust update {DB_DOMAIN}", timeout=DEPLOY_TIMEOUT, label=f"noust update {DB_DOMAIN}"
+        )
+        wait_served(sc, DB_DOMAIN, "web v2")
+
+        listing = json_of(
+            sc.run(f"noust backup list {DB_DOMAIN} --json", timeout=30, label="the backups"),
+            "noust backup list",
+        )
+        backups = (
+            listing
+            if isinstance(listing, list)
+            else listing.get("backups") or listing.get("items") or []
+        )
+        sc.check(bool(backups), "the update took no backup")
+        backup_id = backups[0]["id"]
+        info = json_of(
+            sc.run(f"noust backup info {backup_id} --json", timeout=30, label="what it holds"),
+            "noust backup info",
+        )
+        metadata = info.get("backup", info)
+        sc.check(
+            bool(metadata.get("database_backups")),
+            f"the pre-update backup holds no database dump: {info!r}",
+        )
+
+        stack_psql(sc, DB_DOMAIN, "DROP TABLE orders", "drop the table, as a bad migration would")
+        gone = stack_psql(sc, DB_DOMAIN, "SELECT count(*) FROM orders", "it is gone")
+        sc.check(gone.returncode != 0, "the table is still there after the drop")
+
+        sc.run(
+            f"noust backup restore {backup_id} -f",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust backup restore {backup_id} -f",
+        )
+        deadline = time.monotonic() + 60
+        rows = ""
+        while rows != "2" and time.monotonic() < deadline:
+            rows = stack_psql(
+                sc, DB_DOMAIN, "SELECT count(*) FROM orders", "the rows"
+            ).stdout.strip()
+            if rows != "2":
+                time.sleep(2)
+        sc.check(rows == "2", f"the restore did not bring the rows back: {rows!r}")
+    finally:
+        compose_clean(sc, DB_DOMAIN)
+
+
+DBFAIL_DOMAIN = "dbfail.test"
+DBFAIL_PORT = 18110
+
+
+@scenario("compose_database_copy_failure_stops_the_update")
+def scenario_compose_database_copy_failure(sc: Scenario) -> None:
+    """
+    If the stack's database cannot be copied, the update stops before touching anything.
+
+    noust.yaml declares a database that is not in the stack. The update fails with the copy's own
+    error and says how to switch the copy off; the container that served is the same one, still on
+    v1. `noust app backup-before-update off` is that switch, and with it the update goes through.
+    """
+    require_module(sc, "noust.deployers.helpers.project_file", what="noust.yaml")
+    require_module(sc, "noust.managers.stack_databases", what="the stack's database copies")
+    require_cli(sc, "app backup-before-update", what="turning the copy off")
+    require_docker(sc)
+    pull_images(sc, COMPOSE_BASE_IMAGE, COMPOSE_DB_IMAGE)
+    repo, url = make_compose_repo(sc, "dbfail-stack", "web", "database", port=DBFAIL_PORT)
+    commit_to(
+        sc,
+        repo,
+        f"cp {COMPOSE_FIXTURES}/yaml/backup-missing-database.yaml noust.yaml",
+        "declare a database that is not there",
+    )
+    compose_create(sc, DBFAIL_DOMAIN, url, port=DBFAIL_PORT)
+    try:
+        wait_served(sc, DBFAIL_DOMAIN, "web v1")
+        serving = compose_ids(sc, DBFAIL_DOMAIN, "web")
+
+        commit_to(sc, repo, "printf 'v2\\n' > VERSION", "v2")
+        failed = sc.run(
+            f"noust update {DBFAIL_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            check=False,
+            label=f"noust update {DBFAIL_DOMAIN} (the copy fails)",
+        )
+        sc.check(failed.returncode != 0, "an update went ahead without the copy it needs")
+        sc.check(
+            "missing_database" in command_output(failed),
+            "the error does not carry the database tool's own message",
+        )
+        sc.check(
+            "backup-before-update" in command_output(failed),
+            "the error does not say how to turn the copy off",
+        )
+        sc.check(
+            compose_ids(sc, DBFAIL_DOMAIN, "web") == serving, "a container was recreated anyway"
+        )
+        sc.check(curl_host(sc, DBFAIL_DOMAIN).strip() == "web v1", "what served is not serving v1")
+
+        sc.run(
+            f"noust app backup-before-update {DBFAIL_DOMAIN} off",
+            timeout=30,
+            label=f"noust app backup-before-update {DBFAIL_DOMAIN} off",
+        )
+        sc.run(
+            f"noust update {DBFAIL_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust update {DBFAIL_DOMAIN} (the copy is off)",
+        )
+        wait_served(sc, DBFAIL_DOMAIN, "web v2")
+    finally:
+        compose_clean(sc, DBFAIL_DOMAIN)
+
+
+TAG_DOMAIN = "tag.test"
+TAG_PORT = 3723
+
+
+@scenario("deploy_by_tag")
+def scenario_deploy_by_tag(sc: Scenario) -> None:
+    """
+    `noust update --tag` deploys exactly the commit a tag names, not the head of the branch.
+
+    A Node app on releases, created at version 1 (tagged v1.0.0). The repository then gets
+    version 2 (tagged v1.1.0) and version 3 (untagged, the head of main). Updating to
+    v1.1.0 serves version 2 and records its commit; a tag that does not exist fails and changes
+    nothing; the next plain update follows the branch again, to version 3.
+    """
+    require_cli(sc, "update", option="--tag", what="deploying a tag")
+    repo, url = make_node_repo(sc, "tag-app")
+    sc.run(
+        f"cd {repo} && git tag -a v1.0.0 -m 'v1.0.0'", timeout=15, label="tag version 1 as v1.0.0"
+    )
+    create = f"noust create -d {TAG_DOMAIN} -s {url} -t nodejs --no-ssl --layout releases --port {TAG_PORT}"
+    sc.run(create, timeout=DEPLOY_TIMEOUT, label=create)
+    try:
+        sc.check(curl_host(sc, TAG_DOMAIN).strip() == "ok 1", "version 1 is not serving")
+        tagged = commit_to(sc, repo, "echo 2 > VERSION", "version 2")
+        sc.run(
+            f"cd {repo} && git tag -a v1.1.0 -m 'v1.1.0'",
+            timeout=15,
+            label="tag version 2 as v1.1.0",
+        )
+        commit_to(sc, repo, "echo 3 > VERSION", "version 3: the head of main, untagged")
+
+        sc.run(
+            f"noust update {TAG_DOMAIN} --tag v1.1.0",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust update {TAG_DOMAIN} --tag v1.1.0",
+        )
+        sc.check(
+            curl_host(sc, TAG_DOMAIN).strip() == "ok 2",
+            "--tag v1.1.0 did not deploy the tagged commit (it deployed the head of the branch?)",
+        )
+        row = last_deployment(sc, TAG_DOMAIN)
+        sc.check(
+            (row["git_commit"] or "").startswith(tagged[:7]),
+            f"the history does not name the tagged commit {tagged[:7]}: {row!r}",
+        )
+
+        release = active_release_of(sc, TAG_DOMAIN)
+        missing = sc.run(
+            f"noust update {TAG_DOMAIN} --tag v9.9.9",
+            timeout=DEPLOY_TIMEOUT,
+            check=False,
+            label=f"noust update {TAG_DOMAIN} --tag v9.9.9 (there is no such tag)",
+        )
+        sc.check(missing.returncode != 0, "a tag that does not exist was deployed")
+        sc.check(
+            active_release_of(sc, TAG_DOMAIN) == release, "the failed update changed the release"
+        )
+        sc.check(
+            curl_host(sc, TAG_DOMAIN).strip() == "ok 2", "the failed update changed what serves"
+        )
+
+        sc.run(
+            f"noust update {TAG_DOMAIN}", timeout=DEPLOY_TIMEOUT, label=f"noust update {TAG_DOMAIN}"
+        )
+        sc.check(
+            curl_host(sc, TAG_DOMAIN).strip() == "ok 3",
+            "after a tag, the next update did not follow the branch again",
+        )
+    finally:
+        sc.run(f"noust delete {TAG_DOMAIN} -f", timeout=180, check=False, label="cleanup")
+
+
+# ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
 
@@ -5056,9 +6745,28 @@ def parse_args() -> argparse.Namespace:
         help="Reuse the newest wheel already in the working directory instead of rebuilding.",
     )
     parser.add_argument(
+        "--wheel",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help=(
+            "Install this wheel instead of building one from the working tree: a wheel of a "
+            "committed tree, say, while other work is half-done in this one."
+        ),
+    )
+    parser.add_argument(
         "--skip-image-build",
         action="store_true",
         help=f"Reuse the existing {IMAGE_TAG} image instead of rebuilding it.",
+    )
+    parser.add_argument(
+        "--ignore-requirements",
+        action="store_true",
+        help=(
+            "Run the scenarios of features still being built (hooks, relay, adoption, ...) "
+            "even though the build under test lacks the command or module they need, instead "
+            "of skipping them: to see how far one gets, and what it reports, before it lands."
+        ),
     )
     parser.add_argument(
         "--upgrade",
@@ -5096,13 +6804,20 @@ def selected_scenarios(names: list[str] | None) -> list[tuple[str, ScenarioFn]]:
 
 
 def main() -> int:
+    global IGNORE_REQUIREMENTS
     args = parse_args()
+    IGNORE_REQUIREMENTS = args.ignore_requirements
     started_at = time.monotonic()
 
     workdir = INTEGRATION_DIR / ".build"
     workdir.mkdir(exist_ok=True)
 
-    if args.skip_wheel_build:
+    if args.wheel is not None:
+        wheel = args.wheel.resolve()
+        if not wheel.is_file():
+            raise HarnessError(f"--wheel {args.wheel} is not a file")
+        print(f"[setup] using the given wheel {wheel.name}")
+    elif args.skip_wheel_build:
         wheels = sorted((workdir / "dist").glob("noust-*.whl"))
         if not wheels:
             raise HarnessError("--skip-wheel-build given but no noust-*.whl wheel exists yet")
@@ -5127,13 +6842,14 @@ def main() -> int:
     name = random_container_name()
     failures = 0
     attempted = 0
-    skipped = 0
+    skipped: list[tuple[str, str]] = []
     setup_error: str | None = None
 
     try:
         try:
             start_container(name)
             wait_for_systemd(name)
+            prepare_inner_docker(name)
             install_noust(name, wheel)
             install_fixtures(name)
             to_run = selected_scenarios(args.scenario)
@@ -5149,7 +6865,7 @@ def main() -> int:
                 try:
                     fn(sc)
                 except ScenarioSkipped as exc:
-                    skipped += 1
+                    skipped.append((sc_name, str(exc)))
                     print(f"SKIP: {sc_name}: {exc}")
                 except AssertionError as exc:
                     failures += 1
@@ -5176,8 +6892,12 @@ def main() -> int:
         print(f"\n[summary] 0/0 scenario(s) run, setup failed, {elapsed:.1f}s total")
         return 1
 
+    # Said again at the end, with the reasons: a SKIP in the middle of a long run is easy to
+    # miss, and a scenario that never ran is exactly what a green summary must not hide.
+    for sc_name, reason in skipped:
+        print(f"[skipped] {sc_name}: {reason}")
     print(
-        f"\n[summary] {attempted} scenario(s) run, {failures} failure(s), {skipped} skipped, "
+        f"\n[summary] {attempted} scenario(s) run, {failures} failure(s), {len(skipped)} skipped, "
         f"{elapsed:.1f}s total"
     )
     return 1 if failures else 0

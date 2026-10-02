@@ -16,7 +16,7 @@ import hmac
 import logging
 from typing import Any
 
-from noust.core.forge_events import Forge, PushEvent
+from noust.core.forge_events import Forge, PushEvent, TagEvent
 from noust.core.store import App, get_store
 from noust.integrations.github.app import forget_tokens
 from noust.integrations.github.client import json_object
@@ -102,7 +102,9 @@ def apps_following(push: PushEvent, default_branch: str | None) -> list[App]:
     An application follows a push when its source is the pushed repository
     and the branch it deploys is the one pushed to: its own branch, the
     ``#branch`` of its source, or else the repository's default branch.
-    Previews are left out; their pull request's events rebuild them.
+    Previews are left out; their pull request's events rebuild them, and so
+    are the applications that follow tags (:func:`apps_following_tags`): a
+    branch is news about something they do not deploy.
 
     Args:
         push: The push.
@@ -114,13 +116,39 @@ def apps_following(push: PushEvent, default_branch: str | None) -> list[App]:
     wanted = push.repository.lower()
     following: list[App] = []
     for app in get_store().list_apps():
-        if app.preview_parent:
+        if app.preview_parent or app.follow_tags:
             continue
         repository = github_repository(app.source)
         if repository is None or repository.lower() != wanted:
             continue
         branch = app.branch or parse_git_url(app.source)["branch"] or default_branch
         if branch == push.branch:
+            following.append(app)
+    return sorted(following, key=lambda a: a.domain)
+
+
+def apps_following_tags(event: TagEvent) -> list[App]:
+    """
+    Find the applications a release or a tag push concerns.
+
+    Those whose source is the repository the tag is in and that follow tags.
+    Whether the tag is one of theirs (the pattern, the order) is each one's to
+    decide, so an application that will ignore it is still returned and the
+    delivery log can say why.
+
+    Args:
+        event: The tag announced.
+
+    Returns:
+        The applications, by domain.
+    """
+    wanted = event.repository.lower()
+    following: list[App] = []
+    for app in get_store().list_apps():
+        if app.preview_parent or not app.follow_tags:
+            continue
+        repository = github_repository(app.source)
+        if repository is not None and repository.lower() == wanted:
             following.append(app)
     return sorted(following, key=lambda a: a.domain)
 

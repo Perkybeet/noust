@@ -194,6 +194,28 @@ def test_a_first_deploys_database_is_written_before_the_build_beside_the_example
     assert deployer.env_vars["DATABASE_URL"] == SECRET_URL, "the build sees it too"
 
 
+def test_a_value_noust_provides_is_not_reported_as_missing(
+    tmp_path: Path,
+    store: NoustStore,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The example's placeholder DATABASE_URL is replaced, not something to ask for."""
+    deployer = _deployer(tmp_path)
+    deployer._database_env = {"DATABASE_URL": SECRET_URL}
+    app_dir = tmp_path / "app"
+    app_dir.mkdir()
+    (app_dir / ".env.example").write_text(
+        "DATABASE_URL=postgresql://user:password@localhost/app\nSMTP_HOST=your-smtp-host\n"
+    )
+    warnings: list[str] = []
+    monkeypatch.setattr(deployer._env_manager.logger, "warning", warnings.append)
+
+    deployer._step_fetch()
+
+    assert any("SMTP_HOST" in warning for warning in warnings)
+    assert not any("DATABASE_URL" in warning for warning in warnings)
+
+
 def test_releases_keep_create_time_variables_in_shared(
     tmp_path: Path,
     store: NoustStore,  # noqa: F811

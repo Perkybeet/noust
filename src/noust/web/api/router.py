@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends
 
 from noust.core.exceptions import FleetUnavailableError
 from noust.web.api.app_export import router as app_export_router
+from noust.web.api.app_hooks import router as app_hooks_router
 from noust.web.api.approvals import require_approval
 from noust.web.api.approvals import router as approvals_router
 from noust.web.api.apps import router as apps_router
@@ -38,6 +39,7 @@ from noust.web.api.domains import router as domains_router
 from noust.web.api.ens import router as ens_router
 from noust.web.api.fleet import router as fleet_router
 from noust.web.api.fleet_self import router as fleet_self_router
+from noust.web.api.identity import router as identity_router
 from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
 from noust.web.api.metrics import app_router as app_metrics_router
@@ -150,6 +152,10 @@ router.include_router(zero_downtime_router, prefix="/apps", tags=["Applications"
 router.include_router(previews_router, prefix="/apps", tags=["Previews"])
 # Same composition: sandbox.py owns only paths under "/{domain}/sandbox".
 router.include_router(sandbox_router, prefix="/apps", tags=["Applications"])
+# identity.py owns only paths under "/{domain}/identity".
+router.include_router(identity_router, prefix="/apps", tags=["Applications"])
+# app_hooks.py owns only paths under "/{domain}/hooks".
+router.include_router(app_hooks_router, prefix="/apps", tags=["Applications"])
 router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])
 # The fleet, on a central: the registry of nodes, and the proxy that makes
 # every other route here reachable on a node as /nodes/{node}/api/...

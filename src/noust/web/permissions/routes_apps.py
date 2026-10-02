@@ -35,5 +35,6 @@ ROUTES: dict[tuple[str, str], str] = {
     ("PATCH", "/api/apps/{domain}/limits"): Permission.APPS_MANAGE,
     ("PATCH", "/api/apps/{domain}/health"): Permission.APPS_MANAGE,
     ("PATCH", "/api/apps/{domain}/branch"): Permission.APPS_MANAGE,
+    ("PATCH", "/api/apps/{domain}/follow-tags"): Permission.APPS_MANAGE,
     ("PATCH", "/api/apps/{domain}/releases/retention"): Permission.APPS_MANAGE,
 }

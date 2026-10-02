@@ -55,6 +55,7 @@ from noust.core.logger import Logger
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import get_store
 from noust.deployers.helpers.layout import code_path_for
+from noust.managers.app_identity import service_account_for
 from noust.managers.backup_scheduler import SCHEDULE_ALIASES, validate_calendar
 from noust.validators.environment import escape_systemd_value, validate_unit_value
 from noust.validators.names import resolve_within, validate_app_name, validate_service_name
@@ -474,7 +475,10 @@ class CronManager:
         # must be refused before anything is written.
         self.parse_command(job.command)
 
-        user = (job.user or "").strip() or Config().service_user
+        # A job of an application with its own account (3.2) runs as it.
+        user = (job.user or "").strip() or service_account_for(
+            (job.app_domain or "").strip(), Config()
+        )[0]
         validate_unit_value(user, field="User")
 
         app_domain = (job.app_domain or "").strip() or None

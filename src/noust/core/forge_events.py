@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from noust.core.tags import tag_from_ref
+
 
 class Forge(str, Enum):
     """The code hosts Noust understands."""
@@ -58,6 +60,36 @@ class PushEvent:
     branch: str
     head_sha: str
     installation_id: int | None = None
+
+
+@dataclass(frozen=True)
+class TagEvent:
+    """
+    A tag a code host announced: pushed, or published as a release.
+
+    Attributes:
+        forge: Which host sent it.
+        tag: The tag's name.
+        source: ``push`` for a pushed tag, ``release`` for a published release.
+        repository: ``owner/repo``; empty when the payload does not say, which
+            is all an application's own webhook needs.
+        clone_url: The repository's HTTPS clone URL, or empty.
+        sha: The commit the tag points at, when the payload says (a release
+            does not).
+        installation_id: The GitHub App installation that delivered it, for
+            deliveries to ``/hooks/github``; None otherwise.
+        skip: Why this must not deploy though it names a tag: a draft or a
+            pre-release. None for one that may.
+    """
+
+    forge: Forge
+    tag: str
+    source: str
+    repository: str = ""
+    clone_url: str = ""
+    sha: str | None = None
+    installation_id: int | None = None
+    skip: str | None = None
 
 
 @dataclass(frozen=True)
@@ -300,4 +332,92 @@ def _merge_request_event(payload: dict[str, Any]) -> PullRequestEvent | None:
         author=user,
         sender=user,
         bot=_is_bot(user, by_suffix=True),
+    )
+
+
+#: Release actions that put a release in front of users: published, or a
+#: pre-release promoted. The rest (created, edited, deleted...) publish nothing.
+_RELEASE_ACTIONS = frozenset({"published", "released"})
+
+
+def parse_tag_event(provider: str, kind: str, payload: dict[str, Any]) -> TagEvent | None:
+    """
+    Translate a tag push or a published release into a :class:`TagEvent`.
+
+    GitHub and Gitea send ``release`` payloads of the same shape and push
+    payloads with ``refs/tags/<tag>`` in ``ref``; GitLab's tag push has the
+    same ``ref`` and puts the repository in ``project``. Deleting a tag is a
+    push too, and deploys nothing.
+
+    Args:
+        provider: ``github``, ``gitea`` or ``gitlab``.
+        kind: ``push`` or ``release``, as the delivery says it is.
+        payload: The parsed body.
+
+    Returns:
+        The event; None for anything that names no tag to deploy: a branch
+        push, a deleted tag, a release action that publishes nothing, a body
+        without what an event needs. A draft or a pre-release is returned with
+        ``skip`` set, so the delivery log can say that is why it was ignored.
+    """
+    forge = {"github": Forge.GITHUB, "gitea": Forge.GITEA, "gitlab": Forge.GITLAB}.get(provider)
+    if forge is None:
+        return None
+    installation = _section(payload.get("installation")).get("id")
+    installation_id = installation if isinstance(installation, int) else None
+    if kind == "release":
+        return _release_event(forge, payload, installation_id)
+    if kind != "push":
+        return None
+    tag = tag_from_ref(payload.get("ref"))
+    sha = _text(payload.get("after")) or _text(payload.get("checkout_sha"))
+    if tag is None or payload.get("deleted") or (sha and set(sha) == {"0"}):
+        return None
+    repository = _section(payload.get("repository"))
+    project = _section(payload.get("project"))
+    return TagEvent(
+        forge=forge,
+        tag=tag,
+        source="push",
+        repository=_text(repository.get("full_name")) or _text(project.get("path_with_namespace")),
+        clone_url=_text(repository.get("clone_url")) or _text(project.get("git_http_url")),
+        sha=sha or None,
+        installation_id=installation_id,
+    )
+
+
+def _release_event(
+    forge: Forge, payload: dict[str, Any], installation_id: int | None
+) -> TagEvent | None:
+    """
+    Translate a GitHub or Gitea ``release`` delivery.
+
+    Args:
+        forge: Which host sent it.
+        payload: The parsed body.
+        installation_id: The App installation that delivered it, if any.
+
+    Returns:
+        The event, or None (see :func:`parse_tag_event`).
+    """
+    if _text(payload.get("action")) not in _RELEASE_ACTIONS:
+        return None
+    published = _section(payload.get("release"))
+    tag = _text(published.get("tag_name"))
+    if not tag:
+        return None
+    skip = None
+    if published.get("draft"):
+        skip = "it is a draft release"
+    elif published.get("prerelease"):
+        skip = "it is marked as a pre-release"
+    repository = _section(payload.get("repository"))
+    return TagEvent(
+        forge=forge,
+        tag=tag,
+        source="release",
+        repository=_text(repository.get("full_name")),
+        clone_url=_text(repository.get("clone_url")),
+        installation_id=installation_id,
+        skip=skip,
     )

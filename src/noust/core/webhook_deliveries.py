@@ -42,6 +42,10 @@ PREVIEW_STARTED = "preview_started"
 PING = "ping"
 #: A push to a branch the application does not track.
 IGNORED_BRANCH = "ignored_branch"
+#: A release or a tag push an application that follows tags did not deploy: a
+#: draft, a pre-release, a tag its pattern does not match, one older than what
+#: is deployed, or one already being deployed. ``detail`` says which.
+IGNORED_TAG = "ignored_tag"
 #: An event that is neither a push, a ping nor a pull request.
 IGNORED_EVENT = "ignored_event"
 #: A pull request event previews did not act on.
@@ -60,6 +64,7 @@ OUTCOMES = (
     PREVIEW_STARTED,
     PING,
     IGNORED_BRANCH,
+    IGNORED_TAG,
     IGNORED_EVENT,
     IGNORED_PULL_REQUEST,
     DUPLICATE,

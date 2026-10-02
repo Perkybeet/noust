@@ -58,6 +58,7 @@ import fnmatch
 import hashlib
 import hmac
 import json
+import logging
 import os
 import re
 import shutil
@@ -108,8 +109,23 @@ from noust.deployers.releases import (
     SHARED_DIR,
     ReleaseManager,
 )
+from noust.managers.app_identity import service_account_for
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import SourceError, extract_archive
+from noust.managers.stack_databases import (
+    AUTO,
+    OFF,
+    StackBackupError,
+    StackDatabase,
+    compose_volume_names,
+    compose_volumes_from_disk,
+    declared_databases,
+    dump_stack_databases,
+    extract_stack_dumps,
+    read_compose_config,
+    restore_stack_database,
+    stack_host_for,
+)
 from noust.validators.names import resolve_within, validate_app_name, validate_filename
 
 __all__ = [
@@ -129,6 +145,8 @@ __all__ = [
     "backup_id_of_archive",
     "server_id",
 ]
+
+_log = logging.getLogger(__name__)
 
 #: Docker has to pull alpine the first time a volume is backed up.
 _DOCKER_TIMEOUT = 600
@@ -587,6 +605,46 @@ class BackupImportReport:
     rehearsal: bool = False
 
 
+def _row_of(domain: str) -> Any | None:
+    """
+    Read an application's row from the store, for a look that must not fail the operation.
+
+    Args:
+        domain: The application's domain.
+
+    Returns:
+        The row, or None when there is none or the store cannot be read.
+    """
+    try:
+        return get_store().get_app(domain)
+    except (NoustError, sqlite3.Error) as exc:
+        _log.debug("Could not read the application record for %s: %s", domain, exc)
+        return None
+
+
+def _deployed_at(domain: str, app_name: str, config: Config) -> Path:
+    """
+    Locate an application's directory.
+
+    The store records where an application is; ``apps_directory/<name>`` was
+    only ever what a deploy chooses by default, so an application deployed
+    elsewhere (or under a legacy name) could not be backed up or restored by
+    assuming it.
+
+    Args:
+        domain: The application's domain.
+        app_name: Its name, for the default location.
+        config: Where the default location is configured.
+
+    Returns:
+        The recorded path, or the default one for an application the store has
+        no row for.
+    """
+    app = _row_of(domain)
+    recorded = getattr(app, "app_path", "") if app is not None else ""
+    return Path(recorded) if recorded else config.apps_directory / app_name
+
+
 class BackupManager:
     """
     Manager for application backups.
@@ -771,6 +829,31 @@ class BackupManager:
                 f"Failed to create backup directory: {self.backup_dir}",
                 details=f"{exc}. Noust must run as root.",
             ) from exc
+
+    def _app_row(self, domain: str) -> Any | None:
+        """
+        Read an application's row from the store.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            The row, or None when there is none or the store cannot be read.
+        """
+        return _row_of(domain)
+
+    def _app_path(self, domain: str, app_name: str) -> Path:
+        """
+        Locate an application's directory; see :func:`_deployed_at`.
+
+        Args:
+            domain: The application's domain.
+            app_name: Its name, for the default location.
+
+        Returns:
+            The directory.
+        """
+        return _deployed_at(domain, app_name, self.config)
 
     def _get_app_backup_dir(self, app_name: str) -> Path:
         """
@@ -1115,6 +1198,7 @@ class BackupManager:
         *,
         retention_tag: str | None = None,
         protect: Collection[str] = (),
+        include_stack_databases: bool = False,
     ) -> BackupMetadata:
         """
         Create a self-contained backup of an application.
@@ -1148,6 +1232,10 @@ class BackupManager:
             protect: Backup ids the rotation after this backup must not
                 delete, whatever the policy says - the backup a rollback is
                 about to restore.
+            include_stack_databases: Dump the databases a Docker Compose
+                application's stack runs, as the pre-update backup does. Also
+                done for any Compose application when ``include_databases`` is
+                set. Nothing for an application that is not a Compose stack.
 
         Returns:
             Metadata describing the archive that was written. In a rehearsal,
@@ -1155,6 +1243,8 @@ class BackupManager:
             no size and no checksum, because nothing was read or compressed.
 
         Raises:
+            StackBackupError: A database of the stack could not be dumped. A
+                backup that was asked to hold it and cannot is not written.
             BackupError: If the application is missing, a dump fails, or the
                 archive cannot be written. Also when ``schemas`` is given: a
                 per-schema dump is written by the engine outside the archive,
@@ -1182,6 +1272,7 @@ class BackupManager:
                 pre_backup_hook=pre_backup_hook,
                 retention_tag=retention_tag,
                 protect=protect,
+                include_stack_databases=include_stack_databases,
             )
 
     def _create_locked(
@@ -1202,6 +1293,7 @@ class BackupManager:
         pre_backup_hook: str | None,
         retention_tag: str | None,
         protect: Collection[str],
+        include_stack_databases: bool = False,
     ) -> BackupMetadata:
         """
         Do what :meth:`create` promises, with the application's lock held.
@@ -1222,6 +1314,7 @@ class BackupManager:
             pre_backup_hook: See :meth:`create`.
             retention_tag: See :meth:`create`.
             protect: See :meth:`create`.
+            include_stack_databases: See :meth:`create`.
 
         Returns:
             See :meth:`create`.
@@ -1243,7 +1336,7 @@ class BackupManager:
                 details="Rename the deployment; this name collides with the archive payload.",
             )
 
-        app_path = self.config.apps_directory / app_name
+        app_path = self._app_path(domain, app_name)
         if not app_path.exists():
             raise BackupError(
                 f"Application not found: {domain}",
@@ -1311,14 +1404,21 @@ class BackupManager:
                 database_backups = self._dump_databases(
                     domain, payload_dir / DATABASES_DIR, redis_method=redis_method
                 )
-                if not database_backups:
-                    self.logger.warning(
-                        f"No database was backed up for {domain}: the archive contains files only"
-                    )
+            if include_stack_databases or include_databases:
+                database_backups += self._dump_stack_databases(
+                    domain,
+                    app_path,
+                    payload_dir / DATABASES_DIR,
+                    explicit=include_databases,
+                )
+            if include_databases and not database_backups:
+                self.logger.warning(
+                    f"No database was backed up for {domain}: the archive contains files only"
+                )
 
             volume_backups: list[dict[str, Any]] = []
             if include_docker_volumes:
-                volumes = self._discover_docker_volumes(app_path)
+                volumes = self._discover_docker_volumes(app_path, domain)
                 if volumes:
                     volume_backups = self._dump_docker_volumes(volumes, payload_dir / VOLUMES_DIR)
 
@@ -1650,6 +1750,7 @@ class BackupManager:
         pre_restore_hook: str | None = None,
         post_restore_hook: str | None = None,
         keep: Sequence[str] = (),
+        stack_databases: bool = True,
     ) -> bool:
         """
         Restore an application from a backup this manager knows about.
@@ -1665,6 +1766,11 @@ class BackupManager:
             keep: Top-level names in the application directory carried from
                 the tree being replaced into the restored one when the archive
                 does not have them, such as ``.git``, which no archive holds.
+            stack_databases: Put back the dumps of a Compose stack's databases
+                the archive carries. A rollback passes False: it returns the
+                code, and replacing the data written since with the copy taken
+                before an update is a decision of its own
+                (:meth:`restore_stack_databases`).
 
         Returns:
             True if the restore succeeded.
@@ -1699,6 +1805,7 @@ class BackupManager:
             pre_restore_hook=pre_restore_hook,
             post_restore_hook=post_restore_hook,
             keep=keep,
+            stack_databases=stack_databases,
         )
 
     def restore_archive(
@@ -1713,6 +1820,7 @@ class BackupManager:
         pre_restore_hook: str | None = None,
         post_restore_hook: str | None = None,
         keep: Sequence[str] = (),
+        stack_databases: bool = True,
     ) -> bool:
         """
         Restore an application from an archive file, wherever it lives.
@@ -1734,6 +1842,8 @@ class BackupManager:
             pre_restore_hook: Command to run before the restore.
             post_restore_hook: Command to run after the restore.
             keep: Top-level names carried from the tree being replaced; see
+                :meth:`restore`.
+            stack_databases: Put back the stack's database dumps; see
                 :meth:`restore`.
 
         Returns:
@@ -1786,6 +1896,7 @@ class BackupManager:
                 pre_restore_hook=pre_restore_hook,
                 post_restore_hook=post_restore_hook,
                 keep=keep,
+                stack_databases=stack_databases,
             )
 
     def _restore_locked(
@@ -1799,6 +1910,7 @@ class BackupManager:
         pre_restore_hook: str | None,
         post_restore_hook: str | None,
         keep: Sequence[str] = (),
+        stack_databases: bool = True,
     ) -> bool:
         """
         Run a real restore, with the target application's lock already held.
@@ -1820,6 +1932,7 @@ class BackupManager:
             pre_restore_hook: Command to run before the restore.
             post_restore_hook: Command to run after the restore.
             keep: Top-level names carried from the tree being replaced.
+            stack_databases: Put back the stack's database dumps.
 
         Returns:
             True once the restore has fully succeeded.
@@ -1838,7 +1951,19 @@ class BackupManager:
                 f"Cannot restore into {domain!r}",
                 details=f"{exc}. The target domain does not yield a usable directory name.",
             ) from exc
-        app_path = self.config.apps_directory / app_name
+        app_path = self._app_path(domain, app_name)
+
+        if stack_databases and not stop_service:
+            # Read before anything is unpacked or replaced: a refusal must leave
+            # the application and the disk exactly as they were.
+            carried = self._stack_entries(self._read_manifest_in_place(archive), fallback)
+            if carried:
+                raise BackupError(
+                    f"Restoring the database of {domain} needs the application stopped",
+                    details="The dump replaces what the database holds, under an application "
+                    "that would still be writing to it. A restore stops the application "
+                    f"itself; if it was asked not to, stop it first: noust stop {domain}",
+                )
 
         stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
         workspace = app_path.parent / f".wasm-restore-{app_path.name}-{stamp}"
@@ -1929,8 +2054,8 @@ class BackupManager:
                 for tree in self._service_trees(app_path, layout):
                     hand_over_tree(
                         tree,
-                        user=self.config.service_user,
-                        group=self.config.service_group,
+                        user=service_account_for(domain, self.config)[0],
+                        group=service_account_for(domain, self.config)[1],
                         runner=self.runner,
                         fs=self.fs,
                         logger=self.logger,
@@ -1942,6 +2067,8 @@ class BackupManager:
             # application whose state lives in a database or a volume.
             self._restore_databases(manifest, extracted, fallback)
             self._restore_docker_volumes(manifest, extracted, fallback)
+            if stack_databases:
+                self._restore_stack_databases(domain, app_path, manifest, extracted, fallback)
 
             self._warn_about_missing_environment(self._code_path(app_path))
         except (BackupError, OSError) as exc:
@@ -1974,6 +2101,163 @@ class BackupManager:
 
         return True
 
+    # -- a stack's databases -----------------------------------------------
+
+    def _stack_entries(
+        self, manifest: dict[str, Any] | None, fallback: BackupMetadata | None
+    ) -> list[dict[str, Any]]:
+        """
+        Pick the database dumps of a Compose stack out of a backup's entries.
+
+        Args:
+            manifest: Manifest read from inside the archive.
+            fallback: Metadata sidecar, for archives with no manifest.
+
+        Returns:
+            The entries that carry a ``stack`` description.
+        """
+        entries = self._payload_entries(manifest, fallback, "databases", "database_backups")
+        return [entry for entry in entries if isinstance(entry.get("stack"), dict)]
+
+    def _put_back_stack_databases(
+        self, domain: str, app_path: Path, dumps: Sequence[tuple[StackDatabase, Path]]
+    ) -> None:
+        """
+        Restore dumps into their services.
+
+        Args:
+            domain: The application's domain.
+            app_path: The application's directory, holding the compose file.
+            dumps: Each database and the file holding its dump.
+
+        Raises:
+            BackupError: The stack cannot be reached or an engine refused a dump.
+        """
+        try:
+            host = stack_host_for(domain, app_path, runner=self.runner, verbose=self.verbose)
+        except StackBackupError as exc:
+            raise BackupError(
+                f"Cannot put back the databases of {domain}: {exc.message}",
+                details="The databases are restored through the stack's compose file, which the "
+                "restored tree must have.",
+                output=exc.output,
+            ) from exc
+        self.logger.info(f"Restoring {len(dumps)} database(s) of the stack")
+        for database, dump in dumps:
+            restore_stack_database(host, database, dump)
+            self.logger.info(f"  Restored {database.label}")
+
+    def _restore_stack_databases(
+        self,
+        domain: str,
+        app_path: Path,
+        manifest: dict[str, Any] | None,
+        extracted: Path,
+        fallback: BackupMetadata | None,
+    ) -> None:
+        """
+        Restore the stack dumps of an archive that has been extracted.
+
+        Args:
+            domain: The application's domain.
+            app_path: The application's directory, already restored.
+            manifest: Manifest read from inside the archive.
+            extracted: Directory the archive was extracted into.
+            fallback: Metadata sidecar, for archives with no manifest.
+
+        Raises:
+            BackupError: A dump is missing from the archive or an engine refused it.
+        """
+        dumps: list[tuple[StackDatabase, Path]] = []
+        for entry in self._stack_entries(manifest, fallback):
+            database = StackDatabase.from_entry(entry["stack"])
+            if database is None:
+                raise BackupError(
+                    "The backup describes a database this version cannot restore",
+                    details=f"Entry: {entry['stack']!r}. Restore it with the version that took it.",
+                )
+            dumps.append((database, self._resolve_payload_file(extracted, entry, database.label)))
+        if dumps:
+            self._put_back_stack_databases(domain, app_path, dumps)
+
+    def restore_stack_databases(self, backup_id: str) -> list[StackDatabase]:
+        """
+        Put back only the databases a backup holds, leaving every file as it is.
+
+        This is what to do after a rollback over a migration: the code is
+        already where it should be and the database is what has to return to
+        before the update. The application is stopped while the dumps go back,
+        and started again afterwards if it was running.
+
+        Args:
+            backup_id: Backup identifier.
+
+        Returns:
+            The databases that were put back.
+
+        Raises:
+            BackupError: The backup is unknown or holds no copy of a stack's
+                database, a dump is missing from its archive, or an engine
+                refused one (the engine's words are in ``output``).
+            AppBusyError: Another operation is running on the application.
+        """
+        require_server_role("Application backups")
+        metadata = self.get_backup(backup_id)
+        if not metadata:
+            raise BackupError(
+                f"Backup not found: {backup_id}",
+                details="Run 'noust backup list' to see the backups Noust knows about.",
+            )
+        app_name = domain_to_app_name(metadata.domain)
+        archive = self._get_app_backup_dir(app_name) / f"{backup_id}.tar.gz"
+        if not archive.is_file():
+            raise BackupError(
+                f"Backup file not found: {archive}",
+                details="The metadata is there but the archive is not.",
+            )
+        entries = self._stack_entries(self._read_manifest_in_place(archive), metadata)
+        if not entries:
+            raise BackupError(
+                f"Backup {backup_id} holds no copy of a database of the stack",
+                details="Only a backup taken before an update of a Docker Compose application, or "
+                "with --include-databases, does. 'noust backup list' shows the others.",
+            )
+
+        databases: list[StackDatabase] = []
+        for entry in entries:
+            database = StackDatabase.from_entry(entry["stack"])
+            if database is None:
+                raise BackupError(
+                    "The backup describes a database this version cannot restore",
+                    details=f"Entry: {entry['stack']!r}. Restore it with the version that took it.",
+                )
+            databases.append(database)
+
+        domain = metadata.domain
+        with app_lock(domain, "restore"):
+            if self._rehearsing:
+                for database in databases:
+                    self.logger.info(f"Would restore {database.label} from {backup_id}")
+                return databases
+            app_path = self._app_path(domain, app_name)
+            with tempfile.TemporaryDirectory(prefix="noust-stack-dumps-") as staging:
+                files = extract_stack_dumps(
+                    archive,
+                    [str(entry.get("archive_path", "")) for entry in entries],
+                    Path(staging),
+                    prefix=f"{PAYLOAD_DIR}/{DATABASES_DIR}/",
+                    max_bytes=self.max_bytes,
+                )
+                was_running = self._stop_service_for_restore(app_name, True)
+                try:
+                    self._put_back_stack_databases(
+                        domain, app_path, list(zip(databases, files, strict=True))
+                    )
+                finally:
+                    if was_running:
+                        self.service_manager.start(app_name)
+        return databases
+
     def _recover_after_failed_restore(
         self, app_path: Path, workspace: Path, exc: BaseException
     ) -> BackupError:
@@ -1998,12 +2282,16 @@ class BackupManager:
             operator's previous tree ended up.
         """
         reason = getattr(exc, "details", "") or str(exc)
+        # What a database client or Docker said stays verbatim, whatever wraps it.
+        output = getattr(exc, "output", None)
         safety_copy = workspace / "previous"
         if not safety_copy.is_dir():
             # Nothing had to be copied aside: the application did not exist
             # before this restore, so there is no previous tree to protect.
             return BackupError(
-                f"Restore failed after the files were replaced: {exc}", details=reason
+                f"Restore failed after the files were replaced: {exc}",
+                details=reason,
+                output=output,
             )
 
         try:
@@ -2017,6 +2305,7 @@ class BackupManager:
                 f"Restore failed after the files were replaced: {exc}",
                 details=f"{reason} The previous tree could not be put back automatically "
                 f"({rollback_error}) and is kept at {safety_copy}.",
+                output=output,
             )
 
         self.logger.warning(
@@ -2026,6 +2315,7 @@ class BackupManager:
         return BackupError(
             f"Restore failed after the files were replaced: {exc}",
             details=f"{reason} The previous state of {app_path} was put back from {workspace}.",
+            output=output,
         )
 
     def _rehearse_restore(
@@ -2059,7 +2349,7 @@ class BackupManager:
         manifest = self._read_manifest_in_place(archive)
         domain = target_domain or self._manifest_domain(manifest, fallback)
         app_name = validate_app_name(domain_to_app_name(domain))
-        app_path = self.config.apps_directory / app_name
+        app_path = self._app_path(domain, app_name)
 
         if app_path.exists():
             self.fs.remove_tree(app_path)
@@ -2801,6 +3091,66 @@ class BackupManager:
 
         return dumps
 
+    def _dump_stack_databases(
+        self,
+        domain: str,
+        app_path: Path,
+        destination: Path,
+        *,
+        explicit: bool,
+    ) -> list[dict[str, Any]]:
+        """
+        Dump the databases a Docker Compose application's stack runs.
+
+        Args:
+            domain: The application's domain.
+            app_path: The application's directory.
+            destination: Directory inside the payload to write the dumps into.
+            explicit: The operator asked for databases in this backup
+                (``--include-databases``) rather than the pre-update backup
+                taking them as part of an update. An explicit request is not
+                switched off by ``backup.databases: off``, which is about the
+                automatic copy.
+
+        Returns:
+            One entry per database dumped, each pointing at a path inside the
+            archive and carrying what a restore needs to put it back. Empty
+            for an application that is not a Compose stack, or whose project
+            file says ``off``.
+
+        Raises:
+            StackBackupError: The stack could not be read or a database could
+                not be dumped.
+        """
+        app = self._app_row(domain)
+        if app is None or getattr(app, "app_type", None) != AppType.DOCKER_COMPOSE.value:
+            return []
+        declared = declared_databases(app_path)
+        if declared == OFF and not explicit:
+            self.logger.debug(f"backup.databases is off for {domain}: no database copy")
+            return []
+        if declared == OFF:
+            declared = AUTO
+        try:
+            host = stack_host_for(domain, app_path, runner=self.runner, verbose=self.verbose)
+        except StackBackupError as exc:
+            # No compose file means no stack to dump: the update fails on its own,
+            # saying so, before it changes anything, and a copy that cannot be
+            # taken must not hide that behind advice to switch the copy off.
+            self.logger.warning(f"No database copy of {domain}: {exc.output or exc.message}")
+            return []
+        self.fs.make_dir(destination, mode=SECRET_DIR_MODE)
+        entries = dump_stack_databases(
+            host,
+            destination,
+            archive_dir=f"{PAYLOAD_DIR}/{DATABASES_DIR}",
+            declared=declared,
+            log=self.logger.info,
+        )
+        if not entries:
+            self.logger.debug(f"{domain} runs no database Noust knows how to dump")
+        return entries
+
     def _payload_entries(
         self,
         manifest: dict[str, Any] | None,
@@ -2891,7 +3241,11 @@ class BackupManager:
         Raises:
             BackupError: If a dump is missing or an engine refuses it.
         """
-        entries = self._payload_entries(manifest, fallback, "databases", "database_backups")
+        entries = [
+            entry
+            for entry in self._payload_entries(manifest, fallback, "databases", "database_backups")
+            if not isinstance(entry.get("stack"), dict)
+        ]
         if not entries:
             return
 
@@ -3001,41 +3355,42 @@ class BackupManager:
 
         return volume_backups
 
-    def _discover_docker_volumes(self, app_path: Path) -> list[str]:
+    def _discover_docker_volumes(self, app_path: Path, domain: str | None = None) -> list[str]:
         """
-        Discover named Docker volumes from a compose file.
+        Find the named Docker volumes of a Compose application, as Docker knows them.
+
+        A volume declared as ``pgdata`` is created as ``<project>_pgdata``, or
+        under the name it gives itself; the key of ``volumes:`` is neither, and
+        mounting it backs up (and restores into) a new, empty volume.
 
         Args:
             app_path: Application path containing the compose file.
+            domain: The application's domain, to ask Compose how it resolves the
+                stack. Without it the compose file is read and the project name
+                derived from the directory.
 
         Returns:
-            The named volumes declared by the compose file.
+            The volume names Docker has for the stack.
         """
-        try:
-            import yaml  # type: ignore[import-untyped]
-        except ImportError:
-            return []
-
-        for compose_name in [
-            "docker-compose.prod.yml",
-            "docker-compose.yml",
-            "compose.yml",
-            "docker-compose.prod.yaml",
-            "docker-compose.yaml",
-            "compose.yaml",
-        ]:
-            compose_file = app_path / compose_name
-            if compose_file.exists():
+        project: str | None = None
+        compose_path: Path | None = None
+        if domain is not None:
+            app = self._app_row(domain)
+            project = getattr(app, "compose_project", None) if app is not None else None
+            try:
+                host = stack_host_for(domain, app_path, runner=self.runner, verbose=self.verbose)
+            except StackBackupError as exc:
+                self.logger.debug(f"No compose file to ask for the volumes: {exc.output}")
+            else:
+                compose_path = getattr(host, "compose_path", None)
                 try:
-                    data = yaml.safe_load(compose_file.read_text())
-                    volumes = data.get("volumes", {})
-                    if isinstance(volumes, dict):
-                        return list(volumes.keys())
-                except (OSError, yaml.YAMLError, AttributeError) as exc:
-                    self.logger.debug(f"Could not read volumes from {compose_file}: {exc}")
-                break
-
-        return []
+                    return compose_volume_names(read_compose_config(host))
+                except StackBackupError as exc:
+                    self.logger.warning(
+                        "Docker Compose could not resolve the stack, so its volume names are "
+                        f"read from the compose file: {exc.output}"
+                    )
+        return compose_volumes_from_disk(app_path, compose_path, project)
 
     def _restore_docker_volumes(
         self,
@@ -3703,22 +4058,38 @@ class RollbackManager:
         description: str = "Pre-deploy backup",
         *,
         protect: Collection[str] = (),
+        stack_databases: bool = True,
     ) -> BackupMetadata | None:
         """
         Create a backup before a deployment.
+
+        For a Docker Compose application the backup carries a dump of the
+        databases its stack runs, unless that was switched off
+        (``noust app backup-before-update``, or ``backup.databases: off`` in
+        the project file): going back to the previous containers does not undo
+        what a migration did to the data, and this is the copy that does.
 
         Args:
             domain: Domain name.
             description: Backup description.
             protect: Backup ids the rotation after this backup must not
                 delete: the one a rollback is about to restore.
+            stack_databases: Take the stack's database dumps when the
+                application is a Compose stack that has them switched on. A
+                rollback's safety backup passes False: the rollback does not
+                touch the databases, so there is nothing of theirs to protect.
 
         Returns:
             The backup metadata, or None when there is nothing deployed yet.
+
+        Raises:
+            StackBackupError: A database of the stack could not be dumped, and
+                the copy is on. The update that asked for this backup should
+                stop: the error says how to switch the copy off.
         """
         require_server_role("Rollbacks")
         app_name = domain_to_app_name(domain)
-        app_path = self.config.apps_directory / app_name
+        app_path = _deployed_at(domain, app_name, self.config)
 
         if not app_path.exists():
             self.logger.debug(f"No existing app to backup: {domain}")
@@ -3730,6 +4101,7 @@ class RollbackManager:
             include_env=True,
             tags=["pre-deploy", "auto"],
             protect=protect,
+            include_stack_databases=stack_databases and self._copies_the_stack(domain),
         )
         # On releases the previous build stays on disk as a release, which is
         # what going back to a deployment activates; only in place is this
@@ -3741,6 +4113,22 @@ class RollbackManager:
         ):
             self._link_snapshot(domain, backup)
         return backup
+
+    def _copies_the_stack(self, domain: str) -> bool:
+        """
+        Tell whether an update of this application copies its stack's databases.
+
+        Args:
+            domain: Domain name.
+
+        Returns:
+            True for a Docker Compose application that has not switched the
+            copy off.
+        """
+        app = _row_of(domain)
+        if app is None or getattr(app, "app_type", None) != AppType.DOCKER_COMPOSE.value:
+            return False
+        return bool(getattr(app, "backup_before_update", True))
 
     def _link_snapshot(self, domain: str, backup: BackupMetadata) -> None:
         """
@@ -3782,6 +4170,37 @@ class RollbackManager:
             # one-step rollback.
             self.logger.warning(f"Could not link backup {backup.id} to its deployment: {exc}")
 
+    def rollback_target(self, domain: str, backup_id: str | None = None) -> BackupMetadata:
+        """
+        Name the backup a rollback of an application restores.
+
+        Args:
+            domain: Domain name.
+            backup_id: The backup asked for; None for the default, the newest
+                one taken by hand, or the oldest automatic one when there is
+                none.
+
+        Returns:
+            The backup's metadata.
+
+        Raises:
+            BackupError: The backup asked for does not exist, or there is none.
+        """
+        if backup_id:
+            metadata = self.backup_manager.get_backup(backup_id)
+            if not metadata:
+                raise BackupError(f"Backup not found: {backup_id}")
+            return metadata
+        all_backups = self.backup_manager.list_backups(domain=domain)
+        for backup in all_backups:
+            # Skip auto-generated safety backups.
+            if "auto" not in backup.tags and "pre-deploy" not in backup.tags:
+                return backup
+        if all_backups:
+            # All of them are automatic: the oldest is the most stable.
+            return all_backups[-1]
+        raise BackupError(f"No backups found for: {domain}")
+
     def rollback(
         self,
         domain: str,
@@ -3793,6 +4212,7 @@ class RollbackManager:
         keep: Sequence[str] = (),
         app_type: str | None = None,
         gate: Callable[[], tuple[bool, str]] | None = None,
+        schema_changed_ok: bool = False,
     ) -> bool:
         """
         Roll an application back to a previous state.
@@ -3828,6 +4248,8 @@ class RollbackManager:
             gate: Restarts the application and judges whether it answers,
                 returning that and the evidence when it does not. None starts
                 the unit without judging it, as 1.x did.
+            schema_changed_ok: Go back even past deployments, made after the
+                backup, that changed the database's schema.
 
         Returns:
             True if the rollback succeeded.
@@ -3835,6 +4257,8 @@ class RollbackManager:
         Raises:
             BackupError: If there is no backup to roll back to, or the restore
                 fails.
+            SchemaChangedError: Deployments made after the backup changed the
+                schema, and that was not confirmed. Nothing was touched.
             DeploymentError: With a gate, the restored tree did not rebuild or
                 did not pass the health check.
             AppBusyError: Another deploy, update, rollback, migration or
@@ -3844,25 +4268,18 @@ class RollbackManager:
         self.last_deployment_id = None
         app_type, gate = self._held_like_a_deploy(domain, app_type, gate)
         with app_lock(domain, "rollback"):
-            if backup_id:
-                metadata = self.backup_manager.get_backup(backup_id)
-                if not metadata:
-                    raise BackupError(f"Backup not found: {backup_id}")
-            else:
-                all_backups = self.backup_manager.list_backups(domain=domain)
-                metadata = None
-                for backup in all_backups:
-                    # Skip auto-generated safety backups.
-                    if "auto" not in backup.tags and "pre-deploy" not in backup.tags:
-                        metadata = backup
-                        break
+            metadata = self.rollback_target(domain, backup_id)
+            # The files go back to before the deployments made since; the
+            # database does not, and that is asked first. Here, where every
+            # rollback to a backup passes, so no caller can forget it.
+            from noust.deployers.lifecycle import require_schema_change_confirmed
 
-                if not metadata:
-                    if all_backups:
-                        # All of them are automatic: the oldest is the most stable.
-                        metadata = all_backups[-1]
-                    else:
-                        raise BackupError(f"No backups found for: {domain}")
+            require_schema_change_confirmed(
+                domain,
+                target=f"backup {metadata.id}",
+                schema_changed_ok=schema_changed_ok,
+                since=metadata.created_at,
+            )
 
             recorder = DeploymentRecorder(
                 get_store(), domain, trigger, logger=self.logger, operation="rollback"
@@ -3885,7 +4302,10 @@ class RollbackManager:
                     # triggers: when every backup is automatic the target is
                     # the oldest, exactly the one rotation would delete.
                     safety = self.create_pre_deploy_backup(
-                        domain, description="Pre-rollback safety backup", protect=[metadata.id]
+                        domain,
+                        description="Pre-rollback safety backup",
+                        protect=[metadata.id],
+                        stack_databases=False,
                     )
                 except NoustError as exc:
                     self.logger.warning(f"Could not create safety backup: {exc}")
@@ -3900,11 +4320,20 @@ class RollbackManager:
                     restore_env=restore_env,
                     stop_service=True,
                     keep=keep,
+                    stack_databases=False,
                 )
+                if any(isinstance(entry.get("stack"), dict) for entry in metadata.database_backups):
+                    self.logger.warning(
+                        f"Backup {metadata.id} also holds a copy of the stack's databases, "
+                        "taken before the update it precedes. The rollback did not restore it: "
+                        "the databases keep what was written since. To put it back (the "
+                        f"application is stopped meanwhile): noust backup restore {metadata.id} "
+                        "--databases-only"
+                    )
 
                 app_name = domain_to_app_name(domain)
 
-                app_path = self.config.apps_directory / app_name
+                app_path = _deployed_at(domain, app_name, self.config)
                 if rebuild and layout_on_disk(app_path) == RELEASES:
                     # A rebuild in place would install and build in the
                     # application directory, which on releases is not where the
@@ -4073,8 +4502,8 @@ class RollbackManager:
             # what they produced.
             hand_over_tree(
                 app_path,
-                user=self.config.service_user,
-                group=self.config.service_group,
+                user=service_account_for(domain, self.config)[0],
+                group=service_account_for(domain, self.config)[1],
                 runner=self.backup_manager.runner,
                 fs=self.backup_manager.fs,
                 logger=self.logger,

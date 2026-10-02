@@ -54,6 +54,7 @@ EVENT_KINDS: tuple[str, ...] = (
     "deploy_success",
     "deploy_failed",
     "deploy_rolled_back",
+    "deploy_hook_failed",
     "restore_success",
     "restore_failed",
     "cert_expiring",

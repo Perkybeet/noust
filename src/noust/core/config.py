@@ -178,6 +178,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "deploy_success": True,
             "deploy_failed": True,
             "deploy_rolled_back": True,
+            # Deployed with warnings: a post_deploy hook failed once the new
+            # version was serving.
+            "deploy_hook_failed": True,
             "restore_success": True,
             "restore_failed": True,
             "cert_expiring": True,

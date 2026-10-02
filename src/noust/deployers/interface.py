@@ -231,6 +231,12 @@ class UpdateResult:
         restarted: The units the deployer already restarted and saw pass the
             health gate, so the caller must not restart them again; None when
             restarting is left to the caller.
+        hooks: What the deploy hooks (and Prisma's automatic migration) ran,
+            in order, as the deployment history keeps it.
+        schema_changed: A hook marked ``migrates`` or Prisma's migration
+            changed the database's schema.
+        warnings: Why the update is deployed with warnings: a ``post_deploy``
+            hook that failed once the new version was serving.
     """
 
     package_manager: str
@@ -238,3 +244,6 @@ class UpdateResult:
     is_static: bool
     start_command: str
     restarted: tuple[str, ...] | None = None
+    hooks: tuple[dict[str, Any], ...] = ()
+    schema_changed: bool = False
+    warnings: tuple[str, ...] = ()

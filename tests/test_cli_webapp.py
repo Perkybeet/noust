@@ -419,6 +419,12 @@ def make_app(
         source="https://github.com/user/repo",
         branch="main",
         deployed_at="2026-01-01T00:00:00",
+        # Store v13: an App row always carries these.
+        compose_project=None,
+        site_name=None,
+        follow_tags=None,
+        backup_before_update=True,
+        identity=None,
     )
 
 

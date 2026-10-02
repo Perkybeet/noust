@@ -11,7 +11,8 @@ functions here. Each change goes through the same four places, in this order:
    another application, or that would be a second primary
    (:meth:`noust.core.store.NoustStore.add_domain`).
 2. **The site**, rendered again by the application's own deployer
-   (:meth:`noust.deployers.base.BaseDeployer.refresh_site`), exactly as a deploy
+   (``refresh_site`` of :class:`~noust.deployers.helpers.site.ServesDomains`:
+   ``BaseDeployer``, a Docker Compose stack, a monorepo), exactly as a deploy
    renders it. The web server reads the names from the store where it writes
    the file, so a redeploy later renders the same names again. The whole
    configuration is tested before the reload, and a change the web server
@@ -54,8 +55,8 @@ from noust.core.exceptions import (
 )
 from noust.core.logger import Logger
 from noust.core.store import App, DomainKind, DomainRecord, get_store
-from noust.deployers.base import BaseDeployer
 from noust.deployers.helpers.layout import app_root
+from noust.deployers.helpers.site import ServesDomains
 from noust.deployers.registry import get_deployer
 from noust.validators.domain import validate_domain
 
@@ -172,8 +173,8 @@ def add_domain(
             to this one in another role, or has a site of its own. Adding a
             name this application already has in the same role is not an
             error: the site and the certificate are brought up to date again.
-        ValidationError: When the application's type writes its own web
-            server configuration (monorepo, docker-compose), or the web
+        ValidationError: When the application's type has no site to give
+            names to (a static deploy without one, a headless stack), or the web
             server refuses the new configuration; nothing is left changed:
             the row and the file are put back.
         AppBusyError: Another operation is running on the application.
@@ -259,8 +260,8 @@ def remove_domain(
         NoustError: When the application is unknown.
         DomainError: When the name is the primary, or not one of the
             application's domains.
-        ValidationError: When the application's type writes its own web
-            server configuration, or the web server refuses the new
+        ValidationError: When the application's type has no site to give
+            names to, or the web server refuses the new
             configuration; the row and the file are put back.
         AppBusyError: Another operation is running on the application.
     """
@@ -444,8 +445,7 @@ def refresh_site(app: App, *, verbose: bool = False) -> None:
         verbose: Whether the deployer reports its steps.
 
     Raises:
-        ValidationError: The application's type writes its own web server
-            configuration, or the web server refused the new site (the old
+        ValidationError: The application's type has no site to render, or the web server refused the new site (the old
             file is back).
         AppBusyError: Another operation is running on the application.
     """
@@ -455,7 +455,7 @@ def refresh_site(app: App, *, verbose: bool = False) -> None:
         deployer.refresh_site(with_ssl=_serves_tls(app, deployer))
 
 
-def _site_deployer(app: App, *, verbose: bool) -> BaseDeployer:
+def _site_deployer(app: App, *, verbose: bool) -> ServesDomains:
     """
     Build the deployer that renders an application's site, configured from its row.
 
@@ -468,8 +468,7 @@ def _site_deployer(app: App, *, verbose: bool) -> BaseDeployer:
 
     Raises:
         DeploymentError: When the type is unknown.
-        ValidationError: When the type writes its own web server
-            configuration instead of rendering it through a deployer.
+        ValidationError: When the type cannot serve more than one name.
     """
     try:
         deployer = get_deployer(app.app_type, verbose=verbose)
@@ -478,11 +477,13 @@ def _site_deployer(app: App, *, verbose: bool) -> BaseDeployer:
             f"{app.domain} has an application type Noust does not know: {app.app_type}",
             details=f"Redeploy it with an explicit type: noust create -d {app.domain} --type ...",
         ) from exc
-    if not isinstance(deployer, BaseDeployer):
+    # The capability, not a class: Compose stacks and monorepos render their
+    # sites through the same helper and answer on aliases like the rest.
+    if not isinstance(deployer, ServesDomains):
         raise ValidationError(
             f"{app.app_type} applications do not support aliases and redirects yet",
             details=(
-                f"{app.domain} writes the web server configuration of its services itself. "
+                f"{app.domain} has no site of its own to give other names to. "
                 "Serve another name with its own application or site instead."
             ),
         )
@@ -499,7 +500,7 @@ def _site_deployer(app: App, *, verbose: bool) -> BaseDeployer:
     return deployer
 
 
-def _serves_tls(app: App, deployer: BaseDeployer) -> bool:
+def _serves_tls(app: App, deployer: ServesDomains) -> bool:
     """
     Tell whether an application's site serves TLS now.
 
@@ -516,7 +517,7 @@ def _serves_tls(app: App, deployer: BaseDeployer) -> bool:
     return bool(recorded) and deployer.has_certificate()
 
 
-def _adopt_served_names(app: App, deployer: BaseDeployer, log: Logger) -> tuple[str, ...]:
+def _adopt_served_names(app: App, deployer: ServesDomains, log: Logger) -> tuple[str, ...]:
     """
     Record, as aliases, the names the live site answers on and the store does not know.
 
@@ -544,7 +545,7 @@ def _adopt_served_names(app: App, deployer: BaseDeployer, log: Logger) -> tuple[
     return tuple(adopted)
 
 
-def _try_certificate(deployer: BaseDeployer, log: Logger) -> tuple[bool, str | None]:
+def _try_certificate(deployer: ServesDomains, log: Logger) -> tuple[bool, str | None]:
     """
     Expand the certificate, reporting a certbot failure instead of raising it.
 
@@ -572,7 +573,7 @@ def _try_certificate(deployer: BaseDeployer, log: Logger) -> tuple[bool, str | N
     return True, None
 
 
-def _cover_every_domain(deployer: BaseDeployer) -> None:
+def _cover_every_domain(deployer: ServesDomains) -> None:
     """
     Order the certificate for every domain, then load it.
 

@@ -26,7 +26,10 @@ A delivery is dispatched on the event its forge says it is (``X-GitHub-Event``,
 ``X-Gitea-Event``, ``X-Gitlab-Event`` or GitLab's ``object_kind``): a push
 updates the application, a ping is answered and nothing else, a pull (merge)
 request goes to :func:`noust.managers.previews.handle_pull_request`, and every
-other event is acknowledged and ignored. Before 2.2 the event was never read,
+other event is acknowledged and ignored. An application that follows tags
+(``noust app follow-tags``) is the exception to the first rule: a published
+release and a pushed tag deploy that tag (:func:`queue_tag_update`), and a push
+to a branch deploys nothing. Before 2.2 the event was never read,
 so a pull request or ping delivery to an application without a pinned branch -
 neither carries a ``ref`` - queued an update of production. A delivery that
 names no event at all is still read as a push, which is what every forge sent
@@ -52,6 +55,7 @@ import json
 import threading
 import time
 from collections import OrderedDict
+from dataclasses import dataclass
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -61,10 +65,11 @@ from starlette.concurrency import run_in_threadpool
 
 from noust.core import webhook_deliveries as deliveries_log
 from noust.core.exceptions import DeploymentError, DomainError
-from noust.core.forge_events import parse_pull_request
+from noust.core.forge_events import TagEvent, parse_pull_request, parse_tag_event
 from noust.core.store import App, DeploymentRecord, DeploymentTrigger, StoreError, get_store
+from noust.core.tags import tag_from_ref
 from noust.core.webhook_deliveries import WebhookDelivery
-from noust.deployers.lifecycle import branch_to_build
+from noust.deployers.lifecycle import branch_to_build, why_tag_is_ignored
 from noust.integrations import webhook as webhook_service
 from noust.integrations.webhook import mint_secret as mint_webhook_secret
 from noust.managers.previews import handle_pull_request
@@ -180,24 +185,155 @@ class WebhookDisabledResponse(BaseModel):
     enabled: bool = False
 
 
-def webhook_update_job(domain: str, job_context: JobContext | None = None) -> dict[str, Any]:
+def webhook_update_job(
+    domain: str, job_context: JobContext | None = None, tag: str | None = None
+) -> dict[str, Any]:
     """
     Update a deployed application, recorded as webhook-triggered.
 
     The same sequence as the panel's update job with the provenance changed:
     the deployment history has to say a robot did this, not an operator.
 
+    With a ``tag``, exactly that tag's commit is deployed, once more asking
+    whether it still should be: a job waits its turn behind the application's
+    other operations, and what is deployed may have moved past the tag by then.
+
     Args:
         domain: Domain of the application to update.
         job_context: Injected by the job manager.
+        tag: The tag a release or a tag push announced; None for a push to a
+            branch.
 
     Returns:
-        Summary of the update.
+        Summary of the update; ``status`` is ``ignored`` (with a ``reason``)
+        for a tag that stopped being worth deploying while the job waited.
 
     Raises:
         NoustError: When the application is unknown or a step fails.
     """
-    return run_update(domain, trigger=DeploymentTrigger.WEBHOOK.value, job_context=job_context)
+    trigger = DeploymentTrigger.WEBHOOK.value
+    if tag is not None:
+        app = get_store().get_app(domain)
+        reason = why_tag_is_ignored(app, tag) if app is not None else None
+        if reason is not None:
+            if job_context is not None:
+                job_context.log(f"Not deploying {tag}: {reason}")
+            return {
+                "domain": domain,
+                "status": "ignored",
+                "trigger": trigger,
+                "tag": tag,
+                "reason": reason,
+            }
+    return run_update(domain, trigger=trigger, job_context=job_context, tag=tag)
+
+
+@dataclass(frozen=True)
+class TagDelivery:
+    """
+    What a tag announcement came to for one application.
+
+    Attributes:
+        outcome: One of :data:`noust.core.webhook_deliveries.OUTCOMES`:
+            ``deploy_started`` or ``ignored_tag``.
+        detail: One sentence saying which, naming the tag.
+        job_id: The update job queued; None when the tag was ignored.
+    """
+
+    outcome: str
+    detail: str
+    job_id: str | None = None
+
+
+def _tag_in_flight(domain: str, tag: str) -> str | None:
+    """
+    Find an update to a tag that is already queued or running.
+
+    GitHub sends a push and a release for one version, a moment apart, and
+    both would queue it; the second is this one's duplicate.
+
+    Args:
+        domain: The application.
+        tag: The tag.
+
+    Returns:
+        The id of the job, or None.
+    """
+    for job in get_job_manager().get_active_jobs():
+        meta = job.metadata
+        if job.type == JobType.UPDATE and meta.get("domain") == domain and meta.get("tag") == tag:
+            return str(job.id)
+    return None
+
+
+def queue_tag_update(
+    app: App, event: TagEvent, *, provider: str, delivery: str | None
+) -> TagDelivery:
+    """
+    Queue the update to a tag a code host announced, unless it is not for deploying.
+
+    The one decision both endpoints (an application's own webhook and the
+    GitHub App's) make, so a tag is ignored for the same reason whichever
+    reached it: a draft or a pre-release, a tag the application does not
+    follow, one that is not newer than what is deployed, or one already being
+    deployed. Either way it is written to the application's delivery log.
+
+    Args:
+        app: The application that follows tags.
+        event: The announcement.
+        provider: The forge, as the delivery log names it.
+        delivery: The forge's id for the delivery.
+
+    Returns:
+        What came of it.
+    """
+    tag = event.tag
+    reason = f"{tag} is not deployed because {event.skip}" if event.skip else None
+    if reason is None:
+        reason = why_tag_is_ignored(app, tag)
+    if reason is None:
+        running = _tag_in_flight(app.domain, tag)
+        if running is not None:
+            reason = f"{tag} is already being deployed (job {running})"
+    if reason is not None:
+        _log(
+            app,
+            deliveries_log.IGNORED_TAG,
+            provider=provider,
+            event=event.source,
+            detail=reason,
+            delivery=delivery,
+        )
+        return TagDelivery(deliveries_log.IGNORED_TAG, reason)
+
+    job = get_job_manager().create_job(
+        job_type=JobType.UPDATE,
+        name=f"Update {app.domain}",
+        description=f"Webhook-triggered update of {app.domain} to {tag}",
+        func=webhook_update_job,
+        kwargs={"domain": app.domain, "tag": tag},
+        metadata={
+            "domain": app.domain,
+            "trigger": DeploymentTrigger.WEBHOOK.value,
+            "provider": provider,
+            "tag": tag,
+            "event": event.source,
+            "commit": event.sha,
+            "delivery": delivery,
+        },
+        actor="webhook",
+    )
+    detail = f"queued the update to {tag} ({event.source})"
+    _log(
+        app,
+        deliveries_log.DEPLOY_STARTED,
+        provider=provider,
+        event=event.source,
+        detail=detail,
+        job_id=job.id,
+        delivery=delivery,
+    )
+    return TagDelivery(deliveries_log.DEPLOY_STARTED, detail, job.id)
 
 
 def _hmac_hex(secret: str, body: bytes) -> str:
@@ -287,13 +423,17 @@ def _payload(body: bytes) -> dict[str, Any]:
 PUSH = "push"
 PING = "ping"
 PULL_REQUEST = "pull_request"
+RELEASE = "release"
 
 #: GitLab's ``X-Gitlab-Event`` header values and ``object_kind``s, in the
 #: vocabulary above.
 _GITLAB_EVENTS = {
     "push hook": PUSH,
     "merge request hook": PULL_REQUEST,
+    # A tag push has the push's ``ref``; what it names is read from there.
+    "tag push hook": PUSH,
     "push": PUSH,
+    "tag_push": PUSH,
     "merge_request": PULL_REQUEST,
 }
 
@@ -505,6 +645,19 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
         return await _deliver_pull_request(
             request, validated, provider, payload, app=app, delivery=delivery
         )
+    follows = app.follow_tags if app is not None else None
+    if follows is not None and (
+        kind == RELEASE or (kind in (None, PUSH) and tag_from_ref(payload.get("ref")) is not None)
+    ):
+        return await _deliver_tag(
+            request,
+            validated,
+            provider,
+            payload,
+            kind=RELEASE if kind == RELEASE else PUSH,
+            app=app,
+            delivery=delivery,
+        )
     if kind is not None and kind != PUSH:
         _record(request, validated, "ignored", f"{kind} event ({provider})")
         _log(
@@ -520,6 +673,21 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
         )
 
     branch = _pushed_branch(payload)
+    if follows is not None:
+        # What it deploys is the tag a release or a tag push names; a push to
+        # a branch is news about something it does not follow.
+        pushed = f"push to {branch or 'no branch'}"
+        _record(request, validated, "ignored", f"{pushed}, app follows tags {follows} ({provider})")
+        _log(
+            app,
+            deliveries_log.IGNORED_BRANCH,
+            provider=provider,
+            event=PUSH,
+            branch=branch,
+            detail=f"{pushed}; this application deploys tags matching {follows}",
+            delivery=delivery,
+        )
+        return JSONResponse(status_code=200, content={"status": "ignored", "reason": "branch"})
     # The branch the queued update would build, not only the recorded one: a
     # pin, or the checkout's branch in place, is what gets deployed.
     tracked = await run_in_threadpool(branch_to_build, app) if app is not None else None
@@ -574,6 +742,62 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
         delivery=delivery,
     )
     return JSONResponse(status_code=202, content={"job_id": job.id, "status": job.status.value})
+
+
+async def _deliver_tag(
+    request: Request,
+    domain: str,
+    provider: str,
+    payload: dict[str, Any],
+    *,
+    kind: str,
+    app: App | None,
+    delivery: str | None,
+) -> JSONResponse:
+    """
+    Hand a verified release or tag push to the application that follows tags.
+
+    Args:
+        request: The delivery, for the audit record.
+        domain: The application the webhook belongs to.
+        provider: The forge that sent it.
+        payload: Its parsed body.
+        kind: ``release`` or ``push``.
+        app: The application, which follows tags.
+        delivery: The forge's id for the delivery.
+
+    Returns:
+        202 with the queued job id; 200 when nothing was queued, with the
+        reason a draft, a pre-release, an older tag or a tag the pattern does
+        not match is ignored; 200 for a release action that publishes nothing.
+    """
+    event = parse_tag_event(provider, kind, payload)
+    if event is None or app is None:
+        _record(request, domain, "ignored", f"{kind} names no tag to deploy ({provider})")
+        _log(
+            app,
+            deliveries_log.IGNORED_EVENT,
+            provider=provider,
+            event=kind,
+            detail=f"this {kind} names no tag to deploy",
+            delivery=delivery,
+        )
+        return JSONResponse(status_code=200, content={"status": "ignored", "reason": "action"})
+
+    # In a worker thread: deciding reads the clone's tags with git.
+    result = await run_in_threadpool(
+        queue_tag_update, app, event, provider=provider, delivery=delivery
+    )
+    if result.job_id is None:
+        _record(request, domain, "ignored", f"{result.detail} ({provider})")
+        return JSONResponse(
+            status_code=200,
+            content={"status": "ignored", "reason": "tag", "detail": result.detail},
+        )
+    _record(
+        request, domain, "accepted", f"queued job {result.job_id} ({provider}, tag {event.tag})"
+    )
+    return JSONResponse(status_code=202, content={"job_id": result.job_id, "status": "pending"})
 
 
 async def _deliver_pull_request(
@@ -942,8 +1166,9 @@ class WebhookReceivedOut(BaseModel):
             when no credential verified.
         event: The forge's name for the event.
         outcome: ``deploy_started``, ``preview_started``, ``ping``,
-            ``ignored_branch``, ``ignored_event``, ``ignored_pull_request``,
-            ``duplicate``, ``bad_signature`` or ``locked``.
+            ``ignored_branch``, ``ignored_tag``, ``ignored_event``,
+            ``ignored_pull_request``, ``duplicate``, ``bad_signature`` or
+            ``locked``.
         branch: The branch a push named.
         detail: One short line of context.
         job_id: The job it queued, to follow in the console's jobs.

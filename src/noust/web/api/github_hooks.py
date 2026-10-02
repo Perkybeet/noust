@@ -18,6 +18,10 @@ signature or the secret.
   application that deploys the pushed branch of the pushed repository; each
   one is kept in that application's delivery log
   (:mod:`noust.core.webhook_deliveries`) too.
+- ``release`` (published, not a draft or a pre-release) and ``push`` of a tag:
+  the update to that tag, for every application of that repository that
+  follows tags (:func:`noust.web.api.hooks.queue_tag_update` decides for each);
+  a push to a branch does not update them.
 - ``pull_request``: handed to the previews.
 - ``installation`` and ``installation_repositories``: the stored
   installations follow.
@@ -36,7 +40,7 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from noust.core.exceptions import NoustError
-from noust.core.forge_events import PushEvent, parse_pull_request
+from noust.core.forge_events import PushEvent, TagEvent, parse_pull_request, parse_tag_event
 from noust.core.secrets import SecretStore
 from noust.core.store import DeploymentTrigger, get_store
 from noust.core.webhook_deliveries import DEPLOY_STARTED, record_delivery
@@ -44,7 +48,7 @@ from noust.integrations.github import webhooks
 from noust.integrations.github.app import WEBHOOK_SECRET, read_meta, write_meta
 from noust.integrations.github.service import github_hooks_url
 from noust.web.api.deps import NoustErrorRoute
-from noust.web.api.hooks import DeliveryCache, webhook_update_job
+from noust.web.api.hooks import DeliveryCache, queue_tag_update, webhook_update_job
 from noust.web.auth import get_audit_logger, get_client_ip
 from noust.web.jobs import JobType, get_job_manager
 from noust.web.server import get_webhook_failures
@@ -160,6 +164,31 @@ def _queue_updates(
     return queued
 
 
+def _queue_tag_updates(
+    event: TagEvent, delivery: str | None
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """
+    Decide, for every application that follows tags in a repository, what a tag means.
+
+    Args:
+        event: The release or tag push.
+        delivery: GitHub's delivery id.
+
+    Returns:
+        The ``domain`` and ``job_id`` of each job queued, and the ``domain``
+        and ``reason`` of each application that ignored the tag.
+    """
+    queued: list[dict[str, Any]] = []
+    ignored: list[dict[str, Any]] = []
+    for app in webhooks.apps_following_tags(event):
+        result = queue_tag_update(app, event, provider="github-app", delivery=delivery)
+        if result.job_id is not None:
+            queued.append({"domain": app.domain, "job_id": result.job_id})
+        else:
+            ignored.append({"domain": app.domain, "reason": result.detail})
+    return queued, ignored
+
+
 @router.post("/github")
 async def deliver(request: Request) -> JSONResponse:
     """
@@ -232,6 +261,28 @@ async def deliver(request: Request) -> JSONResponse:
     if event == "ping":
         _record(request, "accepted", "ping")
         return JSONResponse(status_code=200, content={"status": "ok", "event": "ping"})
+
+    if event in ("push", "release"):
+        announced = parse_tag_event("github", event, payload)
+        if announced is not None:
+            queued, ignored = await run_in_threadpool(_queue_tag_updates, announced, delivery)
+            if queued:
+                domains = ", ".join(job["domain"] for job in queued)
+                _record(request, "accepted", f"{event} of {announced.tag}: {domains}")
+                return JSONResponse(
+                    status_code=202,
+                    content={"status": "queued", "jobs": queued, "ignored": ignored},
+                )
+            if ignored:
+                _record(
+                    request, "ignored", f"{event} of {announced.tag}: no application deploys it"
+                )
+                return JSONResponse(
+                    status_code=200,
+                    content={"status": "ignored", "reason": "tag", "ignored": ignored},
+                )
+            # No application follows tags here: what a push or a release was
+            # before tags is what it still is, below.
 
     if event == "push":
         push = webhooks.parse_push(payload)

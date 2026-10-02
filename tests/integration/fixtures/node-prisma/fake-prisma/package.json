@@ -1,0 +1,6 @@
+{
+  "name": "prisma",
+  "version": "0.0.0-fake",
+  "description": "A stand-in for the prisma CLI: same commands, same output format, no database.",
+  "bin": { "prisma": "./bin.js" }
+}

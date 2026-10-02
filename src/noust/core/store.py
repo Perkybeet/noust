@@ -243,6 +243,34 @@ _TAG_PATTERN = re.compile(r"^[A-Za-z0-9._/+*-]{1,100}$")
 #: A system account name (useradd's portable subset).
 _SYSTEM_ACCOUNT = re.compile(r"^[a-z_][a-z0-9_-]{0,31}$")
 
+
+def validate_tag_pattern(pattern: str) -> str:
+    """
+    Check the glob an application follows tags with.
+
+    One implementation for the setter and for ``noust create --follow-tags``,
+    which has to refuse a pattern before it deploys anything.
+
+    Args:
+        pattern: A glob over tag names, such as ``v*``.
+
+    Returns:
+        The pattern.
+
+    Raises:
+        ValidationError: The pattern is empty, too long or has characters a
+            tag cannot.
+    """
+    if not _TAG_PATTERN.match(pattern):
+        raise ValidationError(
+            f"{pattern!r} is not a tag pattern",
+            details="Use a glob over tag names such as 'v*' or 'release-*': letters, "
+            "digits and . _ - / + *, at most 100 characters.",
+            field="follow_tags",
+        )
+    return pattern
+
+
 #: The two instances of an application in zero-downtime mode.
 BLUE_GREEN_COLORS = ("blue", "green")
 
@@ -2616,13 +2644,8 @@ class NoustStore:
             ValidationError: The pattern is empty, too long or has characters
                 a tag cannot.
         """
-        if pattern is not None and not _TAG_PATTERN.match(pattern):
-            raise ValidationError(
-                f"{pattern!r} is not a tag pattern",
-                details="Use a glob over tag names such as 'v*' or 'release-*': letters, "
-                "digits and . _ - / + *, at most 100 characters.",
-                field="follow_tags",
-            )
+        if pattern is not None:
+            validate_tag_pattern(pattern)
         return self._set_app_column(domain, "follow_tags", pattern)
 
     def set_app_backup_before_update(self, domain: str, enabled: bool) -> bool:

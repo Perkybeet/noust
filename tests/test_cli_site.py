@@ -84,6 +84,18 @@ class FakeStore:
         """
         return None
 
+    def get_app(self, domain: str) -> None:
+        """
+        Look up an application, which the manager does to name a site's file.
+
+        Args:
+            domain: Domain name.
+
+        Returns:
+            None: no application is deployed here, so no site has another name.
+        """
+        return None
+
     def get_site(self, domain: str) -> None:
         """
         Look up a site record.

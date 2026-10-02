@@ -6,6 +6,7 @@ import { Logo } from "../components/brand/Logo";
 import { Components } from "./Components";
 import { Foundations } from "./Foundations";
 import { Kit } from "./Kit";
+import { Kit32 } from "./Kit32";
 import { PageKit } from "./PageKit";
 import { Patterns } from "./Patterns";
 import { Templates } from "./Templates";
@@ -50,6 +51,14 @@ const NAV: { title: string; links: [string, string][] }[] = [
       ["empty", "Empty states"],
       ["card-kit", "Card and subsection"],
       ["friction", "Confirmation friction"],
+    ],
+  },
+  {
+    title: "Components (3.2)",
+    links: [
+      ["combobox", "Combobox"],
+      ["feature-state", "Feature state"],
+      ["flow-diagram", "Flow diagram"],
     ],
   },
   {
@@ -165,6 +174,7 @@ export function DesignGallery() {
           <Foundations />
           <Templates />
           <Kit />
+          <Kit32 />
           <Components />
           <PageKit />
           <Patterns />

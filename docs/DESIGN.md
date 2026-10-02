@@ -33,8 +33,11 @@ looks and behaves; the gallery shows it in both themes; the tests hold it.
    Hue is spent on exactly three things: the **state** of something (green running or
    succeeded, amber in progress or warning, red failed, grey stopped), what the operator **can
    act on** (violet), and the **identity of a series inside a chart** (the `viz` family). Every
-   state is also told by a shape (a glyph) and a word. A setting that is "Enabled" is not a
-   running state: it is neutral with an icon, never green.
+   state is also told by a shape (a glyph) and a word. A value in a form that reads "Enabled"
+   is not a running state: it is neutral with an icon, never green. The state of a feature at
+   the top of the place that configures it is one, and is a `FeatureState` (green on, grey
+   off, amber on but not working), because operators could not tell on from off at a glance
+   (owner item 56, 3.2).
 3. **State first, action beside it.** The top of every view answers "how is it?" and "what can
    I do?": the state next to the title, the one primary action at the right.
 4. **One implementation of each pattern.** When two pages do the same thing they use the same
@@ -253,10 +256,14 @@ then **20, 24, 32, 40, 48, 64** for layout.
 | A state change of a pill | one opacity pulse (0.9s), never movement |
 | Skeleton | `breathe` 1.6s |
 | Spinner, indeterminate bar | 0.8s linear, 1.4s |
+| Traffic along a `FlowDiagram` connection | `flow`: dashes advance 1.2s linear (`animate-flow`), 0.6s over TLS (`animate-flow-fast`) |
 
 - **M-1** With `prefers-reduced-motion`, every duration is 0 and every animation stops; what is
   in progress stays readable by its shape and word.
 - **M-2** Nothing animates layout; lists do not reorder with animation; a state never slides.
+- **M-3** An animation is a CSS animation declared in `app.css`, never SMIL (`<animate>` in an
+  SVG): the reduced-motion rule stops CSS animations and does not reach SMIL. A component that
+  marks something as moving also reads `REDUCED_MOTION` and leaves the class off.
 
 ### 2.8 Icons
 
@@ -608,7 +615,7 @@ For: sign in, a sealed central, the legal notice.
 | Dialog | sm 440 a question, md 560 a form of up to six fields, lg 720 two columns or steps, xl 1280 only to look closely (an enlarged chart) |
 | Danger | In T3's last subsection or behind `More actions` with a confirmation; destructive options unchecked by default |
 | CLI hint | Once, at the foot of the view (T3: at the end of each subsection) |
-| State colours | Green only for running, serving, succeeded. "Enabled", "Active", "On" (a setting) are neutral with an icon |
+| State colours | Green only for running, serving, succeeded, and a feature that is on (`FeatureState`). "Enabled", "Active", "On" as a value inside a form or a table are neutral with an icon |
 
 ---
 
@@ -632,6 +639,18 @@ label, help and error wired together. A `<label>` by hand MUST NOT be written. L
 words or fewer; a field is required by default and `optional` marks the others; help stays
 visible under the control; an error is an icon and a sentence under it. A button that acts on
 the control (Inspect, Browse, Generate) goes in `action`, beside the control.
+
+**`Combobox`** (`items`, `value`, `onValueChange`, `groupBy`, `filter`, `renderItem`,
+`virtualized`, `mono`). One value from a long list, found by typing: time zones, services,
+users. Every item has a `value` and a `label`; any other text it carries (a city, an
+abbreviation, an offset) is searched by the default filter, which matches every word anywhere
+ignoring case and accents and reads `+2`, `utc+1` or `gmt-03:30` as a UTC offset
+(`matchesComboboxQuery`). Arrows move, Enter chooses, Escape closes; focusing it selects the
+chosen label so typing starts a new search. Groups are headed in the order they first appear.
+Beyond a hundred items only the rows in view are rendered (`@tanstack/react-virtual`); the
+headings are then drawn but not announced, so an item's label names its group
+(`Europe/Madrid`). A short, known list is a `Select`; a value the operator types freely is an
+`Input`.
 
 **`Switch`** applies at once. **`Checkbox`** is a choice inside a form saved with a button, or a
 selection. They never share a form.
@@ -692,6 +711,19 @@ ring), warning (triangle), failed (cross), stopped (ring), static (square), unkn
 mark). `AppStatePill` and `DeployStatePill` translate the backend's words. Never a `Badge` or a
 coloured dot for a state.
 
+**`FeatureState`** (`state` `on | off | problem`, `title`, `action`, `children`). Whether a
+feature is on, at the top of the place that configures it: notifications, instant rollback,
+automatic updates, the build sandbox, scheduled backups, cron, accounts. Three signals at once:
+on is the running green with a switch drawn on; off is the stopped grey with a switch drawn
+off, what that implies, and the action that turns it on beside the title; on with a problem
+("on, but no channel") is amber with the warning glyph, never green, because it is not doing
+what it says. The title is the state in words, in the state's colour and in `title` weight;
+pass the feature's own when Spanish needs agreement ("Activadas"). It pulses once when the
+state changes, never with reduced motion. **The state of a feature is shown with
+`FeatureState`, never a neutral `Notice`**: a notice in which only a word changes between on
+and off has to be read to be understood. A `Switch` that changes the feature sits in the
+settings below it or is the `action`.
+
 **`Badge`**. A short attribute: a type, a version, a count. Not a state.
 
 **`Card`** (`padding` `md | sm | none`, `as`, `interactive`, `title`, `description`, `actions`,
@@ -746,6 +778,32 @@ on its own. Not for an action (`Button`), a page outside the console (`ExternalL
 drawn as a button (`buttonClassName` on a `Link`). A link the router does not build (a
 `ServerLink`, a download) takes `textLinkClassName`.
 
+**`FlowDiagram`** (`layers`, `edges`, `label`, `highlight`, `onNodeFocus`, `summary`, `table`,
+`animated`; types in `flowDiagram.types.ts`, layout in `flowDiagram.layout.ts`). How requests
+travel through a web server, read only: fixed layers from left to right (ports, names,
+locations, destinations, backends), never a free graph. Rules:
+
+- The layout is columns and deterministic (`layoutFlow`): the tallest column is stacked, what
+  fans out (a server) sits level with the first thing it opens, what fans in (an upstream)
+  level with the middle of what leads to it, settled so nothing overlaps and the caller's order
+  is kept; `group` keeps elements together under a caption (locations per server block,
+  destinations per upstream). The same data is always drawn at the same coordinates. Columns
+  fill the width they are given, 160 to 240px per node; a tall column scrolls inside the box
+  (Proggest's 25 locations).
+- Every element has an outline and an icon of its kind (listener, server, location, upstream,
+  upstream-server, static, redirect, other) and its value in mono; colour only says whether it
+  answers, with the glyph and word of `StatusGlyph` (`ok` responds, `fail` does not, `unknown`
+  grey, `none` nothing drawn).
+- Connections are curves drawn by React in SVG; traffic is dashes moving along them through
+  the `flow` animation (faster over TLS), a WebSocket is a double line. With `highlight` (a
+  route from "Try a URL") only that route moves and the summary names it. Pointing at or
+  focusing an element lights its whole way; pressing it keeps it lit (`aria-pressed`) until it
+  is pressed again or Escape.
+- Every element is a button with an accessible name ("Location /api/: Responds"); under the
+  diagram a written summary (counted from the data unless `summary` is given, naming what does
+  not respond) and the same connections as a table behind a disclosure (A-7). Below 640px it is
+  a list per column, each element saying where it leads.
+
 **`Chart`**. A time series (see 2.2). **`LogViewer`**, **`SystemOutput`**: the system's output,
 verbatim, copyable. **`Mono`**: a system value. **`Kbd`**: a key. **`CommandHint`**: the CLI
 equivalent. **`RelativeTime`**: "3 min ago" with the exact moment in a tooltip.
@@ -782,6 +840,7 @@ so the page has one navigation landmark in a browser and in a unit test alike.
 | Counters in the sidebar and top bar | `StatusGlyph` of 10px and the number; the accessible name is a sentence ("2 services failed") |
 | Running text, a tooltip | The word in `stateTextClass`, with its glyph when it is a warning or a failure |
 | An aggregate | The colour and glyph of the worst state in it |
+| Whether a feature is on | `FeatureState` at the top of its settings, never a neutral `Notice` |
 | Never | Colour alone; a `Badge`; a dot of your own |
 
 Queued is a still glyph: waiting is not work. A job running on an application is the
@@ -974,7 +1033,8 @@ WCAG 2.2 AA, verified rather than declared:
 - **A-6** Everything is reachable by keyboard: arrows between table rows, menus and dialogs as
   the ARIA patterns describe them, `aria-sort` on sorted columns; a tooltip is never the only
   source of information.
-- **A-7** Charts have a written summary and a data table; colour is never the only channel.
+- **A-7** Charts and diagrams (`FlowDiagram`) have a written summary and a data table; colour is
+  never the only channel.
 - **A-8** Reduced motion drops every animation (2.7); `lang` follows the language; system values
   carry `translate="no"`; the console reflows at 320px and 200% zoom without sideways scrolling.
 - **A-9** Under the strict Content Security Policy (`style-src 'self'`, Trusted Types), no

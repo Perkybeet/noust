@@ -215,6 +215,14 @@ def test_an_application_from_before_keeps_building_as_root_with_a_warning_and_it
     machine.git.publish(node_tree(tmp_path / "v1"))
     deploy_new(root, machine)
     forget_regime(store)
+    # From 3.2 an update first tries such an application in the sandbox
+    # (tests/test_sandbox_default.py); where the sandbox does not hold it
+    # builds exactly as before 3.1, which is what this test is about.
+    monkeypatch.setattr(
+        build_sandbox,
+        "self_test",
+        lambda runner, fs=None: build_sandbox.SelfTest(passed=False, checks=()),
+    )
     # A new lockfile, so the update installs instead of reusing the release's.
     machine.git.publish(node_tree(tmp_path / "v2", lockfile='{"lockfileVersion": 3, "v": 2}\n'))
     runner = machine.runner

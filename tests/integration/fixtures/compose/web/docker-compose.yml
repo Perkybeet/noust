@@ -1,0 +1,17 @@
+services:
+  web:
+    build: .
+    # @PORT@ is the host port, filled in when the scenario copies this project into its own
+    # repository: scenarios share the container's ports, so each one takes its own.
+    ports:
+      - "@PORT@:8080"
+    volumes:
+      - data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"]
+      interval: 1s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  data: {}

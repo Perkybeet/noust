@@ -26,7 +26,7 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
 import yaml
 
@@ -42,12 +42,32 @@ from noust.core.exceptions import (
     ValidationError,
 )
 from noust.core.fs import DryRunFileSystem, FileSystem
+from noust.core.logger import Logger
 from noust.core.runner import CommandResult, CommandRunner, get_runner
-from noust.core.store import AppStatus, AppType, DeploymentTrigger, get_store
+from noust.core.store import App, AppStatus, AppType, DeploymentTrigger, get_store
 from noust.core.utils import domain_to_app_name
+from noust.deployers.helpers.compose_ports import (
+    is_headless_stack,
+    published_port,
+    web_root_service,
+)
 from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
+from noust.deployers.helpers.hooks import (
+    DeploymentHooks,
+    Hook,
+    HookFailedError,
+    HookSet,
+)
 from noust.deployers.helpers.registration import StoreRegistrar
+from noust.deployers.helpers.site import (
+    WriteOutcome,
+    refresh_app_site,
+    remove_app_site,
+    write_template_site,
+)
+from noust.deployers.helpers.site import has_certificate as certificate_on_disk
+from noust.deployers.helpers.site import obtain_certificate as obtain_app_certificate
 from noust.deployers.helpers.target import claim_deploy_target
 from noust.deployers.interface import AppDeployer, StepReporter, UpdateResult
 from noust.deployers.recorder import (
@@ -440,12 +460,61 @@ class DockerComposeService:
     name: str = ""
     image: str | None = None
     build: str | None = None
-    ports: list[str] = field(default_factory=list)
+    #: Each entry as the file gives it: a string, or a long-form mapping.
+    ports: list[Any] = field(default_factory=list)
     volumes: list[str] = field(default_factory=list)
     depends_on: list[str] = field(default_factory=list)
     environment: dict[str, str] = field(default_factory=dict)
     healthcheck: dict | None = None
     is_web: bool = False
+
+
+def parse_services(document: Any) -> list[DockerComposeService]:
+    """
+    Read the services of a parsed compose file.
+
+    The one reading of a compose file's services: the deploy, the site and
+    the headless check all start from it.
+
+    Args:
+        document: The parsed compose file.
+
+    Returns:
+        One record per service, in file order; empty when the document has
+        no ``services`` mapping.
+    """
+    raw = document.get("services") if isinstance(document, dict) else None
+    if not isinstance(raw, dict):
+        return []
+    services: list[DockerComposeService] = []
+    for name, data in raw.items():
+        data = data if isinstance(data, dict) else {}
+        ports = data.get("ports") or []
+        ports = [str(p) if not isinstance(p, dict) else p for p in ports]
+        depends = data.get("depends_on") or []
+        depends = list(depends.keys()) if isinstance(depends, dict) else list(depends)
+        env_list = data.get("environment") or []
+        env: dict[str, str] = {}
+        if isinstance(env_list, list):
+            for item in env_list:
+                key, sep, val = str(item).partition("=")
+                if sep:
+                    env[key] = val
+        elif isinstance(env_list, dict):
+            env = {str(k): str(v) if v is not None else "" for k, v in env_list.items()}
+        service = DockerComposeService(
+            name=str(name),
+            image=data.get("image"),
+            build=str(data["build"]) if data.get("build") else None,
+            ports=ports,
+            volumes=[str(v) for v in data.get("volumes") or []],
+            depends_on=[str(d) for d in depends],
+            environment=env,
+            healthcheck=data.get("healthcheck"),
+        )
+        service.is_web = not is_headless_stack([service])
+        services.append(service)
+    return services
 
 
 class DockerComposeDeployer(AppDeployer):
@@ -521,6 +590,13 @@ class DockerComposeDeployer(AppDeployer):
         # Parsed state
         self.services: list[DockerComposeService] = []
         self.compose_path: Path | None = None
+        # The project the store pins (an adopted stack's), read once: None
+        # until read, then the value or "" for none.
+        self._stored_project: str | None = None
+        self._cert_manager: CertManager | None = None
+        # What this deployment's hooks ran, for its history row.
+        self._recording: DeploymentRecorder | None = None
+        self._hooks = DeploymentHooks()
 
     # Framework config files that indicate docker-compose.yml is likely
     # just for local development (databases, caches, etc.)
@@ -691,11 +767,12 @@ class DockerComposeDeployer(AppDeployer):
         """
         Build a ``docker compose`` argument vector for this stack.
 
-        ``-p`` is pinned to the project name Compose would already derive
-        from ``app_path`` and the compose file (see
-        :func:`compose_project_name`), so the containers, networks and named
-        volumes this stack owns keep their name regardless of the working
-        directory a future change might run this from.
+        ``-p`` is the project the store records for the application (an
+        adopted stack keeps the name it already ran under), or else the name
+        Compose would already derive from ``app_path`` and the compose file
+        (see :func:`compose_project_name`), so the containers, networks and
+        named volumes this stack owns keep their name regardless of the
+        working directory a future change might run this from.
 
         Args:
             args: Subcommand and its arguments.
@@ -710,7 +787,9 @@ class DockerComposeDeployer(AppDeployer):
         cmd = ["docker", "compose"]
         if self.compose_path:
             if project is None:
-                project = compose_project_name(self.app_path, self.compose_path)
+                project = self._pinned_project() or compose_project_name(
+                    self.app_path, self.compose_path
+                )
             if project is not None:
                 cmd.extend(["-p", project])
             cmd.extend(["-f", str(self.compose_path)])
@@ -718,6 +797,19 @@ class DockerComposeDeployer(AppDeployer):
             cmd.extend(["--profile", profile])
         cmd.extend(args)
         return cmd
+
+    def _pinned_project(self) -> str | None:
+        """
+        Read the Compose project the store records for this application, once.
+
+        Returns:
+            ``apps.compose_project``, or None when the application has no row
+            or the row names none.
+        """
+        if self._stored_project is None:
+            app = self.store.get_app(self.domain) if self.domain else None
+            self._stored_project = (app.compose_project if app is not None else None) or ""
+        return self._stored_project or None
 
     def _run(
         self,
@@ -753,7 +845,67 @@ class DockerComposeDeployer(AppDeployer):
         Returns:
             True if no services expose ports (headless/worker mode).
         """
-        return not any(svc.is_web for svc in self.services)
+        return is_headless_stack(self.services)
+
+    # -- Deploy hooks ---------------------------------------------------------
+
+    def _resolve_hooks(self) -> HookSet:
+        """
+        Name the hooks this deployment runs: the operator's, or the repository's.
+
+        Returns:
+            The hooks; none when nothing declares any.
+
+        Raises:
+            ValidationError: The document that applies is not valid.
+        """
+        app = self.store.get_app(self.domain) if self.domain else None
+        return self._hooks.resolve(
+            app, self.app_path, self.store, app_type=self.APP_TYPE, serves=True
+        )
+
+    def _run_pre_deploy(self, *, with_dependencies: bool = False) -> None:
+        """
+        Run the ``pre_deploy`` hooks in one-off containers of the images just built.
+
+        Args:
+            with_dependencies: Let Compose start the services a hook's service
+                depends on; only for a first deploy, where nothing serves yet.
+
+        Raises:
+            HookFailedError: A hook failed; what ran is kept for the history.
+        """
+        executor = ComposeHookExecutor(self, with_dependencies=with_dependencies)
+        self._hooks.run_pre(executor, self.logger)
+
+    def _run_post_deploy(self) -> None:
+        """
+        Run the ``post_deploy`` hooks once the new containers serve.
+
+        A failure leaves the stack deployed with warnings: undoing what
+        already serves is worse than saying so.
+        """
+        self._hooks.run_post(ComposeHookExecutor(self, with_dependencies=False), self.logger)
+
+    def _record_hooks(self) -> None:
+        """Write what the hooks did to the history row, once, at the end of the deployment."""
+        recorder = self._recording
+        self._hooks.record(
+            self.store,
+            recorder.deployment_id if recorder is not None else None,
+            self.logger,
+            domain=self.domain,
+        )
+
+    def default_hook_service(self) -> str | None:
+        """
+        Name the service a hook without ``service:`` runs in.
+
+        Returns:
+            The first service with ``build:``, whose image this deployment
+            builds; None when the stack builds nothing.
+        """
+        return next((svc.name for svc in self.services if svc.build), None)
 
     def deploy(self) -> bool:
         """
@@ -800,8 +952,15 @@ class DockerComposeDeployer(AppDeployer):
                     existing=existing,
                     replace=self.replace_existing,
                 )
+            self._hooks = DeploymentHooks()
             with recording(self._recorder(), git_branch=self.branch) as recorder:
-                result = self._deploy_steps()
+                self._recording = recorder
+                try:
+                    result = self._deploy_steps()
+                finally:
+                    # Whichever way it ended: a failed deployment's row says
+                    # what its hooks ran, and whether a migration applied.
+                    self._record_hooks()
             self.last_deployment_id = recorder.deployment_id
             return result
 
@@ -823,6 +982,9 @@ class DockerComposeDeployer(AppDeployer):
 
             self.logger.step(3, total_steps, "Parsing compose services")
             self._parse_compose_services()
+            # Read before anything is built, so a hook that cannot be run is
+            # refused before minutes of image builds.
+            self._resolve_hooks()
 
             headless = self._is_headless()
 
@@ -831,6 +993,9 @@ class DockerComposeDeployer(AppDeployer):
 
             self.logger.step(5, total_steps, "Building Docker images")
             self._build_images()
+            # Nothing serves yet on a first deploy, so the hooks' services may
+            # bring up what they depend on (the database a migration needs).
+            self._run_pre_deploy(with_dependencies=self._is_new_deployment)
 
             if headless:
                 self.logger.step(6, total_steps, "Skipping Nginx (headless worker)")
@@ -853,6 +1018,7 @@ class DockerComposeDeployer(AppDeployer):
 
             # Register in store
             self._register_app()
+            self._run_post_deploy()
 
             self.logger.success(f"Docker Compose application deployed: {self.domain}")
             self.logger.blank()
@@ -893,13 +1059,45 @@ class DockerComposeDeployer(AppDeployer):
         return self.compose_path
 
     def _fetch_source(self) -> None:
-        """Fetch source code via git clone or local copy."""
+        """
+        Fetch source code via git clone or local copy, never emptying a stack's directory.
+
+        A stack's directory holds what git does not track - its ``.env`` and
+        the data its bind mounts write - so a checkout already there is
+        brought to the branch in place (``reset --hard``, no ``clean``), and
+        a directory with files that is not a checkout is refused rather than
+        emptied. Only an empty or missing directory is cloned into.
+
+        Raises:
+            DeploymentError: The directory holds files and is not a git checkout.
+        """
         if self.source_already_fetched:
             # AutoDeployer already placed the code here; fetching again would
             # clean the directory and clone a second time.
             self.logger.substep(f"Source already present at {self.app_path}")
             return
         source_manager = SourceManager(verbose=self.verbose, fs=self._fs)
+        holds_files = self.app_path.is_dir() and any(self.app_path.iterdir())
+        if holds_files and not (self.app_path / ".git").exists():
+            raise DeploymentError(
+                f"{self.app_path} holds files and is not a git checkout",
+                details="A Compose stack keeps its data beside its code, so Noust does not "
+                "empty its directory to clone into it. Move what is there aside (or back it "
+                f"up: noust backup create {self.domain}) and deploy again.",
+            )
+        if holds_files:
+            source_manager.fetch(
+                source=self.source,
+                destination=self.app_path,
+                branch=self.branch,
+                clean=False,
+                force=True,
+            )
+            self.logger.substep(
+                f"Checkout at {self.app_path} brought up to date in place; files git does not "
+                "track (the .env, bind-mounted data) are kept"
+            )
+            return
         source_manager.fetch(
             source=self.source,
             destination=self.app_path,
@@ -944,46 +1142,11 @@ class DockerComposeDeployer(AppDeployer):
             raise DeploymentError("No services defined in compose file")
         self._check_host_privileges(data)
 
-        self.services = []
-        for svc_name, svc_data in data.get("services", {}).items():
-            ports = []
-            for p in svc_data.get("ports", []):
-                ports.append(str(p))
-
-            volumes = []
-            for v in svc_data.get("volumes", []):
-                volumes.append(str(v))
-
-            depends = svc_data.get("depends_on", [])
-            if isinstance(depends, dict):
-                depends = list(depends.keys())
-
-            env = {}
-            env_list = svc_data.get("environment", [])
-            if isinstance(env_list, list):
-                for item in env_list:
-                    if "=" in str(item):
-                        key, _, val = str(item).partition("=")
-                        env[key] = val
-            elif isinstance(env_list, dict):
-                env = {k: str(v) if v is not None else "" for k, v in env_list.items()}
-
-            service = DockerComposeService(
-                name=svc_name,
-                image=svc_data.get("image"),
-                build=str(svc_data.get("build", "")) if svc_data.get("build") else None,
-                ports=ports,
-                volumes=volumes,
-                depends_on=depends,
-                environment=env,
-                healthcheck=svc_data.get("healthcheck"),
-                is_web=bool(ports),
-            )
-            self.services.append(service)
+        self.services = parse_services(data)
 
         self.logger.substep(f"Found {len(self.services)} services")
         for svc in self.services:
-            port_info = f" (ports: {', '.join(svc.ports)})" if svc.ports else ""
+            port_info = f" (ports: {', '.join(map(str, svc.ports))})" if svc.ports else ""
             self.logger.substep(f"  - {svc.name}{port_info}")
 
     def _load_compose_document(self) -> Any:
@@ -1063,7 +1226,8 @@ class DockerComposeDeployer(AppDeployer):
             existing.update(self.env_vars)
 
             # Use non-interactive mode (secrets auto-generated, defaults used)
-            values = manager.prompt_non_interactive(variables)
+            # What the .env or the request already give is not asked for.
+            values = manager.prompt_non_interactive(variables, existing)
             values.update(existing)
 
             # Write .env file
@@ -1098,130 +1262,234 @@ class DockerComposeDeployer(AppDeployer):
         self.logger.substep("Images built successfully")
 
     def _get_primary_port(self) -> int:
-        """Determine the primary port for Nginx proxy."""
+        """
+        Determine the host port the site proxies ``/`` to.
+
+        Returns:
+            The port given at deploy time; otherwise the one the web root
+            service publishes (see :func:`web_root_service`); otherwise the
+            first published TCP port of any service; otherwise
+            :attr:`DEFAULT_PORT`.
+        """
         if self.port:
             return self.port
+        root = web_root_service(self.services)
+        ordered = sorted(self.services, key=lambda svc: svc.name != root)
+        for svc in ordered:
+            port = published_port(svc)
+            if port is not None:
+                return port
+        return self.DEFAULT_PORT
 
-        # Find first web-facing service with ports
+    def _unrouted_web_services(self) -> list[str]:
+        """
+        List the web services the site does not route to, with their ports.
+
+        Without a ``noust.nginx.yaml`` only the web root gets ``/``; routes
+        are no longer invented for the others (``/frontend`` broke Next.js).
+
+        Returns:
+            ``name (port)`` for each other service publishing a TCP port.
+        """
+        root = web_root_service(self.services)
+        others: list[str] = []
         for svc in self.services:
-            for port_str in svc.ports:
-                parts = port_str.split(":")
-                if len(parts) >= 2:
-                    try:
-                        return int(parts[0])
-                    except ValueError:
-                        continue
-                elif len(parts) == 1:
-                    try:
-                        return int(parts[0])
-                    except ValueError:
-                        continue
+            port = published_port(svc)
+            if port is not None and svc.name != root:
+                others.append(f"{svc.name} ({port})")
+        return others
 
-        return 3000  # Default fallback
+    # -- The site and its certificate ----------------------------------------
 
-    def _create_site(self) -> None:
-        """Create Nginx site configuration."""
-        nginx = NginxManager(verbose=self.verbose)
-        primary_port = self._get_primary_port()
+    @property
+    def cert_manager(self) -> CertManager:
+        """The manager that obtains certificates."""
+        if self._cert_manager is None:
+            self._cert_manager = CertManager(verbose=self.verbose)
+        return self._cert_manager
 
-        # Check for advanced nginx config
+    @cert_manager.setter
+    def cert_manager(self, manager: CertManager) -> None:
+        """
+        Replace the certificate manager.
+
+        Args:
+            manager: The manager to use instead.
+        """
+        self._cert_manager = manager
+
+    def webserver_manager(self) -> NginxManager:
+        """
+        Return the manager of the web server that serves this stack.
+
+        Returns:
+            The nginx manager: a stack is only ever served through nginx.
+        """
+        return NginxManager(verbose=self.verbose)
+
+    def _site_template(self, *, with_ssl: bool) -> tuple[str, dict[str, Any]]:
+        """
+        Choose the template of this stack's site and build its context.
+
+        A valid ``noust.nginx.yaml`` with routes gives the site its routes,
+        one without tunes the proxy site; otherwise ``/`` goes to the web
+        root service (see :func:`web_root_service`).
+
+        Args:
+            with_ssl: Render the TLS server blocks.
+
+        Returns:
+            The template name and its context.
+        """
         from noust.deployers.helpers.nginx_config import NginxConfigBuilder
 
         builder = NginxConfigBuilder(verbose=self.verbose)
         config_path = builder.detect(self.app_path)
+        if config_path is not None:
+            try:
+                config = builder.parse(config_path)
+            except ValueError as exc:
+                self.logger.warning(f"{config_path.name} was not used: {exc}")
+            else:
+                errors = builder.validate(config)
+                if not errors and not config.proxies_the_app:
+                    return "advanced", builder.build_context(
+                        config, self.domain, ssl=with_ssl, app_path=str(self.app_path)
+                    )
+                if not errors:
+                    return "proxy", {
+                        **self._proxy_context(with_ssl=with_ssl),
+                        **builder.proxy_context(config, self.domain, app_path=str(self.app_path)),
+                    }
+                # The same as an application of any other type: a file that
+                # does not validate is not half-applied.
+                self.logger.warning(
+                    f"{config_path.name} was not used, the site proxies / to one service: "
+                    + "; ".join(errors)
+                )
+        return "proxy", self._proxy_context(with_ssl=with_ssl)
 
-        if config_path:
-            # Use advanced config from wasm.nginx.yaml
-            config = builder.parse(config_path)
-            errors = builder.validate(config)
-            if errors:
-                self.logger.warning("Nginx config validation warnings:")
-                for err in errors:
-                    self.logger.warning(f"  - {err}")
+    def _proxy_context(self, *, with_ssl: bool) -> dict[str, Any]:
+        """
+        Build the context of the plain proxy site: ``/`` to the web root service.
 
-            nginx.create_advanced_site(
-                domain=self.domain,
-                config=config,
-                ssl=False,  # SSL added after certificate
-                app_path=str(self.app_path),
-            )
-        elif len([s for s in self.services if s.is_web]) > 1:
-            # Auto-derive from compose ports
-            config = builder.from_docker_compose(self._compose_file_path(), self.domain)
-            nginx.create_advanced_site(
-                domain=self.domain,
-                config=config,
-                ssl=False,
-                app_path=str(self.app_path),
-            )
-        else:
-            # Simple proxy
-            nginx.create_site(
-                domain=self.domain,
-                template="proxy",
-                context={
-                    "domain": self.domain,
-                    "port": primary_port,
-                    "app_path": str(self.app_path),
-                    "ssl": False,
-                },
-            )
+        Args:
+            with_ssl: Render the TLS server blocks.
 
-        nginx.enable_site(self.domain)
-        nginx.reload()
-        self.logger.substep(f"Nginx configured (port {primary_port})")
+        Returns:
+            The context.
+        """
+        return {
+            "domain": self.domain,
+            "port": self._get_primary_port(),
+            "app_path": str(self.app_path),
+            "ssl": with_ssl,
+        }
+
+    def _write_site(self, *, with_ssl: bool) -> WriteOutcome:
+        """
+        Render the site and put it on disk, unless the operator wrote it; no reload.
+
+        Args:
+            with_ssl: Render the TLS server blocks.
+
+        Returns:
+            Whether it was written or the operator's was kept.
+        """
+        template, context = self._site_template(with_ssl=with_ssl)
+        return write_template_site(
+            self.webserver_manager(),
+            self.domain,
+            template=template,
+            context=context,
+            logger=self.logger,
+        )
+
+    def _create_site(self) -> None:
+        """Create the stack's site, without TLS, and load it."""
+        from noust.deployers.helpers.nginx_config import NginxConfigBuilder
+
+        others = self._unrouted_web_services()
+        if others and NginxConfigBuilder().detect(self.app_path) is None:
+            root = web_root_service(self.services)
+            self.logger.warning(
+                f"Only {root} is routed (/); {', '.join(others)} also publish a port and are "
+                "not routed. Route them with a noust.nginx.yaml at the root of the repository, "
+                "for example:\n  routes:\n    - path: /api\n      port: <its port>\n"
+                "    - path: /\n      port: " + str(self._get_primary_port())
+            )
+        self._write_site(with_ssl=False)
+        self.webserver_manager().reload()
+        self.logger.substep(f"Nginx configured (port {self._get_primary_port()})")
+
+    def has_certificate(self) -> bool:
+        """
+        Tell whether a certificate lineage for this stack is on disk.
+
+        Returns:
+            True when certbot's live directory holds one for the domain.
+        """
+        return certificate_on_disk(self.cert_manager, self.domain)
+
+    def obtain_certificate(self) -> None:
+        """
+        Order a certificate covering every name the stack answers on, redirects included.
+
+        Raises:
+            CertificateError: When certbot fails, with its output.
+        """
+        obtain_app_certificate(
+            self.cert_manager, self.store, self.domain, webserver="nginx", logger=self.logger
+        )
+
+    def refresh_site(self, *, with_ssl: bool) -> None:
+        """
+        Render the deployed stack's site again, test the whole configuration and load it.
+
+        How a change to the stack's domains reaches nginx. Nothing is built
+        and no container is touched; the compose file is the one the unit
+        names, as an update reads it.
+
+        Args:
+            with_ssl: Render the TLS server blocks.
+
+        Raises:
+            ValidationError: The stack is headless and has no site, or nginx
+                rejects the new configuration (the previous file is back).
+            DeploymentError: nginx did not reload.
+        """
+        if self.compose_path is None:
+            if self.compose_file is None:
+                unit = ServiceManager(verbose=self.verbose).get_service_config(self.app_name)
+                named = compose_file_from_unit(unit)
+                self.compose_file = str(compose_file_option(named)) if named else None
+            self._discover_compose_file()
+        self.services = parse_services(self._load_compose_document())
+        if self._is_headless():
+            raise ValidationError(
+                f"{self.domain} publishes no port: it has no site to answer on other names",
+                details="A stack without web services is judged by its containers and is not "
+                "served by nginx. Publish a port in the compose file and redeploy to serve it.",
+            )
+        refresh_app_site(
+            self.webserver_manager(),
+            self.domain,
+            lambda: self._write_site(with_ssl=with_ssl),
+        )
 
     def _obtain_certificate(self) -> None:
-        """Obtain SSL certificate via Let's Encrypt."""
+        """Obtain the certificate and load the site with TLS, keeping an operator's site."""
         if not self.ssl:
             self.logger.substep("SSL disabled, skipping")
             return
 
         try:
-            cert_manager = CertManager(verbose=self.verbose)
-            cert_manager.obtain(self.domain)
-
-            # Update nginx with SSL
-            nginx = NginxManager(verbose=self.verbose)
-            nginx.delete_site(self.domain)
-
-            primary_port = self._get_primary_port()
-
-            from noust.deployers.helpers.nginx_config import NginxConfigBuilder
-
-            builder = NginxConfigBuilder(verbose=self.verbose)
-            config_path = builder.detect(self.app_path)
-
-            if config_path:
-                config = builder.parse(config_path)
-                nginx.create_advanced_site(
-                    domain=self.domain,
-                    config=config,
-                    ssl=True,
-                    app_path=str(self.app_path),
-                )
-            elif len([s for s in self.services if s.is_web]) > 1:
-                config = builder.from_docker_compose(self._compose_file_path(), self.domain)
-                nginx.create_advanced_site(
-                    domain=self.domain,
-                    config=config,
-                    ssl=True,
-                    app_path=str(self.app_path),
-                )
-            else:
-                nginx.create_site(
-                    domain=self.domain,
-                    template="proxy",
-                    context={
-                        "domain": self.domain,
-                        "port": primary_port,
-                        "app_path": str(self.app_path),
-                        "ssl": True,
-                    },
-                )
-
-            nginx.enable_site(self.domain)
-            nginx.reload()
+            self.obtain_certificate()
+            # Rewritten in place: deleting the site first, as this once did,
+            # left the domain unserved in between and removed an operator's
+            # own configuration for good.
+            if self._write_site(with_ssl=True) == "written":
+                self.webserver_manager().reload()
             self.logger.substep("SSL certificate obtained")
 
         except NoustError as e:
@@ -1318,7 +1586,10 @@ class DockerComposeDeployer(AppDeployer):
                 app_type=AppType.DOCKER_COMPOSE.value,
                 source=self.source,
                 branch=self.branch,
-                port=0 if headless else self._get_primary_port(),
+                # No port at all for a headless stack: 1.x stored the default
+                # (3000) for a worker, and everything that read it probed a
+                # port nothing listens on and called the worker down.
+                port=None if headless else self._get_primary_port(),
                 app_path=self.app_path,
                 webserver="" if headless else self.webserver,
                 ssl_enabled=self.ssl,
@@ -1379,13 +1650,10 @@ class DockerComposeDeployer(AppDeployer):
         except (NoustError, OSError) as e:
             self.logger.debug(f"Service cleanup failed: {e}")
 
-        # Remove nginx config (only if web-facing)
+        # Remove nginx config (only if web-facing); an operator's is kept.
         if not self._is_headless():
             try:
-                nginx = NginxManager(verbose=self.verbose)
-                if nginx.site_exists(self.domain):
-                    nginx.delete_site(self.domain)
-                    nginx.reload()
+                remove_app_site(self.domain, logger=self.logger, manager=self.webserver_manager())
             except (NoustError, OSError) as e:
                 self.logger.debug(f"Site cleanup failed: {e}")
 
@@ -1497,8 +1765,20 @@ class DockerComposeDeployer(AppDeployer):
                 has been put back, and the message says whether it answers.
             DockerError: When the build fails.
         """
+        self._hooks = DeploymentHooks()
         with recording(self._recorder(), git_branch=self.branch) as recorder:
-            result = self._update_steps(on_step or (lambda _message: None))
+            self._recording = recorder
+            try:
+                result = self._update_steps(on_step or (lambda _message: None))
+            except DeploymentError as exc:
+                # Going back puts the previous containers in front of the
+                # new schema: the operator has to read that first.
+                self._hooks.say_schema_changed(exc)
+                raise
+            finally:
+                # A failed update's row says what its hooks ran too: whether
+                # a migration already applied is what going back depends on.
+                self._record_hooks()
         self.last_deployment_id = recorder.deployment_id
         return result
 
@@ -1518,7 +1798,12 @@ class DockerComposeDeployer(AppDeployer):
         """
         if self.compose_path is None:
             self._discover_compose_file()
-        self._check_host_privileges(self._load_compose_document(), existing=True)
+        document = self._load_compose_document()
+        self._check_host_privileges(document, existing=True)
+        # What the gate and the hooks need to know of the stack: whether it
+        # is a web at all, and which service a hook without one runs in.
+        self.services = parse_services(document)
+        hooks = self._resolve_hooks()
 
         report("Recording what is serving")
         serving = self._record_serving()
@@ -1541,6 +1826,19 @@ class DockerComposeDeployer(AppDeployer):
                 ) from exc
             raise
 
+        if hooks.pre_deploy:
+            report("Running pre_deploy hooks")
+            try:
+                self._run_pre_deploy()
+            except HookFailedError as exc:
+                # Nothing was recreated, but the tree and the image names
+                # already say otherwise, exactly as after a failed build.
+                self._attempted_git = self._git_info()()
+                problems = self._put_back_files(serving) if serving.images else []
+                if problems:
+                    exc.details = _paragraphs(exc.details, _problem_list(problems))
+                raise
+
         report("Recreating containers")
         healthy, evidence = self._activate(self._recreate)
         if not healthy:
@@ -1548,6 +1846,9 @@ class DockerComposeDeployer(AppDeployer):
             raise self._go_back(serving, evidence)
 
         self.store.update_app_status(self.domain, AppStatus.RUNNING.value)
+        if hooks.post_deploy:
+            report("Running post_deploy hooks")
+        self._run_post_deploy()
 
         return UpdateResult(
             package_manager="docker compose",
@@ -1556,6 +1857,9 @@ class DockerComposeDeployer(AppDeployer):
             # no unit for the caller to restart afterwards.
             is_static=True,
             start_command=" ".join(self._compose("up", "-d")),
+            hooks=tuple(self._hooks.runs),
+            schema_changed=self._hooks.schema_changed,
+            warnings=tuple(self._hooks.warnings),
         )
 
     def _rehearsing(self) -> bool:
@@ -1671,6 +1975,10 @@ class DockerComposeDeployer(AppDeployer):
             The gate, or None for a headless stack, which has no port to ask
             and is judged by its containers alone.
         """
+        if self.services and self._is_headless():
+            # Whatever port a 1.x deploy recorded for a worker: nothing
+            # listens on it, and probing it would roll back a healthy stack.
+            return None
         app = self.store.get_app(self.domain)
         port = app.port if app is not None and app.port else self.port
         if not port:
@@ -1910,6 +2218,7 @@ class DockerComposeDeployer(AppDeployer):
         projects = {
             name
             for name in (
+                self._pinned_project(),
                 compose_project_name(self.app_path, compose_path),
                 document.get("name") if isinstance(document.get("name"), str) else None,
                 _env_project_name(compose_path),
@@ -1967,12 +2276,9 @@ class DockerComposeDeployer(AppDeployer):
         except (NoustError, OSError) as e:
             self.logger.debug(f"Service cleanup failed: {e}")
 
-        # Remove nginx config
+        # Remove nginx config; an operator's is kept, and said so.
         try:
-            nginx = NginxManager(verbose=self.verbose)
-            if nginx.site_exists(self.domain):
-                nginx.delete_site(self.domain)
-                nginx.reload()
+            remove_app_site(self.domain, logger=self.logger, manager=self.webserver_manager())
         except (NoustError, OSError) as e:
             self.logger.debug(f"Site cleanup failed: {e}")
 
@@ -1983,6 +2289,310 @@ class DockerComposeDeployer(AppDeployer):
             self.store.delete_app(self.domain)
         except (NoustError, sqlite3.Error) as e:
             self.logger.debug(f"Store cleanup failed: {e}")
+
+
+@dataclass(frozen=True)
+class HeadlessStackState:
+    """
+    How a stack that publishes no port is, judged by its containers (owner item 57).
+
+    A worker has no port to probe; it is fine when every container runs (or
+    ran and exited 0) and none restarts in a loop, and not otherwise.
+
+    Attributes:
+        healthy: Whether every container is fine.
+        summary: One line saying so, or naming what is not.
+        problems: One line per container that is not fine.
+        output: Docker's own answer, verbatim, for the evidence.
+        recorded_port: A port the store still records for it - a 1.x deploy
+            stored one for every stack - which nothing listens on; cleared
+            with ``noust app headless DOMAIN``.
+    """
+
+    healthy: bool
+    summary: str
+    problems: tuple[str, ...]
+    output: str
+    recorded_port: int | None
+
+
+def stack_deployer(app: App, *, runner: CommandRunner | None = None) -> DockerComposeDeployer:
+    """
+    Build the deployer that addresses a deployed stack, from its store row.
+
+    The compose file is the one the unit names, as an update reads it, and
+    the project the one the store pins, if any.
+
+    Args:
+        app: The application's row.
+        runner: The runner docker goes through; the process-wide one by default.
+
+    Returns:
+        The deployer, configured enough to run ``docker compose`` against the
+        stack; nothing is fetched or built.
+    """
+    from noust.deployers.helpers.layout import app_root
+
+    deployer = DockerComposeDeployer(runner=runner)
+    deployer.app_path = app_root(app)
+    deployer.domain = app.domain
+    deployer.app_name = domain_to_app_name(app.domain)
+    unit = ServiceManager(runner=runner).get_service_config(deployer.app_name)
+    named = compose_file_from_unit(unit)
+    if named:
+        deployer.compose_file = str(compose_file_option(named))
+    return deployer
+
+
+def headless_stack_state(
+    app: App, *, runner: CommandRunner | None = None
+) -> HeadlessStackState | None:
+    """
+    Judge a deployed stack by its containers when it publishes no port.
+
+    The one place every reader of an application's health - ``noust list``
+    and ``noust health``, the console's state, ``noust diagnose`` - asks
+    about a worker, instead of probing a port nothing listens on.
+
+    Args:
+        app: The application's row.
+        runner: The runner docker goes through.
+
+    Returns:
+        The state; None when the application is not a Compose stack, its
+        compose file cannot be read, or it publishes a port (it is a web,
+        judged as one).
+    """
+    if app.app_type != AppType.DOCKER_COMPOSE.value:
+        return None
+    deployer = stack_deployer(app, runner=runner)
+    if not deployer.app_path.is_dir():
+        return None
+    try:
+        deployer._discover_compose_file()
+    except DeploymentError:
+        return None
+    document = deployer._load_compose_document()
+    if document is None or not is_headless_stack(parse_services(document)):
+        return None
+    result = deployer._run(deployer._compose("ps", "-a", "--format", "json"))
+    recorded = app.port or None
+    if not result.success:
+        output = (result.stderr or result.stdout).strip()
+        return HeadlessStackState(
+            False, "docker compose could not list its containers", (), output, recorded
+        )
+    containers = parse_compose_ps(result.stdout)
+    problems = tuple(p for p in map(container_problem, containers) if p is not None)
+    if not containers:
+        summary = "none of its containers exists; start it with: noust start " + app.domain
+        return HeadlessStackState(False, summary, (), result.stdout.strip(), recorded)
+    if problems:
+        return HeadlessStackState(
+            False,
+            "containers that are not running: " + "; ".join(problems),
+            problems,
+            result.stdout.strip(),
+            recorded,
+        )
+    return HeadlessStackState(
+        True,
+        f"all {len(containers)} of its containers are running or finished cleanly",
+        (),
+        result.stdout.strip(),
+        recorded,
+    )
+
+
+@dataclass(frozen=True)
+class HeadlessChange:
+    """
+    What ``noust app headless`` did to a worker registered as a web.
+
+    Attributes:
+        domain: The application.
+        previous_port: The port the store recorded, now cleared.
+        site: What became of its site: ``removed``, ``kept`` (not asked to
+            remove it), ``kept_operator`` (the operator wrote it),
+            ``kept_aliases`` (it answers on other names too) or ``absent``.
+    """
+
+    domain: str
+    previous_port: int | None
+    site: Literal["removed", "kept", "kept_operator", "kept_aliases", "absent"]
+
+
+def site_retirable(domain: str, *, manager: NginxManager | None = None) -> bool:
+    """
+    Tell whether a worker's site is one ``noust app headless`` may remove.
+
+    Args:
+        domain: The application.
+        manager: The nginx manager; a fresh one by default.
+
+    Returns:
+        True when the site exists, Noust wrote it and the application has no
+        alias or redirect (a name the operator added is a reason to keep it).
+    """
+    manager = manager or NginxManager()
+    if not manager.site_exists(domain) or not manager.site_is_noust(domain):
+        return False
+    return all(record.domain == domain for record in get_store().list_domains(domain))
+
+
+def make_headless(
+    domain: str,
+    *,
+    remove_site: bool,
+    logger: Logger,
+    runner: CommandRunner | None = None,
+    manager: NginxManager | None = None,
+) -> HeadlessChange:
+    """
+    Record a Compose worker as what it is: no port, and optionally no site.
+
+    For the stacks a 1.x deploy registered with the default port (3000) and a
+    site although they publish nothing, which every health reader then
+    called down. Only ever done when asked: removing a site is the
+    operator's call.
+
+    Args:
+        domain: The application.
+        remove_site: Also remove its site, when Noust wrote it and it has no
+            alias or redirect (see :func:`site_retirable`).
+        logger: Where each step is reported.
+        runner: The runner docker goes through.
+        manager: The nginx manager; a fresh one by default.
+
+    Returns:
+        What was done.
+
+    Raises:
+        NoustError: Nothing is deployed at that domain.
+        ValidationError: It is not a Compose stack, its compose file cannot
+            be read, or it publishes a port.
+        AppBusyError: Another operation is running on the application.
+    """
+    store = get_store()
+    with app_lock(domain, "headless"):
+        app = store.get_app(domain)
+        if app is None:
+            raise NoustError(
+                f"Application not found: {domain}",
+                details="Run 'noust list' to see what is deployed.",
+            )
+        if app.app_type != AppType.DOCKER_COMPOSE.value:
+            raise ValidationError(
+                f"{domain} is a {app.app_type} application, not a Docker Compose stack",
+                details="Only a Compose stack can be a worker without a port.",
+            )
+        deployer = stack_deployer(app, runner=runner)
+        try:
+            deployer._discover_compose_file()
+        except DeploymentError as exc:
+            raise ValidationError(
+                f"The compose file of {domain} cannot be read", details=exc.details
+            ) from exc
+        services = parse_services(deployer._load_compose_document())
+        if not services or not is_headless_stack(services):
+            published = [
+                f"{svc.name} ({', '.join(map(str, svc.ports))})" for svc in services if svc.ports
+            ]
+            raise ValidationError(
+                f"{domain} publishes ports, so it is a web and keeps its port",
+                details="Published: "
+                + (", ".join(published) or "its compose file could not be read")
+                + ". Remove the ports from the compose file and update it first if it is a worker.",
+            )
+
+        previous = app.port
+        if previous is not None:
+            app.port = None
+            store.update_app(app)
+            logger.substep(f"Port {previous} cleared: {domain} is judged by its containers")
+
+        manager = manager or NginxManager()
+        site: Literal["removed", "kept", "kept_operator", "kept_aliases", "absent"]
+        if not manager.site_exists(domain):
+            site = "absent"
+        elif not remove_site:
+            site = "kept"
+        elif any(record.domain != domain for record in store.list_domains(domain)):
+            logger.warning(
+                f"{domain} answers on other names too; its site is kept. Remove them first: "
+                f"noust domain list {domain}"
+            )
+            site = "kept_aliases"
+        else:
+            outcome = remove_app_site(domain, logger=logger, manager=manager)
+            site = "removed" if outcome == "removed" else "kept_operator"
+            if site == "removed":
+                logger.substep(f"Site of {domain} removed; its certificate is left as it was")
+        return HeadlessChange(domain=domain, previous_port=previous, site=site)
+
+
+class ComposeHookExecutor:
+    """
+    Run a hook in a one-off container of a service's newly built image.
+
+    ``docker compose run --rm --no-deps [-w workdir] --entrypoint "" <service>
+    <argv>``: the service's own environment, networks and volumes, the image
+    the deployment just built, and nothing recreated. The privileges are the
+    ones the compose file already gives the service, which ``compose_guard``
+    watches; a hook adds none.
+    """
+
+    def __init__(self, deployer: DockerComposeDeployer, *, with_dependencies: bool) -> None:
+        """
+        Args:
+            deployer: The deployer whose stack the hook runs in.
+            with_dependencies: Drop ``--no-deps``, so Compose starts the
+                services the hook's service depends on. Only for a first
+                deploy, where nothing serves yet and the database a migration
+                needs is not running; an update never starts or recreates
+                anything before its gate.
+        """
+        self.deployer = deployer
+        self.with_dependencies = with_dependencies
+
+    def execute(self, hook: Hook) -> CommandResult:
+        """
+        Run a hook to completion.
+
+        Args:
+            hook: The hook.
+
+        Returns:
+            Its outcome.
+
+        Raises:
+            ValidationError: It names a service the stack does not have, or
+                names none and the stack builds no image.
+        """
+        names = [svc.name for svc in self.deployer.services]
+        service = hook.service or self.deployer.default_hook_service()
+        if service is None:
+            raise ValidationError(
+                "The hook names no service, and the stack builds no image to run it in",
+                details="Add 'service: <name>' to the hook, naming the service whose image "
+                f"should run it. The stack's services: {', '.join(names) or 'none'}.",
+                field="service",
+            )
+        if service not in names:
+            raise ValidationError(
+                f"The hook names the service {service!r}, which the compose file does not have",
+                details=f"The stack's services: {', '.join(names) or 'none'}.",
+                field="service",
+            )
+        args = ["run", "--rm"]
+        if not self.with_dependencies:
+            args.append("--no-deps")
+        if hook.workdir:
+            args.extend(["-w", hook.workdir])
+        # An empty entrypoint, so the hook is the whole command and not
+        # arguments to whatever the image's entrypoint starts.
+        args.extend(["--entrypoint", "", service, *hook.run])
+        return self.deployer._run(self.deployer._compose(*args), timeout=hook.timeout)
 
 
 def _paragraphs(*parts: str | None) -> str:

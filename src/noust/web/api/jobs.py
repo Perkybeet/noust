@@ -28,9 +28,13 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from noust.core.exceptions import ValidationError
+from noust.core.exceptions import NoustError, SchemaChangedError, ValidationError
 from noust.core.store import JobRecord, get_store
-from noust.deployers.lifecycle import NOTHING_NEW_HINT, check_upstream
+from noust.deployers.lifecycle import (
+    NOTHING_NEW_HINT,
+    check_upstream,
+    require_schema_change_confirmed,
+)
 from noust.validators.names import validate_filename
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
@@ -87,6 +91,10 @@ class RollbackRequest(BaseModel):
 
     domain: str = Field(..., description="Domain of the application")
     backup_id: str | None = Field(default=None, description="Backup to roll back to")
+    schema_changed_ok: bool = Field(
+        default=False,
+        description="Go back even past later deployments that changed the database schema",
+    )
 
 
 class CertRequest(BaseModel):
@@ -449,6 +457,50 @@ def create_backup_job(
     return _queued("Backup job created", job)
 
 
+def _schema_changes_since_backup(domain: str, backup_id: str | None, confirmed: bool) -> list[int]:
+    """
+    Ask, before queueing, whether restoring a backup goes back past a schema change.
+
+    The job asks again through the manager (rule 4); this only answers the
+    console with the deployments while it can still confirm.
+
+    Args:
+        domain: The application, validated.
+        backup_id: The backup asked for; None for the one the manager picks.
+        confirmed: The operator already said yes.
+
+    Returns:
+        The deployments gone back past that changed the schema; empty when
+        there is no backup to name (the job reports that).
+
+    Raises:
+        HTTPException: 409 ``schema_changed`` naming them, when not confirmed.
+    """
+    from noust.managers.backup_manager import RollbackManager
+
+    try:
+        target = RollbackManager(verbose=False).rollback_target(domain, backup_id)
+    except NoustError:
+        return []
+    try:
+        return require_schema_change_confirmed(
+            domain,
+            target=f"backup {target.id}",
+            schema_changed_ok=confirmed,
+            since=target.created_at,
+        )
+    except SchemaChangedError as error:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "schema_changed",
+                "detail": error.message,
+                "hint": error.details,
+                "deployments": error.deployments,
+            },
+        ) from error
+
+
 @router.post("/rollback", response_model=JobCreatedResponse, status_code=202)
 def create_rollback_job(
     request: RollbackRequest, session: Annotated[dict, Depends(get_current_session)]
@@ -456,22 +508,36 @@ def create_rollback_job(
     """
     Queue a rollback.
 
+    Restoring a backup puts the files back, never the database: going back
+    past later deployments that changed the schema is refused with 409
+    ``schema_changed``, naming them, unless the body says ``schema_changed_ok``.
+
     Args:
         request: The rollback request.
         session: The authenticated session.
 
     Returns:
         The queued job.
+
+    Raises:
+        HTTPException: 409 ``schema_changed`` when it was not confirmed.
     """
     domain = strict_domain(request.domain)
     backup_id = validate_filename(request.backup_id) if request.backup_id else None
+    changed = _schema_changes_since_backup(domain, backup_id, request.schema_changed_ok)
 
     job = get_job_manager().create_job(
         job_type=JobType.ROLLBACK,
         name=f"Rollback {domain}",
         description=(f"Rolling back {domain}" + (f" to backup {backup_id}" if backup_id else "")),
         func=rollback_app_job,
-        kwargs={"domain": domain, "backup_id": backup_id},
+        kwargs={
+            "domain": domain,
+            "backup_id": backup_id,
+            # Only when it was asked and answered: a job queued without it
+            # still refuses a change made between queueing and running.
+            **({"schema_changed_ok": True} if changed and request.schema_changed_ok else {}),
+        },
         metadata={"domain": domain, "backup_id": backup_id},
         actor=actor_label(session),
     )

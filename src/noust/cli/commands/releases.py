@@ -94,8 +94,14 @@ def list_command(ctx: Context, domain: str) -> None:
 @cli.command("rollback")
 @click.argument("domain")
 @click.argument("release", required=False)
+@click.option(
+    "--schema-changed-ok",
+    is_flag=True,
+    default=False,
+    help="Go back even past deployments that changed the database schema.",
+)
 @pass_context
-def rollback(ctx: Context, domain: str, release: str | None) -> None:
+def rollback(ctx: Context, domain: str, release: str | None, schema_changed_ok: bool) -> None:
     """
     Make an earlier release the one that serves, without rebuilding anything.
 
@@ -103,9 +109,19 @@ def rollback(ctx: Context, domain: str, release: str | None) -> None:
     is restarted and the release kept only if it answers; if it does not, the
     release that was serving is put back and the command fails with the
     probe's and the journal's own output.
+
+    Going back past a deployment that changed the database schema is refused,
+    naming it, unless --schema-changed-ok says the older code works with the
+    schema as it is now: Noust puts code back, never a database.
     """
     logger = CapturingLogger(verbose=ctx.verbose)
-    outcome = activate_release(domain, release, trigger=DeploymentTrigger.CLI.value, logger=logger)
+    outcome = activate_release(
+        domain,
+        release,
+        trigger=DeploymentTrigger.CLI.value,
+        logger=logger,
+        schema_changed_ok=schema_changed_ok,
+    )
     if not outcome.changed:
         logger.info(f"Release {outcome.release.id} is already the active one")
         return

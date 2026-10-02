@@ -49,7 +49,6 @@ from noust.core.exceptions import (
     OutOfMemoryError,
     RolledBackError,
     ServiceError,
-    ValidationError,
 )
 from noust.core.fs import SECRET_MODE, DryRunFileSystem, FileSystem
 from noust.core.logger import Icons
@@ -77,6 +76,12 @@ from noust.deployers.helpers import (
 from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers.health import failure_output, wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
+from noust.deployers.helpers.hooks import (
+    CommandHookExecutor,
+    DeploymentHooks,
+    HookSet,
+    prisma_applied_any,
+)
 from noust.deployers.helpers.layout import RELEASES, choose_layout, env_file_in
 from noust.deployers.helpers.nginx_config import NginxAdvancedConfig
 from noust.deployers.helpers.permissions import hand_over_file, hand_over_tree
@@ -90,6 +95,14 @@ from noust.deployers.helpers.release_build import (
     stamp_installed_dependencies,
 )
 from noust.deployers.helpers.sandbox import BuildPhase, SandboxState
+from noust.deployers.helpers.site import (
+    WriteOutcome,
+    has_certificate,
+    refresh_app_site,
+    remove_app_site,
+    write_template_site,
+)
+from noust.deployers.helpers.site import obtain_certificate as obtain_app_certificate
 from noust.deployers.helpers.summary import print_deployment_summary
 from noust.deployers.helpers.target import claim_deploy_target
 from noust.deployers.interface import AppDeployer, StepReporter, UpdateResult
@@ -102,6 +115,7 @@ from noust.deployers.recorder import (
     recording,
 )
 from noust.deployers.releases import CURRENT_LINK, ReleaseManager
+from noust.managers import app_identity
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
@@ -171,6 +185,10 @@ class BaseDeployer(AppDeployer):
     _sandbox_regime: SandboxState | bool | None = False
     _sandbox_cache: Path | None = None
     _sandbox_tree: Path | None = None
+    #: Deploy hooks (3.2): what this deployment's hooks are and did. None
+    #: until asked (see deploy_hooks), for the instances tests assemble
+    #: without __init__.
+    _deploy_hooks_state: DeploymentHooks | None = None
 
     def __init__(
         self,
@@ -613,6 +631,10 @@ class BaseDeployer(AppDeployer):
             run_env.update(env)
 
         sandbox = self._execution(effective)
+        if sandbox is not None and effective is BuildPhase.RELEASE and cwd is not None:
+            # A deploy hook's workdir: the release spec names the tree's root,
+            # and a spec's working directory wins over the call's.
+            sandbox = replace(sandbox, working_dir=cwd)
         options: dict[str, Any] = {}
         if sandbox is not None:
             options["sandbox"] = sandbox
@@ -747,7 +769,17 @@ class BaseDeployer(AppDeployer):
         """
         if self.uses_releases:
             return build_sandbox.BUILD_USER, build_sandbox.BUILD_GROUP
-        return self.config.service_user, self.config.service_group
+        return self._service_account()
+
+    def _service_account(self) -> tuple[str, str]:
+        """
+        Name the account this application runs as, which its files are handed to.
+
+        Returns:
+            Its own account when it has one (3.2), the configured service
+            account otherwise: :func:`noust.managers.app_identity.service_account`.
+        """
+        return app_identity.service_account(self._app_row(), self.config)
 
     def _existing_env_file(self) -> Path | None:
         """
@@ -804,10 +836,11 @@ class BaseDeployer(AppDeployer):
             )
             self._sandbox_tree = self.build_path
         if phase is BuildPhase.RELEASE:
+            user, group = self._service_account()
             return build_sandbox.release_spec(
                 app_name=self.app_name,
-                user=self.config.service_user,
-                group=self.config.service_group,
+                user=user,
+                group=group,
                 build_path=self.build_path,
                 env_file=self._existing_env_file(),
             )
@@ -851,6 +884,38 @@ class BaseDeployer(AppDeployer):
             self.install_dependencies()
         with self._in_phase(BuildPhase.BUILD):
             self.build()
+
+    def _sandbox_by_default(self, report: StepReporter) -> None:
+        """
+        Try an application still building as root in the sandbox before this update builds.
+
+        The sandbox by default (3.2), once the source the update builds is in
+        place: see :func:`~noust.deployers.helpers.sandbox_trial.trial_before_update`.
+        The trial builds in a scratch copy with a deployer like this one, so
+        nothing of this deployment's state changes but its regime, decided
+        again afterwards.
+
+        Args:
+            report: Called when the trial begins.
+        """
+        from noust.deployers.helpers.sandbox_trial import trial_before_update
+
+        def sibling(_app_type: str) -> BaseDeployer:
+            deployer = type(self)(verbose=self.verbose, runner=self._runner, fs=self._fs)
+            deployer.source_manager = self.source_manager
+            return deployer
+
+        if trial_before_update(
+            self.domain,
+            store=self.store,
+            logger=self.logger,
+            runner=self.runner,
+            commit=self._staged.commit if self._staged is not None else None,
+            make_deployer=sibling,
+            fs=self.fs,
+        ):
+            report("Building in the sandbox from now on")
+        self._sandbox_regime = False
 
     def _detect_package_manager(self) -> str:
         """
@@ -959,13 +1024,20 @@ class BaseDeployer(AppDeployer):
 
     def run_prisma_migrate(self, deploy: bool = True) -> bool:
         """
-        Run Prisma migrations.
+        Run Prisma migrations, recording what they applied.
+
+        A migration that fails aborts the deployment (3.2): new code must not
+        start serving against the schema it was not written for. One that
+        applies anything marks the deployment ``schema_changed``.
 
         Args:
             deploy: If True, run deploy (production), else run dev.
 
         Returns:
-            True if successful.
+            True once the migrations ran, or when there are none.
+
+        Raises:
+            DeploymentError: The migration failed, with Prisma's own output.
         """
         if not self.has_prisma:
             return True
@@ -985,7 +1057,21 @@ class BaseDeployer(AppDeployer):
             ),
             get_exec_command=self._get_pm_exec_command,
         )
-        return migrator.migrate(self.build_path, deploy=deploy)
+        command = "prisma migrate " + ("deploy" if deploy else "dev")
+        try:
+            migration = migrator.migrate(self.build_path, deploy=deploy)
+        except DeploymentError as exc:
+            output = exc.output or ""
+            # A failed migration may have applied the ones before it.
+            self.deploy_hooks.note_prisma(
+                output, applied=prisma_applied_any(output), ok=False, command=command
+            )
+            raise
+        if migration is not None:
+            self.deploy_hooks.note_prisma(
+                migration.output, applied=migration.applied, ok=True, command=migration.command
+            )
+        return True
 
     @abstractmethod
     def detect(self, path: Path) -> bool:
@@ -1043,13 +1129,15 @@ class BaseDeployer(AppDeployer):
         """
         Get the Nginx template name for this app type.
 
-        Returns "advanced" if a wasm.nginx.yaml config was detected,
-        otherwise returns the default "proxy" template.
+        Returns "advanced" if a noust.nginx.yaml (or wasm.nginx.yaml) with
+        routes of its own was detected, otherwise the default "proxy"
+        template, which a file without such routes tunes.
 
         Returns:
             Template name.
         """
-        if self._nginx_advanced_config is not None:
+        config = self._nginx_advanced_config
+        if config is not None and not config.proxies_the_app:
             return "advanced"
         return "proxy"
 
@@ -1077,9 +1165,10 @@ class BaseDeployer(AppDeployer):
         # file, so no caller - this one included - decides them.
         server_names = self.domain
 
-        if self._nginx_advanced_config is not None:
+        config = self._nginx_advanced_config
+        if config is not None and not config.proxies_the_app:
             ctx = self._nginx_config_builder.build_context(
-                self._nginx_advanced_config,
+                config,
                 self.domain,
                 ssl=self.ssl,
                 app_path=str(self.runtime_path),
@@ -1087,7 +1176,7 @@ class BaseDeployer(AppDeployer):
             ctx["server_names"] = server_names
             return ctx
 
-        return {
+        ctx = {
             "domain": self.domain,
             "server_names": server_names,
             "port": self.port,
@@ -1096,6 +1185,14 @@ class BaseDeployer(AppDeployer):
             "ssl": self.ssl,
             "health_check": self.get_health_check(),
         }
+        if config is not None:
+            # A noust.nginx.yaml without routes of its own tunes the proxy site.
+            ctx.update(
+                self._nginx_config_builder.proxy_context(
+                    config, self.domain, app_path=str(self.runtime_path)
+                )
+            )
+        return ctx
 
     def _detect_nginx_config(self) -> None:
         """
@@ -1140,9 +1237,14 @@ class BaseDeployer(AppDeployer):
         # Check for .env.example
         return (self.build_path / ".env.example").exists()
 
-    def _generated_env(self) -> dict[str, str]:
+    def _generated_env(self, supplied: Mapping[str, str] | None = None) -> dict[str, str]:
         """
         Fill in what ``.env.example`` asks for, without asking anyone.
+
+        Args:
+            supplied: Values Noust already provides (the database created for
+                the first deploy); a placeholder for one of them is not
+                reported as something the operator must give.
 
         Returns:
             Defaults from the example, with a generated secret wherever the
@@ -1152,7 +1254,7 @@ class BaseDeployer(AppDeployer):
         if not variables:
             return {}
         self.logger.debug(f"Discovered {len(variables)} env variables")
-        return self._env_manager.prompt_non_interactive(variables)
+        return self._env_manager.prompt_non_interactive(variables, supplied)
 
     def _unit_environment(self) -> dict[str, str]:
         """
@@ -1185,7 +1287,7 @@ class BaseDeployer(AppDeployer):
                 before anything is written.
         """
         given = validate_environment({**self.env_vars, **self._database_env})
-        generated = self._generated_env() if self._should_configure_env() else {}
+        generated = self._generated_env(given) if self._should_configure_env() else {}
         if not (given or generated):
             return
 
@@ -1257,8 +1359,8 @@ class BaseDeployer(AppDeployer):
         self._write_env_file({**current, **inline})
         hand_over_file(
             env_file,
-            user=self.config.service_user,
-            group=self.config.service_group,
+            user=self._service_account()[0],
+            group=self._service_account()[1],
             mode=SECRET_MODE,
             runner=self.runner,
             logger=self.logger,
@@ -1375,12 +1477,7 @@ class BaseDeployer(AppDeployer):
         """Remove the web server site configuration for this domain."""
         if not self.domain:
             return
-        manager = self._webserver_manager()
-        if manager.site_exists(self.domain):
-            self.logger.debug(f"Removing site config: {self.domain}")
-            manager.disable_site(self.domain)
-            manager.delete_site(self.domain)
-            manager.reload()
+        remove_app_site(self.domain, logger=self.logger, manager=self._webserver_manager())
 
     def remove_service(self) -> None:
         """Stop and delete the systemd service for this application."""
@@ -1694,13 +1791,16 @@ class BaseDeployer(AppDeployer):
         manager.reload()
         return True
 
-    def _write_site(self, manager: NginxManager | ApacheManager, *, with_ssl: bool) -> None:
+    def _write_site(self, manager: NginxManager | ApacheManager, *, with_ssl: bool) -> WriteOutcome:
         """
         Render the site and put it on disk, without reloading anything.
 
         Args:
             manager: The web server manager to write through.
             with_ssl: Render the TLS server blocks.
+
+        Returns:
+            Whether it was written or the operator's own was kept.
         """
         context = self.get_template_context()
         # Override SSL setting based on parameter
@@ -1723,20 +1823,12 @@ class BaseDeployer(AppDeployer):
         if self.ssl:
             self.logger.substep(f"SSL: {'enabled' if with_ssl else 'pending certificate'}")
 
-        # Check if site already exists (update vs create)
-        if manager.site_exists(self.domain) and not manager.site_is_noust(self.domain):
-            # The operator's own site (no marker): a release update rewrote it
-            # with the template, which put back the access_log a whistleblowing
-            # channel had removed on purpose. It is kept, and said so.
-            self.logger.warning(
-                f"{self.domain} has a site configuration Noust did not write; it is kept as "
-                "it is. Check it still points at this application."
-            )
-        elif manager.site_exists(self.domain):
-            manager.update_site(self.domain, template=template, context=context)
-        else:
-            manager.create_site(self.domain, template=template, context=context)
-            manager.enable_site(self.domain)
+        # The operator's own site (no marker) is kept: a release update once
+        # rewrote it with the template, which put back the access_log a
+        # whistleblowing channel had removed on purpose.
+        outcome = write_template_site(
+            manager, self.domain, template=template, context=context, logger=self.logger
+        )
 
         self.registrar.register_site(
             domain=self.domain,
@@ -1746,6 +1838,7 @@ class BaseDeployer(AppDeployer):
             port=self.port,
             with_ssl=with_ssl,
         )
+        return outcome
 
     def _record_requested_domains(self) -> None:
         """
@@ -1795,10 +1888,7 @@ class BaseDeployer(AppDeployer):
         Returns:
             True when certbot's live directory holds one for the primary.
         """
-        try:
-            return self.cert_manager.cert_exists(self.domain)
-        except CertificateError:
-            return False
+        return has_certificate(self.cert_manager, self.domain)
 
     def refresh_site(self, *, with_ssl: bool) -> None:
         """
@@ -1839,27 +1929,7 @@ class BaseDeployer(AppDeployer):
         self.inspect_site()
 
         manager = self._webserver_manager()
-        previous = (
-            manager.get_site_config(self.domain) if manager.site_exists(self.domain) else None
-        )
-        self._write_site(manager, with_ssl=with_ssl)
-
-        problem = manager.config_errors()
-        if problem is not None:
-            if previous is None:
-                manager.delete_site(self.domain)
-            else:
-                manager.replace_site_config(self.domain, previous, validate=False)
-            raise ValidationError(
-                f"{self.webserver} rejected the new configuration of {self.domain}",
-                details=problem,
-            )
-        if not manager.reload():
-            raise DeploymentError(
-                f"{self.webserver} did not reload the configuration of {self.domain}",
-                details=f"The configuration is valid; see why the reload failed with: "
-                f"systemctl status {self.webserver}",
-            )
+        refresh_app_site(manager, self.domain, lambda: self._write_site(manager, with_ssl=with_ssl))
 
     def create_service(self) -> bool:
         """
@@ -1912,8 +1982,8 @@ class BaseDeployer(AppDeployer):
                 working_directory=self.runtime_path,
                 environment=env,
                 port=self.port,
-                user=self.config.service_user,
-                group=self.config.service_group,
+                user=self._service_account()[0],
+                group=self._service_account()[1],
             )
             return True
 
@@ -1939,8 +2009,8 @@ class BaseDeployer(AppDeployer):
             working_directory=self.runtime_path,
             environment=env,
             port=self.port,
-            user=self.config.service_user,
-            group=self.config.service_group,
+            user=self._service_account()[0],
+            group=self._service_account()[1],
         )
 
         return True
@@ -1955,32 +2025,16 @@ class BaseDeployer(AppDeployer):
         if not self.ssl:
             return True
 
-        self.logger.substep(f"Domain: {self.domain}")
-
-        # Every name the application answers on, redirects included: they
-        # are served on 443 as well. CertManager reads the same rows when it
-        # places the order; they are listed here so the operator sees them.
-        names = [record.domain for record in self.store.list_domains(self.domain)]
-        names = names or [self.domain]
-        if self.include_www and f"www.{self.domain}" not in names:
-            # Under --dry-run the store keeps no rows; the rehearsal still
-            # shows what the certificate would cover.
-            names.append(f"www.{self.domain}")
-        additional_domains = [name for name in names if name != self.domain]
-        if additional_domains:
-            self.logger.substep(f"Including: {', '.join(additional_domains)}")
-
-        # Use nginx plugin if using nginx
-        nginx = self.webserver == "nginx"
-        apache = self.webserver == "apache"
-
-        self.cert_manager.obtain(
+        # Under --dry-run the store keeps no rows; include_www still shows
+        # the rehearsal what the certificate would cover.
+        obtain_app_certificate(
+            self.cert_manager,
+            self.store,
             self.domain,
-            nginx=nginx,
-            apache=apache,
-            additional_domains=additional_domains or None,
+            webserver=self.webserver,
+            logger=self.logger,
+            include_www=self.include_www,
         )
-
         return True
 
     def start(self) -> bool:
@@ -2654,8 +2708,8 @@ class BaseDeployer(AppDeployer):
         if not self.uses_releases:
             hand_over_tree(
                 self.app_path,
-                user=self.config.service_user,
-                group=self.config.service_group,
+                user=self._service_account()[0],
+                group=self._service_account()[1],
                 runner=self.runner,
                 fs=self.fs,
                 logger=self.logger,
@@ -2668,8 +2722,8 @@ class BaseDeployer(AppDeployer):
         for tree in trees:
             hand_over_tree(
                 tree,
-                user=self.config.service_user,
-                group=self.config.service_group,
+                user=self._service_account()[0],
+                group=self._service_account()[1],
                 runner=self.runner,
                 fs=self.fs,
                 logger=self.logger,
@@ -2796,18 +2850,32 @@ class BaseDeployer(AppDeployer):
         require_server_role("Applications")
         report = on_step or (lambda _message: None)
         releases = self.resolve_layout() == RELEASES
+        self._forget_hooks()
 
-        with recording(
-            self._recorder(),
-            git_branch=self.branch,
-            on_failure=(lambda _exc: self._abandon_release()) if releases else None,
-        ) as recorder:
-            result = self._update_release(report) if releases else self._update_in_place(report)
-            if self._leftover_unit():
-                report("Removing the unit a previous deployment left")
-                self.retire_leftover_unit()
+        recorder = self._recorder()
+        try:
+            with recording(
+                recorder,
+                git_branch=self.branch,
+                on_failure=(lambda _exc: self._abandon_release()) if releases else None,
+            ):
+                try:
+                    result = (
+                        self._update_release(report) if releases else self._update_in_place(report)
+                    )
+                except DeploymentError as exc:
+                    self.deploy_hooks.say_schema_changed(exc)
+                    raise
+                if self._leftover_unit():
+                    report("Removing the unit a previous deployment left")
+                    self.retire_leftover_unit()
+                self._run_post_deploy_hooks(report)
+        finally:
+            self.deploy_hooks.record(
+                self.store, recorder.deployment_id, self.logger, domain=self.domain
+            )
         self.last_deployment_id = recorder.deployment_id
-        return result
+        return self._with_hook_result(result)
 
     def _update_in_place(self, report: StepReporter) -> UpdateResult:
         """
@@ -2819,6 +2887,8 @@ class BaseDeployer(AppDeployer):
         Returns:
             What was done.
         """
+        self._sandbox_by_default(report)
+
         report("Inspecting the project")
         with self._in_phase(BuildPhase.INSTALL):
             self.pre_install()
@@ -2839,9 +2909,13 @@ class BaseDeployer(AppDeployer):
         # .next/cache/images on the first optimised image, and uploads land
         # in directories a pull may have just added.
         self._set_permissions()
+        self._run_pre_deploy_hooks(report)
 
         result = self._update_result(prisma_updated)
-        if not (self._gate_in_place and result.start_command):
+        # post_deploy hooks run once the new build passed its gate, so an
+        # application that has them restarts behind it here, not later.
+        gated = self._gate_in_place or bool(self._hook_set().post_deploy)
+        if not (gated and result.start_command):
             return result
         # Inside the recording: a build that does not answer is a failed row
         # whose log holds the probes and the journal.
@@ -2867,6 +2941,7 @@ class BaseDeployer(AppDeployer):
         """
         report("Fetching into a new release")
         self._step_fetch_release()
+        self._sandbox_by_default(report)
 
         report("Installing dependencies")
         with self._in_phase(BuildPhase.INSTALL):
@@ -2880,6 +2955,9 @@ class BaseDeployer(AppDeployer):
             self.build()
 
         self._set_permissions()
+        # Last before anything serves it: a failing hook leaves current where
+        # it is, and the release is abandoned like a failed build.
+        self._run_pre_deploy_hooks(report)
 
         report(f"Activating release {self._require_staged().id}")
         self._activate_release()
@@ -2890,18 +2968,166 @@ class BaseDeployer(AppDeployer):
         """
         Regenerate the Prisma client and apply migrations, when the project uses Prisma.
 
+        Declared deploy hooks replace the automatic migration: what the
+        project says explicitly wins, and the log says so.
+
         Args:
             report: Called when the step begins.
 
         Returns:
             Whether Prisma was updated.
+
+        Raises:
+            DeploymentError: The migration failed (see :meth:`run_prisma_migrate`).
         """
         if not self.has_prisma:
             return False
         report("Updating Prisma")
         self.generate_prisma()
-        self.run_prisma_migrate(deploy=True)
+        if self._hook_set().declared:
+            self.logger.substep(
+                "Deploy hooks are declared, so Prisma's automatic migration does not run"
+            )
+        else:
+            self.run_prisma_migrate(deploy=True)
         return True
+
+    # Deploy hooks ----------------------------------------------------------
+
+    @property
+    def deploy_hooks(self) -> DeploymentHooks:
+        """What this deployment's hooks are and did (one per deployment)."""
+        if self._deploy_hooks_state is None:
+            self._deploy_hooks_state = DeploymentHooks()
+        return self._deploy_hooks_state
+
+    def _forget_hooks(self) -> None:
+        """Start a deployment with nothing read or run yet."""
+        self._deploy_hooks_state = DeploymentHooks()
+
+    def _hook_set(self) -> HookSet:
+        """
+        Read the hooks this deployment runs, once, from the tree being built.
+
+        Returns:
+            The operator's, the repository's ``noust.yaml``, or none.
+
+        Raises:
+            ValidationError: The document that applies is not valid, or the
+                application's type has no hooks (a static site).
+        """
+        return self.deploy_hooks.resolve(
+            self._app_row(),
+            self.build_path,
+            self.store,
+            app_type=self.APP_TYPE,
+            serves=bool(self.get_start_command()),
+        )
+
+    def _hook_executor(self) -> CommandHookExecutor:
+        """
+        Run hooks where a migration runs: the release phase, in the tree being built.
+
+        Returns:
+            The executor: as the application, with its ``.env``, in the
+            sandbox when it builds there; as this process otherwise, which is
+            what its builds run as too.
+        """
+        return CommandHookExecutor(
+            run=lambda argv, *, cwd, timeout: self._run(
+                argv, cwd=cwd, timeout=timeout, phase=BuildPhase.RELEASE
+            ),
+            root=self.build_path,
+            app_type=self.APP_TYPE,
+        )
+
+    def _run_pre_deploy_hooks(self, report: StepReporter | None = None) -> None:
+        """
+        Run the ``pre_deploy`` hooks, before anything serves the new version.
+
+        Args:
+            report: Called when there are hooks to run.
+
+        Raises:
+            HookFailedError: A hook failed; nothing was switched over.
+            ValidationError: The hooks are not valid, or not for this type.
+        """
+        if not self._hook_set().pre_deploy:
+            return
+        if report is not None:
+            report("Running pre-deploy hooks")
+        self.deploy_hooks.run_pre(self._hook_executor(), self.logger)
+
+    def _run_post_deploy_hooks(self, report: StepReporter | None = None) -> None:
+        """
+        Run the ``post_deploy`` hooks, once the new version passed its gate.
+
+        A failure does not fail the deployment: what serves now stays, and
+        the deployment is recorded as deployed with warnings.
+
+        Args:
+            report: Called when there are hooks to run.
+        """
+        if not self._hook_set().post_deploy:
+            return
+        if report is not None:
+            report("Running post-deploy hooks")
+        self.deploy_hooks.run_post(self._hook_executor(), self.logger)
+
+    def _with_hooks(self, steps: list[DeployStep]) -> list[DeployStep]:
+        """
+        Run the hooks inside a deploy pipeline, without steps of their own.
+
+        ``pre_deploy`` runs at the end of the step that hands the tree to the
+        service (the last before anything is exposed), ``post_deploy`` at the
+        end of the pipeline's last step. Neither adds a step: an application
+        without hooks deploys exactly as before, line for line.
+
+        Args:
+            steps: The deployer's pipeline.
+
+        Returns:
+            The same pipeline, with the hooks attached.
+        """
+        if not steps:
+            return steps
+        at = next((i for i, step in enumerate(steps) if step.run == self._set_permissions), 0)
+        end = len(steps) - 1
+
+        def attach(index: int) -> DeployStep:
+            step = steps[index]
+
+            def run() -> None:
+                step.run()
+                if index == at:
+                    self._run_pre_deploy_hooks()
+                if index == end:
+                    self._run_post_deploy_hooks()
+
+            return replace(step, run=run)
+
+        for index in {at, end}:
+            steps[index] = attach(index)
+        return steps
+
+    def _with_hook_result(self, result: UpdateResult) -> UpdateResult:
+        """
+        Add what the hooks did to an update's result.
+
+        Args:
+            result: The update's result.
+
+        Returns:
+            The result with the hooks that ran, whether the schema changed and
+            the warnings.
+        """
+        state = self.deploy_hooks
+        return replace(
+            result,
+            hooks=tuple(state.runs),
+            schema_changed=state.schema_changed,
+            warnings=tuple(state.warnings),
+        )
 
     def _update_result(self, prisma_updated: bool) -> UpdateResult:
         """
@@ -2999,8 +3225,20 @@ class BaseDeployer(AppDeployer):
             build_sandbox.adopt_new_app(
                 self.domain, preview=self._preview_parent is not None, store=self.store
             )
+        # Created from 3.2: it runs as its own account, made before anything
+        # is handed to it; one that has an account gets it back if missing.
+        self._app_record.identity = app_identity.adopt_new_app(
+            self.domain,
+            app_name=self.app_name,
+            app_type=self.APP_TYPE,
+            is_static=not bool(self.get_start_command()),
+            runner=self.runner,
+            store=self.store,
+            new=is_new_deployment,
+        )
 
-        steps = self.build_pipeline()
+        self._forget_hooks()
+        steps = self._with_hooks(self.build_pipeline())
         if self._leftover_unit():
             # Last, once the site serves the new files: until then the old
             # unit may still be what answers for the domain.
@@ -3022,10 +3260,18 @@ class BaseDeployer(AppDeployer):
                 ),
             )
 
-        with recording(
-            self._recorder(), git_branch=self.branch, on_failure=self._deploy_failed
-        ) as recorder:
-            run_pipeline(steps, self.logger)
+        recorder = self._recorder()
+        try:
+            with recording(recorder, git_branch=self.branch, on_failure=self._deploy_failed):
+                try:
+                    run_pipeline(steps, self.logger)
+                except DeploymentError as exc:
+                    self.deploy_hooks.say_schema_changed(exc)
+                    raise
+        finally:
+            self.deploy_hooks.record(
+                self.store, recorder.deployment_id, self.logger, domain=self.domain
+            )
         self.last_deployment_id = recorder.deployment_id
 
         self._report_result()

@@ -360,6 +360,25 @@
       ]
     }
   },
+  "deploy.hook_failed": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Desplegado con avisos</b> · shop.example.com\nLa nueva versión está en servicio, pero un gancho posterior al despliegue ha fallado después del relevo.\n\n<b>Servidor:</b> web-1\n<b>Comando:</b> <code>./scripts/purge-cache.sh --all</code>\n<b>Revísalo con:</b> <code>noust app hooks show shop.example.com</code>\n\n<i>Lo que ha informado el sistema</i>\n<pre>curl: (22) The requested URL returned error: 403\npurge failed</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
   "restore.completed": {
     "chat_id": "-1001234567890",
     "text": "● <b>Restaurado</b> · shop.example.com\nLos archivos de la aplicación han vuelto a como estaban en la copia de seguridad.\n\n<b>Servidor:</b> web-1\n<b>Copia:</b> <code>20260928-020000</code>",
@@ -886,6 +905,25 @@
           {
             "text": "Abrir en la consola",
             "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+          }
+        ]
+      ]
+    }
+  },
+  "sandbox.trial_failed": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Compilación aislada fallida</b> · shop.example.com\nSe ha probado su compilación sin root antes de la actualización y ha fallado, así que la actualización ha compilado como root, igual que antes.\n\n<b>Servidor:</b> web-1\n<b>Commit:</b> <code>4f2a9c1</code>\n<b>Revísalo con:</b> <code>noust app sandbox status shop.example.com</code>\n\n<i>Lo que ha informado el sistema</i>\n<pre>npm ci failed (exit code 1)\nnpm ERR! code E401\nnpm ERR! 401 Unauthorized - GET https://npm.registry.local/@shop%2fui</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com"
           }
         ]
       ]

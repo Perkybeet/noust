@@ -17,6 +17,12 @@
 # the distribution's FPM and provisions the recipe's database on the local
 # server, and both are what an operator installs from the distribution.
 #
+# Docker Engine and the Compose plugin run inside the container, as its own
+# daemon on a dedicated named volume mounted on /var/lib/docker (run.py,
+# DOCKER_DATA_VOLUME): overlay-on-overlay needs a real filesystem under it, and
+# the volume also keeps the pulled base images between runs. Nothing of the
+# host's Docker is shared: no docker.sock, no host volumes or containers.
+#
 # certbot is deliberately not installed: every scenario that needs a
 # certificate is skipped in favour of --no-ssl, because this container has no
 # real domain and no path to the public internet's ACME servers.
@@ -82,6 +88,34 @@ RUN systemctl enable mariadb "$(basename /usr/lib/systemd/system/php*-fpm.servic
 # nginx starts under its own unit once Noust configures a site; the packaged
 # default site is removed so it never answers on port 80 before that.
 RUN rm -f /etc/nginx/sites-enabled/default
+
+# Docker Engine and the Compose v2 plugin, for the Docker Compose scenarios:
+# the distribution's own packages (24.04 packages both, and Noust only needs
+# what an operator gets from `apt install docker.io docker-compose-v2`).
+# docker-buildx is a Recommends of docker.io that --no-install-recommends
+# drops, and Compose builds images through it. This is a second layer, after
+# everything above, so adding it did not invalidate the image's cached layers.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        docker.io \
+        docker-compose-v2 \
+        docker-buildx \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# The classic overlay2 store, not the containerd image store that Docker 29
+# picks for a fresh data directory: the containerd store keeps images and
+# snapshots in /var/lib/containerd, outside the volume run.py mounts on
+# /var/lib/docker, so they would be overlay-on-overlay on the container's own
+# root filesystem (which does not work) and would not survive between runs.
+RUN mkdir -p /etc/docker \
+    && printf '{\n  "storage-driver": "overlay2",\n  "features": {"containerd-snapshotter": false}\n}\n' \
+        > /etc/docker/daemon.json
+
+# Enabled here for the same reason as mariadb above: package scripts cannot
+# talk to systemd during a build, and the scenarios need the daemon running
+# when the container boots. Never the host's docker.sock: this daemon is the
+# container's own, with its own data directory.
+RUN systemctl enable docker.socket docker.service containerd.service
 
 STOPSIGNAL SIGRTMIN+3
 

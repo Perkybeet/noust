@@ -1,0 +1,30 @@
+# Overlay on ../web: two services that both publish a port, the way a frontend and its API do.
+# The frontend depends on the backend, so it is the one `/` belongs to; the backend publishes
+# on loopback only, in the long form Noust's port reader had to learn (127.0.0.1:P:C).
+services:
+  backend:
+    build: .
+    environment:
+      ROLE: backend
+    ports:
+      - "127.0.0.1:@PORT2@:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"]
+      interval: 1s
+      timeout: 3s
+      retries: 10
+
+  frontend:
+    build: .
+    environment:
+      ROLE: frontend
+    ports:
+      - "@PORT@:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"]
+      interval: 1s
+      timeout: 3s
+      retries: 10

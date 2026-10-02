@@ -57,6 +57,7 @@ from noust.deployers.lifecycle import (
     activate_release,
     list_releases,
     set_branch,
+    set_follow_tags,
     set_health_check,
     set_release_retention,
     set_resource_limits,
@@ -168,6 +169,8 @@ class AppInfo(BaseModel):
         path: Application directory.
         source: Git URL or local path it was deployed from.
         branch: Git branch it tracks, or None for a source that has none.
+        follow_tags: The glob of git tags it deploys instead of a branch
+            (``v*``), or None when it follows its branch.
         layout: ``inplace`` or ``releases``.
         keep_releases: Release directories kept before older ones are pruned.
             Meaningful only on ``releases``; the in-place default otherwise.
@@ -212,6 +215,7 @@ class AppInfo(BaseModel):
     path: str | None = None
     source: str | None = None
     branch: str | None = None
+    follow_tags: str | None = None
     layout: str = "inplace"
     keep_releases: int = DEFAULT_KEEP_RELEASES
     build_command: list[str] = Field(default_factory=list)
@@ -643,6 +647,7 @@ def _to_app_info(
         path=app.app_path,
         source=public_source(app.source),
         branch=app.branch,
+        follow_tags=getattr(app, "follow_tags", None),
         layout=app.layout,
         keep_releases=app.keep_releases,
         start_command=service.command if service is not None and service.command else None,
@@ -1876,7 +1881,13 @@ def get_app_releases(
 
 @router.post("/{domain}/releases/{release_id}/activate", response_model=ReleaseActivationResponse)
 def activate_app_release(
-    domain: str, release_id: str, session: Annotated[dict, Depends(get_current_session)]
+    domain: str,
+    release_id: str,
+    session: Annotated[dict, Depends(get_current_session)],
+    schema_changed_ok: Annotated[
+        bool,
+        Query(description="Go back even past deployments that changed the database schema"),
+    ] = False,
 ) -> ReleaseActivationResponse:
     """
     Make a release the one that serves: an instant rollback, or a roll forward.
@@ -1890,6 +1901,8 @@ def activate_app_release(
         domain: Domain of the application.
         release_id: The release to activate.
         session: The authenticated session.
+        schema_changed_ok: The operator confirmed going back past deployments
+            that changed the database's schema.
 
     Returns:
         What was done.
@@ -1898,6 +1911,8 @@ def activate_app_release(
         HTTPException: 400 for something that is not a release id, 404 for an
             unknown application or a release that is not on disk, 409 for an
             application deployed in place.
+        SchemaChangedError: 409, naming the deployments, when going back past
+            a schema change was not confirmed.
         DeploymentError: The release did not pass its health check; the
             details carry the probe's and the journal's own output.
     """
@@ -1909,7 +1924,12 @@ def activate_app_release(
             status_code=404, detail=f"Release {release_id} of {app.domain} is not on disk"
         )
 
-    outcome = activate_release(app.domain, release_id, trigger=DeploymentTrigger.PANEL.value)
+    outcome = activate_release(
+        app.domain,
+        release_id,
+        trigger=DeploymentTrigger.PANEL.value,
+        schema_changed_ok=schema_changed_ok,
+    )
     return ReleaseActivationResponse(
         domain=outcome.domain,
         release_id=outcome.release.id,
@@ -2365,6 +2385,76 @@ def update_app_branch(
         pinned=pin.branch is not None,
         commit=pin.commit,
         previous=pin.previous,
+    )
+
+
+# ---------------------------------------------------------------------------
+# The tags it deploys
+# ---------------------------------------------------------------------------
+
+
+class UpdateFollowTagsRequest(BaseModel):
+    """Make an application deploy the tags that match a pattern, or stop."""
+
+    pattern: str | None = Field(
+        ...,
+        description="A glob over tag names such as 'v*'. Null: follow a branch again",
+    )
+
+
+class FollowTagsResponse(BaseModel):
+    """
+    The tags an application deploys now.
+
+    Attributes:
+        domain: The application's domain.
+        follow_tags: The glob it follows, or None when it follows a branch.
+        following: Whether it follows tags.
+        previous: The glob it followed before.
+    """
+
+    domain: str
+    follow_tags: str | None = None
+    following: bool
+    previous: str | None = None
+
+
+@router.patch("/{domain}/follow-tags", response_model=FollowTagsResponse)
+def update_app_follow_tags(
+    domain: str,
+    body: UpdateFollowTagsRequest,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> FollowTagsResponse:
+    """
+    Make an application deploy the tags that match a pattern, or stop.
+
+    Following tags replaces following a branch: the webhook deploys the tag a
+    release or a tag push names, in version order and never an older one, and
+    ignores pushes to branches; an update with no tag deploys the newest tag
+    that matches. Nothing is fetched or rebuilt until the next release or
+    update. Changing what deploys needs sudo mode, like the branch.
+
+    Args:
+        domain: Domain of the application.
+        body: The pattern, or null.
+        session: The authenticated, elevated session.
+
+    Returns:
+        What it follows now and what it followed before.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+        ValidationError: The pattern is not a tag glob, or a branch is pinned
+            (400, ``follow_tags`` in ``fields``).
+        SourceError: Not deployed from git.
+    """
+    app = _env_app(domain)
+    change = set_follow_tags(app.domain, body.pattern)
+    return FollowTagsResponse(
+        domain=change.domain,
+        follow_tags=change.pattern,
+        following=change.pattern is not None,
+        previous=change.previous,
     )
 
 

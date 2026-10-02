@@ -1,0 +1,8 @@
+# Declares a database to copy before every update that is not in the stack: the copy fails the
+# way one does when credentials or names are wrong, and the update must stop there.
+backup:
+  databases:
+    - service: db
+      engine: postgres
+      database: missing_database
+      user: shop

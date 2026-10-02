@@ -1282,6 +1282,71 @@
       }
     ]
   },
+  "deploy.hook_failed": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Deployed with warnings · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Deployed with warnings · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "The new version is serving, but a post-deploy hook failed once it took over."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Command*\n`./scripts/purge-cache.sh --all`"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Inspect with:* `noust app hooks show shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_What the system reported_\n```curl: (22) The requested URL returned error: 403\npurge failed```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "restore.completed": {
     "attachments": [
       {
@@ -2985,6 +3050,71 @@
               {
                 "type": "mrkdwn",
                 "text": "<https://console.example.com/n/web-1/databases/postgresql/shop|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "sandbox.trial_failed": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Sandbox build failed · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Sandbox build failed · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Its build was tried without root before the update and failed, so the update built as root, as it did before."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\n`4f2a9c1`"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Inspect with:* `noust app sandbox status shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_What the system reported_\n```npm ci failed (exit code 1)\nnpm ERR! code E401\nnpm ERR! 401 Unauthorized - GET https://npm.registry.local/@shop%2fui```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com|Open in the console>"
               },
               {
                 "type": "mrkdwn",

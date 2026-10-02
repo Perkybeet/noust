@@ -742,6 +742,32 @@ def validate_git_ref(ref: str) -> str:
     return candidate
 
 
+def validate_tag_name(tag: str) -> str:
+    """
+    Check that a tag name is safe to place in a command line.
+
+    The rules of a branch name, with the words of a tag.
+
+    Args:
+        tag: Candidate tag name.
+
+    Returns:
+        The tag, stripped of surrounding whitespace.
+
+    Raises:
+        SourceError: If the name is empty, starts with a dash, contains ``..``
+            or characters git does not accept in a ref.
+    """
+    try:
+        return validate_git_ref(tag)
+    except SourceError as exc:
+        raise SourceError(
+            f"Not a tag name: '{tag}'",
+            details="Use the tag as git lists it, such as v1.2.3: letters, digits and "
+            "any of . _ / + -, not starting with '-'.",
+        ) from exc
+
+
 def validate_commit_id(commit: str) -> str:
     """
     Check that a commit id is a hash git can resolve and argv can carry.
@@ -2513,6 +2539,140 @@ class SourceManager(BaseManager):
                 details="Give more characters of the commit id.",
             )
         return None
+
+    def resolve_tag(self, repository: Path, tag: str) -> str:
+        """
+        Name the commit a tag points at in a clone, fetching the tag when missing.
+
+        The clone is asked first, so a tag it already has costs no network.
+        An annotated tag is peeled: the answer is the commit it tags, never
+        the tag object, because that is what is checked out and built.
+
+        Args:
+            repository: A clone with an ``origin`` remote.
+            tag: The tag's name.
+
+        Returns:
+            The full id of the commit.
+
+        Raises:
+            SourceError: If the name is not a ref name, the remote has no such
+                tag, or the fetch fails.
+        """
+        wanted = validate_tag_name(tag)
+        self._ensure_safe_directory(repository)
+
+        found = self._lookup_tag(repository, wanted)
+        if found is not None:
+            return found
+
+        # Only that tag, by name: a clone made with --depth would otherwise
+        # download every tag the remote has just to learn about one.
+        fetched = self._git(
+            ["fetch", "--no-tags", "origin", f"+refs/tags/{wanted}:refs/tags/{wanted}"],
+            cwd=repository,
+            timeout=GIT_NETWORK_TIMEOUT,
+        )
+        if fetched.success:
+            found = self._lookup_tag(repository, wanted)
+            if found is not None:
+                return found
+        elif "couldn't find remote ref" not in fetched.stderr.lower():
+            raise self._git_failed(
+                fetched, f"Fetching the tag {wanted} failed", repository=repository
+            )
+        raise SourceError(
+            f"Tag {wanted} does not exist in the repository",
+            details="Check the name with 'git tag' on a clone, or on the releases page of the "
+            "repository. A tag that was deleted or moved on the remote cannot be deployed.",
+        )
+
+    def _lookup_tag(self, repository: Path, tag: str) -> str | None:
+        """
+        Read the commit a tag the clone already has points at.
+
+        Args:
+            repository: The clone.
+            tag: A validated tag name.
+
+        Returns:
+            The full commit id, or None when the clone has no such tag.
+        """
+        result = self._git(
+            ["rev-parse", "--verify", f"refs/tags/{tag}^{{commit}}"],
+            cwd=repository,
+            trust_tree=True,
+        )
+        if result.success and result.stdout.strip():
+            return result.stdout.strip().splitlines()[-1]
+        return None
+
+    def tags_merged_into(self, repository: Path, commit: str) -> list[str]:
+        """
+        List the tags a commit contains: those on it and on its ancestors.
+
+        What an application serving that commit has already deployed, as far
+        as the clone knows: it only lists tags the clone has, and a clone
+        learns a tag when a deploy fetches it.
+
+        Args:
+            repository: A clone.
+            commit: Full or abbreviated commit id.
+
+        Returns:
+            The tag names; empty when the clone does not have the commit, which
+            is not an error: nothing is known to be deployed.
+
+        Raises:
+            SourceError: If ``commit`` is not a commit id.
+        """
+        wanted = validate_commit_id(commit)
+        result = self._git(["tag", "--merged", wanted], cwd=repository, trust_tree=True)
+        if not result.success:
+            return []
+        return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+    def remote_tags(self, source: str, *, timeout: int = GIT_NETWORK_TIMEOUT) -> list[str]:
+        """
+        Ask the remote which tags it has, downloading nothing.
+
+        Args:
+            source: Git URL, optionally with ``#branch`` (ignored here).
+            timeout: Deadline in seconds for the one ``git ls-remote``.
+
+        Returns:
+            The tag names, in the order the remote lists them. Empty for a
+            remote with no tags.
+
+        Raises:
+            SourceError: If the source is not a git URL or the remote cannot
+                be read (a refused credential gets the error that says how to
+                grant access).
+        """
+        source_type, normalized = _validate_source_keeping_credentials(source)
+        if source_type != "git":
+            raise SourceError(
+                f"Not a git source: {redact_git_text(source)}",
+                details="Only a git remote has tags to follow.",
+            )
+        bare, auth = split_url_credentials(normalized.split("#")[0])
+        url = validate_git_remote_url(bare)
+        result = self._git(
+            ["ls-remote", "--exit-code", "--", url, "refs/tags/*"], timeout=timeout, auth=auth
+        )
+        # --exit-code: 2 means the remote answered and has no such ref.
+        if result.exit_code == 2:
+            return []
+        if not result.success:
+            raise self._git_failed(result, f"Cannot read the tags of {url}", url=url)
+        tags: list[str] = []
+        for line in result.stdout.splitlines():
+            _, _, ref = line.partition("\t")
+            name = ref.strip().removeprefix("refs/tags/")
+            # The peeled line of an annotated tag repeats its name.
+            if name and not name.endswith("^{}"):
+                tags.append(name)
+        return tags
 
     def checkout_commit(self, path: Path, commit: str) -> str:
         """

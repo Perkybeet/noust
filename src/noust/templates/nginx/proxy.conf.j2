@@ -7,6 +7,10 @@
 # rewrites on every activation; nothing else in this site changes.
 include {{ upstream_file }};
 {% endif %}
+{% for zone_name, rate in (rate_limit_zones | default({})).items() %}
+
+limit_req_zone $binary_remote_addr zone={{ zone_name }}:10m rate={{ rate }};
+{% endfor %}
 
 server {
     listen 80;
@@ -47,6 +51,10 @@ server {
     ssl_stapling_verify on;
 {% endif %}
 
+{% if max_body_size | default('') %}
+    client_max_body_size {{ max_body_size }};
+
+{% endif %}
     # Logging
     access_log /var/log/nginx/{{ domain }}.access.log;
     error_log /var/log/nginx/{{ domain }}.error.log;
@@ -66,8 +74,33 @@ server {
     gzip_comp_level 6;
     gzip_types text/plain text/css text/xml application/json application/javascript application/rss+xml application/atom+xml image/svg+xml;
 
+{% for route in extra_locations | default([]) %}
+{% if route.static %}
+    # {{ route.path }}: files in {{ route.static }}
+    location {{ route.path }} {
+        alias {{ route.static }};
+{% if route.cache %}
+        expires {{ route.cache }};
+{% endif %}
+    }
+
+{% elif route.return_code %}
+    # {{ route.path }}: redirected to {{ route.return_to }}
+    location {{ route.path }} {
+        return {{ route.return_code }} {{ route.return_to }};
+    }
+
+{% endif %}
+{% endfor %}
+{% set root = root | default({}) %}
     # Proxy settings
     location / {
+{% if root.rate_limit_zone %}
+        limit_req zone={{ root.rate_limit_zone }} burst={{ root.rate_limit_burst }} nodelay;
+{% endif %}
+{% if root.max_body_size %}
+        client_max_body_size {{ root.max_body_size }};
+{% endif %}
         proxy_pass http://{{ upstream_name | default('127.0.0.1:' ~ port, true) }};
         proxy_http_version 1.1;
         
@@ -85,14 +118,19 @@ server {
         
         # Timeouts
         proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
+        proxy_send_timeout {{ root.send_timeout or 60 }}s;
+        proxy_read_timeout {{ root.read_timeout or 60 }}s;
         
+{% if root.buffering is defined and not root.buffering %}
+        # Unbuffered: the response goes to the client as it is produced
+        proxy_buffering off;
+{% else %}
         # Buffer settings
         proxy_buffering on;
         proxy_buffer_size 128k;
         proxy_buffers 4 256k;
         proxy_busy_buffers_size 256k;
+{% endif %}
     }
 
 {% if health_check is defined and health_check != '/' %}

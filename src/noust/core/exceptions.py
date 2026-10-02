@@ -76,6 +76,37 @@ class RolledBackError(DeploymentError):
     pass
 
 
+class SchemaChangedError(DeploymentError):
+    """
+    Raised when going back would pass deployments that changed the database's schema.
+
+    Noust puts code back, never a database: going back past such a deployment
+    is the operator's decision, asked for explicitly
+    (:func:`noust.deployers.lifecycle.require_schema_change_confirmed`).
+
+    Attributes:
+        deployments: The deployments that changed the schema, oldest first.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        details: str = "",
+        *,
+        deployments: list[int],
+        field: str | None = "schema_changed_ok",
+    ):
+        """
+        Args:
+            message: What would be gone back past.
+            details: How to go on.
+            deployments: The deployments that changed the schema.
+            field: The request field that confirms it.
+        """
+        super().__init__(message, details, field=field)
+        self.deployments = deployments
+
+
 class BuildError(DeploymentError):
     """Raised when application build fails."""
 

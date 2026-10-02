@@ -541,6 +541,32 @@ Sent by Noust · web-1 · 2026-09-29 10:45 UTC
 Change what you receive in Settings > Notifications
 
 ========================================================================
+### deploy.hook_failed
+Subject: [Noust] Deployed with warnings: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_hook_failed
+X-Noust-Code: deploy.hook_failed
+X-Noust-Server: web-1
+
+▲ Deployed with warnings · shop.example.com
+The new version is serving, but a post-deploy hook failed once it took over.
+
+Server: web-1
+Command: ./scripts/purge-cache.sh --all
+Inspect with: noust app hooks show shop.example.com
+
+What the system reported:
+  curl: (22) The requested URL returned error: 403
+  purge failed
+
+Open in the console: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
 ### restore.completed
 Subject: [Noust] Restored: shop.example.com (web-1)
 Auto-Submitted: auto-generated
@@ -1224,6 +1250,33 @@ What the system reported:
   pg_restore: error: relation "orders" already exists
 
 Open in the console: https://console.example.com/n/web-1/databases/postgresql/shop
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### sandbox.trial_failed
+Subject: [Noust] Sandbox build failed: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_failed
+X-Noust-Code: sandbox.trial_failed
+X-Noust-Server: web-1
+
+▲ Sandbox build failed · shop.example.com
+Its build was tried without root before the update and failed, so the update built as root, as it did before.
+
+Server: web-1
+Commit: 4f2a9c1
+Inspect with: noust app sandbox status shop.example.com
+
+What the system reported:
+  npm ci failed (exit code 1)
+  npm ERR! code E401
+  npm ERR! 401 Unauthorized - GET https://npm.registry.local/@shop%2fui
+
+Open in the console: https://console.example.com/n/web-1/apps/shop.example.com
 
 -- 
 Sent by Noust · web-1 · 2026-09-29 10:45 UTC

@@ -268,6 +268,19 @@ class FakeRollbackManager:
         type(self).calls.append(("list_rollback_points", {"domain": domain}))
         return type(self).points
 
+    def rollback_target(self, domain: str, backup_id: str | None = None) -> BackupMetadata:
+        """
+        Name the backup a rollback restores: the newest scripted point.
+
+        Args:
+            domain: Domain asked about.
+            backup_id: The backup asked for, if any.
+
+        Returns:
+            The first scripted rollback point.
+        """
+        return type(self).points[0]
+
     def create_pre_deploy_backup(self, **kwargs: Any) -> BackupMetadata:
         """
         Pretend to take the safety backup.
@@ -1166,6 +1179,7 @@ def test_rollback_uses_the_latest_backup_and_rebuilds(
         "domain": "example.com",
         "backup_id": None,
         "rebuild": True,
+        "schema_changed_ok": False,
     }
     # The safety backup is RollbackManager.rollback's own responsibility now
     # (see TestRollbackManager in test_backup.py), so the CLI no longer calls
@@ -1190,6 +1204,7 @@ def test_rollback_no_rebuild_and_explicit_backup(
         "domain": "example.com",
         "backup_id": "example-com-20260101-000000",
         "rebuild": False,
+        "schema_changed_ok": False,
     }
 
 

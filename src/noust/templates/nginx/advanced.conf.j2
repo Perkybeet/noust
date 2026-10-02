@@ -51,6 +51,10 @@ server {
     ssl_stapling_verify on;
 {% endif %}
 
+{% if max_body_size | default('') %}
+    client_max_body_size {{ max_body_size }};
+
+{% endif %}
     # Logging
     access_log /var/log/nginx/{{ domain }}.access.log;
     error_log /var/log/nginx/{{ domain }}.error.log;
@@ -75,10 +79,29 @@ server {
 {% endfor %}
 
 {% for route in routes %}
+{% if route.static %}
+    # Route: {{ route.path }} -> files in {{ route.static }}
+    location {{ route.path }} {
+        alias {{ route.static }};
+{% if route.cache %}
+        expires {{ route.cache }};
+{% endif %}
+    }
+
+{% elif route.return_code %}
+    # Route: {{ route.path }} -> {{ route.return_to }} ({{ route.return_code }})
+    location {{ route.path }} {
+        return {{ route.return_code }} {{ route.return_to }};
+    }
+
+{% else %}
     # Route: {{ route.path }} -> {{ route.upstream_name }}:{{ route.upstream_port }}
     location {{ route.path }} {
 {% if route.rate_limit %}
         limit_req zone={{ route.rate_limit_zone }} burst={{ route.rate_limit_burst }} nodelay;
+{% endif %}
+{% if route.max_body_size %}
+        client_max_body_size {{ route.max_body_size }};
 {% endif %}
 {% if route.strip_prefix and route.path != '/' %}
         rewrite ^{{ route.path }}(.*)$ /$1 break;
@@ -102,10 +125,13 @@ server {
 
         # Timeouts
         proxy_connect_timeout {{ route.timeout }}s;
-        proxy_send_timeout {{ route.timeout }}s;
-        proxy_read_timeout {{ route.timeout }}s;
+        proxy_send_timeout {{ route.send_timeout | default(route.timeout, true) }}s;
+        proxy_read_timeout {{ route.read_timeout | default(route.timeout, true) }}s;
 
-{% if route.buffer_size %}
+{% if route.buffering is defined and not route.buffering %}
+        # Unbuffered: the response goes to the client as it is produced
+        proxy_buffering off;
+{% elif route.buffer_size %}
         # Custom buffer settings
         proxy_buffer_size {{ route.buffer_size }};
         proxy_buffers 4 {{ route.buffer_size }};
@@ -119,5 +145,6 @@ server {
 {% endif %}
     }
 
+{% endif %}
 {% endfor %}
 }

@@ -38,7 +38,7 @@ import sqlite3
 import string
 import time
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
@@ -55,6 +55,7 @@ from noust.core.exceptions import (
     RolledBackError,
     SecurityError,
     ServiceError,
+    ValidationError,
 )
 from noust.core.fs import DryRunFileSystem, FileSystem
 from noust.core.logger import Icons
@@ -81,11 +82,26 @@ from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers.databases import provision_database
 from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
+from noust.deployers.helpers.hooks import (
+    CommandHookExecutor,
+    DeploymentHooks,
+    HookSet,
+    prisma_applied_any,
+    prisma_applied_migrations,
+)
 from noust.deployers.helpers.package_manager import PNPM_INSTALL
 from noust.deployers.helpers.permissions import escapes, hand_over_tree
 from noust.deployers.helpers.preflight import repository_unreachable
 from noust.deployers.helpers.registration import StoreRegistrar
 from noust.deployers.helpers.sandbox import BuildPhase, SandboxState
+from noust.deployers.helpers.site import (
+    WriteOutcome,
+    refresh_app_site,
+    remove_app_site,
+    write_app_site,
+    write_template_site,
+)
+from noust.deployers.helpers.site import has_certificate as certificate_on_disk
 from noust.deployers.helpers.target import claim_deploy_target
 from noust.deployers.interface import AppDeployer, StepReporter, UpdateResult
 from noust.deployers.recorder import (
@@ -265,6 +281,9 @@ class MonorepoDeployer(AppDeployer):
         self._sandbox_cache: Path | None = None
         # A trial build's scratch tree; the application directory otherwise.
         self._build_root: Path | None = None
+
+        # Deploy hooks (3.2): what this deployment's hooks are and did.
+        self.deploy_hooks = DeploymentHooks()
 
     @property
     def runner(self) -> CommandRunner:
@@ -485,6 +504,10 @@ class MonorepoDeployer(AppDeployer):
             run_env.update(env)
 
         sandbox = self._execution(phase)
+        if sandbox is not None and phase is BuildPhase.RELEASE and cwd is not None:
+            # A deploy hook's workdir: the release spec names the tree's root,
+            # and a spec's working directory wins over the call's.
+            sandbox = replace(sandbox, working_dir=cwd)
         options: dict[str, Any] = {}
         if sandbox is not None:
             options["sandbox"] = sandbox
@@ -671,8 +694,19 @@ class MonorepoDeployer(AppDeployer):
             # The row goes with the application's if this deployment is undone.
             build_sandbox.adopt_new_app(self.domain, preview=False, store=self.store)
 
-        with recording(self._recorder(), git_branch=self.branch) as recorder:
-            result = self._deploy_steps(app, total_steps)
+        self.deploy_hooks = DeploymentHooks()
+        recorder = self._recorder()
+        try:
+            with recording(recorder, git_branch=self.branch):
+                try:
+                    result = self._deploy_steps(app, total_steps)
+                except DeploymentError as exc:
+                    self.deploy_hooks.say_schema_changed(exc)
+                    raise
+        finally:
+            self.deploy_hooks.record(
+                self.store, recorder.deployment_id, self.logger, domain=self.domain
+            )
         self.last_deployment_id = recorder.deployment_id
         return result
 
@@ -725,6 +759,7 @@ class MonorepoDeployer(AppDeployer):
             # After the build too: one that runs as root (a monorepo from
             # before 3.1) leaves its output root's, unwritable by the units.
             self._set_permissions()
+            self._run_pre_deploy_hooks()
 
             # Step 8: Create sites (without SSL initially)
             self.logger.step(8, total_steps, "Creating site configurations", Icons.GLOBE)
@@ -753,6 +788,7 @@ class MonorepoDeployer(AppDeployer):
             # Step 11: Start and verify
             self.logger.step(11, total_steps, "Starting applications", Icons.ROCKET)
             self._start_and_verify()
+            self._run_post_deploy_hooks()
 
             # Update app status
             app.status = AppStatus.RUNNING.value
@@ -822,10 +858,29 @@ class MonorepoDeployer(AppDeployer):
                 details="Call configure(domain=..., source=...) before update().",
             )
 
-        with recording(self._recorder(), git_branch=self.branch) as recorder:
-            result = self._update_steps(on_step or (lambda _message: None))
+        self.deploy_hooks = DeploymentHooks()
+        report = on_step or (lambda _message: None)
+        recorder = self._recorder()
+        try:
+            with recording(recorder, git_branch=self.branch):
+                try:
+                    result = self._update_steps(report)
+                except DeploymentError as exc:
+                    self.deploy_hooks.say_schema_changed(exc)
+                    raise
+                self._run_post_deploy_hooks(report)
+        finally:
+            self.deploy_hooks.record(
+                self.store, recorder.deployment_id, self.logger, domain=self.domain
+            )
         self.last_deployment_id = recorder.deployment_id
-        return result
+        state = self.deploy_hooks
+        return replace(
+            result,
+            hooks=tuple(state.runs),
+            schema_changed=state.schema_changed,
+            warnings=tuple(state.warnings),
+        )
 
     def _update_steps(self, report: StepReporter) -> UpdateResult:
         """
@@ -855,6 +910,7 @@ class MonorepoDeployer(AppDeployer):
         report("Building applications")
         self._build_all()
         self._set_permissions()
+        self._run_pre_deploy_hooks(report)
 
         units = self._units()
         restarted: tuple[str, ...] | None = None
@@ -1264,7 +1320,8 @@ class MonorepoDeployer(AppDeployer):
         discovered = env_manager.discover(self.app_path)
         if discovered:
             self.logger.substep(f"Discovered {len(discovered)} env variables")
-            auto_values = env_manager.prompt_non_interactive(discovered)
+            # What Noust provides (DATABASE_URL, REDIS_*) is not asked for.
+            auto_values = env_manager.prompt_non_interactive(discovered, self.env_vars)
             # CLI-provided and database env vars take precedence
             for key, val in self.env_vars.items():
                 auto_values[key] = val
@@ -1344,9 +1401,109 @@ class MonorepoDeployer(AppDeployer):
                 "Failed to install dependencies", details=result.stderr or result.stdout
             )
 
+    # Deploy hooks ----------------------------------------------------------
+
+    def _hook_set(self) -> HookSet:
+        """
+        Read the hooks this deployment runs, once, from the monorepo's root.
+
+        Returns:
+            The operator's, the repository's ``noust.yaml``, or none.
+
+        Raises:
+            ValidationError: The document that applies is not valid.
+        """
+        return self.deploy_hooks.resolve(
+            self.store.get_app(self.domain) if self.domain else None,
+            self.build_path,
+            self.store,
+            app_type=self.APP_TYPE,
+            serves=True,
+        )
+
+    def _hook_executor(self) -> CommandHookExecutor:
+        """
+        Run hooks where the monorepo's migrations run: the release phase, at its root.
+
+        Returns:
+            The executor.
+        """
+        return CommandHookExecutor(
+            run=lambda argv, *, cwd, timeout: self._run(
+                argv, cwd=cwd, timeout=timeout, phase=BuildPhase.RELEASE
+            ),
+            root=self.build_path,
+            app_type=self.APP_TYPE,
+        )
+
+    def _run_pre_deploy_hooks(self, report: StepReporter | None = None) -> None:
+        """
+        Run the ``pre_deploy`` hooks, once built and before any unit restarts.
+
+        Args:
+            report: Called when there are hooks to run.
+
+        Raises:
+            HookFailedError: A hook failed; nothing was restarted.
+        """
+        if not self._hook_set().pre_deploy:
+            return
+        if report is not None:
+            report("Running pre-deploy hooks")
+        self.deploy_hooks.run_pre(self._hook_executor(), self.logger)
+
+    def _run_post_deploy_hooks(self, report: StepReporter | None = None) -> None:
+        """
+        Run the ``post_deploy`` hooks once every workspace answered; a failure is a warning.
+
+        Args:
+            report: Called when there are hooks to run.
+        """
+        if not self._hook_set().post_deploy:
+            return
+        if report is not None:
+            report("Running post-deploy hooks")
+        self.deploy_hooks.run_post(self._hook_executor(), self.logger)
+
+    def _migrate_with_prisma(self, argv: list[str], *, timeout: int = COMMAND_TIMEOUT) -> None:
+        """
+        Apply the monorepo's Prisma migrations, aborting when they fail.
+
+        Args:
+            argv: The command that migrates.
+            timeout: Its deadline in seconds.
+
+        Raises:
+            DeploymentError: The migration failed, with its own output: new
+                code must not start against a schema it was not written for.
+        """
+        # A migration is not a build: the application's identity and
+        # secrets, never the build account's.
+        result = self._run(argv, timeout=timeout, phase=BuildPhase.RELEASE)
+        output = "\n".join(part for part in (result.stdout.strip(), result.stderr.strip()) if part)
+        command = " ".join(argv)
+        if not result.success:
+            self.deploy_hooks.note_prisma(
+                output, applied=prisma_applied_any(output), ok=False, command=command
+            )
+            raise DeploymentError(
+                f"Prisma migrations failed ({command} exited with {result.exit_code})",
+                details="Nothing was restarted: what served before is still serving. Fix the "
+                "migration and deploy again, or declare it as a pre_deploy hook in noust.yaml."
+                + (f"\n\n{output}" if output else ""),
+                output=output,
+            )
+        self.deploy_hooks.note_prisma(
+            output, applied=prisma_applied_migrations(output), ok=True, command=command
+        )
+
     def _run_prisma_migrations(self, migrate: bool = True) -> bool:
         """
         Run Prisma migrations if detected.
+
+        A migration that fails aborts the deployment (3.2; it was a warning).
+        Declared deploy hooks replace the automatic migration: what the
+        project says explicitly wins.
 
         Args:
             migrate: Also apply migrations. Going back to a previous commit
@@ -1355,7 +1512,15 @@ class MonorepoDeployer(AppDeployer):
         Returns:
             True when a Prisma client was generated or a migration ran, so an
             update can report whether the database was touched.
+
+        Raises:
+            DeploymentError: The migration failed.
         """
+        if migrate and self.domain and self._hook_set().declared:
+            self.logger.substep(
+                "Deploy hooks are declared, so Prisma's automatic migration does not run"
+            )
+            migrate = False
         # Check for project scripts first (preferred method)
         package_json = self.build_path / "package.json"
         has_db_scripts = False
@@ -1380,11 +1545,7 @@ class MonorepoDeployer(AppDeployer):
 
             if migrate and "db:migrate" in scripts:
                 self.logger.substep("Running Prisma migrations (pnpm db:migrate)")
-                # A migration is not a build: the application's identity
-                # and secrets, never the build account's.
-                result = self._run(["pnpm", "db:migrate"], timeout=120, phase=BuildPhase.RELEASE)
-                if not result.success:
-                    self.logger.warning(f"Prisma migrate failed: {result.stderr}")
+                self._migrate_with_prisma(["pnpm", "db:migrate"], timeout=120)
 
             return True
 
@@ -1415,7 +1576,7 @@ class MonorepoDeployer(AppDeployer):
                     self.logger.substep("Migrations left as they are")
                 elif migrations_dir.exists() and any(migrations_dir.iterdir()):
                     self.logger.substep("Running Prisma migrations")
-                    result = self._run(
+                    self._migrate_with_prisma(
                         [
                             "pnpm",
                             "exec",
@@ -1424,11 +1585,8 @@ class MonorepoDeployer(AppDeployer):
                             "deploy",
                             "--schema",
                             str(schema_file),
-                        ],
-                        phase=BuildPhase.RELEASE,
+                        ]
                     )
-                    if not result.success:
-                        self.logger.warning(f"Prisma migrate failed: {result.stderr}")
                 else:
                     self.logger.substep("No migrations to run")
 
@@ -1526,38 +1684,151 @@ class MonorepoDeployer(AppDeployer):
 
         manager.reload()
 
-    def _create_nginx_sites(self, manager: NginxManager, with_ssl: bool) -> None:
-        """Create nginx configurations for each workspace."""
-        from jinja2 import Template
+    def _create_nginx_sites(self, manager: NginxManager, with_ssl: bool) -> WriteOutcome:
+        """
+        Write the nginx site serving every workspace, unless the operator wrote it.
 
-        # Load monorepo template
+        Through the manager, which reads the names the application answers
+        on from the store (its aliases and redirects) and records the site.
+
+        Args:
+            manager: The nginx manager.
+            with_ssl: Render the TLS server blocks.
+
+        Returns:
+            Whether it was written or the operator's own was kept.
+        """
         template_path = Path(__file__).parent.parent / "templates" / "nginx" / "monorepo.conf.j2"
 
         # Fallback to generating config programmatically if template doesn't exist
         if not template_path.exists():
-            self._create_nginx_sites_inline(manager, with_ssl)
-            return
-
-        template = Template(template_path.read_text())
+            return self._create_nginx_sites_inline(manager, with_ssl)
 
         context = {
             "domain": self.domain,
             "workspaces": self.workspaces,
             "ssl": with_ssl,
+            "port": self.workspaces[0].port if self.workspaces else None,
             "primary_subdomain": self.workspaces[0].subdomain if self.workspaces else "app",
             "hsts": hsts_header(Config()),
         }
-
-        config_content = template.render(**context)
-
-        self._install_nginx_site(config_content)
+        outcome = write_template_site(
+            manager, self.domain, template="monorepo", context=context, logger=self.logger
+        )
+        self._created_sites.append(self.domain)
 
         # Register sites in store
         for ws in self.workspaces:
             self._register_site_in_store(ws, with_ssl)
+        return outcome
 
-    def _create_nginx_sites_inline(self, manager: NginxManager, with_ssl: bool) -> None:
-        """Create nginx config inline without template file."""
+    def webserver_manager(self) -> NginxManager | ApacheManager:
+        """
+        Return the manager of the web server that serves this monorepo.
+
+        Returns:
+            An NginxManager or an ApacheManager.
+        """
+        return self._webserver_manager()
+
+    def has_certificate(self) -> bool:
+        """
+        Tell whether a certificate lineage for this monorepo is on disk.
+
+        Returns:
+            True when certbot's live directory holds one for the domain.
+        """
+        return certificate_on_disk(self.cert_manager, self.domain)
+
+    def obtain_certificate(self) -> None:
+        """
+        Order a certificate for the domain, every workspace's subdomain and every alias.
+
+        Raises:
+            CertificateError: When certbot fails, with its output.
+        """
+        if not self.workspaces:
+            self.workspaces = self._workspaces_from_store()
+        self._obtain_certificate()
+
+    def refresh_site(self, *, with_ssl: bool) -> None:
+        """
+        Render the deployed monorepo's site again, test the configuration and load it.
+
+        How a change to its domains reaches nginx. The workspaces are the
+        ones the store records (their units and their sites), which is what
+        the deploy rendered from; nothing is read from the tree or built.
+
+        Args:
+            with_ssl: Render the TLS server blocks.
+
+        Raises:
+            ValidationError: nginx rejected the configuration (the previous
+                file is back), or the store records no workspace.
+            DeploymentError: nginx did not reload.
+        """
+        if not self.workspaces:
+            self.workspaces = self._workspaces_from_store()
+        if not self.workspaces:
+            raise ValidationError(
+                f"No workspace of {self.domain} is recorded",
+                details=f"Redeploy it to record them: noust create -d {self.domain} --force",
+            )
+        manager = self._webserver_manager()
+        if not isinstance(manager, NginxManager):
+            raise ValidationError(
+                f"{self.domain} is not served by nginx",
+                details="Monorepos are only ever served through nginx.",
+            )
+        refresh_app_site(manager, self.domain, lambda: self._create_nginx_sites(manager, with_ssl))
+
+    def _workspaces_from_store(self) -> list[MonorepoWorkspace]:
+        """
+        Rebuild the workspaces a deploy rendered the site from, out of the store.
+
+        Each workspace is a unit ``<app>-<workspace>`` with its port, and a
+        site ``<subdomain>.<domain>`` proxying to that port.
+
+        Returns:
+            The workspaces, the primary first (the one whose port the
+            application row records, as the deploy wrote it), then in unit
+            name order; empty when none is recorded.
+        """
+        app = self.store.get_app(self.domain)
+        if app is None or app.id is None:
+            return []
+        prefix = f"{self.app_name}-"
+        suffix = f".{self.domain}"
+        subdomains = {
+            site.proxy_port: site.domain.removesuffix(suffix)
+            for site in self.store.list_sites()
+            if site.app_id == app.id and site.domain.endswith(suffix) and site.proxy_port
+        }
+        workspaces = []
+        for unit in sorted(self.store.list_services(), key=lambda s: s.name):
+            if unit.app_id != app.id or not unit.name.startswith(prefix) or not unit.port:
+                continue
+            name = unit.name.removeprefix(prefix)
+            workspaces.append(
+                MonorepoWorkspace(
+                    name=name, subdomain=subdomains.get(unit.port, name), port=unit.port
+                )
+            )
+        # The domain itself redirects to the primary workspace, so it must
+        # stay the one the deploy put first.
+        return sorted(workspaces, key=lambda ws: ws.port != app.port)
+
+    def _create_nginx_sites_inline(self, manager: NginxManager, with_ssl: bool) -> WriteOutcome:
+        """
+        Create nginx config inline without template file.
+
+        Args:
+            manager: The nginx manager.
+            with_ssl: Render the TLS server blocks.
+
+        Returns:
+            Whether it was written or the operator's own was kept.
+        """
         lines = [
             f"# Nginx configuration for {self.domain} (Monorepo)",
             f"# {paths.UNIT_MARKER}",
@@ -1661,27 +1932,35 @@ class MonorepoDeployer(AppDeployer):
 
             lines.append("}")
 
-        self._install_nginx_site("\n".join(lines))
+        outcome = self._install_nginx_site("\n".join(lines))
 
         for ws in self.workspaces:
             self._register_site_in_store(ws, with_ssl)
+        return outcome
 
-    def _install_nginx_site(self, config_content: str) -> None:
+    def _install_nginx_site(self, config_content: str) -> WriteOutcome:
         """
-        Write the site configuration and enable it.
+        Write the site configuration and enable it, unless the operator wrote it.
+
+        Through this deployer's filesystem, which is what a rehearsal records.
+        The link is made unconditionally: the previous "if not exists" skipped
+        a dangling link, which left the site disabled with no way to notice.
 
         Args:
             config_content: The rendered nginx configuration.
+
+        Returns:
+            Whether it was written or the operator's own was kept.
         """
-        from noust.core.config import NGINX_SITES_AVAILABLE, NGINX_SITES_ENABLED
-
-        config_file = NGINX_SITES_AVAILABLE / self.domain
-        self.fs.write_text(config_file, config_content)
-        # Linking unconditionally: the previous "if not exists" skipped a
-        # dangling link, which left the site disabled with no way to notice.
-        self.fs.symlink(config_file, NGINX_SITES_ENABLED / self.domain)
-
+        outcome = write_app_site(
+            self.domain,
+            lambda: config_content,
+            logger=self.logger,
+            manager=NginxManager(verbose=self.verbose),
+            fs=self.fs,
+        )
         self._created_sites.append(self.domain)
+        return outcome
 
     def _create_apache_sites(self, manager: ApacheManager, with_ssl: bool) -> None:
         """Create Apache configurations (simplified version)."""
@@ -1967,14 +2246,9 @@ class MonorepoDeployer(AppDeployer):
             except (NoustError, OSError) as e:
                 errors.append(f"Service cleanup error: {e}")
 
-        # Remove site configuration
+        # Remove site configuration; an operator's is kept, and said so.
         try:
-            manager = self._webserver_manager()
-
-            if manager.site_exists(self.domain):
-                manager.disable_site(self.domain)
-                manager.delete_site(self.domain)
-                manager.reload()
+            remove_app_site(self.domain, logger=self.logger, manager=self._webserver_manager())
         except (NoustError, OSError) as e:
             errors.append(f"Site cleanup error: {e}")
 

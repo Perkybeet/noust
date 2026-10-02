@@ -392,13 +392,20 @@ def test_an_unknown_application_is_refused(machine: Machine) -> None:
         domains.add_domain("ghost.example.com", "shop.example.com")
 
 
-@pytest.mark.parametrize("app_type", ["monorepo", "docker-compose"])
-def test_types_that_write_their_own_configuration_are_refused(
-    machine: Machine, store: NoustStore, app_type: str
+@pytest.mark.parametrize(
+    ("app_type", "error"),
+    [
+        ("monorepo", "No workspace of example.com is recorded"),
+        ("docker-compose", "No Docker Compose file found"),
+    ],
+)
+def test_compose_and_monorepo_take_aliases_and_a_failed_render_leaves_nothing(
+    machine: Machine, store: NoustStore, app_type: str, error: str
 ) -> None:
+    """3.2: they render through the same site helper; they used to be refused outright."""
     store.create_app(App(domain="example.com", app_type=app_type, app_path="/srv/x"))
 
-    with pytest.raises(ValidationError, match="do not support aliases"):
+    with pytest.raises(NoustError, match=error):
         domains.add_domain("example.com", "shop.example.com")
 
     assert [record.domain for record in store.list_domains("example.com")] == ["example.com"]

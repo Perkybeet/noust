@@ -68,6 +68,7 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     "title.deploy.succeeded": {"en": "Deployed", "es": "Desplegado"},
     "title.deploy.failed": {"en": "Deploy failed", "es": "Despliegue fallido"},
     "title.deploy.rolled_back": {"en": "Rolled back", "es": "Revertido"},
+    "title.deploy.hook_failed": {"en": "Deployed with warnings", "es": "Desplegado con avisos"},
     "title.update.started": {"en": "Updating", "es": "Actualizando"},
     "title.update.succeeded": {"en": "Updated", "es": "Actualizado"},
     "title.update.failed": {"en": "Update failed", "es": "Actualización fallida"},
@@ -127,6 +128,10 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     "title.approval.requested": {"en": "Approval requested", "es": "Aprobación solicitada"},
     "title.approval.approved": {"en": "Request approved", "es": "Solicitud aprobada"},
     "title.approval.rejected": {"en": "Request rejected", "es": "Solicitud rechazada"},
+    "title.sandbox.trial_failed": {
+        "en": "Sandbox build failed",
+        "es": "Compilación aislada fallida",
+    },
     "title.database.backup.failed": {
         "en": "Backup failed",
         "es": "Copia de seguridad fallida",
@@ -153,6 +158,13 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     },
     "summary.deploy.failed": _GENERIC_FAILURE,
     "summary.deploy.rolled_back": _ROLLED_BACK,
+    "summary.deploy.hook_failed": {
+        "en": "The new version is serving, but a post-deploy hook failed once it took over.",
+        "es": (
+            "La nueva versión está en servicio, pero un gancho posterior al despliegue ha "
+            "fallado después del relevo."
+        ),
+    },
     "summary.update.started": {
         "en": "Noust is fetching and building the latest code and will tell you how it ends.",
         "es": (
@@ -355,6 +367,16 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     "summary.approval.rejected": {
         "en": "The change will not be made; whoever asked can ask again with more context.",
         "es": "El cambio no se hará; quien lo pidió puede volver a pedirlo con más contexto.",
+    },
+    "summary.sandbox.trial_failed": {
+        "en": (
+            "Its build was tried without root before the update and failed, so the update "
+            "built as root, as it did before."
+        ),
+        "es": (
+            "Se ha probado su compilación sin root antes de la actualización y ha fallado, así "
+            "que la actualización ha compilado como root, igual que antes."
+        ),
     },
     "summary.database.backup.failed": {
         "en": "No new copy of the database was saved.",

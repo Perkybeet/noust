@@ -28,10 +28,11 @@ commit) and going back to what it produced
 
 from __future__ import annotations
 
-from typing import Annotated
+import json
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from noust.core.store import (
     DeploymentRecord,
@@ -40,7 +41,11 @@ from noust.core.store import (
     StoreError,
     get_store,
 )
-from noust.deployers.lifecycle import rollback_availability
+from noust.deployers.lifecycle import (
+    rollback_availability,
+    schema_changed_between,
+    schema_changed_error,
+)
 from noust.deployers.logs import read_deployment_log
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, strict_domain
@@ -66,6 +71,23 @@ DEFAULT_PAGE_LIMIT = 50
 MAX_PAGE_LIMIT = 200
 
 
+class DeploymentHookRun(BaseModel):
+    """One deploy hook, or Prisma's automatic migration, as a deployment ran it."""
+
+    phase: str = Field(description="pre_deploy or post_deploy")
+    run: str = Field(description="The command, as one line")
+    service: str | None = Field(default=None, description="The Compose service it ran in")
+    migrates: bool = Field(default=False, description="It changes the database's schema")
+    exit_code: int | None = Field(default=None, description="How it exited; null if it never ran")
+    ok: bool = Field(description="Whether it succeeded")
+    timed_out: bool = Field(default=False, description="It ran out of time")
+    duration_s: float | None = None
+    output: str = Field(default="", description="The end of its output, verbatim")
+    automatic: str | None = Field(
+        default=None, description="prisma: Prisma's automatic migration, not a declared hook"
+    )
+
+
 class DeploymentOut(BaseModel):
     """
     One deployment attempt, as the console lists and inspects it.
@@ -83,6 +105,14 @@ class DeploymentOut(BaseModel):
             possible now: its release is on disk and not live, or its
             snapshot backup still exists.
         rollback_unavailable_reason: Why not, when it is not.
+        schema_changed: A hook marked ``migrates`` or Prisma's migration
+            changed the database's schema.
+        schema_changed_between: Later deployments of the application that
+            changed the schema: going back to this one passes them, and asks
+            first.
+        hooks: What the deploy hooks ran, in order.
+        warnings: Why a successful deployment carries warnings (deployed with
+            warnings: a ``post_deploy`` hook failed once it served).
     """
 
     id: int
@@ -102,6 +132,10 @@ class DeploymentOut(BaseModel):
     snapshot_backup: str | None = None
     rollback_available: bool = False
     rollback_unavailable_reason: str | None = None
+    schema_changed: bool = False
+    schema_changed_between: list[int] = Field(default_factory=list)
+    hooks: list[DeploymentHookRun] = Field(default_factory=list)
+    warnings: str | None = None
 
     _iso_timestamps = iso_offset_validator("started_at", "finished_at")
 
@@ -131,11 +165,41 @@ class DeploymentLogOut(BaseModel):
     missing_reason: str | None = None
 
 
-def _to_out(record: DeploymentRecord, availability: dict[int, str | None]) -> DeploymentOut:
+def _hook_runs(stored: str | None) -> list[DeploymentHookRun]:
+    """
+    Args:
+        stored: The JSON the deployment history keeps, or None.
+
+    Returns:
+        Each hook that ran; nothing for a row from before 3.2 or one whose
+        JSON cannot be read (the row is still worth showing).
+    """
+    if not stored:
+        return []
+    try:
+        entries: Any = json.loads(stored)
+    except ValueError:
+        return []
+    if not isinstance(entries, list):
+        return []
+    return [
+        DeploymentHookRun(**entry)
+        for entry in entries
+        if isinstance(entry, dict) and {"phase", "run", "ok"} <= entry.keys()
+    ]
+
+
+def _to_out(
+    record: DeploymentRecord,
+    availability: dict[int, str | None],
+    schema_changes: dict[int, list[int]] | None = None,
+) -> DeploymentOut:
     """
     Args:
         record: A row read from the store.
         availability: :func:`~noust.deployers.lifecycle.rollback_availability`
+            of the rows being answered.
+        schema_changes: :func:`~noust.deployers.lifecycle.schema_changed_between`
             of the rows being answered.
 
     Returns:
@@ -167,6 +231,10 @@ def _to_out(record: DeploymentRecord, availability: dict[int, str | None]) -> De
         snapshot_backup=record.snapshot_backup,
         rollback_available=record.id in availability and availability[record.id] is None,
         rollback_unavailable_reason=availability.get(record.id),
+        schema_changed=record.schema_changed,
+        schema_changed_between=(schema_changes or {}).get(record.id, []),
+        hooks=_hook_runs(record.hooks),
+        warnings=record.warnings,
     )
 
 
@@ -247,8 +315,9 @@ def list_deployments(
     next_before_id = page[-1].id if page and has_more else None
 
     availability = rollback_availability(page)
+    schema_changes = schema_changed_between(page)
     return DeploymentListResponse(
-        items=[_to_out(record, availability) for record in page],
+        items=[_to_out(record, availability, schema_changes) for record in page],
         total=total,
         next_before_id=next_before_id,
     )
@@ -274,7 +343,7 @@ def get_deployment(
     record = get_store().get_deployment(deployment_id)
     if record is None:
         raise HTTPException(status_code=404, detail=f"Deployment not found: {deployment_id}")
-    return _to_out(record, rollback_availability([record]))
+    return _to_out(record, rollback_availability([record]), schema_changed_between([record]))
 
 
 @router.get("/{deployment_id}/log", response_model=DeploymentLogOut)
@@ -307,6 +376,15 @@ def get_deployment_log(
     result = read_deployment_log(record, tail=tail)
     return DeploymentLogOut(
         content=result.content, truncated=result.truncated, missing_reason=result.missing_reason
+    )
+
+
+class RollbackRequest(BaseModel):
+    """Going back to a deployment."""
+
+    schema_changed_ok: bool = Field(
+        default=False,
+        description="Go back even past later deployments that changed the database schema",
     )
 
 
@@ -398,7 +476,10 @@ def rebuild_deployment(
     status_code=202,
 )
 def rollback_deployment(
-    domain: str, deployment_id: int, session: Annotated[dict, Depends(get_current_session)]
+    domain: str,
+    deployment_id: int,
+    session: Annotated[dict, Depends(get_current_session)],
+    body: RollbackRequest | None = None,
 ) -> JobAcceptedResponse:
     """
     Queue going back to what a deployment produced.
@@ -410,10 +491,15 @@ def rollback_deployment(
     and gated, keeping the deployed ``.env``. See
     :func:`~noust.deployers.lifecycle.rollback_to_deployment`.
 
+    Going back past later deployments that changed the database's schema
+    is refused with 409 ``schema_changed``, naming them, unless the body says
+    ``schema_changed_ok``: Noust puts code back, never a database.
+
     Args:
         domain: Domain of the application.
         deployment_id: The deployment to go back to.
         session: The authenticated session.
+        body: The operator's confirmation, when the schema changed since.
 
     Returns:
         The queued job.
@@ -421,7 +507,8 @@ def rollback_deployment(
     Raises:
         HTTPException: 404 for an unknown deployment of the application, 409
             ``rollback_unavailable`` with the reason when it cannot be gone
-            back to.
+            back to, 409 ``schema_changed`` with the deployments when it was
+            not confirmed.
     """
     domain = strict_domain(domain)
     record = _deployment_of(domain, deployment_id)
@@ -437,12 +524,31 @@ def rollback_deployment(
                 else "Restore a backup from the Backups tab instead",
             },
         )
+    confirmed = body is not None and body.schema_changed_ok
+    changed = schema_changed_between([record]).get(deployment_id, [])
+    if changed and not confirmed:
+        error = schema_changed_error(domain, changed, target=f"deployment {deployment_id}")
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "schema_changed",
+                "detail": error.message,
+                "hint": error.details,
+                "deployments": changed,
+            },
+        )
     job = get_job_manager().create_job(
         job_type=JobType.ROLLBACK,
         name=f"Rollback {domain}",
         description=f"Going back to deployment {deployment_id} of {domain}",
         func=rollback_deployment_job,
-        kwargs={"domain": domain, "deployment_id": deployment_id},
+        kwargs={
+            "domain": domain,
+            "deployment_id": deployment_id,
+            # Only when it was asked and answered: a job queued without it
+            # still refuses a change made between queueing and running.
+            **({"schema_changed_ok": True} if changed and confirmed else {}),
+        },
         metadata={"domain": domain, "deployment_id": deployment_id},
         actor=actor_label(session),
     )

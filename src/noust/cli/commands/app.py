@@ -31,6 +31,10 @@ from pathlib import Path
 import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.cli.commands.app_backup import backup_before_update_command
+from noust.cli.commands.app_headless import headless_command
+from noust.cli.commands.app_hooks import hooks as hooks_group
+from noust.cli.commands.app_identity import identity as identity_group
 from noust.cli.commands.app_sandbox import sandbox as sandbox_group
 from noust.cli.commands.app_webhook import webhook as webhook_group
 from noust.cli.commands.webapp import _create_app, _read_env_file
@@ -57,7 +61,12 @@ from noust.deployers.bluegreen import (
     zero_downtime_status,
 )
 from noust.deployers.helpers.health_gate import HealthCheck
-from noust.deployers.lifecycle import set_branch, set_health_check, set_resource_limits
+from noust.deployers.lifecycle import (
+    set_branch,
+    set_follow_tags,
+    set_health_check,
+    set_resource_limits,
+)
 from noust.deployers.migrate import MigrationPlan, migrate, plan_migration
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.service_manager import ResourceLimits
@@ -101,6 +110,10 @@ def cli() -> None:
 
 cli.add_command(webhook_group)
 cli.add_command(sandbox_group)
+cli.add_command(identity_group)
+cli.add_command(hooks_group)
+cli.add_command(backup_before_update_command)
+cli.add_command(headless_command)
 
 
 @cli.command("migrate")
@@ -420,6 +433,59 @@ def branch_command(ctx: Context, domain: str, branch: str | None, unpin: bool) -
         return
     if not (unpin or branch):
         ctx.logger.key_value("Branch", current or "any (not pinned)")
+
+
+# Showing what it follows only reads; changing it is audited.
+@cli.command(
+    "follow-tags",
+    read_only=lambda params: params.get("pattern") is None and not params.get("off"),
+)
+@click.argument("domain")
+@click.argument("pattern", required=False)
+@click.option("--off", is_flag=True, default=False, help="Follow a branch again instead of tags.")
+@global_flags
+@json_option("Print what the application follows as JSON.")
+@pass_context
+def follow_tags_command(ctx: Context, domain: str, pattern: str | None, off: bool) -> None:
+    """
+    Show, set or clear the tags an application deploys.
+
+    With a PATTERN (a glob over tag names, such as 'v*'), the application
+    deploys the tag a release or a tag push names, in version order and never
+    an older one than is deployed, and a push to a branch deploys nothing. An
+    update with no tag deploys the newest tag that matches. --off goes back to
+    following a branch. Nothing is rebuilt now: the next release or update
+    deploys.
+    """
+    app = get_store().get_app(domain)
+    if app is None:
+        raise NoustError(
+            f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
+        )
+    if off and pattern:
+        raise click.UsageError("--off follows a branch again; name no pattern with it.")
+    changed = off or pattern is not None
+    current = app.follow_tags
+    if changed:
+        current = set_follow_tags(app.domain, None if off else pattern).pattern
+        if not ctx.json_output:
+            if current is None:
+                ctx.logger.success(f"{app.domain} follows its branch again")
+            else:
+                ctx.logger.success(
+                    f"{app.domain} deploys the tags matching {current}, newest version first"
+                )
+                ctx.logger.info(
+                    f"Nothing is rebuilt now: the next release, or 'noust update {app.domain}', "
+                    "deploys the newest tag."
+                )
+    if ctx.json_output:
+        click.echo(
+            json.dumps({"domain": app.domain, "follow_tags": current, "following": bool(current)})
+        )
+        return
+    if not changed:
+        ctx.logger.key_value("Follows", f"tags matching {current}" if current else "a branch")
 
 
 def zero_downtime_payload(status: ZeroDowntimeStatus) -> dict[str, object]:

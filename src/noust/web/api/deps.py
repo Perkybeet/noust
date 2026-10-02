@@ -63,6 +63,7 @@ from noust.core.exceptions import (
     NodeRefusedError,
     NodeUnreachableError,
     NoustError,
+    SchemaChangedError,
     SecurityError,
     SourceError,
     ValidationError,
@@ -123,6 +124,8 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (DatabaseExistsError, 409),
     (DomainConflictError, 409),
     (AppBusyError, 409),
+    # Going back past a schema change waits for the operator's yes.
+    (SchemaChangedError, 409),
     (SecurityError, 400),
     (ValidationError, 400),
     (DomainError, 400),

@@ -396,6 +396,69 @@ def _check_php_fpm(ctx: _Context) -> ProbeResult:
     return Check("php_fpm", status, summary, "\n".join(evidence)), facts
 
 
+#: Probes that ask a port, HTTP or the site: meaningless for a stack that
+#: publishes no port, which is judged by its containers instead.
+_WEB_PROBES = frozenset({"port", "http_direct", "http_nginx", "nginx_log", "certificate"})
+
+
+def _check_compose_stack(ctx: _Context) -> ProbeResult:
+    """
+    Judge a Compose stack that publishes no port by its containers (owner item 57).
+
+    Args:
+        ctx: The diagnosis context.
+
+    Returns:
+        The check, and ``headless`` in the facts when the stack is one; the
+        evidence is the containers' state and the last lines of their output.
+    """
+    from noust.deployers.docker_compose import (
+        COMPOSE_LOG_LINES,
+        headless_stack_state,
+        stack_deployer,
+    )
+
+    if ctx.app is None:
+        return Check("containers", "skip", "No application recorded", ""), {}
+    state = headless_stack_state(ctx.app, runner=ctx.runner)
+    if state is None:
+        return (
+            Check("containers", "skip", "The stack publishes a port: judged as a web below", ""),
+            {},
+        )
+    deployer = stack_deployer(ctx.app, runner=ctx.runner)
+    deployer._discover_compose_file()
+    logs = ctx.runner.run(
+        deployer._compose("logs", "--tail", str(COMPOSE_LOG_LINES), "--no-color"),
+        cwd=deployer.app_path,
+        timeout=30,
+    )
+    evidence = "\n\n".join(
+        part
+        for part in (
+            state.output,
+            f"docker compose logs --tail {COMPOSE_LOG_LINES}:\n"
+            + ((logs.stdout or logs.stderr).strip() or "(no output)"),
+        )
+        if part
+    )
+    facts: dict[str, Any] = {
+        "headless": True,
+        "healthy": state.healthy,
+        "summary": state.summary,
+        "recorded_port": state.recorded_port,
+    }
+    if not state.healthy:
+        return Check("containers", "fail", f"A worker: {state.summary}", evidence), facts
+    if state.recorded_port:
+        summary = (
+            f"A worker: {state.summary}; port {state.recorded_port} is recorded for it, and "
+            f"it publishes none. Clear it with: noust app headless {ctx.domain}"
+        )
+        return Check("containers", "warn", summary, evidence), facts
+    return Check("containers", "ok", f"A worker: {state.summary}", evidence), facts
+
+
 def _no_unit(ctx: _Context) -> str | None:
     """
     Say why an application has no unit to check, when it has none.
@@ -451,7 +514,12 @@ def _check_unit(ctx: _Context) -> ProbeResult:
     restarts = _as_int(fields.get("NRestarts"))
 
     caveat = "" if info.managed else " (not managed by Noust)"
-    if active_state == "active" and sub_state == "running":
+    # A Compose unit runs `docker compose up -d` once and stays active:
+    # "exited" is its running state; the containers are checked on their own.
+    compose_up = (
+        ctx.app is not None and ctx.app.app_type == "docker-compose" and sub_state == "exited"
+    )
+    if active_state == "active" and (sub_state == "running" or compose_up):
         status: CheckStatus = "ok"
         summary = f"{info.unit_file} is active (running){caveat}"
     elif sub_state == "auto-restart" or active_state == "activating":
@@ -981,6 +1049,10 @@ def _decide(
     if php.get("cause"):
         return "down", php["cause"]
 
+    containers = facts.get("containers", {})
+    if containers.get("headless") and not containers.get("healthy"):
+        return "down", f"The worker's {containers.get('summary')}; see their output below."
+
     if unit.get("exists") is False:
         return (
             "down",
@@ -1034,6 +1106,13 @@ def _decide(
 
     if cert.get("expired"):
         return "down", f"The TLS certificate for {ctx.domain} expired on {cert.get('expiry')}."
+
+    if containers.get("headless") and containers.get("recorded_port"):
+        return (
+            "degraded",
+            f"{ctx.domain} publishes no port, yet port {containers['recorded_port']} is recorded "
+            f"for it: clear it with noust app headless {ctx.domain}.",
+        )
 
     if disk.get("percent_used", 0) > _DISK_FAIL_PERCENT:
         return (
@@ -1135,7 +1214,12 @@ def diagnose(
     if app is not None and is_php_fpm(app):
         # Its pool is what runs it, so the pool comes first.
         probes = (("php_fpm", _check_php_fpm), *_PROBES)
+    if app is not None and app.app_type == "docker-compose":
+        # Whether it is a web at all decides what the rest may ask.
+        probes = (("containers", _check_compose_stack), *probes)
     for name, probe in probes:
+        if name in _WEB_PROBES and facts.get("containers", {}).get("headless"):
+            continue
         try:
             check, probe_facts = probe(ctx)
         except (NoustError, OSError, ValueError) as exc:

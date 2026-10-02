@@ -279,6 +279,14 @@ def _state_from_status(app: App, status: dict[str, Any], *, probe: bool) -> AppS
     if not status.get("active"):
         return AppState(STOPPED, healthy=False, detail="the unit is not running")
 
+    # A Compose stack that publishes no port (a worker) has nothing to ask
+    # over TCP: its containers say how it is. Probing the port a 1.x deploy
+    # recorded for it called a healthy worker down.
+    if probe and app.app_type == "docker-compose":
+        headless = _headless_stack_state(app)
+        if headless is not None:
+            return headless
+
     # systemd is satisfied. That only means a process exists, so ask the
     # application itself.
     # The serving instance's port: in zero-downtime mode green answers on
@@ -297,6 +305,38 @@ def _state_from_status(app: App, status: dict[str, Any], *, probe: bool) -> AppS
         return AppState(RUNNING, healthy=True, detail=f"answering, after {restarts} restarts")
 
     return AppState(RUNNING, healthy=True)
+
+
+def _headless_stack_state(app: App) -> AppState | None:
+    """
+    Decide a Compose worker's state from its containers.
+
+    Args:
+        app: The application record, of the ``docker-compose`` type.
+
+    Returns:
+        The state, or None when the stack publishes a port (or its compose
+        file cannot be read) and is judged like any other application.
+    """
+    from noust.deployers.docker_compose import headless_stack_state
+
+    try:
+        stack = headless_stack_state(app)
+    except (NoustError, OSError) as error:
+        return AppState(UNKNOWN, healthy=False, detail=str(error))
+    if stack is None:
+        return None
+    if not stack.healthy:
+        return AppState(FAILED, healthy=False, detail=stack.summary)
+    if stack.recorded_port:
+        # Flagged, never fixed on its own: clearing the port may retire a site.
+        return AppState(
+            RUNNING,
+            healthy=False,
+            detail=f"its containers run, but port {stack.recorded_port} is recorded for a stack "
+            f"that publishes none; clear it with: noust app headless {app.domain}",
+        )
+    return AppState(RUNNING, healthy=True, detail="a worker: " + stack.summary)
 
 
 def resolve_states(

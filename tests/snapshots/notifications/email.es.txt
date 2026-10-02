@@ -541,6 +541,32 @@ Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
 Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
+### deploy.hook_failed
+Subject: [Noust] Desplegado con avisos: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_hook_failed
+X-Noust-Code: deploy.hook_failed
+X-Noust-Server: web-1
+
+▲ Desplegado con avisos · shop.example.com
+La nueva versión está en servicio, pero un gancho posterior al despliegue ha fallado después del relevo.
+
+Servidor: web-1
+Comando: ./scripts/purge-cache.sh --all
+Revísalo con: noust app hooks show shop.example.com
+
+Lo que ha informado el sistema:
+  curl: (22) The requested URL returned error: 403
+  purge failed
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com/deployments/42
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
 ### restore.completed
 Subject: [Noust] Restaurado: shop.example.com (web-1)
 Auto-Submitted: auto-generated
@@ -1224,6 +1250,33 @@ Lo que ha informado el sistema:
   pg_restore: error: relation "orders" already exists
 
 Abrir en la consola: https://console.example.com/n/web-1/databases/postgresql/shop
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### sandbox.trial_failed
+Subject: [Noust] Compilación aislada fallida: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: deploy_failed
+X-Noust-Code: sandbox.trial_failed
+X-Noust-Server: web-1
+
+▲ Compilación aislada fallida · shop.example.com
+Se ha probado su compilación sin root antes de la actualización y ha fallado, así que la actualización ha compilado como root, igual que antes.
+
+Servidor: web-1
+Commit: 4f2a9c1
+Revísalo con: noust app sandbox status shop.example.com
+
+Lo que ha informado el sistema:
+  npm ci failed (exit code 1)
+  npm ERR! code E401
+  npm ERR! 401 Unauthorized - GET https://npm.registry.local/@shop%2fui
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com
 
 -- 
 Enviado por Noust · web-1 · 2026-09-29 10:45 UTC

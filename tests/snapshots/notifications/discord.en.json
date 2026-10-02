@@ -795,6 +795,35 @@
       "parse": []
     }
   },
+  "deploy.hook_failed": {
+    "embeds": [
+      {
+        "title": "▲ Deployed with warnings · shop.example.com",
+        "description": "The new version is serving, but a post-deploy hook failed once it took over.\n\n**Inspect with:** `noust app hooks show shop.example.com`\n\n*What the system reported*\n```\ncurl: (22) The requested URL returned error: 403\npurge failed\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Command",
+            "value": "`./scripts/purge-cache.sh --all`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
   "restore.completed": {
     "embeds": [
       {
@@ -1754,6 +1783,35 @@
         },
         "timestamp": "2026-09-29T10:45:51+00:00",
         "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "sandbox.trial_failed": {
+    "embeds": [
+      {
+        "title": "▲ Sandbox build failed · shop.example.com",
+        "description": "Its build was tried without root before the update and failed, so the update built as root, as it did before.\n\n**Inspect with:** `noust app sandbox status shop.example.com`\n\n*What the system reported*\n```\nnpm ci failed (exit code 1)\nnpm ERR! code E401\nnpm ERR! 401 Unauthorized - GET https://npm.registry.local/@shop%2fui\n```",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Commit",
+            "value": "`4f2a9c1`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
       }
     ],
     "allowed_mentions": {

@@ -210,10 +210,16 @@ def test_activating_a_release_goes_through_the_lifecycle_as_the_panel(
     """The endpoint is a translation: the health gate and the history are the lifecycle's."""
     root = tmp_path / "rel"
     release_app(store, root, releases=(RELEASE_A, RELEASE_B))
-    calls: list[tuple[str, str | None, str]] = []
+    calls: list[tuple[str, str | None, str, bool]] = []
 
-    def activate(domain: str, release_id: str | None = None, *, trigger: str) -> Any:
-        calls.append((domain, release_id, trigger))
+    def activate(
+        domain: str,
+        release_id: str | None = None,
+        *,
+        trigger: str,
+        schema_changed_ok: bool = False,
+    ) -> Any:
+        calls.append((domain, release_id, trigger, schema_changed_ok))
         from noust.deployers.lifecycle import ReleaseActivation
         from noust.deployers.releases import ReleaseManager
 
@@ -232,7 +238,8 @@ def test_activating_a_release_goes_through_the_lifecycle_as_the_panel(
     response = client.post(f"/api/apps/{DOMAIN}/releases/{RELEASE_A}/activate")
 
     assert response.status_code == 200, response.text
-    assert calls == [(DOMAIN, RELEASE_A, "panel")]
+    # Nothing confirmed going back past a schema change: the lifecycle asks.
+    assert calls == [(DOMAIN, RELEASE_A, "panel", False)]
     assert response.json() == {
         "domain": DOMAIN,
         "release_id": RELEASE_A,

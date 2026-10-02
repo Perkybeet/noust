@@ -38,10 +38,10 @@ import os
 import re
 import sqlite3
 import tempfile
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from functools import cached_property
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from string import Template
 from typing import Any
 
@@ -66,14 +66,14 @@ from noust.core.exceptions import (
     TemplateError,
     ValidationError,
 )
-from noust.core.fs import FileSystem
+from noust.core.fs import FileSystem, get_fs
 from noust.core.runner import CommandRunner
 from noust.core.store import DomainKind, NoustStore, Site, WebServer, get_store
 from noust.core.utils import domain_to_app_name
 from noust.managers.base_manager import BaseManager, MappingRecord
 from noust.managers.cert_manager import CertManager
 from noust.validators.domain import is_valid_domain, should_include_www
-from noust.validators.names import resolve_within, validate_filename
+from noust.validators.names import resolve_within, validate_app_name, validate_filename
 
 #: Module logger for the orchestration functions below. They are not manager
 #: methods, so they have no ``self.logger``; this is the same standard-library
@@ -125,6 +125,94 @@ NGINX_UPSTREAMS_DIR = paths.nginx_upstreams_dir()
 #: Prefix of the upstream name, so it cannot collide with the upstreams an
 #: advanced or monorepo site names after its routes and workspaces.
 UPSTREAM_PREFIX = "wasm_bg_"
+
+#: Suffix of the file that names the servers of one service of an application,
+#: inside the application's own directory of :data:`NGINX_UPSTREAMS_DIR`.
+SERVERS_SUFFIX = ".servers"
+
+#: How much of a site file is read to look for Noust's marker. The marker is
+#: the first comment of everything Noust renders, so the head is enough.
+_MARKER_WINDOW = 2000
+
+
+def site_name_for(domain: str, *, store: NoustStore | None = None) -> str:
+    """
+    Name the file in the sites directory that serves a domain.
+
+    Noust names the file after the domain, and that is still the answer for
+    every site it wrote. A site the operator already had is not: ``proggest``
+    serves ``proggest.es``, and adopting that application records the file name
+    so Noust edits that file instead of writing a second site next to it
+    (``apps.site_name``). :meth:`WebServerManager.config_path` asks here, which
+    makes it the one place a domain becomes a file name.
+
+    Args:
+        domain: The domain, as the caller has it; case and surrounding space
+            are not significant.
+        store: Where to read the recorded name. The process-wide store by
+            default; a manager passes its own.
+
+    Returns:
+        The recorded site name, or the domain (lowercased and stripped) when
+        the application has none, there is no such application, or the store
+        cannot be read. The result is a candidate, not yet a safe file name:
+        ``config_path`` validates it.
+    """
+    candidate = domain.strip().lower()
+    try:
+        app = (store or get_store()).get_app(candidate)
+    except (NoustError, sqlite3.Error) as exc:
+        # A machine with no readable store yet (a rehearsal, a first run) has
+        # no adopted sites either, so the domain is the right answer.
+        _logger.debug("Could not read the site name of %s from the store: %s", candidate, exc)
+        return candidate
+    if app is None or not app.site_name:
+        return candidate
+    return app.site_name
+
+
+def config_serves_tls(config: str) -> bool:
+    """
+    Report whether a rendered configuration serves TLS.
+
+    Args:
+        config: The configuration file content.
+
+    Returns:
+        True when it carries a certificate directive, nginx's or apache's.
+    """
+    return "ssl_certificate" in config or "SSLCertificateFile" in config
+
+
+def _is_noust_text(text: str) -> bool:
+    """
+    Report whether a site file's text says Noust (or WASM) wrote it.
+
+    Args:
+        text: The file's content, or at least its head.
+
+    Returns:
+        True when the marker is in the first :data:`_MARKER_WINDOW` characters.
+    """
+    return paths.carries_unit_marker(text[:_MARKER_WINDOW])
+
+
+def _read_site_file(path: Path) -> str:
+    """
+    Read a site file for a listing, tolerating one that cannot be read.
+
+    Args:
+        path: The configuration file.
+
+    Returns:
+        Its text, or an empty string when it cannot be read (a listing shows
+        the row regardless; the log says why it has no details).
+    """
+    try:
+        return path.read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        _logger.debug("Could not read %s: %s", path, exc)
+        return ""
 
 
 def _as_port(value: Any) -> int | None:
@@ -583,6 +671,12 @@ class WebServerManager(BaseManager):
         :func:`resolve_within` catches the case where the name is clean but a
         symlink in the directory is not.
 
+        The file is named after the domain unless the application recorded
+        another name (:func:`site_name_for`): an operator's site called
+        ``proggest`` for ``proggest.es``. The recorded name is checked as
+        strictly as a domain, because it comes from a table that something
+        other than this code can write.
+
         Args:
             domain: Domain name.
 
@@ -592,7 +686,7 @@ class WebServerManager(BaseManager):
         Raises:
             DomainError: When the domain is not a valid domain name.
             ValidationError: When the resulting file name is not a single, inert
-                path component.
+                path component, including a recorded site name that is not one.
             SecurityError: When the path escapes the configuration directory.
         """
         candidate = domain.strip().lower()
@@ -607,7 +701,20 @@ class WebServerManager(BaseManager):
                 ),
             )
 
-        filename = validate_filename(f"{candidate}{self.backend.config_suffix}")
+        name = site_name_for(candidate, store=self.store)
+        try:
+            filename = validate_filename(f"{name}{self.backend.config_suffix}")
+        except ValidationError as exc:
+            if name == candidate:
+                raise
+            raise ValidationError(
+                f"The site name recorded for {candidate} is not a file name: {name!r}",
+                details=(
+                    f"A site name is a file in {self.backend.sites_available}: letters, "
+                    "digits, hyphens and dots, starting with a letter or a digit."
+                ),
+                field="site_name",
+            ) from exc
         return resolve_within(self.backend.sites_available, filename)
 
     def _link_path(self, domain: str) -> Path:
@@ -658,13 +765,11 @@ class WebServerManager(BaseManager):
         Returns:
             True when the file exists and carries "Generated by Noust" (or WASM).
         """
-        from noust.core import paths
-
         try:
-            head = self.config_path(domain).read_text(encoding="utf-8", errors="replace")[:2000]
+            head = self.config_path(domain).read_text(encoding="utf-8", errors="replace")
         except OSError:
             return False
-        return paths.carries_unit_marker(head)
+        return _is_noust_text(head)
 
     def site_enabled(self, domain: str) -> bool:
         """
@@ -1208,6 +1313,29 @@ class WebServerManager(BaseManager):
                 f"Failed to restore the upstream of {domain}: {path}", details=str(exc)
             ) from exc
 
+    def _remove_servers_files(self, domain: str) -> None:
+        """
+        Remove the servers files of an application whose site is gone.
+
+        Tidying up is not a reason to fail a deletion that has already removed
+        the site, and skipping the reload that follows it would leave nginx
+        serving the site that was just deleted, so a refusal is logged.
+
+        Args:
+            domain: The application's domain.
+        """
+        if self.backend.upstreams_dir is None:
+            return
+        app_name = domain_to_app_name(domain.strip().lower())
+        # Most sites never had any; looking first keeps their deletion free of
+        # the validation (and its warning) for a name that is not an app's.
+        if not os.path.lexists(self.backend.upstreams_dir / app_name):
+            return
+        try:
+            remove_servers(app_name, upstreams_dir=self.backend.upstreams_dir)
+        except NoustError as exc:
+            self.logger.warning(f"Left the servers files of {domain} in place: {exc}")
+
     def remove_upstream(self, domain: str) -> bool:
         """
         Remove an application's upstream file, if it has one.
@@ -1418,6 +1546,7 @@ class WebServerManager(BaseManager):
         # The upstream of a blue/green application belongs to its site: once
         # nothing includes it, it is only a file nginx does not read.
         self.remove_upstream(domain)
+        self._remove_servers_files(domain)
 
         try:
             self.store.delete_site(domain)
@@ -1445,7 +1574,21 @@ class WebServerManager(BaseManager):
         """
         if not self.site_exists(domain):
             return []
-        text = self.get_site_config(domain) or ""
+        return self.names_in(self.get_site_config(domain) or "")
+
+    def names_in(self, text: str) -> list[str]:
+        """
+        Read which names a configuration's text answers on.
+
+        Split from :meth:`served_names` so a listing that has already read the
+        file does not read it again by a name that may not even be a domain.
+
+        Args:
+            text: A virtual host configuration.
+
+        Returns:
+            What :meth:`served_names` returns for a file with this content.
+        """
         names: list[str] = []
         for match in self.backend.server_name_pattern.finditer(text):
             for token in match.group(1).split():
@@ -1617,6 +1760,314 @@ class WebServerManager(BaseManager):
         return config_path
 
 
+# -- Servers files ---------------------------------------------------------
+#
+# What a Compose service's site proxies to, when the relay moves traffic between
+# two containers, is a file of ``server 127.0.0.1:<port>;`` lines that the site
+# includes inside an ``upstream`` block. Nothing else is in it, so the same
+# file can be included from a block Noust wrote (``wasm_bg_<app>_<service>``)
+# or from one the operator wrote with names of their own. They live under
+# ``/etc/nginx/noust-upstreams/<app>/<service>.servers``, next to (and never
+# named like) the single ``<app>.conf`` upstream of blue/green activation.
+#
+# Module functions rather than manager methods because the relay is driven by
+# the deployer and knows an application and a service, not a web server.
+
+#: A server line as a servers file holds it. Anything else on the line (a
+#: trailing comment) is ignored; a commented-out line does not start with
+#: ``server`` and so never matches.
+_SERVER_LINE = re.compile(r"^\s*server\s+127\.0\.0\.1:(\d+)\s*;", re.MULTILINE)
+
+#: A comment as nginx reads one: ``#`` where a token starts, to the end of line.
+_NGINX_COMMENT = re.compile(r"(?:^|(?<=\s))#.*$", re.MULTILINE)
+
+#: An ``include`` directive, bare or quoted, at the start of a directive: after
+#: another one (``;``), a block's opening or closing brace, or the file's start.
+#: Matching the word anywhere would take ``add_header X include;`` for one.
+_INCLUDE_DIRECTIVE = re.compile(
+    r"""(?:\A|[;{}])\s*include\s+(?:"([^"\n]*)"|'([^'\n]*)'|([^\s;{}"']+))\s*;"""
+)
+
+#: Characters that make an ``include`` argument a pattern nginx expands.
+_GLOB_CHARACTERS = frozenset("*?[")
+
+
+def _servers_directory(base: Path, app_name: str) -> Path:
+    """
+    Resolve an application's directory of servers files, contained in ``base``.
+
+    Args:
+        base: The upstreams directory.
+        app_name: The application's name (its domain with dots as dashes).
+
+    Returns:
+        ``base/<app_name>``, unresolved, so a caller can tell a link from a
+        directory.
+
+    Raises:
+        ValidationError: When the name is not one inert path component.
+        SecurityError: When the directory is a link that leaves ``base``.
+    """
+    validate_app_name(app_name)
+    resolve_within(base, app_name)
+    return base / app_name
+
+
+def _servers_path(base: Path, app_name: str, service: str) -> Path:
+    """
+    Resolve one service's servers file.
+
+    Args:
+        base: The upstreams directory.
+        app_name: The application's name.
+        service: The Compose service's name.
+
+    Returns:
+        ``base/<app_name>/<service>.servers``, unresolved. The file itself may
+        be a link; each caller refuses to follow it in its own words.
+
+    Raises:
+        ValidationError: When either name is not one inert path component.
+        SecurityError: When the application's directory is a link that leaves
+            ``base``.
+    """
+    return _servers_directory(base, app_name) / validate_filename(f"{service}{SERVERS_SUFFIX}")
+
+
+def servers_file(app_name: str, service: str) -> Path:
+    """
+    Say where the servers of one service of an application are written.
+
+    The path is also what a site must ``include``, so callers that tell the
+    operator which line to add use this and not a string of their own.
+
+    Args:
+        app_name: The application's name: its domain with dots as dashes.
+        service: The Compose service's name.
+
+    Returns:
+        ``<upstreams dir>/<app_name>/<service>.servers``.
+
+    Raises:
+        ValidationError: When either name is not a single, inert path
+            component. They become a path written as root.
+        SecurityError: When the application's directory is a link that leaves
+            the upstreams directory.
+    """
+    return _servers_path(NGINX_UPSTREAMS_DIR, app_name, service)
+
+
+def _checked_ports(ports: Sequence[int]) -> list[int]:
+    """
+    Validate the ports of a servers file.
+
+    Args:
+        ports: The candidates.
+
+    Returns:
+        The same ports, as a list.
+
+    Raises:
+        ValidationError: When there is none, or one is not an integer between
+            1 and 65535 (a bool and a string that looks like a number are not).
+    """
+    if not ports:
+        raise ValidationError(
+            "A servers file needs at least one port",
+            details=(
+                "nginx refuses an upstream with no servers. Remove the file with "
+                "remove_servers() when a service has nothing to serve."
+            ),
+        )
+    for port in ports:
+        if isinstance(port, bool) or not isinstance(port, int) or not 1 <= port <= 65535:
+            raise ValidationError(
+                f"Not a port: {port!r}",
+                details="A servers file lists integer ports from 1 to 65535.",
+            )
+    return list(ports)
+
+
+def write_servers(app_name: str, service: str, ports: list[int]) -> None:
+    """
+    Point a service's servers file at the given loopback ports, atomically.
+
+    The file is replaced through a sibling and a rename, so a reload racing
+    this call reads the old servers or the new ones, never half of either.
+    Nothing is reloaded: the caller tests the configuration and reloads, and
+    writes the previous ports back when the test fails.
+
+    Args:
+        app_name: The application's name.
+        service: The Compose service's name.
+        ports: The ports to serve from, in order; one line each.
+
+    Raises:
+        ValidationError: When a name or a port is not acceptable. Nothing has
+            been written.
+        SecurityError: When a link would take the file out of the tree.
+        NginxError: When a symlink stands where the file or its directory goes
+            (a write through it would land anywhere, as root), or the file
+            cannot be written.
+        RoleError: When this Noust is a hub, which writes no sites.
+    """
+    require_server_role("Sites")
+    path = servers_file(app_name, service)
+    lines = "".join(f"server 127.0.0.1:{port};\n" for port in _checked_ports(ports))
+
+    if path.is_symlink() or path.parent.is_symlink():
+        raise NginxError(
+            f"Refusing to write {path}: it is, or is inside, a symlink",
+            details=f"Remove the link; Noust writes the servers of {service} itself.",
+        )
+    fs = get_fs()
+    try:
+        fs.make_dir(path.parent)
+        fs.write_text(path, lines, mode=_CONFIG_MODE)
+    except OSError as exc:
+        raise NginxError(
+            f"Failed to write the servers of {service} of {app_name}: {path}", details=str(exc)
+        ) from exc
+
+
+def read_servers(app_name: str, service: str) -> list[int]:
+    """
+    Read which ports a service's servers file points at.
+
+    Args:
+        app_name: The application's name.
+        service: The Compose service's name.
+
+    Returns:
+        The ports in file order; empty when there is no file, it is a link
+        (never read through one), or it cannot be read. Comments and anything
+        that is not a loopback ``server`` line are ignored.
+
+    Raises:
+        ValidationError: When a name is not acceptable.
+        SecurityError: When a link would take the path out of the tree.
+    """
+    path = servers_file(app_name, service)
+    if path.is_symlink() or path.parent.is_symlink() or not path.is_file():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        _logger.warning("Could not read the servers file %s: %s", path, exc)
+        return []
+    ports = (int(match.group(1)) for match in _SERVER_LINE.finditer(text))
+    return [port for port in ports if 1 <= port <= 65535]
+
+
+def remove_servers(
+    app_name: str, service: str | None = None, *, upstreams_dir: Path | None = None
+) -> bool:
+    """
+    Remove one servers file of an application, or all of them.
+
+    Call it only once no site includes them any more: nginx refuses a
+    configuration that includes a file that is not there.
+
+    Args:
+        app_name: The application's name.
+        service: The service whose file to remove; None removes the
+            application's whole directory.
+        upstreams_dir: The upstreams directory, for a manager bound to a tree
+            other than the system's. The system's by default.
+
+    Returns:
+        True when something was removed (or, in a dry run, would have been).
+
+    Raises:
+        ValidationError: When a name is not acceptable.
+        SecurityError: When a link would take the path out of the tree.
+        NginxError: When the application's directory is a link, which is
+            never followed, or the removal fails.
+    """
+    base = NGINX_UPSTREAMS_DIR if upstreams_dir is None else upstreams_dir
+    directory = _servers_directory(base, app_name)
+    if directory.is_symlink():
+        raise NginxError(
+            f"Refusing to remove {directory}: it is a symlink",
+            details="Remove the link by hand; Noust does not follow it.",
+        )
+    target = directory if service is None else _servers_path(base, app_name, service)
+    if not os.path.lexists(target):
+        return False
+    fs = get_fs()
+    try:
+        if service is None:
+            fs.remove_tree(directory)
+        else:
+            fs.remove(target)
+    except OSError as exc:
+        raise NginxError(f"Failed to remove {target}", details=str(exc)) from exc
+    return True
+
+
+def _strip_nginx_comments(text: str) -> str:
+    """
+    Drop the comments of an nginx configuration.
+
+    Args:
+        text: The configuration.
+
+    Returns:
+        The text without them; lines keep their breaks.
+    """
+    return _NGINX_COMMENT.sub("", text)
+
+
+def _include_reaches(argument: str, wanted: PurePosixPath) -> bool:
+    """
+    Report whether an ``include`` argument names a file, the way nginx reads it.
+
+    Args:
+        argument: What follows ``include``, quotes removed.
+        wanted: The file's absolute path.
+
+    Returns:
+        True when the argument is that path, relative to the nginx prefix or
+        absolute, or a wildcard nginx would expand to it. ``*`` and ``?`` match
+        within one directory level, as they do for nginx.
+    """
+    included = PurePosixPath(argument)
+    if not included.is_absolute():
+        # nginx resolves a relative include against its configuration prefix.
+        included = PurePosixPath(NGINX_SITES_AVAILABLE.parent) / included
+    if included == wanted:
+        return True
+    return _GLOB_CHARACTERS.intersection(argument) != set() and wanted.match(str(included))
+
+
+def site_includes_servers(site: str, path: Path) -> bool:
+    """
+    Tell whether a site's configuration includes a servers file.
+
+    The check behind "activating the relay needs this line in your site": an
+    operator's site that does not include the file would go on serving the old
+    container however often the file is rewritten.
+
+    Args:
+        site: The site's configuration text, as read from its file.
+        path: The servers file (:func:`servers_file`).
+
+    Returns:
+        True when an ``include`` directive, anywhere in the text (inside an
+        ``upstream`` block or outside), names the file: bare or in single or
+        double quotes, by absolute path or relative to ``/etc/nginx``, or by a
+        wildcard nginx would expand to it. A commented-out include does not
+        count, nor does a different file that merely starts with the same
+        name.
+    """
+    wanted = PurePosixPath(path)
+    for match in _INCLUDE_DIRECTIVE.finditer(_strip_nginx_comments(site)):
+        argument = next(group for group in match.groups() if group is not None)
+        if _include_reaches(argument, wanted):
+            return True
+    return False
+
+
 # -- Cross-backend orchestration -------------------------------------------
 #
 # The two functions below are the chokepoints for "delete a site" and
@@ -1646,12 +2097,15 @@ class SiteDeletion(MappingRecord):
         nginx_removed: Whether an nginx vhost was found and removed.
         apache_removed: Whether an apache vhost was found and removed.
         certificate_removed: Whether a certificate was found and removed.
+        kept_operator: The web servers whose site for the domain was written
+            by the operator and kept, when that was asked for.
     """
 
     domain: str
     nginx_removed: bool = False
     apache_removed: bool = False
     certificate_removed: bool = False
+    kept_operator: tuple[str, ...] = ()
 
     @property
     def removed_anything(self) -> bool:
@@ -1667,6 +2121,7 @@ def delete_site_completely(
     cert_manager: CertManager | None = None,
     delete_certificate: bool = True,
     verbose: bool = False,
+    keep_operator_sites: bool = False,
 ) -> SiteDeletion:
     """
     Remove a domain's virtual host from every backend, and its certificate.
@@ -1688,16 +2143,32 @@ def delete_site_completely(
         delete_certificate: Also remove the certificate. False leaves it in
             place, for a caller that only wants the vhosts gone.
         verbose: Enable verbose logging on any manager built by default.
+        keep_operator_sites: Leave a site the operator wrote (one without
+            Noust's marker) in place, and the certificate with it, since it
+            may use it. Deleting an application asks for this; ``noust site
+            delete`` does not, being the explicit way to remove such a site.
 
     Returns:
         What was actually found and removed.
     """
+    from noust.deployers.helpers.site import is_operator_site
+
     nginx = nginx or WebServerManager(NGINX_BACKEND, verbose=verbose)
     apache = apache or WebServerManager(APACHE_BACKEND, verbose=verbose)
     cert_manager = cert_manager or CertManager(verbose=verbose)
 
+    kept_operator = (
+        tuple(
+            manager.backend.name
+            for manager in (nginx, apache)
+            if is_operator_site(manager, domain)
+        )
+        if keep_operator_sites
+        else ()
+    )
+
     nginx_removed = False
-    if nginx.site_exists(domain):
+    if nginx.site_exists(domain) and nginx.backend.name not in kept_operator:
         try:
             nginx.delete_site(domain)
             nginx.reload()
@@ -1706,7 +2177,7 @@ def delete_site_completely(
             _logger.warning("Could not remove the nginx site for %s: %s", domain, exc)
 
     apache_removed = False
-    if apache.site_exists(domain):
+    if apache.site_exists(domain) and apache.backend.name not in kept_operator:
         try:
             apache.delete_site(domain)
             apache.reload()
@@ -1715,7 +2186,12 @@ def delete_site_completely(
             _logger.warning("Could not remove the apache site for %s: %s", domain, exc)
 
     certificate_removed = False
-    if delete_certificate and cert_manager.is_installed() and cert_manager.cert_exists(domain):
+    if (
+        delete_certificate
+        and not kept_operator
+        and cert_manager.is_installed()
+        and cert_manager.cert_exists(domain)
+    ):
         try:
             cert_manager.delete(domain)
             certificate_removed = True
@@ -1727,6 +2203,7 @@ def delete_site_completely(
         nginx_removed=nginx_removed,
         apache_removed=apache_removed,
         certificate_removed=certificate_removed,
+        kept_operator=kept_operator,
     )
 
 
@@ -1885,3 +2362,132 @@ def create_secured_site(
         ssl_enabled=True,
         certificate_reused=certificate_reused,
     )
+
+
+# -- The sites list --------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SiteRow:
+    """
+    One site of the server, whoever wrote it.
+
+    Attributes:
+        name: The file in the sites directory (``proggest``), without the
+            backend's suffix; what the operator sees on disk.
+        domain: The domain the site is addressed by: its application's, else
+            the one the store recorded, else the file's name. What the API and
+            the console call the site.
+        webserver: Backend that owns the file, ``nginx`` or ``apache``.
+        noust_managed: Whether the file carries Noust's marker, that is, Noust
+            wrote it. False for the operator's own, which a deploy leaves
+            alone.
+        app: Domain of the application the file serves, or None when none
+            records it.
+        enabled: Whether the site is enabled in the web server.
+        config_path: Absolute path of the configuration file.
+        has_ssl: Whether the configuration carries certificate directives.
+        server_names: Every name the configuration answers on, in file order.
+    """
+
+    name: str
+    domain: str
+    webserver: str
+    noust_managed: bool
+    app: str | None
+    enabled: bool = False
+    config_path: str = ""
+    has_ssl: bool = False
+    server_names: tuple[str, ...] = ()
+
+
+def _recorded_site_name(site: Site, suffix: str) -> str:
+    """
+    Name the file a store record says holds its site.
+
+    Args:
+        site: The store's record.
+        suffix: The backend's file suffix, removed from the name.
+
+    Returns:
+        The file name without the suffix; the domain when the record has no
+        path.
+    """
+    name = Path(site.config_path).name if site.config_path else site.domain
+    return name.removesuffix(suffix) if suffix else name
+
+
+def list_all_sites(
+    *,
+    managers: Sequence[WebServerManager] | None = None,
+    store: NoustStore | None = None,
+) -> list[SiteRow]:
+    """
+    List every site on the server: what the store knows and what is on disk.
+
+    The sites directory is the truth about what the web server serves and the
+    store is a cache of what Noust wrote, so each file is a row whoever wrote
+    it. A listing built from the store alone lost every site the operator
+    wrote by hand the moment Noust had written one of its own. A store record
+    whose file is gone is still listed, because a site that vanished is
+    something to be told about.
+
+    Args:
+        managers: The web servers to list. Both backends by default; a caller
+            passes the ones it already built (tests, the API's registry).
+        store: The store to ask which application serves which file. The
+            process-wide one by default.
+
+    Returns:
+        One row per site, ordered by domain, then web server, then file.
+    """
+    store = store or get_store()
+    managers = (
+        managers
+        if managers is not None
+        else [WebServerManager(NGINX_BACKEND), WebServerManager(APACHE_BACKEND)]
+    )
+    by_record = {manager.backend.webserver_record: manager for manager in managers}
+
+    # An application's site is the file its site_name says, else its domain.
+    owners = {(app.webserver, app.site_name or app.domain): app.domain for app in store.list_apps()}
+    recorded: dict[tuple[str, str], Site] = {}
+    for site in store.list_sites():
+        manager = by_record.get(site.webserver)
+        suffix = manager.backend.config_suffix if manager is not None else ""
+        recorded[(site.webserver, _recorded_site_name(site, suffix))] = site
+
+    rows: dict[tuple[str, str], SiteRow] = {}
+    for manager in managers:
+        record = manager.backend.webserver_record
+        for entry in manager.list_sites():
+            owner = owners.get((record, entry.domain))
+            known = recorded.get((record, entry.domain))
+            text = _read_site_file(Path(entry.config_path))
+            rows[(record, entry.domain)] = SiteRow(
+                name=entry.domain,
+                domain=owner or (known.domain if known is not None else entry.domain),
+                webserver=entry.webserver,
+                noust_managed=_is_noust_text(text),
+                app=owner,
+                enabled=entry.enabled,
+                config_path=entry.config_path,
+                has_ssl=config_serves_tls(text),
+                server_names=tuple(manager.names_in(text)),
+            )
+
+    for key, site in recorded.items():
+        if key in rows:
+            continue
+        rows[key] = SiteRow(
+            name=key[1],
+            domain=owners.get(key) or site.domain,
+            webserver=site.webserver,
+            noust_managed=False,
+            app=owners.get(key),
+            enabled=bool(site.enabled),
+            config_path=site.config_path,
+            has_ssl=bool(site.ssl_enabled),
+        )
+
+    return sorted(rows.values(), key=lambda row: (row.domain, row.webserver, row.name))

@@ -54,6 +54,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from noust.central import require_server_role
 from noust.core.applock import app_lock
@@ -62,6 +63,7 @@ from noust.core.exceptions import (
     DeploymentError,
     NoustError,
     RolledBackError,
+    SchemaChangedError,
     ServiceError,
     SourceError,
     ValidationError,
@@ -79,6 +81,7 @@ from noust.core.store import (
     ReleaseStatus,
     get_store,
 )
+from noust.core.tags import compare_tags, newest_tag, tag_matches, why_not_deploy
 from noust.core.utils import domain_to_app_name
 from noust.deployers import deploy_events
 from noust.deployers.base import BaseDeployer
@@ -110,7 +113,8 @@ from noust.managers.backup_manager import BackupManager, RollbackManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ResourceLimits, ServiceManager
-from noust.managers.source_manager import SourceManager, validate_commit_id
+from noust.managers.source_manager import SourceManager, validate_commit_id, validate_tag_name
+from noust.managers.stack_databases import StackBackupError
 from noust.managers.webserver import delete_site_completely
 from noust.validators.domain import validate_domain
 from noust.validators.source import validate_source
@@ -150,6 +154,11 @@ class AppUpdate:
         deployment_id: Id of the deployment history row this update wrote,
             when recording succeeded. None if it failed (see
             :class:`~noust.deployers.recorder.DeploymentRecorder`).
+        hooks: What the deploy hooks and Prisma's automatic migration ran,
+            in order.
+        schema_changed: They changed the database's schema.
+        warnings: Why the update is deployed with warnings (a failed
+            ``post_deploy`` hook), or None.
     """
 
     domain: str
@@ -160,6 +169,9 @@ class AppUpdate:
     restarted: tuple[str, ...]
     active: bool
     deployment_id: int | None = None
+    hooks: tuple[dict[str, Any], ...] = ()
+    schema_changed: bool = False
+    warnings: str | None = None
 
 
 def update_app(
@@ -168,6 +180,7 @@ def update_app(
     source: str | None = None,
     branch: str | None = None,
     commit: str | None = None,
+    tag: str | None = None,
     package_manager: str = "auto",
     trigger: str = DeploymentTrigger.CLI.value,
     job_id: str | None = None,
@@ -176,6 +189,7 @@ def update_app(
     logger: Logger | None = None,
     verbose: bool = False,
     rollback_of: int | None = None,
+    schema_changed_ok: bool = False,
 ) -> AppUpdate:
     """
     Pull the latest code into a deployed application, rebuild it and restart it.
@@ -189,6 +203,13 @@ def update_app(
     back to following the branch (see
     :meth:`~noust.managers.source_manager.SourceManager.checkout_commit`).
 
+    With ``tag``, the commit that tag points at is deployed exactly as
+    ``commit`` would be, unless the tag is older than one the application
+    already runs: an update never goes back, which is what a rollback is for.
+    An application that follows tags (:func:`set_follow_tags`) and is updated
+    with no tag, no commit, no source and no branch deploys the newest tag its
+    remote has that matches the pattern, never the head of a branch.
+
     Args:
         domain: Domain of the application.
         source: Fetch from this source instead of pulling the current one.
@@ -196,6 +217,8 @@ def update_app(
         branch: Git branch to update from.
         commit: Deploy this commit, full or abbreviated; it must name exactly
             one commit, and is fetched when the clone does not have it.
+        tag: Deploy the commit this tag points at, fetching the tag when the
+            clone does not have it.
         package_manager: Node package manager, or ``auto``.
         trigger: Who asked for the update, recorded in the deployment history.
         job_id: The background job driving this update, when the panel
@@ -211,17 +234,24 @@ def update_app(
             one that does not answer fails the update (its row is
             ``failed``); once it does, the deployment that was serving is
             marked rolled back, as any rollback marks it.
+        schema_changed_ok: The operator confirmed going back with ``commit``
+            past deployments that changed the database's schema (see
+            :func:`require_schema_change_confirmed`).
 
     Returns:
         What was done.
 
     Raises:
+        SchemaChangedError: ``commit`` was deployed before deployments that
+            changed the schema, and that was not confirmed.
         NoustError: When the application is unknown or a step fails. A failed
             build leaves the previous build running.
         SourceError: The commit is not a commit id, names more than one
             commit or none, or the application is not deployed from git.
-        ValidationError: A commit was given together with a source or a
-            branch, which it makes meaningless.
+        ValidationError: A commit or a tag was given together with a source
+            or a branch, which it makes meaningless; or a branch was given to
+            an application that follows tags.
+        DeploymentError: The tag is older than one already deployed.
         AppBusyError: Another operation is running on the application.
     """
     require_server_role("Applications")
@@ -234,6 +264,14 @@ def update_app(
                 details=f"Run either 'noust update {domain} --commit {commit}' or an update "
                 "from a source or a branch, not both.",
             )
+    if tag is not None:
+        tag = validate_tag_name(tag)
+        if commit is not None or source or branch:
+            raise ValidationError(
+                "A tag names exactly what to deploy; a commit, a source or a branch does not apply",
+                details=f"Run either 'noust update {domain} --tag {tag}' or an update from "
+                "a commit, a source or a branch, not both.",
+            )
     # Held for the whole update, backup to restart: a rollback, a migration
     # or a second update (a webhook firing while an operator updates by hand)
     # must not interleave with it. Refused at once, naming this update.
@@ -245,11 +283,26 @@ def update_app(
             # rollback), so its notification is named for what it is.
             deploy_events.operation("rollback" if rollback_of is not None else "update"),
         ):
+            tag = _tag_to_deploy(
+                domain, tag, source=source, branch=branch, commit=commit, verbose=verbose
+            )
+            if commit is not None and not schema_changed_ok:
+                # Rebuilding an earlier deployment's commit is going back, by
+                # whichever door: it asks what a rollback asks.
+                earlier = _newest_deployment_of_commit(get_store(), domain, commit)
+                if earlier is not None:
+                    require_schema_change_confirmed(
+                        domain,
+                        after_id=earlier,
+                        target=f"commit {commit[:7]}",
+                        schema_changed_ok=False,
+                    )
             outcome = _update_app(
                 domain,
                 source=source,
                 branch=branch,
                 commit=commit,
+                tag=tag,
                 package_manager=package_manager,
                 trigger=trigger,
                 job_id=job_id,
@@ -278,6 +331,7 @@ def _update_app(
     source: str | None,
     branch: str | None,
     commit: str | None,
+    tag: str | None = None,
     package_manager: str,
     trigger: str,
     job_id: str | None,
@@ -295,6 +349,7 @@ def _update_app(
         source: Fetch from this source instead of pulling the current one.
         branch: Git branch to update from.
         commit: A validated commit id to deploy instead of the branch head.
+        tag: A validated tag whose commit is deployed instead of the branch head.
         package_manager: Node package manager, or ``auto``.
         trigger: Who asked for the update.
         job_id: The background job driving this update, when there is one.
@@ -345,6 +400,7 @@ def _update_app(
             source=source,
             branch=branch,
             commit=commit,
+            tag=tag,
             package_manager=package_manager,
             trigger=trigger,
             job_id=job_id,
@@ -355,20 +411,47 @@ def _update_app(
             notice=notice,
         )
 
-    if commit is not None and not (app_path / ".git").exists():
+    if (commit is not None or tag is not None) and not (app_path / ".git").exists():
         # Checked before the backup: nothing is worth doing for a tree that
         # has no history to take the commit from.
         raise SourceError(
-            f"{domain} is not a git checkout; there is no commit {commit} to deploy",
+            f"{domain} is not a git checkout; there is no "
+            + (f"tag {tag}" if tag is not None else f"commit {commit}")
+            + " to deploy",
             details=f"An application deployed from a directory or an archive is rebuilt "
             f"from its source: noust update {domain}",
         )
+
+    source_manager = SourceManager(verbose=verbose)
+    tag_commit: str | None = None
+    if tag is not None:
+        # Judged before the backup too: an update that is about to be refused
+        # for going back is not worth a snapshot.
+        full_tag = source_manager.resolve_tag(app_path, tag)
+        _refuse_older_tag(
+            app,
+            tag,
+            _deployed_tag(
+                source_manager,
+                app_path,
+                _last_good_commit(store, domain)
+                or source_manager.get_repo_info(app_path).get("commit"),
+                _followed_pattern(app),
+                log,
+            ),
+        )
+        tag_commit = full_tag
 
     phase(1, PHASES, "Creating pre-update backup")
     try:
         backup = RollbackManager(verbose=verbose).create_pre_deploy_backup(
             domain=domain, description="Pre-update automatic backup"
         )
+    except StackBackupError:
+        # Without the copy of the stack's databases a migration cannot be undone,
+        # so this is the one failure that stops the update; the error says how to
+        # go on without it.
+        raise
     except (NoustError, OSError) as exc:
         # The update is still worth doing without it; the operator is told
         # that this one has no way back.
@@ -376,11 +459,17 @@ def _update_app(
     else:
         log.substep(f"Backup created: {backup.id}" if backup else "No existing app to backup")
 
-    source_manager = SourceManager(verbose=verbose)
     recorded_source = app.source if app else ""
     # Read before the checkout moves: what a monorepo or a stack goes back to.
     previous_commit = _serving_commit(source_manager, app, app_path)
-    if commit is not None:
+    if tag_commit is not None:
+        phase(2, PHASES, f"Checking out tag {tag}")
+        full = source_manager.checkout_commit(app_path, tag_commit)
+        log.substep(
+            f"Tag {tag} is commit {full[:7]}, detached: the next update without --tag "
+            "follows the tags or the branch again"
+        )
+    elif commit is not None:
         phase(2, PHASES, f"Checking out commit {commit}")
         full = source_manager.checkout_commit(app_path, commit)
         log.substep(
@@ -477,6 +566,7 @@ def _update_app(
         restarted=restarted,
         active=active,
         deployment_id=deployment_id,
+        **_hook_fields(result),
     )
 
 
@@ -487,6 +577,7 @@ def _update_release(
     source: str | None,
     branch: str | None,
     commit: str | None,
+    tag: str | None = None,
     package_manager: str,
     trigger: str,
     job_id: str | None,
@@ -507,6 +598,7 @@ def _update_release(
         commit: Deploy this commit instead of the head of the branch: the
             newest release built from it that is on disk and not active is
             activated, and otherwise it is built as a new release.
+        tag: Deploy the commit this tag points at, the same way.
         package_manager: Node package manager, or ``auto``.
         trigger: Who asked for the update.
         job_id: The background job driving this update, when there is one.
@@ -543,9 +635,11 @@ def _update_release(
             details="Redeploy it with the type it was created with.",
         )
 
-    if commit is not None and validate_source(fetch_from)[0] != "git":
+    if (commit is not None or tag is not None) and validate_source(fetch_from)[0] != "git":
         raise SourceError(
-            f"{app.domain} is not deployed from git; there is no commit {commit} to deploy",
+            f"{app.domain} is not deployed from git; there is no "
+            + (f"tag {tag}" if tag is not None else f"commit {commit}")
+            + " to deploy",
             details=f"Its source is {fetch_from}. Rebuild it from there: noust update {app.domain}",
         )
 
@@ -568,7 +662,8 @@ def _update_release(
 
     releases = ReleaseManager(app_path)
     active = releases.current()
-    if commit is not None:
+    wanted = tag or commit
+    if wanted is not None:
         # Only the release pipeline of BaseDeployer can be handed a staged
         # release; every type that supports releases is built on it.
         if not isinstance(deployer, BaseDeployer):
@@ -577,7 +672,23 @@ def _update_release(
                 details=f"Update {app.domain} from its branch instead: noust update {app.domain}",
             )
         source_manager = deployer.source_manager
-        full = _resolve_in_cache(source_manager, fetch_from, app_path, follow, commit)
+        if tag is not None:
+            full = _resolve_tag_in_cache(source_manager, fetch_from, app_path, follow, tag)
+            _refuse_older_tag(
+                app,
+                tag,
+                _deployed_tag(
+                    source_manager,
+                    app_path / REPO_CACHE_DIR,
+                    active.commit if active is not None else None,
+                    _followed_pattern(app),
+                    log,
+                ),
+            )
+            built_from = f"tag {tag} ({full[:7]})"
+        else:
+            full = _resolve_in_cache(source_manager, fetch_from, app_path, follow, wanted)
+            built_from = full[:7]
         # A release that failed its health gate when it was last activated
         # is still on disk; activating it again would serve what the gate
         # refused. Its commit is built afresh instead.
@@ -591,8 +702,11 @@ def _update_release(
             None,
         )
         if built is not None:
-            phase(2, RELEASE_PHASES, f"Activating release {built.id}, built from {full[:7]}")
-            activation = _activate_release(app, built.id, trigger=trigger, log=log)
+            phase(2, RELEASE_PHASES, f"Activating release {built.id}, built from {built_from}")
+            # update_app asked about the schema for this commit already.
+            activation = _activate_release(
+                app, built.id, trigger=trigger, log=log, schema_changed_ok=True
+            )
             return AppUpdate(
                 domain=app.domain,
                 app_type=app_type,
@@ -603,7 +717,7 @@ def _update_release(
                 active=True,
                 deployment_id=activation.deployment_id,
             )
-        phase(2, RELEASE_PHASES, f"Building commit {full[:7]} as a new release")
+        phase(2, RELEASE_PHASES, f"Building {built_from} as a new release")
         deployer.adopt_release(
             stage_release(
                 fetch_from,
@@ -635,7 +749,28 @@ def _update_release(
         restarted=restarted,
         active=True,
         deployment_id=getattr(deployer, "last_deployment_id", None),
+        **_hook_fields(result),
     )
+
+
+def _hook_fields(result: UpdateResult) -> dict[str, Any]:
+    """
+    Carry what an update's hooks did from the deployer's result to the caller's.
+
+    Args:
+        result: The deployer's result.
+
+    Returns:
+        The hooks that ran, whether the schema changed, and the warnings as
+        one text (None without any). ``getattr``: a duck-typed deployer's
+        result may predate them.
+    """
+    warnings = tuple(getattr(result, "warnings", ()) or ())
+    return {
+        "hooks": tuple(getattr(result, "hooks", ()) or ()),
+        "schema_changed": bool(getattr(result, "schema_changed", False)),
+        "warnings": "\n".join(warnings) or None,
+    }
 
 
 def branch_to_build(app: App, *, source_manager: SourceManager | None = None) -> str | None:
@@ -813,6 +948,233 @@ def _resolve_in_cache(
     if not (cache / ".git").is_dir():
         source_manager.sync_cache(source, cache, branch)
     return source_manager.resolve_commit(cache, commit)
+
+
+def _resolve_tag_in_cache(
+    source_manager: SourceManager, source: str, app_path: Path, branch: str | None, tag: str
+) -> str:
+    """
+    Name the commit a tag points at, from the repository cache of a release application.
+
+    The cache is cloned first when there is none yet; one that exists only
+    fetches the tag when it does not have it.
+
+    Args:
+        source_manager: Manager git goes through.
+        source: The application's git source.
+        app_path: The application directory.
+        branch: The branch the cache follows when it has to be cloned.
+        tag: A validated tag name.
+
+    Returns:
+        The full id of the commit the tag points at.
+
+    Raises:
+        SourceError: The remote has no such tag, or git failed.
+    """
+    cache = app_path / REPO_CACHE_DIR
+    if not (cache / ".git").is_dir():
+        source_manager.sync_cache(source, cache, branch)
+    return source_manager.resolve_tag(cache, tag)
+
+
+def _deployed_tag(
+    source_manager: SourceManager,
+    repository: Path,
+    live_commit: str | None,
+    pattern: str | None,
+    log: Logger,
+) -> str | None:
+    """
+    Name the newest tag among those the commit that is serving contains.
+
+    This is what "deployed" means for ordering: the clone only knows tags it
+    has fetched, and a deploy by tag fetches its tag, so an application that
+    has been deployed by tag knows where it is. One that never was knows
+    nothing and has nothing to go back past.
+
+    Args:
+        source_manager: Manager git goes through.
+        repository: The clone to ask: the checkout, or the release cache.
+        live_commit: The commit serving now, or None when it cannot be read.
+        pattern: Only tags matching this glob count; every tag when None.
+        log: Where a commit that cannot be asked about is noted.
+
+    Returns:
+        The tag, or None when none is known.
+    """
+    if not live_commit:
+        return None
+    try:
+        merged = source_manager.tags_merged_into(repository, live_commit)
+    except SourceError as exc:
+        # Not a commit id (a release of a source that is not git): nothing is
+        # known to be deployed, which allows the update rather than blocks it.
+        log.debug(f"Cannot list the tags of {live_commit}: {exc.message}")
+        return None
+    return newest_tag(merged, pattern)
+
+
+def _followed_pattern(app: App | None) -> str | None:
+    """
+    Read the tag pattern an application follows.
+
+    ``getattr`` because a duck-typed stand-in for a row (the tests' doubles)
+    predates tags and says nothing: it follows a branch.
+
+    Args:
+        app: The application's row, if it has one.
+
+    Returns:
+        The glob, or None when it follows a branch.
+    """
+    return getattr(app, "follow_tags", None) if app is not None else None
+
+
+def _refuse_older_tag(app: App | None, tag: str, deployed: str | None) -> None:
+    """
+    Refuse an update to a tag older than one already deployed.
+
+    A tag outside the pattern the application follows is not a step of that
+    series, so it is not ordered against it: the operator named it.
+
+    Args:
+        app: The application's row, if it has one.
+        tag: The tag about to be deployed.
+        deployed: The newest tag already deployed, or None.
+
+    Raises:
+        DeploymentError: ``tag`` is older than ``deployed``.
+    """
+    pattern = _followed_pattern(app)
+    if deployed is None or (pattern is not None and not tag_matches(pattern, tag)):
+        return
+    if compare_tags(tag, deployed) == -1:
+        domain = app.domain if app is not None else "DOMAIN"
+        raise DeploymentError(
+            f"{tag} is older than {deployed}, which is deployed",
+            details=f"An update never goes back. To return to an earlier version use "
+            f"'noust rollback {domain}', which asks first when the database changed; "
+            f"to rebuild one exact commit, 'noust update {domain} --commit SHA'.",
+        )
+
+
+def _tag_to_deploy(
+    domain: str,
+    tag: str | None,
+    *,
+    source: str | None,
+    branch: str | None,
+    commit: str | None,
+    verbose: bool = False,
+) -> str | None:
+    """
+    Decide the tag an update deploys, when the application follows tags.
+
+    An explicit tag stands. Otherwise an application that follows tags and is
+    given no commit, source or branch deploys the newest tag its remote has
+    that matches the pattern: the same answer the webhook gives when a release
+    is published, so "update" and "a release came out" never disagree.
+
+    Args:
+        domain: A validated domain.
+        tag: The tag asked for, or None.
+        source: A new source, which names what to fetch.
+        branch: A branch, which a tag-following application refuses.
+        commit: A commit, which names exactly what to deploy.
+        verbose: Verbosity of the manager that asks the remote.
+
+    Returns:
+        The tag to deploy, or None for an update that follows a branch.
+
+    Raises:
+        ValidationError: A branch was named for an application that follows tags.
+        SourceError: The remote has no tag matching the pattern, or cannot be read.
+    """
+    app = get_store().get_app(domain)
+    pattern = _followed_pattern(app)
+    if app is None or pattern is None:
+        return tag
+    if branch is not None:
+        raise ValidationError(
+            f"{domain} follows tags ({pattern}), so it has no branch to update from",
+            details=f"Stop following tags first: noust app follow-tags {domain} --off. "
+            f"To deploy one exact tag, noust update {domain} --tag TAG.",
+        )
+    if tag is not None or commit is not None or source:
+        return tag
+    if not app.source or validate_source(app.source)[0] != "git":
+        raise SourceError(
+            f"{domain} follows tags but is not deployed from git",
+            details=f"Stop following them: noust app follow-tags {domain} --off",
+        )
+    newest = newest_tag(SourceManager(verbose=verbose).remote_tags(app.source), pattern)
+    if newest is None:
+        raise SourceError(
+            f"The remote has no tag matching {pattern}",
+            details=f"Push a tag that does, or change what {domain} follows: "
+            f"noust app follow-tags {domain} PATTERN",
+        )
+    return newest
+
+
+def deployed_tag(app: App, *, source_manager: SourceManager | None = None) -> str | None:
+    """
+    Name the newest tag of what an application is serving, as its clone knows.
+
+    Reads the clone only (the checkout, or the release cache): no network, so
+    a webhook can ask before it queues anything.
+
+    Args:
+        app: The application's row.
+        source_manager: Reads the clone; a new one by default.
+
+    Returns:
+        The newest tag (matching the pattern the application follows, if it
+        follows one) among those the live commit contains; None when nothing
+        is known to be deployed.
+    """
+    manager = source_manager or SourceManager()
+    root = app_root(app)
+    if app.layout == RELEASES:
+        repository = root / REPO_CACHE_DIR
+        active = ReleaseManager(root).current()
+        live = active.commit if active is not None else None
+    else:
+        repository = root
+        if not (root / ".git").exists():
+            return None
+        live = _last_good_commit(get_store(), app.domain) or manager.get_repo_info(root).get(
+            "commit"
+        )
+    if not (repository / ".git").exists():
+        return None
+    return _deployed_tag(manager, repository, live, _followed_pattern(app), Logger())
+
+
+def why_tag_is_ignored(
+    app: App, tag: str, *, source_manager: SourceManager | None = None
+) -> str | None:
+    """
+    Say why a tag announced for an application must not be deployed, if so.
+
+    The decision a webhook makes before it queues an update, and the update
+    job makes again when it runs: the tag has to match what the application
+    follows, be a version, and be newer than what is deployed.
+
+    Args:
+        app: The application's row.
+        tag: The tag announced.
+        source_manager: Reads the clone; a new one by default.
+
+    Returns:
+        None when the tag should deploy; otherwise the reason, one sentence
+        naming the tags involved.
+    """
+    pattern = _followed_pattern(app)
+    if pattern is None:
+        return f"{app.domain} follows a branch, not tags"
+    return why_not_deploy(tag, pattern, deployed_tag(app, source_manager=source_manager))
 
 
 def _refetch_without_deleting(
@@ -1168,6 +1530,7 @@ def activate_release(
     trigger: str = DeploymentTrigger.CLI.value,
     logger: Logger | None = None,
     verbose: bool = False,
+    schema_changed_ok: bool = False,
 ) -> ReleaseActivation:
     """
     Make an existing release the one that serves: an instant rollback.
@@ -1191,12 +1554,16 @@ def activate_release(
         logger: Logger for the progress. Its output is captured into the
             history row's log when it is a :class:`CapturingLogger`.
         verbose: Verbosity of the default logger.
+        schema_changed_ok: The operator confirmed going back past
+            deployments that changed the database's schema.
 
     Returns:
         What was done.
 
     Raises:
         NoustError: The application is unknown.
+        SchemaChangedError: The release is older than deployments that
+            changed the schema, and that was not confirmed.
         DeploymentError: It is not on the release layout, the release does
             not exist or there is nothing earlier to go back to, or the
             release did not pass the health gate (the previous one is active
@@ -1210,13 +1577,20 @@ def activate_release(
     # this one re-points current and restarts.
     try:
         with app_lock(app.domain, "release activation"):
-            return _activate_release(app, release_id, trigger=trigger, log=log)
+            return _activate_release(
+                app, release_id, trigger=trigger, log=log, schema_changed_ok=schema_changed_ok
+            )
     finally:
         _forget_upstream(app.domain)
 
 
 def _activate_release(
-    app: App, release_id: str | None, *, trigger: str, log: Logger
+    app: App,
+    release_id: str | None,
+    *,
+    trigger: str,
+    log: Logger,
+    schema_changed_ok: bool = False,
 ) -> ReleaseActivation:
     """
     Activate a release of an application whose lock the caller holds.
@@ -1227,17 +1601,22 @@ def _activate_release(
             active one.
         trigger: Who asked, recorded in the history.
         log: Logger for the progress.
+        schema_changed_ok: Going back past a schema change was confirmed, or
+            the caller already asked.
 
     Returns:
         What was done.
 
     Raises:
+        SchemaChangedError: See :func:`activate_release`.
         DeploymentError: See :func:`activate_release`.
     """
     root = app_root(app)
     releases = ReleaseManager(root, logger=log)
     previous = releases.current()
     target = _activation_target(releases, previous, release_id)
+    if not schema_changed_ok and (previous is None or previous.id != target.id):
+        _confirm_release_schema(app, target, previous)
 
     if previous is not None and previous.id == target.id:
         log.info(f"Release {target.id} is already active; nothing to do")
@@ -1662,6 +2041,10 @@ def _ask_upstream(domain: str, branch: str | None, log: Logger) -> UpstreamState
     app = store.get_app(domain)
     if app is None:
         return None
+    if _followed_pattern(app):
+        # What it deploys is the newest tag, not the head of a branch, so the
+        # head says nothing about whether there is something new.
+        return None
     root = app_root(app)
     source: str | None
     try:
@@ -1874,6 +2257,174 @@ def rollback_availability(records: Sequence[DeploymentRecord]) -> dict[int, str 
     return answers
 
 
+#: How far back the history is read when asking what changed the schema:
+#: more than the store keeps per application, so it is all of it.
+_SCHEMA_HISTORY = 1000
+
+
+def schema_changed_error(domain: str, deployments: list[int], *, target: str) -> SchemaChangedError:
+    """
+    Say what going back would pass, and how to go on.
+
+    Args:
+        domain: The application.
+        deployments: The deployments that changed the schema, oldest first.
+        target: What is being gone back to, in words (``deployment 41``).
+
+    Returns:
+        The refusal, naming the deployments, the backup to restore and the
+        confirmation.
+    """
+    ids = ", ".join(str(number) for number in deployments)
+    many = len(deployments) > 1
+    return SchemaChangedError(
+        f"Going back to {target} of {domain} passes "
+        + (f"deployments {ids}, which" if many else f"deployment {ids}, which")
+        + " changed the database schema",
+        "Noust puts the code back, never the database: the older code runs against the schema "
+        + ("those deployments" if many else "that deployment")
+        + " left. Restore the database from the backup taken before "
+        + ("them" if many else "it")
+        + f" (noust backup list {domain}, then noust backup restore BACKUP_ID), or confirm "
+        "the older code works with the new schema: --schema-changed-ok on the command line, "
+        "schema_changed_ok in the API.",
+        deployments=deployments,
+    )
+
+
+def schema_changed_between(records: Sequence[DeploymentRecord]) -> dict[int, list[int]]:
+    """
+    Say, for each deployment, which later ones of its application changed the schema.
+
+    Going back to a deployment passes every one after it; those that changed
+    the database's schema are what the operator confirms first. The console
+    and the fleet show them before the button is pressed.
+
+    Args:
+        records: Deployments, of any applications.
+
+    Returns:
+        Deployment id to the ids of later deployments of the same application
+        that changed the schema, oldest first; empty when none did.
+    """
+    store = get_store()
+    histories: dict[str, list[DeploymentRecord]] = {}
+    answers: dict[int, list[int]] = {}
+    for record in records:
+        if record.id is None:
+            continue
+        if record.domain not in histories:
+            histories[record.domain] = [
+                row
+                for row in store.list_deployments(record.domain, limit=_SCHEMA_HISTORY)
+                if row.schema_changed and row.id is not None
+            ]
+        answers[record.id] = sorted(
+            row.id for row in histories[record.domain] if row.id is not None and row.id > record.id
+        )
+    return answers
+
+
+def require_schema_change_confirmed(
+    domain: str,
+    *,
+    target: str,
+    schema_changed_ok: bool,
+    after_id: int | None = None,
+    since: str | None = None,
+) -> list[int]:
+    """
+    Refuse going back past a schema change unless the operator said yes.
+
+    The one guard every way back shares (rule 4): a rollback to a
+    deployment, an activation of an older release, the rebuild of an earlier
+    commit and the restore of a backup's files.
+
+    Args:
+        domain: The application.
+        target: What is being gone back to, in words.
+        schema_changed_ok: The operator confirmed.
+        after_id: Only deployments after this one count; every one in the
+            history when None and ``since`` is None too.
+        since: Only deployments started after this ISO time count (a
+            backup's creation, which no deployment id marks).
+
+    Returns:
+        The deployments gone back past that changed the schema.
+
+    Raises:
+        SchemaChangedError: There are some, and it was not confirmed.
+    """
+    changed = sorted(
+        row.id
+        for row in get_store().list_deployments(domain, limit=_SCHEMA_HISTORY)
+        if row.schema_changed
+        and row.id is not None
+        and (after_id is None or row.id > after_id)
+        and (since is None or (row.started_at or "") > since)
+    )
+    if changed and not schema_changed_ok:
+        raise schema_changed_error(domain, changed, target=target)
+    return changed
+
+
+def _newest_deployment_of_commit(store: NoustStore, domain: str, commit: str) -> int | None:
+    """
+    Name the newest deployment that built a commit.
+
+    Args:
+        store: The store.
+        domain: The application.
+        commit: A commit id, full or abbreviated.
+
+    Returns:
+        Its id, or None when no deployment the history keeps built it (a
+        commit never deployed is going forward, not back).
+    """
+    for row in store.list_deployments(domain, limit=_SCHEMA_HISTORY):
+        recorded = row.git_commit or ""
+        if (
+            row.id is not None
+            and recorded
+            and (commit.startswith(recorded) or recorded.startswith(commit))
+        ):
+            return row.id
+    return None
+
+
+def _confirm_release_schema(app: App, target: Release, previous: Release | None) -> None:
+    """
+    Ask before activating a release older than deployments that changed the schema.
+
+    Args:
+        app: The application.
+        target: The release about to be activated.
+        previous: The release serving now.
+
+    Raises:
+        SchemaChangedError: Some did, and it was not confirmed.
+    """
+    built = next(
+        (
+            row.id
+            for row in get_store().list_deployments(app.domain, limit=_SCHEMA_HISTORY)
+            if row.release_id == target.id and row.id is not None
+        ),
+        None,
+    )
+    if built is None:
+        went_back = previous is not None and release_order_key(target.id) < release_order_key(
+            previous.id
+        )
+        if not went_back:
+            return
+        # Its deployment left the history: every change the history keeps
+        # came after it.
+    require_schema_change_confirmed(
+        app.domain, after_id=built, target=f"release {target.id}", schema_changed_ok=False
+    )
+
+
 def _goes_back_by_commit(app: App, record: DeploymentRecord) -> bool:
     """
     Tell whether going back to an in-place deployment rebuilds its commit.
@@ -1936,6 +2487,7 @@ def rollback_to_deployment(
     restore_env: bool = False,
     logger: Logger | None = None,
     verbose: bool = False,
+    schema_changed_ok: bool = False,
 ) -> DeploymentRollback:
     """
     Put back what one deployment of an application produced.
@@ -1961,12 +2513,16 @@ def rollback_to_deployment(
             too. Off by default: a secret rotated since must not come back.
         logger: Where the operation reports its progress.
         verbose: Verbosity of the managers.
+        schema_changed_ok: The operator confirmed going back past
+            deployments that changed the database's schema.
 
     Returns:
         What was done.
 
     Raises:
         NoustError: The deployment is not one of this application's.
+        SchemaChangedError: Later deployments changed the schema, and that
+            was not confirmed (see :func:`schema_changed_between`).
         DeploymentError: It cannot be gone back to (see
             :func:`rollback_availability`), its rebuild failed, or it did not
             pass the health gate.
@@ -1993,15 +2549,28 @@ def rollback_to_deployment(
             ),
         )
 
+    require_schema_change_confirmed(
+        domain,
+        after_id=deployment_id,
+        target=f"deployment {deployment_id}",
+        schema_changed_ok=schema_changed_ok,
+    )
+
     app = store.get_app(domain)
     if app is None:
         # rollback_availability read it a moment ago; a deletion since won.
         raise NoustError(
             f"Application not found: {domain}", details="Run 'noust list' to see what is deployed."
         )
+    # Asked above, for this deployment: what follows must not ask again.
     if app.layout == RELEASES and record.release_id is not None:
         activation = activate_release(
-            domain, record.release_id, trigger=trigger, logger=logger, verbose=verbose
+            domain,
+            record.release_id,
+            trigger=trigger,
+            logger=logger,
+            verbose=verbose,
+            schema_changed_ok=True,
         )
         return DeploymentRollback(
             domain=domain,
@@ -2020,6 +2589,7 @@ def rollback_to_deployment(
             logger=logger,
             verbose=verbose,
             rollback_of=deployment_id,
+            schema_changed_ok=True,
         )
         return DeploymentRollback(
             domain=domain,
@@ -2041,6 +2611,8 @@ def rollback_to_deployment(
             keep=_SNAPSHOT_KEEPS,
             app_type=app.app_type,
             gate=lambda: health_gate_for(app, store, manager.logger).restart_and_probe(),
+            # Asked above, for this deployment.
+            schema_changed_ok=True,
         )
     finally:
         _forget_upstream(domain)
@@ -2500,6 +3072,11 @@ def set_branch(
     require_server_role("Applications")
     store = get_store()
     app = _known_app(store, validate_domain(domain))
+    if branch is not None and _followed_pattern(app):
+        raise ValidationError(
+            f"{app.domain} follows tags ({_followed_pattern(app)}), so it has no branch to pin",
+            details=f"Stop following tags first: noust app follow-tags {app.domain} --off",
+        )
     commit: str | None = None
     wanted = validate_git_ref(branch) if branch is not None else None
     if wanted is not None:
@@ -2515,6 +3092,74 @@ def set_branch(
         details={"branch": wanted, "previous": previous, "commit": commit},
     )
     return BranchPin(domain=app.domain, branch=wanted, commit=commit, previous=previous)
+
+
+@dataclass(frozen=True)
+class TagFollow:
+    """
+    The tags an application deploys, after setting or clearing them.
+
+    Attributes:
+        domain: The application.
+        pattern: The glob it follows; None when it follows its branch.
+        previous: The pattern it followed before.
+    """
+
+    domain: str
+    pattern: str | None
+    previous: str | None
+
+
+def set_follow_tags(domain: str, pattern: str | None) -> TagFollow:
+    """
+    Make an application deploy the tags that match a pattern, or stop.
+
+    Following tags replaces following a branch: the webhook ignores pushes to
+    branches and deploys the tag a release or a tag push names, and an update
+    with no tag deploys the newest one matching. Nothing is fetched or rebuilt
+    now, and no network is asked: the next release, or the next update, deploys.
+
+    Args:
+        domain: The application's domain.
+        pattern: A glob over tag names such as ``v*``; None to follow a branch.
+
+    Returns:
+        The pattern now followed and the one before.
+
+    Raises:
+        NoustError: The application is unknown.
+        ValidationError: The pattern is not a tag glob, or a branch is pinned
+            (the two contradict).
+        SourceError: The application is not deployed from git.
+        AppBusyError: Another operation is running on the application.
+    """
+    from noust.core import audit
+
+    require_server_role("Applications")
+    store = get_store()
+    app = _known_app(store, validate_domain(domain))
+    if pattern is not None:
+        if not app.source or validate_source(app.source)[0] != "git":
+            raise SourceError(
+                f"{app.domain} is not deployed from git, so it has no tags to follow",
+                details="Only an application whose source is a git repository can follow tags.",
+            )
+        if store.get_branch_pin(app.domain):
+            raise ValidationError(
+                f"{app.domain} has a branch pinned, and an application follows a branch "
+                "or tags, not both",
+                details=f"Unpin it first: noust app branch {app.domain} --unpin",
+            )
+    previous = _followed_pattern(app)
+    # Refused while an update runs: it read what it follows already.
+    with app_lock(app.domain, "tag change"):
+        store.set_app_follow_tags(app.domain, pattern)
+    audit.record(
+        "apps.source",
+        target=f"app:{app.domain}",
+        details={"follow_tags": pattern, "previous": previous},
+    )
+    return TagFollow(domain=app.domain, pattern=pattern, previous=previous)
 
 
 def _known_app(store: NoustStore, domain: str) -> App:
@@ -2828,7 +3473,17 @@ def _delete_app(
         apache=ApacheManager(verbose=log.verbose),
         cert_manager=CertManager(verbose=log.verbose),
         delete_certificate=remove_certificate,
+        keep_operator_sites=True,
     )
+    for webserver in deletion.kept_operator:
+        # The application goes; what the operator wrote by hand is theirs to
+        # remove, and it may still serve something else or use the certificate.
+        warnings.append(
+            f"{domain} has a {webserver} site configuration Noust did not write; it is "
+            "left in place, and its certificate with it. Remove it by hand if nothing "
+            f"should answer on {domain} any more: noust site delete {domain}"
+        )
+        log.warning(warnings[-1])
 
     files_removed = False
     if remove_files and app_path.exists():
@@ -2849,6 +3504,13 @@ def _delete_app(
         store.delete_app(domain)
         # Deleting a preview directly: its record goes with it.
         store.delete_preview(domain)
+    if files_removed and app is not None and app.identity:
+        # Its own account goes with its files, and only then: a uid left on
+        # files would be handed to the next account created.
+        from noust.core.runner import get_runner
+        from noust.managers.app_identity import remove_account
+
+        remove_account(app.identity, get_runner(), log)
 
     return AppDeletion(
         domain=domain,

@@ -22,25 +22,39 @@ dependency's build script, say), so the trial copies the tracked files as they
 are in that tree - never ``node_modules`` or build output, never through a link
 - and names the uncommitted ones: they build today, and are lost to anyone who
 deploys the repository.
+
+From 3.2 the same trial is also Noust's own, once, before the update of an
+application still building as root (:func:`trial_before_update`): it tries
+what that update is about to build, and the update builds in the sandbox when
+the trial passed, as root as before when it did not.
 """
 
 from __future__ import annotations
 
+import sqlite3
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from noust.central import require_server_role
 from noust.core.applock import app_lock
 from noust.core.exceptions import NoustError, ValidationError
-from noust.core.fs import FileSystem, get_fs
+from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.logger import Logger
+from noust.core.runner import CommandRunner
 from noust.core.store import App, NoustStore, get_store
 from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.helpers.layout import RELEASES
 from noust.deployers.helpers.release_build import REPO_CACHE_DIR, StagedRelease
 from noust.deployers.releases import ReleaseManager
 from noust.managers.source_manager import SourceManager
+
+if TYPE_CHECKING:
+    from noust.core.notifications.context import NotificationContext
+    from noust.core.notifications.model import Notification
+    from noust.deployers.interface import AppDeployer
 
 
 @dataclass(frozen=True)
@@ -92,13 +106,18 @@ def uncommitted_warning(files: tuple[str, ...] | list[str]) -> str:
     )
 
 
-def current_commit(app: App, source_manager: SourceManager) -> tuple[str, Path]:
+def current_commit(
+    app: App, source_manager: SourceManager, staged: str | None = None
+) -> tuple[str, Path]:
     """
     Name the commit an application runs now, and the clone that has it.
 
     Args:
         app: Its row.
         source_manager: The source manager.
+        staged: On releases, the full commit an update has just staged into
+            the repository cache, to try instead of the active one: what the
+            update is about to build.
 
     Returns:
         The full commit id and the repository to export it from.
@@ -109,8 +128,10 @@ def current_commit(app: App, source_manager: SourceManager) -> tuple[str, Path]:
     """
     app_path = Path(app.app_path)
     if app.layout == RELEASES:
-        active = ReleaseManager(app_path).current()
         repository = app_path / REPO_CACHE_DIR
+        if staged is not None and (repository / ".git").is_dir():
+            return staged, repository
+        active = ReleaseManager(app_path).current()
         if active is None or active.commit is None or not (repository / ".git").is_dir():
             raise ValidationError(
                 f"{app.domain} has no active release built from git to try in the sandbox",
@@ -135,6 +156,9 @@ def run_trial(
     verbose: bool = False,
     store: NoustStore | None = None,
     fs: FileSystem | None = None,
+    commit: str | None = None,
+    make_deployer: Callable[[str], AppDeployer] | None = None,
+    automatic: bool = False,
 ) -> TrialResult:
     """
     Build an application's current commit in the sandbox, without activating it.
@@ -145,6 +169,11 @@ def run_trial(
         verbose: Verbosity of the deployer.
         store: The store; the process-wide one by default.
         fs: The filesystem; the process-wide one by default.
+        commit: On releases, the commit an update staged, tried instead of
+            the active release's.
+        make_deployer: Builds the deployer for the application's type; the
+            registry's by default. An update passes one like its own.
+        automatic: Noust runs it by itself before an update; recorded so.
 
     Returns:
         What happened, also recorded on the application.
@@ -177,7 +206,8 @@ def run_trial(
         )
 
     with app_lock(domain, "sandbox test"):
-        deployer = get_deployer(app.app_type or "auto", verbose=verbose)
+        build = make_deployer or (lambda app_type: get_deployer(app_type, verbose=verbose))
+        deployer = build(app.app_type or "auto")
         if not isinstance(deployer, (BaseDeployer, MonorepoDeployer)):
             raise ValidationError(
                 f"{domain} is a {app.app_type} application, whose builds do not run in the sandbox"
@@ -191,7 +221,11 @@ def run_trial(
             branch=app.branch,
         )
         deployer.logger = log  # type: ignore[assignment]
-        commit, repository = current_commit(app, deployer.source_manager)
+        commit, repository = (
+            current_commit(app, deployer.source_manager, commit)
+            if commit is not None
+            else current_commit(app, deployer.source_manager)
+        )
         source = FROM_COMMIT if app.layout == RELEASES else FROM_TREE
         if source == FROM_COMMIT:
             log.info(f"Trying commit {commit[:7]} of {domain} in the sandbox; nothing is activated")
@@ -220,13 +254,195 @@ def run_trial(
             detail = f"{exc.message}\n{exc.details}".strip() if exc.details else exc.message
             log.error(f"The trial build failed in the sandbox: {exc.message}")
             state = build_sandbox.record_trial(
-                domain, passed=False, commit=commit, detail=detail, store=store
+                domain,
+                passed=False,
+                commit=commit,
+                detail=detail,
+                store=store,
+                automatic=automatic,
             )
             return TrialResult(domain, False, commit, detail, state, source, uncommitted)
         finally:
             fs.remove_tree(scratch)
-    state = build_sandbox.record_trial(domain, passed=True, commit=commit, detail=None, store=store)
-    log.success(
-        f"{domain} builds in the sandbox; enable it with: noust app sandbox enable {domain}"
+    state = build_sandbox.record_trial(
+        domain, passed=True, commit=commit, detail=None, store=store, automatic=automatic
     )
+    if not automatic:
+        log.success(
+            f"{domain} builds in the sandbox; enable it with: noust app sandbox enable {domain}"
+        )
     return TrialResult(domain, True, commit, None, state, source, uncommitted)
+
+
+#: Who turns the sandbox on when a trial before an update passes.
+AUTOMATIC_ACTOR = "noust"
+
+
+def trial_before_update(
+    domain: str,
+    *,
+    store: NoustStore,
+    logger: Logger,
+    runner: CommandRunner,
+    commit: str | None,
+    make_deployer: Callable[[str], AppDeployer],
+    fs: FileSystem | None = None,
+) -> build_sandbox.SandboxState | None:
+    """
+    Try an application still building as root in the sandbox, before an update builds it.
+
+    The sandbox by default (3.2). Called by the update once the source it is
+    about to build is in place (pulled in place, staged on releases), so the
+    trial builds exactly that. A passing trial turns the sandbox on and the
+    update builds in it; a failing one is recorded, warned about and notified,
+    and the update builds as root exactly as it did. Never raises: whatever
+    goes wrong here, the update goes on as it would have.
+
+    Nothing is tried, and nothing changes, for an application whose regime is
+    not ``legacy`` (on already, or off by an operator's recorded decision),
+    one Noust already tried by itself, a type with nothing to build or that
+    builds in Docker, a Noust that is not root, a rehearsal, or a server where
+    the sandbox does not hold (containers, WSL without mount namespaces).
+
+    Args:
+        domain: The application.
+        store: The store.
+        logger: The update's logger; the trial's output goes into its log.
+        runner: The runner, for the build account and the self-test.
+        commit: On releases, the commit the update staged; None in place.
+        make_deployer: Builds a deployer like the update's own for a type.
+        fs: The filesystem; the process-wide one by default.
+
+    Returns:
+        The new regime when the sandbox was turned on; None otherwise.
+    """
+    if not build_sandbox.running_as_root() or is_rehearsal():
+        return None
+    app = store.get_app(domain)
+    if app is None or (app.app_type or "") in (
+        build_sandbox.UNSUPPORTED_TYPES | build_sandbox.NOTHING_TO_BUILD_TYPES
+    ):
+        return None
+    try:
+        state = build_sandbox.get_state(domain, store=store)
+    except (NoustError, sqlite3.Error) as exc:
+        logger.warning(
+            f"The build regime of {domain} could not be read ({exc}); building as before"
+        )
+        return None
+    if state.mode != build_sandbox.SandboxMode.LEGACY.value or state.auto_trial_at is not None:
+        return None
+    try:
+        build_sandbox.ensure_build_account(runner)
+        holds = build_sandbox.self_test(runner, fs)
+    except (NoustError, OSError) as exc:
+        logger.substep(f"The build sandbox could not be checked here ({exc}); building as before")
+        return None
+    if not holds.passed:
+        logger.substep(
+            "The build sandbox does not hold on this server, so this update builds as before"
+        )
+        return None
+
+    logger.info(
+        f"{domain} still builds as root; trying this build in the sandbox first, "
+        "where Noust 3.2 builds every application"
+    )
+    try:
+        result = run_trial(
+            domain,
+            logger=logger,
+            store=store,
+            fs=fs,
+            commit=commit,
+            make_deployer=make_deployer,
+            automatic=True,
+        )
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        # Nothing to try (not a git checkout, no active release) or nothing
+        # could be prepared: not the sandbox's verdict, so nothing is recorded
+        # and the next update tries again.
+        logger.substep(f"The sandbox could not be tried ({exc}); building as before")
+        return None
+    if result.passed:
+        enabled = build_sandbox.enable(domain, actor=AUTOMATIC_ACTOR, store=store)
+        logger.success(f"{domain} built in the sandbox; it builds there from now on")
+        return enabled
+    logger.warning(
+        f"{domain} did not build in the sandbox, so this update builds as root, as before. "
+        f"Fix the build and test again with: noust app sandbox test {domain}; or record why "
+        f"it needs root: noust app sandbox disable {domain} --reason '...'"
+    )
+    _notify_trial_failed(domain, result.commit, result.detail)
+    return None
+
+
+def _notify_trial_failed(domain: str, commit: str | None, detail: str | None) -> None:
+    """
+    Tell the operator an application's trial in the sandbox failed before its update.
+
+    Args:
+        domain: The application.
+        commit: The commit tried.
+        detail: The build's own output, verbatim.
+    """
+    from noust.core.notifier import notify_composed
+
+    notify_composed(
+        lambda ctx: compose_sandbox_trial_failed(domain, ctx, commit=commit, detail=detail)
+    )
+
+
+def compose_sandbox_trial_failed(
+    domain: str,
+    ctx: NotificationContext,
+    *,
+    commit: str | None = None,
+    detail: str | None = None,
+) -> Notification:
+    """
+    Compose the notification for a trial in the sandbox that failed before an update.
+
+    Under the ``deploy_failed`` switch, as a warning: a build failed, the
+    update itself went on as root.
+
+    Args:
+        domain: The application.
+        ctx: The context.
+        commit: The commit tried.
+        detail: The build's own output, verbatim.
+
+    Returns:
+        The notification.
+    """
+    from noust.core.messages import message
+    from noust.core.notifications.composers import build
+    from noust.core.notifications.excerpt import make_excerpt
+    from noust.core.notifications.model import Fact, State
+
+    code = "sandbox.trial_failed"
+    facts = []
+    if commit:
+        facts.append(Fact("commit", message("fact.commit", ctx.locale), commit[:7], True))
+    return build(
+        ctx,
+        kind="deploy_failed",
+        code=code,
+        state=State.WARNING,
+        subject=domain,
+        summary=message(f"summary.{code}", ctx.locale),
+        facts=facts,
+        command=Fact(
+            "inspect",
+            message("fact.inspect", ctx.locale),
+            f"noust app sandbox status {domain}",
+            True,
+        ),
+        excerpt=make_excerpt(
+            detail or "",
+            label=message("excerpt.output", ctx.locale),
+            pin_error=True,
+        ),
+        path=f"/apps/{domain}",
+        domain=domain,
+    )

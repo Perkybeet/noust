@@ -25,5 +25,10 @@ export function useMediaQuery(query: string): boolean {
 
 /** Tailwind's `sm` breakpoint, where the console's layouts change from phone to wider. */
 export const SM_UP = "(min-width: 40rem)";
+/**
+ * The operator asked for less motion. The global rule in `app.css` already stops every CSS
+ * animation; a component reads this too when it should not even mark something as moving.
+ */
+export const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 /** Tailwind's `lg` breakpoint, where the sidebar appears. */
 export const LG_UP = "(min-width: 64rem)";

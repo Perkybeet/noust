@@ -1,0 +1,12 @@
+services:
+  licitaciones-avisos:
+    build: .
+    container_name: licitaciones-avisos
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - licitaciones-data:/app/data
+    environment:
+      - DB_PATH=/app/data/licitaciones.db
+volumes:
+  licitaciones-data:

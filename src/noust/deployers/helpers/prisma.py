@@ -8,10 +8,31 @@ Handles detection and setup of Prisma in Node.js applications.
 """
 
 import json
+import shlex
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
+from noust.core.exceptions import DeploymentError
 from noust.core.logger import Logger
+from noust.deployers.helpers.hooks import prisma_applied_migrations
+
+
+@dataclass(frozen=True)
+class PrismaMigration:
+    """
+    What ``prisma migrate`` did.
+
+    Attributes:
+        command: What ran, as one line.
+        output: Its standard output and error, as it printed them.
+        applied: Whether it applied at least one migration, read from its
+            own words ("Applying migration" against "No pending migrations").
+    """
+
+    command: str
+    output: str
+    applied: bool
 
 
 class PrismaHelper:
@@ -98,20 +119,28 @@ class PrismaHelper:
 
         return True
 
-    def migrate(self, app_path: Path, deploy: bool = True) -> bool:
+    def migrate(self, app_path: Path, deploy: bool = True) -> PrismaMigration | None:
         """
         Run Prisma migrations.
+
+        A migration that fails aborts the deployment (3.2; before, it was a
+        warning): new code serving against the old schema is the failure the
+        deployment exists to prevent.
 
         Args:
             app_path: Path to the application directory.
             deploy: If True, run deploy (production), else run dev.
 
         Returns:
-            True if successful.
+            What ran and whether it applied anything; None when no runner is
+            configured and nothing ran.
+
+        Raises:
+            DeploymentError: The migration failed, with Prisma's own output.
         """
         if not self._run_command or not self._get_exec_command:
             self.logger.warning("Prisma migrate skipped: no command runner configured")
-            return True
+            return None
 
         if deploy:
             self.logger.substep("Running Prisma migrations (deploy)")
@@ -121,9 +150,18 @@ class PrismaHelper:
             command = self._get_exec_command("prisma migrate dev")
 
         result = self._run_command(command, cwd=app_path, timeout=300)
+        output = "\n".join(part for part in (result.stdout.strip(), result.stderr.strip()) if part)
+        line = shlex.join(command)
 
         if not result.success:
-            self.logger.warning(f"Prisma migrate failed: {result.stderr}")
-            return False
+            raise DeploymentError(
+                f"Prisma migrations failed ({line} exited with {result.exit_code})",
+                details="Nothing was switched over: what served before is still serving. Fix "
+                "the migration and deploy again, or declare the migration as a pre_deploy hook "
+                "in noust.yaml to run it your own way." + (f"\n\n{output}" if output else ""),
+                output=output,
+            )
 
-        return True
+        return PrismaMigration(
+            command=line, output=output, applied=prisma_applied_migrations(output)
+        )

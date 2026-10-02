@@ -1111,7 +1111,7 @@ def _migrate(domain: str, plan: MigrationPlan, *, trigger: str, log: Logger) -> 
                     "migration was undone.",
                 )
 
-            _hand_over([release, *created_dirs], log)
+            _hand_over([release, *created_dirs], log, app)
             unit_rewritten = _rewrite_unit(app, root, plan, services, store, journal, log)
             site_rewritten = _rewrite_site(app, root, webserver, store, journal, log)
 
@@ -1322,9 +1322,9 @@ def _share(
     return created
 
 
-def _hand_over(directories: Sequence[Path], log: Logger) -> None:
+def _hand_over(directories: Sequence[Path], log: Logger, app: App | None = None) -> None:
     """
-    Give the directories the migration created to the service account.
+    Give the directories the migration created to the account the application runs as.
 
     Only those: everything that moved keeps its owner and mode, which is
     what lets an undo put the tree back exactly.
@@ -1332,13 +1332,16 @@ def _hand_over(directories: Sequence[Path], log: Logger) -> None:
     Args:
         directories: What was created.
         log: Where a failed hand-over is reported.
+        app: The application, whose own account they go to when it has one.
     """
-    config = Config()
+    from noust.managers.app_identity import service_account
+
+    user, group = service_account(app, Config())
     for directory in directories:
         hand_over_file(
             directory,
-            user=config.service_user,
-            group=config.service_group,
+            user=user,
+            group=group,
             mode=_DIR_MODE,
             runner=get_runner(),
             logger=log,

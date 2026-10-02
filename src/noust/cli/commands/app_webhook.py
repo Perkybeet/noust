@@ -34,6 +34,7 @@ OUTCOME_WORDS = {
     webhook_deliveries.PREVIEW_STARTED: "preview started",
     webhook_deliveries.PING: "ping",
     webhook_deliveries.IGNORED_BRANCH: "ignored (other branch)",
+    webhook_deliveries.IGNORED_TAG: "ignored (tag)",
     webhook_deliveries.IGNORED_EVENT: "ignored (event)",
     webhook_deliveries.IGNORED_PULL_REQUEST: "ignored (pull request)",
     webhook_deliveries.DUPLICATE: "repeat (ignored)",

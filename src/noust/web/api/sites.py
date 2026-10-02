@@ -35,7 +35,13 @@ from noust.core.exceptions import ValidationError
 from noust.core.store import get_store
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.nginx_manager import NginxManager
-from noust.managers.webserver import WebServerManager, create_secured_site, delete_site_completely
+from noust.managers.webserver import (
+    SiteRow,
+    WebServerManager,
+    create_secured_site,
+    delete_site_completely,
+    list_all_sites,
+)
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
 
@@ -66,7 +72,8 @@ class SiteInfo(BaseModel):
     A configured virtual host.
 
     Attributes:
-        name: The domain, which is also the configuration file name.
+        name: The domain the site is addressed by: its application's, else
+            the file's name. What every ``/api/sites/{domain}`` route takes.
         webserver: Web server serving it.
         enabled: Whether the site is enabled.
         config_path: Absolute path of the configuration file.
@@ -74,6 +81,12 @@ class SiteInfo(BaseModel):
         server_names: Every name the configuration answers on - the primary
             domain and its aliases - read from the file's own directives.
             Empty when the configuration cannot be read.
+        noust_managed: Whether Noust wrote the file (it carries Noust's
+            marker). False for a site the operator wrote, which a deploy
+            never rewrites.
+        app: Domain of the application the file serves, when one records it.
+        site_name: The file in the sites directory, which is not the domain
+            for a site the operator named (``proggest`` for ``proggest.es``).
     """
 
     name: str
@@ -82,6 +95,9 @@ class SiteInfo(BaseModel):
     config_path: str
     has_ssl: bool = False
     server_names: list[str] = []
+    noust_managed: bool = False
+    app: str | None = None
+    site_name: str = ""
 
 
 class SiteListResponse(BaseModel):
@@ -220,19 +236,6 @@ def _manager_for(webserver: str | None) -> tuple[str, WebServerManager]:
     return name, manager_class(verbose=False)
 
 
-def _has_ssl(config: str) -> bool:
-    """
-    Report whether a rendered configuration serves TLS.
-
-    Args:
-        config: The configuration file content.
-
-    Returns:
-        True when it carries a certificate directive.
-    """
-    return "ssl_certificate" in config or "SSLCertificateFile" in config
-
-
 def _manager_cached(cache: _ManagerCache, webserver: str | None) -> WebServerManager:
     """
     Resolve a web server name to its manager, reusing one already built.
@@ -248,6 +251,44 @@ def _manager_cached(cache: _ManagerCache, webserver: str | None) -> WebServerMan
     return cache.setdefault(name, manager)
 
 
+def _site_info(row: SiteRow) -> SiteInfo:
+    """
+    Describe a site row the way the API reports it.
+
+    Args:
+        row: The row :func:`~noust.managers.webserver.list_all_sites` built.
+
+    Returns:
+        The API record; one translation, so the list and the detail of a site
+        cannot say different things.
+    """
+    return SiteInfo(
+        name=row.domain,
+        webserver=row.webserver,
+        enabled=row.enabled,
+        config_path=row.config_path,
+        has_ssl=row.has_ssl,
+        server_names=list(row.server_names),
+        noust_managed=row.noust_managed,
+        app=row.app,
+        site_name=row.name,
+    )
+
+
+def _site_rows(cache: _ManagerCache) -> list[SiteRow]:
+    """
+    List the sites of every web server this API can drive.
+
+    Args:
+        cache: Managers already resolved in this request.
+
+    Returns:
+        The rows of :func:`~noust.managers.webserver.list_all_sites`.
+    """
+    managers = [_manager_cached(cache, name) for name in MANAGERS]
+    return list_all_sites(managers=managers, store=get_store())
+
+
 @router.get("", response_model=SiteListResponse)
 def list_sites(session: Annotated[dict, Depends(get_current_session)]) -> SiteListResponse:
     """
@@ -257,37 +298,16 @@ def list_sites(session: Annotated[dict, Depends(get_current_session)]) -> SiteLi
         session: The authenticated session.
 
     Returns:
-        The sites known to the store, falling back to what the manager finds on
-        disk when the store has no record of them. Every entry carries the
-        server names its own configuration answers on.
+        The store's sites and the files in each web server's sites directory,
+        together: a site the operator wrote by hand is listed beside the ones
+        Noust wrote, and each entry says which it is (``noust_managed``) and
+        which application it serves (``app``). Every entry carries the server
+        names its own configuration answers on.
     """
     webserver, manager = _manager_for(None)
     cache: _ManagerCache = {webserver: manager}
 
-    sites = [
-        SiteInfo(
-            name=site.domain,
-            webserver=site.webserver,
-            enabled=site.enabled,
-            config_path=site.config_path or "",
-            has_ssl=site.ssl_enabled,
-            server_names=_manager_cached(cache, site.webserver).served_names(site.domain),
-        )
-        for site in get_store().list_sites()
-    ]
-
-    if not sites:
-        sites = [
-            SiteInfo(
-                name=entry.domain,
-                webserver=entry.webserver,
-                enabled=entry.enabled,
-                config_path=entry.config_path,
-                has_ssl=_has_ssl(manager.get_site_config(entry.domain) or ""),
-                server_names=manager.served_names(entry.domain),
-            )
-            for entry in manager.list_sites()
-        ]
+    sites = [_site_info(row) for row in _site_rows(cache)]
 
     return SiteListResponse(sites=sites, total=len(sites), webserver=webserver)
 
@@ -434,30 +454,19 @@ def get_site(domain: str, session: Annotated[dict, Depends(get_current_session)]
     """
     validated = strict_domain(domain)
 
-    site = get_store().get_site(validated)
-    if site:
-        _, site_manager = _manager_for(site.webserver)
-        return SiteInfo(
-            name=site.domain,
-            webserver=site.webserver,
-            enabled=site.enabled,
-            config_path=site.config_path or "",
-            has_ssl=site.ssl_enabled,
-            server_names=site_manager.served_names(site.domain),
-        )
-
     webserver, manager = _manager_for(None)
-    if not manager.site_exists(validated):
+    cache: _ManagerCache = {webserver: manager}
+
+    # The same rows the list is made of, so one site is described by one piece
+    # of code. When a domain is on both web servers, the detected one answers.
+    matches = [row for row in _site_rows(cache) if validated in (row.domain, row.name)]
+    row = next((row for row in matches if row.webserver == webserver), None) or (
+        matches[0] if matches else None
+    )
+    if row is None:
         raise HTTPException(status_code=404, detail=f"Site not found: {validated}")
 
-    return SiteInfo(
-        name=validated,
-        webserver=webserver,
-        enabled=manager.site_enabled(validated),
-        config_path=str(manager.config_path(validated)),
-        has_ssl=_has_ssl(manager.get_site_config(validated) or ""),
-        server_names=manager.served_names(validated),
-    )
+    return _site_info(row)
 
 
 @router.get("/{domain}/config", response_model=SiteConfigResponse)

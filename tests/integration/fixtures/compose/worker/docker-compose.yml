@@ -1,0 +1,5 @@
+# No ports: nothing here is for a browser, so Noust has no site to write and no port to probe.
+services:
+  worker:
+    build: .
+    restart: unless-stopped

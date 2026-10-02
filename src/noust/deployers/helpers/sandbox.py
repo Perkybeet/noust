@@ -45,10 +45,14 @@ application as root anyway is an explicit, audited per-application setting
 (:func:`disable`, with a reason).
 
 **Activation.** Applications and previews created from 3.1 build in the
-sandbox. Applications from before keep building as root, with the warning
-:func:`sandbox_warning` gives the health report and the application page,
-until an operator tests the sandbox with a build of the current commit
-(``noust app sandbox test``) and enables it. Previews build with the network,
+sandbox. From 3.2 an application from before tries the sandbox on its next
+update, before the update builds (the sandbox by default,
+:func:`noust.deployers.helpers.sandbox_trial.trial_before_update`): a passing
+trial turns it on, a failing one leaves the update building as root as it did,
+recorded, notified and warned about by :func:`sandbox_warning` (the health
+report, ``ens check`` and the application page), and not tried again by itself
+until an operator tests it (``noust app sandbox test``). An operator's
+recorded decision to build as root is left alone. Previews build with the network,
 as they always did, and without the production secrets their variables are a
 copy of (:func:`preview_build_variables`). The strict network profile is
 opt-in, per application (``noust app sandbox enable --network strict``), and
@@ -177,6 +181,8 @@ class SandboxState:
         tested_commit: The commit it built.
         test_passed: Whether it built.
         test_detail: Its output when it did not, verbatim.
+        auto_trial_at: When Noust tried it in the sandbox by itself, before
+            an update (3.2); None when it never did.
     """
 
     domain: str
@@ -190,6 +196,7 @@ class SandboxState:
     tested_commit: str | None = None
     test_passed: bool | None = None
     test_detail: str | None = None
+    auto_trial_at: str | None = None
 
     @property
     def enabled(self) -> bool:
@@ -221,6 +228,7 @@ _COLUMNS = (
     "tested_commit",
     "test_passed",
     "test_detail",
+    "auto_trial_at",
 )
 
 
@@ -314,6 +322,7 @@ def get_state(domain: str, *, store: NoustStore | None = None) -> SandboxState:
         tested_commit=values["tested_commit"],
         test_passed=None if values["test_passed"] is None else bool(values["test_passed"]),
         test_detail=values["test_detail"],
+        auto_trial_at=values["auto_trial_at"],
     )
 
 
@@ -604,6 +613,7 @@ def record_trial(
     commit: str | None,
     detail: str | None,
     store: NoustStore | None = None,
+    automatic: bool = False,
 ) -> SandboxState:
     """
     Record the outcome of a trial build.
@@ -614,19 +624,30 @@ def record_trial(
         commit: The commit it built.
         detail: The failure's output, verbatim; None when it passed.
         store: The store; the process-wide one by default.
+        automatic: Noust ran it by itself before an update (the sandbox by
+            default), which is then not repeated.
 
     Returns:
         The new state.
     """
-    state = _write(
-        store or get_store(),
+    now = _now()
+    fields: dict[str, Any] = {
+        "tested_at": now,
+        "tested_commit": commit,
+        "test_passed": int(passed),
+        "test_detail": detail,
+    }
+    if automatic:
+        fields["auto_trial_at"] = now
+    state = _write(store or get_store(), domain, **fields)
+    _audit(
         domain,
-        tested_at=_now(),
-        tested_commit=commit,
-        test_passed=int(passed),
-        test_detail=detail,
+        "ok" if passed else "failure",
+        action="trial",
+        commit=commit,
+        passed=passed,
+        automatic=automatic,
     )
-    _audit(domain, "ok" if passed else "failure", action="trial", commit=commit, passed=passed)
     return state
 
 
@@ -770,6 +791,18 @@ def sandbox_warning(app: App, state: SandboxState | None = None) -> str | None:
             f"{app.domain} builds as root by decision of {state.changed_by or 'an operator'} "
             f"({state.reason}). Turn the sandbox back on with: noust app sandbox enable "
             f"{app.domain}"
+        )
+    if state.mode == SandboxMode.LEGACY.value and state.test_passed is False:
+        first = next(
+            (line.strip() for line in (state.test_detail or "").splitlines() if line.strip()),
+            "no output",
+        )
+        when = "before an update" if state.auto_trial_at else "when it was tested"
+        return (
+            f"{app.domain} still builds as root: its trial build in the sandbox {when} "
+            f"({state.tested_at}) failed: {first}. Fix the build and test again with: "
+            f"noust app sandbox test {app.domain}; or, if it needs root, record why with: "
+            f"noust app sandbox disable {app.domain} --reason '...'"
         )
     if state.mode == SandboxMode.LEGACY.value:
         return (

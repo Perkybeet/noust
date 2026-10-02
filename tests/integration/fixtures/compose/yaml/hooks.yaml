@@ -1,0 +1,11 @@
+# Deploy hooks for the web stack, versioned with the code. pre_deploy runs inside the image the
+# deploy just built, before any container is recreated: a failing one stops the deploy with
+# what serves untouched. post_deploy runs once the new version answers.
+hooks:
+  pre_deploy:
+    - run: sh /app/scripts/migrate.sh
+      service: web
+      migrates: true
+  post_deploy:
+    - run: sh /app/scripts/purge.sh
+      service: web

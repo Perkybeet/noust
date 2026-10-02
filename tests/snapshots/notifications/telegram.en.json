@@ -360,6 +360,25 @@
       ]
     }
   },
+  "deploy.hook_failed": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Deployed with warnings</b> · shop.example.com\nThe new version is serving, but a post-deploy hook failed once it took over.\n\n<b>Server:</b> web-1\n<b>Command:</b> <code>./scripts/purge-cache.sh --all</code>\n<b>Inspect with:</b> <code>noust app hooks show shop.example.com</code>\n\n<i>What the system reported</i>\n<pre>curl: (22) The requested URL returned error: 403\npurge failed</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com/deployments/42"
+          }
+        ]
+      ]
+    }
+  },
   "restore.completed": {
     "chat_id": "-1001234567890",
     "text": "● <b>Restored</b> · shop.example.com\nThe application's files are back as the backup had them.\n\n<b>Server:</b> web-1\n<b>Backup:</b> <code>20260928-020000</code>",
@@ -886,6 +905,25 @@
           {
             "text": "Open in the console",
             "url": "https://console.example.com/n/web-1/databases/postgresql/shop"
+          }
+        ]
+      ]
+    }
+  },
+  "sandbox.trial_failed": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Sandbox build failed</b> · shop.example.com\nIts build was tried without root before the update and failed, so the update built as root, as it did before.\n\n<b>Server:</b> web-1\n<b>Commit:</b> <code>4f2a9c1</code>\n<b>Inspect with:</b> <code>noust app sandbox status shop.example.com</code>\n\n<i>What the system reported</i>\n<pre>npm ci failed (exit code 1)\nnpm ERR! code E401\nnpm ERR! 401 Unauthorized - GET https://npm.registry.local/@shop%2fui</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com"
           }
         ]
       ]

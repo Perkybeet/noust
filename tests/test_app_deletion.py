@@ -233,3 +233,25 @@ def test_a_kept_image_that_cannot_be_removed_is_a_warning(
 
     assert any("image is being used" in warning for warning in outcome.warnings)
     assert store.get_app(DOMAIN) is None
+
+
+def test_an_operator_s_site_is_kept_and_said_so(
+    tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch, runner: FakeRunner
+) -> None:
+    """Deleting an application is not ``noust site delete``: a site Noust did not write stays."""
+    asked: list[dict[str, Any]] = []
+
+    def delete_site(domain: str, **kwargs: Any) -> SiteDeletion:
+        asked.append(kwargs)
+        return SiteDeletion(domain=domain, kept_operator=("nginx",))
+
+    monkeypatch.setattr(lifecycle, "ServiceManager", lambda **kwargs: FakeUnits())
+    monkeypatch.setattr(lifecycle, "delete_site_completely", delete_site)
+    root = tmp_path / "apps" / "shop-example-com"
+    root.mkdir(parents=True)
+    store.create_app(App(domain=DOMAIN, app_type="nodejs", port=3000, app_path=str(root)))
+
+    outcome = lifecycle.delete_app(DOMAIN)
+
+    assert asked[0]["keep_operator_sites"] is True
+    assert any("noust site delete" in warning for warning in outcome.warnings)

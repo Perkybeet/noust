@@ -459,6 +459,57 @@ def with_resource_limits(unit: str, limits: ResourceLimits) -> str:
     return "\n".join(kept[:position] + limits.directives() + kept[position:])
 
 
+def with_account(unit: str, user: str, group: str) -> str:
+    """
+    Make an existing unit run as another account, leaving everything else as it is.
+
+    Edited rather than rendered again for the reason :func:`with_resource_limits`
+    gives. ``User=`` and ``Group=`` of ``[Service]`` are replaced where they
+    are; a missing one is added at the top of the section.
+
+    Args:
+        unit: The unit file.
+        user: The account.
+        group: Its group.
+
+    Returns:
+        The unit running as ``user:group``.
+
+    Raises:
+        ServiceError: The unit has no ``[Service]`` section.
+        ValidationError: A name that cannot be written into a unit.
+    """
+    user = validate_unit_value(user, field="User")
+    group = validate_unit_value(group, field="Group")
+    wanted = {"User": f"User={user}", "Group": f"Group={group}"}
+    lines = unit.split("\n")
+    section = ""
+    start: int | None = None
+    seen: set[str] = set()
+    out: list[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            section = stripped
+            if section == "[Service]":
+                start = len(out) + 1
+        elif section == "[Service]":
+            key = stripped.split("=", 1)[0].strip()
+            if key in wanted and "=" in stripped:
+                if key not in seen:
+                    out.append(wanted[key])
+                    seen.add(key)
+                continue
+        out.append(line)
+    if start is None:
+        raise ServiceError(
+            "The unit has no [Service] section to set its account in",
+            details="Check the unit with 'systemctl cat <name>'; Noust writes one in every unit.",
+        )
+    missing = [wanted[key] for key in ("User", "Group") if key not in seen]
+    return "\n".join(out[:start] + missing + out[start:])
+
+
 @dataclass(frozen=True)
 class UnitOwnership:
     """
@@ -1857,6 +1908,9 @@ class ServiceManager(BaseManager):
                 details=f"{info.reason}. Choose a different service name.",
             )
 
+        # An application with an account of its own (3.2) runs as it whoever
+        # writes its unit; everything else as the shared service account.
+        own = None if user else self._app_account(unit)
         ctx: dict[str, Any] = {
             "name": unit,
             "description": validate_unit_value(
@@ -1864,8 +1918,12 @@ class ServiceManager(BaseManager):
             ),
             "command": validate_unit_value(command, field="ExecStart"),
             "working_directory": validate_unit_value(working_directory, field="WorkingDirectory"),
-            "user": validate_unit_value(user or self.config.service_user, field="User"),
-            "group": validate_unit_value(group or self.config.service_group, field="Group"),
+            "user": validate_unit_value(
+                user or (own[0] if own else self.config.service_user), field="User"
+            ),
+            "group": validate_unit_value(
+                group or (own[1] if own else self.config.service_group), field="Group"
+            ),
             "environment": env,
             "environment_file": self._validated_environment_file(environment_file),
             "resource_limits": (limits or ResourceLimits()).validated().directives(),
@@ -2116,13 +2174,18 @@ class ServiceManager(BaseManager):
                 f"The instance directory must be absolute, got {colors_directory!r}",
                 details="systemd refuses a relative WorkingDirectory=.",
             )
+        own = None if user else self._app_account(unit.removesuffix("@"))
         context = {
             "name": unit.removesuffix("@"),
             "description": validate_unit_value(description, field="Description"),
             "command": validate_unit_value(command, field="ExecStart"),
             "colors_directory": validate_unit_value(colors_directory, field="WorkingDirectory"),
-            "user": validate_unit_value(user or self.config.service_user, field="User"),
-            "group": validate_unit_value(group or self.config.service_group, field="Group"),
+            "user": validate_unit_value(
+                user or (own[0] if own else self.config.service_user), field="User"
+            ),
+            "group": validate_unit_value(
+                group or (own[1] if own else self.config.service_group), field="Group"
+            ),
             "environment": validate_environment(dict(environment)),
             "environment_file": self._validated_environment_file(environment_file),
             "resource_limits": (limits or ResourceLimits()).validated().directives(),
@@ -2285,6 +2348,53 @@ class ServiceManager(BaseManager):
                 f"Could not read the current unit file: {info.path}", details=str(exc)
             ) from exc
         return self.update_config(name, with_resource_limits(body, limits))
+
+    def set_unit_account(self, name: str, user: str, group: str) -> str:
+        """
+        Make a unit Noust manages run as another account.
+
+        What moving an application to its own account rewrites; written
+        through :meth:`update_config`, so the ownership rules hold and systemd
+        is reloaded. The running process keeps its account until restarted.
+
+        Args:
+            name: Service name.
+            user: The account.
+            group: Its group.
+
+        Returns:
+            The previous unit body, to put back with :meth:`update_config`.
+
+        Raises:
+            ValidationError: A name that cannot be written into a unit.
+            ServiceError: The unit is not Noust's, or cannot be read or written.
+        """
+        info = self._require_managed(name, operation="change the account of")
+        try:
+            body = info.path.read_text()
+        except OSError as exc:
+            raise ServiceError(
+                f"Could not read the current unit file: {info.path}", details=str(exc)
+            ) from exc
+        return self.update_config(name, with_account(body, user, group))
+
+    def _app_account(self, name: str) -> tuple[str, str] | None:
+        """
+        Find the account of the application a unit is named after, when it has its own.
+
+        Args:
+            name: The unit's name, without ``.service`` or ``@``.
+
+        Returns:
+            ``(account, group)``, or None when no application of that name
+            has an account of its own.
+        """
+        from noust.managers.app_identity import service_account
+
+        for app in self._stored_apps():
+            if app.identity and app.app_path and Path(app.app_path).name == name:
+                return service_account(app, self.config)
+        return None
 
     def delete_service(self, name: str, *, keep_record: bool = False) -> None:
         """

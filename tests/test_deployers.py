@@ -72,6 +72,10 @@ class FakeWebServer:
     def site_exists(self, domain: str) -> bool:
         return domain in self.sites
 
+    def site_is_noust(self, domain: str) -> bool:
+        # Every site this double holds was written by a deployer.
+        return domain in self.sites
+
     def create_site(self, domain: str, template: str, context: dict[str, Any]) -> bool:
         self.sites[domain] = {"template": template, "context": context}
         return True

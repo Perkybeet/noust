@@ -1282,6 +1282,71 @@
       }
     ]
   },
+  "deploy.hook_failed": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Desplegado con avisos · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Desplegado con avisos · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La nueva versión está en servicio, pero un gancho posterior al despliegue ha fallado después del relevo."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Comando*\n`./scripts/purge-cache.sh --all`"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Revísalo con:* `noust app hooks show shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```curl: (22) The requested URL returned error: 403\npurge failed```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com/deployments/42|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "restore.completed": {
     "attachments": [
       {
@@ -2985,6 +3050,71 @@
               {
                 "type": "mrkdwn",
                 "text": "<https://console.example.com/n/web-1/databases/postgresql/shop|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "sandbox.trial_failed": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Compilación aislada fallida · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Compilación aislada fallida · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Se ha probado su compilación sin root antes de la actualización y ha fallado, así que la actualización ha compilado como root, igual que antes."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Commit*\n`4f2a9c1`"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Revísalo con:* `noust app sandbox status shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Lo que ha informado el sistema_\n```npm ci failed (exit code 1)\nnpm ERR! code E401\nnpm ERR! 401 Unauthorized - GET https://npm.registry.local/@shop%2fui```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com|Abrir en la consola>"
               },
               {
                 "type": "mrkdwn",

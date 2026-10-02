@@ -56,12 +56,22 @@ APPS_COLUMNS: list[tuple[str, str, str]] = [
 ]
 
 
+# The sandbox by default (3.2): when Noust itself tried an application still
+# building as root in the sandbox, before one of its updates. Set once, so a
+# trial that failed is not repeated (and re-notified) on every update; an
+# operator retries with `noust app sandbox test`.
+SANDBOX_SQL = ""
+SANDBOX_COLUMNS: list[tuple[str, str, str]] = [
+    ("build_sandbox", "auto_trial_at", "TEXT"),
+]
+
+
 def _fragments() -> list[str]:
-    return [HOOKS_SQL, DEPLOY_SQL, APPS_SQL]
+    return [HOOKS_SQL, DEPLOY_SQL, APPS_SQL, SANDBOX_SQL]
 
 
 def _columns() -> list[tuple[str, str, str]]:
-    return [*HOOKS_COLUMNS, *DEPLOY_COLUMNS, *APPS_COLUMNS]
+    return [*HOOKS_COLUMNS, *DEPLOY_COLUMNS, *APPS_COLUMNS, *SANDBOX_COLUMNS]
 
 
 def _existing_columns(cursor: sqlite3.Cursor, table: str) -> set[str]:

@@ -1,0 +1,6 @@
+# Deploy hooks, versioned with the code. pre_deploy runs in the new release before anything
+# is activated: the first one that fails stops the deploy with what is serving untouched.
+hooks:
+  pre_deploy:
+    - run: sh scripts/migrate.sh
+      migrates: true

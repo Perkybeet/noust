@@ -2410,6 +2410,8 @@ def _git_probes() -> tuple[tuple[object, ...], ...]:
         ("rev-parse", ...),
         ("status", ...),
         ("describe", ...),
+        # The tags a commit contains, which is what an update by tag compares.
+        ("tag", "--merged", "*"),
         ("log", "-1", "--format=%s"),
         ("log", "-1", "--format=%s", "*"),
         ("ls-remote", "--exit-code", "*"),

@@ -54,6 +54,8 @@ from noust.core.notifications.composers import (
 from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Fact, Notification, Section, State
 from noust.deployers.deploy_events import DeployEvent, DeployEventKind
+from noust.deployers.helpers.hooks import compose_deploy_hook_failed
+from noust.deployers.helpers.sandbox_trial import compose_sandbox_trial_failed
 
 FIXED_TS = datetime(2026, 9, 29, 10, 45, 51, tzinfo=timezone.utc)
 SERVER = "web-1"
@@ -225,6 +227,13 @@ def catalog(locale: Locale) -> dict[str, Notification]:
     """
     ctx = context(locale)
     out = _deploy_family(ctx)
+    out["deploy.hook_failed"] = compose_deploy_hook_failed(
+        "shop.example.com",
+        ctx,
+        command="./scripts/purge-cache.sh --all",
+        output="curl: (22) The requested URL returned error: 403\npurge failed",
+        deployment_id=42,
+    )
 
     restore_error = NoustError(
         "Restore failed",
@@ -437,6 +446,16 @@ def _integration_events(ctx: NotificationContext) -> dict[str, Notification]:
         "shop-20260929-104551.dump",
         'Restore failed\n  Details: pg_restore: error: relation "orders" already exists',
         ctx,
+    )
+    out["sandbox.trial_failed"] = compose_sandbox_trial_failed(
+        "shop.example.com",
+        ctx,
+        commit="4f2a9c1e8b7d6a5f4e3d2c1b0a9f8e7d6c5b4a39",
+        detail=(
+            "npm ci failed (exit code 1)\n"
+            "npm ERR! code E401\n"
+            "npm ERR! 401 Unauthorized - GET https://npm.registry.local/@shop%2fui"
+        ),
     )
     return out
 

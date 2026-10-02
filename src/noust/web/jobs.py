@@ -129,6 +129,8 @@ class JobType(str, Enum):
     ZERO_DOWNTIME = "zero_downtime"
     # A trial build of an application in the build sandbox (backlog 44).
     SANDBOX_TEST = "sandbox_test"
+    # Moving an application to its own system account (3.2).
+    IDENTITY_MIGRATE = "identity_migrate"
     # The server itself (backlog 29): package lists, updates, cleanup, swap.
     OS_REFRESH = "os_refresh"
     OS_UPDATE = "os_update"
@@ -1340,6 +1342,7 @@ def update_app_job(
     domain: str,
     commit: str | None = None,
     job_context: JobContext | None = None,
+    tag: str | None = None,
 ) -> dict[str, Any]:
     """
     Update a deployed application.
@@ -1349,6 +1352,7 @@ def update_app_job(
         commit: Deploy this commit instead of the head of the branch: the
             console's "rebuild this deployment".
         job_context: Injected by the job manager.
+        tag: Deploy the commit this tag points at.
 
     Returns:
         Summary of the update.
@@ -1356,7 +1360,7 @@ def update_app_job(
     Raises:
         NoustError: When the application is unknown or a step fails.
     """
-    return run_update(domain, trigger="panel", job_context=job_context, commit=commit)
+    return run_update(domain, trigger="panel", job_context=job_context, commit=commit, tag=tag)
 
 
 def run_update(
@@ -1365,6 +1369,7 @@ def run_update(
     trigger: str,
     job_context: JobContext | None,
     commit: str | None = None,
+    tag: str | None = None,
 ) -> dict[str, Any]:
     """
     Run the shared update sequence as a job, reporting its phases as progress.
@@ -1380,6 +1385,8 @@ def run_update(
         trigger: Who asked for it, recorded in the deployment history.
         job_context: Injected by the job manager.
         commit: Deploy this commit instead of the head of the branch.
+        tag: Deploy the commit this tag points at: what a webhook announcing a
+            release or a tag push asks for.
 
     Returns:
         Summary of the update.
@@ -1401,6 +1408,7 @@ def run_update(
     outcome = update_app(
         domain,
         commit=commit,
+        tag=tag,
         trigger=trigger,
         on_phase=lambda index, total, message: context.update(message, 100 * (index - 1) // total),
         on_step=context.log,
@@ -1409,6 +1417,8 @@ def run_update(
 
     if outcome.restarted and not outcome.active:
         context.log("Restarted, but the unit is not running: check its logs", "warning")
+    if outcome.warnings:
+        context.log(f"Deployed with warnings: {outcome.warnings}", "warning")
 
     context.update("Update complete", 100)
     return {
@@ -1416,9 +1426,14 @@ def run_update(
         "status": "updated",
         "trigger": trigger,
         "commit": commit,
+        "tag": tag,
         "restarted": list(outcome.restarted),
         "active": outcome.active,
         "deployment_id": outcome.deployment_id,
+        "prisma_updated": outcome.prisma_updated,
+        "hooks": list(outcome.hooks),
+        "schema_changed": outcome.schema_changed,
+        "warnings": outcome.warnings,
     }
 
 
@@ -1769,6 +1784,7 @@ def rollback_app_job(
     domain: str,
     backup_id: str | None = None,
     job_context: JobContext | None = None,
+    schema_changed_ok: bool = False,
 ) -> dict[str, Any]:
     """
     Roll an application back to a previous backup.
@@ -1777,12 +1793,15 @@ def rollback_app_job(
         domain: Domain of the application.
         backup_id: Backup to roll back to, defaulting to the most recent one.
         job_context: Injected by the job manager.
+        schema_changed_ok: The operator confirmed going back past
+            deployments that changed the database's schema.
 
     Returns:
         Summary of the rollback.
 
     Raises:
         RollbackError: When the rollback fails.
+        SchemaChangedError: Going back past a schema change was not confirmed.
     """
     from noust.managers.backup_manager import RollbackManager
 
@@ -1792,7 +1811,7 @@ def rollback_app_job(
     context.update("Rolling back", 20)
 
     if not RollbackManager(verbose=False).rollback(
-        domain=domain, backup_id=backup_id, trigger="panel"
+        domain=domain, backup_id=backup_id, trigger="panel", schema_changed_ok=schema_changed_ok
     ):
         raise RollbackError(
             f"Rollback failed for {domain}",
@@ -1807,6 +1826,7 @@ def rollback_deployment_job(
     domain: str,
     deployment_id: int,
     job_context: JobContext | None = None,
+    schema_changed_ok: bool = False,
 ) -> dict[str, Any]:
     """
     Put back what one deployment produced: its release, or its snapshot backup.
@@ -1815,6 +1835,8 @@ def rollback_deployment_job(
         domain: Domain of the application.
         deployment_id: The deployment to go back to.
         job_context: Injected by the job manager.
+        schema_changed_ok: The operator confirmed going back past deployments
+            that changed the database's schema.
 
     Returns:
         Summary of the rollback.
@@ -1829,7 +1851,12 @@ def rollback_deployment_job(
     context.set_metadata("deployment_id", deployment_id)
     context.update(f"Going back to deployment {deployment_id}", 20)
 
-    outcome = rollback_to_deployment(domain, deployment_id, trigger=DeploymentTrigger.PANEL.value)
+    outcome = rollback_to_deployment(
+        domain,
+        deployment_id,
+        trigger=DeploymentTrigger.PANEL.value,
+        schema_changed_ok=schema_changed_ok,
+    )
 
     context.update("Rollback complete", 100)
     return {

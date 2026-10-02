@@ -40,7 +40,7 @@ from typing import Any, ClassVar
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import DeploymentError, ValidationError
-from noust.core.fs import FileSystem
+from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Icons, Logger
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App
@@ -399,13 +399,19 @@ def pool_spec_for(
         tasks_max: Its task limit, which bounds the workers.
 
     Returns:
-        The pool.
+        The pool: one per account, run as the application's own when it has
+        one (3.2), the shared service account otherwise.
     """
+    from noust.managers.app_identity import service_account_for
+
+    user, group = service_account_for(domain, config)
     return PoolSpec(
         app_name=app_name,
         domain=domain,
-        user=config.service_user,
-        group=config.service_group,
+        user=user,
+        group=group,
+        # The socket stays the web server's to connect to, whoever the
+        # workers run as.
         listen_group=nginx_worker_group(config.service_group, root=FPM_ROOT),
         socket=installation.socket(app_name),
         root=app_path,
@@ -725,6 +731,57 @@ def set_pool_limits(
             details=evidence,
         )
     return installation.service
+
+
+def rewrite_pool(app: App, *, logger: Logger) -> tuple[Path, str]:
+    """
+    Write a PHP application's pool again from its row, keeping its limits and settings.
+
+    What moving an application to its own account rewrites (the pool's
+    ``user`` and ``group``, and its temporary directory's owner); the caller
+    restarts it behind its gate and puts the previous pool back when it does
+    not answer.
+
+    Args:
+        app: The application's row, as it is to run.
+        logger: Where FPM's reload is reported.
+
+    Returns:
+        The pool file and what it said before.
+
+    Raises:
+        DeploymentError: When PHP-FPM is not installed or the application is
+            stopped.
+        ValidationError: When FPM refuses the new pool (the previous one is
+            back).
+    """
+    fpm = fpm_service(logger=logger)
+    installation = fpm.installation
+    root = app_root(app)
+    path = installation.pool_file(root.name)
+    if not path.is_file():
+        raise DeploymentError(
+            f"{app.domain} is stopped; its pool is not running to be rewritten",
+            details=f"Start it first: noust start {app.domain}",
+        )
+    previous = path.read_text(encoding="utf-8")
+    env_file = env_file_for(app)
+    spec = pool_spec_for(
+        app_name=root.name,
+        domain=app.domain,
+        app_path=root,
+        env=EnvManager(verbose=False).read_env_file(env_file) if env_file.is_file() else {},
+        installation=installation,
+        config=Config(),
+        max_upload=load_php_settings(root).max_upload,
+        memory_max_mb=app.memory_max_mb,
+        tasks_max=app.tasks_max,
+    )
+    prepare_tmp_dir(
+        spec.tmp_dir, user=spec.user, group=spec.group, fs=get_fs(), runner=get_runner()
+    )
+    fpm.install_pool(path, render_pool(spec))
+    return path, previous
 
 
 class PhpFpmDeployer(BaseDeployer):

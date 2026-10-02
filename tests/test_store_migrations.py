@@ -616,6 +616,7 @@ class TestSchemaV13Migration:
             "backup_before_update",
             "identity",
         } <= set(_raw_columns(db_path, "apps"))
+        assert "auto_trial_at" in _raw_columns(db_path, "build_sandbox")
 
     def test_an_upgraded_app_keeps_its_row_with_the_v13_defaults(self, fresh, tmp_path):
         db_path = tmp_path / "noust.db"
