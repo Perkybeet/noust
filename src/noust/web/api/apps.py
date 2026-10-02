@@ -202,6 +202,9 @@ class AppInfo(BaseModel):
             upstream (blue/green); details at ``/zero-downtime``.
         preview_parent: The application it previews a pull request of, or
             None when it is not a preview.
+        backup_before_update: Whether an update of a Docker Compose stack
+            copies its databases first (on by default; meaningless for any
+            other kind). Set through ``PATCH .../backup-before-update``.
     """
 
     name: str
@@ -233,6 +236,7 @@ class AppInfo(BaseModel):
     last_deployment: LastDeploymentOut | None = None
     zero_downtime: bool = False
     preview_parent: str | None = None
+    backup_before_update: bool = True
 
 
 class AppListResponse(BaseModel):
@@ -664,6 +668,7 @@ def _to_app_info(
         last_deployment=_last_deployment_out(last_deployment),
         zero_downtime=bool(getattr(app, "zero_downtime", False)),
         preview_parent=getattr(app, "preview_parent", None),
+        backup_before_update=bool(app.backup_before_update),
     )
 
 

@@ -384,6 +384,20 @@ class CertificateTest(MappingRecord):
     path: str | None = None
 
 
+def _expiry_stamp(certificate: CertificateInfo) -> str:
+    """
+    The moment a certificate expires, without certbot's countdown.
+
+    Args:
+        certificate: One entry of ``certbot certificates``.
+
+    Returns:
+        The expiry as certbot prints it (``2026-11-30 10:00:00+00:00``),
+        without the ``(VALID: 60 days)`` that changes every day.
+    """
+    return certificate.expiry_full.split(" (", 1)[0].strip() or (certificate.expiry or "")
+
+
 class CertManager(BaseManager):
     """
     Manager for SSL certificates using Certbot.
@@ -1306,6 +1320,41 @@ class CertManager(BaseManager):
             )
 
         return True
+
+    def renew_and_report(
+        self, domain: str | None = None, force: bool = False
+    ) -> list[CertificateInfo] | None:
+        """
+        Renew certificates and say which ones were renewed.
+
+        certbot's own summary changes wording between versions; what a
+        renewal changes is the certificate, so the list is read before and
+        after and a certificate whose expiry moved is one that was renewed.
+
+        Args:
+            domain: Lineage to renew, or None for every certificate that is due.
+            force: Renew even when the certificate is not near expiry.
+
+        Returns:
+            Each certificate renewed, as certbot lists it now (its domains and
+            new expiry); empty when none was due; None when certbot's list
+            could not be read before or after, so which ones cannot be told.
+
+        Raises:
+            CertificateError: When the domain is invalid or renewal fails.
+        """
+        before = self._query_certificates()
+        self.renew(domain=domain, force=force)
+        after = self._query_certificates()
+        if before is None or after is None:
+            return None
+        expiries = {certificate.name: _expiry_stamp(certificate) for certificate in before}
+        return [
+            certificate
+            for certificate in after
+            if certificate.name in expiries
+            and _expiry_stamp(certificate) != expiries[certificate.name]
+        ]
 
     def revoke(self, domain: str, delete: bool = True) -> bool:
         """

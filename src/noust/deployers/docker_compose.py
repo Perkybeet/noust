@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal
 import yaml
 
 from noust.central import require_server_role
+from noust.core import audit
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import (
@@ -68,7 +69,11 @@ from noust.deployers.helpers.site import (
 )
 from noust.deployers.helpers.site import has_certificate as certificate_on_disk
 from noust.deployers.helpers.site import obtain_certificate as obtain_app_certificate
-from noust.deployers.helpers.target import claim_deploy_target
+from noust.deployers.helpers.target import (
+    DeployTarget,
+    claim_deploy_target,
+    fetch_into_target,
+)
 from noust.deployers.interface import AppDeployer, StepReporter, UpdateResult
 from noust.deployers.recorder import (
     CapturingLogger,
@@ -586,9 +591,16 @@ class DockerComposeDeployer(AppDeployer):
         # The commit the tree was on before the update pulled, which only the
         # caller that pulled can know: what a failed update checks out again.
         self.previous_commit: str | None = None
+        # What the guard refuses that the stack already ran with, proven by the
+        # compose file that served (a redeploy, an adoption): None until proven,
+        # and then nothing is accepted.
+        self._accepted_refusals: list[str] | None = None
         # The commit and branch of the attempt, kept when a failed update
         # puts the previous commit back, so its history row names what failed.
         self._attempted_git: tuple[str | None, str | None] | None = None
+        # Whether the update got as far as recording what serves: a refusal
+        # before that has the pulled tree to put back, and nothing else.
+        self._serving_recorded = False
 
         # Parsed state
         self.services: list[DockerComposeService] = []
@@ -977,6 +989,8 @@ class DockerComposeDeployer(AppDeployer):
         total_steps = 9
 
         try:
+            if not self._is_new_deployment:
+                self._remember_serving_privileges()
             self.logger.step(1, total_steps, "Fetching source code")
             self._fetch_source()
 
@@ -1079,32 +1093,14 @@ class DockerComposeDeployer(AppDeployer):
             # clean the directory and clone a second time.
             self.logger.substep(f"Source already present at {self.app_path}")
             return
-        source_manager = SourceManager(verbose=self.verbose, fs=self._fs)
         holds_files = self.app_path.is_dir() and any(self.app_path.iterdir())
-        if holds_files and not (self.app_path / ".git").exists():
-            raise DeploymentError(
-                f"{self.app_path} holds files and is not a git checkout",
-                details="A Compose stack keeps its data beside its code, so Noust does not "
-                "empty its directory to clone into it. Move what is there aside (or back it "
-                f"up: noust backup create {self.domain}) and deploy again.",
-            )
-        if holds_files:
-            source_manager.fetch(
-                source=self.source,
-                destination=self.app_path,
-                branch=self.branch,
-                clean=False,
-                force=True,
-            )
-            self.logger.substep(
-                f"Checkout at {self.app_path} brought up to date in place; files git does not "
-                "track (the .env, bind-mounted data) are kept"
-            )
-            return
-        source_manager.fetch(
-            source=self.source,
-            destination=self.app_path,
+        fetch_into_target(
+            DeployTarget(path=self.app_path, existed=self.app_path.exists(), had_files=holds_files),
+            SourceManager(verbose=self.verbose, fs=self._fs),
+            self.source,
             branch=self.branch,
+            domain=self.domain,
+            logger=self.logger,
         )
         self.logger.substep(f"Source fetched to {self.app_path}")
 
@@ -1134,8 +1130,14 @@ class DockerComposeDeployer(AppDeployer):
             "Expected one of: " + ", ".join(COMPOSE_FILE_PRIORITY),
         )
 
-    def _parse_compose_services(self) -> None:
-        """Parse Docker Compose file and extract service definitions."""
+    def _parse_compose_services(self, *, guard: bool = True) -> None:
+        """
+        Parse Docker Compose file and extract service definitions.
+
+        Args:
+            guard: Run the host privilege guard; an adoption runs it itself,
+                once it knows whether the stack runs as the file says.
+        """
         try:
             data = yaml.safe_load(self._compose_file_path().read_text(encoding="utf-8"))
         except yaml.YAMLError as e:
@@ -1143,7 +1145,8 @@ class DockerComposeDeployer(AppDeployer):
 
         if not data or "services" not in data:
             raise DeploymentError("No services defined in compose file")
-        self._check_host_privileges(data)
+        if guard:
+            self._check_host_privileges(data)
 
         self.services = parse_services(data)
 
@@ -1165,21 +1168,27 @@ class DockerComposeDeployer(AppDeployer):
             self.logger.debug(f"Compose file not inspected: {exc}")
             return None
 
-    def _check_host_privileges(self, document: Any, *, existing: bool = False) -> None:
+    def _check_host_privileges(
+        self, document: Any, *, accepted: Sequence[str] | None = None
+    ) -> None:
         """
         Refuse, or warn about, what in the compose file is root on this server.
 
-        ``privileged`` and a mount of the Docker socket are refused for a new
-        stack unless an operator recorded an exception for its domain (see
-        :mod:`noust.deployers.helpers.compose_guard`). A stack that already
-        runs is warned about and never stopped.
+        ``privileged`` and a mount of the Docker socket are refused unless an
+        operator recorded an exception for the domain (see
+        :mod:`noust.deployers.helpers.compose_guard`), or the stack is proven
+        to run with that very finding already: the compose file that served
+        had it. Only then is it warned about, so the stack is never stopped;
+        whatever a push, a redeploy or an adopted directory adds is refused.
 
         Args:
             document: The parsed compose file.
-            existing: The stack exists (an update), whatever the store says.
+            accepted: The findings the stack already ran with; None reads
+                :attr:`_accepted_refusals`, which is empty for a new stack.
 
         Raises:
-            DeploymentError: A new stack asks for root without an exception.
+            DeploymentError: The file asks for root the stack did not have,
+                without an exception.
         """
         from noust.deployers.helpers import sandbox as build_sandbox
         from noust.deployers.helpers.compose_guard import inspect_compose
@@ -1197,22 +1206,80 @@ class DockerComposeDeployer(AppDeployer):
                     f"{exception.allowed_by} ({exception.reason})"
                 )
             return
-        if existing or not self._is_new_deployment:
-            for problem in findings.refused:
+        already = set(accepted if accepted is not None else self._accepted_refusals or ())
+        added = [problem for problem in findings.refused if problem not in already]
+        for problem in findings.refused:
+            if problem in already:
                 self.logger.warning(
                     f"Compose: {problem}. A new stack is refused this without an exception; "
                     f"record why this one needs it: noust app sandbox compose-exception "
                     f"{self.domain} --reason '...'"
                 )
+        if not added:
             return
         raise DeploymentError(
             f"{self.domain}'s compose file asks for root on this server",
-            details="\n".join(f"- {problem}" for problem in findings.refused)
+            details="\n".join(f"- {problem}" for problem in added)
             + "\n\nA privileged container or the Docker socket is root on the host, and the "
-            "compose file comes from the repository. Remove them, or record why this stack "
-            f"needs them and deploy again: noust app sandbox compose-exception {self.domain} "
-            "--reason '...'",
+            "compose file comes from the repository; the stack did not run with this before. "
+            "Remove them, or record why this stack needs them and deploy again: noust app "
+            f"sandbox compose-exception {self.domain} --reason '...'",
         )
+
+    def _refusals_in(self, document: Any) -> list[str]:
+        """
+        List what the guard refuses in a compose document.
+
+        Args:
+            document: The parsed compose file, or None.
+
+        Returns:
+            The refused findings; empty for no document.
+        """
+        from noust.deployers.helpers.compose_guard import inspect_compose
+
+        return inspect_compose(document, self.app_path).refused if document is not None else []
+
+    def _remember_serving_privileges(self) -> None:
+        """
+        Record what the compose file on disk asks of the host, before a redeploy replaces it.
+
+        What served is the only proof a finding is not new; when the file
+        cannot be read, nothing is accepted.
+        """
+        try:
+            self._discover_compose_file()
+        except DeploymentError as exc:
+            self.logger.debug(f"No compose file served before this deploy: {exc.message}")
+            self._accepted_refusals = []
+            return
+        self._accepted_refusals = self._refusals_in(self._load_compose_document())
+        self.compose_path = None
+
+    def _check_update_privileges(self, document: Any) -> None:
+        """
+        Run the guard on an update, against the compose file of the commit that served.
+
+        Args:
+            document: The pulled compose file, parsed.
+
+        Raises:
+            DeploymentError: The pull added a refused finding.
+        """
+        accepted: list[str] = []
+        compose = self._compose_file_path()
+        if self.previous_commit and compose.is_relative_to(self.app_path):
+            served = self._source_manager().file_at_commit(
+                self.app_path, self.previous_commit, str(compose.relative_to(self.app_path))
+            )
+            if served is not None:
+                try:
+                    accepted = self._refusals_in(yaml.safe_load(served))
+                except yaml.YAMLError as exc:
+                    self.logger.debug(f"The compose file that served is not valid YAML: {exc}")
+        else:
+            self.logger.debug("No commit served before this update: nothing to compare with")
+        self._check_host_privileges(document, accepted=accepted)
 
     def _configure_environment(self) -> None:
         """Configure environment variables using EnvManager."""
@@ -1787,14 +1854,18 @@ class DockerComposeDeployer(AppDeployer):
             DockerError: When the build fails.
         """
         self._hooks = DeploymentHooks()
+        self._serving_recorded = False
         with recording(self._recorder(), git_branch=self.branch) as recorder:
             self._recording = recorder
             try:
                 result = self._update_steps(on_step or (lambda _message: None))
-            except DeploymentError as exc:
-                # Going back puts the previous containers in front of the
-                # new schema: the operator has to read that first.
-                self._hooks.say_schema_changed(exc)
+            except NoustError as exc:
+                if not self._serving_recorded:
+                    self._refused_after_the_pull(exc)
+                if isinstance(exc, DeploymentError):
+                    # Going back puts the previous containers in front of the
+                    # new schema: the operator has to read that first.
+                    self._hooks.say_schema_changed(exc)
                 raise
             finally:
                 # A failed update's row says what its hooks ran too: whether
@@ -1820,7 +1891,7 @@ class DockerComposeDeployer(AppDeployer):
         if self.compose_path is None:
             self._discover_compose_file()
         document = self._load_compose_document()
-        self._check_host_privileges(document, existing=True)
+        self._check_update_privileges(document)
         # What the gate and the hooks need to know of the stack: whether it
         # is a web at all, and which service a hook without one runs in.
         self.services = parse_services(document)
@@ -1903,6 +1974,7 @@ class DockerComposeDeployer(AppDeployer):
             recorded when Docker cannot say, which is reported: that update
             has nothing to go back to.
         """
+        self._serving_recorded = True
         listed = self._run(self._compose("ps", "-q"))
         if not listed.success:
             self.logger.warning(
@@ -2147,6 +2219,29 @@ class DockerComposeDeployer(AppDeployer):
         if result.success:
             return result.stdout.strip() or "(the containers printed nothing)"
         return f"(the containers' output could not be read: {result.stderr.strip()})"
+
+    def _refused_after_the_pull(self, exc: NoustError) -> None:
+        """
+        Put the tree back on the commit that serves, after a refusal before anything was built.
+
+        The caller pulled the new code before this deployer read it, so a
+        refusal of what it found (the compose file gone, an invalid
+        ``noust.yaml``, a relay that cannot be resolved, a host privilege)
+        would leave the tree on code that never ran, and the next start of the
+        unit would bring it up. It goes back exactly as after a failed build;
+        what cannot be put back is added to the error.
+
+        Args:
+            exc: The refusal, raised again by the caller.
+        """
+        if not self.previous_commit:
+            return
+        self._attempted_git = self._git_info()()
+        problems = self._put_back_files(
+            ServingState(project=None, commit=self.previous_commit, images=())
+        )
+        if problems:
+            exc.details = _paragraphs(exc.details, _problem_list(problems))
 
     def _put_back_files(self, serving: ServingState) -> list[str]:
         """
@@ -2402,28 +2497,45 @@ class HeadlessStackState:
     recorded_port: int | None
 
 
-def stack_deployer(app: App, *, runner: CommandRunner | None = None) -> DockerComposeDeployer:
+def stack_deployer(
+    app: App, *, runner: CommandRunner | None = None, verbose: bool = False
+) -> DockerComposeDeployer:
     """
     Build the deployer that addresses a deployed stack, from its store row.
 
-    The compose file is the one the unit names, as an update reads it, and
-    the project the one the store pins, if any.
+    The one way to reach a stack (rule 3): an update, a deletion, the copy of
+    its databases and every reader go through it, so an adopted stack is
+    found the same way by all of them. The compose file is the one the unit
+    names, as an update reads it; the project the one the store pins, if any
+    (read by :meth:`DockerComposeDeployer._compose`); the site the one the
+    store names (read by the web server's ``config_path``).
 
     Args:
         app: The application's row.
         runner: The runner docker goes through; the process-wide one by default.
+        verbose: Verbosity of the deployer.
 
     Returns:
         The deployer, configured enough to run ``docker compose`` against the
         stack; nothing is fetched or built.
+
+    Raises:
+        ServiceError: The unit exists and is not Noust's.
+        ValidationError: The compose file the unit names is not a relative
+            path inside the application.
     """
+    from noust.core.paths import LEGACY_UNIT_PREFIX
     from noust.deployers.helpers.layout import app_root
 
-    deployer = DockerComposeDeployer(runner=runner)
+    deployer = DockerComposeDeployer(verbose=verbose, runner=runner)
     deployer.app_path = app_root(app)
     deployer.domain = app.domain
     deployer.app_name = domain_to_app_name(app.domain)
-    unit = ServiceManager(runner=runner).get_service_config(deployer.app_name)
+    if deployer.app_path.name == LEGACY_UNIT_PREFIX + deployer.app_name:
+        # Deployed before 0.14.1: the directory and the unit both kept the
+        # prefix, and an update addresses it by that name.
+        deployer.app_name = deployer.app_path.name
+    unit = ServiceManager(verbose=verbose, runner=runner).get_service_config(deployer.app_name)
     named = compose_file_from_unit(unit)
     if named:
         deployer.compose_file = str(compose_file_option(named))
@@ -2526,6 +2638,68 @@ def site_retirable(domain: str, *, manager: NginxManager | None = None) -> bool:
     return all(record.domain == domain for record in get_store().list_domains(domain))
 
 
+@dataclass(frozen=True)
+class HeadlessCheck:
+    """
+    What ``noust app headless`` would find, asked before it is run.
+
+    Attributes:
+        domain: The application.
+        headless: It is a Compose stack whose compose file publishes no port.
+        recorded_port: The port the store records for it, or None.
+        site_retirable: Its site could be removed with it (see
+            :func:`site_retirable`).
+    """
+
+    domain: str
+    headless: bool
+    recorded_port: int | None
+    site_retirable: bool
+
+
+def headless_check(domain: str, *, manager: NginxManager | None = None) -> HeadlessCheck:
+    """
+    Say whether an application is a worker and what clearing its port would offer.
+
+    Reads the compose file and the site only: the console asks this before
+    offering :func:`make_headless`, and offers removing the site only when
+    the command would ask about it.
+
+    Args:
+        domain: The application.
+        manager: The nginx manager; a fresh one by default.
+
+    Returns:
+        The check. ``headless`` is False for anything but a Compose stack
+        whose compose file can be read and publishes no port.
+
+    Raises:
+        NoustError: Nothing is deployed at that domain.
+    """
+    app = get_store().get_app(domain)
+    if app is None:
+        raise NoustError(
+            f"Application not found: {domain}",
+            details="Run 'noust list' to see what is deployed.",
+        )
+    headless = False
+    if app.app_type == AppType.DOCKER_COMPOSE.value:
+        deployer = stack_deployer(app)
+        try:
+            deployer._discover_compose_file()
+        except DeploymentError:
+            pass
+        else:
+            services = parse_services(deployer._load_compose_document())
+            headless = bool(services) and is_headless_stack(services)
+    return HeadlessCheck(
+        domain=app.domain,
+        headless=headless,
+        recorded_port=app.port or None,
+        site_retirable=headless and site_retirable(app.domain, manager=manager),
+    )
+
+
 def make_headless(
     domain: str,
     *,
@@ -2614,6 +2788,11 @@ def make_headless(
             site = "removed" if outcome == "removed" else "kept_operator"
             if site == "removed":
                 logger.substep(f"Site of {domain} removed; its certificate is left as it was")
+        audit.record(
+            "apps.headless",
+            target=f"app:{app.domain}",
+            details={"previous_port": previous, "site": site},
+        )
         return HeadlessChange(domain=domain, previous_port=previous, site=site)
 
 

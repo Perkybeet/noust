@@ -39,8 +39,9 @@ DOMAIN = "app.example.com"
 #: The safety flags SourceManager puts between ``git`` and the subcommand.
 GIT = ("git", "-c", "protocol.ext.allow=never", "-c", "protocol.file.allow=never")
 
-#: And what it adds to the commands that read which commit a checkout is on.
-READ = (*GIT, "-c", "safe.directory=*")
+#: The commands that read which commit a checkout is on: the same, in a tree
+#: this process owns (another account's is read as that account).
+READ = GIT
 
 
 @pytest.fixture(autouse=True)

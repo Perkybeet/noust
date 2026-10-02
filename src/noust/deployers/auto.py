@@ -30,7 +30,11 @@ from noust.core.store import App, get_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers.layout import INPLACE, RELEASES, choose_layout
 from noust.deployers.helpers.release_build import discard_release, stage_release
-from noust.deployers.helpers.target import DeployTarget, claim_deploy_target
+from noust.deployers.helpers.target import (
+    DeployTarget,
+    claim_deploy_target,
+    fetch_into_target,
+)
 from noust.deployers.interface import AppDeployer
 from noust.deployers.registry import DeployerRegistry
 from noust.deployers.releases import ReleaseManager
@@ -199,7 +203,7 @@ class AutoDeployer(AppDeployer):
         if layout == RELEASES:
             return self._resolve_into_release(existing, target)
 
-        self.source_manager.fetch(self.source, self.app_path, branch=self.branch)
+        self._fetch_in_place(target)
         try:
             deployer_class = self._detect(self.app_path)
         except DeploymentError:
@@ -214,6 +218,30 @@ class AutoDeployer(AppDeployer):
         delegate.deploy_target = target
         self.delegate = delegate
         return delegate
+
+    def _fetch_in_place(self, target: DeployTarget) -> None:
+        """
+        Fetch the source into the application directory, to detect it there.
+
+        Detection runs before the deployer is chosen, so this is the fetch of
+        every in-place deploy without ``-t``: it goes through the one that
+        never empties a directory holding files (see
+        :func:`~noust.deployers.helpers.target.fetch_into_target`).
+
+        Args:
+            target: How the application directory was found.
+
+        Raises:
+            DeploymentError: The directory holds files and is not a git checkout.
+        """
+        fetch_into_target(
+            target,
+            self.source_manager,
+            self.source,
+            branch=self.branch,
+            domain=self.domain,
+            logger=self.logger,
+        )
 
     def _resolve_into_release(self, existing: App | None, target: DeployTarget) -> AppDeployer:
         """
@@ -269,12 +297,13 @@ class AutoDeployer(AppDeployer):
             self.logger.substep(f"{deployer_class.APP_TYPE} applications deploy in place")
             if target.had_files:
                 # Deployed over with --force: the in-place fetch below
-                # replaces what is there, as asked; the release goes first.
+                # updates a checkout there, and refuses anything else; the
+                # release goes first.
                 discard_release(staged.path, releases=releases, logger=self.logger)
             else:
                 target.undo_fetch(self.fs, self.logger)
             self._options["layout"] = INPLACE
-            self.source_manager.fetch(self.source, self.app_path, branch=self.branch)
+            self._fetch_in_place(target)
             delegate = deployer_class(verbose=self.verbose, fs=self._fs)
             delegate.configure(self.domain, self.source, **self._options)
             delegate.source_already_fetched = True

@@ -989,6 +989,9 @@ SEAM_EXEMPTIONS: dict[tuple[str, str], str] = {
     ("source_manager.py", "_create_symlink"): "archive member; gated by extract_archive",
     ("source_manager.py", "_create_hardlink"): "archive member; gated by extract_archive",
     ("source_manager.py", "download_archive"): "staging directory under /tmp, self-cleaning",
+    ("source_manager.py", "foreign_git_config"): (
+        "O_RDONLY|O_NOFOLLOW read of a checkout's .git/config; writes nothing"
+    ),
     ("source_manager.py", "copy_local"): (
         "shutil.copytree keeps the .git/node_modules ignore list the seam has no "
         "parameter for; gated by _writes_directly"

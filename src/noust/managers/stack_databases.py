@@ -1041,14 +1041,17 @@ def stack_host_for(
     """
     Build the deployer that talks to an application's stack, the way an update does.
 
-    The compose file is the one the deployment chose (named in its unit) or the
-    first of the default names; both are read through
-    :func:`~noust.deployers.docker_compose.compose_file_in`, which refuses a way
-    out of the application directory.
+    Built by :func:`~noust.deployers.docker_compose.stack_deployer` from the
+    store's row, so the unit, the compose file it names and the pinned project
+    are the ones an update uses: an adopted stack (``/opt/proggest``, unit
+    ``proggest-es``) is found here exactly as there. The compose file is read
+    through :func:`~noust.deployers.docker_compose.compose_file_in`, which
+    refuses a way out of the application directory.
 
     Args:
         domain: The application's domain.
-        app_path: The application's directory, as the store records it.
+        app_path: The application's directory, as the store records it; it
+            stands in for the row of an application that has none.
         runner: The runner every process goes through; the process-wide one
             when None.
         verbose: Verbosity of the deployer.
@@ -1059,33 +1062,17 @@ def stack_host_for(
     Raises:
         StackBackupError: There is no compose file in the application.
     """
-    from noust.deployers.docker_compose import (
-        COMPOSE_FILE_PRIORITY,
-        DockerComposeDeployer,
-        compose_file_from_unit,
-        compose_file_in,
-        compose_file_option,
-    )
-    from noust.managers.service_manager import ServiceManager
+    from noust.core.store import App
+    from noust.deployers.docker_compose import stack_deployer
 
-    deployer = DockerComposeDeployer(verbose=verbose, runner=runner)
-    deployer.domain = domain
-    deployer.app_path = app_path
-    deployer.app_name = app_path.name
+    app = get_store().get_app(domain)
+    if app is None or not app.app_path:
+        app = App(domain=domain, app_type=AppType.DOCKER_COMPOSE.value, app_path=str(app_path))
     try:
-        unit_text = ServiceManager(verbose=verbose, runner=runner).get_service_config(app_path.name)
-        named = compose_file_from_unit(unit_text)
-        candidates = [str(compose_file_option(named))] if named else list(COMPOSE_FILE_PRIORITY)
-        for candidate in candidates:
-            if (app_path / candidate).exists():
-                deployer.compose_path = compose_file_in(app_path, candidate)
-                deployer.compose_file = candidate if named else None
-                break
-        else:
-            raise DeploymentError(
-                "No Docker Compose file found",
-                f"Looked for {', '.join(candidates)} in {app_path}.",
-            )
+        deployer = stack_deployer(app, runner=runner, verbose=verbose)
+        # Where the caller is working, which a restore may name for itself.
+        deployer.app_path = app_path
+        deployer._discover_compose_file()
     except (DeploymentError, ServiceError, ValidationError) as exc:
         raise StackBackupError(
             f"Could not find the compose file of {domain}",

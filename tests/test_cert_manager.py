@@ -288,6 +288,92 @@ def test_renewal_of_everything_asks_for_no_lineage(certs: CertManager, runner: F
     assert runner.calls == [("certbot", "renew", "--non-interactive")]
 
 
+TWO_CERTIFICATES = CERTBOT_OUTPUT + (
+    "  Certificate Name: blog.tld\n"
+    "    Domains: blog.tld\n"
+    "    Expiry Date: 2026-12-20 08:00:00+00:00 (VALID: 80 days)\n"
+    "    Certificate Path: /etc/letsencrypt/live/blog.tld/fullchain.pem\n"
+    "    Private Key Path: /etc/letsencrypt/live/blog.tld/privkey.pem\n"
+)
+
+
+def _renews_shop(runner: FakeRunner) -> None:
+    """certbot lists both certificates; once ``renew`` ran, shop.tld's expiry moved."""
+    runner.script(["certbot", "certificates"], stdout=TWO_CERTIFICATES)
+    original = runner._lookup
+
+    def lookup(argv: Any, user: str | None = None, env: Any = None) -> Any:
+        if tuple(argv[:2]) == ("certbot", "renew"):
+            renewed = TWO_CERTIFICATES.replace(
+                "2026-11-30 10:00:00+00:00 (VALID: 60 days)",
+                "2027-01-29 10:00:00+00:00 (VALID: 89 days)",
+            )
+            runner.script(["certbot", "certificates"], stdout=renewed)
+        return original(argv, user, env)
+
+    runner._lookup = lookup  # type: ignore[method-assign]
+
+
+def test_renewing_everything_reports_each_certificate_renewed(
+    certs: CertManager, runner: FakeRunner
+) -> None:
+    """The ones whose expiry moved, with their domains and new expiry; not the others."""
+    _renews_shop(runner)
+
+    renewed = certs.renew_and_report()
+
+    assert renewed is not None
+    assert [(c.name, c.domains, c.expiry) for c in renewed] == [
+        ("shop.tld", ["shop.tld", "www.shop.tld"], "2027-01-29")
+    ]
+    assert ("certbot", "renew", "--non-interactive") in runner.calls
+
+
+def test_a_renewal_with_nothing_due_reports_none_renewed(
+    certs: CertManager, runner: FakeRunner
+) -> None:
+    runner.script(["certbot", "certificates"], stdout=TWO_CERTIFICATES)
+
+    assert certs.renew_and_report() == []
+
+
+def test_a_renewal_whose_certificates_cannot_be_listed_reports_it_cannot_tell(
+    certs: CertManager, runner: FakeRunner
+) -> None:
+    """Unknown is not "none": the renewal itself still ran and succeeded."""
+    runner.script(["certbot", "certificates"], stderr="locked", exit_code=1)
+
+    assert certs.renew_and_report() is None
+    assert ("certbot", "renew", "--non-interactive") in runner.calls
+
+
+def test_the_renewal_job_returns_what_was_renewed(
+    certs: CertManager, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The fleet's job drawer reads this result off the node's job."""
+    from noust.web import jobs
+
+    _renews_shop(runner)
+    monkeypatch.setattr("noust.managers.cert_manager.CertManager", lambda **kwargs: certs)
+    logged: list[str] = []
+    context = SimpleNamespace(
+        set_metadata=lambda *a: None,
+        update=lambda *a: None,
+        log=lambda message, *a, **k: logged.append(message),
+    )
+
+    result = jobs.cert_renew_job(job_context=context)  # type: ignore[arg-type]
+
+    assert result == {
+        "domain": None,
+        "status": "renewed",
+        "renewed": [
+            {"name": "shop.tld", "domains": ["shop.tld", "www.shop.tld"], "expiry": "2027-01-29"}
+        ],
+    }
+    assert any("shop.tld" in line and "2027-01-29" in line for line in logged)
+
+
 def test_a_failed_renewal_says_what_the_acme_server_reported(
     certs: CertManager, runner: FakeRunner
 ) -> None:

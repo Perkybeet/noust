@@ -35,6 +35,7 @@ from noust.core.store import App, NoustStore
 from noust.deployers import docker_compose
 from noust.deployers.docker_compose import (
     DockerComposeDeployer,
+    headless_check,
     headless_stack_state,
     make_headless,
 )
@@ -386,6 +387,77 @@ def test_headless_refuses_a_stack_that_publishes_a_port(
 
     app = store.get_app(DOMAIN)
     assert app is not None and app.port == 8080
+
+
+def test_headless_is_audited_with_what_it_did(
+    root: Path,
+    store: NoustStore,
+    docker: Docker,
+    web: NginxManager,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The CLI and the console both reach make_headless, so the record is made there."""
+    events: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        "noust.core.audit.record", lambda event, **kwargs: events.append({"event": event, **kwargs})
+    )
+    registered(store, root, port=3000)
+    noust_site(web)
+
+    make_headless(DOMAIN, remove_site=True, logger=_Log(), manager=web)
+
+    [event] = events
+    assert event["event"] == "apps.headless"
+    assert event["target"] == f"app:{DOMAIN}"
+    assert event["details"] == {"previous_port": 3000, "site": "removed"}
+
+
+def test_the_check_says_what_headless_would_do_without_doing_it(
+    root: Path, store: NoustStore, docker: Docker, web: NginxManager
+) -> None:
+    registered(store, root, port=3000)
+    noust_site(web)
+
+    check = headless_check(DOMAIN, manager=web)
+
+    assert (check.headless, check.recorded_port, check.site_retirable) == (True, 3000, True)
+    app = store.get_app(DOMAIN)
+    assert app is not None and app.port == 3000
+    # Nothing was asked of docker: the compose file alone says it publishes nothing.
+    assert not any(call[:1] == ("docker",) for call in docker.calls)
+
+
+def test_the_check_offers_no_site_removal_for_a_site_with_aliases(
+    root: Path, store: NoustStore, docker: Docker, web: NginxManager
+) -> None:
+    registered(store, root, port=3000)
+    store.add_domain(DOMAIN, "avisos.example.com", "alias")
+    noust_site(web)
+
+    check = headless_check(DOMAIN, manager=web)
+
+    assert (check.headless, check.site_retirable) == (True, False)
+
+
+def test_the_check_calls_a_stack_that_publishes_a_port_a_web(
+    tmp_path: Path, store: NoustStore, docker: Docker, web: NginxManager
+) -> None:
+    root = tmp_path / "apps" / "web"
+    root.mkdir(parents=True)
+    (root / "docker-compose.yml").write_text("services:\n  web:\n    ports: ['8080:80']\n")
+    registered(store, root, port=8080)
+
+    check = headless_check(DOMAIN, manager=web)
+
+    assert (check.headless, check.recorded_port) == (False, 8080)
+
+
+def test_the_check_of_another_kind_of_application_is_not_headless(
+    tmp_path: Path, store: NoustStore, docker: Docker, web: NginxManager
+) -> None:
+    store.create_app(App(domain=DOMAIN, app_type="nodejs", app_path=str(tmp_path), port=3000))
+
+    assert headless_check(DOMAIN, manager=web).headless is False
 
 
 def test_the_command_passes_the_choice_and_prints_json(monkeypatch: pytest.MonkeyPatch) -> None:

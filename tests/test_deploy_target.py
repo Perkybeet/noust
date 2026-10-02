@@ -32,6 +32,7 @@ from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore
 from noust.deployers.auto import AutoDeployer
 from noust.deployers.helpers.layout import INPLACE, RELEASES
+from noust.deployers.helpers.target import claim_deploy_target
 from noust.deployers.monorepo import MonorepoDeployer
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.releases import ReleaseManager
@@ -158,7 +159,7 @@ def test_a_monorepo_deploy_refuses_a_directory_that_is_not_empty(
 def test_forced_in_place_deploy_that_fails_leaves_the_directory(
     tmp_path: Path, root: Path, store: NoustStore, at: SimpleNamespace
 ) -> None:
-    """Asked to replace it, WASM replaces it; a failure never deletes the directory itself."""
+    """Asked to replace what is not a checkout, it refuses; it never deletes the directory."""
     operator_tree(root)
     at.runner.script(["npm", "ci"], stderr="npm ERR! network ETIMEDOUT", exit_code=1)
 
@@ -275,3 +276,98 @@ def test_a_forced_compose_deploy_that_fails_keeps_the_directory(
         deployer.deploy()
 
     assert root.is_dir(), "never removed: it held files before this deploy"
+
+
+# -- --force never empties a directory (review E2, item 4) ----------------------------
+
+
+class RecordingSource:
+    """A source manager that records each fetch and fetches nothing: the tree is there."""
+
+    def __init__(self) -> None:
+        self.fetches: list[dict[str, object]] = []
+
+    def fetch(self, source: str, destination: Path, **kwargs: object) -> bool:
+        self.fetches.append({"source": source, "destination": destination, **kwargs})
+        return True
+
+
+def compose_checkout(root: Path, *, git: bool = True) -> dict[str, str]:
+    """A Compose project's directory, its database's data bind-mounted from data/."""
+    files = {
+        "docker-compose.yml": "services:\n  db:\n    image: postgres:16\n"
+        "    volumes: ['./data:/var/lib/postgresql/data']\n",
+        "data/PG_VERSION": "16",
+        ".env": "POSTGRES_PASSWORD=dummy\n",
+    }
+    for relative, content in files.items():
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content)
+    if git:
+        (root / ".git").mkdir()
+    return files
+
+
+def test_a_forced_auto_detected_deploy_updates_a_checkout_in_place(
+    root: Path, store: NoustStore
+) -> None:
+    """Detection fetched with clean=True before the Compose deployer was chosen."""
+    files = compose_checkout(root)
+    auto = AutoDeployer()
+    auto.configure(DOMAIN, GIT_URL, app_path=root, layout=INPLACE, replace_existing=True)
+    source = RecordingSource()
+    auto.source_manager = source  # type: ignore[assignment]
+
+    delegate = auto.resolve()
+
+    (fetch,) = source.fetches
+    assert fetch["force"] is True and fetch["clean"] is False
+    assert delegate.APP_TYPE == "docker-compose"
+    assert_untouched(root, files)
+
+
+def test_a_forced_auto_detected_deploy_refuses_a_directory_that_is_not_a_checkout(
+    root: Path, store: NoustStore
+) -> None:
+    files = compose_checkout(root, git=False)
+    auto = AutoDeployer()
+    auto.configure(DOMAIN, GIT_URL, app_path=root, layout=INPLACE, replace_existing=True)
+    source = RecordingSource()
+    auto.source_manager = source  # type: ignore[assignment]
+
+    with pytest.raises(DeploymentError, match="not a git checkout") as refused:
+        auto.resolve()
+
+    assert "noust backup create" in (refused.value.details or "")
+    assert source.fetches == []
+    assert_untouched(root, files)
+
+
+def test_a_forced_in_place_deploy_refuses_a_directory_that_is_not_a_checkout(
+    tmp_path: Path, root: Path, store: NoustStore, at: SimpleNamespace
+) -> None:
+    files = operator_tree(root)
+    deployer = in_place_deployer(at, node_tree(tmp_path / "v2"), replace_existing=True)
+
+    with pytest.raises(DeploymentError, match="not a git checkout"):
+        deployer.deploy()
+
+    assert_untouched(root, files)
+
+
+def test_a_forced_monorepo_deploy_updates_a_checkout_in_place(
+    tmp_path: Path, root: Path, store: NoustStore
+) -> None:
+    files = compose_checkout(root)
+    deployer = MonorepoDeployer(verbose=False)
+    deployer.configure(DOMAIN, GIT_URL, app_path=root, replace_existing=True)
+    source = RecordingSource()
+    deployer.source_manager = source  # type: ignore[assignment]
+    deployer.deploy_target = claim_deploy_target(root, domain=DOMAIN, existing=None, replace=True)
+
+    deployer._fetch_source()
+
+    (fetch,) = source.fetches
+    assert fetch["force"] is True and fetch["clean"] is False
+    assert_untouched(root, files)

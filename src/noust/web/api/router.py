@@ -17,6 +17,7 @@ from noust.core.exceptions import FleetUnavailableError
 from noust.web.api.app_adopt import router as app_adopt_router
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.app_hooks import router as app_hooks_router
+from noust.web.api.app_stack import router as app_stack_router
 from noust.web.api.approvals import require_approval
 from noust.web.api.approvals import router as approvals_router
 from noust.web.api.apps import router as apps_router
@@ -157,6 +158,8 @@ router.include_router(previews_router, prefix="/apps", tags=["Previews"])
 router.include_router(sandbox_router, prefix="/apps", tags=["Applications"])
 # identity.py owns only paths under "/{domain}/identity".
 router.include_router(identity_router, prefix="/apps", tags=["Applications"])
+# app_stack.py owns only "/{domain}/backup-before-update" and "/{domain}/headless".
+router.include_router(app_stack_router, prefix="/apps", tags=["Applications"])
 # app_hooks.py owns only paths under "/{domain}/hooks".
 router.include_router(app_hooks_router, prefix="/apps", tags=["Applications"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.

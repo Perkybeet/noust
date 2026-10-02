@@ -414,6 +414,58 @@ def test_a_leftover_relay_whose_service_does_not_answer_changes_nothing(
     assert not [c for c in docker.compose_calls() if c[0] in ("run", "up")]
 
 
+def test_a_servers_file_naming_the_previous_own_port_is_not_a_relay(
+    root: Path, app: App, upstreams: Path, docker: Docker, store: NoustStore
+) -> None:
+    """Review E2: a service moved from 2999 to 3000 left no relay; its update goes on."""
+    write_servers(APP, "frontend", [3001])
+    write_servers(APP, "backend", [2999])
+    web = Web(noust_site())
+    deployer = deployer_for(root, docker, web)
+    # The new port has nobody yet: the old container still listens on 2999.
+    relay = engine(deployer, web, Probe(down={3000}))
+
+    assert relay.resolve_leftovers(["frontend", "backend"]) is None
+    assert relay.leftovers(["frontend", "backend"]) == []
+    assert compose_relay.leftover_relays(store, runner=docker) == []
+    # Left for the relay to move, once the new container answers.
+    assert read_servers(APP, "backend") == [2999]
+    assert web.loaded == []
+
+
+def test_a_servers_file_in_the_relay_range_is_a_relay_even_without_its_container(
+    root: Path, app: App, upstreams: Path, docker: Docker
+) -> None:
+    write_servers(APP, "backend", [25999])
+    web = Web(noust_site())
+    deployer = deployer_for(root, docker, web)
+
+    problem = engine(deployer, web, Probe(down={3000})).resolve_leftovers(["backend"])
+
+    assert problem is not None and "127.0.0.1:25999" in problem
+
+
+def test_an_update_refused_over_a_relay_puts_the_serving_commit_back(
+    root: Path, app: App, upstreams: Path, docker: Docker, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The pull already moved the tree: the refusal leaves it on the commit that serves."""
+    previous = "1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b"
+    write_servers(APP, "frontend", [3001])
+    write_servers(APP, "backend", [25999])
+    web = Web(noust_site())
+    deployer = deployer_for(root, docker, web)
+    deployer.previous_commit = previous
+    monkeypatch.setattr(docker_compose, "wait_until_healthy", lambda url, **kw: ":3000" not in url)
+    monkeypatch.setattr(
+        docker_compose.SourceManager, "resolve_commit", lambda self, path, commit: commit
+    )
+
+    with pytest.raises(DeploymentError):
+        deployer.update()
+
+    assert [c for c in docker.calls if c[0] == "git" and "checkout" in c and previous in c]
+
+
 def test_doctor_finds_a_relay_the_servers_file_still_names(
     root: Path, app: App, upstreams: Path, docker: Docker, store: NoustStore
 ) -> None:

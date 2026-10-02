@@ -333,7 +333,7 @@ def test_monorepos_and_stacks_go_back_through_their_own_deployer(
             return UpdateResult("pnpm", False, app_type == "docker-compose", "", restarted=())
 
     monkeypatch.setattr(lifecycle, "MonorepoDeployer", Deployer)
-    monkeypatch.setattr(lifecycle, "DockerComposeDeployer", Deployer)
+    monkeypatch.setattr(lifecycle, "stack_deployer", lambda app, verbose=False: Deployer())
 
     outcome = lifecycle.rollback_to_deployment(DOMAIN, target, trigger="panel")
 

@@ -472,7 +472,7 @@ class TestReadOnlyClassification:
                 "-c",
                 "protocol.file.allow=never",
                 "-c",
-                "safe.directory=*",
+                "safe.directory=/var/www/apps/x",
                 "config",
                 "--get",
                 "remote.origin.url",

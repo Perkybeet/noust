@@ -87,11 +87,7 @@ from noust.core.utils import domain_to_app_name
 from noust.deployers import deploy_events
 from noust.deployers.base import BaseDeployer
 from noust.deployers.bluegreen import BlueGreen, serving_port
-from noust.deployers.docker_compose import (
-    DockerComposeDeployer,
-    compose_file_from_unit,
-    compose_file_option,
-)
+from noust.deployers.docker_compose import DockerComposeDeployer, stack_deployer
 from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
 from noust.deployers.helpers.layout import INPLACE, RELEASES, app_root, env_file_in
@@ -312,6 +308,7 @@ def update_app(
                 logger=logger,
                 verbose=verbose,
                 gated=rollback_of is not None,
+                going_back=rollback_of is not None,
             )
             if branch is not None and not is_rehearsal():
                 _pin_after_update(get_store(), domain, branch)
@@ -341,6 +338,7 @@ def _update_app(
     logger: Logger | None,
     verbose: bool,
     gated: bool = False,
+    going_back: bool = False,
 ) -> AppUpdate:
     """
     Update an application whose lock the caller holds.
@@ -360,6 +358,9 @@ def _update_app(
         verbose: Verbosity of the managers and the deployer.
         gated: In place, restart behind the health gate and fail when it
             does not answer, instead of restarting and reporting.
+        going_back: This update is a rollback rebuilding an earlier
+            deployment's commit: its backup does not dump the stack's
+            databases, as no rollback does.
 
     Returns:
         What was done.
@@ -450,7 +451,13 @@ def _update_app(
     phase(1, PHASES, "Creating pre-update backup")
     try:
         backup = RollbackManager(verbose=verbose).create_pre_deploy_backup(
-            domain=domain, description="Pre-update automatic backup"
+            domain=domain,
+            description="Pre-update automatic backup",
+            # A rollback does not touch the databases, so their copy protects
+            # nothing it does, and a database that crash-loops (often the
+            # very reason to go back) would refuse its dump and block the
+            # rollback that fixes it. RollbackManager.rollback agrees.
+            stack_databases=not going_back,
         )
     except StackBackupError:
         # Without the copy of the stack's databases a migration cannot be undone,
@@ -515,8 +522,11 @@ def _update_app(
             domain, app_path, app_name, on_step, verbose, trigger, job_id, previous_commit
         )
     elif app_type == "docker-compose":
+        stack = app or App(
+            domain=domain, app_type=AppType.DOCKER_COMPOSE.value, app_path=str(app_path)
+        )
         result, deployment_id = _rebuild_compose(
-            domain, app_path, app_name, on_step, verbose, trigger, job_id, previous_commit
+            stack, on_step, verbose, trigger, job_id, previous_commit
         )
     else:
         deployer = get_deployer(app_type, verbose=verbose)
@@ -1301,9 +1311,7 @@ def _rebuild_monorepo(
 
 
 def _rebuild_compose(
-    domain: str,
-    app_path: Path,
-    app_name: str,
+    app: App,
     on_step: Callable[[str], None] | None,
     verbose: bool,
     trigger: str,
@@ -1313,14 +1321,8 @@ def _rebuild_compose(
     """
     Rebuild the images of a Docker Compose project and recreate its containers.
 
-    The deployer records what serves before building, and puts it back when
-    the new containers do not pass the health gate (see
-    :class:`~noust.deployers.docker_compose.ServingState`).
-
     Args:
-        domain: Domain of the application.
-        app_path: The application's directory.
-        app_name: Directory name of the application.
+        app: The application's row, or a stand-in for one that has none.
         on_step: Called as each step begins.
         verbose: Verbosity of the deployer.
         trigger: Who asked, recorded in the deployment history.
@@ -1331,15 +1333,9 @@ def _rebuild_compose(
     Returns:
         What the deployer did, and the deployment history row it wrote.
     """
-    deployer = DockerComposeDeployer(verbose=verbose)
-    deployer.app_path = app_path
-    deployer.app_name = app_name
-    deployer.domain = domain
-    unit_compose_file = compose_file_from_unit(
-        ServiceManager(verbose=verbose).get_service_config(app_name)
-    )
-    if unit_compose_file:
-        deployer.compose_file = str(compose_file_option(unit_compose_file))
+    # Built the one way a stack is reached: the unit's compose file, the
+    # pinned project and the site name an adopted stack records.
+    deployer = stack_deployer(app, verbose=verbose)
     deployer.trigger = trigger
     deployer.job_id = job_id
     deployer.previous_commit = previous_commit
@@ -3502,21 +3498,25 @@ def _delete_app(
     containers_stopped = False
     if app is not None and app.app_type == "docker-compose":
         phase(1, DELETE_PHASES, "Stopping Docker Compose containers")
-        deployer = DockerComposeDeployer(verbose=log.verbose)
-        deployer.app_path = app_path
-        deployer.app_name = app_path.name
-        deployer.domain = domain
+        deployer: DockerComposeDeployer | None = None
         try:
-            containers_stopped = deployer.down(remove_volumes=remove_volumes)
+            # The compose file its unit names and the project the store pins:
+            # an adopted stack is not taken down with a guess.
+            deployer = stack_deployer(app, verbose=log.verbose)
         except NoustError as exc:
             failed("The containers were not taken down", exc)
-        # Before the files go: the compose file names the services whose
-        # kept images are removed.
-        try:
-            for tag in deployer.remove_kept_images():
-                log.substep(f"Removed {tag}")
-        except NoustError as exc:
-            failed("The images kept for going back were not all removed", exc)
+        if deployer is not None:
+            try:
+                containers_stopped = deployer.down(remove_volumes=remove_volumes)
+            except NoustError as exc:
+                failed("The containers were not taken down", exc)
+            # Before the files go: the compose file names the services whose
+            # kept images are removed.
+            try:
+                for tag in deployer.remove_kept_images():
+                    log.substep(f"Removed {tag}")
+            except NoustError as exc:
+                failed("The images kept for going back were not all removed", exc)
     else:
         phase(1, DELETE_PHASES, "Stopping the application")
 

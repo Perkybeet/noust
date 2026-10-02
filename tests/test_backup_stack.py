@@ -355,16 +355,24 @@ class TestThePreUpdateBackupCarriesTheDatabase:
 
         assert backup is not None and backup.includes_databases is False
 
-    def test_a_stack_without_a_compose_file_has_nothing_to_dump_and_is_not_blocked(
-        self, rollbacks: RollbackManager, runner: StackRunner, app_path: Path
+    def test_a_stack_without_a_compose_file_is_a_copy_that_cannot_be_taken(
+        self,
+        rollbacks: RollbackManager,
+        manager: BackupManager,
+        runner: StackRunner,
+        app_path: Path,
     ) -> None:
-        # The update itself fails, saying there is no compose file, before it changes anything.
+        # Review E2: this used to warn and go on, which is how an adopted stack
+        # looked for under the wrong unit was updated with no copy (spec 1.8).
         (app_path / "docker-compose.prod.yml").unlink()
 
-        backup = rollbacks.create_pre_deploy_backup(DOMAIN)
+        with pytest.raises(StackBackupError) as raised:
+            rollbacks.create_pre_deploy_backup(DOMAIN)
 
-        assert backup is not None and backup.includes_databases is False
+        assert "No Docker Compose file found" in (raised.value.output or "")
+        assert "backup-before-update proggest.es off" in raised.value.details
         assert runner.docker_calls() == []
+        assert manager.list_backups(domain=DOMAIN) == []
 
     def test_a_rehearsal_dumps_nothing(
         self, rollbacks: RollbackManager, runner: StackRunner
@@ -577,6 +585,46 @@ class Reached(Exception):
     """The update went past its backup."""
 
 
+class TestAnAdoptedStackIsFoundTheWayAnUpdateFindsIt:
+    """
+    Review E2: the stack was looked for under a unit named after its directory,
+    and an adopted one (``/opt/proggest``, unit ``proggest-es``, ``--compose-file
+    deploy/compose.yml``) was not found: the update went on with no copy.
+    """
+
+    @pytest.fixture
+    def adopted(self, app_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch) -> Path:
+        (app_path / "deploy").mkdir()
+        (app_path / "docker-compose.prod.yml").rename(app_path / "deploy" / "compose.yml")
+        store.set_app_compose_project(DOMAIN, "proggest")
+        units = {"proggest-es": 'Environment="COMPOSE_FILE=deploy/compose.yml"\n'}
+        monkeypatch.setattr(
+            "noust.managers.service_manager.ServiceManager.get_service_config",
+            lambda self, name: units.get(name),
+        )
+        return app_path
+
+    def test_its_database_is_dumped_before_an_update(
+        self, rollbacks: RollbackManager, runner: StackRunner, adopted: Path
+    ) -> None:
+        backup = rollbacks.create_pre_deploy_backup(DOMAIN)
+
+        assert backup is not None and backup.includes_databases is True
+        (dump,) = runner.exec_calls()
+        assert str(adopted / "deploy" / "compose.yml") in dump
+        assert dump[dump.index("-p") + 1] == "proggest"
+
+    def test_a_stack_whose_compose_file_is_not_found_stops_the_update(
+        self, rollbacks: RollbackManager, runner: StackRunner, adopted: Path
+    ) -> None:
+        (adopted / "deploy" / "compose.yml").unlink()
+
+        with pytest.raises(StackBackupError) as raised:
+            rollbacks.create_pre_deploy_backup(DOMAIN)
+
+        assert "backup-before-update proggest.es off" in raised.value.details
+
+
 class TestAnUpdateDoesNotGoOnWithoutItsCopy:
     """
     Without the copy there is no way back from a migration, so the update stops
@@ -633,6 +681,60 @@ class TestAnUpdateDoesNotGoOnWithoutItsCopy:
         # Nothing wrong with the backup: the update proceeds to the pull, as in 3.1.
         with pytest.raises(Reached):
             update(None)
+
+
+class TestARollbackIsNotBlockedByTheStacksDatabases:
+    """
+    Review E2: going back to a deployment rebuilds its commit through the update,
+    whose pre-update backup used to dump the stack's databases and stop on a
+    failure: a crash-looping database then blocked the very rollback that fixes
+    it. Every rollback agrees with :meth:`RollbackManager.rollback`: no dump.
+    """
+
+    def test_rebuilding_an_earlier_commit_as_a_rollback_takes_no_dump(
+        self,
+        rollbacks: RollbackManager,
+        runner: StackRunner,
+        app_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from types import SimpleNamespace
+
+        from noust.deployers import lifecycle
+
+        (app_path / ".git").mkdir()
+        runner.broken["pg_dump"] = 'service "postgres" is restarting'
+        monkeypatch.setattr(lifecycle, "RollbackManager", lambda verbose=False: rollbacks)
+        monkeypatch.setattr(lifecycle, "SourceManager", lambda verbose=False: SimpleNamespace())
+
+        def go_past(*args: Any, **kwargs: Any) -> None:
+            raise Reached
+
+        monkeypatch.setattr(lifecycle, "_serving_commit", go_past)
+
+        with pytest.raises(Reached):
+            lifecycle.update_app(DOMAIN, commit="1a2b3c4", rollback_of=7, schema_changed_ok=True)
+
+        assert runner.exec_calls() == []
+
+    def test_the_same_commit_as_an_update_still_needs_its_copy(
+        self,
+        rollbacks: RollbackManager,
+        runner: StackRunner,
+        app_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from types import SimpleNamespace
+
+        from noust.deployers import lifecycle
+
+        (app_path / ".git").mkdir()
+        runner.broken["pg_dump"] = 'service "postgres" is restarting'
+        monkeypatch.setattr(lifecycle, "RollbackManager", lambda verbose=False: rollbacks)
+        monkeypatch.setattr(lifecycle, "SourceManager", lambda verbose=False: SimpleNamespace())
+
+        with pytest.raises(StackBackupError):
+            lifecycle.update_app(DOMAIN, commit="1a2b3c4", schema_changed_ok=True)
 
 
 class TestDatabasesOnlyIsCarefulWithTheApplication:

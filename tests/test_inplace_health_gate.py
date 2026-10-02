@@ -492,7 +492,7 @@ def test_rebuild_compose_passes_the_commit_that_served(
             seen["previous_commit"] = getattr(self, "previous_commit", "unset")
             return UpdateResult("docker compose", False, True, "")
 
-    monkeypatch.setattr(lifecycle, "DockerComposeDeployer", Deployer)
+    monkeypatch.setattr(lifecycle, "stack_deployer", lambda app, verbose=False: Deployer())
     monkeypatch.setattr(
         lifecycle,
         "RollbackManager",
@@ -520,6 +520,52 @@ def test_rebuild_compose_passes_the_commit_that_served(
 
     assert calls == ["repo_info", "pull"]
     assert seen["previous_commit"] == "abc1234"
+
+
+def test_an_adopted_stack_is_updated_with_the_compose_file_and_project_it_runs(
+    tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review E2 (rule 3): the update builds the stack's deployer the one way, stack_deployer."""
+    root = tmp_path / "opt" / "proggest"
+    compose_app(store, root)
+    (root / "deploy").mkdir()
+    (root / "docker-compose.yml").rename(root / "deploy" / "compose.yml")
+    store.set_app_compose_project(DOMAIN, "proggest")
+    units = {
+        lifecycle.domain_to_app_name(DOMAIN): 'Environment="COMPOSE_FILE=deploy/compose.yml"\n'
+    }
+    monkeypatch.setattr(
+        "noust.managers.service_manager.ServiceManager.get_service_config",
+        lambda self, name: units.get(name),
+    )
+    seen: dict[str, Any] = {}
+
+    def update(self: DockerComposeDeployer, on_step: Any = None) -> UpdateResult:
+        self._discover_compose_file()
+        seen["argv"] = self._compose("ps")
+        seen["unit"] = self.app_name
+        return UpdateResult("docker compose", False, True, "")
+
+    monkeypatch.setattr(DockerComposeDeployer, "update", update)
+    monkeypatch.setattr(
+        lifecycle,
+        "RollbackManager",
+        lambda verbose=False: SimpleNamespace(create_pre_deploy_backup=lambda **kw: None),
+    )
+    monkeypatch.setattr(
+        lifecycle,
+        "SourceManager",
+        lambda verbose=False: SimpleNamespace(
+            get_repo_info=lambda path: {"commit": "abc1234"},
+            pull=lambda path, branch=None: None,
+        ),
+    )
+
+    lifecycle.update_app(DOMAIN)
+
+    assert str(root / "deploy" / "compose.yml") in seen["argv"]
+    assert seen["argv"][seen["argv"].index("-p") + 1] == "proggest"
+    assert seen["unit"] == lifecycle.domain_to_app_name(DOMAIN)
 
 
 # ---------------------------------------------------------------------------

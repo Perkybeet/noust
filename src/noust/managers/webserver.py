@@ -56,6 +56,7 @@ from noust.core.config import (
     APACHE_SITES_ENABLED,
     NGINX_SITES_AVAILABLE,
     NGINX_SITES_ENABLED,
+    Config,
 )
 from noust.core.exceptions import (
     ApacheError,
@@ -1675,6 +1676,23 @@ class WebServerManager(BaseManager):
             DomainError: When the domain is not a valid domain name.
         """
         snippet_name = self.config_path(domain).name
+        kind: Kind = "nginx" if self.backend.name == "nginx" else "apache"
+        problems = unsafe_directives(
+            config_text,
+            kind,
+            conf_root=self.backend.sites_available.parent,
+            upstreams=self.backend.upstreams_dir,
+        )
+        if problems:
+            raise ValidationError(
+                f"The configuration for {domain} names files or code the web server is not "
+                "given to test",
+                details="\n".join(f"- {problem}" for problem in problems)
+                + f"\n\n{self.backend.name} reads these as root, and its errors quote them. "
+                "Include files from the web server's own directory (not keys, certificates or "
+                "password files), certificates from /etc/letsencrypt, /etc/ssl or /etc/pki, "
+                "and write logs under /var/log.",
+            )
         # A random directory name, created as a claim and private to root: a
         # predictable or pre-existing path in a world-writable directory is
         # one an attacker can plant links in, and this code runs as root.
@@ -1709,7 +1727,15 @@ class WebServerManager(BaseManager):
             if created and staging.exists():
                 self.fs.remove_tree(staging)
 
-        output = "\n".join(stream for stream in (result.stderr, result.stdout) if stream.strip())
+        root = self.backend.sites_available.parent
+        output = redact_echoed_files(
+            "\n".join(stream for stream in (result.stderr, result.stdout) if stream.strip()),
+            [
+                staging,
+                *(root / name for name in SITE_CONFIG_DIRS),
+                *((self.backend.upstreams_dir,) if self.backend.upstreams_dir else ()),
+            ],
+        )
         # The same tolerance test_config() needs: apache2ctl exits non-zero on
         # warnings it then describes as "Syntax OK".
         ok = result.success or "Syntax OK" in f"{result.stdout}\n{result.stderr}"
@@ -1915,6 +1941,319 @@ def _statements(container: Tree | Block) -> list[Statement]:
         if isinstance(child, Block) and child.raw_body is None:
             found.extend(_statements(child))
     return found
+
+
+#: File names whose contents are never shown nor fed to a test: private keys,
+#: certificates, password files and anything that calls itself a secret.
+SECRET_FILE_PATTERNS = ("*.key", "*.pem", "*.crt", "*htpasswd*", "*secret*", "*.p12", "*.pfx")
+
+#: Directories of a web server's configuration that sites are made of: an
+#: include there is configuration, and its text may be shown.
+SITE_CONFIG_DIRS = (
+    "sites-available",
+    "sites-enabled",
+    "snippets",
+    "conf.d",
+    "conf-available",
+    "conf-enabled",
+)
+
+
+def is_secret_file(path: str | Path) -> bool:
+    """
+    Tell whether a file's name says it holds a key, a certificate or a password.
+
+    Args:
+        path: The file.
+
+    Returns:
+        True when its name matches :data:`SECRET_FILE_PATTERNS`, case aside.
+    """
+    name = PurePosixPath(str(path)).name.lower()
+    return any(fnmatch.fnmatchcase(name, pattern) for pattern in SECRET_FILE_PATTERNS)
+
+
+# -- What a candidate configuration may make the web server read ----------
+#
+# ``nginx -t`` and ``apache2ctl -t`` run as root and read every file the
+# configuration names; an error in one quotes its first line back ("unknown
+# directive "root:$6$..." in /etc/shadow:1"). A candidate an operator tests
+# (``POST /config/test``, apps.operate) or saves is therefore checked first:
+# each directive that reads, creates or runs a file names one under the roots
+# its kind allows, and the few that run code are refused outright.
+
+#: Where certificates and keys may come from.
+_CERT_ROOTS = (Path("/etc/letsencrypt"), Path("/etc/ssl"), Path("/etc/pki"))
+
+#: Where logs may be written.
+_LOG_ROOTS = (Path("/var/log"),)
+
+#: Where GeoIP databases live.
+_DATA_ROOTS = (Path("/usr/share/GeoIP"), Path("/var/lib/GeoIP"))
+
+#: nginx directives that name a file, by what kind of file it is.
+_NGINX_FILE_DIRECTIVES: dict[str, str] = {
+    "include": "include",
+    "xslt_stylesheet": "include",
+    "auth_basic_user_file": "auth",
+    "access_log": "log",
+    "error_log": "log",
+    "geoip_country": "data",
+    "geoip_city": "data",
+    "geoip_org": "data",
+    **{
+        f"{prefix}_{name}": "cert"
+        for prefix in ("ssl", "proxy_ssl", "grpc_ssl", "uwsgi_ssl")
+        for name in (
+            "certificate",
+            "certificate_key",
+            "trusted_certificate",
+            "client_certificate",
+            "dhparam",
+            "crl",
+            "password_file",
+            "stapling_file",
+            "session_ticket_key",
+        )
+    },
+}
+
+#: Apache directives that name a file (lowercased), by kind.
+_APACHE_FILE_DIRECTIVES: dict[str, str] = {
+    "include": "include",
+    "includeoptional": "include",
+    "sslcertificatefile": "cert",
+    "sslcertificatekeyfile": "cert",
+    "sslcertificatechainfile": "cert",
+    "sslcacertificatefile": "cert",
+    "sslcacertificatepath": "cert",
+    "sslcarevocationfile": "cert",
+    "sslcarevocationpath": "cert",
+    "sslproxymachinecertificatefile": "cert",
+    "sslproxycacertificatefile": "cert",
+    "errorlog": "log",
+    "customlog": "log",
+    "transferlog": "log",
+    "forensiclog": "log",
+    "globallog": "log",
+    "authuserfile": "auth",
+    "authgroupfile": "auth",
+    "authdbmuserfile": "auth",
+    "authdbmgroupfile": "auth",
+}
+
+#: Directives (or name prefixes) that run code or load it as root.
+_NGINX_REFUSED = ("perl", "js_", "lua_", "load_module", "ssl_engine", "env")
+_APACHE_REFUSED = ("loadmodule", "loadfile", "sslpassphrasedialog", "lua", "perl", "wsgidaemon")
+
+
+def _roots_for(kind: str, conf_root: Path, upstreams: Path | None) -> tuple[Path, ...]:
+    """
+    The directories a file of one kind may be in.
+
+    Args:
+        kind: ``include``, ``cert``, ``log``, ``auth`` or ``data``.
+        conf_root: The web server's configuration directory.
+        upstreams: Noust's upstream files, when the backend has them.
+
+    Returns:
+        The roots.
+    """
+    if kind == "include":
+        return (conf_root, Path("/etc/letsencrypt"), *((upstreams,) if upstreams else ()))
+    if kind == "cert":
+        return (conf_root, *_CERT_ROOTS)
+    if kind == "log":
+        return (*_LOG_ROOTS, paths.log_dir(), Config().apps_directory)
+    if kind == "auth":
+        return (conf_root, Config().apps_directory)
+    return (conf_root, *_DATA_ROOTS)
+
+
+def _under(path: Path, roots: Sequence[Path]) -> bool:
+    for root in roots:
+        try:
+            real_root = root.resolve()
+        except OSError:
+            continue
+        if path == real_root or real_root in path.parents:
+            return True
+    return False
+
+
+def _file_problem(value: str, kind: str, conf_root: Path, roots: Sequence[Path]) -> str | None:
+    """
+    Say what is wrong with the file a directive names, if anything.
+
+    Args:
+        value: The path as written.
+        kind: Its kind (see :func:`_roots_for`).
+        conf_root: Where a relative path is resolved from.
+        roots: Where it may be.
+
+    Returns:
+        The problem, or None when the file may be named.
+    """
+    if kind == "log":
+        lowered = value.lower()
+        if lowered in ("off", "stderr", "/dev/null") or lowered.startswith(("syslog:", "memory:")):
+            return None
+        if value.startswith("|"):
+            return "pipes the log to a program"
+    if kind == "cert" and value.startswith("data:"):
+        return None
+    if value.startswith("engine:"):
+        return "loads an OpenSSL engine"
+    if "$" in value or "\x00" in value:
+        return "names a file through a variable, which cannot be checked"
+    written = Path(value) if value.startswith("/") else conf_root / value
+    directory, name = written.parent, written.name
+    if any(char in str(directory) for char in "*?["):
+        return "has a wildcard in a directory"
+    real_directory = directory.resolve()
+    if not _under(real_directory, roots):
+        return "is outside " + ", ".join(str(root) for root in roots)
+    if any(char in name for char in "*?["):
+        try:
+            entries = sorted(real_directory.iterdir())
+        except OSError:
+            entries = []
+        matched = [entry for entry in entries if include_glob_matches(entry.name, name)]
+    else:
+        matched = [real_directory / name]
+    for entry in matched:
+        real = entry.resolve()
+        if not _under(real, roots):
+            return f"reaches {real}, outside " + ", ".join(str(root) for root in roots)
+        if kind in ("include", "auth") and is_secret_file(real):
+            return f"reads {real}, a key, certificate or password file"
+    return None
+
+
+def _first_words(text: str) -> list[str]:
+    """
+    The first word of every statement in a text the analyzer cannot parse.
+
+    Args:
+        text: The candidate.
+
+    Returns:
+        The words, lowercased; over-inclusive on purpose.
+    """
+    return [
+        match.group(1).lower()
+        for match in re.finditer(r"(?:^|[;{}\n])\s*<?\s*([A-Za-z_][\w.-]*)", text)
+    ]
+
+
+def unsafe_directives(
+    text: str, kind: Kind, *, conf_root: Path, upstreams: Path | None = None
+) -> list[str]:
+    """
+    List what in a candidate configuration would make the web server read, write or run a file it should not.
+
+    Args:
+        text: The candidate.
+        kind: ``nginx`` or ``apache``.
+        conf_root: The web server's configuration directory.
+        upstreams: Noust's upstream files directory, when there is one.
+
+    Returns:
+        One line per problem, naming the directive and its line; empty when
+        the candidate may be given to the web server.
+    """
+    files = _NGINX_FILE_DIRECTIVES if kind == "nginx" else _APACHE_FILE_DIRECTIVES
+    refused = _NGINX_REFUSED if kind == "nginx" else _APACHE_REFUSED
+
+    def runs_code(name: str) -> bool:
+        return name.startswith(refused) or "_by_lua" in name
+
+    try:
+        tree = parse_site(text, kind)
+    except ParseError as exc:
+        words = _first_words(text)
+        if any(word in files or runs_code(word) for word in words):
+            return [
+                "The configuration does not parse here, and it names files or code: "
+                f"{exc.message} (line {exc.line}); fix the syntax first"
+            ]
+        return []
+    problems: list[str] = []
+    for node in _statements(tree):
+        name = node.name.value.lower().lstrip("<")
+        values = [arg.word.value for arg in node.args]
+        where = f"line {node.name.line}"
+        if runs_code(name):
+            problems.append(f"{node.name.value} ({where}) runs or loads code as root")
+            continue
+        if name == "ssl_conf_command" and any("/" in value for value in values):
+            problems.append(f"{node.name.value} ({where}) names a file")
+            continue
+        if name == "rewritemap" and len(values) >= 2:
+            source = values[1].lower()
+            if source.startswith(("prg:", "dbd:", "fastdbd:")):
+                problems.append(f"{node.name.value} ({where}) runs a program or a query")
+                continue
+            if ":" in source:
+                path = values[1].split(":", 1)[1]
+                found = _file_problem(
+                    path, "auth", conf_root, _roots_for("auth", conf_root, upstreams)
+                )
+                if found:
+                    problems.append(f"{node.name.value} {path} ({where}) {found}")
+            continue
+        file_kind = files.get(name)
+        if file_kind is None or not values:
+            continue
+        value = values[0]
+        roots = _roots_for(file_kind, conf_root, upstreams)
+        found = _file_problem(value, file_kind, conf_root, roots)
+        if found:
+            problems.append(f"{node.name.value} {value} ({where}) {found}")
+    return problems
+
+
+#: A line of web server output that names a file and a line in it.
+_NAMES_A_FILE = re.compile(r"(?:\bin|\bof) (/[^\s:]+)(?::\d+)?")
+
+#: Quoted text in such a line: what the server read from the file.
+_QUOTED = re.compile(r"\"[^\"]*\"|'[^']*'")
+
+
+def redact_echoed_files(output: str, shown: Sequence[Path]) -> str:
+    """
+    Withhold what web server output quotes from files that are not sites.
+
+    nginx quotes the token it refused on the same line as the file
+    (``unknown directive "x" in /path:1``); Apache names the file, then
+    quotes the line on the next one. Text quoted from the staged candidate,
+    from a site or a snippet stays (the operator writes those); from any
+    other file, a quoted word is replaced. Punctuation (``expecting "}"``) is
+    the server's own, and stays.
+
+    Args:
+        output: The web server's output.
+        shown: Directories whose files' text may be quoted: the staging
+            directory and the ones sites are made of.
+
+    Returns:
+        The output, quoted words from other files replaced by ``"[withheld]"``.
+    """
+
+    def withhold(match: re.Match[str]) -> str:
+        return '"[withheld]"' if any(char.isalnum() for char in match.group(0)) else match.group(0)
+
+    lines = output.split("\n")
+    redact_next = False
+    for index, line in enumerate(lines):
+        named = _NAMES_A_FILE.search(line)
+        foreign = named is not None and not any(
+            Path(named.group(1)).is_relative_to(root) for root in shown
+        )
+        if foreign or redact_next:
+            lines[index] = _QUOTED.sub(withhold, line)
+        redact_next = foreign and line.rstrip().endswith(":")
+    return "\n".join(lines)
 
 
 def include_glob_matches(name: str, pattern: str) -> bool:

@@ -1835,8 +1835,9 @@ def cli() -> None:
 @click.option(
     "--force",
     is_flag=True,
-    help="Deploy into an app directory that already holds files: in place they are "
-    "replaced, .env included; on releases a release is added beside them.",
+    help="Deploy into an app directory that already holds files: in place a git checkout "
+    "is brought up to date, keeping what git does not track (.env, data), and anything "
+    "else is refused, never emptied; on releases a release is added beside them.",
 )
 @global_flags
 @pass_context

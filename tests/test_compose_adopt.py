@@ -250,6 +250,12 @@ def test_containers_of_another_compose_file_do_not_name_the_project(
     docker.containers = [
         ("a" * 64, "other-web", "running", "other", "/srv/other/compose.yml", "/srv/other")
     ]
+    # Nothing runs from the file, so nothing proves its Docker socket mount is
+    # the stack's: that is the guard's to refuse, not this test's subject.
+    compose = root / "docker-compose.prod.yml"
+    compose.write_text(
+        compose.read_text().replace("      - /var/run/docker.sock:/var/run/docker.sock:ro\n", "")
+    )
 
     plan = plan_adoption(DOMAIN, root, web=web)
 
@@ -296,7 +302,12 @@ def test_an_up_that_would_recreate_something_is_refused_with_its_output(
 def test_accepting_the_recreate_adopts_and_says_so(
     root: Path, docker: Docker, web: NginxManager, store: NoustStore, units: Path
 ) -> None:
+    from noust.deployers.helpers.sandbox import set_compose_exception
+
     docker.dry_run = RECREATES
+    # A recreated backend is not proven to run with the Docker socket it
+    # mounts: accepting the recreate takes the operator's recorded reason.
+    set_compose_exception(DOMAIN, allowed=True, actor="alice", reason="deploy.sh", store=store)
 
     result = adopt(root, web, accept_recreate=True)
 

@@ -445,3 +445,26 @@ def test_servers_files_an_operator_site_still_includes_stay(
     assert (servers / "web.servers").is_file()
     assert any(str(servers) in note for note in outcome.kept), outcome.kept
     assert outcome.warnings == ()
+
+
+def test_an_adopted_stack_is_taken_down_with_the_compose_file_it_runs(
+    tmp_path: Path, store: NoustStore, machine: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Review E2: deleted with no compose file named, an adopted stack was never taken down."""
+    root = tmp_path / "opt" / "proggest"
+    compose_app(store, root)
+    (root / "deploy").mkdir()
+    (root / "docker-compose.prod.yml").rename(root / "deploy" / "compose.yml")
+    store.set_app_compose_project(DOMAIN, "proggest")
+    units = {"shop-example-com": 'Environment="COMPOSE_FILE=deploy/compose.yml"\n'}
+    monkeypatch.setattr(
+        "noust.managers.service_manager.ServiceManager.get_service_config",
+        lambda self, name: units.get(name),
+    )
+
+    outcome = lifecycle.delete_app(DOMAIN, remove_files=False)
+
+    (down,) = downs(machine.runner)
+    assert str(root / "deploy" / "compose.yml") in down
+    assert down[down.index("-p") + 1] == "proggest"
+    assert outcome.containers_stopped

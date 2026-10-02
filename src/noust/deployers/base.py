@@ -49,6 +49,7 @@ from noust.core.exceptions import (
     OutOfMemoryError,
     RolledBackError,
     ServiceError,
+    SourceError,
 )
 from noust.core.fs import SECRET_MODE, DryRunFileSystem, FileSystem
 from noust.core.logger import Icons
@@ -104,7 +105,7 @@ from noust.deployers.helpers.site import (
 )
 from noust.deployers.helpers.site import obtain_certificate as obtain_app_certificate
 from noust.deployers.helpers.summary import print_deployment_summary
-from noust.deployers.helpers.target import claim_deploy_target
+from noust.deployers.helpers.target import claim_deploy_target, fetch_into_target
 from noust.deployers.interface import AppDeployer, StepReporter, UpdateResult
 from noust.deployers.pipeline import DeployStep, run_pipeline
 from noust.deployers.recorder import (
@@ -120,7 +121,7 @@ from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ResourceLimits, ServiceManager
-from noust.managers.source_manager import SourceManager
+from noust.managers.source_manager import SourceManager, git_tree_owner
 from noust.validators.environment import validate_environment, validate_unit_value
 
 # Type for package managers
@@ -1208,7 +1209,9 @@ class BaseDeployer(AppDeployer):
             self.logger.debug(f"Found advanced nginx config: {config_path}")
             self._nginx_advanced_config = self._nginx_config_builder.parse(config_path)
 
-            errors = self._nginx_config_builder.validate(self._nginx_advanced_config)
+            errors = self._nginx_config_builder.validate(
+                self._nginx_advanced_config, tree=self.build_path
+            )
             if errors:
                 self.logger.warning(f"Nginx config validation errors: {', '.join(errors)}")
                 self._nginx_advanced_config = None
@@ -1653,11 +1656,19 @@ class BaseDeployer(AppDeployer):
         self.logger.substep(f"Source: {self.source}")
         self.logger.substep(f"Target: {self.app_path}")
 
-        return self.source_manager.fetch(
+        if self.deploy_target is None:
+            return self.source_manager.fetch(self.source, self.app_path, branch=self.branch)
+        # Never empties a directory that held files (noust create --force):
+        # a checkout is updated in place, anything else is refused.
+        fetch_into_target(
+            self.deploy_target,
+            self.source_manager,
             self.source,
-            self.app_path,
             branch=self.branch,
+            domain=self.domain,
+            logger=self.logger,
         )
+        return True
 
     def install_dependencies(self) -> bool:
         """
@@ -2780,10 +2791,18 @@ class BaseDeployer(AppDeployer):
         # The staged commit, not the cache's HEAD: a rebuild of an older
         # commit exports it while the cache stays on the head of the branch.
         staged = self._staged.commit if self._staged is not None else None
+        try:
+            # git log runs gpg.program when the tree's config asks for
+            # signatures; whoever owns the tree can write that config.
+            owner = git_tree_owner(checkout)
+        except SourceError as exc:
+            self.logger.debug(f"Not reading the commit subject: {exc.message}")
+            return None
         result = self.runner.run(
             ["git", "log", "-1", "--format=%s", *([staged] if staged else [])],
             cwd=checkout,
             timeout=GIT_LOG_TIMEOUT,
+            user=owner,
         )
         subject = result.stdout.strip()
         return subject if result.success and subject else None

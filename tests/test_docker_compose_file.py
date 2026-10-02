@@ -230,6 +230,9 @@ def test_an_update_rebuilds_with_the_compose_file_the_deploy_chose(
     )
     monkeypatch.setattr(DockerComposeDeployer, "update", update)
 
-    lifecycle._rebuild_compose(DOMAIN, tmp_path, "stack-example-com", None, False, "manual")
+    from noust.core.store import App
+
+    stack = App(domain=DOMAIN, app_type="docker-compose", app_path=str(tmp_path))
+    lifecycle._rebuild_compose(stack, None, False, "manual")
 
     assert seen == ["docker/compose.prod.yml"]

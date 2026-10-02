@@ -2394,17 +2394,31 @@ def _git_probes() -> tuple[tuple[object, ...], ...]:
         (),
         # SourceManager's: no ext:: or file:: transport, whatever a URL says.
         ("-c", "protocol.ext.allow=never", "-c", "protocol.file.allow=never"),
-        # SourceManager's reading a checkout it does not own (get_repo_info).
+        # SourceManager's reading a checkout another account owns, as that
+        # account (get_repo_info): the exact checkout, never every directory.
         (
             "-c",
             "protocol.ext.allow=never",
             "-c",
             "protocol.file.allow=never",
             "-c",
-            "safe.directory=*",
+            "safe.directory=/*",
         ),
-        # migrate.py's look at a tree it does not own.
-        ("-c", "safe.directory=*", "--no-optional-locks"),
+        # SourceManager's root git in a checkout another account owns.
+        (
+            "-c",
+            "protocol.ext.allow=never",
+            "-c",
+            "protocol.file.allow=never",
+            "-c",
+            "core.hooksPath=/dev/null",
+            "-c",
+            "core.fsmonitor=false",
+            "-c",
+            "log.showSignature=false",
+        ),
+        # migrate.py's look at a tree, as the account that owns it.
+        ("-c", "safe.directory=/*", "--no-optional-locks"),
     )
     looks: tuple[tuple[object, ...], ...] = (
         ("rev-parse", ...),
@@ -2415,6 +2429,8 @@ def _git_probes() -> tuple[tuple[object, ...], ...]:
         ("config", "--get", "*"),
         # The tags a commit contains, which is what an update by tag compares.
         ("tag", "--merged", "*"),
+        # One file as a commit has it (the compose file that served, for its guard).
+        ("cat-file", "blob", "*"),
         ("log", "-1", "--format=%s"),
         ("log", "-1", "--format=%s", "*"),
         ("ls-remote", "--exit-code", "*"),
@@ -2581,6 +2597,7 @@ PROBE_MODULES: tuple[str, ...] = (
     "noust.managers.server.probes",
     "noust.managers.stack_databases",
     "noust.deployers.compose_adopt",
+    "noust.managers.siteconf.regex",
 )
 
 #: Options that turn any declared probe of a program into a change. Checked

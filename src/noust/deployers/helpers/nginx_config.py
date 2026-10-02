@@ -34,6 +34,7 @@ from typing import Any, ClassVar
 import yaml
 
 from noust.core import paths
+from noust.core.exceptions import ValidationError
 from noust.core.logger import Logger
 
 #: Keys a noust.nginx.yaml may have at the top level.
@@ -75,6 +76,134 @@ _DIRECTIVE_SAFE = re.compile(r"^[^\s;{}'\"\\]+$")
 _REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
 #: Longest a proxy timeout may be, in seconds (a day).
 _MAX_TIMEOUT = 86400
+
+#: The only directives ``custom_directives`` may add: headers, caching,
+#: compression and proxy or client tuning. Nothing that names a file, a
+#: location, an address or code: the repository writes this list, and root's
+#: nginx loads it.
+CUSTOM_DIRECTIVES = frozenset(
+    {
+        "add_header",
+        "more_set_headers",
+        "more_clear_headers",
+        "expires",
+        "etag",
+        "charset",
+        "server_tokens",
+        "gzip",
+        "gzip_types",
+        "gzip_min_length",
+        "gzip_comp_level",
+        "gzip_vary",
+        "gzip_proxied",
+        "gzip_disable",
+        "gzip_buffers",
+        "gzip_http_version",
+        "proxy_set_header",
+        "proxy_hide_header",
+        "proxy_pass_header",
+        "proxy_connect_timeout",
+        "proxy_read_timeout",
+        "proxy_send_timeout",
+        "proxy_buffering",
+        "proxy_request_buffering",
+        "proxy_buffer_size",
+        "proxy_buffers",
+        "proxy_busy_buffers_size",
+        "proxy_http_version",
+        "proxy_intercept_errors",
+        "client_max_body_size",
+        "client_body_timeout",
+        "client_header_timeout",
+        "client_body_buffer_size",
+        "keepalive_timeout",
+        "send_timeout",
+    }
+)
+#: Characters that would end or hide the rest of a directive rendered verbatim.
+_CLOSES_A_DIRECTIVE = frozenset(";{}#\\\n\r")
+#: A header name.
+_HEADER_NAME = re.compile(r"^[A-Za-z0-9-]{1,64}$")
+#: A route name, which names an upstream.
+_ROUTE_NAME = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+#: Longest custom directive.
+_MAX_DIRECTIVE = 512
+
+
+def custom_directive_problem(directive: Any) -> str | None:
+    """
+    Say why a ``custom_directives`` entry may not go into a site, if it may not.
+
+    Args:
+        directive: The entry as the YAML has it.
+
+    Returns:
+        The problem, or None when it is one directive of :data:`CUSTOM_DIRECTIVES`.
+    """
+    if not isinstance(directive, str) or not directive.strip():
+        return f"{directive!r} is not a directive"
+    if len(directive) > _MAX_DIRECTIVE or _CLOSES_A_DIRECTIVE & set(directive):
+        return f"{directive!r} is not one simple directive (no ';', braces, '#' or new lines)"
+    from noust.managers.siteconf import ParseError, parse
+    from noust.managers.siteconf.tree import Directive
+
+    try:
+        tree = parse(f"{directive};", "nginx")
+    except ParseError as exc:
+        return f"{directive!r} does not parse: {exc.message}"
+    nodes = [node for node in tree.children if isinstance(node, Directive)]
+    if len(tree.children) != 1 or len(nodes) != 1:
+        return f"{directive!r} is not one simple directive"
+    name = nodes[0].name.value.lower()
+    if name not in CUSTOM_DIRECTIVES:
+        return f"{name} is not a directive a repository may add"
+    return None
+
+
+def unsafe_values(config: "NginxAdvancedConfig") -> list[str]:
+    """
+    List every value of a configuration that could add a directive it did not declare.
+
+    Args:
+        config: The parsed configuration.
+
+    Returns:
+        One message per problem.
+    """
+    problems: list[str] = []
+    directives = config.custom_directives
+    if not isinstance(directives, list):
+        problems.append("custom_directives must be a list of directives")
+        directives = []
+    for index, directive in enumerate(directives):
+        problem = custom_directive_problem(directive)
+        if problem:
+            problems.append(
+                f"custom_directives[{index}]: {problem}. A repository may only add "
+                f"{', '.join(sorted(CUSTOM_DIRECTIVES))}; anything else belongs in your own "
+                "site, which an operator writes and saves (noust site edit, or the console)."
+            )
+    headers = config.security_headers
+    if not isinstance(headers, dict):
+        problems.append("security_headers must be a mapping of header to value")
+        headers = {}
+    for header, value in headers.items():
+        text = str(value)
+        if not _HEADER_NAME.match(str(header)):
+            problems.append(f"security_headers: {header!r} is not a header name")
+        if any(char in text for char in '"\\\n\r'):
+            problems.append(
+                f"security_headers.{header}: the value may not hold quotes or new lines"
+            )
+    for index, route in enumerate(config.routes):
+        if route.upstream_name and not _ROUTE_NAME.match(route.upstream_name):
+            problems.append(f"routes[{index}].name {route.upstream_name!r} is not a name")
+        if route.buffer_size and not _BODY_SIZE.match(route.buffer_size):
+            problems.append(f"routes[{index}].buffer_size {route.buffer_size!r} is not a size")
+        burst = route.rate_limit_burst
+        if isinstance(burst, bool) or not isinstance(burst, int) or not 0 <= burst <= 100000:
+            problems.append(f"routes[{index}].rate_limit_burst must be a number of requests")
+    return problems
 
 
 @dataclass
@@ -289,6 +418,7 @@ class NginxConfigBuilder:
         Returns:
             Dictionary for Jinja2 template rendering.
         """
+        _refuse_unsafe(config)
         app_path = app_path or f"/var/www/apps/{domain}"
         site = _zone_prefix(domain)
 
@@ -354,6 +484,7 @@ class NginxConfigBuilder:
             routes); empty values render the proxy site exactly as without a
             file.
         """
+        _refuse_unsafe(config)
         app_path = app_path or f"/var/www/apps/{domain}"
         site = _zone_prefix(domain)
         root = next((r for r in config.routes if r.proxies and r.path == "/"), None)
@@ -434,17 +565,21 @@ class NginxConfigBuilder:
             "return_to": route.redirect[1] if route.redirect else "",
         }
 
-    def validate(self, config: NginxAdvancedConfig) -> list[str]:
+    def validate(self, config: NginxAdvancedConfig, *, tree: Path | None = None) -> list[str]:
         """
         Validate an advanced Nginx configuration.
 
         Args:
             config: Configuration to validate.
+            tree: The checkout the file came from, when at hand: a ``static``
+                directory must resolve inside it, links followed, because
+                nginx's ``alias`` follows them.
 
         Returns:
             List of validation error messages (empty if valid).
         """
         errors = list(config.problems)
+        errors.extend(unsafe_values(config))
 
         if not config.routes and not (config.max_body_size or config.global_rate_limit):
             errors.append("No routes defined")
@@ -460,6 +595,14 @@ class NginxConfigBuilder:
         proxy_mode = config.proxies_the_app
         for index, route in enumerate(config.routes):
             errors.extend(self._route_errors(route, f"routes[{index}]", proxy_mode=proxy_mode))
+            if tree is not None and route.static and not PurePosixPath(route.static).is_absolute():
+                real_tree = tree.resolve()
+                real = (tree / route.static).resolve()
+                if real != real_tree and real_tree not in real.parents:
+                    errors.append(
+                        f"routes[{index}].static {route.static!r} leads out of the application "
+                        f"(to {real}) through a link"
+                    )
 
         # Validate rate limit format (e.g., "100r/s", "10r/m")
         if config.global_rate_limit and not _RATE.match(config.global_rate_limit):
@@ -530,6 +673,30 @@ class NginxConfigBuilder:
             if not target or not _DIRECTIVE_SAFE.match(target):
                 errors.append(f"{where}.return to {target!r} is not a URL or a path")
         return errors
+
+
+def _refuse_unsafe(config: NginxAdvancedConfig) -> None:
+    """
+    Refuse to render a configuration whose values could add directives.
+
+    The chokepoint before text: :meth:`NginxConfigBuilder.validate` reports
+    the same problems, and a caller that skipped it still cannot render them.
+
+    Args:
+        config: The parsed configuration.
+
+    Raises:
+        ValidationError: A value would add a directive the file did not declare.
+    """
+    problems = unsafe_values(config)
+    if problems:
+        raise ValidationError(
+            "The repository's noust.nginx.yaml would add directives to the site it does not "
+            "declare",
+            details="\n".join(f"- {problem}" for problem in problems)
+            + "\n\nThe file comes from the repository and root's nginx loads the site; put "
+            "anything else in your own site instead.",
+        )
 
 
 def _zone_prefix(domain: str) -> str:

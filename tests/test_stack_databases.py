@@ -1056,6 +1056,56 @@ class TestFindingTheStack:
 
         assert str(app / "deploy" / "compose.yml") in host._compose("config")
 
+    def test_a_legacy_stack_is_read_from_the_unit_named_after_its_directory(
+        self, tmp_path: Path, runner: RecordingRunner, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        app = tmp_path / "apps" / "wasm-shop-example-com"
+        (app / "deploy").mkdir(parents=True)
+        (app / "deploy" / "compose.yml").write_text("services: {}\n")
+        units = {"wasm-shop-example-com": 'Environment="COMPOSE_FILE=deploy/compose.yml"\n'}
+        monkeypatch.setattr(
+            "noust.managers.service_manager.ServiceManager.get_service_config",
+            lambda self, name: units.get(name),
+        )
+
+        host = stack_host_for("shop.example.com", app, runner=runner)
+
+        assert str(app / "deploy" / "compose.yml") in host._compose("config")
+
+    def test_an_adopted_stack_is_read_from_the_unit_named_after_its_domain(
+        self, tmp_path: Path, runner: RecordingRunner, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Review E2: /opt/proggest runs as proggest-es.service, with its own compose file."""
+        from noust.core.store import App, NoustStore
+
+        app = tmp_path / "opt" / "proggest"
+        (app / "deploy").mkdir(parents=True)
+        (app / "deploy" / "compose.yml").write_text("services: {}\n")
+        NoustStore.reset_instance()
+        store = NoustStore(tmp_path / "noust.db")
+        try:
+            store.create_app(
+                App(
+                    domain="proggest.es",
+                    app_type="docker-compose",
+                    app_path=str(app),
+                    compose_project="proggest",
+                )
+            )
+            units = {"proggest-es": 'Environment="COMPOSE_FILE=deploy/compose.yml"\n'}
+            monkeypatch.setattr(
+                "noust.managers.service_manager.ServiceManager.get_service_config",
+                lambda self, name: units.get(name),
+            )
+
+            host = stack_host_for("proggest.es", app, runner=runner)
+
+            argv = host._compose("config")
+            assert str(app / "deploy" / "compose.yml") in argv
+            assert argv[argv.index("-p") + 1] == "proggest"
+        finally:
+            NoustStore.reset_instance()
+
     def test_a_directory_without_a_compose_file_is_an_error_with_a_fix(
         self, tmp_path: Path, runner: RecordingRunner
     ) -> None:

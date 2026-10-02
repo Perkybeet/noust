@@ -111,7 +111,7 @@ from noust.deployers.releases import (
 )
 from noust.managers.app_identity import service_account_for
 from noust.managers.service_manager import ServiceManager
-from noust.managers.source_manager import SourceError, extract_archive
+from noust.managers.source_manager import SourceError, extract_archive, git_tree_owner
 from noust.managers.stack_databases import (
     AUTO,
     OFF,
@@ -968,11 +968,25 @@ class BackupManager:
         git_branch: str | None = None
 
         if (app_path / ".git").exists():
-            result = self._exec(["git", "rev-parse", "HEAD"], cwd=app_path)
+            try:
+                # The service's account can write the tree's .git/config, which
+                # names programs git runs: it is read as that account, not root.
+                owner = git_tree_owner(app_path)
+            except SourceError as exc:
+                self.logger.warning(f"Not reading the commit of {app_path}: {exc.message}")
+                return None, None
+            result = self.runner.run(
+                ["git", "rev-parse", "HEAD"], cwd=app_path, timeout=DEFAULT_TIMEOUT, user=owner
+            )
             if result.success:
                 git_commit = result.stdout.strip()[:12]
 
-            result = self._exec(["git", "rev-parse", "--abbrev-ref", "HEAD"], cwd=app_path)
+            result = self.runner.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                cwd=app_path,
+                timeout=DEFAULT_TIMEOUT,
+                user=owner,
+            )
             if result.success:
                 git_branch = result.stdout.strip()
 
@@ -3215,14 +3229,12 @@ class BackupManager:
             return []
         if declared == OFF:
             declared = AUTO
-        try:
-            host = stack_host_for(domain, app_path, runner=self.runner, verbose=self.verbose)
-        except StackBackupError as exc:
-            # No compose file means no stack to dump: the update fails on its own,
-            # saying so, before it changes anything, and a copy that cannot be
-            # taken must not hide that behind advice to switch the copy off.
-            self.logger.warning(f"No database copy of {domain}: {exc.output or exc.message}")
-            return []
+        # A stack that cannot be found is a copy that cannot be taken, and
+        # spec 3.2 section 1.8 stops the update then: this used to warn and
+        # go on, which is how an adopted stack, looked for under the wrong
+        # unit, was updated with no copy of its databases at all. The error
+        # names what was looked for and how to go on without the copy.
+        host = stack_host_for(domain, app_path, runner=self.runner, verbose=self.verbose)
         self.fs.make_dir(destination, mode=SECRET_DIR_MODE)
         entries = dump_stack_databases(
             host,

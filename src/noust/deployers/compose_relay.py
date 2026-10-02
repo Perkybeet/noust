@@ -981,11 +981,12 @@ class ComposeRelay:
         """
         Deal with relays an earlier update left, before anything is recreated.
 
-        A servers file that names something other than the service's own
-        port is a relay that still serves: when the service's own container
-        answers, the traffic goes back to it and the relay is removed; when it
-        does not, nothing is touched. A relay container nobody is sent to is
-        removed.
+        A servers file that names a relay (see :func:`_names_a_relay`) instead
+        of the service's own port is a relay that still serves: when the
+        service's own container answers, the traffic goes back to it and the
+        relay is removed; when it does not, nothing is touched. A file on the
+        service's previous own port is no relay and is left for the update to
+        move. A relay container nobody is sent to is removed.
 
         Args:
             services: The services to look at.
@@ -1003,7 +1004,7 @@ class ComposeRelay:
             name = self.container(service)
             exists = self._exists(name)
             pointed = read_servers(app_name, service)
-            if pointed and pointed != [target.host_port]:
+            if pointed and pointed != [target.host_port] and _names_a_relay(pointed, exists):
                 where = ", ".join(f"127.0.0.1:{port}" for port in pointed)
                 left = f"{name}, left by an update that did not finish" if exists else "a relay"
                 if not self._answers(target):
@@ -1052,7 +1053,7 @@ class ComposeRelay:
             name = self.container(service)
             exists = self._exists(name)
             pointed = read_servers(self.deployer.app_name, service)
-            if pointed and pointed != [target.host_port]:
+            if pointed and pointed != [target.host_port] and _names_a_relay(pointed, exists):
                 where = ", ".join(f"127.0.0.1:{port}" for port in pointed)
                 left = f"{name}, left by an update that did not finish" if exists else "a relay"
                 found.append(
@@ -1514,6 +1515,26 @@ def leftover_relays(
         for what in relay.leftovers(list(relay_targets(deployer.services))):
             found.append(LeftoverRelay(domain=app.domain, what=what, fix=fix))
     return found
+
+
+def _names_a_relay(pointed: Sequence[int], exists: bool) -> bool:
+    """
+    Tell whether a servers file that does not name a service's own port names a relay.
+
+    A port the compose file moved (3000 to 3001) leaves the file on the old
+    own port until the update moves it; taking that for a relay refused every
+    update and ``zero-downtime off``. A relay is only ever given a port in
+    :data:`RELAY_PORT_RANGE`, and is a container of a known name.
+
+    Args:
+        pointed: The ports the servers file names.
+        exists: Whether the service's relay container exists.
+
+    Returns:
+        True when the file sends the traffic to a relay.
+    """
+    start, end = RELAY_PORT_RANGE
+    return exists or any(start <= port < end for port in pointed)
 
 
 def _upstreams_dir() -> Path:

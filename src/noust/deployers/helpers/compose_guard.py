@@ -15,7 +15,10 @@ defect behind Coolify's CVE-2025-64419 and Dokploy's CVE-2026-72901, and until
 ``privileged: true`` and a mount of ``docker.sock`` are refused for a new
 deployment unless an operator recorded an exception for the application
 (:func:`noust.deployers.helpers.sandbox.set_compose_exception`, with a reason);
-a stack that already runs them is warned about, never stopped. The host's
+a stack proven to run with them already (the compose file of the commit that
+served, the file a redeploy replaces, containers an adoption found running
+unchanged from the file) is warned about, never stopped, and anything an
+update, a redeploy or an adoption adds is refused like a new stack's. The host's
 namespaces (``pid``, ``network_mode``, ``ipc``, ``userns_mode: host``), added
 capabilities, devices, disabled confinement and bind mounts of host paths
 outside the application are warned about: some stacks need them, and the

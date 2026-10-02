@@ -174,6 +174,9 @@ _CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
     (WrongPassphraseError, "wrong_passphrase"),
     (SecretsLockedError, "central_locked"),
     (RoleError, "hub_role"),
+    # Every way back past a schema change refuses in these words: the console
+    # opens one dialog for a rollback, a release, a backup and a restore.
+    (SchemaChangedError, "schema_changed"),
 )
 
 #: Fleet errors whose ``error`` code is a promise to the console, like
@@ -303,18 +306,20 @@ def error_response(exc: NoustError) -> JSONResponse:
         if isinstance(exc, error_type):
             error, hint, output = code, contract_hint, output or exc.details or None
             break
-    return JSONResponse(
-        status_code=status_for(exc),
-        content=dump_model(
-            ErrorResponse(
-                detail=exc.message,
-                hint=hint,
-                error=error,
-                output=output,
-                fields=_fields_of(exc),
-            )
-        ),
+    content = dump_model(
+        ErrorResponse(
+            detail=exc.message,
+            hint=hint,
+            error=error,
+            output=output,
+            fields=_fields_of(exc),
+        )
     )
+    if isinstance(exc, SchemaChangedError):
+        # The deployments the console names, and whose migrations it lists,
+        # before the operator confirms.
+        content["deployments"] = list(exc.deployments)
+    return JSONResponse(status_code=status_for(exc), content=content)
 
 
 class NoustErrorRoute(APIRoute):

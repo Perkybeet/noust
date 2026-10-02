@@ -507,8 +507,9 @@ def rollback_deployment(
     Raises:
         HTTPException: 404 for an unknown deployment of the application, 409
             ``rollback_unavailable`` with the reason when it cannot be gone
-            back to, 409 ``schema_changed`` with the deployments when it was
-            not confirmed.
+            back to.
+        SchemaChangedError: 409 ``schema_changed`` with the deployments when
+            going back past them was not confirmed.
     """
     domain = strict_domain(domain)
     record = _deployment_of(domain, deployment_id)
@@ -527,16 +528,7 @@ def rollback_deployment(
     confirmed = body is not None and body.schema_changed_ok
     changed = schema_changed_between([record]).get(deployment_id, [])
     if changed and not confirmed:
-        error = schema_changed_error(domain, changed, target=f"deployment {deployment_id}")
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "error": "schema_changed",
-                "detail": error.message,
-                "hint": error.details,
-                "deployments": changed,
-            },
-        )
+        raise schema_changed_error(domain, changed, target=f"deployment {deployment_id}")
     job = get_job_manager().create_job(
         job_type=JobType.ROLLBACK,
         name=f"Rollback {domain}",

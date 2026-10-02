@@ -26,7 +26,6 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from noust.core.exceptions import SchemaChangedError
 from noust.managers.backup_manager import BackupManager, BackupMetadata
 from noust.validators.names import validate_filename
 from noust.web.api.auth import get_current_session
@@ -476,20 +475,9 @@ def restore_backup(
     verify = data.verify if data else True
     confirmed = data.schema_changed_ok if data else False
     # Answered now, while the console can still confirm; the job asks again.
-    try:
-        changed = manager.require_restore_confirmed(
-            target_domain, source=backup, schema_changed_ok=confirmed
-        )
-    except SchemaChangedError as error:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "error": "schema_changed",
-                "detail": error.message,
-                "hint": error.details,
-                "deployments": error.deployments,
-            },
-        ) from error
+    changed = manager.require_restore_confirmed(
+        target_domain, source=backup, schema_changed_ok=confirmed
+    )
 
     job = get_job_manager().create_job(
         job_type=JobType.RESTORE,

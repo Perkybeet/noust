@@ -28,7 +28,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from noust.core.exceptions import NoustError, SchemaChangedError, ValidationError
+from noust.core.exceptions import NoustError, ValidationError
 from noust.core.store import JobRecord, get_store
 from noust.deployers.lifecycle import (
     NOTHING_NEW_HINT,
@@ -480,7 +480,7 @@ def _schema_changes_since_backup(domain: str, backup_id: str | None, confirmed: 
         there is no backup to name (the job reports that).
 
     Raises:
-        HTTPException: 409 ``schema_changed`` naming them, when not confirmed.
+        SchemaChangedError: 409 ``schema_changed`` naming them, when not confirmed.
     """
     from noust.managers.backup_manager import RollbackManager
 
@@ -488,23 +488,12 @@ def _schema_changes_since_backup(domain: str, backup_id: str | None, confirmed: 
         target = RollbackManager(verbose=False).rollback_target(domain, backup_id)
     except NoustError:
         return []
-    try:
-        return require_schema_change_confirmed(
-            domain,
-            target=f"backup {target.id}",
-            schema_changed_ok=confirmed,
-            since=target.created_at,
-        )
-    except SchemaChangedError as error:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "error": "schema_changed",
-                "detail": error.message,
-                "hint": error.details,
-                "deployments": error.deployments,
-            },
-        ) from error
+    return require_schema_change_confirmed(
+        domain,
+        target=f"backup {target.id}",
+        schema_changed_ok=confirmed,
+        since=target.created_at,
+    )
 
 
 @router.post("/rollback", response_model=JobCreatedResponse, status_code=202)
@@ -526,7 +515,7 @@ def create_rollback_job(
         The queued job.
 
     Raises:
-        HTTPException: 409 ``schema_changed`` when it was not confirmed.
+        SchemaChangedError: 409 ``schema_changed`` when it was not confirmed.
     """
     domain = strict_domain(request.domain)
     backup_id = validate_filename(request.backup_id) if request.backup_id else None

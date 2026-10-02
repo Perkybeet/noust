@@ -42,6 +42,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import os
+import pwd
 import re
 import shutil
 import ssl
@@ -141,10 +142,69 @@ _WINDOWS_DRIVE_RE = re.compile(r"^[A-Za-z]:")
 #: recursive clone; these two settings close that path.
 _GIT_SAFE_CONFIG = ("-c", "protocol.ext.allow=never", "-c", "protocol.file.allow=never")
 
-#: Reading a checkout root does not own (an in-place tree belongs to the
-#: service's user): git refuses it as "dubious ownership" otherwise, and a
-#: look at which commit is deployed found none. Only for commands that read.
-_GIT_TRUST_TREE = ("-c", "safe.directory=*")
+#: What root's git is given in a tree another account owns. The account can
+#: write the tree's ``.git/config`` and ``.git/hooks``, and git runs programs
+#: named there: hooks and ``core.fsmonitor`` are switched off here, and every
+#: other key that runs or redirects something is refused before git starts
+#: (:func:`foreign_git_config`), because some of them (``filter.<x>.clean``)
+#: cannot be named in advance to be switched off.
+_GIT_FOREIGN_HARDENING = (
+    "-c",
+    "core.hooksPath=/dev/null",
+    "-c",
+    "core.fsmonitor=false",
+    "-c",
+    "log.showSignature=false",
+)
+
+#: Names of keys a repository's own configuration may not set when root runs
+#: git in it: each runs a program, makes git read or write outside the tree,
+#: or hands root's credentials to someone else. Matched on the key's last
+#: part whatever its section, so a header git and this parser read
+#: differently cannot hide one.
+_EXECUTABLE_GIT_KEYS = frozenset(
+    {
+        "fsmonitor",
+        "hookspath",
+        "sshcommand",
+        "gitproxy",
+        "askpass",
+        "editor",
+        "pager",
+        "worktree",
+        "worktreeconfig",
+        "alternaterefscommand",
+        "external",
+        "textconv",
+        "command",
+        "driver",
+        "clean",
+        "smudge",
+        "process",
+        "helper",
+        "program",
+        "showsignature",
+        "packobjectshook",
+        "uploadpack",
+        "receivepack",
+        "update",
+        "vcs",
+        "proxy",
+        "sslverify",
+        "cookiefile",
+        "path",
+    }
+)
+
+#: Sections whose every key is refused: includes pull in a file the check
+#: never saw, and a filter runs a program by definition.
+_EXECUTABLE_GIT_SECTIONS = frozenset({"include", "includeif", "filter"})
+
+#: A repository configuration larger than this is refused unread.
+_MAX_GIT_CONFIG_BYTES = 1024 * 1024
+
+_GIT_CONFIG_KEY_RE = re.compile(r"\s*([A-Za-z][A-Za-z0-9-]*)\s*(?:=|$|[;#\s])")
+_GIT_CONFIG_SECTION_RE = re.compile(r"\s*\[\s*([A-Za-z0-9.-]*)")
 
 #: The ssh git runs. BatchMode makes ssh fail instead of asking for a
 #: passphrase, a password or a host key confirmation on the terminal.
@@ -175,6 +235,199 @@ _GIT_AUTH_FAILURE_MARKERS = (
 _NETWORK_VERBS = frozenset({"clone", "fetch", "ls-remote", "pull", "checkout", "submodule"})
 
 _HTTPS_REPOSITORY_RE = re.compile(r"^https?://(?P<host>[\w.-]+)/(?P<path>[\w./-]+?)(?:\.git)?/?$")
+
+
+def _own_uid() -> int:
+    """
+    Name the account this process runs as.
+
+    Returns:
+        The effective uid: root's 0 on a server.
+    """
+    return os.geteuid()
+
+
+def _foreign_uids(path: Path) -> set[int]:
+    """
+    List the accounts other than this process's that own a checkout's git parts.
+
+    The tree, its ``.git`` and its ``.git/config``: whoever owns any of them
+    can make git run a program.
+
+    Args:
+        path: The checkout.
+
+    Returns:
+        Their uids; empty when this process owns all of them (or none exists).
+    """
+    owners: set[int] = set()
+    for part in (path, path / ".git", path / ".git" / "config"):
+        try:
+            owners.add(os.lstat(part).st_uid)
+        except (FileNotFoundError, NotADirectoryError):
+            continue
+    return owners - {_own_uid()}
+
+
+def _tree_account(path: Path) -> pwd.struct_passwd | None:
+    """
+    Find the account read-only git runs as in a checkout.
+
+    Args:
+        path: The checkout.
+
+    Returns:
+        The account that owns it, or None when this process does.
+
+    Raises:
+        SourceError: Another account owns it that has no name, or several do;
+            root does not read it in their place.
+    """
+    owners = _foreign_uids(path)
+    if not owners:
+        return None
+    if len(owners) > 1:
+        raise SourceError(
+            f"{path} belongs to several accounts (uids {sorted(owners)}); git is not run there",
+            details=f"Give the checkout one owner: chown -R <account>: {path}",
+        )
+    uid = owners.pop()
+    try:
+        return pwd.getpwuid(uid)
+    except KeyError as exc:
+        raise SourceError(
+            f"{path} belongs to uid {uid}, which has no account; git is not run there",
+            details=f"Give the checkout to the application's account: chown -R <account>: {path}",
+        ) from exc
+
+
+def git_tree_owner(path: Path) -> str | None:
+    """
+    Name the account to run git as when it only reads a checkout.
+
+    git executes programs a repository's own configuration names
+    (``core.fsmonitor`` on ``status``, ``gpg.program`` on ``log``), and an
+    in-place tree belongs to the service's account, which can write that
+    configuration. Read as that account, the most it can run is its own code
+    as itself; read by root, it was root.
+
+    Args:
+        path: The checkout.
+
+    Returns:
+        The account name, or None when this process owns the checkout.
+
+    Raises:
+        SourceError: The checkout belongs to an unnamed account or several.
+    """
+    account = _tree_account(path)
+    return account.pw_name if account is not None else None
+
+
+def _git_config_keys(text: str) -> tuple[set[str], set[str]] | None:
+    """
+    List the key names and sections a git configuration file sets.
+
+    Deliberately over-inclusive: every physical line is read as one that may
+    start a key, so a continued value can only add a name, never hide one.
+
+    Args:
+        text: The file's contents.
+
+    Returns:
+        Lowercased key names (the part after the last dot) and section names,
+        or None when a section header cannot be read, which git would refuse
+        too.
+    """
+    keys: set[str] = set()
+    sections: set[str] = set()
+    for raw in text.lstrip("\ufeff").splitlines():
+        line = raw.strip()
+        while line.startswith("["):
+            end = _header_end(line)
+            if end < 0:
+                return None
+            header = _GIT_CONFIG_SECTION_RE.match(line)
+            name = header.group(1) if header else ""
+            sections.add(name.split(".", 1)[0].lower())
+            line = line[end + 1 :].strip()
+        key = _GIT_CONFIG_KEY_RE.match(line)
+        if key:
+            keys.add(key.group(1).lower())
+    return keys, sections
+
+
+def _header_end(line: str) -> int:
+    """
+    Find the ``]`` that closes the section header a line starts with.
+
+    Args:
+        line: A line starting with ``[``.
+
+    Returns:
+        Its index, or -1 when the header is not closed.
+    """
+    quoted = False
+    index = 1
+    while index < len(line):
+        char = line[index]
+        if quoted and char == "\\":
+            index += 2
+            continue
+        if char == '"':
+            quoted = not quoted
+        elif char == "]" and not quoted:
+            return index
+        index += 1
+    return -1
+
+
+def foreign_git_config(path: Path) -> list[str]:
+    """
+    Say what in a checkout's own git configuration root must not run git with.
+
+    Root runs git in a tree another account owns when it must use root's own
+    credentials (a fetch, the reset of an update). The account can write that
+    tree's configuration; any key that runs a program, includes another file
+    or points git outside the tree is refused, because hooks and
+    ``core.fsmonitor`` can be switched off on the command line but a filter
+    driver cannot be named in advance to be.
+
+    Args:
+        path: The checkout.
+
+    Returns:
+        A description of each offending entry; empty when root may run git.
+    """
+    gitdir = path / ".git"
+    if gitdir.is_symlink() or (gitdir.exists() and not gitdir.is_dir()):
+        return [f"{gitdir} points to a repository elsewhere"]
+    if (gitdir / "commondir").exists():
+        return [f"{gitdir}/commondir shares another repository's configuration"]
+    found: list[str] = []
+    for name in ("config", "config.worktree"):
+        try:
+            descriptor = os.open(gitdir / name, os.O_RDONLY | os.O_NOFOLLOW)
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            found.append(f"{gitdir / name} cannot be read safely ({exc.strerror})")
+            continue
+        with os.fdopen(descriptor, "rb") as handle:
+            data = handle.read(_MAX_GIT_CONFIG_BYTES + 1)
+        if len(data) > _MAX_GIT_CONFIG_BYTES:
+            found.append(f"{gitdir / name} is larger than {_MAX_GIT_CONFIG_BYTES} bytes")
+            continue
+        parsed = _git_config_keys(data.decode("utf-8", errors="replace"))
+        if parsed is None:
+            found.append(f"{gitdir / name} has a section header git cannot read")
+            continue
+        keys, sections = parsed
+        found.extend(
+            f"[{section}] in {name}" for section in sorted(sections & _EXECUTABLE_GIT_SECTIONS)
+        )
+        found.extend(f"'{key}' in {name}" for key in sorted(keys & _EXECUTABLE_GIT_KEYS))
+    return found
 
 
 def git_environment() -> dict[str, str]:
@@ -1796,15 +2049,59 @@ class SourceManager(BaseManager):
             auth: Credential environment for a remote named by URL (see
                 :func:`split_url_credentials`). None uses the one recorded
                 for ``cwd``, if any.
-            trust_tree: Read ``cwd`` whoever owns it (:data:`_GIT_TRUST_TREE`);
-                for commands that only read.
+            trust_tree: The command only reads: in a checkout another account
+                owns, it runs as that account (see :func:`git_tree_owner`).
+                Any other command there runs as root with
+                :data:`_GIT_FOREIGN_HARDENING`, after
+                :func:`foreign_git_config` found nothing to refuse.
 
         Returns:
             The command outcome, with credentials redacted from its stderr.
             Its stdout is returned as git wrote it, because callers parse it.
+            A read in a checkout with no single named owner fails unrun.
+
+        Raises:
+            SourceError: Root would run git in a checkout another account
+                owns whose configuration names a program to run.
         """
-        argv = ["git", *_GIT_SAFE_CONFIG, *(_GIT_TRUST_TREE if trust_tree else ()), *args]
+        argv = ["git", *_GIT_SAFE_CONFIG]
         env = git_environment()
+        account: pwd.struct_passwd | None = None
+        if cwd is not None and trust_tree:
+            try:
+                account = _tree_account(cwd)
+            except SourceError as exc:
+                self.logger.warning(f"{exc.message}. {exc.details}")
+                return CommandResult(argv=tuple(argv), exit_code=128, stderr=exc.message)
+        elif cwd is not None and _foreign_uids(cwd):
+            refused = foreign_git_config(cwd)
+            if refused:
+                raise SourceError(
+                    f"The git configuration of {cwd} names programs to run; Noust does not "
+                    f"run git there as root ({'; '.join(refused)})",
+                    details="Another account owns this checkout and can write its "
+                    ".git/config, so root does not execute what it names. Remove those "
+                    f"entries (git -C {cwd} config --unset <key>, or edit {cwd}/.git/config); "
+                    "a credential helper or proxy you need belongs in root's own "
+                    "configuration (git config --global).",
+                )
+            argv.extend(_GIT_FOREIGN_HARDENING)
+        if account is not None:
+            # Only reads run as the owner: no credential of root's travels with them.
+            argv.extend(["-c", f"safe.directory={cwd}"])
+            argv.extend(args)
+            env.update(
+                {
+                    "HOME": account.pw_dir,
+                    "XDG_CONFIG_HOME": f"{account.pw_dir}/.config",
+                    "GIT_CONFIG_NOSYSTEM": "1",
+                }
+            )
+            self.logger.debug(f"Running as {account.pw_name}: {' '.join(argv)}")
+            owned = self.runner.run(argv, cwd=cwd, env=env, timeout=timeout, user=account.pw_name)
+            self.logger.command_output(redact_git_text(owned.stdout), redact_git_text(owned.stderr))
+            return owned
+        argv.extend(args)
         if auth is None and cwd is not None:
             auth = self._remote_auth.get(os.path.abspath(cwd))
         if auth:
@@ -2631,6 +2928,36 @@ class SourceManager(BaseManager):
         if not result.success:
             return []
         return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+    def file_at_commit(self, repository: Path, commit: str, relative: str) -> str | None:
+        """
+        Read one file as a commit has it, without touching the tree.
+
+        ``cat-file blob`` and not ``show``: no textconv, no filter, nothing the
+        checkout's configuration could make git run.
+
+        Args:
+            repository: A checkout or clone.
+            commit: Full or abbreviated commit id.
+            relative: The file's path in the repository.
+
+        Returns:
+            Its text, or None when the commit does not have it (or git cannot say).
+
+        Raises:
+            SourceError: If ``commit`` is not a commit id or the path is not
+                a relative one inside the repository.
+        """
+        wanted = validate_commit_id(commit)
+        parts = PurePosixPath(relative).parts
+        if not parts or relative.startswith("/") or ".." in parts:
+            raise SourceError(f"{relative!r} is not a path inside the repository")
+        result = self._git(
+            ["cat-file", "blob", f"{wanted}:{PurePosixPath(*parts)}"],
+            cwd=repository,
+            trust_tree=True,
+        )
+        return result.stdout if result.success else None
 
     def remote_tags(self, source: str, *, timeout: int = GIT_NETWORK_TIMEOUT) -> list[str]:
         """

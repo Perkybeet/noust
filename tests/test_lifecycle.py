@@ -276,8 +276,8 @@ def test_docker_compose_goes_through_its_deployer(
     make_app(store, tmp_path / "apps" / "example-com", app_type="docker-compose")
     monkeypatch.setattr(
         lifecycle,
-        "DockerComposeDeployer",
-        lambda verbose=False: FakeDeployer(recorder, is_static=True),
+        "stack_deployer",
+        lambda app, verbose=False: FakeDeployer(recorder, is_static=True),
     )
 
     outcome = lifecycle.update_app(DOMAIN)

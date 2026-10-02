@@ -320,3 +320,58 @@ def test_a_first_deploy_with_a_bad_hook_document_is_refused_before_building(
         deployer.deploy()
 
     assert not [c for c in docker.compose_calls() if "build" in c]
+
+
+# -- A refusal after the pull ------------------------------------------------------
+
+
+def checked_out(docker: Docker) -> list[tuple[str, ...]]:
+    """The git checkouts the deployer ran."""
+    return [call for call in docker.calls if call[0] == "git" and "checkout" in call]
+
+
+def test_an_update_refused_for_its_project_file_puts_the_serving_commit_back(
+    tmp_path: Path, store: NoustStore, docker: Docker
+) -> None:
+    """Review E2: the pull already moved the tree; a refusal must not leave it there."""
+    root = stack_tree(
+        tmp_path / "stack", hooks="hooks:\n  pre_deploy:\n    - run: x\n      user: root\n"
+    )
+    deployed(store, root)
+
+    with pytest.raises(ValidationError):
+        updater(root, docker).update()
+
+    assert [call for call in checked_out(docker) if PREVIOUS in call]
+    assert not [c for c in docker.compose_calls() if c[0] in ("build", "up")]
+    row = store.list_deployments(DOMAIN)[0]
+    assert row.status == "failed"
+
+
+def test_an_update_refused_for_a_missing_compose_file_puts_the_serving_commit_back(
+    tmp_path: Path, store: NoustStore, docker: Docker
+) -> None:
+    root = stack_tree(tmp_path / "stack", hooks=None)
+    (root / "docker-compose.yml").unlink()
+    deployed(store, root)
+
+    with pytest.raises(DeploymentError, match="No Docker Compose file"):
+        updater(root, docker).update()
+
+    assert [call for call in checked_out(docker) if PREVIOUS in call]
+
+
+def test_a_refusal_with_no_commit_to_go_back_to_checks_nothing_out(
+    tmp_path: Path, store: NoustStore, docker: Docker
+) -> None:
+    root = stack_tree(
+        tmp_path / "stack", hooks="hooks:\n  pre_deploy:\n    - run: x\n      user: root\n"
+    )
+    deployed(store, root)
+    deployer = updater(root, docker)
+    deployer.previous_commit = None
+
+    with pytest.raises(ValidationError):
+        deployer.update()
+
+    assert checked_out(docker) == []

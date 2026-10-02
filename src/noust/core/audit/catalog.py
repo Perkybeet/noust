@@ -218,6 +218,7 @@ EVENTS: dict[str, EventSpec] = {
             "apps.sandbox": "An application's build sandbox was changed.",
             "apps.backup_before_update": "Whether an update copies a stack's databases first was changed.",
             "apps.identity": "An application's own system account was given or taken away.",
+            "apps.headless": "A Compose stack that publishes no port was recorded as a worker.",
             "apps.hooks": "An application's deploy hooks were set or cleared.",
             "apps.adopt": "A Docker Compose stack that already ran was registered as it is.",
             "hooks.deploy": "A deploy webhook delivery was handled.",

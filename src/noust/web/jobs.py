@@ -1485,6 +1485,8 @@ def delete_app_job(
     )
     for warning in outcome.warnings:
         context.log(warning, "warning")
+    for note in outcome.kept:
+        context.log(note)
     if outcome.kept_directory is not None:
         context.log(
             f"{outcome.kept_directory} is outside Noust's apps directory: it was adopted, not "
@@ -1498,6 +1500,7 @@ def delete_app_job(
         "status": "deleted",
         "files_removed": outcome.files_removed,
         "kept_directory": outcome.kept_directory,
+        "kept": list(outcome.kept),
         "ssl_removed": remove_ssl,
         "containers_stopped": outcome.containers_stopped,
         "volumes_removed": outcome.volumes_removed,
@@ -2019,7 +2022,9 @@ def cert_renew_job(
         job_context: Injected by the job manager.
 
     Returns:
-        Summary of the renewal.
+        Summary of the renewal: ``renewed`` lists each certificate renewed
+        with its domains and new expiry, empty when none was due, and is None
+        when certbot's list could not be read to tell.
 
     Raises:
         CertificateError: When certbot fails.
@@ -2030,7 +2035,24 @@ def cert_renew_job(
     context.set_metadata("domain", domain or "all")
     context.update("Renewing certificates", 20)
 
-    CertManager(verbose=False).renew(domain=domain, force=force)
+    renewed = CertManager(verbose=False).renew_and_report(domain=domain, force=force)
 
+    if renewed is None:
+        context.log(
+            "certbot's certificate list could not be read, so which ones were renewed is unknown"
+        )
+    elif not renewed:
+        context.log("No certificate was due for renewal")
+    for certificate in renewed or []:
+        context.log(
+            f"Renewed {certificate.name} ({', '.join(certificate.domains)}), "
+            f"valid until {certificate.expiry or 'an expiry certbot did not print'}"
+        )
     context.update("Renewal complete", 100)
-    return {"domain": domain, "status": "renewed"}
+    return {
+        "domain": domain,
+        "status": "renewed",
+        "renewed": None
+        if renewed is None
+        else [{"name": c.name, "domains": list(c.domains), "expiry": c.expiry} for c in renewed],
+    }

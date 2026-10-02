@@ -49,8 +49,9 @@ from pathlib import Path
 from typing import Any, Literal
 
 from noust.central import require_server_role
-from noust.core import audit
+from noust.core import audit, paths
 from noust.core.applock import app_lock
+from noust.core.config import Config
 from noust.core.exceptions import DeploymentError, NoustError, ServiceError
 from noust.core.fs import is_rehearsal
 from noust.core.logger import Logger
@@ -64,6 +65,7 @@ from noust.core.store import (
     NoustStore,
     get_store,
 )
+from noust.core.utils import domain_to_app_name
 from noust.deployers.deploy_events import operation
 from noust.deployers.docker_compose import DockerComposeDeployer, compose_project_name
 from noust.deployers.helpers.registration import StoreRegistrar
@@ -520,6 +522,111 @@ def _checked_path(path: Path) -> Path:
     return path
 
 
+#: Directories that are the system's, never one application's: adopting one
+#: would let an update reset it with git as root.
+_SYSTEM_DIRECTORIES = frozenset(
+    Path(p)
+    for p in (
+        "/",
+        "/bin",
+        "/boot",
+        "/dev",
+        "/etc",
+        "/home",
+        "/lib",
+        "/lib64",
+        "/media",
+        "/mnt",
+        "/opt",
+        "/proc",
+        "/root",
+        "/run",
+        "/sbin",
+        "/srv",
+        "/sys",
+        "/tmp",  # noqa: S108 - refused, never written
+        "/usr",
+        "/usr/local",
+        "/var",
+        "/var/lib",
+        "/var/log",
+        "/var/www",
+        "/var/tmp",  # noqa: S108 - refused, never written
+    )
+)
+
+#: Trees nothing is adopted inside.
+_SYSTEM_TREES = tuple(
+    Path(p)
+    for p in (
+        "/bin",
+        "/boot",
+        "/dev",
+        "/etc",
+        "/lib",
+        "/lib64",
+        "/proc",
+        "/run",
+        "/sbin",
+        "/sys",
+        "/usr/bin",
+        "/usr/lib",
+        "/usr/sbin",
+        "/usr/share",
+    )
+)
+
+
+def _refuse_shared_directory(path: Path, domain: str, store: NoustStore) -> None:
+    """
+    Refuse a directory that is not one stack's alone.
+
+    Args:
+        path: The directory, checked by :func:`_checked_path`.
+        domain: The domain being adopted.
+        store: The store other applications are read from.
+
+    Raises:
+        DeploymentError: It is a system directory, Noust's own, the apps
+            directory or in it (other than this domain's own directory), or
+            it is, holds or is inside another application's directory.
+    """
+    real = path.resolve()
+    noust_dirs = {
+        paths.config_dir().resolve(),
+        paths.state_dir().resolve(),
+        paths.backup_dir().resolve(),
+        paths.log_dir().resolve(),
+    }
+    if (
+        real in _SYSTEM_DIRECTORIES
+        or any(real == tree or real.is_relative_to(tree) for tree in _SYSTEM_TREES)
+        or any(real == d or real.is_relative_to(d) or d.is_relative_to(real) for d in noust_dirs)
+    ):
+        raise DeploymentError(
+            f"{path} is a system directory; it is never adopted",
+            details="Adopt the directory the stack's own checkout is in, such as /opt/<name>.",
+        )
+    apps = Config().apps_directory.resolve()
+    own = apps / domain_to_app_name(domain)
+    if real != own and (real == apps or real.is_relative_to(apps) or apps.is_relative_to(real)):
+        raise DeploymentError(
+            f"{path} is Noust's apps directory or in it; it is not adopted",
+            details=f"Applications there are Noust's own. A stack for {domain} may be adopted "
+            f"from {own}, or from its own directory outside {apps}.",
+        )
+    for app in store.list_apps():
+        if app.domain == domain or not app.app_path:
+            continue
+        theirs = Path(app.app_path).resolve()
+        if real == theirs or real.is_relative_to(theirs) or theirs.is_relative_to(real):
+            raise DeploymentError(
+                f"{path} overlaps {app.domain}'s directory ({app.app_path})",
+                details="An adopted stack's updates reset its directory with git; it must "
+                "not hold, or be inside, another application's.",
+            )
+
+
 def plan_adoption(
     domain: str,
     path: Path,
@@ -566,6 +673,7 @@ def plan_adoption(
     runner = runner if runner is not None else get_runner()
     store = store if store is not None else get_store()
     path = _checked_path(path)
+    _refuse_shared_directory(path, domain, store)
     if store.get_app(domain) is not None:
         raise DeploymentError(
             f"{domain} is already deployed",
@@ -578,10 +686,11 @@ def plan_adoption(
     deployer.configure(
         domain, source or str(path), app_path=path, compose_file=compose_file, port=port
     )
-    # A stack that runs is warned about what it asks of the host, never refused.
     deployer._is_new_deployment = False
     deployer._discover_compose_file()
-    deployer._parse_compose_services()
+    # The host privilege guard runs below, once the containers say whether
+    # the stack really runs as this file says.
+    deployer._parse_compose_services(guard=False)
     compose_path = deployer._compose_file_path()
     claim_deploy_target(path, domain=domain, existing=None, replace=False, adopt=True)
 
@@ -624,6 +733,18 @@ def plan_adoption(
         )
 
     dry_run, changes = _rehearse(deployer, project, accept_recreate=accept_recreate)
+    # What the guard refuses is accepted only from a stack proven to run with
+    # it: containers made from this file running, and an up that would
+    # neither recreate nor start anything. Otherwise the file is a new stack's.
+    document = deployer._load_compose_document()
+    proven = (
+        any(c.state == "running" for c in containers)
+        and not changes
+        and not _starting_lines(dry_run)
+    )
+    deployer._check_host_privileges(
+        document, accepted=deployer._refusals_in(document) if proven else []
+    )
     if changes:
         warnings.append("Accepted: the next start or update changes " + "; ".join(changes) + ".")
     for line in _starting_lines(dry_run):

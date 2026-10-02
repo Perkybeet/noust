@@ -39,6 +39,7 @@ from typing import Any
 from urllib.parse import unquote
 
 from noust.managers.siteconf.model import Location, Serializable, Server, SiteStructure
+from noust.managers.siteconf.regex import BoundedMatcher
 
 _TEXT = {
     "no_server": "No server listens on port {port}.",
@@ -146,9 +147,10 @@ def route(
     """
     port = port or (443 if scheme == "https" else 80)
     host = _bare_host(host)
+    matcher = BoundedMatcher()
     if structure.kind == "apache":
-        return _apache(structure, host, path, scheme, port)
-    return _nginx(structure, host, path, scheme, port)
+        return _apache(structure, host, path, scheme, port, matcher)
+    return _nginx(structure, host, path, scheme, port, matcher)
 
 
 def _bare_host(host: str) -> str:
@@ -174,11 +176,20 @@ def pcre_to_python(pattern: str) -> str:
     )
 
 
-def _compile(pattern: str, flags: int = 0) -> re.Pattern[str] | None:
-    try:
-        return re.compile(pcre_to_python(pattern), flags)
-    except re.error:
-        return None
+def _search(matcher: BoundedMatcher, pattern: str, subject: str, flags: int = 0) -> bool | None:
+    """
+    Match a configuration's PCRE pattern, its work bounded (see :mod:`.regex`).
+
+    Args:
+        matcher: The explanation's matcher.
+        pattern: The pattern as the configuration has it.
+        subject: The host or the normalised path.
+        flags: ``re`` flags.
+
+    Returns:
+        Whether it matches; None when it was not evaluated.
+    """
+    return matcher.search(pcre_to_python(pattern), subject, flags=flags)
 
 
 def normalise(path: str) -> str:
@@ -217,7 +228,14 @@ def _listens_on(server: Server, port: int) -> bool:
     return any(listen.port in (port, None) for listen in server.listens)
 
 
-def _nginx(structure: SiteStructure, host: str, path: str, scheme: str, port: int) -> RouteResult:
+def _nginx(
+    structure: SiteStructure,
+    host: str,
+    path: str,
+    scheme: str,
+    port: int,
+    matcher: BoundedMatcher,
+) -> RouteResult:
     candidates = [server for server in structure.servers if _listens_on(server, port)]
     if not candidates:
         result = RouteResult(None, None)
@@ -225,7 +243,7 @@ def _nginx(structure: SiteStructure, host: str, path: str, scheme: str, port: in
         return result
     result = RouteResult(None, None)
     result.add("port", port=port, servers=", ".join(server.id for server in candidates))
-    server = _nginx_server(candidates, host, port, result)
+    server = _nginx_server(candidates, host, port, result, matcher)
     result.server_id = server.id
     result.highlight.append(server.id)
     if (
@@ -238,7 +256,7 @@ def _nginx(structure: SiteStructure, host: str, path: str, scheme: str, port: in
     if uri != path:
         result.add("uri", path=uri)
     chain: list[Location] = []
-    found, _ = _find(server.locations, uri, result, chain)
+    found, _ = _find(server.locations, uri, result, chain, matcher)
     if found is None:
         result.add("location_none", path=uri)
         return result
@@ -250,7 +268,9 @@ def _nginx(structure: SiteStructure, host: str, path: str, scheme: str, port: in
     return result
 
 
-def _nginx_server(candidates: list[Server], host: str, port: int, result: RouteResult) -> Server:
+def _nginx_server(
+    candidates: list[Server], host: str, port: int, result: RouteResult, matcher: BoundedMatcher
+) -> Server:
     for server in candidates:
         for name in server.names:
             if name.lower() == host:
@@ -284,10 +304,10 @@ def _nginx_server(candidates: list[Server], host: str, port: int, result: RouteR
         for name in server.names:
             if not name.startswith("~"):
                 continue
-            pattern = _compile(name[1:])
-            if pattern is None:
+            found = _search(matcher, name[1:], host)
+            if found is None:
                 result.add("regex_skipped", regex=name)
-            elif pattern.search(host):
+            elif found:
                 result.add("server_regex", host=host, name=name, server=server.id)
                 return server
     for server in candidates:
@@ -307,7 +327,11 @@ def _label(location: Location) -> str:
 
 
 def _find(
-    locations: list[Location], uri: str, result: RouteResult, chain: list[Location]
+    locations: list[Location],
+    uri: str,
+    result: RouteResult,
+    chain: list[Location],
+    matcher: BoundedMatcher,
 ) -> tuple[Location | None, str]:
     """One level of ``ngx_http_core_find_location``; returns the match and nginx's rc."""
     for location in locations:
@@ -349,7 +373,7 @@ def _find(
         chain.append(longest)
         if longest.locations:
             result.add("location_nested", location=_label(longest))
-            nested, rc = _find(longest.locations, uri, result, chain)
+            nested, rc = _find(longest.locations, uri, result, chain, matcher)
             if nested is not None:
                 current = nested
             if rc in ("ok", "done"):
@@ -359,15 +383,19 @@ def _find(
         return current, rc
     regexes = [location for location in locations if location.modifier in ("~", "~*")]
     for location in regexes:
-        pattern = _compile(location.path, re.IGNORECASE if location.modifier == "~*" else 0)
-        if pattern is None:
+        matched = _search(
+            matcher, location.path, uri, re.IGNORECASE if location.modifier == "~*" else 0
+        )
+        if matched is None:
             result.add("regex_skipped", regex=_label(location))
             continue
-        if pattern.search(uri):
+        if matched:
             result.add("location_regex", path=uri, location=_label(location))
             chain.append(location)
             nested, _ = (
-                _find(location.locations, uri, result, chain) if location.locations else (None, "")
+                _find(location.locations, uri, result, chain, matcher)
+                if location.locations
+                else (None, "")
             )
             return nested or location, "ok"
     if regexes and current is not None:
@@ -392,7 +420,14 @@ def _describe_target(location: Location, result: RouteResult) -> None:
         result.add("target_other")
 
 
-def _apache(structure: SiteStructure, host: str, path: str, scheme: str, port: int) -> RouteResult:
+def _apache(
+    structure: SiteStructure,
+    host: str,
+    path: str,
+    scheme: str,
+    port: int,
+    matcher: BoundedMatcher,
+) -> RouteResult:
     result = RouteResult(None, None)
     candidates = [server for server in structure.servers if _listens_on(server, port)]
     if not candidates:
@@ -415,8 +450,7 @@ def _apache(structure: SiteStructure, host: str, path: str, scheme: str, port: i
 
     def matches(location: Location) -> bool:
         if location.modifier == "~":
-            pattern = _compile(location.path)
-            return bool(pattern and pattern.search(uri))
+            return bool(_search(matcher, location.path, uri))
         return uri.startswith(location.path)
 
     sections = [

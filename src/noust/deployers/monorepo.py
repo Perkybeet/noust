@@ -102,7 +102,7 @@ from noust.deployers.helpers.site import (
     write_template_site,
 )
 from noust.deployers.helpers.site import has_certificate as certificate_on_disk
-from noust.deployers.helpers.target import claim_deploy_target
+from noust.deployers.helpers.target import claim_deploy_target, fetch_into_target
 from noust.deployers.interface import AppDeployer, StepReporter, UpdateResult
 from noust.deployers.recorder import (
     CapturingLogger,
@@ -1116,7 +1116,23 @@ class MonorepoDeployer(AppDeployer):
             )
 
     def _fetch_source(self) -> None:
-        """Fetch source code from repository or local path."""
+        """
+        Fetch source code from repository or local path, never emptying a directory with files.
+
+        Raises:
+            DeploymentError: The directory held files (``--force``) and is not
+                a git checkout.
+        """
+        if self.deploy_target is not None and self.deploy_target.had_files:
+            fetch_into_target(
+                self.deploy_target,
+                self.source_manager,
+                self.source,
+                branch=self.branch,
+                domain=self.domain,
+                logger=self.logger,
+            )
+            return
         self.source_manager.fetch(
             source=self.source,
             destination=self.app_path,

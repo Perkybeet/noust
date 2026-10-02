@@ -126,20 +126,26 @@ class TestDeployer:
         assert "service web is privileged" in details
         assert "noust app sandbox compose-exception stack.example.com --reason" in details
 
-    def test_a_running_stack_is_warned_about_and_goes_on(
+    def test_a_stack_that_ran_with_it_is_warned_about_and_goes_on(
         self, tmp_path: Path, store: NoustStore
     ) -> None:
         said: list[str] = []
         compose = deployer(tmp_path, store, new=False, said=said)
+        document = stack(volumes=["/var/run/docker.sock:/sock"])
 
-        compose._check_host_privileges(stack(volumes=["/var/run/docker.sock:/sock"]))
+        compose._check_host_privileges(document, accepted=compose._refusals_in(document))
 
         assert any("A new stack is refused this" in line for line in said)
 
-    def test_an_update_is_never_refused(self, tmp_path: Path, store: NoustStore) -> None:
-        compose = deployer(tmp_path, store, new=True)
+    def test_an_existing_stack_is_refused_what_it_did_not_run_with(
+        self, tmp_path: Path, store: NoustStore
+    ) -> None:
+        compose = deployer(tmp_path, store, new=False)
 
-        compose._check_host_privileges(stack(privileged=True), existing=True)
+        with pytest.raises(DeploymentError, match="asks for root"):
+            compose._check_host_privileges(
+                stack(privileged=True), accepted=compose._refusals_in(stack())
+            )
 
     def test_an_exception_lets_a_new_stack_through_and_says_whose(
         self, tmp_path: Path, store: NoustStore

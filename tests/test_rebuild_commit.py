@@ -31,6 +31,7 @@ whether the branch has anything the live build does not. What is pinned:
 from __future__ import annotations
 
 import os
+import pwd
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -143,22 +144,42 @@ def test_a_commit_the_clone_has_is_resolved_without_the_network(tmp_path: Path) 
     assert not any(call[0] == "fetch" for call in runner.git())
 
 
-def test_the_deployed_commit_is_read_from_a_tree_root_does_not_own(tmp_path: Path) -> None:
-    """In-place trees belong to www-data; git called that dubious and the trial found no commit."""
+def test_the_deployed_commit_is_read_from_a_tree_root_does_not_own(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """In-place trees belong to www-data; git called that dubious and the trial found no commit.
+
+    Read as the account that owns the tree, never by root trusting every directory:
+    that account can write the tree's .git/config, which names programs git runs.
+    """
+    from noust.managers import source_manager
+
+    monkeypatch.setattr(source_manager, "_own_uid", lambda: 0)
     (tmp_path / ".git").mkdir()
+    owner = pwd.getpwuid(os.getuid()).pw_name
+    runner = FakeRunner()
+    runner.script(
+        [
+            "runuser",
+            "-u",
+            owner,
+            "--",
+            *GIT,
+            "-c",
+            f"safe.directory={tmp_path}",
+            "rev-parse",
+            "--short",
+        ],
+        stdout="84c23e0\n",
+    )
 
-    def answer(args: tuple[str, ...]) -> tuple[int, str, str] | None:
-        if args[:2] == ("rev-parse", "--short"):
-            return 0, "84c23e0\n", ""
-        return None
-
-    runner = GitRunner(answer)
     info = SourceManager(runner=runner).get_repo_info(tmp_path)
 
     assert info["commit"] == "84c23e0"
-    reads = [call for call in runner.calls if call[: len(GIT)] == GIT]
-    assert reads and all(call[len(GIT) : len(GIT) + 2] == TRUST for call in reads)
-    looks = [call for call in reads if "rev-parse" in call or "status" in call]
+    reads = [call for call in runner.calls if "git" in call]
+    assert reads and all(call[:4] == ("runuser", "-u", owner, "--") for call in reads)
+    assert all("safe.directory=*" not in call for call in reads)
+    looks = [call[4:] for call in reads if "rev-parse" in call or "status" in call]
     assert looks and all(is_read_only(call) for call in looks)
 
 

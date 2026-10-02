@@ -62,7 +62,7 @@ from noust.core.config import Config
 from noust.core.exceptions import DeploymentError, NoustError, ValidationError
 from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.logger import Logger
-from noust.core.runner import CommandRunner, get_runner
+from noust.core.runner import CommandResult, CommandRunner, get_runner
 from noust.core.store import (
     App,
     DeploymentTrigger,
@@ -90,6 +90,7 @@ from noust.deployers.releases import (
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ServiceManager
+from noust.managers.source_manager import SourceError, git_tree_owner
 from noust.validators.domain import validate_domain
 
 #: What a build or an install produces. Never persistent: shared across
@@ -588,6 +589,30 @@ def _git(root: Path, *args: str) -> list[str]:
     return ["git", "-c", f"safe.directory={root}", "--no-optional-locks", *args]
 
 
+def _read_git(root: Path, runner: CommandRunner, *args: str) -> CommandResult:
+    """
+    Run a git command that reads the checkout, as the account that owns it.
+
+    git runs programs the checkout's own configuration names
+    (``core.fsmonitor`` on ``status``), and the service's account can write
+    it: read by root, that was root code execution for the account.
+
+    Args:
+        root: The checkout.
+        runner: Runner for git.
+        *args: The git subcommand and its arguments.
+
+    Returns:
+        The outcome; a failure, unrun, when the checkout has no single named
+        owner to read it as.
+    """
+    try:
+        owner = git_tree_owner(root)
+    except SourceError as exc:
+        return CommandResult(argv=tuple(_git(root, *args)), exit_code=128, stderr=exc.message)
+    return runner.run(_git(root, *args), cwd=root, timeout=_GIT_TIMEOUT, user=owner)
+
+
 def _head_commit(root: Path, runner: CommandRunner) -> str | None:
     """
     Read the commit a checkout is at.
@@ -601,7 +626,7 @@ def _head_commit(root: Path, runner: CommandRunner) -> str | None:
     """
     if not (root / ".git").exists():
         return None
-    result = runner.run(_git(root, "rev-parse", "HEAD"), cwd=root, timeout=_GIT_TIMEOUT)
+    result = _read_git(root, runner, "rev-parse", "HEAD")
     commit = result.stdout.strip()
     return commit if result.success and re.fullmatch(r"[0-9a-f]{7,64}", commit) else None
 
@@ -622,17 +647,14 @@ def _untracked(root: Path, runner: CommandRunner) -> tuple[list[str], list[str]]
         DeploymentError: git could not read the checkout. Guessing would
             leave the uploads out of shared/.
     """
-    result = runner.run(
-        _git(
-            root,
-            "status",
-            "--porcelain=v1",
-            "-z",
-            "--ignored=traditional",
-            "--untracked-files=normal",
-        ),
-        cwd=root,
-        timeout=_GIT_TIMEOUT,
+    result = _read_git(
+        root,
+        runner,
+        "status",
+        "--porcelain=v1",
+        "-z",
+        "--ignored=traditional",
+        "--untracked-files=normal",
     )
     if not result.success:
         raise DeploymentError(

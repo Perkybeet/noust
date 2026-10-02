@@ -241,8 +241,9 @@ class TestTheApi:
         refused = client.post(url)
         assert refused.status_code == 409
         detail = refused.json()
-        assert detail["error"] == "schema_changed" or "schema_changed" in str(detail)
-        assert str(second.id) in str(detail)
+        # The console branches on the code and names the deployments from the list.
+        assert detail["error"] == "schema_changed"
+        assert detail["deployments"] == [second.id]
         assert queued == []
 
         accepted = client.post(url, json={"schema_changed_ok": True})
@@ -253,6 +254,40 @@ class TestTheApi:
             "deployment_id": first.id,
             "schema_changed_ok": True,
         }
+
+    def test_activating_a_release_past_a_schema_change_answers_the_same_409(
+        self, history: SimpleNamespace, root: Path
+    ) -> None:
+        """A release activation is a way back like the others, and refuses in the same words."""
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from noust.web.api import apps as apps_api
+        from noust.web.api.auth import get_current_session
+        from noust.web.api.deps import install_error_handlers
+
+        app = FastAPI()
+        install_error_handlers(app)
+        app.include_router(apps_api.router, prefix="/api/apps")
+        session = {"type": "session", "session_id": "s", "scope": "admin", "name": "alice"}
+        app.dependency_overrides[get_current_session] = lambda: session
+        client = TestClient(app)
+        url = f"/api/apps/{DOMAIN}/releases/{history.first_release}/activate"
+        second = history.rows[1]
+
+        refused = client.post(url)
+
+        assert refused.status_code == 409, refused.text
+        body = refused.json()
+        assert body["error"] == "schema_changed"
+        assert body["deployments"] == [second.id]
+        assert f"deployment {second.id}" in body["detail"]
+        assert "schema_changed_ok" in body["hint"]
+        assert active_id(root) != history.first_release
+
+        accepted = client.post(url, params={"schema_changed_ok": "true"})
+        assert accepted.status_code == 200, accepted.text
+        assert active_id(root) == history.first_release
 
 
 def test_the_command_line_asks_with_a_flag(
@@ -380,8 +415,8 @@ def test_the_backup_rollback_route_is_409_until_confirmed(
 
     refused = client.post("/api/jobs/rollback", json={"domain": DOMAIN})
     assert refused.status_code == 409
-    assert refused.json()["error"] == "schema_changed" or "schema_changed" in refused.text
-    assert str(history.rows[1].id) in refused.text
+    assert refused.json()["error"] == "schema_changed"
+    assert refused.json()["deployments"] == [history.rows[1].id]
     assert queued == []
 
     client.post("/api/jobs/rollback", json={"domain": DOMAIN, "schema_changed_ok": True})
@@ -529,8 +564,8 @@ def test_the_restore_route_is_409_until_confirmed(
 
     refused = client.post("/api/backups/shop-before/restore", json={})
     assert refused.status_code == 409, refused.text
-    assert "schema_changed" in refused.text
-    assert str(history.rows[1].id) in refused.text
+    assert refused.json()["error"] == "schema_changed"
+    assert refused.json()["deployments"] == [history.rows[1].id]
     assert queued == []
 
     copy = client.post(

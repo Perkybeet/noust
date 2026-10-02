@@ -52,7 +52,7 @@ from noust.managers.siteconf.model import (
     SiteStructure,
     split_url,
 )
-from noust.managers.webserver import include_glob_matches
+from noust.managers.webserver import SITE_CONFIG_DIRS, include_glob_matches, is_secret_file
 
 #: How long a probe's answer is reused, in seconds.
 CACHE_SECONDS = 10.0
@@ -99,9 +99,28 @@ def include_reader(conf_root: Path, *, extra_roots: Sequence[Path] = ()) -> Incl
         those directories - directly or through a symbolic link - for a
         wildcard in a directory, and for a file too large to be a snippet;
         ``OSError`` when a file cannot be read. The analyzer records either
-        on the include instead of failing.
+        on the include instead of failing. The text is empty (the file is
+        listed, not read) unless the file is in one of the directories sites
+        are made of (:data:`~noust.managers.webserver.SITE_CONFIG_DIRS`) or
+        in ``extra_roots``, and always for a key, a certificate, a password
+        or a secret file (:func:`~noust.managers.webserver.is_secret_file`):
+        a draft the caller wrote must not turn the analysis into a way to
+        read ``/etc/nginx/ssl/*.key`` or ``.htpasswd``.
     """
     roots = [conf_root, *extra_roots]
+    readable = [conf_root / name for name in SITE_CONFIG_DIRS] + list(extra_roots)
+
+    def shown(path: Path) -> bool:
+        if is_secret_file(path):
+            return False
+        for root in readable:
+            try:
+                real_root = root.resolve()
+            except OSError:
+                continue
+            if real_root in path.parents:
+                return True
+        return False
 
     def inside(path: Path) -> bool:
         for root in roots:
@@ -143,6 +162,9 @@ def include_reader(conf_root: Path, *, extra_roots: Sequence[Path] = ()) -> Incl
             if not inside(real):
                 raise outside(str(candidate))
             if not real.is_file():
+                continue
+            if is_secret_file(candidate) or not shown(real):
+                found.append((str(candidate), ""))
                 continue
             if real.stat().st_size > MAX_INCLUDE_BYTES:
                 raise ValueError(f"{candidate} is too large to be a configuration snippet")

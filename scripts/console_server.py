@@ -416,6 +416,19 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
     # never surface through store_module._store_candidates().
     store_module.LEGACY_DB_PATH = var / "lib" / "wasm" / "wasm.db"
     store_module.LEGACY_USER_DB_PATH = sandbox.home / ".local" / "share" / "wasm" / "wasm.db"
+    # A backup is restored where the store says the application is, and the
+    # seeded store records the paths a real server has (/var/www/apps/...):
+    # outside the sandbox, a restore would write to the machine's own /var.
+    # The same path under the sandbox's root instead.
+    import noust.managers.backup_manager as backup_module
+
+    deployed_at = backup_module._deployed_at
+
+    def sandboxed_deployed_at(domain: str, app_name: str, config: Any) -> Path:
+        path = deployed_at(domain, app_name, config)
+        return path if sandbox.contains(path) else sandbox.root / path.relative_to(path.anchor)
+
+    backup_module._deployed_at = sandboxed_deployed_at
     timeseries_module.SYSTEM_DB_PATH = var / "lib" / "noust" / "metrics.db"
     observations_module.SYSTEM_DB_PATH = var / "lib" / "noust" / "observations.db"
     diagnose_module.NGINX_ERROR_LOG = var / "log" / "nginx" / "error.log"
