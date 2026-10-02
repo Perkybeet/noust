@@ -655,6 +655,9 @@ def test_deleting_an_application_and_its_files_removes_its_account(
         lambda *a, **k: SimpleNamespace(certificate_removed=False, kept_operator=()),
     )
 
+    # Noust's apps directory holds root: one outside it was adopted and is kept.
+    monkeypatch.setattr(lifecycle.Config, "apps_directory", property(lambda _self: root.parent))
+
     lifecycle.delete_app(DOMAIN, remove_files=True)
 
     assert ("userdel", ACCOUNT) in runner.calls

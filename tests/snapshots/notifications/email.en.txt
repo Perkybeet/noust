@@ -1283,6 +1283,52 @@ Sent by Noust · web-1 · 2026-09-29 10:45 UTC
 Change what you receive in Settings > Notifications
 
 ========================================================================
+### app.unreachable
+Subject: [Noust] Application not answering: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: app_unreachable
+X-Noust-Code: app.unreachable
+X-Noust-Server: web-1
+
+✕ Application not answering · shop.example.com
+Its service is running, but the application does not answer its health check.
+
+Server: web-1
+Unreachable since: 2026-10-02 14:05 UTC
+Diagnose with: noust diagnose shop.example.com
+
+The last probe:
+  GET http://127.0.0.1:3004/ -> <urlopen error [Errno 111] Connection refused>
+
+Open in the console: https://console.example.com/n/web-1/apps/shop.example.com
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### app.recovered
+Subject: [Noust] Application answering again: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: app_recovered
+X-Noust-Code: app.recovered
+X-Noust-Server: web-1
+
+● Application answering again · shop.example.com
+It passes its health check again.
+
+Server: web-1
+Was unreachable for: 12 min 34 s
+
+Open in the console: https://console.example.com/n/web-1/apps/shop.example.com
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
 ### hostile.deploy_failed
 Subject: [Noust] Deploy failed: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated

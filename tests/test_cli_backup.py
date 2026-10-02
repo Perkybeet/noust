@@ -157,6 +157,19 @@ class FakeBackupManager:
         self._record("get_backup", {"backup_id": backup_id})
         return type(self).stored
 
+    def require_restore_confirmed(self, domain: str, **kwargs: Any) -> list[int]:
+        """
+        Pretend no deployment since the backup changed the schema.
+
+        Args:
+            domain: The application restored into.
+            **kwargs: Ignored.
+
+        Returns:
+            No deployments.
+        """
+        return []
+
     def verify(self, backup_id: str) -> dict[str, Any]:
         """
         Pretend to verify an archive.
@@ -982,14 +995,22 @@ def test_restore_names_the_target_domain(wasm: Invoker, manager: type[FakeBackup
 
 def test_restore_forwards_its_switches(wasm: Invoker, manager: type[FakeBackupManager]) -> None:
     """
-    --no-env, --no-verify and --force reach the manager.
+    --no-env, --no-verify, --schema-changed-ok and --force reach the manager.
 
     Args:
         wasm: Command runner.
         manager: Fake backup manager.
     """
     result = wasm.invoke(
-        ["backup", "restore", "example-com-20260101-000000", "--no-env", "--no-verify", "-f"]
+        [
+            "backup",
+            "restore",
+            "example-com-20260101-000000",
+            "--no-env",
+            "--no-verify",
+            "--schema-changed-ok",
+            "-f",
+        ]
     )
 
     assert result.exit_code == 0, wasm.output
@@ -998,6 +1019,7 @@ def test_restore_forwards_its_switches(wasm: Invoker, manager: type[FakeBackupMa
         "target_domain": None,
         "restore_env": False,
         "verify_checksum": False,
+        "schema_changed_ok": True,
     }
     assert not _called(manager.calls, "verify")
 

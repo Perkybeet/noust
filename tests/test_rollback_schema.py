@@ -387,3 +387,157 @@ def test_the_backup_rollback_route_is_409_until_confirmed(
     client.post("/api/jobs/rollback", json={"domain": DOMAIN, "schema_changed_ok": True})
     [job] = queued
     assert job["kwargs"]["schema_changed_ok"] is True
+
+
+# ---------------------------------------------------------------------------
+# Restoring a backup over its own application, files only, is a rollback too
+# ---------------------------------------------------------------------------
+
+
+def _stack_dump() -> dict[str, Any]:
+    return {"name": "proggest", "engine": "postgresql", "stack": {"service": "postgres"}}
+
+
+def test_restoring_only_the_files_past_a_schema_change_asks_in_the_manager(
+    history: SimpleNamespace,
+) -> None:
+    from noust.core.exceptions import SchemaChangedError
+    from noust.managers.backup_manager import BackupManager
+
+    metadata = backup_before_the_change(history)
+
+    with pytest.raises(SchemaChangedError) as refusal:
+        BackupManager().require_restore_confirmed(DOMAIN, source=metadata)
+
+    assert refusal.value.deployments == [history.rows[1].id]
+    assert "files only" in refusal.value.message
+    assert BackupManager().require_restore_confirmed(
+        DOMAIN, source=metadata, schema_changed_ok=True
+    ) == [history.rows[1].id]
+
+
+def test_a_restore_that_puts_the_stack_databases_back_asks_nothing(
+    history: SimpleNamespace,
+) -> None:
+    from dataclasses import replace
+
+    from noust.core.exceptions import SchemaChangedError
+    from noust.managers.backup_manager import BackupManager
+
+    metadata = replace(backup_before_the_change(history), database_backups=[_stack_dump()])
+    manager = BackupManager()
+
+    assert manager.require_restore_confirmed(DOMAIN, source=metadata) == [history.rows[1].id]
+    with pytest.raises(SchemaChangedError):
+        manager.require_restore_confirmed(DOMAIN, source=metadata, stack_databases=False)
+
+
+def test_a_restore_that_puts_the_application_s_database_back_asks_nothing(
+    history: SimpleNamespace,
+) -> None:
+    from dataclasses import replace
+
+    from noust.managers.backup_manager import BackupManager
+
+    own = {"name": "shop", "engine": "postgresql", "file": "databases/shop.dump"}
+    metadata = replace(backup_before_the_change(history), database_backups=[own])
+
+    BackupManager().require_restore_confirmed(DOMAIN, source=metadata, stack_databases=False)
+
+
+def test_restoring_into_another_application_is_a_copy_and_asks_nothing(
+    history: SimpleNamespace,
+) -> None:
+    from noust.managers.backup_manager import BackupManager
+
+    metadata = backup_before_the_change(history)
+
+    assert BackupManager().require_restore_confirmed("copy.example.com", source=metadata) == []
+
+
+def test_the_restore_itself_refuses_before_touching_anything(
+    history: SimpleNamespace, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The guard is in the restore every way to an archive passes, before it is opened."""
+    from noust.core.exceptions import SchemaChangedError
+    from noust.managers.backup_manager import BackupManager
+
+    metadata = backup_before_the_change(history)
+    manager = BackupManager()
+    manager.backup_dir = tmp_path / "backups"
+    monkeypatch.setattr(BackupManager, "get_backup", lambda self, backup_id: metadata)
+    archive = manager._get_app_backup_dir("rel-example-com") / "shop-before.tar.gz"
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    archive.write_bytes(b"not an archive: opening it would fail differently")
+
+    with pytest.raises(SchemaChangedError):
+        manager.restore("shop-before")
+
+
+def test_the_command_line_restore_asks_with_a_flag(
+    history: SimpleNamespace, backups: list[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from click.testing import CliRunner
+
+    from noust.cli.app import cli as root_cli
+    from noust.core.config import Config
+
+    monkeypatch.setattr("noust.core.config.DEFAULT_CONFIG_PATH", tmp_path / "etc" / "config.yaml")
+    Config.reset_instance()
+
+    refused = CliRunner().invoke(root_cli, ["backup", "restore", "shop-before", "-f"])
+
+    assert refused.exit_code == 1
+    assert "changed the database schema" in refused.output
+    assert backups == []
+
+    accepted = CliRunner().invoke(
+        root_cli, ["backup", "restore", "shop-before", "-f", "--no-verify", "--schema-changed-ok"]
+    )
+
+    assert accepted.exit_code == 0, accepted.output
+    assert backups == ["shop-before"]
+    Config.reset_instance()
+
+
+def test_the_restore_route_is_409_until_confirmed(
+    history: SimpleNamespace, backups: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from noust.web.api import backups as backups_api
+    from noust.web.api.auth import get_current_session
+    from noust.web.api.deps import install_error_handlers, require_elevated
+    from noust.web.jobs import Job
+
+    queued: list[dict[str, Any]] = []
+
+    class Jobs:
+        def create_job(self, **kwargs: Any) -> Job:
+            queued.append(kwargs)
+            return Job(id="j1", type=kwargs["job_type"], name="r", description="")
+
+    monkeypatch.setattr(backups_api, "get_job_manager", lambda: Jobs())
+    app = FastAPI()
+    install_error_handlers(app)
+    app.include_router(backups_api.router, prefix="/api/backups")
+    session = {"type": "session", "session_id": "s", "scope": "admin", "name": "alice"}
+    app.dependency_overrides[get_current_session] = lambda: session
+    app.dependency_overrides[require_elevated] = lambda: session
+    client = TestClient(app)
+
+    refused = client.post("/api/backups/shop-before/restore", json={})
+    assert refused.status_code == 409, refused.text
+    assert "schema_changed" in refused.text
+    assert str(history.rows[1].id) in refused.text
+    assert queued == []
+
+    copy = client.post(
+        "/api/backups/shop-before/restore", json={"target_domain": "copy.example.com"}
+    )
+    assert copy.status_code == 202, copy.text
+
+    accepted = client.post("/api/backups/shop-before/restore", json={"schema_changed_ok": True})
+    assert accepted.status_code == 202, accepted.text
+    assert queued[-1]["kwargs"]["schema_changed_ok"] is True

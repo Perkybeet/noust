@@ -1338,6 +1338,8 @@ def _run_doctor(logger: Logger) -> int:
         warnings += 1
     logger.blank()
 
+    warnings += _report_leftover_relays(logger)
+
     logger.section("Summary")
     if not issues and not warnings:
         logger.success("All checks passed. This machine is ready for deployments.")
@@ -1349,6 +1351,39 @@ def _run_doctor(logger: Logger) -> int:
     logger.blank()
 
     return 0 if issues == 0 else 1
+
+
+def _report_leftover_relays(logger: Logger) -> int:
+    """
+    Say which Compose stacks an interrupted update left served by a relay, and how to resolve it.
+
+    Args:
+        logger: Logger used to report progress.
+
+    Returns:
+        How many were found, so the caller counts them as warnings.
+    """
+    import sqlite3
+
+    from noust.deployers import compose_relay
+
+    try:
+        found = compose_relay.leftover_relays()
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        # A machine without a store, or one doctor may not read: the other
+        # checks still stand, and this one says why it did not run.
+        logger.section("Docker Compose relays")
+        logger.info(f"Not checked: {exc}")
+        logger.blank()
+        return 0
+    if not found:
+        return 0
+    logger.section("Docker Compose relays")
+    for leftover in found:
+        logger.warning(f"{leftover.domain}: {leftover.what}")
+        logger.info(f"  Fix: {leftover.fix}")
+    logger.blank()
+    return len(found)
 
 
 def _report_unit_state(logger: Logger, unit: str) -> int:

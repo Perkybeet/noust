@@ -172,6 +172,8 @@ used, with their default in the code, so a file that lacks them behaves as docum
 | `notifications.events.restore_failed` | `true` | Notify when a restore fails. |
 | `notifications.events.cert_expiring` | `true` | Notify when a certificate is about to expire. |
 | `notifications.events.unit_failed` | `true` | Notify when a watched unit fails. |
+| `notifications.events.app_unreachable` | `true` | Notify when an application whose unit is running stops answering its health check: three failed probes over at least a minute, once per outage. A stack with no published port is judged by its containers instead. |
+| `notifications.events.app_recovered` | `true` | Notify when an application that was reported unreachable answers again. |
 | `notifications.events.disk_threshold` | `true` | Notify when a disk crosses its threshold. |
 | `notifications.events.backup_failed` | `true` | Notify when a backup fails. |
 | `notifications.events.backup_success` | `false` | Notify on every successful scheduled backup: a heartbeat, not a problem. |

@@ -775,3 +775,87 @@ def test_the_inspection_carries_another_platform_s_proposal(
     assert body["start_command"] == "npm run serve"
     assert body["health_path"] == "/healthz"
     assert body["warnings"] == ["Replicas have no equivalent: WASM runs one instance."]
+
+
+# ---------------------------------------------------------------------------
+# Deleting an adopted stack: its directory is the operator's
+# ---------------------------------------------------------------------------
+
+
+class _Queue:
+    """Stands in for the job manager: records what would be queued."""
+
+    def __init__(self) -> None:
+        self.queued: list[dict[str, Any]] = []
+
+    def create_job(self, **kwargs: Any) -> Any:
+        from noust.web.jobs import Job
+
+        self.queued.append(kwargs)
+        return Job(id="j1", type=kwargs["job_type"], name=kwargs["name"], description="")
+
+
+def _adopted(store: NoustStore, root: Path) -> App:
+    return store.create_app(
+        App(domain=DOMAIN, app_type="docker-compose", port=3001, app_path=str(root))
+    )
+
+
+def test_delete_passes_the_named_adopted_directory_to_the_job(
+    client: TestClient, store: NoustStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    root = tmp_path / "opt" / "proggest"
+    root.mkdir(parents=True)
+    _adopted(store, root)
+    queue = _Queue()
+    monkeypatch.setattr(apps_api, "get_job_manager", lambda: queue)
+
+    response = client.delete(
+        f"/api/apps/{DOMAIN}",
+        params={"remove_files": "true", "remove_adopted_directory": str(root)},
+    )
+
+    assert response.status_code == 202, response.text
+    assert queue.queued[0]["kwargs"]["remove_adopted_directory"] == str(root)
+
+
+def test_delete_naming_another_directory_is_refused_before_queueing(
+    client: TestClient, store: NoustStore, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    root = tmp_path / "opt" / "proggest"
+    root.mkdir(parents=True)
+    _adopted(store, root)
+    queue = _Queue()
+    monkeypatch.setattr(apps_api, "get_job_manager", lambda: queue)
+
+    response = client.delete(
+        f"/api/apps/{DOMAIN}",
+        params={"remove_files": "true", "remove_adopted_directory": "/opt"},
+    )
+
+    assert 400 <= response.status_code < 500, response.text
+    assert "not the directory of" in response.json()["detail"]
+    assert response.json()["fields"] == {"remove_adopted_directory": response.json()["detail"]}
+    assert queue.queued == []
+
+
+def test_the_jobs_route_carries_the_named_directory_too(
+    store: NoustStore, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from noust.web.api import jobs as jobs_api
+
+    queue = _Queue()
+    monkeypatch.setattr(jobs_api, "get_job_manager", lambda: queue)
+    app = FastAPI()
+    app.include_router(jobs_api.router, prefix="/api")
+    session = {"sid": "test", "scope": "admin"}
+    app.dependency_overrides[get_current_session] = lambda: session
+    app.dependency_overrides[require_elevated] = lambda: session
+
+    response = TestClient(app).post(
+        "/api/jobs/delete",
+        json={"domain": DOMAIN, "remove_adopted_directory": "/opt/proggest"},
+    )
+
+    assert response.status_code == 202, response.text
+    assert queue.queued[0]["kwargs"]["remove_adopted_directory"] == "/opt/proggest"

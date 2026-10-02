@@ -590,9 +590,12 @@ def _os_updates(run: NodeRun) -> None:
     """
     Apply the operating system's updates, never rebooting.
 
-    The node runs them in its own transient unit; a ``noust`` package among
-    them restarts the node's console, and then its update record, not its job,
-    says how they ended.
+    The node runs them in its own transient unit. A ``noust`` package among
+    them restarts the node's console in the middle: the central keeps asking
+    while the node does not answer (``tolerate_restart``), and the console that
+    comes back finishes the job from the unit, so the job is the account. A
+    node older than 3.2 marks that job interrupted instead; its update record
+    is then the account, waited for until it says how the update ended.
     """
     scope = run.options["scope"]
     run.step(f"Applying {scope} updates")
@@ -602,7 +605,7 @@ def _os_updates(run: NodeRun) -> None:
         run.run_job(answer, "The operating system update", tolerate_restart=True)
         record = None
     except ActionFailed:
-        record = _update_run(run, job_id)
+        record = _settled_run(run, job_id)
         if record is None or record.get("status") != "completed":
             raise
     record = record or _update_run(run, job_id)
@@ -616,6 +619,30 @@ def _os_updates(run: NodeRun) -> None:
         }
     )
     run.step("Updated; a reboot is due (not done)" if reboot else "Updated")
+
+
+def _settled_run(run: NodeRun, job_id: Any) -> dict[str, Any] | None:
+    """
+    Wait for the node's record of an update to say how it ended.
+
+    The job a restart marked interrupted ends before the update does: the
+    record says ``running`` until the unit writes its result, seconds later.
+
+    Args:
+        run: The node.
+        job_id: The node's job.
+
+    Returns:
+        The record once it is no longer running, or as it was at the deadline;
+        None when there is none.
+    """
+    deadline = run.clock() + NOUST_UPDATE_TIMEOUT
+    while True:
+        record = _update_run(run, job_id)
+        if record is None or record.get("status") != "running" or run.clock() > deadline:
+            return record
+        run.step("Waiting for the update to record how it ended")
+        run.sleep(run.poll)
 
 
 def _update_run(run: NodeRun, job_id: Any) -> dict[str, Any] | None:
@@ -637,6 +664,13 @@ def _update_run(run: NodeRun, job_id: Any) -> dict[str, Any] | None:
         if isinstance(record, dict) and record.get("job_id") == job_id:
             return record
     return None
+
+
+#: What a server's step says in the plan when its update includes Noust.
+NOUST_PENDING_STEP = "Also updates Noust: the node's console will restart"
+
+#: The package names that are Noust, the transitional ones included.
+_NOUST_PACKAGES = frozenset({"noust", "wasm", "wasm-cli"})
 
 
 def _os_updates_precheck(run: NodeRun) -> None:
@@ -661,6 +695,33 @@ def _os_updates_precheck(run: NodeRun) -> None:
     count = updates.get("security" if run.options["scope"] == "security" else "pending")
     if count == 0:
         raise NotNeeded(f"{run.name} has no {run.options['scope']} updates pending")
+    if _updates_noust(run):
+        run.step(NOUST_PENDING_STEP)
+
+
+def _updates_noust(run: NodeRun) -> bool:
+    """
+    Tell whether the node's pending updates in the chosen scope include Noust.
+
+    Args:
+        run: The node.
+
+    Returns:
+        True when a ``noust`` package is pending; False when not, or when the
+        node cannot say (an older node, a listing not computed yet).
+    """
+    try:
+        listing = run.call("GET", "/api/server/updates")
+    except Failure:
+        return False
+    packages = listing.get("packages") if isinstance(listing, dict) else None
+    security_only = run.options["scope"] == "security"
+    return any(
+        isinstance(package, dict)
+        and package.get("name") in _NOUST_PACKAGES
+        and (package.get("security") or not security_only)
+        for package in packages or []
+    )
 
 
 def _no_options(options: Mapping[str, Any]) -> dict[str, Any]:
@@ -1188,8 +1249,15 @@ def preflight(
             needs = needs or elevated
         state.requires_elevation = needs
         if spec.precheck is not None:
+            # What the precheck says about the server (an update that restarts
+            # its console) is its step in the plan.
             spec.precheck(
-                NodeRun(source=source, options=options, log=lambda line: None, step=lambda s: None)
+                NodeRun(
+                    source=source,
+                    options=options,
+                    log=lambda line: None,
+                    step=lambda text: setattr(state, "step", text),
+                )
             )
     except NotNeeded as exc:
         _skip(state, "not_needed", str(exc), None)
@@ -1343,6 +1411,17 @@ def plan(request: FleetRequest, *, manager: NodeManager, asker: Asker, probe: bo
         notes.append(
             "This central is not updated by this job: update it last, on its own, "
             "so it can watch every server come back."
+        )
+    restarting = [
+        state.node
+        for state in states
+        if state.state == "queued" and state.step == NOUST_PENDING_STEP
+    ]
+    if spec.name == "os_updates" and restarting:
+        notes.append(
+            f"Also updates Noust on {', '.join(restarting)}: each node's console will restart. "
+            "Noust is installed last, and this job waits for the console to come back and "
+            "reads how the update ended."
         )
     return Plan(
         request=request,

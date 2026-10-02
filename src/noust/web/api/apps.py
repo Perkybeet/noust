@@ -49,12 +49,13 @@ from noust.deployers.base import BaseDeployer
 from noust.deployers.helpers.app_env import read_app_env, write_app_env
 from noust.deployers.helpers.env_manager import redact_url_credentials
 from noust.deployers.helpers.health_gate import HealthCheck
-from noust.deployers.helpers.layout import RELEASES
+from noust.deployers.helpers.layout import RELEASES, app_root
 from noust.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
 from noust.deployers.helpers.php_fpm import is_php_fpm
 from noust.deployers.inspect import SourceInspection, inspect_source
 from noust.deployers.lifecycle import (
     activate_release,
+    check_adopted_directory,
     list_releases,
     set_branch,
     set_follow_tags,
@@ -1656,18 +1657,28 @@ def delete_app(
     session: Annotated[dict, Depends(require_elevated)],
     remove_files: Annotated[bool, Query()] = False,
     remove_ssl: Annotated[bool, Query()] = False,
+    remove_adopted_directory: Annotated[
+        str | None,
+        Query(
+            description="The application's directory, named exactly, when it is outside "
+            "Noust's apps directory (an adopted stack): only then is it removed with the files"
+        ),
+    ] = None,
 ) -> JobAcceptedResponse:
     """
     Queue the removal of an application.
 
     Deletion stops a unit, rewrites the web server configuration, may call
     certbot and may delete a large directory, so it runs as a job rather than
-    on the request path.
+    on the request path. A directory outside Noust's apps directory (an
+    adopted stack's) is kept, files or not, unless it is named.
 
     Args:
         domain: Domain of the application.
         remove_files: Also delete the application directory.
         remove_ssl: Also delete the certificate.
+        remove_adopted_directory: The directory named for removal when it is
+            outside the apps directory.
         session: The authenticated session.
 
     Returns:
@@ -1675,11 +1686,17 @@ def delete_app(
 
     Raises:
         HTTPException: 404 when the application is unknown.
+        ValidationError: The directory named is not the application's (400).
     """
     validated = strict_domain(domain)
 
-    if get_store().get_app(validated) is None:
+    app = get_store().get_app(validated)
+    if app is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
+    # Answered now, while the operator can correct it; the job asks again.
+    check_adopted_directory(
+        validated, app_root(app), remove_files=remove_files, named=remove_adopted_directory
+    )
 
     job = get_job_manager().create_job(
         job_type=JobType.DELETE,
@@ -1690,6 +1707,7 @@ def delete_app(
             "domain": validated,
             "remove_files": remove_files,
             "remove_ssl": remove_ssl,
+            "remove_adopted_directory": remove_adopted_directory,
         },
         metadata={"domain": validated},
         actor=actor_label(session),

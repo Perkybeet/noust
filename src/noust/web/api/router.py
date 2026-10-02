@@ -14,6 +14,7 @@ route, such as in a dependency.
 from fastapi import APIRouter, Depends
 
 from noust.core.exceptions import FleetUnavailableError
+from noust.web.api.app_adopt import router as app_adopt_router
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.app_hooks import router as app_hooks_router
 from noust.web.api.approvals import require_approval
@@ -56,6 +57,7 @@ from noust.web.api.server import router as server_router
 from noust.web.api.services import router as services_router
 from noust.web.api.sites import router as sites_router
 from noust.web.api.system import router as system_router
+from noust.web.api.timeline import router as timeline_router
 from noust.web.api.zero_downtime import router as zero_downtime_router
 from noust.web.auth import require_auth
 
@@ -115,6 +117,7 @@ router.include_router(system_router, prefix="/system", tags=["System"])
 router.include_router(monitor_router, prefix="/monitor", tags=["Monitor"])
 router.include_router(metrics_router, prefix="/metrics", tags=["Metrics"])
 router.include_router(overview_router, prefix="/overview", tags=["Overview"])
+router.include_router(timeline_router, prefix="/timeline", tags=["Timeline"])
 # Same composition as diagnose: one path under "/{domain}/metrics" that apps.py
 # does not define.
 router.include_router(app_metrics_router, prefix="/apps", tags=["Metrics"])
@@ -156,6 +159,8 @@ router.include_router(sandbox_router, prefix="/apps", tags=["Applications"])
 router.include_router(identity_router, prefix="/apps", tags=["Applications"])
 # app_hooks.py owns only paths under "/{domain}/hooks".
 router.include_router(app_hooks_router, prefix="/apps", tags=["Applications"])
+# app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.
+router.include_router(app_adopt_router, prefix="/apps", tags=["Applications"])
 router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])
 # The fleet, on a central: the registry of nodes, and the proxy that makes
 # every other route here reachable on a node as /nodes/{node}/api/...

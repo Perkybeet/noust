@@ -203,6 +203,11 @@ def os_update_job(
 
     def work() -> dict[str, Any]:
         context.update("Starting the update in its own unit", 5)
+        if ctx.unit.available():
+            # Recorded before the unit starts: the noust package among the
+            # updates restarts this console, and the one that comes back
+            # finishes this job from the unit (noust.web.job_reconcile).
+            context.set_unit(ctx.unit.unit_name(update_id))
         record = start_and_follow(
             ctx.updates,
             ctx.unit,
@@ -243,6 +248,7 @@ def os_follow_job(
 
     def work() -> dict[str, Any]:
         context.update("Following the update that kept running", 10)
+        context.set_unit(ctx.unit.unit_name(update_id))
         record = ctx.unit.follow(update_id, context.log)
         ctx.cache.invalidate(*_UPDATE_FACTS)
         return _finish(record, context)

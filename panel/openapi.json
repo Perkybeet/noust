@@ -816,42 +816,6 @@
         "title": "AddKeyRequest",
         "type": "object"
       },
-      "AdoptRequest": {
-        "description": "Request to adopt the databases Noust does not track.",
-        "properties": {
-          "engine": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Only this engine",
-            "title": "Engine"
-          }
-        },
-        "title": "AdoptRequest",
-        "type": "object"
-      },
-      "AdoptResponse": {
-        "description": "The databases adopted, as ``engine/name``.",
-        "properties": {
-          "adopted": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Adopted",
-            "type": "array"
-          }
-        },
-        "required": [
-          "adopted"
-        ],
-        "title": "AdoptResponse",
-        "type": "object"
-      },
       "AnalysisOut": {
         "description": "The last scan of the known places.",
         "properties": {
@@ -1521,8 +1485,87 @@
         "title": "AppExportDocument",
         "type": "object"
       },
+      "AppHooksRequest": {
+        "description": "The operator's hooks: a YAML document with ``hooks:`` and its phases.",
+        "properties": {
+          "document": {
+            "description": "The shape of a noust.yaml, holding only 'hooks'",
+            "maxLength": 65536,
+            "minLength": 1,
+            "title": "Document",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document"
+        ],
+        "title": "AppHooksRequest",
+        "type": "object"
+      },
+      "AppHooksResponse": {
+        "description": "The hooks an application's next deployment runs, and where they come from.",
+        "properties": {
+          "document": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The operator's document as written, when there is one",
+            "title": "Document"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "post_deploy": {
+            "description": "Run in order once it passed its health gate",
+            "items": {
+              "$ref": "#/components/schemas/HookModel"
+            },
+            "title": "Post Deploy",
+            "type": "array"
+          },
+          "pre_deploy": {
+            "description": "Run in order before the new version serves",
+            "items": {
+              "$ref": "#/components/schemas/HookModel"
+            },
+            "title": "Pre Deploy",
+            "type": "array"
+          },
+          "repository_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why the running code's noust.yaml is not valid, when it is not; the next deployment fails with it",
+            "title": "Repository Error"
+          },
+          "source": {
+            "description": "operator: the operator's own, replacing noust.yaml; repo: the noust.yaml of the code that runs now; none",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "source",
+          "pre_deploy",
+          "post_deploy"
+        ],
+        "title": "AppHooksResponse",
+        "type": "object"
+      },
       "AppInfo": {
-        "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`noust.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit) or ``unknown`` (systemd could not be\n        asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.",
+        "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`noust.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit) or ``unknown`` (systemd could not be\n        asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    follow_tags: The glob of git tags it deploys instead of a branch\n        (``v*``), or None when it follows its branch.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.",
         "properties": {
           "active": {
             "title": "Active",
@@ -1575,6 +1618,17 @@
           "enabled": {
             "title": "Enabled",
             "type": "boolean"
+          },
+          "follow_tags": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Follow Tags"
           },
           "health_expect": {
             "anyOf": [
@@ -6852,6 +6906,18 @@
             "title": "Domain",
             "type": "string"
           },
+          "remove_adopted_directory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The application's directory, named exactly, when it is outside Noust's apps directory (an adopted stack): only then is it removed with the files",
+            "title": "Remove Adopted Directory"
+          },
           "remove_files": {
             "default": true,
             "description": "Remove application files",
@@ -6896,6 +6962,98 @@
           "key"
         ],
         "title": "DeleteRowRequest",
+        "type": "object"
+      },
+      "DeploymentHookRun": {
+        "description": "One deploy hook, or Prisma's automatic migration, as a deployment ran it.",
+        "properties": {
+          "automatic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "prisma: Prisma's automatic migration, not a declared hook",
+            "title": "Automatic"
+          },
+          "duration_s": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration S"
+          },
+          "exit_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How it exited; null if it never ran",
+            "title": "Exit Code"
+          },
+          "migrates": {
+            "default": false,
+            "description": "It changes the database's schema",
+            "title": "Migrates",
+            "type": "boolean"
+          },
+          "ok": {
+            "description": "Whether it succeeded",
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "output": {
+            "default": "",
+            "description": "The end of its output, verbatim",
+            "title": "Output",
+            "type": "string"
+          },
+          "phase": {
+            "description": "pre_deploy or post_deploy",
+            "title": "Phase",
+            "type": "string"
+          },
+          "run": {
+            "description": "The command, as one line",
+            "title": "Run",
+            "type": "string"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Compose service it ran in",
+            "title": "Service"
+          },
+          "timed_out": {
+            "default": false,
+            "description": "It ran out of time",
+            "title": "Timed Out",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "phase",
+          "run",
+          "ok"
+        ],
+        "title": "DeploymentHookRun",
         "type": "object"
       },
       "DeploymentListResponse": {
@@ -6962,7 +7120,7 @@
         "type": "object"
       },
       "DeploymentOut": {
-        "description": "One deployment attempt, as the console lists and inspects it.\n\nAttributes:\n    job_id: The background job that started this deployment, when the\n        panel queued it. None for a CLI or webhook deploy.\n    release_id: The release this deployment built, on the releases\n        layout. None for an in-place deployment.\n    commit_message: Subject line of the deployed commit, for a git\n        source. None for a source that is not git.\n    snapshot_backup: In place, the backup that holds exactly what this\n        deployment produced, taken by the update that followed it.\n    rollback_available: Whether going back to this deployment is\n        possible now: its release is on disk and not live, or its\n        snapshot backup still exists.\n    rollback_unavailable_reason: Why not, when it is not.",
+        "description": "One deployment attempt, as the console lists and inspects it.\n\nAttributes:\n    job_id: The background job that started this deployment, when the\n        panel queued it. None for a CLI or webhook deploy.\n    release_id: The release this deployment built, on the releases\n        layout. None for an in-place deployment.\n    commit_message: Subject line of the deployed commit, for a git\n        source. None for a source that is not git.\n    snapshot_backup: In place, the backup that holds exactly what this\n        deployment produced, taken by the update that followed it.\n    rollback_available: Whether going back to this deployment is\n        possible now: its release is on disk and not live, or its\n        snapshot backup still exists.\n    rollback_unavailable_reason: Why not, when it is not.\n    schema_changed: A hook marked ``migrates`` or Prisma's migration\n        changed the database's schema.\n    schema_changed_between: Later deployments of the application that\n        changed the schema: going back to this one passes them, and asks\n        first.\n    hooks: What the deploy hooks ran, in order.\n    warnings: Why a successful deployment carries warnings (deployed with\n        warnings: a ``post_deploy`` hook failed once it served).",
         "properties": {
           "commit_message": {
             "anyOf": [
@@ -7038,6 +7196,13 @@
             "title": "Has Log",
             "type": "boolean"
           },
+          "hooks": {
+            "items": {
+              "$ref": "#/components/schemas/DeploymentHookRun"
+            },
+            "title": "Hooks",
+            "type": "array"
+          },
           "id": {
             "title": "Id",
             "type": "integer"
@@ -7080,6 +7245,18 @@
             ],
             "title": "Rollback Unavailable Reason"
           },
+          "schema_changed": {
+            "default": false,
+            "title": "Schema Changed",
+            "type": "boolean"
+          },
+          "schema_changed_between": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Schema Changed Between",
+            "type": "array"
+          },
           "snapshot_backup": {
             "anyOf": [
               {
@@ -7109,6 +7286,17 @@
           "triggered_by": {
             "title": "Triggered By",
             "type": "string"
+          },
+          "warnings": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warnings"
           }
         },
         "required": [
@@ -8446,6 +8634,61 @@
           "status"
         ],
         "title": "EolOut",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "description": "Body of any failed API call.\n\nAttributes:\n    detail: What went wrong. Named ``detail`` so the shape matches\n        FastAPI's own ``HTTPException`` responses and clients need one\n        code path.\n    hint: How to fix it, when the manager supplied one.\n    error: Machine-readable error code, for clients that branch on it:\n        the lowercased :class:`~noust.core.exceptions.NoustError` subclass\n        name, or one of the fixed values in :data:`_ERROR_BY_STATUS` for\n        an error that never became a Noust exception.\n    fields: Field name to message, for a validation failure that names\n        more than one field. ``None`` for every other kind of error.\n    output: The failing tool's own output, verbatim, when the error\n        carries one - a rejected web server configuration, for example.\n        ``None`` for every error that has no external tool output to show.",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "error": {
+            "title": "Error",
+            "type": "string"
+          },
+          "fields": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fields"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          },
+          "output": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output"
+          }
+        },
+        "required": [
+          "detail",
+          "error"
+        ],
+        "title": "ErrorResponse",
         "type": "object"
       },
       "ExceptionCreate": {
@@ -9996,6 +10239,47 @@
         "title": "FleetViewOut",
         "type": "object"
       },
+      "FollowTagsResponse": {
+        "description": "The tags an application deploys now.\n\nAttributes:\n    domain: The application's domain.\n    follow_tags: The glob it follows, or None when it follows a branch.\n    following: Whether it follows tags.\n    previous: The glob it followed before.",
+        "properties": {
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "follow_tags": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Follow Tags"
+          },
+          "following": {
+            "title": "Following",
+            "type": "boolean"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous"
+          }
+        },
+        "required": [
+          "domain",
+          "following"
+        ],
+        "title": "FollowTagsResponse",
+        "type": "object"
+      },
       "ForecastReason": {
         "description": "Why there is no disk forecast.\n\nAttributes:\n    code: ``no_history``, ``insufficient_history`` or ``not_growing``.\n    message: One sentence.",
         "properties": {
@@ -10428,6 +10712,60 @@
         "title": "HistoryResponse",
         "type": "object"
       },
+      "HookModel": {
+        "description": "One hook, as declared.",
+        "properties": {
+          "migrates": {
+            "description": "It changes the database's schema",
+            "title": "Migrates",
+            "type": "boolean"
+          },
+          "run": {
+            "description": "The program and its arguments; never given to a shell",
+            "items": {
+              "type": "string"
+            },
+            "title": "Run",
+            "type": "array"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Docker Compose only: the service whose new image it runs in",
+            "title": "Service"
+          },
+          "timeout": {
+            "description": "Seconds it may take, 1-3600",
+            "title": "Timeout",
+            "type": "integer"
+          },
+          "workdir": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where it runs",
+            "title": "Workdir"
+          }
+        },
+        "required": [
+          "run",
+          "timeout",
+          "migrates"
+        ],
+        "title": "HookModel",
+        "type": "object"
+      },
       "HostnameOut": {
         "description": "The names of the machine.",
         "properties": {
@@ -10599,6 +10937,68 @@
           "cpu_count"
         ],
         "title": "IdentityOut",
+        "type": "object"
+      },
+      "IdentityResponse": {
+        "description": "The account an application runs as.",
+        "properties": {
+          "account": {
+            "description": "The system account its processes run as",
+            "title": "Account",
+            "type": "string"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "eligible": {
+            "description": "Whether it can have an account of its own",
+            "title": "Eligible",
+            "type": "boolean"
+          },
+          "group": {
+            "description": "Their group",
+            "title": "Group",
+            "type": "string"
+          },
+          "own": {
+            "description": "Whether the account is the application's own",
+            "title": "Own",
+            "type": "boolean"
+          },
+          "proposed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The account a migration would give it, when it can move",
+            "title": "Proposed"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it cannot have its own account, when it cannot",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "domain",
+          "account",
+          "group",
+          "own",
+          "eligible"
+        ],
+        "title": "IdentityResponse",
         "type": "object"
       },
       "ImportAppRequest": {
@@ -15496,6 +15896,44 @@
         "title": "ProcessEntry",
         "type": "object"
       },
+      "ProcessHistoryOut": {
+        "description": "The process samples of the stretch.\n\nAttributes:\n    minutes: The minutes kept, oldest first.\n    total_minutes: How many had samples; more than ``minutes`` when only the\n        busiest were kept.\n    since: The oldest sample there is at all; null when processes were\n        never sampled.\n    commands: Whether command lines are included.",
+        "properties": {
+          "commands": {
+            "title": "Commands",
+            "type": "boolean"
+          },
+          "minutes": {
+            "items": {
+              "$ref": "#/components/schemas/ProcessMinuteOut"
+            },
+            "title": "Minutes",
+            "type": "array"
+          },
+          "since": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Since"
+          },
+          "total_minutes": {
+            "title": "Total Minutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "minutes",
+          "total_minutes",
+          "commands"
+        ],
+        "title": "ProcessHistoryOut",
+        "type": "object"
+      },
       "ProcessInfo": {
         "description": "One process, as observed.",
         "properties": {
@@ -15549,6 +15987,36 @@
           "user"
         ],
         "title": "ProcessInfo",
+        "type": "object"
+      },
+      "ProcessMinuteOut": {
+        "description": "The processes of one minute.\n\nAttributes:\n    at: The minute, epoch seconds.\n    cpu: The top five by CPU.\n    memory: The top five by memory.",
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "integer"
+          },
+          "cpu": {
+            "items": {
+              "$ref": "#/components/schemas/ProcessRowOut"
+            },
+            "title": "Cpu",
+            "type": "array"
+          },
+          "memory": {
+            "items": {
+              "$ref": "#/components/schemas/ProcessRowOut"
+            },
+            "title": "Memory",
+            "type": "array"
+          }
+        },
+        "required": [
+          "at",
+          "cpu",
+          "memory"
+        ],
+        "title": "ProcessMinuteOut",
         "type": "object"
       },
       "ProcessOut": {
@@ -15615,6 +16083,94 @@
           "user"
         ],
         "title": "ProcessOut",
+        "type": "object"
+      },
+      "ProcessRowOut": {
+        "description": "One process in one minute's ranking.\n\nAttributes:\n    position: 1 for the biggest.\n    pid: Process id.\n    name: Its name.\n    user: The account it runs as.\n    cpu_percent: CPU over the minute; 100 is one core.\n    memory_bytes: Resident memory.\n    memory_percent: Share of RAM.\n    app: Its Noust application, by domain.\n    owner_kind: ``unit``, ``container`` or ``pool``.\n    owner: The unit, container or pool.\n    command: Its command line, redacted; null when the caller may not read\n        command lines.",
+        "properties": {
+          "app": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App"
+          },
+          "command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Command"
+          },
+          "cpu_percent": {
+            "title": "Cpu Percent",
+            "type": "number"
+          },
+          "memory_bytes": {
+            "title": "Memory Bytes",
+            "type": "integer"
+          },
+          "memory_percent": {
+            "title": "Memory Percent",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner"
+          },
+          "owner_kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Kind"
+          },
+          "pid": {
+            "title": "Pid",
+            "type": "integer"
+          },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
+          "user": {
+            "title": "User",
+            "type": "string"
+          }
+        },
+        "required": [
+          "position",
+          "pid",
+          "name",
+          "user",
+          "cpu_percent",
+          "memory_bytes",
+          "memory_percent"
+        ],
+        "title": "ProcessRowOut",
         "type": "object"
       },
       "ProcessesOut": {
@@ -17650,33 +18206,6 @@
           "total"
         ],
         "title": "RollbackPointsResponse",
-        "type": "object"
-      },
-      "RollbackRequest": {
-        "description": "Request to roll an application back.",
-        "properties": {
-          "backup_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Backup to roll back to",
-            "title": "Backup Id"
-          },
-          "domain": {
-            "description": "Domain of the application",
-            "title": "Domain",
-            "type": "string"
-          }
-        },
-        "required": [
-          "domain"
-        ],
-        "title": "RollbackRequest",
         "type": "object"
       },
       "RotatePasswordRequest": {
@@ -19748,6 +20277,163 @@
         "title": "SiteActionResponse",
         "type": "object"
       },
+      "SiteBackend": {
+        "description": "One address the site reaches, live.\n\nAttributes:\n    address: ``host:port`` or ``unix:/path``.\n    written: How the site spells it (upstream server addresses, proxy\n        URLs), to match the structure's elements.\n    host: The host.\n    port: The port.\n    local: Whether it is this machine; only those are probed.\n    upstreams: Upstream names listing it.\n    locations: Location ids reaching it.\n    owner: Who holds the port, None when nobody does or unknown.\n    listening: Whether a socket listens on it; None when unknown.\n    reachable: Whether it accepts a connection (1 s, cached 10 s); None\n        when not probed.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "listening": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Listening"
+          },
+          "local": {
+            "default": false,
+            "title": "Local",
+            "type": "boolean"
+          },
+          "locations": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Locations",
+            "type": "array"
+          },
+          "owner": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SitePortOwner"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "reachable": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reachable"
+          },
+          "upstreams": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Upstreams",
+            "type": "array"
+          },
+          "written": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Written",
+            "type": "array"
+          }
+        },
+        "required": [
+          "address"
+        ],
+        "title": "SiteBackend",
+        "type": "object"
+      },
+      "SiteCertificate": {
+        "description": "The certificate a server presents, with its expiry when certbot manages it.",
+        "properties": {
+          "days_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Days Left"
+          },
+          "domains": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Domains",
+            "type": "array"
+          },
+          "expiry": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiry"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "server_id": {
+            "title": "Server Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "server_id",
+          "path"
+        ],
+        "title": "SiteCertificate",
+        "type": "object"
+      },
       "SiteConfigResponse": {
         "description": "Response carrying the raw configuration of a site.",
         "properties": {
@@ -19796,9 +20482,177 @@
         "title": "SiteConfigTestResponse",
         "type": "object"
       },
-      "SiteInfo": {
-        "description": "A configured virtual host.\n\nAttributes:\n    name: The domain, which is also the configuration file name.\n    webserver: Web server serving it.\n    enabled: Whether the site is enabled.\n    config_path: Absolute path of the configuration file.\n    has_ssl: Whether the configuration carries TLS directives.\n    server_names: Every name the configuration answers on - the primary\n        domain and its aliases - read from the file's own directives.\n        Empty when the configuration cannot be read.",
+      "SiteDraftRequest": {
+        "description": "A draft of a site's configuration.",
         "properties": {
+          "config": {
+            "maxLength": 1048576,
+            "title": "Config",
+            "type": "string"
+          }
+        },
+        "required": [
+          "config"
+        ],
+        "title": "SiteDraftRequest",
+        "type": "object"
+      },
+      "SiteEditRequest": {
+        "description": "Edit operations to apply to a text.\n\nAttributes:\n    config: The text (saved or a draft).\n    ops: The operations of :mod:`noust.managers.siteconf.edit`, in order;\n        each an object with ``op`` and its fields.",
+        "properties": {
+          "config": {
+            "maxLength": 1048576,
+            "title": "Config",
+            "type": "string"
+          },
+          "ops": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Ops",
+            "type": "array"
+          }
+        },
+        "required": [
+          "config"
+        ],
+        "title": "SiteEditRequest",
+        "type": "object"
+      },
+      "SiteEditResponse": {
+        "description": "The result of edit operations. Nothing was written.\n\nAttributes:\n    config: The edited text.\n    structure: Its model.\n    changed_lines: Lines that differ from the text sent.",
+        "properties": {
+          "changed_lines": {
+            "title": "Changed Lines",
+            "type": "integer"
+          },
+          "config": {
+            "title": "Config",
+            "type": "string"
+          },
+          "structure": {
+            "$ref": "#/components/schemas/SiteStructureModel"
+          }
+        },
+        "required": [
+          "config",
+          "structure",
+          "changed_lines"
+        ],
+        "title": "SiteEditResponse",
+        "type": "object"
+      },
+      "SiteHeader": {
+        "description": "A response header added, or a header passed to the backend.",
+        "properties": {
+          "always": {
+            "default": false,
+            "title": "Always",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "value"
+        ],
+        "title": "SiteHeader",
+        "type": "object"
+      },
+      "SiteInclude": {
+        "description": "An include and what it resolved to, or why it could not be.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "files": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteIncludedFile"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "line": {
+            "title": "Line",
+            "type": "integer"
+          },
+          "parent": {
+            "title": "Parent",
+            "type": "string"
+          },
+          "pattern": {
+            "title": "Pattern",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "parent",
+          "pattern",
+          "line"
+        ],
+        "title": "SiteInclude",
+        "type": "object"
+      },
+      "SiteIncludedFile": {
+        "description": "A file an include brought in, read-only.",
+        "properties": {
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "text"
+        ],
+        "title": "SiteIncludedFile",
+        "type": "object"
+      },
+      "SiteInfo": {
+        "description": "A configured virtual host.\n\nAttributes:\n    name: The domain the site is addressed by: its application's, else\n        the file's name. What every ``/api/sites/{domain}`` route takes.\n    webserver: Web server serving it.\n    enabled: Whether the site is enabled.\n    config_path: Absolute path of the configuration file.\n    has_ssl: Whether the configuration carries TLS directives.\n    server_names: Every name the configuration answers on - the primary\n        domain and its aliases - read from the file's own directives.\n        Empty when the configuration cannot be read.\n    noust_managed: Whether Noust wrote the file (it carries Noust's\n        marker). False for a site the operator wrote, which a deploy\n        never rewrites.\n    app: Domain of the application the file serves, when one records it.\n    site_name: The file in the sites directory, which is not the domain\n        for a site the operator named (``proggest`` for ``proggest.es``).",
+        "properties": {
+          "app": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App"
+          },
           "config_path": {
             "title": "Config Path",
             "type": "string"
@@ -19816,6 +20670,11 @@
             "title": "Name",
             "type": "string"
           },
+          "noust_managed": {
+            "default": false,
+            "title": "Noust Managed",
+            "type": "boolean"
+          },
           "server_names": {
             "default": [],
             "items": {
@@ -19823,6 +20682,11 @@
             },
             "title": "Server Names",
             "type": "array"
+          },
+          "site_name": {
+            "default": "",
+            "title": "Site Name",
+            "type": "string"
           },
           "webserver": {
             "title": "Webserver",
@@ -19865,6 +20729,1074 @@
         "title": "SiteListResponse",
         "type": "object"
       },
+      "SiteListen": {
+        "description": "One address and port a server accepts connections on.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "default_server": {
+            "default": false,
+            "title": "Default Server",
+            "type": "boolean"
+          },
+          "http2": {
+            "default": false,
+            "title": "Http2",
+            "type": "boolean"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "ipv6": {
+            "default": false,
+            "title": "Ipv6",
+            "type": "boolean"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "quic": {
+            "default": false,
+            "title": "Quic",
+            "type": "boolean"
+          },
+          "raw": {
+            "default": "",
+            "title": "Raw",
+            "type": "string"
+          },
+          "ssl": {
+            "default": false,
+            "title": "Ssl",
+            "type": "boolean"
+          }
+        },
+        "title": "SiteListen",
+        "type": "object"
+      },
+      "SiteLocation": {
+        "description": "A location (or an Apache ``ProxyPass`` rule).\n\n``locations`` are the nested ones in file order; ``evaluation_order`` their\nids in the order the web server tries them.",
+        "properties": {
+          "comments": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Comments",
+            "type": "array"
+          },
+          "directives": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteRawDirective"
+            },
+            "title": "Directives",
+            "type": "array"
+          },
+          "end_line": {
+            "title": "End Line",
+            "type": "integer"
+          },
+          "evaluation_order": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Evaluation Order",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "line": {
+            "title": "Line",
+            "type": "integer"
+          },
+          "locations": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteLocation"
+            },
+            "title": "Locations",
+            "type": "array"
+          },
+          "modifier": {
+            "title": "Modifier",
+            "type": "string"
+          },
+          "notes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteNote"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/SiteSettings"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/SiteTarget"
+          }
+        },
+        "required": [
+          "id",
+          "modifier",
+          "path",
+          "source",
+          "line",
+          "end_line",
+          "target",
+          "settings"
+        ],
+        "title": "SiteLocation",
+        "type": "object"
+      },
+      "SiteNote": {
+        "description": "A comment of no single element: its text, its line, the id it follows.",
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "line": {
+            "title": "Line",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text",
+          "line"
+        ],
+        "title": "SiteNote",
+        "type": "object"
+      },
+      "SiteParseFailure": {
+        "description": "Why a configuration could not be analysed.\n\nAttributes:\n    line: 1-based line of the offending character.\n    column: 1-based column.\n    message: What is wrong there, in the web server's terms.",
+        "properties": {
+          "column": {
+            "title": "Column",
+            "type": "integer"
+          },
+          "line": {
+            "title": "Line",
+            "type": "integer"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "line",
+          "column",
+          "message"
+        ],
+        "title": "SiteParseFailure",
+        "type": "object"
+      },
+      "SitePortOwner": {
+        "description": "Who holds a port: ``kind`` is ``app``, ``compose``, ``container``, ``unit``\nor ``process``, with the fields that kind has.",
+        "properties": {
+          "app": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App"
+          },
+          "container": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "pid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pid"
+          },
+          "process": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Process"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "SitePortOwner",
+        "type": "object"
+      },
+      "SiteRawDirective": {
+        "description": "A directive as written: id, name, arguments, exact text, lines, comments.",
+        "properties": {
+          "args": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Args",
+            "type": "array"
+          },
+          "block": {
+            "title": "Block",
+            "type": "boolean"
+          },
+          "comments": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Comments",
+            "type": "array"
+          },
+          "end_line": {
+            "title": "End Line",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "line": {
+            "title": "Line",
+            "type": "integer"
+          },
+          "modeled": {
+            "default": false,
+            "title": "Modeled",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "args",
+          "text",
+          "block",
+          "line",
+          "end_line"
+        ],
+        "title": "SiteRawDirective",
+        "type": "object"
+      },
+      "SiteReturn": {
+        "description": "A server-level ``return``/``Redirect``.",
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "destination": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destination"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "SiteReturn",
+        "type": "object"
+      },
+      "SiteRouteRequest": {
+        "description": "A request to trace through a site.\n\nAttributes:\n    config: A draft to trace through; the saved file when absent.\n    host: The Host header.\n    path: The request path (a query string is ignored).\n    scheme: ``http`` or ``https``.\n    port: The port it arrives on; the scheme's default when absent.",
+        "properties": {
+          "config": {
+            "anyOf": [
+              {
+                "maxLength": 1048576,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config"
+          },
+          "host": {
+            "maxLength": 253,
+            "minLength": 1,
+            "title": "Host",
+            "type": "string"
+          },
+          "path": {
+            "default": "/",
+            "maxLength": 4096,
+            "title": "Path",
+            "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "scheme": {
+            "default": "https",
+            "enum": [
+              "http",
+              "https"
+            ],
+            "title": "Scheme",
+            "type": "string"
+          }
+        },
+        "required": [
+          "host"
+        ],
+        "title": "SiteRouteRequest",
+        "type": "object"
+      },
+      "SiteRouteResponse": {
+        "description": "Which server and location answer a request, and why.\n\nAttributes:\n    server_id: The server that answers; None when none listens.\n    location_id: The location that answers; None when the server does.\n    steps: The explanation in English, one sentence per step.\n    trace: The same steps as codes and parameters.\n    highlight: Ids along the path, server first, then locations, then\n        the upstream (``u:name``), for the diagram.\n    redirect: Where the web server's automatic 301 sends the client.",
+        "properties": {
+          "highlight": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Highlight",
+            "type": "array"
+          },
+          "location_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location Id"
+          },
+          "redirect": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redirect"
+          },
+          "server_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Server Id"
+          },
+          "steps": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Steps",
+            "type": "array"
+          },
+          "trace": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteRouteStep"
+            },
+            "title": "Trace",
+            "type": "array"
+          }
+        },
+        "title": "SiteRouteResponse",
+        "type": "object"
+      },
+      "SiteRouteStep": {
+        "description": "One step of a route's explanation.\n\nAttributes:\n    code: The step, as a key the console translates.\n    params: The values the sentence names.\n    text: The sentence in English.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "default": {},
+            "title": "Params",
+            "type": "object"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "text"
+        ],
+        "title": "SiteRouteStep",
+        "type": "object"
+      },
+      "SiteServer": {
+        "description": "A virtual server: listens, names, TLS, locations and the rest, raw.",
+        "properties": {
+          "client_max_body_size": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Max Body Size"
+          },
+          "comments": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Comments",
+            "type": "array"
+          },
+          "directives": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteRawDirective"
+            },
+            "title": "Directives",
+            "type": "array"
+          },
+          "end_line": {
+            "title": "End Line",
+            "type": "integer"
+          },
+          "evaluation_order": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Evaluation Order",
+            "type": "array"
+          },
+          "gzip": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gzip"
+          },
+          "headers": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteHeader"
+            },
+            "title": "Headers",
+            "type": "array"
+          },
+          "http2": {
+            "default": false,
+            "title": "Http2",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "line": {
+            "title": "Line",
+            "type": "integer"
+          },
+          "listens": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteListen"
+            },
+            "title": "Listens",
+            "type": "array"
+          },
+          "locations": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteLocation"
+            },
+            "title": "Locations",
+            "type": "array"
+          },
+          "names": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Names",
+            "type": "array"
+          },
+          "notes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteNote"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "returns": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SiteReturn"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rewrites": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Rewrites",
+            "type": "array"
+          },
+          "root": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root"
+          },
+          "tls": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SiteTls"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "line",
+          "end_line"
+        ],
+        "title": "SiteServer",
+        "type": "object"
+      },
+      "SiteSettings": {
+        "description": "The settings the Structure view edits in line.",
+        "properties": {
+          "buffering": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buffering"
+          },
+          "cache": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cache"
+          },
+          "client_max_body_size": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Max Body Size"
+          },
+          "connect_timeout": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Connect Timeout"
+          },
+          "deny": {
+            "default": false,
+            "title": "Deny",
+            "type": "boolean"
+          },
+          "expires": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires"
+          },
+          "headers": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteHeader"
+            },
+            "title": "Headers",
+            "type": "array"
+          },
+          "limit_req": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit Req"
+          },
+          "proxy_headers": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteHeader"
+            },
+            "title": "Proxy Headers",
+            "type": "array"
+          },
+          "read_timeout": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Timeout"
+          },
+          "send_timeout": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Send Timeout"
+          },
+          "websocket": {
+            "default": false,
+            "title": "Websocket",
+            "type": "boolean"
+          }
+        },
+        "title": "SiteSettings",
+        "type": "object"
+      },
+      "SiteStructureModel": {
+        "description": "Everything in a site file, structured (``kind`` is ``nginx`` or ``apache``).",
+        "properties": {
+          "directives": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteRawDirective"
+            },
+            "title": "Directives",
+            "type": "array"
+          },
+          "includes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteInclude"
+            },
+            "title": "Includes",
+            "type": "array"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "notes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteNote"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "servers": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteServer"
+            },
+            "title": "Servers",
+            "type": "array"
+          },
+          "upstreams": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteUpstream"
+            },
+            "title": "Upstreams",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "SiteStructureModel",
+        "type": "object"
+      },
+      "SiteStructureResponse": {
+        "description": "The structure of a site's file or of a draft of it.\n\nAttributes:\n    site: The domain asked about.\n    webserver: ``nginx`` or ``apache``.\n    path: The site's file.\n    structure: The model, None when the text does not parse.\n    error: Why it does not parse, None when it does. A draft that does not\n        parse is an answer, not a failure: the console shows the line and\n        sends the operator to the text.",
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SiteParseFailure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "site": {
+            "title": "Site",
+            "type": "string"
+          },
+          "structure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SiteStructureModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "webserver": {
+            "title": "Webserver",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site",
+          "webserver",
+          "path"
+        ],
+        "title": "SiteStructureResponse",
+        "type": "object"
+      },
+      "SiteTarget": {
+        "description": "What a location hands a request to.\n\n``kind`` is ``proxy``, ``static``, ``return``, ``fastcgi`` or ``other``;\nthe other fields are those of :class:`noust.managers.siteconf.model.Target`.",
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "alias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alias"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "destination": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Destination"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "directive": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Directive"
+          },
+          "host": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Host"
+          },
+          "inherited": {
+            "default": false,
+            "title": "Inherited",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "protocol": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocol"
+          },
+          "root": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root"
+          },
+          "upstream": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upstream"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "SiteTarget",
+        "type": "object"
+      },
       "SiteTemplatesResponse": {
         "description": "Templates a site can be created or rendered from.\n\nAttributes:\n    templates: Template names, without their file suffix, sorted.\n    webserver: Backend the templates belong to.",
         "properties": {
@@ -19885,6 +21817,243 @@
           "webserver"
         ],
         "title": "SiteTemplatesResponse",
+        "type": "object"
+      },
+      "SiteTls": {
+        "description": "A server's certificate, key and protocols, as the file names them.",
+        "properties": {
+          "certificate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate"
+          },
+          "key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Key"
+          },
+          "protocols": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Protocols",
+            "type": "array"
+          }
+        },
+        "title": "SiteTls",
+        "type": "object"
+      },
+      "SiteTopologyResponse": {
+        "description": "The structure of the saved site plus what is behind it now.\n\nAttributes:\n    backends: Every address the site reaches, with its owner and state.\n    certificates: The certificate of each server that presents one.\n    docker: Whether Docker answered; when not, containers are not owners.",
+        "properties": {
+          "backends": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteBackend"
+            },
+            "title": "Backends",
+            "type": "array"
+          },
+          "certificates": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteCertificate"
+            },
+            "title": "Certificates",
+            "type": "array"
+          },
+          "docker": {
+            "default": false,
+            "title": "Docker",
+            "type": "boolean"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SiteParseFailure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "site": {
+            "title": "Site",
+            "type": "string"
+          },
+          "structure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SiteStructureModel"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "webserver": {
+            "title": "Webserver",
+            "type": "string"
+          }
+        },
+        "required": [
+          "site",
+          "webserver",
+          "path"
+        ],
+        "title": "SiteTopologyResponse",
+        "type": "object"
+      },
+      "SiteUpstream": {
+        "description": "A named group of backends; ``source`` set when an include defines it (read-only).",
+        "properties": {
+          "comments": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Comments",
+            "type": "array"
+          },
+          "directives": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteRawDirective"
+            },
+            "title": "Directives",
+            "type": "array"
+          },
+          "end_line": {
+            "title": "End Line",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "keepalive": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keepalive"
+          },
+          "line": {
+            "title": "Line",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "notes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteNote"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "servers": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SiteUpstreamServer"
+            },
+            "title": "Servers",
+            "type": "array"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "used_by": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Used By",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "line",
+          "end_line"
+        ],
+        "title": "SiteUpstream",
+        "type": "object"
+      },
+      "SiteUpstreamServer": {
+        "description": "One backend of an upstream; ``source`` is the included file it comes from.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "params": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Params",
+            "type": "array"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          }
+        },
+        "required": [
+          "address"
+        ],
+        "title": "SiteUpstreamServer",
         "type": "object"
       },
       "SlowQueriesResponse": {
@@ -20122,6 +22291,68 @@
           "commit"
         ],
         "title": "SourceInspectionResponse",
+        "type": "object"
+      },
+      "SourceStatusOut": {
+        "description": "What became of one source.\n\nAttributes:\n    source: The source.\n    state: ``shown``, ``withheld``, ``failed`` or ``skipped``.\n    count: Entries it contributed.\n    truncated: It had more than it may contribute.\n    permission: The permission it needs, when withheld.\n    message: Why it failed.\n    evidence: What the system said, verbatim.",
+        "properties": {
+          "count": {
+            "default": 0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "evidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Evidence"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          },
+          "permission": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Permission"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "truncated": {
+            "default": false,
+            "title": "Truncated",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "source",
+          "state"
+        ],
+        "title": "SourceStatusOut",
         "type": "object"
       },
       "SparkFigure": {
@@ -21390,6 +23621,228 @@
         "title": "TimeSummary",
         "type": "object"
       },
+      "TimelineEventOut": {
+        "description": "One thing that happened.\n\nAttributes:\n    at: When, epoch seconds.\n    source: ``journal``, ``audit``, ``deployments``, ``jobs`` or ``monitor``.\n    kind: ``journal``, ``audit``, ``deployment``, ``job``, ``observation``,\n        ``unit_failed``, ``unit_recovered`` or ``boot``.\n    level: ``error``, ``warning``, ``notice`` or ``info``.\n    text: What the source says, verbatim.\n    unit: The unit it concerns.\n    app: The application it concerns.\n    actor: Who did it.\n    status: Its outcome.\n    ref: What to open: a deployment's id, a job's id.\n    priority: The journal's priority, 0 to 7.\n    details: Small extras.",
+        "properties": {
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "app": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App"
+          },
+          "at": {
+            "title": "At",
+            "type": "number"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "level": {
+            "title": "Level",
+            "type": "string"
+          },
+          "priority": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Priority"
+          },
+          "ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ref"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "at",
+          "source",
+          "kind",
+          "level",
+          "text"
+        ],
+        "title": "TimelineEventOut",
+        "type": "object"
+      },
+      "TimelineOut": {
+        "description": "Response for ``GET /api/timeline``.\n\nAttributes:\n    start: First moment, epoch seconds.\n    end: Last moment.\n    app: The application it is narrowed to.\n    events: Every event, oldest first.\n    processes: The process samples; null when not shown.\n    sources: What became of each source.",
+        "properties": {
+          "app": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App"
+          },
+          "end": {
+            "title": "End",
+            "type": "integer"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineEventOut"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "processes": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProcessHistoryOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/SourceStatusOut"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "start": {
+            "title": "Start",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "events",
+          "sources"
+        ],
+        "title": "TimelineOut",
+        "type": "object"
+      },
+      "TimezoneOut": {
+        "description": "One time zone the server can be set to, as it is right now.\n\nAttributes:\n    name: The tz database name, such as ``Europe/Madrid``.\n    region: Its first part (``Europe``); ``Etc`` for the fixed offsets, ``UTC`` for ``UTC``.\n    city: What follows the region, readable: ``Madrid``, ``Argentina / Buenos Aires``.\n    offset: The offset from UTC now: ``UTC+02:00``, ``UTC-03:30``, or ``UTC``.\n    abbreviation: ``CEST``; empty when the database only numbers the zone.\n    offset_minutes: The offset in minutes east of UTC.",
+        "properties": {
+          "abbreviation": {
+            "title": "Abbreviation",
+            "type": "string"
+          },
+          "city": {
+            "title": "City",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "string"
+          },
+          "offset_minutes": {
+            "title": "Offset Minutes",
+            "type": "integer"
+          },
+          "region": {
+            "title": "Region",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "region",
+          "city",
+          "offset",
+          "abbreviation",
+          "offset_minutes"
+        ],
+        "title": "TimezoneOut",
+        "type": "object"
+      },
+      "TimezonesOut": {
+        "description": "The zones the managed server knows.\n\nAttributes:\n    generated_at: The moment the offsets were read at, ISO 8601 in UTC.\n    timezones: ``Etc/UTC`` and ``UTC`` first, then every zone by offset and name.",
+        "properties": {
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "timezones": {
+            "items": {
+              "$ref": "#/components/schemas/TimezoneOut"
+            },
+            "title": "Timezones",
+            "type": "array"
+          }
+        },
+        "required": [
+          "generated_at",
+          "timezones"
+        ],
+        "title": "TimezonesOut",
+        "type": "object"
+      },
       "TokenInfo": {
         "description": "Session information.\n\nAttributes:\n    valid: Whether the session is usable.\n    expires_at: Expiry as a UNIX timestamp.\n    session_id: Server-side session identifier.",
         "properties": {
@@ -21830,6 +24283,28 @@
           }
         },
         "title": "UpdateEnvMarksRequest",
+        "type": "object"
+      },
+      "UpdateFollowTagsRequest": {
+        "description": "Make an application deploy the tags that match a pattern, or stop.",
+        "properties": {
+          "pattern": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A glob over tag names such as 'v*'. Null: follow a branch again",
+            "title": "Pattern"
+          }
+        },
+        "required": [
+          "pattern"
+        ],
+        "title": "UpdateFollowTagsRequest",
         "type": "object"
       },
       "UpdateHealthRequest": {
@@ -23318,7 +25793,7 @@
         "type": "object"
       },
       "WebhookReceivedOut": {
-        "description": "One delivery the forge sent.\n\nAttributes:\n    id: Row id; larger is newer.\n    received_at: When it arrived (the last of a burst, for a folded row),\n        with a UTC offset.\n    provider: ``github``, ``gitea``, ``gitlab`` or ``github-app``; None\n        when no credential verified.\n    event: The forge's name for the event.\n    outcome: ``deploy_started``, ``preview_started``, ``ping``,\n        ``ignored_branch``, ``ignored_event``, ``ignored_pull_request``,\n        ``duplicate``, ``bad_signature`` or ``locked``.\n    branch: The branch a push named.\n    detail: One short line of context.\n    job_id: The job it queued, to follow in the console's jobs.\n    delivery_id: The forge's id for the delivery.\n    count: How many identical refusals the row stands for.",
+        "description": "One delivery the forge sent.\n\nAttributes:\n    id: Row id; larger is newer.\n    received_at: When it arrived (the last of a burst, for a folded row),\n        with a UTC offset.\n    provider: ``github``, ``gitea``, ``gitlab`` or ``github-app``; None\n        when no credential verified.\n    event: The forge's name for the event.\n    outcome: ``deploy_started``, ``preview_started``, ``ping``,\n        ``ignored_branch``, ``ignored_tag``, ``ignored_event``,\n        ``ignored_pull_request``, ``duplicate``, ``bad_signature`` or\n        ``locked``.\n    branch: The branch a push named.\n    detail: One short line of context.\n    job_id: The job it queued, to follow in the console's jobs.\n    delivery_id: The forge's id for the delivery.\n    count: How many identical refusals the row stands for.",
         "properties": {
           "branch": {
             "anyOf": [
@@ -23731,6 +26206,286 @@
         "title": "ZeroDowntimeResponse",
         "type": "object"
       },
+      "noust__web__api__app_adopt__AdoptRequest": {
+        "description": "The stack to adopt, and what is not found by looking.",
+        "properties": {
+          "accept_recreate": {
+            "default": false,
+            "description": "Adopt even when starting the stack as Noust would recreate something",
+            "title": "Accept Recreate",
+            "type": "boolean"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The branch updates follow; the one checked out when omitted",
+            "title": "Branch"
+          },
+          "compose_file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its compose file, relative to path; found when omitted",
+            "title": "Compose File"
+          },
+          "domain": {
+            "description": "The domain the stack serves",
+            "title": "Domain",
+            "type": "string"
+          },
+          "path": {
+            "description": "The absolute directory the stack runs from",
+            "title": "Path",
+            "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The port to register; the compose file's",
+            "title": "Port"
+          },
+          "preview": {
+            "default": false,
+            "description": "Answer what would be done; change nothing",
+            "title": "Preview",
+            "type": "boolean"
+          },
+          "site": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The file in sites-available serving the domain; found when omitted",
+            "title": "Site"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where updates fetch from; the checkout's origin when omitted",
+            "title": "Source"
+          }
+        },
+        "required": [
+          "domain",
+          "path"
+        ],
+        "title": "AdoptRequest",
+        "type": "object"
+      },
+      "noust__web__api__app_adopt__AdoptResponse": {
+        "description": "What an adoption found, and whether it was recorded.",
+        "properties": {
+          "adopted": {
+            "description": "False for a preview or a rehearsal",
+            "title": "Adopted",
+            "type": "boolean"
+          },
+          "app_name": {
+            "title": "App Name",
+            "type": "string"
+          },
+          "app_path": {
+            "title": "App Path",
+            "type": "string"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "changes": {
+            "description": "What starting the stack would change (accepted)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "compose_file": {
+            "title": "Compose File",
+            "type": "string"
+          },
+          "containers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Containers",
+            "type": "array"
+          },
+          "deployment_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The adoption's history row",
+            "title": "Deployment Id"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "dry_run": {
+            "description": "docker compose up --dry-run's output, verbatim",
+            "title": "Dry Run",
+            "type": "string"
+          },
+          "headless": {
+            "title": "Headless",
+            "type": "boolean"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Compose project every command passes with -p",
+            "title": "Project"
+          },
+          "project_from": {
+            "description": "containers: their labels; compose: the name Compose derives; stack: the stack names it itself",
+            "title": "Project From",
+            "type": "string"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "site": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The operator's site file serving the domain",
+            "title": "Site"
+          },
+          "site_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "That file's name, recorded because it is not the domain",
+            "title": "Site Name"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "ssl": {
+            "title": "Ssl",
+            "type": "boolean"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "domain",
+          "app_name",
+          "app_path",
+          "compose_file",
+          "project",
+          "project_from",
+          "containers",
+          "running",
+          "source",
+          "branch",
+          "commit",
+          "site",
+          "site_name",
+          "ssl",
+          "port",
+          "headless",
+          "dry_run",
+          "changes",
+          "warnings",
+          "adopted",
+          "unit",
+          "deployment_id"
+        ],
+        "title": "AdoptResponse",
+        "type": "object"
+      },
       "noust__web__api__backups__BackupListResponse": {
         "description": "Response for listing backups.",
         "properties": {
@@ -23835,6 +26590,12 @@
             "title": "Restore Env",
             "type": "boolean"
           },
+          "schema_changed_ok": {
+            "default": false,
+            "description": "Put back only the files even past later deployments that changed the database schema",
+            "title": "Schema Changed Ok",
+            "type": "boolean"
+          },
           "target_domain": {
             "anyOf": [
               {
@@ -23855,6 +26616,42 @@
           }
         },
         "title": "RestoreBackupRequest",
+        "type": "object"
+      },
+      "noust__web__api__databases__databases__AdoptRequest": {
+        "description": "Request to adopt the databases Noust does not track.",
+        "properties": {
+          "engine": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only this engine",
+            "title": "Engine"
+          }
+        },
+        "title": "AdoptRequest",
+        "type": "object"
+      },
+      "noust__web__api__databases__databases__AdoptResponse": {
+        "description": "The databases adopted, as ``engine/name``.",
+        "properties": {
+          "adopted": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Adopted",
+            "type": "array"
+          }
+        },
+        "required": [
+          "adopted"
+        ],
+        "title": "AdoptResponse",
         "type": "object"
       },
       "noust__web__api__databases__dumps__BackupListResponse": {
@@ -23967,6 +26764,52 @@
           "backup_name"
         ],
         "title": "RestoreBackupRequest",
+        "type": "object"
+      },
+      "noust__web__api__deployments__RollbackRequest": {
+        "description": "Going back to a deployment.",
+        "properties": {
+          "schema_changed_ok": {
+            "default": false,
+            "description": "Go back even past later deployments that changed the database schema",
+            "title": "Schema Changed Ok",
+            "type": "boolean"
+          }
+        },
+        "title": "RollbackRequest",
+        "type": "object"
+      },
+      "noust__web__api__jobs__RollbackRequest": {
+        "description": "Request to roll an application back.",
+        "properties": {
+          "backup_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Backup to roll back to",
+            "title": "Backup Id"
+          },
+          "domain": {
+            "description": "Domain of the application",
+            "title": "Domain",
+            "type": "string"
+          },
+          "schema_changed_ok": {
+            "default": false,
+            "description": "Go back even past later deployments that changed the database schema",
+            "title": "Schema Changed Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "domain"
+        ],
+        "title": "RollbackRequest",
         "type": "object"
       },
       "noust__web__api__monitor__ProcessListResponse": {
@@ -24424,6 +27267,60 @@
         }
       }
     },
+    "/api/apps/adopt": {
+      "post": {
+        "description": "Adopt a Docker Compose stack that already runs, or preview the adoption.\n\nArgs:\n    body: The stack.\n    session: The authenticated, elevated session.\n\nReturns:\n    What was found and done; 409 with Compose's output when starting the\n    stack as Noust would recreate something that was not accepted.\n\nRaises:\n    DeploymentError: The domain is deployed, the directory is not a\n        usable checkout, or the site is ambiguous.",
+        "operationId": "adopt_app_api_apps_adopt_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/noust__web__api__app_adopt__AdoptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__app_adopt__AdoptResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Starting it would recreate"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Adopt App",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/apps/import": {
       "post": {
         "description": "Queue the creation of an application from an export document.\n\nChecked before anything is queued: the document, the domain (409 when\ntaken), the source (a local path is the operator's alone, as for ``POST\n/api/apps``) and the secret values the export left out (400 naming every\none missing). Sudo mode: it deploys as root, and the document may create\ncron jobs and previews, which is what the console's confirmation is for.\nThe job's ``metadata.plan`` carries the whole plan (every cron job with\nits user, directory and command; what previews copy; the reasons it\nneeded confirming), and its log opens with it.\n\nArgs:\n    body: The document, and what to change about it.\n    request: The incoming request, for the audit record of a refusal.\n    session: The authenticated session.\n\nReturns:\n    The queued job; its result lists what was applied and what was not.\n\nRaises:\n    ValidationError: The document is not valid, or a value is missing.\n    DomainConflictError: The domain is taken.\n    HTTPException: 403 for a local source the credential may not deploy,\n        503 when no port is free.",
@@ -24536,7 +27433,7 @@
     },
     "/api/apps/{domain}": {
       "delete": {
-        "description": "Queue the removal of an application.\n\nDeletion stops a unit, rewrites the web server configuration, may call\ncertbot and may delete a large directory, so it runs as a job rather than\non the request path.\n\nArgs:\n    domain: Domain of the application.\n    remove_files: Also delete the application directory.\n    remove_ssl: Also delete the certificate.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "description": "Queue the removal of an application.\n\nDeletion stops a unit, rewrites the web server configuration, may call\ncertbot and may delete a large directory, so it runs as a job rather than\non the request path. A directory outside Noust's apps directory (an\nadopted stack's) is kept, files or not, unless it is named.\n\nArgs:\n    domain: Domain of the application.\n    remove_files: Also delete the application directory.\n    remove_ssl: Also delete the certificate.\n    remove_adopted_directory: The directory named for removal when it is\n        outside the apps directory.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The directory named is not the application's (400).",
         "operationId": "delete_app_api_apps__domain__delete",
         "parameters": [
           {
@@ -24566,6 +27463,24 @@
               "default": false,
               "title": "Remove Ssl",
               "type": "boolean"
+            }
+          },
+          {
+            "description": "The application's directory, named exactly, when it is outside Noust's apps directory (an adopted stack): only then is it removed with the files",
+            "in": "query",
+            "name": "remove_adopted_directory",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The application's directory, named exactly, when it is outside Noust's apps directory (an adopted stack): only then is it removed with the files",
+              "title": "Remove Adopted Directory"
             }
           }
         ],
@@ -25050,7 +27965,7 @@
     },
     "/api/apps/{domain}/deployments/{deployment_id}/rollback": {
       "post": {
-        "description": "Queue going back to what a deployment produced.\n\nOn releases its release is activated behind the health gate. In place in\na git checkout its commit is rebuilt where the application runs, behind\nthe same gate; in place without history its snapshot backup (taken by\nthe update that followed it) is restored after a safety backup, rebuilt\nand gated, keeping the deployed ``.env``. See\n:func:`~noust.deployers.lifecycle.rollback_to_deployment`.\n\nArgs:\n    domain: Domain of the application.\n    deployment_id: The deployment to go back to.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 for an unknown deployment of the application, 409\n        ``rollback_unavailable`` with the reason when it cannot be gone\n        back to.",
+        "description": "Queue going back to what a deployment produced.\n\nOn releases its release is activated behind the health gate. In place in\na git checkout its commit is rebuilt where the application runs, behind\nthe same gate; in place without history its snapshot backup (taken by\nthe update that followed it) is restored after a safety backup, rebuilt\nand gated, keeping the deployed ``.env``. See\n:func:`~noust.deployers.lifecycle.rollback_to_deployment`.\n\nGoing back past later deployments that changed the database's schema\nis refused with 409 ``schema_changed``, naming them, unless the body says\n``schema_changed_ok``: Noust puts code back, never a database.\n\nArgs:\n    domain: Domain of the application.\n    deployment_id: The deployment to go back to.\n    session: The authenticated session.\n    body: The operator's confirmation, when the schema changed since.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 for an unknown deployment of the application, 409\n        ``rollback_unavailable`` with the reason when it cannot be gone\n        back to, 409 ``schema_changed`` with the deployments when it was\n        not confirmed.",
         "operationId": "rollback_deployment_api_apps__domain__deployments__deployment_id__rollback_post",
         "parameters": [
           {
@@ -25072,6 +27987,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/noust__web__api__deployments__RollbackRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "content": {
@@ -25564,6 +28496,61 @@
         "x-noust-permission": "secrets.reveal"
       }
     },
+    "/api/apps/{domain}/follow-tags": {
+      "patch": {
+        "description": "Make an application deploy the tags that match a pattern, or stop.\n\nFollowing tags replaces following a branch: the webhook deploys the tag a\nrelease or a tag push names, in version order and never an older one, and\nignores pushes to branches; an update with no tag deploys the newest tag\nthat matches. Nothing is fetched or rebuilt until the next release or\nupdate. Changing what deploys needs sudo mode, like the branch.\n\nArgs:\n    domain: Domain of the application.\n    body: The pattern, or null.\n    session: The authenticated, elevated session.\n\nReturns:\n    What it follows now and what it followed before.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The pattern is not a tag glob, or a branch is pinned\n        (400, ``follow_tags`` in ``fields``).\n    SourceError: Not deployed from git.",
+        "operationId": "update_app_follow_tags_api_apps__domain__follow_tags_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFollowTagsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowTagsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update App Follow Tags",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/apps/{domain}/health": {
       "patch": {
         "description": "Set the path, the accepted statuses and the timeout of an application's health check.\n\nThe health gate decides which release may serve, so changing what it\nasks needs sudo mode, like the limits. The values are validated where\nthey are stored; nothing restarts.\n\nArgs:\n    domain: Domain of the application.\n    body: The three settings.\n    session: The authenticated, elevated session.\n\nReturns:\n    The settings the application has now, and what the gate asks.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: A value is not one the gate can use (400).\n    DeploymentError: It is a static site, checked by its files.",
@@ -25616,6 +28603,244 @@
           "Applications"
         ],
         "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/hooks": {
+      "delete": {
+        "description": "Remove the operator's hooks, so the repository's noust.yaml applies again.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The hooks now in force.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "delete_app_hooks_api_apps__domain__hooks_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppHooksResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete App Hooks",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
+      },
+      "get": {
+        "description": "Show the hooks the next deployment of an application runs. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The hooks and where they come from.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_app_hooks_api_apps__domain__hooks_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppHooksResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get App Hooks",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "put": {
+        "description": "Set the operator's hooks, replacing the repository's noust.yaml whole.\n\nThe document is validated before anything is stored; a refusal names the\nfield (``hooks.pre_deploy[0].timeout``). A hook runs with the\napplication's identity and secrets, so this needs sudo mode.\n\nArgs:\n    domain: Domain of the application.\n    body: The document.\n    session: The authenticated, elevated session.\n\nReturns:\n    The hooks now in force.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: The document is not valid, or the application's\n        type has no hooks (400, with the field).",
+        "operationId": "put_app_hooks_api_apps__domain__hooks_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppHooksRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppHooksResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put App Hooks",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "root_equivalent",
+        "x-noust-requires-approval": {
+          "action": "root_equivalent",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/identity": {
+      "get": {
+        "description": "Show the account an application runs as. Changes nothing.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated session.\n\nReturns:\n    The account, whether it is its own, and what a migration would give it.\n\nRaises:\n    HTTPException: 404 when the application is unknown.",
+        "operationId": "get_identity_api_apps__domain__identity_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Identity",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/apps/{domain}/identity/migrate": {
+      "post": {
+        "description": "Queue the move of an application to its own system account.\n\nIt is restarted behind its health gate; when it does not answer, the\nfiles' owners, its unit or pool and the records are put back exactly.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: It cannot or need not move (400), before anything\n        is queued.",
+        "operationId": "post_identity_migrate_api_apps__domain__identity_migrate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Identity Migrate",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "root_equivalent",
+        "x-noust-requires-approval": {
+          "action": "root_equivalent",
+          "kind": "infrastructure",
+          "when": "always"
+        },
         "x-noust-requires-elevation": true
       }
     },
@@ -26189,7 +29414,7 @@
     },
     "/api/apps/{domain}/releases/{release_id}/activate": {
       "post": {
-        "description": "Make a release the one that serves: an instant rollback, or a roll forward.\n\nNeeds the ``deploy`` scope, like queueing an update: it changes what code\nruns, and nothing else. The release passes the same health gate as a\ndeploy; one that does not is recorded as failed and the release that was\nserving is put back before this answers.\n\nArgs:\n    domain: Domain of the application.\n    release_id: The release to activate.\n    session: The authenticated session.\n\nReturns:\n    What was done.\n\nRaises:\n    HTTPException: 400 for something that is not a release id, 404 for an\n        unknown application or a release that is not on disk, 409 for an\n        application deployed in place.\n    DeploymentError: The release did not pass its health check; the\n        details carry the probe's and the journal's own output.",
+        "description": "Make a release the one that serves: an instant rollback, or a roll forward.\n\nNeeds the ``deploy`` scope, like queueing an update: it changes what code\nruns, and nothing else. The release passes the same health gate as a\ndeploy; one that does not is recorded as failed and the release that was\nserving is put back before this answers.\n\nArgs:\n    domain: Domain of the application.\n    release_id: The release to activate.\n    session: The authenticated session.\n    schema_changed_ok: The operator confirmed going back past deployments\n        that changed the database's schema.\n\nReturns:\n    What was done.\n\nRaises:\n    HTTPException: 400 for something that is not a release id, 404 for an\n        unknown application or a release that is not on disk, 409 for an\n        application deployed in place.\n    SchemaChangedError: 409, naming the deployments, when going back past\n        a schema change was not confirmed.\n    DeploymentError: The release did not pass its health check; the\n        details carry the probe's and the journal's own output.",
         "operationId": "activate_app_release_api_apps__domain__releases__release_id__activate_post",
         "parameters": [
           {
@@ -26208,6 +29433,18 @@
             "schema": {
               "title": "Release Id",
               "type": "string"
+            }
+          },
+          {
+            "description": "Go back even past deployments that changed the database schema",
+            "in": "query",
+            "name": "schema_changed_ok",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Go back even past deployments that changed the database schema",
+              "title": "Schema Changed Ok",
+              "type": "boolean"
             }
           }
         ],
@@ -30136,7 +33373,7 @@
     },
     "/api/backups/{backup_id}/restore": {
       "post": {
-        "description": "Queue a restore of an application from a backup.\n\nRestoring overwrites whatever the target domain currently has running -\nD5's sudo mode list treats it the same as deleting an application, so a\ncookie session has to confirm itself first; an admin-scoped Bearer\ncredential is exempt, per :func:`noust.web.api.deps.ensure_elevated`.\n\nArgs:\n    backup_id: Backup identifier.\n    data: Restore options.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.",
+        "description": "Queue a restore of an application from a backup.\n\nRestoring overwrites whatever the target domain currently has running -\nD5's sudo mode list treats it the same as deleting an application, so a\ncookie session has to confirm itself first; an admin-scoped Bearer\ncredential is exempt, per :func:`noust.web.api.deps.ensure_elevated`.\n\nPutting back only the files of the application the backup is of, past a\nlater deployment that changed its schema, is refused with 409\n``schema_changed``, naming the deployments, unless the body says\n``schema_changed_ok`` (as a rollback is).\n\nArgs:\n    backup_id: Backup identifier.\n    data: Restore options.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 409 ``schema_changed`` when it was not confirmed.",
         "operationId": "restore_backup_api_backups__backup_id__restore_post",
         "parameters": [
           {
@@ -33067,7 +36304,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AdoptRequest"
+                "$ref": "#/components/schemas/noust__web__api__databases__databases__AdoptRequest"
               }
             }
           },
@@ -33078,7 +36315,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdoptResponse"
+                  "$ref": "#/components/schemas/noust__web__api__databases__databases__AdoptResponse"
                 }
               }
             },
@@ -37674,13 +40911,13 @@
     },
     "/api/jobs/rollback": {
       "post": {
-        "description": "Queue a rollback.\n\nArgs:\n    request: The rollback request.\n    session: The authenticated session.\n\nReturns:\n    The queued job.",
+        "description": "Queue a rollback.\n\nRestoring a backup puts the files back, never the database: going back\npast later deployments that changed the schema is refused with 409\n``schema_changed``, naming them, unless the body says ``schema_changed_ok``.\n\nArgs:\n    request: The rollback request.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 409 ``schema_changed`` when it was not confirmed.",
         "operationId": "create_rollback_job_api_jobs_rollback_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/RollbackRequest"
+                "$ref": "#/components/schemas/noust__web__api__jobs__RollbackRequest"
               }
             }
           },
@@ -38965,6 +42202,29 @@
           }
         },
         "summary": "Get Capabilities",
+        "tags": [
+          "Server"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/server/clock/timezones": {
+      "get": {
+        "description": "List the time zones the server can be set to.\n\nThe managed server computes it, not the browser: the names are the ones its\ntz database has (so the change never refuses one), and the offsets are the ones\nin force now, daylight saving included. On a fleet the node answers.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Every zone with its region, city, offset now and abbreviation, ``Etc/UTC``\n    and ``UTC`` first and the rest by offset and name.",
+        "operationId": "list_timezones_api_server_clock_timezones_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimezonesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Timezones",
         "tags": [
           "Server"
         ],
@@ -40397,7 +43657,7 @@
         "tags": [
           "Server"
         ],
-        "x-noust-permission": "server.manage"
+        "x-noust-permission": "server.read"
       }
     },
     "/api/server/storage/analyze/latest": {
@@ -41830,7 +45090,7 @@
     },
     "/api/sites": {
       "get": {
-        "description": "List every configured site.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The sites known to the store, falling back to what the manager finds on\n    disk when the store has no record of them. Every entry carries the\n    server names its own configuration answers on.",
+        "description": "List every configured site.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The store's sites and the files in each web server's sites directory,\n    together: a site the operator wrote by hand is listed beside the ones\n    Noust wrote, and each entry says which it is (``noust_managed``) and\n    which application it serves (``app``). Every entry carries the server\n    names its own configuration answers on.",
         "operationId": "list_sites_api_sites_get",
         "responses": {
           "200": {
@@ -42127,6 +45387,60 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/sites/{domain}/config/edit": {
+      "post": {
+        "description": "Apply edit operations to a text and return the result, without saving it.\n\nEach operation changes only the bytes of the element it names; the rest\nof the text comes back exactly as it was sent.\n\nArgs:\n    domain: Domain the text is meant for.\n    data: The text and the operations.\n    session: The authenticated session.\n\nReturns:\n    The edited text, its structure and how many lines changed.\n\nRaises:\n    ValidationError: When the text does not parse (``fields.config``,\n        the line in the hint) or an operation is malformed or names\n        nothing (``fields[\"ops[2].target\"]``).\n    DomainError: When the domain is not acceptable.",
+        "operationId": "edit_site_config_api_sites__domain__config_edit_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteEditRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteEditResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Edit Site Config",
+        "tags": [
+          "Sites"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
     "/api/sites/{domain}/config/test": {
       "post": {
         "description": "Try a candidate configuration against the web server, without saving it.\n\nReuses :meth:`~noust.managers.webserver.WebServerManager.test_config_text`,\nthe exact staging and syntax check ``PUT /{domain}/config`` validates\nthrough before it writes anything - one implementation, so the answer\nthis gives is the answer saving would get. The site named in the path\nneed not exist yet: this only asks the web server about the text, it\nnever reads or touches the file on disk.\n\nArgs:\n    domain: Domain the configuration is meant for.\n    data: The candidate configuration.\n    session: The authenticated session.\n\nReturns:\n    Whether the web server would accept it, and its own output verbatim.\n\nRaises:\n    DomainError: When the domain is not acceptable.\n    NginxError: When the nginx snippet cannot be staged.\n    ApacheError: When the apache snippet cannot be staged.",
@@ -42267,6 +45581,200 @@
           "Sites"
         ],
         "x-noust-permission": "apps.manage"
+      }
+    },
+    "/api/sites/{domain}/route": {
+      "post": {
+        "description": "Say which server and location answer a request, and why.\n\nThe web server's own selection is replayed over the structure of the\nsaved file, or of the draft when one is sent.\n\nArgs:\n    domain: Domain of the site.\n    data: The draft (optional) and the request.\n    session: The authenticated session.\n\nReturns:\n    The server and location ids, the explanation as English sentences\n    and as codes with parameters, the ids to highlight and the automatic\n    redirect when there is one.\n\nRaises:\n    HTTPException: 404 when no draft is sent and the site has no file.\n    ValidationError: When the text does not parse.\n    DomainError: When the domain is not acceptable.",
+        "operationId": "route_site_request_api_sites__domain__route_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteRouteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteRouteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Route Site Request",
+        "tags": [
+          "Sites"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/sites/{domain}/structure": {
+      "get": {
+        "description": "The structure of a site's saved file.\n\nArgs:\n    domain: Domain of the site.\n    session: The authenticated session.\n\nReturns:\n    The model (servers, locations in evaluation order, upstreams,\n    includes resolved inside the web server's directory, comments, raw\n    directives), or the parse error with its line.\n\nRaises:\n    HTTPException: 404 when no such site exists.\n    DomainError: When the domain is not acceptable.",
+        "operationId": "get_site_structure_api_sites__domain__structure_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteStructureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Site Structure",
+        "tags": [
+          "Sites"
+        ],
+        "x-noust-permission": "apps.read"
+      },
+      "post": {
+        "description": "The structure of a draft. Nothing is written; the site need not exist.\n\nArgs:\n    domain: Domain the draft is meant for.\n    data: The draft.\n    session: The authenticated session.\n\nReturns:\n    The draft's model, or the parse error with its line.\n\nRaises:\n    DomainError: When the domain is not acceptable.",
+        "operationId": "post_site_structure_api_sites__domain__structure_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SiteDraftRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteStructureResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Site Structure",
+        "tags": [
+          "Sites"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/sites/{domain}/topology": {
+      "get": {
+        "description": "The saved site's structure and what is behind it now.\n\nFor every address the site reaches: who holds the port (a Noust\napplication, a Compose service by its labels, a container, a systemd\nunit, a process), whether it accepts a connection (only on this machine,\none second, cached ten seconds) and, for each server, its certificate's\nexpiry.\n\nArgs:\n    domain: Domain of the site.\n    session: The authenticated session.\n\nReturns:\n    The structure response with ``backends``, ``certificates`` and\n    ``docker``; only the parse error when the file does not parse.\n\nRaises:\n    HTTPException: 404 when no such site exists.\n    DomainError: When the domain is not acceptable.",
+        "operationId": "get_site_topology_api_sites__domain__topology_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SiteTopologyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Site Topology",
+        "tags": [
+          "Sites"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/system": {
@@ -42555,6 +46063,105 @@
         "summary": "Check Version",
         "tags": [
           "System"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/timeline": {
+      "get": {
+        "description": "Merge everything that happened in a stretch into one ordered timeline.\n\nArgs:\n    request: The request, for recording the audit read.\n    session: The authenticated session.\n    start: First moment, epoch seconds.\n    end: Last moment.\n    app: Narrow it to this application, by domain.\n    sources: Only these sources.\n\nReturns:\n    The events oldest first, the process samples, and what became of each\n    source: shown, withheld (with the permission it needs) or failed (with\n    the system's words).\n\nRaises:\n    ValidationError: The stretch, a source or the application is not valid\n        (400).",
+        "operationId": "read_timeline_api_timeline_get",
+        "parameters": [
+          {
+            "description": "First moment, epoch seconds",
+            "in": "query",
+            "name": "start",
+            "required": true,
+            "schema": {
+              "description": "First moment, epoch seconds",
+              "minimum": 0,
+              "title": "Start",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Last moment, epoch seconds",
+            "in": "query",
+            "name": "end",
+            "required": true,
+            "schema": {
+              "description": "Last moment, epoch seconds",
+              "minimum": 0,
+              "title": "End",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Narrow to one application",
+            "in": "query",
+            "name": "app",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 253,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Narrow to one application",
+              "title": "App"
+            }
+          },
+          {
+            "description": "Only these sources: journal, audit, deployments, jobs, monitor, processes; every one when omitted",
+            "in": "query",
+            "name": "sources",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only these sources: journal, audit, deployments, jobs, monitor, processes; every one when omitted",
+              "title": "Sources"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Timeline",
+        "tags": [
+          "Timeline"
         ],
         "x-noust-permission": "server.read"
       }

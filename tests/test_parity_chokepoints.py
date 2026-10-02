@@ -626,6 +626,7 @@ class TestBackupOptionsReachTheManager:
                 "target_domain": "example.com",
                 "restore_env": False,
                 "verify_checksum": False,
+                "schema_changed_ok": False,
             }
         ]
 
@@ -682,7 +683,11 @@ class TestBackupOptionsReachTheManager:
                 return _FakeJob()
 
         monkeypatch.setattr(backups_api, "get_job_manager", lambda: _FakeJobManager())
-        monkeypatch.setattr(backups_api, "_load_backup", lambda backup_id: (None, _backup_stub()))
+        # No deployment since the backup changed the schema: nothing to confirm.
+        unchanged = type("M", (), {"require_restore_confirmed": lambda self, *a, **k: []})()
+        monkeypatch.setattr(
+            backups_api, "_load_backup", lambda backup_id: (unchanged, _backup_stub())
+        )
 
         client = _client(backups_api.router, "/api/backups")
         response = client.post(
@@ -810,6 +815,10 @@ class TestDeleteAppJobRoutesThroughTheChokepoints:
         app_path.mkdir(parents=True)
         (app_path / "server.js").write_text("// app\n")
         store.create_app(App(domain="example.com", app_path=str(app_path)))
+        # Noust's apps directory: one outside it was adopted and is kept.
+        from noust.core.config import Config
+
+        monkeypatch.setattr(Config, "apps_directory", property(lambda _self: tmp_path / "apps"))
 
         recording_fs = RecordingFileSystem()
         set_fs(recording_fs)

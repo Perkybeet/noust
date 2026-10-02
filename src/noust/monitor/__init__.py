@@ -7,7 +7,9 @@ writes down only processes over a resource threshold or carrying a known
 malware executable name; and the state of every unit Noust manages plus the
 units listed in ``monitor.watch_units``, read with one ``systemctl show`` per
 scan. A unit that fails or crash-loops is announced as ``unit_failed``; one
-stopped on purpose is not.
+stopped on purpose is not. An application whose unit runs but which stops
+answering its health check is announced as ``app_unreachable`` (and
+``app_recovered`` when it answers again): see :mod:`noust.monitor.reachability`.
 
 **How often.** Once every ``monitor.scan_interval`` seconds, at least
 :data:`MIN_SCAN_INTERVAL`, 60 by default, for the scan of processes and units.

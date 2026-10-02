@@ -77,6 +77,11 @@ class DeleteRequest(BaseModel):
     domain: str = Field(..., description="Domain of the application to delete")
     remove_files: bool = Field(default=True, description="Remove application files")
     remove_ssl: bool = Field(default=True, description="Remove SSL certificates")
+    remove_adopted_directory: str | None = Field(
+        default=None,
+        description="The application's directory, named exactly, when it is outside Noust's "
+        "apps directory (an adopted stack): only then is it removed with the files",
+    )
 
 
 class BackupRequest(BaseModel):
@@ -423,6 +428,7 @@ def create_delete_job(
             "domain": domain,
             "remove_files": request.remove_files,
             "remove_ssl": request.remove_ssl,
+            "remove_adopted_directory": request.remove_adopted_directory,
         },
         metadata={"domain": domain},
         actor=actor_label(session),

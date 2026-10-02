@@ -66,12 +66,21 @@ SANDBOX_COLUMNS: list[tuple[str, str, str]] = [
 ]
 
 
+# The transient systemd unit a job's work runs in (an operating system update,
+# Noust updating itself). A console restarted under that work reads how the
+# unit ended instead of marking the job interrupted (noust.web.job_reconcile).
+JOBS_SQL = ""
+JOBS_COLUMNS: list[tuple[str, str, str]] = [
+    ("jobs", "unit", "TEXT"),
+]
+
+
 def _fragments() -> list[str]:
-    return [HOOKS_SQL, DEPLOY_SQL, APPS_SQL, SANDBOX_SQL]
+    return [HOOKS_SQL, DEPLOY_SQL, APPS_SQL, SANDBOX_SQL, JOBS_SQL]
 
 
 def _columns() -> list[tuple[str, str, str]]:
-    return [*HOOKS_COLUMNS, *DEPLOY_COLUMNS, *APPS_COLUMNS, *SANDBOX_COLUMNS]
+    return [*HOOKS_COLUMNS, *DEPLOY_COLUMNS, *APPS_COLUMNS, *SANDBOX_COLUMNS, *JOBS_COLUMNS]
 
 
 def _existing_columns(cursor: sqlite3.Cursor, table: str) -> set[str]:

@@ -14,11 +14,10 @@ Two things happened while it was not running, and both are its business:
   asked for here), and a line in the audit log. Not a notice on the event
   stream: at start-up no console is listening yet. A restart of the console
   alone changes nothing and says nothing.
-- **An update kept running.** The console's own job died with it, "interrupted by
-  a panel restart", but the update was in its own systemd unit and did not. Found
-  again here: a unit still running is followed by a new job (the old one cannot be
-  resumed), and one that finished writes its result over the job that was marked
-  interrupted, so the history tells the truth about what happened to the machine.
+- **An update kept running.** The update was in its own systemd unit and did not
+  die with the console. The job that started it is reconciled with that unit by
+  the job manager (:mod:`noust.web.job_reconcile`); what is left here is a run
+  no console job owns (started from a terminal), which is followed by a new job.
 
 :func:`on_console_start` is called once from the server's startup. Nothing in it
 may stop the console from starting: what fails is logged and left for the next start.
@@ -31,12 +30,11 @@ import sqlite3
 from datetime import datetime
 
 from noust.core.exceptions import NoustError
-from noust.core.store import JobRecord, get_store
+from noust.core.store import get_store
 from noust.managers.server.power import Returned
-from noust.managers.server.updates import RECORDS_KEPT, UpdateRecord
 from noust.web.api.server.common import audit_event, get_server_context
 from noust.web.api.server.jobs import os_follow_job
-from noust.web.jobs import INTERRUPTED_REASON, JobType, get_job_manager
+from noust.web.jobs import JobType, get_job_manager
 
 log = logging.getLogger(__name__)
 
@@ -126,44 +124,16 @@ def announce_return() -> None:
     )
 
 
-def _settle_job(record: UpdateRecord) -> None:
-    """
-    Write a finished update's outcome over the job a restart marked interrupted.
-
-    Args:
-        record: A finished run that names the job that started it.
-    """
-    if record.job_id is None or record.status not in ("completed", "failed"):
-        return
-    store = get_store()
-    row = store.get_job(record.job_id)
-    if row is None or row.error != INTERRUPTED_REASON:
-        return
-    store.save_job(
-        JobRecord(
-            id=row.id,
-            type=row.type,
-            name=row.name,
-            description=row.description,
-            status=record.status,
-            progress=100 if record.status == "completed" else row.progress,
-            total_steps=row.total_steps,
-            error=record.error if record.status == "failed" else None,
-            result_json=None,
-            created_at=row.created_at,
-            started_at=row.started_at,
-            finished_at=record.finished_at,
-            log_path=row.log_path,
-            actor=row.actor,
-        )
-    )
-
-
 def reattach_updates() -> None:
-    """Find again the updates the restart interrupted, follow or settle each."""
+    """Find again the updates the restart interrupted, and follow those no job owns."""
     ctx = get_server_context()
     outcome = ctx.unit.reconcile()
+    store = get_store()
     for record in outcome.reattach:
+        if record.job_id and store.get_job(record.job_id) is not None:
+            # Its own job is reconciled with the unit (noust.web.job_reconcile):
+            # a second job following the same run would say it twice.
+            continue
         job = get_job_manager().create_job(
             job_type=JobType.OS_UPDATE,
             name="Follow the update that kept running",
@@ -174,8 +144,6 @@ def reattach_updates() -> None:
             actor=record.actor,
         )
         log.info("Following update %s again in job %s", record.id, job.id)
-    for record in ctx.records.recent(RECORDS_KEPT):
-        _settle_job(record)
 
 
 def on_console_start() -> None:

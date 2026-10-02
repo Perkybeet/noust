@@ -19,8 +19,9 @@ import os
 import sqlite3
 import time
 from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -32,6 +33,8 @@ from noust.core.exceptions import MonitorError, NoustError
 from noust.core.fs import SECRET_MODE, get_fs
 from noust.core.logger import Logger
 from noust.core.notifications.composers import (
+    compose_app_recovered,
+    compose_app_unreachable,
     compose_certificate,
     compose_disk,
     compose_disk_recovered,
@@ -42,7 +45,9 @@ from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.model import Notification
 from noust.core.notifier import Notifier
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.store import App, get_store
 from noust.core.utils import remove_file, write_file
+from noust.deployers.helpers.php_fpm import is_php_fpm
 from noust.managers.cert_manager import CertManager
 from noust.managers.service_manager import ServiceManager
 from noust.monitor.collector import MetricsCollector, create_collector
@@ -61,7 +66,14 @@ from noust.monitor.models import (
 )
 from noust.monitor.observation_store import DEFAULT_MAX_OBSERVATIONS, ObservationStore
 from noust.monitor.observation_store import default_db_path as default_observations_path
+from noust.monitor.reachability import (
+    AppProbe,
+    OutageTracker,
+    busy_reason,
+    probe_application,
+)
 from noust.monitor.signals import observe_processes
+from noust.monitor.timeseries import EVENT_UNIT_FAILED, EVENT_UNIT_RECOVERED
 
 #: Seconds between scans. A minute is enough for capacity planning and cheap
 #: enough to leave running on a small box.
@@ -120,6 +132,17 @@ CERT_EXPIRY_WARNING_DAYS = 14
 #: schema migration of its own, and it is small enough that "read it, replace
 #: it" is the whole implementation.
 CERT_STATE_FILE_NAME = "cert-notifications.json"
+
+#: Sidecar holding each application's run of failed probes and which outages
+#: were announced, next to the observation database and for the same reason as
+#: the certificate one: the daemon restarts on every upgrade, and an outage
+#: must not be announced twice, or its end never told, because of that.
+REACHABILITY_STATE_FILE_NAME = "app-reachability.json"
+
+#: Applications asked whether they answer at the same time. Each probe may
+#: wait out its own timeout, and one that hangs must not hold up the rest of
+#: the scan.
+REACHABILITY_PROBE_WORKERS = 8
 
 #: Written when an operator disables or removes the monitor, and removed when
 #: they enable it again. It is what lets a package upgrade install the monitor
@@ -368,6 +391,9 @@ class ProcessMonitor:
         service_manager: Any | None = None,
         metrics_collector: MetricsCollector | None = None,
         declined_path: Path | None = None,
+        reachability_probe: Callable[[App], AppProbe | None] | None = None,
+        reachability_state_path: Path | None = None,
+        clock: Callable[[], float] = time.time,
     ) -> None:
         """
         Args:
@@ -390,6 +416,14 @@ class ProcessMonitor:
                 inject one so nothing samples the machine.
             declined_path: Where "the operator turned the monitor off" is
                 remembered. Defaults to a file in the state directory.
+            reachability_probe: Asks one application whether it answers; None
+                is :func:`~noust.monitor.reachability.probe_application`, the
+                health gate's own probe. Tests inject one so nothing is asked.
+            reachability_state_path: Where each application's run of failed
+                probes is kept between scans. Defaults to a sidecar next to
+                the observation store.
+            clock: Wall-clock seconds, which survive a restart where a
+                monotonic clock does not. Tests move it.
         """
         self.verbose = verbose
         self.logger = Logger(verbose=verbose)
@@ -405,6 +439,10 @@ class ProcessMonitor:
         self._service_manager = service_manager
         self._metrics = metrics_collector
         self._declined_path = declined_path
+        self._reachability_probe = reachability_probe
+        self._reachability_state_path = reachability_state_path
+        self._reachability: OutageTracker | None = None
+        self._clock = clock
         self._running = False
         # Far enough in the past that the first loop iteration purges once.
         self._last_purge = float("-inf")
@@ -838,6 +876,9 @@ class ProcessMonitor:
             down.add(health.unit)
             self.logger.warning(f"{failure.title}: {failure.detail}")
             if health.unit not in self._failed_units:
+                self._remember_unit_event(
+                    EVENT_UNIT_FAILED, health.unit, failure.detail, failure.kind
+                )
                 # failure.title and .detail are the log's own words, always
                 # English. The notification is composed fresh from
                 # noust.core.messages, keyed by the same failure.kind, with
@@ -864,9 +905,227 @@ class ProcessMonitor:
                 )
         for unit in sorted(recovered):
             # It failed, was announced, and is running again: close the alert.
+            self._remember_unit_event(EVENT_UNIT_RECOVERED, unit, f"{unit} is running again.")
             self._publish(partial(compose_unit_recovered, unit))
         self._failed_units = down
         self._restart_counts = restarts
+
+    def _reachability_state_file(self) -> Path:
+        """
+        Where the run of failed probes of each application is kept.
+
+        Returns:
+            The injected override, or a sidecar next to the observation
+            database.
+        """
+        if self._reachability_state_path is not None:
+            return self._reachability_state_path
+        return Path(self.store.db_path).parent / REACHABILITY_STATE_FILE_NAME
+
+    def _reachability_tracker(self) -> OutageTracker:
+        """
+        Load, once, what the previous scans knew about each application.
+
+        A file that is missing or cannot be read means "start counting", never
+        "stop watching".
+
+        Returns:
+            The tracker every scan feeds.
+        """
+        if self._reachability is None:
+            path = self._reachability_state_file()
+            data: object = None
+            try:
+                data = json.loads(path.read_text())
+            except FileNotFoundError:
+                pass
+            except (OSError, json.JSONDecodeError) as exc:
+                self.logger.debug(f"Could not read the reachability state {path}: {exc}")
+            self._reachability = OutageTracker.from_dict(data)
+        return self._reachability
+
+    def _write_reachability_state(self, state: dict[str, Any]) -> None:
+        """
+        Persist each application's run of failed probes.
+
+        Args:
+            state: What :meth:`OutageTracker.to_dict` returned.
+        """
+        path = self._reachability_state_file()
+        fs = get_fs()
+        try:
+            fs.write_text(path, json.dumps(state), mode=SECRET_MODE)
+        except OSError as exc:
+            self.logger.warning(f"Could not persist the reachability state {path}: {exc}")
+
+    def _unit_state(
+        self, domain: str, units: Sequence[str], health: dict[str, ServiceHealth]
+    ) -> str:
+        """
+        Say whether an application's units are in a state worth asking it anything.
+
+        Only an application whose units run is asked whether it answers. One
+        stopped on purpose is nobody's outage, and one that failed or keeps
+        restarting is ``unit_failed``'s to tell; probing either would say the
+        same thing twice or say it about a stop the operator asked for.
+
+        Args:
+            domain: The application, for the log.
+            units: The units that serve it now.
+            health: What systemd reported about them this scan, by unit.
+
+        Returns:
+            ``running``: ask it. ``stopped``: stopped on purpose, or nothing
+            runs for it. ``unwell``: failed, restarting, or systemd said
+            nothing about it.
+        """
+        if not units:
+            return "stopped"
+        states: set[str] = set()
+        for unit in units:
+            reading = health.get(unit)
+            if reading is None or not reading.active_state:
+                self.logger.debug(f"systemd said nothing about {unit}; {domain} is not asked")
+                states.add("unwell")
+            elif reading.load_state == "not-found":
+                states.add("stopped")
+            elif reading.active_state == "inactive" and reading.result in ("", "success"):
+                states.add("stopped")
+            elif reading.active_state == "active" and reading.sub_state != "auto-restart":
+                states.add("running")
+            else:
+                states.add("unwell")
+        if "unwell" in states:
+            return "unwell"
+        return "stopped" if "stopped" in states else "running"
+
+    def _check_reachability(self) -> None:
+        """
+        Announce an application that stopped answering, and when it answers again.
+
+        ``unit_failed`` is systemd giving a unit up; this is the other kind of
+        outage, the one with the unit active (a hung process, a Compose
+        container that died, a port that changed), which nothing announced
+        (owner item 58). Each application whose units run is asked what the
+        health gate asks; :class:`OutageTracker` decides when a run of
+        failures is an outage (three, spanning a minute) and when it is over
+        (the first answer). A Compose stack that publishes no port is judged
+        by its containers.
+
+        Not asked, and so never announced: an application being changed (a
+        deploy, an update or a job holds it), one stopped on purpose, one
+        whose unit failed, and one with nothing to ask (a static site).
+        """
+        store = get_store()
+        try:
+            apps = store.list_apps()
+        except (NoustError, sqlite3.Error) as exc:
+            self.logger.warning(f"Could not list the applications to check they answer: {exc}")
+            return
+        tracker = self._reachability_tracker()
+        before = tracker.to_dict()
+        now = self._clock()
+        tracker.keep_only({app.domain for app in apps})
+
+        candidates = [app for app in apps if not app.is_static and not is_php_fpm(app)]
+        serving: dict[str, list[str]] = {}
+        for app in candidates:
+            try:
+                serving[app.domain] = self.service_manager.serving_units(app)
+            except (NoustError, OSError) as exc:
+                self.logger.warning(f"Could not tell which unit serves {app.domain}: {exc}")
+        health = {
+            reading.unit: reading
+            for reading in self.check_services(
+                sorted({unit for units in serving.values() for unit in units})
+            )
+        }
+
+        askable: list[App] = []
+        for app in candidates:
+            if app.domain not in serving:
+                continue
+            state = self._unit_state(app.domain, serving[app.domain], health)
+            if state == "stopped":
+                tracker.forget(app.domain)
+                continue
+            if state == "unwell":
+                tracker.hold(app.domain)
+                continue
+            try:
+                busy = busy_reason(app.domain, store, now=now)
+            except (NoustError, OSError, sqlite3.Error) as exc:
+                # Asking while a deploy might be running would measure the
+                # deploy; not asking costs one round.
+                self.logger.warning(f"Could not tell whether {app.domain} is being changed: {exc}")
+                tracker.hold(app.domain)
+                continue
+            if busy is not None:
+                self.logger.debug(f"{app.domain} is not asked whether it answers: {busy}")
+                tracker.hold(app.domain)
+                continue
+            askable.append(app)
+
+        probe = self._reachability_probe or partial(probe_application, runner=self.runner)
+        if askable:
+            with ThreadPoolExecutor(
+                max_workers=min(REACHABILITY_PROBE_WORKERS, len(askable))
+            ) as pool:
+                pending = [(app, pool.submit(probe, app)) for app in askable]
+                for app, future in pending:
+                    try:
+                        found = future.result()
+                    except (NoustError, OSError) as exc:
+                        # What could not be found out counts for nothing: neither
+                        # a failure nor an answer.
+                        self.logger.warning(f"Could not check whether {app.domain} answers: {exc}")
+                        continue
+                    self._record_probe(tracker, app.domain, found, now)
+
+        after = tracker.to_dict()
+        if after != before:
+            self._write_reachability_state(after)
+
+    def _record_probe(
+        self, tracker: OutageTracker, domain: str, found: AppProbe | None, now: float
+    ) -> None:
+        """
+        Feed one probe to the tracker and announce what it decides.
+
+        Args:
+            tracker: The outage rule.
+            domain: The application.
+            found: What the probe found, or None when there was nothing to ask.
+            now: Epoch seconds of this scan.
+        """
+        if found is None:
+            tracker.forget(domain)
+            return
+        if found.ok:
+            recovery = tracker.succeed(domain, now=now)
+            if recovery is not None:
+                self.logger.info(f"{domain} answers again after {recovery.down_for_s:.0f}s")
+                self._publish(
+                    partial(
+                        compose_app_recovered,
+                        domain,
+                        down_for_s=recovery.down_for_s,
+                        containers=found.containers,
+                    )
+                )
+            return
+        self.logger.warning(f"{domain} does not answer: {found.detail}")
+        outage = tracker.fail(domain, found.detail, now=now)
+        if outage is not None:
+            self._publish(
+                partial(
+                    compose_app_unreachable,
+                    domain,
+                    since=datetime.fromtimestamp(outage.since, tz=timezone.utc),
+                    probe=outage.probe,
+                    containers=found.containers,
+                )
+            )
 
     def run(self) -> None:
         """
@@ -894,6 +1153,7 @@ class ProcessMonitor:
                 try:
                     self._log_metrics()
                     self._report_services()
+                    self._check_reachability()
                     self._check_certificates()
                     self._refresh_security_report()
                     self.scan_once()
@@ -913,6 +1173,29 @@ class ProcessMonitor:
             self._stop_metrics()
 
         self.logger.info("Process monitor stopped")
+
+    def _remember_unit_event(
+        self, kind: str, unit: str, detail: str, reason: str | None = None
+    ) -> None:
+        """
+        Keep a unit's failure or recovery beside the metrics it explains.
+
+        The timeline of an interval (:mod:`noust.managers.timeline`) reads it
+        back; the notification is not a record. Best effort: a database that
+        cannot be written must not cost the announcement.
+
+        Args:
+            kind: ``unit_failed`` or ``unit_recovered``.
+            unit: The unit.
+            detail: The monitor's own sentence.
+            reason: The failure's kind.
+        """
+        if self._metrics is None:
+            return
+        try:
+            self._metrics.store.record_monitor_event(kind, unit, detail=detail, reason=reason)
+        except (sqlite3.Error, OSError) as exc:
+            self.logger.warning(f"Could not keep the {kind} event of {unit}: {exc}")
 
     def _start_metrics(self) -> None:
         """

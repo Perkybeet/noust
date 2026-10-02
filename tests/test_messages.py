@@ -111,8 +111,14 @@ class TestCatalogShape:
         summaries = {key.split(".", 1)[1] for key in MESSAGES if key.startswith("summary.")}
 
         assert titles <= summaries
-        # The one summary that is a variant of another's title.
-        assert summaries - titles == {"cert.expiring_today"}
+        # The summaries that are a variant of another's title: an expiry that is
+        # today, and an application judged by its containers (no web) rather than
+        # by an HTTP probe, which keeps the code a consumer of the webhook reads.
+        assert summaries - titles == {
+            "cert.expiring_today",
+            "app.unreachable_containers",
+            "app.recovered_containers",
+        }
 
     def test_a_title_never_carries_a_placeholder(self) -> None:
         """The subject and the facts live elsewhere; a title is a state and nothing else."""

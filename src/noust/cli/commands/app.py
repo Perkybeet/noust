@@ -31,6 +31,7 @@ from pathlib import Path
 import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.cli.commands.app_adopt import adopt_command
 from noust.cli.commands.app_backup import backup_before_update_command
 from noust.cli.commands.app_headless import headless_command
 from noust.cli.commands.app_hooks import hooks as hooks_group
@@ -114,6 +115,7 @@ cli.add_command(identity_group)
 cli.add_command(hooks_group)
 cli.add_command(backup_before_update_command)
 cli.add_command(headless_command)
+cli.add_command(adopt_command)
 
 
 @cli.command("migrate")
@@ -520,6 +522,19 @@ def _print_zero_downtime(logger: Logger, status: ZeroDowntimeStatus) -> None:
             if status.hint:
                 logger.info(status.hint)
         return
+    if not status.instances:
+        # A Compose stack: each web service is recreated behind a relay.
+        logger.key_value("Zero downtime", "on: each web service is recreated behind a relay")
+        logger.key_value(
+            "nginx upstream",
+            f"127.0.0.1:{status.upstream_port}" if status.upstream_port else "missing",
+        )
+        logger.key_value("Drain", f"{status.drain_seconds} s")
+        if status.reason:
+            logger.warning(status.reason)
+            if status.hint:
+                logger.info(status.hint)
+        return
     logger.key_value("Zero downtime", f"on: {status.active_color} serves")
     for instance in status.instances:
         logger.key_value(
@@ -565,6 +580,11 @@ def zero_downtime_command(ctx: Context, domain: str, mode: str | None, drain: in
     queue with a single consumer or jobs scheduled in-process do not).
     Switching the mode on or off is itself done without a cut. Without ON
     or OFF, shows the mode.
+
+    A Docker Compose stack is updated through relays instead: each web
+    service the site reaches through Noust's servers file is recreated
+    while a container of its new image serves it. A site you wrote yourself
+    must include that file; turning the mode on says the exact line.
     """
     if mode is None and drain is None:
         status = zero_downtime_status(domain)
@@ -594,7 +614,8 @@ def zero_downtime_command(ctx: Context, domain: str, mode: str | None, drain: in
     elif not change.changed:
         logger.info(f"{change.domain} is already {'on' if change.enabled else 'off'}")
     elif change.enabled:
-        logger.key_value("Serving", str(change.active_color))
+        if change.active_color is not None:
+            logger.key_value("Serving", change.active_color)
         logger.key_value("Drain", f"{change.drain_seconds} s")
 
 

@@ -1283,6 +1283,52 @@ Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
 Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
+### app.unreachable
+Subject: [Noust] Aplicación sin respuesta: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: app_unreachable
+X-Noust-Code: app.unreachable
+X-Noust-Server: web-1
+
+✕ Aplicación sin respuesta · shop.example.com
+Su servicio está en marcha, pero la aplicación no responde a su comprobación de salud.
+
+Servidor: web-1
+Inaccesible desde: 2026-10-02 14:05 UTC
+Diagnostícala con: noust diagnose shop.example.com
+
+La última sonda:
+  GET http://127.0.0.1:3004/ -> <urlopen error [Errno 111] Connection refused>
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
+### app.recovered
+Subject: [Noust] Aplicación de nuevo operativa: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: app_recovered
+X-Noust-Code: app.recovered
+X-Noust-Server: web-1
+
+● Aplicación de nuevo operativa · shop.example.com
+Vuelve a pasar su comprobación de salud.
+
+Servidor: web-1
+Estuvo inaccesible durante: 12 min 34 s
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
 ### hostile.deploy_failed
 Subject: [Noust] Despliegue fallido: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated

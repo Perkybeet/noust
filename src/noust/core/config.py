@@ -185,6 +185,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "restore_failed": True,
             "cert_expiring": True,
             "unit_failed": True,
+            # An application whose unit runs but which stopped answering its
+            # health check, and the first answer after it (owner item 58).
+            "app_unreachable": True,
+            "app_recovered": True,
             "disk_threshold": True,
             "backup_failed": True,
             # A heartbeat, not a problem: an operator who wants a message for

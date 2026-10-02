@@ -53,6 +53,7 @@ from pathlib import Path
 from noust.core import paths
 from noust.core.exceptions import ValidationError
 from noust.core.logger import Logger
+from noust.monitor.process_samples import ProcessSample
 
 #: Where the database lives when Noust is installed system-wide.
 SYSTEM_DB_PATH = paths.state_dir() / "metrics.db"
@@ -320,6 +321,34 @@ class CollectorLease:
         return now - self.heartbeat_at <= lease_timeout(self.interval_s)
 
 
+@dataclass(frozen=True)
+class MonitorEvent:
+    """
+    Something the monitor saw happen to a unit.
+
+    Attributes:
+        ts: When, epoch seconds.
+        kind: ``unit_failed`` or ``unit_recovered``.
+        subject: The unit.
+        detail: The monitor's own sentence, verbatim.
+        reason: The failure's kind (``failed``, ``crash_loop``...), or None.
+    """
+
+    ts: int
+    kind: str
+    subject: str
+    detail: str | None = None
+    reason: str | None = None
+
+
+#: Kinds of :class:`MonitorEvent`.
+EVENT_UNIT_FAILED = "unit_failed"
+EVENT_UNIT_RECOVERED = "unit_recovered"
+
+#: Most rows one read of the process samples returns: a day of minutes, ten a minute.
+MAX_PROCESS_ROWS = 15_000
+
+
 #: Who may take a lease from whom. The daemon outranks the console: when it
 #: starts, the console's collector notices it lost the lease and stops.
 _KIND_PRIORITY: dict[str, int] = {"console": 1, "daemon": 2}
@@ -505,6 +534,7 @@ class MetricsStore:
                 ) WITHOUT ROWID
                 """
             )
+            self._create_history_tables(conn)
             version = int(conn.execute("PRAGMA user_version").fetchone()[0])
             if version < SCHEMA_VERSION:
                 # Seed the newest-reading table from what an older version left,
@@ -629,6 +659,15 @@ class MetricsStore:
             dropped += conn.execute(
                 "DELETE FROM consolidated WHERE resolution = ? AND ts < ?",
                 (HOUR.resolution, hour_cutoff),
+            ).rowcount
+            # The processes of each minute live exactly as long as the minute
+            # metrics they explain; what the monitor saw, as long as the hourly
+            # tier.
+            dropped += conn.execute(
+                "DELETE FROM process_samples WHERE ts < ?", (now_ts - (MINUTE.retention or 0),)
+            ).rowcount
+            dropped += conn.execute(
+                "DELETE FROM monitor_events WHERE ts < ?", (hour_cutoff,)
             ).rowcount
             # A metric that has been silent for a day (a deleted application)
             # stops costing a row in the newest-reading table.
@@ -1286,3 +1325,203 @@ class MetricsStore:
             for (path,) in rows:
                 if path not in wanted:
                     conn.execute("DELETE FROM log_cursors WHERE path = ?", (path,))
+
+    # --------------------------------------------- processes and monitor events
+
+    @staticmethod
+    def _create_history_tables(conn: sqlite3.Connection) -> None:
+        """
+        Create the tables of what explains a chart: processes and unit events.
+
+        Args:
+            conn: The connection, inside the schema transaction.
+        """
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS process_samples (
+                ts INTEGER NOT NULL,
+                rank TEXT NOT NULL,
+                position INTEGER NOT NULL,
+                pid INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                user TEXT NOT NULL,
+                cpu_percent REAL NOT NULL,
+                memory_bytes INTEGER NOT NULL,
+                memory_percent REAL NOT NULL,
+                app TEXT,
+                owner_kind TEXT,
+                owner TEXT,
+                command TEXT,
+                PRIMARY KEY (ts, rank, position)
+            ) WITHOUT ROWID
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS monitor_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ts INTEGER NOT NULL,
+                kind TEXT NOT NULL,
+                subject TEXT NOT NULL,
+                detail TEXT,
+                reason TEXT
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS monitor_events_by_time ON monitor_events (ts)")
+
+    def record_process_samples(self, samples: Sequence[ProcessSample]) -> None:
+        """
+        Store one minute's rankings, replacing what that minute already had.
+
+        Args:
+            samples: The rows, as :class:`~noust.monitor.process_samples.ProcessSampler`
+                ranks them.
+        """
+        if not samples:
+            return
+        conn = self._get_connection()
+        with conn:
+            conn.executemany(
+                """
+                INSERT INTO process_samples (ts, rank, position, pid, name, user,
+                    cpu_percent, memory_bytes, memory_percent, app, owner_kind, owner, command)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (ts, rank, position) DO UPDATE SET
+                    pid = excluded.pid, name = excluded.name, user = excluded.user,
+                    cpu_percent = excluded.cpu_percent, memory_bytes = excluded.memory_bytes,
+                    memory_percent = excluded.memory_percent, app = excluded.app,
+                    owner_kind = excluded.owner_kind, owner = excluded.owner,
+                    command = excluded.command
+                """,
+                [
+                    (
+                        int(s.ts),
+                        s.rank,
+                        int(s.position),
+                        int(s.pid),
+                        s.name,
+                        s.user,
+                        float(s.cpu_percent),
+                        int(s.memory_bytes),
+                        float(s.memory_percent),
+                        s.app,
+                        s.owner_kind,
+                        s.owner,
+                        s.command,
+                    )
+                    for s in samples
+                ],
+            )
+
+    def process_samples(
+        self, start: int, end: int, *, app: str | None = None, limit: int = MAX_PROCESS_ROWS
+    ) -> list[ProcessSample]:
+        """
+        Read the rankings of the minutes inside a stretch.
+
+        Args:
+            start: First moment, epoch seconds.
+            end: Last moment.
+            app: Only the rows of this application, by domain.
+            limit: Most rows returned, oldest first.
+
+        Returns:
+            The rows, by minute, then ranking, then position.
+        """
+        sql = "SELECT * FROM process_samples WHERE ts >= ? AND ts <= ?"
+        params: list[object] = [int(start), int(end)]
+        if app is not None:
+            sql += " AND app = ?"
+            params.append(app)
+        sql += " ORDER BY ts, rank, position LIMIT ?"
+        params.append(int(limit))
+        rows = self._get_connection().execute(sql, params).fetchall()
+        return [
+            ProcessSample(
+                ts=int(row["ts"]),
+                rank=str(row["rank"]),
+                position=int(row["position"]),
+                pid=int(row["pid"]),
+                name=str(row["name"]),
+                user=str(row["user"]),
+                cpu_percent=float(row["cpu_percent"]),
+                memory_bytes=int(row["memory_bytes"]),
+                memory_percent=float(row["memory_percent"]),
+                app=row["app"],
+                owner_kind=row["owner_kind"],
+                owner=row["owner"],
+                command=row["command"],
+            )
+            for row in rows
+        ]
+
+    def first_process_sample_at(self) -> int | None:
+        """
+        Say since when processes have been sampled.
+
+        Returns:
+            The oldest minute still kept, or None when there is none.
+        """
+        row = self._get_connection().execute("SELECT MIN(ts) FROM process_samples").fetchone()
+        return int(row[0]) if row is not None and row[0] is not None else None
+
+    def record_monitor_event(
+        self,
+        kind: str,
+        subject: str,
+        *,
+        detail: str | None = None,
+        reason: str | None = None,
+        ts: int | None = None,
+    ) -> None:
+        """
+        Remember something the monitor saw happen to a unit.
+
+        Args:
+            kind: :data:`EVENT_UNIT_FAILED` or :data:`EVENT_UNIT_RECOVERED`.
+            subject: The unit.
+            detail: The monitor's own sentence.
+            reason: The failure's kind.
+            ts: When; the store's clock by default.
+        """
+        stamp = int(self._clock()) if ts is None else int(ts)
+        conn = self._get_connection()
+        with conn:
+            conn.execute(
+                "INSERT INTO monitor_events (ts, kind, subject, detail, reason) "
+                "VALUES (?, ?, ?, ?, ?)",
+                (stamp, kind, subject, detail, reason),
+            )
+
+    def monitor_events(self, start: int, end: int, *, limit: int = 1_000) -> list[MonitorEvent]:
+        """
+        Read what the monitor saw inside a stretch.
+
+        Args:
+            start: First moment, epoch seconds.
+            end: Last moment.
+            limit: Most events returned, oldest first.
+
+        Returns:
+            The events, oldest first.
+        """
+        rows = (
+            self._get_connection()
+            .execute(
+                "SELECT ts, kind, subject, detail, reason FROM monitor_events "
+                "WHERE ts >= ? AND ts <= ? ORDER BY ts, id LIMIT ?",
+                (int(start), int(end), int(limit)),
+            )
+            .fetchall()
+        )
+        return [
+            MonitorEvent(
+                ts=int(row["ts"]),
+                kind=str(row["kind"]),
+                subject=str(row["subject"]),
+                detail=row["detail"],
+                reason=row["reason"],
+            )
+            for row in rows
+        ]

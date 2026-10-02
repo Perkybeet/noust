@@ -1615,6 +1615,7 @@ def test_delete_names_the_application_before_removing_it(
         tmp_path: Applications directory.
     """
     monkeypatch.setattr(webapp, "Config", lambda: SimpleNamespace(apps_directory=tmp_path))
+    monkeypatch.setattr(lifecycle, "Config", lambda: SimpleNamespace(apps_directory=tmp_path))
     store.apps["example.com"] = make_app()
 
     result = cli_runner.invoke(webapp.cli.commands["delete"], ["example.com"], input="n\n")
@@ -1645,6 +1646,7 @@ def test_delete_with_force_removes_the_whole_deployment(
         tmp_path: Applications directory.
     """
     monkeypatch.setattr(webapp, "Config", lambda: SimpleNamespace(apps_directory=tmp_path))
+    monkeypatch.setattr(lifecycle, "Config", lambda: SimpleNamespace(apps_directory=tmp_path))
     # The deletion itself is lifecycle.delete_app, shared with the console.
     monkeypatch.setattr(
         lifecycle,
@@ -1684,6 +1686,7 @@ def test_delete_keeps_the_files_when_asked(
         tmp_path: Applications directory.
     """
     monkeypatch.setattr(webapp, "Config", lambda: SimpleNamespace(apps_directory=tmp_path))
+    monkeypatch.setattr(lifecycle, "Config", lambda: SimpleNamespace(apps_directory=tmp_path))
     # The deletion itself is lifecycle.delete_app, shared with the console.
     monkeypatch.setattr(
         lifecycle,
@@ -1721,6 +1724,7 @@ def test_delete_under_dry_run_only_reports(
         tmp_path: Applications directory.
     """
     monkeypatch.setattr(webapp, "Config", lambda: SimpleNamespace(apps_directory=tmp_path))
+    monkeypatch.setattr(lifecycle, "Config", lambda: SimpleNamespace(apps_directory=tmp_path))
     monkeypatch.setattr(webapp, "NginxManager", lambda verbose=False: _AbsentSite())
     monkeypatch.setattr(webapp, "ApacheManager", lambda verbose=False: _AbsentSite())
     (tmp_path / "example-com").mkdir()
@@ -1753,11 +1757,146 @@ def test_delete_of_an_unknown_app_fails(
         tmp_path: Empty applications directory.
     """
     monkeypatch.setattr(webapp, "Config", lambda: SimpleNamespace(apps_directory=tmp_path))
+    monkeypatch.setattr(lifecycle, "Config", lambda: SimpleNamespace(apps_directory=tmp_path))
 
     result = cli_runner.invoke(webapp.cli.commands["delete"], ["example.com", "--force"])
 
     assert result.exit_code == 1
     assert "Application not found: example.com" in shown(result, console)
+
+
+def _adopted_app(store: StoreSpy, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """An application adopted where it ran, outside the apps directory (tmp_path/apps)."""
+    apps = tmp_path / "apps"
+    monkeypatch.setattr(webapp, "Config", lambda: SimpleNamespace(apps_directory=apps))
+    monkeypatch.setattr(lifecycle, "Config", lambda: SimpleNamespace(apps_directory=apps))
+    monkeypatch.setattr(
+        lifecycle, "delete_site_completely", lambda domain, **kwargs: SiteDeletion(domain=domain)
+    )
+    root = tmp_path / "opt" / "proggest"
+    root.mkdir(parents=True)
+    (root / "docker-compose.yml").write_text("services: {}\n")
+    store.apps["example.com"] = make_app(app_path=str(root))
+    return root
+
+
+def test_delete_keeps_an_adopted_directory_and_says_so(
+    cli_runner: CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+    store: StoreSpy,
+    services: ServiceSpy,
+    console: io.StringIO,
+    tmp_path: Path,
+) -> None:
+    """
+    An adopted stack runs where the operator put it: "remove the files" is not
+    a reason to remove /opt/proggest. The rest of the application goes.
+
+    Args:
+        cli_runner: Click test runner.
+        monkeypatch: Patching helper.
+        store: Store spy.
+        services: Service manager spy.
+        console: Buffer holding what the logger printed.
+        tmp_path: Test directory.
+    """
+    root = _adopted_app(store, tmp_path, monkeypatch)
+
+    result = cli_runner.invoke(webapp.cli.commands["delete"], ["example.com", "-y"])
+    output = shown(result, console)
+
+    assert result.exit_code == 0, output
+    assert (root / "docker-compose.yml").is_file()
+    assert f"--remove-adopted-directory {root}" in output
+    assert "Kept" in output
+    assert ("delete_service", "example-com") in services.calls
+    assert ("app", "example.com") in store.deleted
+
+
+def test_delete_asks_without_listing_an_adopted_directory(
+    cli_runner: CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+    store: StoreSpy,
+    services: ServiceSpy,
+    console: io.StringIO,
+    tmp_path: Path,
+) -> None:
+    """
+    Args:
+        cli_runner: Click test runner.
+        monkeypatch: Patching helper.
+        store: Store spy.
+        services: Service manager spy.
+        console: Buffer holding what the logger printed.
+        tmp_path: Test directory.
+    """
+    root = _adopted_app(store, tmp_path, monkeypatch)
+
+    result = cli_runner.invoke(webapp.cli.commands["delete"], ["example.com"], input="n\n")
+    output = shown(result, console)
+
+    assert result.exit_code == 0, output
+    removes = next(line for line in output.splitlines() if "This removes" in line)
+    assert str(root) not in removes
+    assert "is kept" in output
+
+
+def test_delete_removes_the_adopted_directory_it_is_named(
+    cli_runner: CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+    store: StoreSpy,
+    services: ServiceSpy,
+    tmp_path: Path,
+) -> None:
+    """
+    Args:
+        cli_runner: Click test runner.
+        monkeypatch: Patching helper.
+        store: Store spy.
+        services: Service manager spy.
+        tmp_path: Test directory.
+    """
+    root = _adopted_app(store, tmp_path, monkeypatch)
+
+    result = cli_runner.invoke(
+        webapp.cli.commands["delete"],
+        ["example.com", "-y", "--remove-adopted-directory", str(root)],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert not root.exists()
+
+
+def test_delete_refuses_a_directory_that_is_not_the_application_s(
+    cli_runner: CliRunner,
+    monkeypatch: pytest.MonkeyPatch,
+    store: StoreSpy,
+    services: ServiceSpy,
+    console: io.StringIO,
+    tmp_path: Path,
+) -> None:
+    """
+    Args:
+        cli_runner: Click test runner.
+        monkeypatch: Patching helper.
+        store: Store spy.
+        services: Service manager spy.
+        console: Buffer holding what the logger printed.
+        tmp_path: Test directory.
+    """
+    root = _adopted_app(store, tmp_path, monkeypatch)
+
+    result = cli_runner.invoke(
+        webapp.cli.commands["delete"],
+        ["example.com", "-y", "--remove-adopted-directory", str(tmp_path / "opt")],
+    )
+
+    assert result.exit_code != 0
+    # Raised to the CLI's error boundary, which prints it with its fix.
+    assert "not the directory of example.com" in str(result.exception)
+    assert root.is_dir()
+    assert services.calls == []
+    assert store.deleted == []
 
 
 class _AbsentSite:
@@ -1832,8 +1971,9 @@ def test_logs_of_a_compose_app_asks_docker(
     result = cli_runner.invoke(webapp.cli.commands["logs"], ["example.com"])
 
     assert result.exit_code == 0, result.output
-    assert runner.calls == [
-        ("docker", "compose", "-f", str(compose_file), "logs", "--tail", "50"),
+    # Built like every other compose command: the project pinned with -p.
+    assert [call for call in runner.calls if call[:1] == ("docker",)] == [
+        ("docker", "compose", "-p", "example-com", "-f", str(compose_file), "logs", "--tail", "50"),
     ]
 
 

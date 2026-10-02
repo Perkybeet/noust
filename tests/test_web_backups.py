@@ -303,6 +303,9 @@ def backup_manager_stub(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, ...]
         def get_backup(self, backup_id: str) -> FakeBackup:
             return FakeBackup(backup_id)
 
+        def require_restore_confirmed(self, domain: str, **kwargs: Any) -> list[int]:
+            return []
+
         def delete(self, backup_id: str) -> None:
             calls.append(("delete", backup_id))
 

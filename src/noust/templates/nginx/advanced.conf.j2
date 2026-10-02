@@ -8,7 +8,13 @@ limit_req_zone $binary_remote_addr zone={{ zone_name }}:10m rate={{ rate }};
 
 {% for name, upstream in upstreams.items() %}
 upstream {{ upstream.name }} {
+{% if upstream.servers_file | default(none) %}
+    # Zero-downtime relay: Noust rewrites this file while it recreates the service.
+    include {{ upstream.servers_file }};
+    keepalive 64;
+{% else %}
     server 127.0.0.1:{{ upstream.port }};
+{% endif %}
 }
 {% endfor %}
 

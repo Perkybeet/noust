@@ -830,9 +830,15 @@ class PlanBuilder:
         from noust.deployers.docker_compose import compose_project_name
 
         app_path = Path(getattr(app, "app_path", "") or "")
-        filters = [f"label=com.docker.compose.project.working_dir={app_path}"]
+        filters: list[str] = []
+        # An adopted stack runs under the project it already had, which need
+        # not be its directory's name: that project is the one that answers.
+        pinned = getattr(app, "compose_project", None)
+        if pinned:
+            filters.append(f"label=com.docker.compose.project={pinned}")
+        filters.append(f"label=com.docker.compose.project.working_dir={app_path}")
         project = compose_project_name(app_path, None) if app_path.name else None
-        if project:
+        if project and project != pinned:
             filters.append(f"label=com.docker.compose.project={project}")
 
         for docker_filter in filters:

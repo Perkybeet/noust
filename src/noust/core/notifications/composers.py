@@ -781,6 +781,90 @@ def compose_unit_recovered(unit: str, ctx: NotificationContext) -> Notification:
     )
 
 
+def compose_app_unreachable(
+    domain: str,
+    ctx: NotificationContext,
+    *,
+    since: datetime | None = None,
+    probe: str = "",
+    containers: bool = False,
+) -> Notification:
+    """
+    Compose the notification for an application whose unit runs but does not answer.
+
+    The monitor sends it after several failed probes in a row, so a restart or
+    a deploy never raises it; ``unit_failed`` stays the event for systemd
+    giving a unit up.
+
+    Args:
+        domain: The application (the subject).
+        ctx: The context.
+        since: When the first of the failed probes happened.
+        probe: The last probe, verbatim: the request and what came back, or,
+            for a stack with no published port, one line per container that
+            is not fine.
+        containers: Whether the application was judged by its containers
+            (a Compose stack that publishes no port) rather than by an HTTP
+            probe.
+
+    Returns:
+        The notification, under the ``app_unreachable`` switch.
+    """
+    code = "app.unreachable"
+    summary_key = "summary.app.unreachable_containers" if containers else f"summary.{code}"
+    facts = [_fact("since", format_utc(since), ctx)] if since is not None else []
+    return build(
+        ctx,
+        kind="app_unreachable",
+        code=code,
+        state=State.FAILED,
+        subject=domain,
+        summary=message(summary_key, ctx.locale),
+        facts=facts,
+        command=_fact("diagnose", f"noust diagnose {domain}", ctx, mono=True),
+        excerpt=(
+            make_excerpt(probe, label=message("excerpt.probe", ctx.locale)) if probe else None
+        ),
+        path=f"/apps/{domain}",
+        domain=domain,
+    )
+
+
+def compose_app_recovered(
+    domain: str,
+    ctx: NotificationContext,
+    *,
+    down_for_s: float | None = None,
+    containers: bool = False,
+) -> Notification:
+    """
+    Compose the notification that closes an application's unreachable alert.
+
+    Args:
+        domain: The application (the subject).
+        ctx: The context.
+        down_for_s: How long it did not answer, in seconds.
+        containers: Whether it is a stack judged by its containers.
+
+    Returns:
+        The notification, under the ``app_recovered`` switch.
+    """
+    code = "app.recovered"
+    summary_key = "summary.app.recovered_containers" if containers else f"summary.{code}"
+    facts = [_fact("downtime", format_duration(down_for_s), ctx)] if down_for_s is not None else []
+    return build(
+        ctx,
+        kind="app_recovered",
+        code=code,
+        state=State.OK,
+        subject=domain,
+        summary=message(summary_key, ctx.locale),
+        facts=facts,
+        path=f"/apps/{domain}",
+        domain=domain,
+    )
+
+
 def _used_value(percent: float, used_bytes: int | None, total_bytes: int | None) -> str:
     """
     Args:
@@ -1255,6 +1339,8 @@ __all__ = [
     "OPERATIONS",
     "PreviewOf",
     "build",
+    "compose_app_recovered",
+    "compose_app_unreachable",
     "compose_approval_decided",
     "compose_approval_requested",
     "compose_backup_completed",

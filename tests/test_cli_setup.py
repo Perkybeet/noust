@@ -783,6 +783,26 @@ def test_doctor_passes_on_a_prepared_machine(
     assert result.exit_code == 0, result.output
 
 
+def test_doctor_names_a_relay_an_update_left_and_the_command_that_resolves_it(
+    wasm: Wasm, runner: FakeRunner, prepared: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An update killed mid-relay: the site serves from a container nothing manages."""
+    from noust.deployers import compose_relay
+
+    left = compose_relay.LeftoverRelay(
+        domain="shop.example.com",
+        what="nginx sends backend's requests to 127.0.0.1:25999 (a relay), not to its own "
+        "container on 127.0.0.1:3000",
+        fix="noust update shop.example.com",
+    )
+    monkeypatch.setattr(compose_relay, "leftover_relays", lambda: [left])
+
+    result = wasm("setup", "doctor")
+
+    assert "shop.example.com: nginx sends backend's requests to 127.0.0.1:25999" in result.output
+    assert "Fix: noust update shop.example.com" in result.output
+
+
 def test_permissions_reports_missing_directories(
     wasm: Wasm, runner: FakeRunner, prepared: dict[str, Any]
 ) -> None:

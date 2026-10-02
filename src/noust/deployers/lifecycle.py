@@ -47,6 +47,7 @@ interleave on one application.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 import threading
 import time
@@ -383,7 +384,11 @@ def _update_app(
         app_path = Path(app.app_path)
     else:
         app_path = Config().apps_directory / domain_to_app_name(domain)
-    app_name = app_path.name
+    # An adopted stack (the one kind with a pinned project) runs from the
+    # directory it always did, /opt/proggest; its unit is named after the
+    # domain like any other, which that directory's name is not.
+    adopted = app is not None and bool(getattr(app, "compose_project", None))
+    app_name = domain_to_app_name(domain) if adopted else app_path.name
 
     if not app_path.exists():
         raise NoustError(
@@ -3277,6 +3282,9 @@ class AppDeletion:
         certificate_removed: Whether a certificate was removed.
         files_removed: Whether the application directory was removed.
         warnings: What could not be removed, and why; the rest was.
+        kept_directory: The application's directory, when it is outside
+            Noust's apps directory and was kept for that reason (an adopted
+            stack); None otherwise.
     """
 
     domain: str
@@ -3286,6 +3294,72 @@ class AppDeletion:
     certificate_removed: bool
     files_removed: bool
     warnings: tuple[str, ...]
+    kept_directory: str | None = None
+
+
+def is_in_apps_directory(app_path: Path) -> bool:
+    """
+    Say whether an application's directory is one Noust made, under its apps directory.
+
+    An adopted stack (``noust app adopt``) is registered where it already ran,
+    such as ``/opt/proggest``: the operator made that directory, and removing
+    an application's files must not take it. Where the tree really is
+    decides, every link on the way followed, so a link under the apps
+    directory to elsewhere is not Noust's either; the apps directory itself
+    never is an application's.
+
+    Args:
+        app_path: The directory the store records.
+
+    Returns:
+        True when it is strictly under the configured apps directory.
+    """
+    apps = Config().apps_directory.resolve()
+    real = app_path.resolve()
+    return real != apps and real.is_relative_to(apps)
+
+
+def check_adopted_directory(
+    domain: str, app_path: Path, *, remove_files: bool, named: str | None
+) -> bool:
+    """
+    Decide whether a deletion removes an application directory outside the apps directory.
+
+    The one rule for ``noust delete --remove-adopted-directory`` and the
+    API's ``remove_adopted_directory``: such a directory goes only when the
+    operator names it, exactly, so a deletion never removes a tree Noust did
+    not create because a default said "remove the files".
+
+    Args:
+        domain: The application.
+        app_path: Its directory, as the store records it.
+        remove_files: The deletion removes the application's files.
+        named: The directory the operator named for removal, or None.
+
+    Returns:
+        True when the directory is outside the apps directory and named, so
+        it is removed; False when it is kept (or is Noust's, which
+        ``remove_files`` alone decides).
+
+    Raises:
+        ValidationError: A directory was named that is not the application's,
+            or together with keeping the files. Nothing has been touched.
+    """
+    if named is None:
+        return False
+    if not remove_files:
+        raise ValidationError(
+            "Naming a directory to remove contradicts keeping the files",
+            details="Drop --keep-files (remove_files=false in the API) or the directory.",
+            field="remove_adopted_directory",
+        )
+    if Path(named).resolve() != app_path.resolve():
+        raise ValidationError(
+            f"{named} is not the directory of {domain}",
+            details=f"Its directory is {app_path}; name exactly that one to remove it.",
+            field="remove_adopted_directory",
+        )
+    return not is_in_apps_directory(app_path)
 
 
 def delete_app(
@@ -3294,6 +3368,7 @@ def delete_app(
     remove_files: bool = True,
     remove_certificate: bool = True,
     remove_volumes: bool = False,
+    remove_adopted_directory: str | None = None,
     on_phase: PhaseReporter | None = None,
     logger: Logger | None = None,
 ) -> AppDeletion:
@@ -3315,6 +3390,10 @@ def delete_app(
         remove_certificate: Also remove the domain's certificate.
         remove_volumes: Also remove a Docker Compose stack's named volumes.
             Off unless asked for explicitly: they hold its databases.
+        remove_adopted_directory: The application's directory, named by the
+            operator, when it is outside Noust's apps directory (an adopted
+            stack): only then is it removed with the files. Without it such a
+            directory is kept, and said so.
         on_phase: Called as each phase begins, with its position and
             :data:`DELETE_PHASES`.
         logger: Where the details are reported.
@@ -3324,6 +3403,8 @@ def delete_app(
 
     Raises:
         NoustError: Nothing is deployed at that domain.
+        ValidationError: The directory named is not the application's, or
+            was named while keeping the files. Nothing was touched.
         AppBusyError: Another operation is running on the application.
     """
     log = logger if logger is not None else Logger()
@@ -3336,6 +3417,7 @@ def delete_app(
             remove_files=remove_files,
             remove_certificate=remove_certificate,
             remove_volumes=remove_volumes,
+            remove_adopted_directory=remove_adopted_directory,
             phase=on_phase or (lambda _index, _total, _message: None),
             log=log,
         )
@@ -3364,6 +3446,7 @@ def _delete_app(
     remove_files: bool,
     remove_certificate: bool,
     remove_volumes: bool,
+    remove_adopted_directory: str | None,
     phase: PhaseReporter,
     log: Logger,
 ) -> AppDeletion:
@@ -3375,6 +3458,8 @@ def _delete_app(
         remove_files: Also remove the application directory.
         remove_certificate: Also remove the domain's certificate.
         remove_volumes: Also remove a Docker Compose stack's named volumes.
+        remove_adopted_directory: The directory named for removal when it is
+            outside the apps directory (see :func:`delete_app`).
         phase: Reporter for the :data:`DELETE_PHASES` phases.
         log: Where the details are reported.
 
@@ -3383,6 +3468,7 @@ def _delete_app(
 
     Raises:
         NoustError: Nothing is deployed at that domain.
+        ValidationError: The directory named is not the application's.
     """
     store = get_store()
     app = store.get_app(domain)
@@ -3398,6 +3484,11 @@ def _delete_app(
             f"Application not found: {domain}",
             details="Nothing to delete; check 'noust list' for the exact domain.",
         )
+    # Decided before anything is touched: a refusal leaves the application whole.
+    adopted_named = check_adopted_directory(
+        domain, app_path, remove_files=remove_files, named=remove_adopted_directory
+    )
+    keep_adopted = remove_files and not adopted_named and not is_in_apps_directory(app_path)
     warnings: list[str] = []
 
     def failed(what: str, error: BaseException) -> None:
@@ -3440,7 +3531,9 @@ def _delete_app(
     phase(2, DELETE_PHASES, "Removing its units")
     units = [s.name for s in store.list_services() if app is not None and s.app_id == app.id]
     if not units:
-        units = [app_path.name]
+        # A legacy unit is named after its directory (wasm-<name>); an adopted
+        # directory's name is the operator's, and may be a unit of theirs.
+        units = [app_path.name if is_in_apps_directory(app_path) else domain_to_app_name(domain)]
     services = ServiceManager(verbose=log.verbose)
     for unit in units:
         try:
@@ -3449,10 +3542,16 @@ def _delete_app(
         except NoustError as exc:
             failed(f"The unit {unit} was not removed", exc)
 
+    relayed = (
+        app is not None
+        and app.app_type == "docker-compose"
+        and bool(getattr(app, "zero_downtime", False))
+    )
     # Read defensively: callers and tests hand this rows of their own shape.
-    if app is not None and getattr(app, "zero_downtime", False):
+    if app is not None and getattr(app, "zero_downtime", False) and not relayed:
         # Its instances and their template; the upstream file goes with the
-        # site, once nothing includes it.
+        # site, once nothing includes it. A stack has no instances: its
+        # relays went with its containers, and its servers files go below.
         for warning in BlueGreen(
             app, logger=log, store=store, services=services, web=NginxManager(verbose=log.verbose)
         ).teardown():
@@ -3484,9 +3583,18 @@ def _delete_app(
             f"should answer on {domain} any more: noust site delete {domain}"
         )
         log.warning(warnings[-1])
+    if relayed:
+        _remove_servers_files(domain_to_app_name(domain), deletion.kept_operator, warnings, log)
 
     files_removed = False
-    if remove_files and app_path.exists():
+    if keep_adopted and app_path.exists():
+        phase(4, DELETE_PHASES, "Keeping its directory, which Noust did not create")
+        log.info(
+            f"{app_path} is outside Noust's apps directory ({Config().apps_directory}): it was "
+            "adopted, not created by Noust, so it was kept with everything in it. To remove it "
+            f"with the application: noust delete {domain} --remove-adopted-directory {app_path}"
+        )
+    elif remove_files and app_path.exists():
         phase(4, DELETE_PHASES, "Removing application files")
         try:
             get_fs().remove_tree(app_path)
@@ -3520,4 +3628,41 @@ def _delete_app(
         certificate_removed=deletion.certificate_removed,
         files_removed=files_removed,
         warnings=tuple(warnings),
+        kept_directory=str(app_path) if keep_adopted and app_path.exists() else None,
     )
+
+
+def _remove_servers_files(
+    app_name: str, kept_operator: Sequence[str], warnings: list[str], log: Logger
+) -> None:
+    """
+    Remove the servers files of a stack updated through relays, once nothing includes them.
+
+    Noust's own site was removed with them when it was deleted; an operator's
+    site is kept, and nginx refuses a site that includes a file that is not
+    there, so while one is kept they stay and the warning says how to finish.
+
+    Args:
+        app_name: The application's name, which names their directory.
+        kept_operator: The web servers whose operator's site was kept.
+        warnings: Where what is left is added.
+        log: Where the details are reported.
+    """
+    from noust.managers import webserver
+
+    directory = webserver.NGINX_UPSTREAMS_DIR / app_name
+    if not os.path.lexists(directory):
+        return
+    if "nginx" in kept_operator:
+        warnings.append(
+            f"{directory} stays: the nginx site kept above includes the servers files in it. "
+            "Remove the include lines from that site, or the site, and then the directory."
+        )
+        log.warning(warnings[-1])
+        return
+    try:
+        if webserver.remove_servers(app_name):
+            log.substep(f"Removed {directory}")
+    except NoustError as exc:
+        warnings.append(f"The servers files in {directory} were not removed: {exc}")
+        log.warning(warnings[-1])

@@ -23,10 +23,13 @@ Environment="COMPOSE_FILE={{ esc.env_value(compose_file) }}"
 {% endif %}
 
 # Commands
-ExecStartPre=/usr/bin/docker compose pull --ignore-pull-failures
-ExecStart=/usr/bin/docker compose up -d --remove-orphans
-ExecStop=/usr/bin/docker compose down
-ExecReload=/usr/bin/docker compose up -d --remove-orphans --build
+{# An adopted stack keeps the project it already ran under (-p); every
+    other one leaves Compose to derive it, as it always has. #}
+{% set compose = "/usr/bin/docker compose" ~ ((" -p " ~ esc.line(compose_project)) if compose_project else "") %}
+ExecStartPre={{ compose }} pull --ignore-pull-failures
+ExecStart={{ compose }} up -d --remove-orphans
+ExecStop={{ compose }} down
+ExecReload={{ compose }} up -d --remove-orphans --build
 
 # Timeouts
 TimeoutStartSec=300

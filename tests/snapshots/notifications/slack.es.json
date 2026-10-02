@@ -3126,6 +3126,122 @@
       }
     ]
   },
+  "app.unreachable": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Aplicación sin respuesta · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Aplicación sin respuesta · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Su servicio está en marcha, pero la aplicación no responde a su comprobación de salud."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Inaccesible desde*\n2026-10-02 14:05 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Diagnostícala con:* `noust diagnose shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_La última sonda_\n```GET http://127.0.0.1:3004/ -&gt; &lt;urlopen error [Errno 111] Connection refused&gt;```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "app.recovered": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Aplicación de nuevo operativa · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Aplicación de nuevo operativa · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Vuelve a pasar su comprobación de salud."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Estuvo inaccesible durante*\n12 min 34 s"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "attachments": [
       {

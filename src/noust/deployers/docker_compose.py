@@ -26,7 +26,7 @@ import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
-from typing import Any, ClassVar, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import yaml
 
@@ -85,6 +85,9 @@ from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import SourceManager
 from noust.validators.names import resolve_within
+
+if TYPE_CHECKING:
+    from noust.deployers.compose_relay import ComposeRelay
 
 #: Building images pulls layers and compiles; give it room but not forever.
 BUILD_TIMEOUT = 1800
@@ -1353,8 +1356,13 @@ class DockerComposeDeployer(AppDeployer):
             else:
                 errors = builder.validate(config)
                 if not errors and not config.proxies_the_app:
-                    return "advanced", builder.build_context(
-                        config, self.domain, ssl=with_ssl, app_path=str(self.app_path)
+                    from noust.deployers.compose_relay import advanced_relay_context
+
+                    return "advanced", advanced_relay_context(
+                        self,
+                        builder.build_context(
+                            config, self.domain, ssl=with_ssl, app_path=str(self.app_path)
+                        ),
                     )
                 if not errors:
                     return "proxy", {
@@ -1377,13 +1385,18 @@ class DockerComposeDeployer(AppDeployer):
             with_ssl: Render the TLS server blocks.
 
         Returns:
-            The context.
+            The context; with the relay on, ``/`` goes through the upstream
+            that includes the service's servers file.
         """
+        from noust.deployers.compose_relay import proxy_relay_context
+
+        port = self._get_primary_port()
         return {
             "domain": self.domain,
-            "port": self._get_primary_port(),
+            "port": port,
             "app_path": str(self.app_path),
             "ssl": with_ssl,
+            **proxy_relay_context(self, port),
         }
 
     def _write_site(self, *, with_ssl: bool) -> WriteOutcome:
@@ -1499,8 +1512,15 @@ class DockerComposeDeployer(AppDeployer):
             self.logger.warning("Continuing without SSL")
             self.ssl = False
 
-    def _create_systemd_service(self) -> None:
-        """Create systemd service for Docker Compose management."""
+    def _create_systemd_service(self, *, project: str | None = None) -> None:
+        """
+        Create systemd service for Docker Compose management.
+
+        Args:
+            project: The Compose project the unit passes with ``-p``. None
+                takes the one the store pins (an adopted stack's); with
+                neither, the unit leaves Compose to derive it, as 1.x did.
+        """
         service_manager = ServiceManager(verbose=self.verbose)
 
         # Build environment dict for the service
@@ -1519,6 +1539,7 @@ class DockerComposeDeployer(AppDeployer):
             environment=service_env,
             template="docker-compose",
             compose_file=compose_file_rel,
+            compose_project=project or self._pinned_project(),
         )
         self.logger.substep(f"Created systemd service: {self.app_name}")
 
@@ -1804,6 +1825,7 @@ class DockerComposeDeployer(AppDeployer):
         # is a web at all, and which service a hook without one runs in.
         self.services = parse_services(document)
         hooks = self._resolve_hooks()
+        self._resolve_leftover_relays()
 
         report("Recording what is serving")
         serving = self._record_serving()
@@ -1930,13 +1952,70 @@ class DockerComposeDeployer(AppDeployer):
             project=project, commit=self.previous_commit, images=tuple(images.values())
         )
 
+    def _relay(self) -> "ComposeRelay":
+        """
+        Build the relay engine over this stack.
+
+        Returns:
+            The engine, with the probe this module holds (looked up now, so it
+            is the one a test replaced).
+        """
+        from noust.deployers.compose_relay import ComposeRelay
+
+        return ComposeRelay(self, probe=wait_until_healthy)
+
+    def _relayed_services(self) -> list[str]:
+        """
+        Name the web services an update recreates behind a relay.
+
+        Returns:
+            The services the site reaches through a servers file, when the
+            stack is in zero-downtime mode; empty otherwise.
+        """
+        from noust.deployers.compose_relay import relayed_services
+
+        return relayed_services(self)
+
+    def _resolve_leftover_relays(self) -> None:
+        """
+        Give back what a relay left by an interrupted update still serves, before building.
+
+        Raises:
+            DeploymentError: A relay still serves and its service's own
+                container does not answer; nothing was touched.
+        """
+        relayed = self._relayed_services()
+        if not relayed or self._rehearsing():
+            return
+        problem = self._relay().resolve_leftovers(relayed)
+        if problem is not None:
+            raise DeploymentError(
+                f"The update of {self.domain} did not start: a relay still serves", details=problem
+            )
+
     def _recreate(self) -> None:
         """
         Recreate the containers from the images just built.
 
+        In zero-downtime mode each web service the site reaches through a
+        servers file is recreated first, in ``depends_on`` order, while a relay
+        serves it (:mod:`noust.deployers.compose_relay`); the rest of the stack
+        follows with ``up -d``, which leaves those already recreated alone.
+
         Raises:
             DockerError: Compose failed, with its own output.
+            DeploymentError: A relay did not pass its gate (the service was not
+                touched), or a recreated service did not answer (its relay
+                still serves); the evidence names which.
         """
+        relayed = self._relayed_services()
+        if relayed:
+            healthy, evidence = self._relay().recreate(relayed)
+            if not healthy:
+                raise DeploymentError(
+                    f"The web services of {self.domain} were not recreated behind their relays",
+                    details=evidence,
+                )
         # Services that name an image instead of building one pull it here,
         # which is a download, not a local recreate.
         result = self._run(self._compose("up", "-d", "--remove-orphans"), timeout=BUILD_TIMEOUT)
@@ -1963,6 +2042,13 @@ class DockerComposeDeployer(AppDeployer):
         result = self._run(command, timeout=BUILD_TIMEOUT)
         if not result.success:
             raise DockerError("Failed to recreate the containers that were serving", result.stderr)
+        relayed = self._relayed_services()
+        if relayed:
+            # A relay of the failed image may still be serving: once the
+            # previous container answers, the traffic goes back to it.
+            problem = self._relay().resolve_leftovers(relayed)
+            if problem is not None:
+                raise DockerError("A relay of the failed update still serves", problem)
 
     def _health_gate(self, restart: Callable[[], object]) -> HealthGate | None:
         """

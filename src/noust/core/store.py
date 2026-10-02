@@ -688,6 +688,9 @@ class JobRecord:
     finished_at: str | None = None
     log_path: str | None = None
     actor: str | None = None
+    #: The transient systemd unit the job's work runs in, when it has one: what
+    #: a restarted console asks instead of declaring the job interrupted.
+    unit: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -4112,6 +4115,7 @@ class NoustStore:
         started_at: str | None = None,
         finished_at: str | None = None,
         log_path: str | None = None,
+        unit: str | None = None,
     ) -> bool:
         """
         Update the fields of a job that changed.
@@ -4130,6 +4134,7 @@ class NoustStore:
             started_at: When the worker picked the job up.
             finished_at: When the job finished, whatever the outcome.
             log_path: Where the job's captured log lives.
+            unit: The transient systemd unit the job's work runs in.
 
         Returns:
             True if the row exists and was updated.
@@ -4145,6 +4150,7 @@ class NoustStore:
             ("started_at", started_at),
             ("finished_at", finished_at),
             ("log_path", log_path),
+            ("unit", unit),
         ):
             if value is not None:
                 updates.append(f"{column} = ?")
@@ -4254,7 +4260,7 @@ class NoustStore:
             cursor.execute(query, params)
             return [JobRecord.from_row(row) for row in cursor.fetchall()]
 
-    def fail_interrupted_jobs(self, reason: str) -> int:
+    def fail_interrupted_jobs(self, reason: str, *, keep: Iterable[str] = ()) -> int:
         """
         Mark every job still pending or running as failed.
 
@@ -4265,16 +4271,20 @@ class NoustStore:
 
         Args:
             reason: Error message recorded on every affected row.
+            keep: Jobs left as they are: their work runs in a transient unit
+                that outlived the process, and they are reconciled instead.
 
         Returns:
             How many rows were changed.
         """
         now = datetime.now().isoformat()
+        kept = sorted(set(keep))
+        excluded = f" AND id NOT IN ({', '.join('?' for _ in kept)})" if kept else ""
         with self._transaction() as cursor:
             cursor.execute(
-                """UPDATE jobs SET status = 'failed', error = ?, finished_at = ?
-                   WHERE status IN ('pending', 'running')""",
-                (reason, now),
+                "UPDATE jobs SET status = 'failed', error = ?, finished_at = ? "
+                f"WHERE status IN ('pending', 'running'){excluded}",
+                (reason, now, *kept),
             )
             return cursor.rowcount
 

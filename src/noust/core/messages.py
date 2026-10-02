@@ -111,6 +111,11 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "es": "Servicio detenido por un fallo",
     },
     "title.unit.recovered": {"en": "Service recovered", "es": "Servicio recuperado"},
+    "title.app.unreachable": {"en": "Application not answering", "es": "Aplicación sin respuesta"},
+    "title.app.recovered": {
+        "en": "Application answering again",
+        "es": "Aplicación de nuevo operativa",
+    },
     "title.disk.threshold": {"en": "Disk almost full", "es": "Disco casi lleno"},
     "title.disk.recovered": {
         "en": "Disk space recovered",
@@ -309,6 +314,24 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "It is running again and has not restarted since the last check.",
         "es": "Vuelve a estar en marcha y no se ha reiniciado desde la última comprobación.",
     },
+    "summary.app.unreachable": {
+        "en": "Its service is running, but the application does not answer its health check.",
+        "es": (
+            "Su servicio está en marcha, pero la aplicación no responde a su comprobación de salud."
+        ),
+    },
+    "summary.app.unreachable_containers": {
+        "en": "A container of this stack stopped with an error or keeps restarting.",
+        "es": "Un contenedor de este stack se ha detenido con un error o no deja de reiniciarse.",
+    },
+    "summary.app.recovered": {
+        "en": "It passes its health check again.",
+        "es": "Vuelve a pasar su comprobación de salud.",
+    },
+    "summary.app.recovered_containers": {
+        "en": "Every container of this stack runs again.",
+        "es": "Todos los contenedores de este stack vuelven a estar en marcha.",
+    },
     "summary.disk.threshold": {
         "en": (
             "It is past the {threshold}% alert threshold, and a full disk stops deployments, "
@@ -440,6 +463,7 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     "fact.presented": {"en": "Presented key", "es": "Clave presentada"},
     "fact.renew": {"en": "Renew with", "es": "Renuévalo con"},
     "fact.inspect": {"en": "Inspect with", "es": "Revísalo con"},
+    "fact.diagnose": {"en": "Diagnose with", "es": "Diagnostícala con"},
     "fact.reschedule": {"en": "Save it again with", "es": "Guárdala de nuevo con"},
     "fact.verify": {"en": "Check it with", "es": "Compruébalo con"},
     "fact.processes": {"en": "Processes", "es": "Procesos"},
@@ -495,6 +519,7 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "es": "Últimas líneas del registro de {unit}",
     },
     "excerpt.output": {"en": "What the system reported", "es": "Lo que ha informado el sistema"},
+    "excerpt.probe": {"en": "The last probe", "es": "La última sonda"},
 }
 
 #: Singular and plural nouns for the counted quantities a notification spells

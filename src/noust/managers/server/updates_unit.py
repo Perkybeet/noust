@@ -21,21 +21,54 @@ a console that restarted in the middle of an update finds it again.
 
 from __future__ import annotations
 
-import json
 import os
 import sys
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from noust.core import paths
 from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.runner import CommandRunner, get_runner
 from noust.managers.server.errors import ServerError
 from noust.managers.server.host import HostPaths
-from noust.managers.server.pkg.base import PROBE_TIMEOUT, UPGRADE_TIMEOUT
-from noust.managers.server.updates import RecordStore, UpdateRecord, UpdatesManager
+from noust.managers.server.pkg.base import UPGRADE_TIMEOUT
+from noust.managers.server.updates import (
+    RECORDS_KEPT,
+    RecordStore,
+    UpdateRecord,
+    UpdatesManager,
+)
+from noust.managers.transient_unit import (
+    JobVerdict,
+    UnitEnding,
+    UnitJobKind,
+    UnitState,
+    decode_message,
+    parse_journal,
+    parse_show,
+    read_journal,
+    unit_state,
+    with_output,
+)
+
+if TYPE_CHECKING:
+    from noust.core.store import JobRecord
+
+__all__ = [
+    "UNIT_PREFIX",
+    "Reconciliation",
+    "UnitState",
+    "UpdateUnit",
+    "decode_message",
+    "job_kind",
+    "noust_command",
+    "parse_journal",
+    "parse_show",
+    "start_and_follow",
+]
 
 #: Every transient unit of an update starts with this, followed by the run's id.
 UNIT_PREFIX = "noust-os-update-"
@@ -57,34 +90,6 @@ LOST_TAIL_LINES = 40
 #: the same data directory, which a unit does not inherit.
 _PASSED_ENVIRONMENT = (paths.DATA_DIR_ENV,)
 
-_ACTIVE_STATES = frozenset({"active", "activating", "deactivating", "reloading", "refreshing"})
-
-
-@dataclass(frozen=True)
-class UnitState:
-    """
-    What systemd says about a transient update unit.
-
-    Attributes:
-        loaded: systemd still knows the unit. A unit started with ``--collect``
-            is forgotten the moment it ends, so False means "it ended".
-        active: The unit is running or starting.
-        sub_state: systemd's finer state (``running``, ``dead``, ``failed``).
-        result: systemd's verdict on how it ended (``success``, ``exit-code``,
-            ``timeout``, ``signal``).
-        exit_status: The main process's exit status, when it has one.
-        known: False when systemd did not answer (``systemctl show`` failed or
-            timed out): nothing above is then true or false, and a caller must
-            not read "not active" as "it ended".
-    """
-
-    loaded: bool
-    active: bool
-    sub_state: str = ""
-    result: str = ""
-    exit_status: int | None = None
-    known: bool = True
-
 
 @dataclass(frozen=True)
 class Reconciliation:
@@ -100,72 +105,6 @@ class Reconciliation:
 
     reattach: tuple[UpdateRecord, ...] = ()
     lost: tuple[UpdateRecord, ...] = ()
-
-
-def parse_show(text: str) -> UnitState:
-    """
-    Read the output of ``systemctl show`` for the properties this asks for.
-
-    Args:
-        text: ``Key=Value`` lines.
-
-    Returns:
-        The state; a unit systemd has forgotten reads as not loaded.
-    """
-    fields = dict(line.partition("=")[::2] for line in text.splitlines() if "=" in line)
-    status = fields.get("ExecMainStatus", "")
-    return UnitState(
-        loaded=fields.get("LoadState", "not-found") != "not-found",
-        active=fields.get("ActiveState", "inactive") in _ACTIVE_STATES,
-        sub_state=fields.get("SubState", ""),
-        result=fields.get("Result", ""),
-        exit_status=int(status) if status.lstrip("-").isdigit() else None,
-    )
-
-
-def decode_message(value: object) -> str | None:
-    """
-    Turn a journal entry's ``MESSAGE`` into text.
-
-    Args:
-        value: What ``journalctl -o json`` put there: a string, or a list of
-            byte values when the message was not valid UTF-8.
-
-    Returns:
-        The text, or None when the entry has no message.
-    """
-    if isinstance(value, str):
-        return value
-    if isinstance(value, list) and all(isinstance(item, int) for item in value):
-        return bytes(item % 256 for item in value).decode("utf-8", errors="replace")
-    return None
-
-
-def parse_journal(text: str) -> list[tuple[str, str]]:
-    """
-    Read ``journalctl -o json`` output, one JSON object per line.
-
-    Args:
-        text: The output.
-
-    Returns:
-        ``(cursor, message)`` for every entry that has both. A line that is not
-        JSON is skipped, not fatal: it is the journal being read while it is
-        written to.
-    """
-    entries: list[tuple[str, str]] = []
-    for line in text.splitlines():
-        try:
-            entry = json.loads(line)
-        except ValueError:
-            continue
-        if not isinstance(entry, dict):
-            continue
-        message = decode_message(entry.get("MESSAGE"))
-        cursor = entry.get("__CURSOR")
-        if message is not None and isinstance(cursor, str):
-            entries.append((cursor, message))
-    return entries
 
 
 def noust_command() -> list[str]:
@@ -328,23 +267,10 @@ class UpdateUnit:
             update_id: The run's identifier.
 
         Returns:
-            Its state; a unit that ended and was collected is not loaded. When
-            systemd did not answer the state is not ``known``: an empty or
-            failed ``show`` parsed as "inactive", which declared running
-            updates over.
+            Its state; a unit that ended and was collected is not loaded, and
+            one systemd did not answer about is not ``known``.
         """
-        result = self.runner.run(
-            [
-                "systemctl",
-                "show",
-                f"{self.unit_name(update_id)}.service",
-                "--property=LoadState,ActiveState,SubState,Result,ExecMainStatus",
-            ],
-            timeout=PROBE_TIMEOUT,
-        )
-        if not result.success or "LoadState=" not in result.stdout:
-            return UnitState(loaded=True, active=True, known=False)
-        return parse_show(result.stdout)
+        return unit_state(self.runner, self.unit_name(update_id))
 
     def _drain(self, unit: str, cursor: str | None, on_line: Callable[[str], None]) -> str | None:
         """
@@ -358,13 +284,9 @@ class UpdateUnit:
         Returns:
             The position after the last line delivered.
         """
-        argv = ["journalctl", f"--unit={unit}.service", "--output=json", "--no-pager", "--all"]
-        if cursor:
-            argv.append(f"--after-cursor={cursor}")
-        result = self.runner.run(argv, timeout=30)
-        for entry_cursor, message in parse_journal(result.stdout):
-            on_line(message)
-            cursor = entry_cursor
+        for entry in read_journal(self.runner, unit, after_cursor=cursor):
+            on_line(entry.message)
+            cursor = entry.cursor
         return cursor
 
     def follow(
@@ -567,4 +489,60 @@ def start_and_follow(
         update_id=update_id,
         job_id=job_id,
         actor=actor,
+    )
+
+
+def job_kind(records: RecordStore | None = None) -> UnitJobKind:
+    """
+    Say how a console job that applied updates is reconciled after a restart.
+
+    The run's own record is the verdict, not only systemd's: it holds what the
+    job returns (the packages, whether a reboot is due), and it is what the
+    update wrote when it ended, whatever became of the console.
+
+    Args:
+        records: Where runs are written down; the default store when omitted.
+
+    Returns:
+        The kind, for :mod:`noust.web.job_reconcile`.
+    """
+
+    def store() -> RecordStore:
+        return records or RecordStore()
+
+    def find_unit(job: JobRecord) -> str | None:
+        for record in store().recent(RECORDS_KEPT):
+            if record.job_id == job.id and record.unit:
+                return record.unit
+        return None
+
+    def verdict(job: JobRecord, unit: str, ending: UnitEnding, lines: list[str]) -> JobVerdict:
+        record = store().read(unit.removeprefix(UNIT_PREFIX))
+        if record is None or record.status == "running":
+            return JobVerdict(
+                False,
+                error=with_output(
+                    "The update ended without recording a result: its process was killed or "
+                    "the machine restarted. Check 'dpkg --audit' (or 'rpm -Va') before trying "
+                    "again",
+                    lines,
+                ),
+            )
+        if record.status == "failed":
+            return JobVerdict(
+                False, error=with_output(record.error or "The update failed", record.tail or lines)
+            )
+        return JobVerdict(True, result=record.to_dict())
+
+    return UnitJobKind(
+        find_unit=find_unit,
+        verdict=verdict,
+        max_seconds=FOLLOW_MAX_SECONDS,
+        # As os_update_job audits it when it sees the end itself.
+        audit_event="server.update",
+        audit_target="packages",
+        audit_details=lambda job, unit: {
+            "action": "apply",
+            "update": unit.removeprefix(UNIT_PREFIX),
+        },
     )

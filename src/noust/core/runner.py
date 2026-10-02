@@ -2577,6 +2577,7 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (
 PROBE_MODULES: tuple[str, ...] = (
     "noust.managers.server.probes",
     "noust.managers.stack_databases",
+    "noust.deployers.compose_adopt",
 )
 
 #: Options that turn any declared probe of a program into a change. Checked

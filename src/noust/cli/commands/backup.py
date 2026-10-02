@@ -765,6 +765,7 @@ def _restore_from_destination(
     target_domain: str | None,
     restore_env: bool = True,
     force: bool = False,
+    schema_changed_ok: bool = False,
 ) -> int:
     """
     Download a backup from a remote destination and restore it.
@@ -779,6 +780,8 @@ def _restore_from_destination(
             in the downloaded backup.
         restore_env: Restore the ``.env`` files from the archive.
         force: Do not ask for confirmation.
+        schema_changed_ok: Restore only the files even past deployments that
+            changed the database's schema.
 
     Returns:
         0 on success, 1 if the application cannot be determined, or the
@@ -812,6 +815,7 @@ def _restore_from_destination(
             target_domain=target_domain,
             restore_env=restore_env,
             backup_manager=BackupManager(verbose=logger.verbose),
+            schema_changed_ok=schema_changed_ok,
         )
     except NoustError as exc:
         logger.error(f"Restore failed: {exc}")
@@ -1045,6 +1049,7 @@ def _restore_backup(
     verify: bool = True,
     force: bool = False,
     databases_only: bool = False,
+    schema_changed_ok: bool = False,
 ) -> int:
     """
     Restore an application from a backup.
@@ -1058,6 +1063,8 @@ def _restore_backup(
         force: Do not ask for confirmation.
         databases_only: Put back only the databases of the stack the backup
             holds, leaving every file as it is.
+        schema_changed_ok: Put back only the files even past deployments, made
+            after the backup, that changed the database's schema.
 
     Returns:
         0 on success, 1 if the restore failed or the backup is unknown.
@@ -1081,6 +1088,13 @@ def _restore_backup(
                 "--include-databases, does. 'noust backup list' shows the others.",
             )
             return 1
+
+        if not databases_only:
+            # Asked before the question, so a refusal costs nothing; the
+            # restore asks again (rule 4).
+            manager.require_restore_confirmed(
+                target, source=metadata, schema_changed_ok=schema_changed_ok
+            )
 
         if databases_only:
             question = (
@@ -1124,6 +1138,7 @@ def _restore_backup(
                 target_domain=target_domain,
                 restore_env=restore_env,
                 verify_checksum=verify,
+                schema_changed_ok=schema_changed_ok,
             )
     except NoustError as exc:
         # The engine's or Docker's own words, verbatim, under the error.
@@ -1722,6 +1737,12 @@ def backup_list(
     help="Put back only the databases of a Compose stack the backup holds, leaving every file "
     "as it is. The application is stopped meanwhile.",
 )
+@click.option(
+    "--schema-changed-ok",
+    is_flag=True,
+    default=False,
+    help="Put back only the files even past deployments that changed the database schema.",
+)
 @click.option("-f", "--force", is_flag=True, help="Do not ask for confirmation.")
 @pass_context
 def backup_restore(
@@ -1733,6 +1754,7 @@ def backup_restore(
     no_env: bool,
     no_verify: bool,
     databases_only: bool,
+    schema_changed_ok: bool,
     force: bool,
 ) -> None:
     """
@@ -1743,7 +1765,9 @@ def backup_restore(
     copy of them (the application is stopped meanwhile). With --databases-only,
     only the databases are put back: what to do after a rollback over a
     migration. With --from, the backup is downloaded from a remote destination
-    first.
+    first. Putting back only the files of the application the backup is of,
+    past a deployment that changed the database schema, is refused, naming
+    it, unless --schema-changed-ok.
     """
     if databases_only and (target_domain or from_destination):
         raise click.UsageError(
@@ -1760,6 +1784,7 @@ def backup_restore(
                 target_domain=target_domain,
                 restore_env=not no_env,
                 force=force,
+                schema_changed_ok=schema_changed_ok,
             )
         )
         return
@@ -1773,6 +1798,7 @@ def backup_restore(
             verify=not no_verify,
             force=force,
             databases_only=databases_only,
+            schema_changed_ok=schema_changed_ok,
         )
     )
 
@@ -2306,6 +2332,7 @@ def handle_backup(args: Namespace) -> int:
             restore_env=not getattr(args, "no_env", False),
             verify=not getattr(args, "no_verify", False),
             force=getattr(args, "force", False),
+            schema_changed_ok=getattr(args, "schema_changed_ok", False),
         )
     if action == "delete":
         return _delete_backup(

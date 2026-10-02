@@ -672,7 +672,6 @@ def test_a_unit_that_does_not_answer_leaves_the_instances_serving(
     [
         ({"layout": "inplace"}, "deployed in place"),
         ({"is_static": True, "app_type": "static"}, "static site"),
-        ({"app_type": "docker-compose"}, "deploys in place"),
         ({"app_type": "monorepo"}, "deploys in place"),
         ({"webserver": "apache"}, "nginx-only in 2.2"),
     ],

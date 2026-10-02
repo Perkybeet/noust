@@ -199,6 +199,60 @@ def is_held_here(domain: str) -> bool:
     return _key(domain) in _held()
 
 
+def holder_of(domain: str) -> LockHolder | None:
+    """
+    Read what is holding an application's lock, without taking it.
+
+    For a reader that must not disturb the operation: trying the lock, even
+    for an instant, could make a deploy's own attempt fail with
+    :class:`AppBusyError`. The holder's record is read instead, and believed
+    only while the process that wrote it is alive, because one that was
+    killed leaves its record behind (the kernel frees the lock, nothing
+    clears the file).
+
+    Args:
+        domain: The application's domain.
+
+    Returns:
+        The holder, or None when nothing is running on the application or the
+        record cannot be trusted.
+    """
+    try:
+        fd = os.open(lock_path(domain), os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    except (OSError, ValueError):
+        # No file, or a name that could never have a lock: nothing is running.
+        return None
+    try:
+        holder = _read_holder(fd)
+    finally:
+        os.close(fd)
+    if holder is None or not _alive(holder.pid):
+        return None
+    return holder
+
+
+def _alive(pid: int) -> bool:
+    """
+    Tell whether a process exists.
+
+    Args:
+        pid: A process id.
+
+    Returns:
+        False only when there is no such process; one this user may not
+        signal still exists.
+    """
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+    except (ProcessLookupError, OverflowError):
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 @contextmanager
 def app_lock(domain: str, operation: str) -> Iterator[None]:
     """

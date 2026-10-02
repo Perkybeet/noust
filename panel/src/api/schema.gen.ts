@@ -220,6 +220,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/adopt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Adopt App
+         * @description Adopt a Docker Compose stack that already runs, or preview the adoption.
+         *
+         *     Args:
+         *         body: The stack.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was found and done; 409 with Compose's output when starting the
+         *         stack as Noust would recreate something that was not accepted.
+         *
+         *     Raises:
+         *         DeploymentError: The domain is deployed, the directory is not a
+         *             usable checkout, or the site is ambiguous.
+         */
+        post: operations["adopt_app_api_apps_adopt_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/import": {
         parameters: {
             query?: never;
@@ -384,12 +416,15 @@ export interface paths {
          *
          *     Deletion stops a unit, rewrites the web server configuration, may call
          *     certbot and may delete a large directory, so it runs as a job rather than
-         *     on the request path.
+         *     on the request path. A directory outside Noust's apps directory (an
+         *     adopted stack's) is kept, files or not, unless it is named.
          *
          *     Args:
          *         domain: Domain of the application.
          *         remove_files: Also delete the application directory.
          *         remove_ssl: Also delete the certificate.
+         *         remove_adopted_directory: The directory named for removal when it is
+         *             outside the apps directory.
          *         session: The authenticated session.
          *
          *     Returns:
@@ -397,6 +432,7 @@ export interface paths {
          *
          *     Raises:
          *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The directory named is not the application's (400).
          */
         delete: operations["delete_app_api_apps__domain__delete"];
         options?: never;
@@ -630,10 +666,15 @@ export interface paths {
          *     and gated, keeping the deployed ``.env``. See
          *     :func:`~noust.deployers.lifecycle.rollback_to_deployment`.
          *
+         *     Going back past later deployments that changed the database's schema
+         *     is refused with 409 ``schema_changed``, naming them, unless the body says
+         *     ``schema_changed_ok``: Noust puts code back, never a database.
+         *
          *     Args:
          *         domain: Domain of the application.
          *         deployment_id: The deployment to go back to.
          *         session: The authenticated session.
+         *         body: The operator's confirmation, when the schema changed since.
          *
          *     Returns:
          *         The queued job.
@@ -641,7 +682,8 @@ export interface paths {
          *     Raises:
          *         HTTPException: 404 for an unknown deployment of the application, 409
          *             ``rollback_unavailable`` with the reason when it cannot be gone
-         *             back to.
+         *             back to, 409 ``schema_changed`` with the deployments when it was
+         *             not confirmed.
          */
         post: operations["rollback_deployment_api_apps__domain__deployments__deployment_id__rollback_post"];
         delete?: never;
@@ -941,6 +983,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/follow-tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update App Follow Tags
+         * @description Make an application deploy the tags that match a pattern, or stop.
+         *
+         *     Following tags replaces following a branch: the webhook deploys the tag a
+         *     release or a tag push names, in version order and never an older one, and
+         *     ignores pushes to branches; an update with no tag deploys the newest tag
+         *     that matches. Nothing is fetched or rebuilt until the next release or
+         *     update. Changing what deploys needs sudo mode, like the branch.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The pattern, or null.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What it follows now and what it followed before.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The pattern is not a tag glob, or a branch is pinned
+         *             (400, ``follow_tags`` in ``fields``).
+         *         SourceError: Not deployed from git.
+         */
+        patch: operations["update_app_follow_tags_api_apps__domain__follow_tags_patch"];
+        trace?: never;
+    };
     "/api/apps/{domain}/health": {
         parameters: {
             query?: never;
@@ -976,6 +1058,136 @@ export interface paths {
          *         DeploymentError: It is a static site, checked by its files.
          */
         patch: operations["update_app_health_api_apps__domain__health_patch"];
+        trace?: never;
+    };
+    "/api/apps/{domain}/hooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Hooks
+         * @description Show the hooks the next deployment of an application runs. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The hooks and where they come from.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_app_hooks_api_apps__domain__hooks_get"];
+        /**
+         * Put App Hooks
+         * @description Set the operator's hooks, replacing the repository's noust.yaml whole.
+         *
+         *     The document is validated before anything is stored; a refusal names the
+         *     field (``hooks.pre_deploy[0].timeout``). A hook runs with the
+         *     application's identity and secrets, so this needs sudo mode.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The document.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The hooks now in force.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The document is not valid, or the application's
+         *             type has no hooks (400, with the field).
+         */
+        put: operations["put_app_hooks_api_apps__domain__hooks_put"];
+        post?: never;
+        /**
+         * Delete App Hooks
+         * @description Remove the operator's hooks, so the repository's noust.yaml applies again.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The hooks now in force.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        delete: operations["delete_app_hooks_api_apps__domain__hooks_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Identity
+         * @description Show the account an application runs as. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The account, whether it is its own, and what a migration would give it.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_identity_api_apps__domain__identity_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/identity/migrate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Identity Migrate
+         * @description Queue the move of an application to its own system account.
+         *
+         *     It is restarted behind its health gate; when it does not answer, the
+         *     files' owners, its unit or pool and the records are put back exactly.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: It cannot or need not move (400), before anything
+         *             is queued.
+         */
+        post: operations["post_identity_migrate_api_apps__domain__identity_migrate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/apps/{domain}/limits": {
@@ -1370,6 +1582,8 @@ export interface paths {
          *         domain: Domain of the application.
          *         release_id: The release to activate.
          *         session: The authenticated session.
+         *         schema_changed_ok: The operator confirmed going back past deployments
+         *             that changed the database's schema.
          *
          *     Returns:
          *         What was done.
@@ -1378,6 +1592,8 @@ export interface paths {
          *         HTTPException: 400 for something that is not a release id, 404 for an
          *             unknown application or a release that is not on disk, 409 for an
          *             application deployed in place.
+         *         SchemaChangedError: 409, naming the deployments, when going back past
+         *             a schema change was not confirmed.
          *         DeploymentError: The release did not pass its health check; the
          *             details carry the probe's and the journal's own output.
          */
@@ -4155,6 +4371,11 @@ export interface paths {
          *     cookie session has to confirm itself first; an admin-scoped Bearer
          *     credential is exempt, per :func:`noust.web.api.deps.ensure_elevated`.
          *
+         *     Putting back only the files of the application the backup is of, past a
+         *     later deployment that changed its schema, is refused with 409
+         *     ``schema_changed``, naming the deployments, unless the body says
+         *     ``schema_changed_ok`` (as a rollback is).
+         *
          *     Args:
          *         backup_id: Backup identifier.
          *         data: Restore options.
@@ -4162,6 +4383,9 @@ export interface paths {
          *
          *     Returns:
          *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 409 ``schema_changed`` when it was not confirmed.
          */
         post: operations["restore_backup_api_backups__backup_id__restore_post"];
         delete?: never;
@@ -8177,12 +8401,19 @@ export interface paths {
          * Create Rollback Job
          * @description Queue a rollback.
          *
+         *     Restoring a backup puts the files back, never the database: going back
+         *     past later deployments that changed the schema is refused with 409
+         *     ``schema_changed``, naming them, unless the body says ``schema_changed_ok``.
+         *
          *     Args:
          *         request: The rollback request.
          *         session: The authenticated session.
          *
          *     Returns:
          *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 409 ``schema_changed`` when it was not confirmed.
          */
         post: operations["create_rollback_job_api_jobs_rollback_post"];
         delete?: never;
@@ -9129,6 +9360,37 @@ export interface paths {
          *         Docker is installed.
          */
         get: operations["get_capabilities_api_server_capabilities_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/server/clock/timezones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Timezones
+         * @description List the time zones the server can be set to.
+         *
+         *     The managed server computes it, not the browser: the names are the ones its
+         *     tz database has (so the change never refuses one), and the offsets are the ones
+         *     in force now, daylight saving included. On a fleet the node answers.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Every zone with its region, city, offset now and abbreviation, ``Etc/UTC``
+         *         and ``UTC`` first and the rest by offset and name.
+         */
+        get: operations["list_timezones_api_server_clock_timezones_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -11023,9 +11285,11 @@ export interface paths {
          *         session: The authenticated session.
          *
          *     Returns:
-         *         The sites known to the store, falling back to what the manager finds on
-         *         disk when the store has no record of them. Every entry carries the
-         *         server names its own configuration answers on.
+         *         The store's sites and the files in each web server's sites directory,
+         *         together: a site the operator wrote by hand is listed beside the ones
+         *         Noust wrote, and each entry says which it is (``noust_managed``) and
+         *         which application it serves (``app``). Every entry carries the server
+         *         names its own configuration answers on.
          */
         get: operations["list_sites_api_sites_get"];
         put?: never;
@@ -11231,6 +11495,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sites/{domain}/config/edit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Edit Site Config
+         * @description Apply edit operations to a text and return the result, without saving it.
+         *
+         *     Each operation changes only the bytes of the element it names; the rest
+         *     of the text comes back exactly as it was sent.
+         *
+         *     Args:
+         *         domain: Domain the text is meant for.
+         *         data: The text and the operations.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The edited text, its structure and how many lines changed.
+         *
+         *     Raises:
+         *         ValidationError: When the text does not parse (``fields.config``,
+         *             the line in the hint) or an operation is malformed or names
+         *             nothing (``fields["ops[2].target"]``).
+         *         DomainError: When the domain is not acceptable.
+         */
+        post: operations["edit_site_config_api_sites__domain__config_edit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sites/{domain}/config/test": {
         parameters: {
             query?: never;
@@ -11327,6 +11628,130 @@ export interface paths {
          *         DomainError: When the domain is not acceptable.
          */
         post: operations["enable_site_api_sites__domain__enable_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{domain}/route": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Route Site Request
+         * @description Say which server and location answer a request, and why.
+         *
+         *     The web server's own selection is replayed over the structure of the
+         *     saved file, or of the draft when one is sent.
+         *
+         *     Args:
+         *         domain: Domain of the site.
+         *         data: The draft (optional) and the request.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The server and location ids, the explanation as English sentences
+         *         and as codes with parameters, the ids to highlight and the automatic
+         *         redirect when there is one.
+         *
+         *     Raises:
+         *         HTTPException: 404 when no draft is sent and the site has no file.
+         *         ValidationError: When the text does not parse.
+         *         DomainError: When the domain is not acceptable.
+         */
+        post: operations["route_site_request_api_sites__domain__route_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{domain}/structure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Site Structure
+         * @description The structure of a site's saved file.
+         *
+         *     Args:
+         *         domain: Domain of the site.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The model (servers, locations in evaluation order, upstreams,
+         *         includes resolved inside the web server's directory, comments, raw
+         *         directives), or the parse error with its line.
+         *
+         *     Raises:
+         *         HTTPException: 404 when no such site exists.
+         *         DomainError: When the domain is not acceptable.
+         */
+        get: operations["get_site_structure_api_sites__domain__structure_get"];
+        put?: never;
+        /**
+         * Post Site Structure
+         * @description The structure of a draft. Nothing is written; the site need not exist.
+         *
+         *     Args:
+         *         domain: Domain the draft is meant for.
+         *         data: The draft.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The draft's model, or the parse error with its line.
+         *
+         *     Raises:
+         *         DomainError: When the domain is not acceptable.
+         */
+        post: operations["post_site_structure_api_sites__domain__structure_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sites/{domain}/topology": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Site Topology
+         * @description The saved site's structure and what is behind it now.
+         *
+         *     For every address the site reaches: who holds the port (a Noust
+         *     application, a Compose service by its labels, a container, a systemd
+         *     unit, a process), whether it accepts a connection (only on this machine,
+         *     one second, cached ten seconds) and, for each server, its certificate's
+         *     expiry.
+         *
+         *     Args:
+         *         domain: Domain of the site.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The structure response with ``backends``, ``certificates`` and
+         *         ``docker``; only the parse error when the file does not parse.
+         *
+         *     Raises:
+         *         HTTPException: 404 when no such site exists.
+         *         DomainError: When the domain is not acceptable.
+         */
+        get: operations["get_site_topology_api_sites__domain__topology_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -11624,6 +12049,43 @@ export interface paths {
          *         there is no cached result yet to answer with instead.
          */
         get: operations["check_version_api_system_version_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Timeline
+         * @description Merge everything that happened in a stretch into one ordered timeline.
+         *
+         *     Args:
+         *         request: The request, for recording the audit read.
+         *         session: The authenticated session.
+         *         start: First moment, epoch seconds.
+         *         end: Last moment.
+         *         app: Narrow it to this application, by domain.
+         *         sources: Only these sources.
+         *
+         *     Returns:
+         *         The events oldest first, the process samples, and what became of each
+         *         source: shown, withheld (with the permission it needs) or failed (with
+         *         the system's words).
+         *
+         *     Raises:
+         *         ValidationError: The stretch, a source or the application is not valid
+         *             (400).
+         */
+        get: operations["read_timeline_api_timeline_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -12188,25 +12650,6 @@ export interface components {
             user: string;
         };
         /**
-         * AdoptRequest
-         * @description Request to adopt the databases Noust does not track.
-         */
-        AdoptRequest: {
-            /**
-             * Engine
-             * @description Only this engine
-             */
-            engine?: string | null;
-        };
-        /**
-         * AdoptResponse
-         * @description The databases adopted, as ``engine/name``.
-         */
-        AdoptResponse: {
-            /** Adopted */
-            adopted: string[];
-        };
-        /**
          * AnalysisOut
          * @description The last scan of the known places.
          */
@@ -12540,6 +12983,50 @@ export interface components {
             wasm_version?: string | null;
         };
         /**
+         * AppHooksRequest
+         * @description The operator's hooks: a YAML document with ``hooks:`` and its phases.
+         */
+        AppHooksRequest: {
+            /**
+             * Document
+             * @description The shape of a noust.yaml, holding only 'hooks'
+             */
+            document: string;
+        };
+        /**
+         * AppHooksResponse
+         * @description The hooks an application's next deployment runs, and where they come from.
+         */
+        AppHooksResponse: {
+            /**
+             * Document
+             * @description The operator's document as written, when there is one
+             */
+            document?: string | null;
+            /** Domain */
+            domain: string;
+            /**
+             * Post Deploy
+             * @description Run in order once it passed its health gate
+             */
+            post_deploy: components["schemas"]["HookModel"][];
+            /**
+             * Pre Deploy
+             * @description Run in order before the new version serves
+             */
+            pre_deploy: components["schemas"]["HookModel"][];
+            /**
+             * Repository Error
+             * @description Why the running code's noust.yaml is not valid, when it is not; the next deployment fails with it
+             */
+            repository_error?: string | null;
+            /**
+             * Source
+             * @description operator: the operator's own, replacing noust.yaml; repo: the noust.yaml of the code that runs now; none
+             */
+            source: string;
+        };
+        /**
          * AppInfo
          * @description A deployed application and the live state of its service.
          *
@@ -12563,6 +13050,8 @@ export interface components {
          *         path: Application directory.
          *         source: Git URL or local path it was deployed from.
          *         branch: Git branch it tracks, or None for a source that has none.
+         *         follow_tags: The glob of git tags it deploys instead of a branch
+         *             (``v*``), or None when it follows its branch.
          *         layout: ``inplace`` or ``releases``.
          *         keep_releases: Release directories kept before older ones are pruned.
          *             Meaningful only on ``releases``; the in-place default otherwise.
@@ -12609,6 +13098,8 @@ export interface components {
             domain: string;
             /** Enabled */
             enabled: boolean;
+            /** Follow Tags */
+            follow_tags?: string | null;
             /** Health Expect */
             health_expect?: string | null;
             /** Health Path */
@@ -15384,6 +15875,11 @@ export interface components {
              */
             domain: string;
             /**
+             * Remove Adopted Directory
+             * @description The application's directory, named exactly, when it is outside Noust's apps directory (an adopted stack): only then is it removed with the files
+             */
+            remove_adopted_directory?: string | null;
+            /**
              * Remove Files
              * @description Remove application files
              * @default true
@@ -15418,6 +15914,62 @@ export interface components {
              * @description Schema (the database on MySQL)
              */
             schema: string;
+        };
+        /**
+         * DeploymentHookRun
+         * @description One deploy hook, or Prisma's automatic migration, as a deployment ran it.
+         */
+        DeploymentHookRun: {
+            /**
+             * Automatic
+             * @description prisma: Prisma's automatic migration, not a declared hook
+             */
+            automatic?: string | null;
+            /** Duration S */
+            duration_s?: number | null;
+            /**
+             * Exit Code
+             * @description How it exited; null if it never ran
+             */
+            exit_code?: number | null;
+            /**
+             * Migrates
+             * @description It changes the database's schema
+             * @default false
+             */
+            migrates: boolean;
+            /**
+             * Ok
+             * @description Whether it succeeded
+             */
+            ok: boolean;
+            /**
+             * Output
+             * @description The end of its output, verbatim
+             * @default
+             */
+            output: string;
+            /**
+             * Phase
+             * @description pre_deploy or post_deploy
+             */
+            phase: string;
+            /**
+             * Run
+             * @description The command, as one line
+             */
+            run: string;
+            /**
+             * Service
+             * @description The Compose service it ran in
+             */
+            service?: string | null;
+            /**
+             * Timed Out
+             * @description It ran out of time
+             * @default false
+             */
+            timed_out: boolean;
         };
         /**
          * DeploymentListResponse
@@ -15467,6 +16019,14 @@ export interface components {
          *             possible now: its release is on disk and not live, or its
          *             snapshot backup still exists.
          *         rollback_unavailable_reason: Why not, when it is not.
+         *         schema_changed: A hook marked ``migrates`` or Prisma's migration
+         *             changed the database's schema.
+         *         schema_changed_between: Later deployments of the application that
+         *             changed the schema: going back to this one passes them, and asks
+         *             first.
+         *         hooks: What the deploy hooks ran, in order.
+         *         warnings: Why a successful deployment carries warnings (deployed with
+         *             warnings: a ``post_deploy`` hook failed once it served).
          */
         DeploymentOut: {
             /** Commit Message */
@@ -15485,6 +16045,8 @@ export interface components {
             git_commit?: string | null;
             /** Has Log */
             has_log: boolean;
+            /** Hooks */
+            hooks?: components["schemas"]["DeploymentHookRun"][];
             /** Id */
             id: number;
             /** Job Id */
@@ -15498,6 +16060,13 @@ export interface components {
             rollback_available: boolean;
             /** Rollback Unavailable Reason */
             rollback_unavailable_reason?: string | null;
+            /**
+             * Schema Changed
+             * @default false
+             */
+            schema_changed: boolean;
+            /** Schema Changed Between */
+            schema_changed_between?: number[];
             /** Snapshot Backup */
             snapshot_backup?: string | null;
             /** Started At */
@@ -15506,6 +16075,8 @@ export interface components {
             status: string;
             /** Triggered By */
             triggered_by: string;
+            /** Warnings */
+            warnings?: string | null;
         };
         /**
          * DeploymentStatus
@@ -16215,6 +16786,39 @@ export interface components {
             source: string;
             /** Status */
             status: string;
+        };
+        /**
+         * ErrorResponse
+         * @description Body of any failed API call.
+         *
+         *     Attributes:
+         *         detail: What went wrong. Named ``detail`` so the shape matches
+         *             FastAPI's own ``HTTPException`` responses and clients need one
+         *             code path.
+         *         hint: How to fix it, when the manager supplied one.
+         *         error: Machine-readable error code, for clients that branch on it:
+         *             the lowercased :class:`~noust.core.exceptions.NoustError` subclass
+         *             name, or one of the fixed values in :data:`_ERROR_BY_STATUS` for
+         *             an error that never became a Noust exception.
+         *         fields: Field name to message, for a validation failure that names
+         *             more than one field. ``None`` for every other kind of error.
+         *         output: The failing tool's own output, verbatim, when the error
+         *             carries one - a rejected web server configuration, for example.
+         *             ``None`` for every error that has no external tool output to show.
+         */
+        ErrorResponse: {
+            /** Detail */
+            detail: string;
+            /** Error */
+            error: string;
+            /** Fields */
+            fields?: {
+                [key: string]: string;
+            } | null;
+            /** Hint */
+            hint?: string | null;
+            /** Output */
+            output?: string | null;
         };
         /**
          * ExceptionCreate
@@ -16993,6 +17597,26 @@ export interface components {
             resource: string;
         };
         /**
+         * FollowTagsResponse
+         * @description The tags an application deploys now.
+         *
+         *     Attributes:
+         *         domain: The application's domain.
+         *         follow_tags: The glob it follows, or None when it follows a branch.
+         *         following: Whether it follows tags.
+         *         previous: The glob it followed before.
+         */
+        FollowTagsResponse: {
+            /** Domain */
+            domain: string;
+            /** Follow Tags */
+            follow_tags?: string | null;
+            /** Following */
+            following: boolean;
+            /** Previous */
+            previous?: string | null;
+        };
+        /**
          * ForecastReason
          * @description Why there is no disk forecast.
          *
@@ -17188,6 +17812,37 @@ export interface components {
             entries: components["schemas"]["HistoryEntryResponse"][];
         };
         /**
+         * HookModel
+         * @description One hook, as declared.
+         */
+        HookModel: {
+            /**
+             * Migrates
+             * @description It changes the database's schema
+             */
+            migrates: boolean;
+            /**
+             * Run
+             * @description The program and its arguments; never given to a shell
+             */
+            run: string[];
+            /**
+             * Service
+             * @description Docker Compose only: the service whose new image it runs in
+             */
+            service?: string | null;
+            /**
+             * Timeout
+             * @description Seconds it may take, 1-3600
+             */
+            timeout: number;
+            /**
+             * Workdir
+             * @description Where it runs
+             */
+            workdir?: string | null;
+        };
+        /**
          * HostnameOut
          * @description The names of the machine.
          */
@@ -17255,6 +17910,44 @@ export interface components {
             os_version: string;
             /** Uptime Seconds */
             uptime_seconds?: number | null;
+        };
+        /**
+         * IdentityResponse
+         * @description The account an application runs as.
+         */
+        IdentityResponse: {
+            /**
+             * Account
+             * @description The system account its processes run as
+             */
+            account: string;
+            /** Domain */
+            domain: string;
+            /**
+             * Eligible
+             * @description Whether it can have an account of its own
+             */
+            eligible: boolean;
+            /**
+             * Group
+             * @description Their group
+             */
+            group: string;
+            /**
+             * Own
+             * @description Whether the account is the application's own
+             */
+            own: boolean;
+            /**
+             * Proposed
+             * @description The account a migration would give it, when it can move
+             */
+            proposed?: string | null;
+            /**
+             * Reason
+             * @description Why it cannot have its own account, when it cannot
+             */
+            reason?: string | null;
         };
         /**
          * ImportAppRequest
@@ -19788,6 +20481,28 @@ export interface components {
             user: string;
         };
         /**
+         * ProcessHistoryOut
+         * @description The process samples of the stretch.
+         *
+         *     Attributes:
+         *         minutes: The minutes kept, oldest first.
+         *         total_minutes: How many had samples; more than ``minutes`` when only the
+         *             busiest were kept.
+         *         since: The oldest sample there is at all; null when processes were
+         *             never sampled.
+         *         commands: Whether command lines are included.
+         */
+        ProcessHistoryOut: {
+            /** Commands */
+            commands: boolean;
+            /** Minutes */
+            minutes: components["schemas"]["ProcessMinuteOut"][];
+            /** Since */
+            since?: number | null;
+            /** Total Minutes */
+            total_minutes: number;
+        };
+        /**
          * ProcessInfo
          * @description One process, as observed.
          */
@@ -19810,6 +20525,23 @@ export interface components {
             user: string;
         };
         /**
+         * ProcessMinuteOut
+         * @description The processes of one minute.
+         *
+         *     Attributes:
+         *         at: The minute, epoch seconds.
+         *         cpu: The top five by CPU.
+         *         memory: The top five by memory.
+         */
+        ProcessMinuteOut: {
+            /** At */
+            at: number;
+            /** Cpu */
+            cpu: components["schemas"]["ProcessRowOut"][];
+            /** Memory */
+            memory: components["schemas"]["ProcessRowOut"][];
+        };
+        /**
          * ProcessOut
          * @description One process.
          */
@@ -19830,6 +20562,48 @@ export interface components {
             status: string;
             /** Unit */
             unit?: string | null;
+            /** User */
+            user: string;
+        };
+        /**
+         * ProcessRowOut
+         * @description One process in one minute's ranking.
+         *
+         *     Attributes:
+         *         position: 1 for the biggest.
+         *         pid: Process id.
+         *         name: Its name.
+         *         user: The account it runs as.
+         *         cpu_percent: CPU over the minute; 100 is one core.
+         *         memory_bytes: Resident memory.
+         *         memory_percent: Share of RAM.
+         *         app: Its Noust application, by domain.
+         *         owner_kind: ``unit``, ``container`` or ``pool``.
+         *         owner: The unit, container or pool.
+         *         command: Its command line, redacted; null when the caller may not read
+         *             command lines.
+         */
+        ProcessRowOut: {
+            /** App */
+            app?: string | null;
+            /** Command */
+            command?: string | null;
+            /** Cpu Percent */
+            cpu_percent: number;
+            /** Memory Bytes */
+            memory_bytes: number;
+            /** Memory Percent */
+            memory_percent: number;
+            /** Name */
+            name: string;
+            /** Owner */
+            owner?: string | null;
+            /** Owner Kind */
+            owner_kind?: string | null;
+            /** Pid */
+            pid: number;
+            /** Position */
+            position: number;
             /** User */
             user: string;
         };
@@ -20917,22 +21691,6 @@ export interface components {
             items: components["schemas"]["RollbackPointOut"][];
             /** Total */
             total: number;
-        };
-        /**
-         * RollbackRequest
-         * @description Request to roll an application back.
-         */
-        RollbackRequest: {
-            /**
-             * Backup Id
-             * @description Backup to roll back to
-             */
-            backup_id?: string | null;
-            /**
-             * Domain
-             * @description Domain of the application
-             */
-            domain: string;
         };
         /**
          * RotatePasswordRequest
@@ -22117,6 +22875,78 @@ export interface components {
             success: boolean;
         };
         /**
+         * SiteBackend
+         * @description One address the site reaches, live.
+         *
+         *     Attributes:
+         *         address: ``host:port`` or ``unix:/path``.
+         *         written: How the site spells it (upstream server addresses, proxy
+         *             URLs), to match the structure's elements.
+         *         host: The host.
+         *         port: The port.
+         *         local: Whether it is this machine; only those are probed.
+         *         upstreams: Upstream names listing it.
+         *         locations: Location ids reaching it.
+         *         owner: Who holds the port, None when nobody does or unknown.
+         *         listening: Whether a socket listens on it; None when unknown.
+         *         reachable: Whether it accepts a connection (1 s, cached 10 s); None
+         *             when not probed.
+         */
+        SiteBackend: {
+            /** Address */
+            address: string;
+            /** Host */
+            host?: string | null;
+            /** Listening */
+            listening?: boolean | null;
+            /**
+             * Local
+             * @default false
+             */
+            local: boolean;
+            /**
+             * Locations
+             * @default []
+             */
+            locations: string[];
+            owner?: components["schemas"]["SitePortOwner"] | null;
+            /** Port */
+            port?: number | null;
+            /** Reachable */
+            reachable?: boolean | null;
+            /**
+             * Upstreams
+             * @default []
+             */
+            upstreams: string[];
+            /**
+             * Written
+             * @default []
+             */
+            written: string[];
+        };
+        /**
+         * SiteCertificate
+         * @description The certificate a server presents, with its expiry when certbot manages it.
+         */
+        SiteCertificate: {
+            /** Days Left */
+            days_left?: number | null;
+            /**
+             * Domains
+             * @default []
+             */
+            domains: string[];
+            /** Expiry */
+            expiry?: string | null;
+            /** Name */
+            name?: string | null;
+            /** Path */
+            path: string;
+            /** Server Id */
+            server_id: string;
+        };
+        /**
          * SiteConfigResponse
          * @description Response carrying the raw configuration of a site.
          */
@@ -22147,11 +22977,101 @@ export interface components {
             output: string;
         };
         /**
+         * SiteDraftRequest
+         * @description A draft of a site's configuration.
+         */
+        SiteDraftRequest: {
+            /** Config */
+            config: string;
+        };
+        /**
+         * SiteEditRequest
+         * @description Edit operations to apply to a text.
+         *
+         *     Attributes:
+         *         config: The text (saved or a draft).
+         *         ops: The operations of :mod:`noust.managers.siteconf.edit`, in order;
+         *             each an object with ``op`` and its fields.
+         */
+        SiteEditRequest: {
+            /** Config */
+            config: string;
+            /** Ops */
+            ops?: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * SiteEditResponse
+         * @description The result of edit operations. Nothing was written.
+         *
+         *     Attributes:
+         *         config: The edited text.
+         *         structure: Its model.
+         *         changed_lines: Lines that differ from the text sent.
+         */
+        SiteEditResponse: {
+            /** Changed Lines */
+            changed_lines: number;
+            /** Config */
+            config: string;
+            structure: components["schemas"]["SiteStructureModel"];
+        };
+        /**
+         * SiteHeader
+         * @description A response header added, or a header passed to the backend.
+         */
+        SiteHeader: {
+            /**
+             * Always
+             * @default false
+             */
+            always: boolean;
+            /** Id */
+            id: string;
+            /** Name */
+            name: string;
+            /** Value */
+            value: string;
+        };
+        /**
+         * SiteInclude
+         * @description An include and what it resolved to, or why it could not be.
+         */
+        SiteInclude: {
+            /** Error */
+            error?: string | null;
+            /**
+             * Files
+             * @default []
+             */
+            files: components["schemas"]["SiteIncludedFile"][];
+            /** Id */
+            id: string;
+            /** Line */
+            line: number;
+            /** Parent */
+            parent: string;
+            /** Pattern */
+            pattern: string;
+        };
+        /**
+         * SiteIncludedFile
+         * @description A file an include brought in, read-only.
+         */
+        SiteIncludedFile: {
+            /** Path */
+            path: string;
+            /** Text */
+            text: string;
+        };
+        /**
          * SiteInfo
          * @description A configured virtual host.
          *
          *     Attributes:
-         *         name: The domain, which is also the configuration file name.
+         *         name: The domain the site is addressed by: its application's, else
+         *             the file's name. What every ``/api/sites/{domain}`` route takes.
          *         webserver: Web server serving it.
          *         enabled: Whether the site is enabled.
          *         config_path: Absolute path of the configuration file.
@@ -22159,8 +23079,16 @@ export interface components {
          *         server_names: Every name the configuration answers on - the primary
          *             domain and its aliases - read from the file's own directives.
          *             Empty when the configuration cannot be read.
+         *         noust_managed: Whether Noust wrote the file (it carries Noust's
+         *             marker). False for a site the operator wrote, which a deploy
+         *             never rewrites.
+         *         app: Domain of the application the file serves, when one records it.
+         *         site_name: The file in the sites directory, which is not the domain
+         *             for a site the operator named (``proggest`` for ``proggest.es``).
          */
         SiteInfo: {
+            /** App */
+            app?: string | null;
             /** Config Path */
             config_path: string;
             /** Enabled */
@@ -22173,10 +23101,20 @@ export interface components {
             /** Name */
             name: string;
             /**
+             * Noust Managed
+             * @default false
+             */
+            noust_managed: boolean;
+            /**
              * Server Names
              * @default []
              */
             server_names: string[];
+            /**
+             * Site Name
+             * @default
+             */
+            site_name: string;
             /** Webserver */
             webserver: string;
         };
@@ -22193,6 +23131,488 @@ export interface components {
             webserver: string;
         };
         /**
+         * SiteListen
+         * @description One address and port a server accepts connections on.
+         */
+        SiteListen: {
+            /** Address */
+            address?: string | null;
+            /**
+             * Default Server
+             * @default false
+             */
+            default_server: boolean;
+            /**
+             * Http2
+             * @default false
+             */
+            http2: boolean;
+            /** Id */
+            id?: string | null;
+            /**
+             * Ipv6
+             * @default false
+             */
+            ipv6: boolean;
+            /** Port */
+            port?: number | null;
+            /**
+             * Quic
+             * @default false
+             */
+            quic: boolean;
+            /**
+             * Raw
+             * @default
+             */
+            raw: string;
+            /**
+             * Ssl
+             * @default false
+             */
+            ssl: boolean;
+        };
+        /**
+         * SiteLocation
+         * @description A location (or an Apache ``ProxyPass`` rule).
+         *
+         *     ``locations`` are the nested ones in file order; ``evaluation_order`` their
+         *     ids in the order the web server tries them.
+         */
+        SiteLocation: {
+            /**
+             * Comments
+             * @default []
+             */
+            comments: string[];
+            /**
+             * Directives
+             * @default []
+             */
+            directives: components["schemas"]["SiteRawDirective"][];
+            /** End Line */
+            end_line: number;
+            /**
+             * Evaluation Order
+             * @default []
+             */
+            evaluation_order: string[];
+            /** Id */
+            id: string;
+            /** Line */
+            line: number;
+            /**
+             * Locations
+             * @default []
+             */
+            locations: components["schemas"]["SiteLocation"][];
+            /** Modifier */
+            modifier: string;
+            /**
+             * Notes
+             * @default []
+             */
+            notes: components["schemas"]["SiteNote"][];
+            /** Path */
+            path: string;
+            settings: components["schemas"]["SiteSettings"];
+            /** Source */
+            source: string;
+            target: components["schemas"]["SiteTarget"];
+        };
+        /**
+         * SiteNote
+         * @description A comment of no single element: its text, its line, the id it follows.
+         */
+        SiteNote: {
+            /** After */
+            after?: string | null;
+            /** Line */
+            line: number;
+            /** Text */
+            text: string;
+        };
+        /**
+         * SiteParseFailure
+         * @description Why a configuration could not be analysed.
+         *
+         *     Attributes:
+         *         line: 1-based line of the offending character.
+         *         column: 1-based column.
+         *         message: What is wrong there, in the web server's terms.
+         */
+        SiteParseFailure: {
+            /** Column */
+            column: number;
+            /** Line */
+            line: number;
+            /** Message */
+            message: string;
+        };
+        /**
+         * SitePortOwner
+         * @description Who holds a port: ``kind`` is ``app``, ``compose``, ``container``, ``unit``
+         *     or ``process``, with the fields that kind has.
+         */
+        SitePortOwner: {
+            /** App */
+            app?: string | null;
+            /** Container */
+            container?: string | null;
+            /** Kind */
+            kind: string;
+            /** Pid */
+            pid?: number | null;
+            /** Process */
+            process?: string | null;
+            /** Project */
+            project?: string | null;
+            /** Service */
+            service?: string | null;
+            /** Unit */
+            unit?: string | null;
+        };
+        /**
+         * SiteRawDirective
+         * @description A directive as written: id, name, arguments, exact text, lines, comments.
+         */
+        SiteRawDirective: {
+            /** Args */
+            args: string[];
+            /** Block */
+            block: boolean;
+            /**
+             * Comments
+             * @default []
+             */
+            comments: string[];
+            /** End Line */
+            end_line: number;
+            /** Id */
+            id: string;
+            /** Line */
+            line: number;
+            /**
+             * Modeled
+             * @default false
+             */
+            modeled: boolean;
+            /** Name */
+            name: string;
+            /** Text */
+            text: string;
+        };
+        /**
+         * SiteReturn
+         * @description A server-level ``return``/``Redirect``.
+         */
+        SiteReturn: {
+            /** Code */
+            code?: number | null;
+            /** Destination */
+            destination?: string | null;
+            /** Id */
+            id: string;
+        };
+        /**
+         * SiteRouteRequest
+         * @description A request to trace through a site.
+         *
+         *     Attributes:
+         *         config: A draft to trace through; the saved file when absent.
+         *         host: The Host header.
+         *         path: The request path (a query string is ignored).
+         *         scheme: ``http`` or ``https``.
+         *         port: The port it arrives on; the scheme's default when absent.
+         */
+        SiteRouteRequest: {
+            /** Config */
+            config?: string | null;
+            /** Host */
+            host: string;
+            /**
+             * Path
+             * @default /
+             */
+            path: string;
+            /** Port */
+            port?: number | null;
+            /**
+             * Scheme
+             * @default https
+             * @enum {string}
+             */
+            scheme: "http" | "https";
+        };
+        /**
+         * SiteRouteResponse
+         * @description Which server and location answer a request, and why.
+         *
+         *     Attributes:
+         *         server_id: The server that answers; None when none listens.
+         *         location_id: The location that answers; None when the server does.
+         *         steps: The explanation in English, one sentence per step.
+         *         trace: The same steps as codes and parameters.
+         *         highlight: Ids along the path, server first, then locations, then
+         *             the upstream (``u:name``), for the diagram.
+         *         redirect: Where the web server's automatic 301 sends the client.
+         */
+        SiteRouteResponse: {
+            /**
+             * Highlight
+             * @default []
+             */
+            highlight: string[];
+            /** Location Id */
+            location_id?: string | null;
+            /** Redirect */
+            redirect?: string | null;
+            /** Server Id */
+            server_id?: string | null;
+            /**
+             * Steps
+             * @default []
+             */
+            steps: string[];
+            /**
+             * Trace
+             * @default []
+             */
+            trace: components["schemas"]["SiteRouteStep"][];
+        };
+        /**
+         * SiteRouteStep
+         * @description One step of a route's explanation.
+         *
+         *     Attributes:
+         *         code: The step, as a key the console translates.
+         *         params: The values the sentence names.
+         *         text: The sentence in English.
+         */
+        SiteRouteStep: {
+            /** Code */
+            code: string;
+            /**
+             * Params
+             * @default {}
+             */
+            params: {
+                [key: string]: unknown;
+            };
+            /** Text */
+            text: string;
+        };
+        /**
+         * SiteServer
+         * @description A virtual server: listens, names, TLS, locations and the rest, raw.
+         */
+        SiteServer: {
+            /** Client Max Body Size */
+            client_max_body_size?: string | null;
+            /**
+             * Comments
+             * @default []
+             */
+            comments: string[];
+            /**
+             * Directives
+             * @default []
+             */
+            directives: components["schemas"]["SiteRawDirective"][];
+            /** End Line */
+            end_line: number;
+            /**
+             * Evaluation Order
+             * @default []
+             */
+            evaluation_order: string[];
+            /** Gzip */
+            gzip?: boolean | null;
+            /**
+             * Headers
+             * @default []
+             */
+            headers: components["schemas"]["SiteHeader"][];
+            /**
+             * Http2
+             * @default false
+             */
+            http2: boolean;
+            /** Id */
+            id: string;
+            /** Line */
+            line: number;
+            /**
+             * Listens
+             * @default []
+             */
+            listens: components["schemas"]["SiteListen"][];
+            /**
+             * Locations
+             * @default []
+             */
+            locations: components["schemas"]["SiteLocation"][];
+            /**
+             * Names
+             * @default []
+             */
+            names: string[];
+            /**
+             * Notes
+             * @default []
+             */
+            notes: components["schemas"]["SiteNote"][];
+            returns?: components["schemas"]["SiteReturn"] | null;
+            /**
+             * Rewrites
+             * @default []
+             */
+            rewrites: string[];
+            /** Root */
+            root?: string | null;
+            tls?: components["schemas"]["SiteTls"] | null;
+        };
+        /**
+         * SiteSettings
+         * @description The settings the Structure view edits in line.
+         */
+        SiteSettings: {
+            /** Buffering */
+            buffering?: boolean | null;
+            /** Cache */
+            cache?: string | null;
+            /** Client Max Body Size */
+            client_max_body_size?: string | null;
+            /** Connect Timeout */
+            connect_timeout?: string | null;
+            /**
+             * Deny
+             * @default false
+             */
+            deny: boolean;
+            /** Expires */
+            expires?: string | null;
+            /**
+             * Headers
+             * @default []
+             */
+            headers: components["schemas"]["SiteHeader"][];
+            /** Limit Req */
+            limit_req?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Proxy Headers
+             * @default []
+             */
+            proxy_headers: components["schemas"]["SiteHeader"][];
+            /** Read Timeout */
+            read_timeout?: string | null;
+            /** Send Timeout */
+            send_timeout?: string | null;
+            /**
+             * Websocket
+             * @default false
+             */
+            websocket: boolean;
+        };
+        /**
+         * SiteStructureModel
+         * @description Everything in a site file, structured (``kind`` is ``nginx`` or ``apache``).
+         */
+        SiteStructureModel: {
+            /**
+             * Directives
+             * @default []
+             */
+            directives: components["schemas"]["SiteRawDirective"][];
+            /**
+             * Includes
+             * @default []
+             */
+            includes: components["schemas"]["SiteInclude"][];
+            /** Kind */
+            kind: string;
+            /**
+             * Notes
+             * @default []
+             */
+            notes: components["schemas"]["SiteNote"][];
+            /**
+             * Servers
+             * @default []
+             */
+            servers: components["schemas"]["SiteServer"][];
+            /**
+             * Upstreams
+             * @default []
+             */
+            upstreams: components["schemas"]["SiteUpstream"][];
+        };
+        /**
+         * SiteStructureResponse
+         * @description The structure of a site's file or of a draft of it.
+         *
+         *     Attributes:
+         *         site: The domain asked about.
+         *         webserver: ``nginx`` or ``apache``.
+         *         path: The site's file.
+         *         structure: The model, None when the text does not parse.
+         *         error: Why it does not parse, None when it does. A draft that does not
+         *             parse is an answer, not a failure: the console shows the line and
+         *             sends the operator to the text.
+         */
+        SiteStructureResponse: {
+            error?: components["schemas"]["SiteParseFailure"] | null;
+            /** Path */
+            path: string;
+            /** Site */
+            site: string;
+            structure?: components["schemas"]["SiteStructureModel"] | null;
+            /** Webserver */
+            webserver: string;
+        };
+        /**
+         * SiteTarget
+         * @description What a location hands a request to.
+         *
+         *     ``kind`` is ``proxy``, ``static``, ``return``, ``fastcgi`` or ``other``;
+         *     the other fields are those of :class:`noust.managers.siteconf.model.Target`.
+         */
+        SiteTarget: {
+            /** Address */
+            address?: string | null;
+            /** Alias */
+            alias?: string | null;
+            /** Code */
+            code?: number | null;
+            /** Destination */
+            destination?: string | null;
+            /** Detail */
+            detail?: string | null;
+            /** Directive */
+            directive?: string | null;
+            /** Host */
+            host?: string | null;
+            /**
+             * Inherited
+             * @default false
+             */
+            inherited: boolean;
+            /** Kind */
+            kind: string;
+            /** Port */
+            port?: number | null;
+            /** Protocol */
+            protocol?: string | null;
+            /** Root */
+            root?: string | null;
+            /** Upstream */
+            upstream?: string | null;
+            /** Url */
+            url?: string | null;
+        };
+        /**
          * SiteTemplatesResponse
          * @description Templates a site can be created or rendered from.
          *
@@ -22205,6 +23625,115 @@ export interface components {
             templates: string[];
             /** Webserver */
             webserver: string;
+        };
+        /**
+         * SiteTls
+         * @description A server's certificate, key and protocols, as the file names them.
+         */
+        SiteTls: {
+            /** Certificate */
+            certificate?: string | null;
+            /** Key */
+            key?: string | null;
+            /**
+             * Protocols
+             * @default []
+             */
+            protocols: string[];
+        };
+        /**
+         * SiteTopologyResponse
+         * @description The structure of the saved site plus what is behind it now.
+         *
+         *     Attributes:
+         *         backends: Every address the site reaches, with its owner and state.
+         *         certificates: The certificate of each server that presents one.
+         *         docker: Whether Docker answered; when not, containers are not owners.
+         */
+        SiteTopologyResponse: {
+            /**
+             * Backends
+             * @default []
+             */
+            backends: components["schemas"]["SiteBackend"][];
+            /**
+             * Certificates
+             * @default []
+             */
+            certificates: components["schemas"]["SiteCertificate"][];
+            /**
+             * Docker
+             * @default false
+             */
+            docker: boolean;
+            error?: components["schemas"]["SiteParseFailure"] | null;
+            /** Path */
+            path: string;
+            /** Site */
+            site: string;
+            structure?: components["schemas"]["SiteStructureModel"] | null;
+            /** Webserver */
+            webserver: string;
+        };
+        /**
+         * SiteUpstream
+         * @description A named group of backends; ``source`` set when an include defines it (read-only).
+         */
+        SiteUpstream: {
+            /**
+             * Comments
+             * @default []
+             */
+            comments: string[];
+            /**
+             * Directives
+             * @default []
+             */
+            directives: components["schemas"]["SiteRawDirective"][];
+            /** End Line */
+            end_line: number;
+            /** Id */
+            id: string;
+            /** Keepalive */
+            keepalive?: number | null;
+            /** Line */
+            line: number;
+            /** Name */
+            name: string;
+            /**
+             * Notes
+             * @default []
+             */
+            notes: components["schemas"]["SiteNote"][];
+            /**
+             * Servers
+             * @default []
+             */
+            servers: components["schemas"]["SiteUpstreamServer"][];
+            /** Source */
+            source?: string | null;
+            /**
+             * Used By
+             * @default []
+             */
+            used_by: string[];
+        };
+        /**
+         * SiteUpstreamServer
+         * @description One backend of an upstream; ``source`` is the included file it comes from.
+         */
+        SiteUpstreamServer: {
+            /** Address */
+            address: string;
+            /** Id */
+            id?: string | null;
+            /**
+             * Params
+             * @default []
+             */
+            params: string[];
+            /** Source */
+            source?: string | null;
         };
         /**
          * SlowQueriesResponse
@@ -22316,6 +23845,41 @@ export interface components {
              * @description What Noust found, in a sentence
              */
             verdict?: string | null;
+        };
+        /**
+         * SourceStatusOut
+         * @description What became of one source.
+         *
+         *     Attributes:
+         *         source: The source.
+         *         state: ``shown``, ``withheld``, ``failed`` or ``skipped``.
+         *         count: Entries it contributed.
+         *         truncated: It had more than it may contribute.
+         *         permission: The permission it needs, when withheld.
+         *         message: Why it failed.
+         *         evidence: What the system said, verbatim.
+         */
+        SourceStatusOut: {
+            /**
+             * Count
+             * @default 0
+             */
+            count: number;
+            /** Evidence */
+            evidence?: string | null;
+            /** Message */
+            message?: string | null;
+            /** Permission */
+            permission?: string | null;
+            /** Source */
+            source: string;
+            /** State */
+            state: string;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
         };
         /**
          * SparkFigure
@@ -22847,6 +24411,118 @@ export interface components {
             timezone?: string | null;
         };
         /**
+         * TimelineEventOut
+         * @description One thing that happened.
+         *
+         *     Attributes:
+         *         at: When, epoch seconds.
+         *         source: ``journal``, ``audit``, ``deployments``, ``jobs`` or ``monitor``.
+         *         kind: ``journal``, ``audit``, ``deployment``, ``job``, ``observation``,
+         *             ``unit_failed``, ``unit_recovered`` or ``boot``.
+         *         level: ``error``, ``warning``, ``notice`` or ``info``.
+         *         text: What the source says, verbatim.
+         *         unit: The unit it concerns.
+         *         app: The application it concerns.
+         *         actor: Who did it.
+         *         status: Its outcome.
+         *         ref: What to open: a deployment's id, a job's id.
+         *         priority: The journal's priority, 0 to 7.
+         *         details: Small extras.
+         */
+        TimelineEventOut: {
+            /** Actor */
+            actor?: string | null;
+            /** App */
+            app?: string | null;
+            /** At */
+            at: number;
+            /** Details */
+            details?: {
+                [key: string]: unknown;
+            };
+            /** Kind */
+            kind: string;
+            /** Level */
+            level: string;
+            /** Priority */
+            priority?: number | null;
+            /** Ref */
+            ref?: string | null;
+            /** Source */
+            source: string;
+            /** Status */
+            status?: string | null;
+            /** Text */
+            text: string;
+            /** Unit */
+            unit?: string | null;
+        };
+        /**
+         * TimelineOut
+         * @description Response for ``GET /api/timeline``.
+         *
+         *     Attributes:
+         *         start: First moment, epoch seconds.
+         *         end: Last moment.
+         *         app: The application it is narrowed to.
+         *         events: Every event, oldest first.
+         *         processes: The process samples; null when not shown.
+         *         sources: What became of each source.
+         */
+        TimelineOut: {
+            /** App */
+            app?: string | null;
+            /** End */
+            end: number;
+            /** Events */
+            events: components["schemas"]["TimelineEventOut"][];
+            processes?: components["schemas"]["ProcessHistoryOut"] | null;
+            /** Sources */
+            sources: components["schemas"]["SourceStatusOut"][];
+            /** Start */
+            start: number;
+        };
+        /**
+         * TimezoneOut
+         * @description One time zone the server can be set to, as it is right now.
+         *
+         *     Attributes:
+         *         name: The tz database name, such as ``Europe/Madrid``.
+         *         region: Its first part (``Europe``); ``Etc`` for the fixed offsets, ``UTC`` for ``UTC``.
+         *         city: What follows the region, readable: ``Madrid``, ``Argentina / Buenos Aires``.
+         *         offset: The offset from UTC now: ``UTC+02:00``, ``UTC-03:30``, or ``UTC``.
+         *         abbreviation: ``CEST``; empty when the database only numbers the zone.
+         *         offset_minutes: The offset in minutes east of UTC.
+         */
+        TimezoneOut: {
+            /** Abbreviation */
+            abbreviation: string;
+            /** City */
+            city: string;
+            /** Name */
+            name: string;
+            /** Offset */
+            offset: string;
+            /** Offset Minutes */
+            offset_minutes: number;
+            /** Region */
+            region: string;
+        };
+        /**
+         * TimezonesOut
+         * @description The zones the managed server knows.
+         *
+         *     Attributes:
+         *         generated_at: The moment the offsets were read at, ISO 8601 in UTC.
+         *         timezones: ``Etc/UTC`` and ``UTC`` first, then every zone by offset and name.
+         */
+        TimezonesOut: {
+            /** Generated At */
+            generated_at: string;
+            /** Timezones */
+            timezones: components["schemas"]["TimezoneOut"][];
+        };
+        /**
          * TokenInfo
          * @description Session information.
          *
@@ -23102,6 +24778,17 @@ export interface components {
             marks?: {
                 [key: string]: boolean | null;
             };
+        };
+        /**
+         * UpdateFollowTagsRequest
+         * @description Make an application deploy the tags that match a pattern, or stop.
+         */
+        UpdateFollowTagsRequest: {
+            /**
+             * Pattern
+             * @description A glob over tag names such as 'v*'. Null: follow a branch again
+             */
+            pattern: string | null;
         };
         /**
          * UpdateHealthRequest
@@ -23774,8 +25461,9 @@ export interface components {
          *             when no credential verified.
          *         event: The forge's name for the event.
          *         outcome: ``deploy_started``, ``preview_started``, ``ping``,
-         *             ``ignored_branch``, ``ignored_event``, ``ignored_pull_request``,
-         *             ``duplicate``, ``bad_signature`` or ``locked``.
+         *             ``ignored_branch``, ``ignored_tag``, ``ignored_event``,
+         *             ``ignored_pull_request``, ``duplicate``, ``bad_signature`` or
+         *             ``locked``.
          *         branch: The branch a push named.
          *         detail: One short line of context.
          *         job_id: The job it queued, to follow in the console's jobs.
@@ -23998,6 +25686,133 @@ export interface components {
             upstream_port?: number | null;
         };
         /**
+         * AdoptRequest
+         * @description The stack to adopt, and what is not found by looking.
+         */
+        noust__web__api__app_adopt__AdoptRequest: {
+            /**
+             * Accept Recreate
+             * @description Adopt even when starting the stack as Noust would recreate something
+             * @default false
+             */
+            accept_recreate: boolean;
+            /**
+             * Branch
+             * @description The branch updates follow; the one checked out when omitted
+             */
+            branch?: string | null;
+            /**
+             * Compose File
+             * @description Its compose file, relative to path; found when omitted
+             */
+            compose_file?: string | null;
+            /**
+             * Domain
+             * @description The domain the stack serves
+             */
+            domain: string;
+            /**
+             * Path
+             * @description The absolute directory the stack runs from
+             */
+            path: string;
+            /**
+             * Port
+             * @description The port to register; the compose file's
+             */
+            port?: number | null;
+            /**
+             * Preview
+             * @description Answer what would be done; change nothing
+             * @default false
+             */
+            preview: boolean;
+            /**
+             * Site
+             * @description The file in sites-available serving the domain; found when omitted
+             */
+            site?: string | null;
+            /**
+             * Source
+             * @description Where updates fetch from; the checkout's origin when omitted
+             */
+            source?: string | null;
+        };
+        /**
+         * AdoptResponse
+         * @description What an adoption found, and whether it was recorded.
+         */
+        noust__web__api__app_adopt__AdoptResponse: {
+            /**
+             * Adopted
+             * @description False for a preview or a rehearsal
+             */
+            adopted: boolean;
+            /** App Name */
+            app_name: string;
+            /** App Path */
+            app_path: string;
+            /** Branch */
+            branch: string | null;
+            /**
+             * Changes
+             * @description What starting the stack would change (accepted)
+             */
+            changes: string[];
+            /** Commit */
+            commit: string | null;
+            /** Compose File */
+            compose_file: string;
+            /** Containers */
+            containers: string[];
+            /**
+             * Deployment Id
+             * @description The adoption's history row
+             */
+            deployment_id: number | null;
+            /** Domain */
+            domain: string;
+            /**
+             * Dry Run
+             * @description docker compose up --dry-run's output, verbatim
+             */
+            dry_run: string;
+            /** Headless */
+            headless: boolean;
+            /** Port */
+            port: number | null;
+            /**
+             * Project
+             * @description The Compose project every command passes with -p
+             */
+            project: string | null;
+            /**
+             * Project From
+             * @description containers: their labels; compose: the name Compose derives; stack: the stack names it itself
+             */
+            project_from: string;
+            /** Running */
+            running: boolean;
+            /**
+             * Site
+             * @description The operator's site file serving the domain
+             */
+            site: string | null;
+            /**
+             * Site Name
+             * @description That file's name, recorded because it is not the domain
+             */
+            site_name: string | null;
+            /** Source */
+            source: string;
+            /** Ssl */
+            ssl: boolean;
+            /** Unit */
+            unit: string;
+            /** Warnings */
+            warnings: string[];
+        };
+        /**
          * BackupListResponse
          * @description Response for listing backups.
          */
@@ -24082,6 +25897,12 @@ export interface components {
              */
             restore_env: boolean;
             /**
+             * Schema Changed Ok
+             * @description Put back only the files even past later deployments that changed the database schema
+             * @default false
+             */
+            schema_changed_ok: boolean;
+            /**
              * Target Domain
              * @description Domain to restore into
              */
@@ -24092,6 +25913,25 @@ export interface components {
              * @default true
              */
             verify: boolean;
+        };
+        /**
+         * AdoptRequest
+         * @description Request to adopt the databases Noust does not track.
+         */
+        noust__web__api__databases__databases__AdoptRequest: {
+            /**
+             * Engine
+             * @description Only this engine
+             */
+            engine?: string | null;
+        };
+        /**
+         * AdoptResponse
+         * @description The databases adopted, as ``engine/name``.
+         */
+        noust__web__api__databases__databases__AdoptResponse: {
+            /** Adopted */
+            adopted: string[];
         };
         /**
          * BackupListResponse
@@ -24183,6 +26023,40 @@ export interface components {
              * @default true
              */
             safety_backup: boolean;
+        };
+        /**
+         * RollbackRequest
+         * @description Going back to a deployment.
+         */
+        noust__web__api__deployments__RollbackRequest: {
+            /**
+             * Schema Changed Ok
+             * @description Go back even past later deployments that changed the database schema
+             * @default false
+             */
+            schema_changed_ok: boolean;
+        };
+        /**
+         * RollbackRequest
+         * @description Request to roll an application back.
+         */
+        noust__web__api__jobs__RollbackRequest: {
+            /**
+             * Backup Id
+             * @description Backup to roll back to
+             */
+            backup_id?: string | null;
+            /**
+             * Domain
+             * @description Domain of the application
+             */
+            domain: string;
+            /**
+             * Schema Changed Ok
+             * @description Go back even past later deployments that changed the database schema
+             * @default false
+             */
+            schema_changed_ok: boolean;
         };
         /**
          * ProcessListResponse
@@ -24465,6 +26339,48 @@ export interface operations {
             };
         };
     };
+    adopt_app_api_apps_adopt_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["noust__web__api__app_adopt__AdoptRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__app_adopt__AdoptResponse"];
+                };
+            };
+            /** @description Starting it would recreate */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     import_app_api_apps_import_post: {
         parameters: {
             query?: never;
@@ -24587,6 +26503,8 @@ export interface operations {
             query?: {
                 remove_files?: boolean;
                 remove_ssl?: boolean;
+                /** @description The application's directory, named exactly, when it is outside Noust's apps directory (an adopted stack): only then is it removed with the files */
+                remove_adopted_directory?: string | null;
             };
             header?: never;
             path: {
@@ -24865,7 +26783,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["noust__web__api__deployments__RollbackRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             202: {
@@ -25184,6 +27106,41 @@ export interface operations {
             };
         };
     };
+    update_app_follow_tags_api_apps__domain__follow_tags_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateFollowTagsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowTagsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     update_app_health_api_apps__domain__health_patch: {
         parameters: {
             query?: never;
@@ -25206,6 +27163,165 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthCheckResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_app_hooks_api_apps__domain__hooks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppHooksResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_app_hooks_api_apps__domain__hooks_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppHooksRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppHooksResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_app_hooks_api_apps__domain__hooks_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppHooksResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_identity_api_apps__domain__identity_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_identity_migrate_api_apps__domain__identity_migrate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -25583,7 +27699,10 @@ export interface operations {
     };
     activate_app_release_api_apps__domain__releases__release_id__activate_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Go back even past deployments that changed the database schema */
+                schema_changed_ok?: boolean;
+            };
             header?: never;
             path: {
                 domain: string;
@@ -30259,7 +32378,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AdoptRequest"];
+                "application/json": components["schemas"]["noust__web__api__databases__databases__AdoptRequest"];
             };
         };
         responses: {
@@ -30269,7 +32388,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["AdoptResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__databases__AdoptResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32919,7 +35038,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RollbackRequest"];
+                "application/json": components["schemas"]["noust__web__api__jobs__RollbackRequest"];
             };
         };
         responses: {
@@ -33784,6 +35903,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CapabilitiesOut"];
+                };
+            };
+        };
+    };
+    list_timezones_api_server_clock_timezones_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimezonesOut"];
                 };
             };
         };
@@ -35971,6 +38110,41 @@ export interface operations {
             };
         };
     };
+    edit_site_config_api_sites__domain__config_edit_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteEditRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteEditResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     test_site_config_api_sites__domain__config_test_post: {
         parameters: {
             query?: never;
@@ -36055,6 +38229,138 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    route_site_request_api_sites__domain__route_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteRouteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteRouteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_structure_api_sites__domain__structure_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteStructureResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_site_structure_api_sites__domain__structure_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SiteDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteStructureResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_site_topology_api_sites__domain__topology_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SiteTopologyResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36296,6 +38602,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UpdateInfo"];
+                };
+            };
+        };
+    };
+    read_timeline_api_timeline_get: {
+        parameters: {
+            query: {
+                /** @description First moment, epoch seconds */
+                start: number;
+                /** @description Last moment, epoch seconds */
+                end: number;
+                /** @description Narrow to one application */
+                app?: string | null;
+                /** @description Only these sources: journal, audit, deployments, jobs, monitor, processes; every one when omitted */
+                sources?: string[] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimelineOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

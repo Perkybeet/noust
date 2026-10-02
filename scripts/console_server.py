@@ -62,7 +62,7 @@ import tempfile
 import threading
 import time
 from collections import deque
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from fnmatch import fnmatch
@@ -2274,6 +2274,7 @@ def seed_machine(
             domain=state.domains[0] if showcase else "example.com",
         )
     seed_monitor(sandbox, units, showcase=showcase, showcase_notice=not showcase_calm_node)
+    quiet_process_sampling()
     seed_job_history(sandbox, store, state.domains[0])
     seed_activity_audit_log(sandbox, state.domains[0])
     if showcase:
@@ -2301,6 +2302,7 @@ def seed_machine(
         if showcase
         else ("example.net", ("www", "shop", "status")),
         cert_alt_names=showcase_cert_alt_names,
+        proggest=not showcase,
     )
     if not showcase:
         seed_release_22(sandbox, store, units, ports, domains)
@@ -3785,6 +3787,113 @@ def _tabs_port_model(units: dict[str, Unit], ports: dict[str, int]) -> None:
     app_state_module.port_answers = port_answers  # type: ignore[assignment]
 
 
+# ---------------------------------------------------------------------------
+# Console: "Investigate this stretch" (3.2, flow F1). A CPU peak of the release
+# app half an hour ago with the processes behind it, minute by minute, and the
+# unit failure the monitor saw then; the collector's own process ranking is
+# switched off, so this sandbox never records the development machine's
+# processes (or their command lines).
+# ---------------------------------------------------------------------------
+
+#: How long ago the seeded peak was, in minutes, and how many minutes it lasted.
+TIMELINE_PEAK_MINUTES_AGO = 40
+TIMELINE_PEAK_LENGTH = 10
+
+
+def quiet_process_sampling() -> None:
+    """Keep the collector from ranking this development machine's own processes."""
+    import noust.monitor.process_samples as process_samples
+
+    process_samples.read_process_table = lambda: []  # type: ignore[assignment]
+
+
+def seed_timeline_peak(domain: str) -> None:
+    """
+    Write the processes of a CPU peak, and what the monitor saw during it.
+
+    Args:
+        domain: The application whose build caused the peak.
+    """
+    from noust.monitor.process_samples import RANK_CPU, RANK_MEMORY, ProcessSample
+    from noust.monitor.timeseries import EVENT_UNIT_FAILED
+    from noust.web.metrics_collector import get_metrics_store
+
+    quiet_process_sampling()
+    store = get_metrics_store()
+    unit = domain.replace(".", "-")
+    first = (int(time.time()) // 60 - TIMELINE_PEAK_MINUTES_AGO) * 60
+    rows: list[ProcessSample] = []
+    for minute in range(TIMELINE_PEAK_LENGTH):
+        ts = first + minute * 60
+        build = 92.0 - abs(minute - TIMELINE_PEAK_LENGTH / 2) * 6
+        cpu = [
+            (
+                "node",
+                4211,
+                "www-data",
+                build,
+                610,
+                domain,
+                f"{unit}.service",
+                "node /var/www/apps/tienda-example-org/current/node_modules/.bin/next build",
+            ),
+            (
+                "postgres",
+                990,
+                "postgres",
+                14.0,
+                880,
+                None,
+                "postgresql@16-main.service",
+                "postgres: 16/main: tienda tienda 127.0.0.1(51122) SELECT",
+            ),
+            ("nginx", 1021, "www-data", 3.1, 42, None, "nginx.service", "nginx: worker process"),
+        ]
+        memory = [
+            cpu[1],
+            cpu[0],
+            (
+                "redis-server",
+                977,
+                "redis",
+                0.4,
+                210,
+                None,
+                "redis-server.service",
+                "/usr/bin/redis-server 127.0.0.1:6379",
+            ),
+        ]
+        for rank, ranked in ((RANK_CPU, cpu), (RANK_MEMORY, memory)):
+            for position, (name, pid, user, percent, mb, app, owner, command) in enumerate(
+                ranked, start=1
+            ):
+                rows.append(
+                    ProcessSample(
+                        ts=ts,
+                        rank=rank,
+                        position=position,
+                        pid=pid,
+                        name=name,
+                        user=user,
+                        cpu_percent=percent,
+                        memory_bytes=mb * 1024 * 1024,
+                        memory_percent=round(mb / 16_384 * 100, 2),
+                        app=app,
+                        owner_kind="unit",
+                        owner=owner,
+                        command=command,
+                    )
+                )
+    store.record_process_samples(rows)
+    store.record_monitor_event(
+        EVENT_UNIT_FAILED,
+        unit,
+        detail=f"systemd reports {unit} failed: result exit-code, main process exit status 1.",
+        reason="failed",
+        ts=first + (TIMELINE_PEAK_LENGTH - 2) * 60,
+    )
+
+
 def seed_app_tabs(
     sandbox: Sandbox,
     store: Any,
@@ -3814,6 +3923,7 @@ def seed_app_tabs(
     seed_backups(sandbox, [TABS_LIVE_APP])
     _tabs_metrics(TABS_RELEASE_APP, history[TABS_RELEASE_APP].starts, base_mb=182)
     _tabs_metrics(TABS_LIVE_APP, history[TABS_LIVE_APP].starts, base_mb=96)
+    seed_timeline_peak(TABS_RELEASE_APP)
     _tabs_slow_live_builds(live_root)
     seed_deploy_actions(sandbox, store, units, ports, domains, history)
     _tabs_journal_model(units, domains, ports)
@@ -4401,11 +4511,15 @@ class _DomainsWebTools:
             enabled = self.sandbox.etc / "nginx" / "sites-enabled"
             files = sorted(enabled.iterdir()) if enabled.is_dir() else []
             main_shown = "/etc/nginx/nginx.conf"
+            live = self.sandbox.etc / "nginx" / "nginx.conf"
+            wrapper = live.read_text(encoding="utf-8") if live.is_file() else ""
+        texts: list[tuple[Path, str]] = []
         for file in files:
             try:
                 text = file.read_text(encoding="utf-8")
             except OSError:
                 continue
+            texts.append((file, text))
             problem = _domains_nginx_syntax(text)
             if problem is not None:
                 message, line = problem
@@ -4416,6 +4530,11 @@ class _DomainsWebTools:
                     f"nginx: [emerg] {message} in {self.shown(file)}:{line}\n"
                     f"nginx: configuration file {main_shown} test failed\n",
                 )
+        problem_text = _sites_context_problem(wrapper, texts, self.shown)
+        if problem_text is not None:
+            return CommandResult(
+                args, 1, "", f"{problem_text}\nnginx: configuration file {main_shown} test failed\n"
+            )
         return CommandResult(
             args,
             0,
@@ -4668,6 +4787,41 @@ class _DomainsWebTools:
         )
 
 
+def _sites_context_problem(
+    main: str, files: list[tuple[Path, str]], shown: Callable[[Path], str]
+) -> str | None:
+    """
+    What nginx says of a site that only fails beside the others (spec 3.2, section 2.2).
+
+    The site API tests a candidate inside a copy of nginx.conf with every enabled
+    site, so the modelled nginx reads them together the way the real one does: a
+    ``limit_req`` zone nobody declared, and an upstream name two files declare.
+
+    Args:
+        main: The main configuration's text (the staged copy, or the live one).
+        files: Each included file and its text.
+        shown: Prints a sandbox path as the modelled machine would.
+
+    Returns:
+        nginx's ``[emerg]`` line, or None when the files fit together.
+    """
+    everything = "\n".join([main, *(text for _, text in files)])
+    declared = set(re.findall(r"limit_req_zone\s[^;]*zone=([\w-]+):", everything))
+    for zone in re.findall(r"limit_req\s+zone=([\w-]+)", everything):
+        if zone not in declared:
+            return f'nginx: [emerg] zero size shared memory zone "{zone}"'
+    seen: set[str] = set()
+    for file, text in files:
+        for match in re.finditer(r"^\s*upstream\s+(\S+)\s*\{", text, re.MULTILINE):
+            if match.group(1) in seen:
+                line = text.count("\n", 0, match.start(1)) + 1
+                return (
+                    f'nginx: [emerg] duplicate upstream "{match.group(1)}" in {shown(file)}:{line}'
+                )
+            seen.add(match.group(1))
+    return None
+
+
 def _domains_redirect_managers() -> None:
     """
     Point the nginx and Apache managers' default backends at the sandbox.
@@ -4751,6 +4905,134 @@ def seed_sites_server_names(domain: str, extra: Sequence[str]) -> None:
         manager.replace_site_config(domain, updated)
 
 
+#: The http-level settings the Proggest sites rely on, as its server's nginx.conf
+#: declares them: the request-rate zones its auth and API locations name.
+SITES_NGINX_CONF = """\
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+
+events {
+    worker_connections 768;
+}
+
+http {
+    sendfile on;
+    tcp_nopush on;
+    types_hash_max_size 2048;
+    server_tokens off;
+
+    # Request-rate zones the sites' limit_req directives name.
+    limit_req_zone $binary_remote_addr zone=auth_limit:10m rate=5r/s;
+    limit_req_zone $binary_remote_addr zone=api_general:10m rate=50r/s;
+
+    access_log /var/log/nginx/access.log;
+    error_log /var/log/nginx/error.log;
+
+    gzip on;
+
+    include sites-enabled/*;
+}
+"""
+
+#: Proggest's Compose stack, as ``docker ps --format '{{json .}}'`` lists it: the
+#: two services its upstreams reach (nextjs_upstream, nestjs_upstream), so the
+#: site's diagram names a Compose service as each port's owner. On its server they
+#: publish 3001 and 3000; here the seeded applications already hold 3000 and up,
+#: so the sites are seeded with each port moved to the one beside it here.
+SITES_PROGGEST_CONTAINERS = (
+    ("proggest-frontend-1", "frontend", 3001, 3201),
+    ("proggest-backend-1", "backend", 3000, 3200),
+)
+
+
+def seed_proggest_site(sandbox: Sandbox, tools: Any) -> None:
+    """
+    Seed the operator-written Proggest sites, for the site page's structure and diagram.
+
+    ``proggest.es`` and ``modulos.proggest.es`` are the real files the analyzer's
+    corpus keeps (tests/fixtures/siteconf/proggest): two upstreams, 25 locations,
+    rate limits whose zones live in nginx.conf, and a second site that proxies to
+    the first one's upstreams. They are written without Noust's marker, as the
+    operator wrote them, and enabled; nginx.conf gains the zones so testing either
+    site in its real context passes. The certificate they name is issued, and
+    ``docker ps`` answers with the stack whose ports their upstreams reach.
+
+    Args:
+        sandbox: The sandbox.
+        tools: The modelled web tools (:class:`_DomainsWebTools`), for the certificate.
+    """
+    from noust.core.runner import CommandResult, get_runner
+
+    nginx = sandbox.etc / "nginx"
+    (nginx / "nginx.conf").write_text(SITES_NGINX_CONF, encoding="utf-8")
+    corpus = Path(__file__).resolve().parent.parent / "tests" / "fixtures" / "siteconf" / "proggest"
+    for name in ("proggest.es", "modulos.proggest.es"):
+        available = nginx / "sites-available" / name
+        text = (corpus / name).read_text(encoding="utf-8")
+        for _, _, real, here in SITES_PROGGEST_CONTAINERS:
+            text = text.replace(f"127.0.0.1:{real};", f"127.0.0.1:{here};")
+        available.write_text(text, encoding="utf-8")
+        enabled = nginx / "sites-enabled" / name
+        if not enabled.is_symlink():
+            enabled.symlink_to(available)
+    tools._issue(
+        "proggest.es",
+        [
+            "proggest.es",
+            "www.proggest.es",
+            "timpora.proggest.es",
+            "partes.proggest.es",
+            "partestrabajo.proggest.es",
+            "gestordoc.proggest.es",
+            "uaap.proggest.es",
+        ],
+        datetime.now() + timedelta(days=75),
+    )
+
+    listing = "".join(
+        json.dumps(
+            {
+                "Names": container,
+                "Ports": f"127.0.0.1:{port}->{inside}/tcp",
+                "Labels": ",".join(
+                    (
+                        "com.docker.compose.project=proggest",
+                        f"com.docker.compose.service={service}",
+                        "com.docker.compose.project.working_dir=/opt/proggest",
+                    )
+                ),
+            }
+        )
+        + "\n"
+        for container, service, inside, port in SITES_PROGGEST_CONTAINERS
+    )
+    runner = get_runner()
+    original = runner.run
+
+    def run(argv: Sequence[str], **kwargs: Any) -> Any:
+        args = tuple(str(a) for a in argv)
+        # Only the topology's own listing: Docker stays "not installed" for every
+        # page that asks whether it exists first.
+        if args == ("docker", "ps", "--format", "{{json .}}"):
+            runner.calls.append(args)
+            return CommandResult(args, 0, listing, "")
+        return original(argv, **kwargs)
+
+    runner.run = run  # type: ignore[method-assign]
+
+    # The stack's ports answer; nothing in the sandbox listens on them for real.
+    import noust.core.app_state as app_state_module
+    import noust.managers.site_topology as topology_module
+
+    stack_ports = {port for _, _, _, port in SITES_PROGGEST_CONTAINERS}
+
+    def connect(port: int, host: str, timeout: float) -> bool:
+        return port in stack_ports or app_state_module.port_answers(port, host, timeout)
+
+    topology_module._DEFAULT = topology_module.TopologyProbe(connect=connect)
+
+
 def _domains_wizard_sources(sandbox: Sandbox) -> None:
     """
     Write the projects the new-app wizard is pointed at, in /var/www/src.
@@ -4826,6 +5108,7 @@ def seed_domains_and_sources(
     expired_certificate: bool = False,
     server_names: tuple[str, Sequence[str]] = ("example.net", ("www", "shop", "status")),
     cert_alt_names: dict[str, str] | None = None,
+    proggest: bool = True,
 ) -> None:
     """
     Seed the web server, certificates, DNS and sources the domain pages and the wizard need.
@@ -4847,6 +5130,8 @@ def seed_domains_and_sources(
             default machine's own "example.net"; ``--showcase`` passes one of its own.
         cert_alt_names: See :meth:`_DomainsWebTools.seed`'s own ``alt_names``
             (``--showcase`` only).
+        proggest: Seed the operator's Proggest sites (:func:`seed_proggest_site`);
+            the showcase's invented agency has none.
     """
     import functools
     import socket as socket_module
@@ -4907,6 +5192,8 @@ def seed_domains_and_sources(
     _domains_site_files(store)
     seed_sites_server_names(*server_names)
     _domains_wizard_sources(sandbox)
+    if proggest:
+        seed_proggest_site(sandbox, tools)
 
 
 # ---------------------------------------------------------------------------

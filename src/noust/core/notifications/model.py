@@ -59,6 +59,8 @@ EVENT_KINDS: tuple[str, ...] = (
     "restore_failed",
     "cert_expiring",
     "unit_failed",
+    "app_unreachable",
+    "app_recovered",
     "disk_threshold",
     "backup_failed",
     "backup_success",

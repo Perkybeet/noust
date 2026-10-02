@@ -2330,6 +2330,85 @@
       "omitted": 0
     }
   },
+  "app.unreachable": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000050",
+    "event": "app_unreachable",
+    "code": "app.unreachable",
+    "state": "failed",
+    "locale": "es",
+    "title": "Aplicación sin respuesta: shop.example.com",
+    "summary": "Su servicio está en marcha, pero la aplicación no responde a su comprobación de salud.",
+    "body": "Su servicio está en marcha, pero la aplicación no responde a su comprobación de salud.\n\nServidor: web-1\nInaccesible desde: 2026-10-02 14:05 UTC\nDiagnostícala con: noust diagnose shop.example.com\n\nLa última sonda:\n  GET http://127.0.0.1:3004/ -> <urlopen error [Errno 111] Connection refused>\n\nAbrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "since",
+        "label": "Inaccesible desde",
+        "value": "2026-10-02 14:05 UTC"
+      },
+      {
+        "key": "diagnose",
+        "label": "Diagnostícala con",
+        "value": "noust diagnose shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "excerpt": {
+      "label": "La última sonda",
+      "lines": [
+        "GET http://127.0.0.1:3004/ -> <urlopen error [Errno 111] Connection refused>"
+      ],
+      "omitted": 0
+    }
+  },
+  "app.recovered": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000051",
+    "event": "app_recovered",
+    "code": "app.recovered",
+    "state": "ok",
+    "locale": "es",
+    "title": "Aplicación de nuevo operativa: shop.example.com",
+    "summary": "Vuelve a pasar su comprobación de salud.",
+    "body": "Vuelve a pasar su comprobación de salud.\n\nServidor: web-1\nEstuvo inaccesible durante: 12 min 34 s\n\nAbrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "downtime",
+        "label": "Estuvo inaccesible durante",
+        "value": "12 min 34 s"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "excerpt": null
+  },
   "hostile.deploy_failed": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000001000",

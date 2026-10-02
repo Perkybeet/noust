@@ -25,7 +25,7 @@ from noust.managers.server.storage import Analysis, Candidate
 from noust.managers.server.updates import UpdateRecord
 from noust.web.api.server import jobs, lifecycle
 from noust.web.api.server.common import set_server_context
-from noust.web.jobs import INTERRUPTED_REASON, Job, JobContext, JobType
+from noust.web.jobs import Job, JobContext, JobType
 from tests.server_support import (  # noqa: F401 - the fixture registers itself
     RecordingAudit,
     fixture,
@@ -373,83 +373,35 @@ class TestStartUp:
         assert queued[0]["kwargs"] == {"update_id": "0a1b2c3d", "actor": "yago"}
         assert queued[0]["job_type"] is JobType.OS_UPDATE
 
-    def _interrupted(self, env, job_id: str = "old1", error: str = INTERRUPTED_REASON) -> None:
+    def test_an_update_whose_job_is_reconciled_is_not_followed_twice(
+        self, env, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         env.store.save_job(
-            JobRecord(
-                id=job_id,
-                type="os_update",
-                name="Apply all updates",
-                description="d",
-                status="failed",
-                error=error,
-                created_at="2026-09-29T20:00:00",
-                started_at="2026-09-29T20:00:01",
-                finished_at="2026-09-29T20:05:00",
-            )
+            JobRecord(id="old1", type="os_update", name="Apply all updates", status="running")
         )
-
-    def test_a_finished_update_corrects_the_job_a_restart_marked_interrupted(
-        self, env, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        self._interrupted(env)
-        monkeypatch.setattr(lifecycle, "get_store", lambda: env.store)
-        record = UpdateRecord(
-            id="0a1b2c3d",
-            scope="all",
-            status="completed",
-            job_id="old1",
-            finished_at="2026-09-29T20:09:00+00:00",
-        )
-
-        lifecycle._settle_job(record)
-
-        row = env.store.get_job("old1")
-        assert row is not None
-        assert row.status == "completed"
-        assert row.error is None
-        assert row.progress == 100
-        assert row.finished_at == "2026-09-29T20:09:00+00:00"
-
-    def test_a_failed_update_keeps_the_jobs_failure_but_with_the_real_reason(
-        self, env, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        self._interrupted(env)
-        monkeypatch.setattr(lifecycle, "get_store", lambda: env.store)
-
-        lifecycle._settle_job(
+        env.machine.ctx.records.write(
             UpdateRecord(
-                id="0a1b2c3d", scope="all", status="failed", error="dpkg failed", job_id="old1"
+                id="0a1b2c3d",
+                scope="all",
+                status="running",
+                unit="noust-os-update-0a1b2c3d",
+                job_id="old1",
             )
         )
-
-        row = env.store.get_job("old1")
-        assert row is not None and row.status == "failed" and row.error == "dpkg failed"
-
-    def test_a_job_that_failed_for_another_reason_is_left_alone(
-        self, env, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        self._interrupted(env, error="Something else went wrong")
+        env.machine.runner.script(
+            ["systemctl", "show"], stdout="LoadState=loaded\nActiveState=active\n"
+        )
+        queued: list[dict[str, Any]] = []
+        monkeypatch.setattr(
+            lifecycle,
+            "get_job_manager",
+            lambda: types.SimpleNamespace(create_job=lambda **kw: queued.append(kw)),
+        )
         monkeypatch.setattr(lifecycle, "get_store", lambda: env.store)
 
-        lifecycle._settle_job(
-            UpdateRecord(id="0a1b2c3d", scope="all", status="completed", job_id="old1")
-        )
+        lifecycle.reattach_updates()
 
-        row = env.store.get_job("old1")
-        assert (
-            row is not None and row.status == "failed" and row.error == "Something else went wrong"
-        )
-
-    def test_a_run_still_going_settles_nothing(self, env, monkeypatch: pytest.MonkeyPatch) -> None:
-        self._interrupted(env)
-        monkeypatch.setattr(lifecycle, "get_store", lambda: env.store)
-
-        lifecycle._settle_job(
-            UpdateRecord(id="0a1b2c3d", scope="all", status="running", job_id="old1")
-        )
-
-        row = env.store.get_job("old1")
-        assert row is not None and row.error == INTERRUPTED_REASON
+        assert queued == []
 
     def test_one_step_failing_does_not_stop_the_other_nor_the_console(
         self, env, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture

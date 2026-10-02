@@ -1751,6 +1751,7 @@ class BackupManager:
         post_restore_hook: str | None = None,
         keep: Sequence[str] = (),
         stack_databases: bool = True,
+        schema_changed_ok: bool = False,
     ) -> bool:
         """
         Restore an application from a backup this manager knows about.
@@ -1771,6 +1772,9 @@ class BackupManager:
                 code, and replacing the data written since with the copy taken
                 before an update is a decision of its own
                 (:meth:`restore_stack_databases`).
+            schema_changed_ok: Restore only the files of the application even
+                past deployments, made after the backup, that changed its
+                database's schema (see :meth:`require_restore_confirmed`).
 
         Returns:
             True if the restore succeeded.
@@ -1778,6 +1782,9 @@ class BackupManager:
         Raises:
             BackupError: If the backup is missing, corrupted, unsafe to extract,
                 or if a database it carries cannot be put back.
+            SchemaChangedError: The restore puts back files and no database,
+                over the application the backup is of, past a schema change,
+                and that was not confirmed. Nothing was touched.
         """
         require_server_role("Application backups")
         metadata = self.get_backup(backup_id)
@@ -1806,6 +1813,69 @@ class BackupManager:
             post_restore_hook=post_restore_hook,
             keep=keep,
             stack_databases=stack_databases,
+            schema_changed_ok=schema_changed_ok,
+        )
+
+    def require_restore_confirmed(
+        self,
+        domain: str,
+        *,
+        source: BackupMetadata | None = None,
+        archive: Path | None = None,
+        stack_databases: bool = True,
+        schema_changed_ok: bool = False,
+    ) -> list[int]:
+        """
+        Refuse putting back only an application's files past a schema change, unless confirmed.
+
+        A restore over the application a backup was taken of, that puts back
+        its files and none of its databases, is a rollback by another name:
+        the older code meets the schema later deployments left. It passes the
+        same guard (:func:`noust.deployers.lifecycle.require_schema_change_confirmed`).
+        A restore that also puts back a database the archive carries (the
+        stack's, or the application's own) takes the schema back with it, and
+        one into another domain is a copy: neither is asked.
+
+        Args:
+            domain: The application restored into.
+            source: The backup's metadata, when it is known.
+            archive: The archive, read for its manifest when ``source`` is None.
+            stack_databases: The restore puts back the stack's dumps.
+            schema_changed_ok: The operator confirmed.
+
+        Returns:
+            The deployments gone back past that changed the schema; empty when
+            the guard does not apply.
+
+        Raises:
+            SchemaChangedError: There are some, nothing restores the schema,
+                and it was not confirmed.
+        """
+        from noust.deployers.lifecycle import require_schema_change_confirmed
+
+        manifest: dict[str, Any] | None = None
+        if source is None:
+            if archive is None:
+                return []
+            manifest = self._read_manifest_in_place(archive)
+        of = source.domain if source is not None else (manifest or {}).get("domain")
+        created = source.created_at if source is not None else (manifest or {}).get("created_at")
+        name = source.id if source is not None else (manifest or {}).get("id") or "the archive"
+        if of != domain or not isinstance(created, str) or not created:
+            return []
+        target = f"backup {name}, its files only"
+        # Asked first: the store answers at once, an archive's manifest may not.
+        changed = require_schema_change_confirmed(
+            domain, target=target, schema_changed_ok=True, since=created
+        )
+        if not changed or schema_changed_ok:
+            return changed
+        entries = self._payload_entries(manifest, source, "databases", "database_backups")
+        stack = [entry for entry in entries if isinstance(entry.get("stack"), dict)]
+        if len(stack) < len(entries) or (stack_databases and stack):
+            return changed
+        return require_schema_change_confirmed(
+            domain, target=target, schema_changed_ok=False, since=created
         )
 
     def restore_archive(
@@ -1821,6 +1891,7 @@ class BackupManager:
         post_restore_hook: str | None = None,
         keep: Sequence[str] = (),
         stack_databases: bool = True,
+        schema_changed_ok: bool = False,
     ) -> bool:
         """
         Restore an application from an archive file, wherever it lives.
@@ -1845,6 +1916,8 @@ class BackupManager:
                 :meth:`restore`.
             stack_databases: Put back the stack's database dumps; see
                 :meth:`restore`.
+            schema_changed_ok: Restore only the files past a schema change;
+                see :meth:`require_restore_confirmed`.
 
         Returns:
             True if the restore succeeded.
@@ -1856,6 +1929,8 @@ class BackupManager:
                 back.
             AppBusyError: Another deploy, update, rollback, migration or
                 restore is already running on the target application.
+            SchemaChangedError: Only the files go back, past a schema change,
+                unconfirmed (see :meth:`require_restore_confirmed`).
         """
         require_server_role("Application backups")
         archive = Path(archive)
@@ -1884,6 +1959,15 @@ class BackupManager:
         )
 
         with app_lock(domain, "restore"):
+            # Under the lock, so no deployment lands between the answer and
+            # the restore; before the rehearsal, which is asked the same.
+            self.require_restore_confirmed(
+                domain,
+                source=fallback,
+                archive=archive,
+                stack_databases=stack_databases,
+                schema_changed_ok=schema_changed_ok,
+            )
             if self._rehearsing:
                 return self._rehearse_restore(archive, target_domain, fallback)
 
@@ -4321,6 +4405,8 @@ class RollbackManager:
                     stop_service=True,
                     keep=keep,
                     stack_databases=False,
+                    # Asked above, for the rollback as a whole.
+                    schema_changed_ok=True,
                 )
                 if any(isinstance(entry.get("stack"), dict) for entry in metadata.database_backups):
                     self.logger.warning(

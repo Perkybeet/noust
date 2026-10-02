@@ -221,7 +221,10 @@ def put_zero_downtime(
     _known(validated)
     app = get_store().get_app(validated)
     if app is not None and body.enabled and not app.zero_downtime:
-        check_eligible(app)
+        # Not the site of a Compose stack: turning its relay on writes the
+        # servers files first, so the line an operator's site is asked to add
+        # loads, and the job refuses a site that lacks it after that.
+        check_eligible(app, site=False)
     verb = "on" if body.enabled else "off"
     job = get_job_manager().create_job(
         job_type=JobType.ZERO_DOWNTIME,

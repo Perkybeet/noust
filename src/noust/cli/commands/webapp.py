@@ -46,7 +46,7 @@ from noust.core.store import DeploymentTrigger, get_store, validate_tag_pattern
 from noust.core.tags import newest_tag
 from noust.core.utils import domain_to_app_name
 from noust.deployers import get_deployer
-from noust.deployers.docker_compose import DockerComposeDeployer
+from noust.deployers.docker_compose import DockerComposeDeployer, stack_deployer
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.deployers.helpers.layout import CONFIGURED, LAYOUTS, choose_layout
 from noust.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
@@ -54,8 +54,10 @@ from noust.deployers.helpers.php_fpm import is_php_fpm
 from noust.deployers.lifecycle import (
     NOTHING_NEW_HINT,
     AppUpdate,
+    check_adopted_directory,
     check_upstream,
     delete_app,
+    is_in_apps_directory,
     set_follow_tags,
     update_app,
 )
@@ -1205,6 +1207,7 @@ def _delete_app(
     force: bool = False,
     keep_files: bool = False,
     dry_run: bool = False,
+    remove_adopted_directory: str | None = None,
 ) -> int:
     """
     Remove an application, its service, its site and its certificate.
@@ -1215,26 +1218,40 @@ def _delete_app(
         force: Do not ask for confirmation.
         keep_files: Leave the application directory on disk.
         dry_run: Only report what would be removed.
+        remove_adopted_directory: The application's directory, named, when it
+            is outside Noust's apps directory (an adopted stack): only then is
+            it removed with the files.
 
     Returns:
         Exit code.
 
     Raises:
         NoustError: When the domain is invalid.
+        ValidationError: The directory named is not the application's.
     """
     config = Config()
     store = get_store()
 
     domain = validate_domain(domain)
     app_name = domain_to_app_name(domain)
-    app_path = config.apps_directory / app_name
 
     app = store.get_app(domain)
+    # The store holds the real path: an adopted stack runs where it was found.
+    app_path = (
+        Path(app.app_path) if app is not None and app.app_path else config.apps_directory / app_name
+    )
     app_exists_on_disk = app_path.exists()
 
     if not app and not app_exists_on_disk:
         logger.warning(f"Application not found: {domain}")
         return 1
+
+    # Asked before the question and before a dry run, so either says what
+    # would really happen; the deletion asks again.
+    adopted_named = check_adopted_directory(
+        domain, app_path, remove_files=not keep_files, named=remove_adopted_directory
+    )
+    keep_adopted = not keep_files and not adopted_named and not is_in_apps_directory(app_path)
 
     # The store rows are deleted directly rather than through the runner, so a
     # dry run has to stop here instead of relying on the execution seam.
@@ -1244,18 +1261,23 @@ def _delete_app(
             app_name=app_name,
             app_path=app_path,
             logger=logger,
-            keep_files=keep_files,
+            keep_files=keep_files or keep_adopted,
             registered=app is not None,
             app_exists_on_disk=app_exists_on_disk,
         )
 
     if not force:
         consequences = [f"the {app_name} service", "its site configuration", "its certificate"]
-        if not keep_files:
+        if not keep_files and not keep_adopted:
             consequences.append(str(app_path))
         if app:
             consequences.append("its database records")
         logger.warning(f"This removes {', '.join(consequences)}.")
+        if keep_adopted:
+            logger.info(
+                f"{app_path} is outside Noust's apps directory and is kept; to remove it too: "
+                f"--remove-adopted-directory {app_path}"
+            )
         if not click.confirm(f"Delete the application {domain}?", default=False):
             logger.info("Aborted")
             return 0
@@ -1268,12 +1290,15 @@ def _delete_app(
     outcome = delete_app(
         domain,
         remove_files=not keep_files,
+        remove_adopted_directory=remove_adopted_directory,
         on_phase=lambda index, total, message: logger.step(index, total, message),
         logger=logger,
     )
     logger.substep(
         f"Certificate deleted: {domain}" if outcome.certificate_removed else "No certificate found"
     )
+    if outcome.kept_directory is not None:
+        logger.key_value("Kept", outcome.kept_directory)
     if outcome.warnings:
         logger.warning("Deleted, except for what is listed above")
         return 1
@@ -1390,20 +1415,16 @@ def _show_logs(
     app = store.get_app(domain)
 
     if app and app.app_type == "docker-compose":
-        config = Config()
-        app_path = Path(app.app_path) if app.app_path else config.apps_directory / app_name
-
-        compose_file = None
-        for name in ["docker-compose.prod.yml", "docker-compose.yml", "compose.yml"]:
-            candidate = app_path / name
-            if candidate.exists():
-                compose_file = str(candidate)
-                break
-
-        cmd = ["docker", "compose"]
-        if compose_file:
-            cmd.extend(["-f", compose_file])
-        cmd.extend(["logs", "--tail", str(lines)])
+        # Built by the deployer, like every other compose command: the file
+        # the unit names and the project the store pins (an adopted stack's
+        # need not be its directory's name, and a guess shows no logs).
+        deployer = stack_deployer(app)
+        app_path = deployer.app_path
+        try:
+            deployer._discover_compose_file()
+        except DeploymentError as exc:
+            logger.debug(f"No compose file found, asking Compose in {app_path}: {exc}")
+        cmd = deployer._compose("logs", "--tail", str(lines))
 
         if follow:
             cmd.append("-f")
@@ -1649,6 +1670,7 @@ def _handle_delete(args: Namespace) -> int:
         force=args.force,
         keep_files=args.keep_files,
         dry_run=getattr(args, "dry_run", False),
+        remove_adopted_directory=getattr(args, "remove_adopted_directory", None),
     )
 
 
@@ -2075,14 +2097,28 @@ def update(
 @click.argument("domain")
 @click.option("-f", "-y", "--force", is_flag=True, help="Delete without asking for confirmation.")
 @click.option("--keep-files", is_flag=True, help="Leave the application directory on disk.")
+@click.option(
+    "--remove-adopted-directory",
+    metavar="PATH",
+    help="Also remove the application's directory when it is outside Noust's apps directory "
+    "(an adopted stack). Name it exactly; without this it is kept.",
+)
 @global_flags
 @pass_context
-def delete(ctx: Context, domain: str, force: bool, keep_files: bool) -> None:
+def delete(
+    ctx: Context,
+    domain: str,
+    force: bool,
+    keep_files: bool,
+    remove_adopted_directory: str | None,
+) -> None:
     """
     Delete an application and everything deployed with it.
 
     Removes the service, the site configuration, the certificate, the
-    application directory and the database records.
+    application directory and the database records. A directory outside
+    Noust's apps directory, such as an adopted stack's, is kept unless
+    --remove-adopted-directory names it.
     """
     _exit(
         _delete_app(
@@ -2091,6 +2127,7 @@ def delete(ctx: Context, domain: str, force: bool, keep_files: bool) -> None:
             force=force,
             keep_files=keep_files,
             dry_run=ctx.dry_run,
+            remove_adopted_directory=remove_adopted_directory,
         ),
     )
 

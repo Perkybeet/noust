@@ -735,9 +735,10 @@ def self_update_job(actor: str | None = None, job_context: Any = None) -> dict[s
     """
     Update this server's Noust, as a job that follows its transient unit.
 
-    When the package restarts the console, this job dies with it and is
-    marked interrupted; the update's record, settled by the new console, is
-    the account of how it ended (``GET /api/system/update``).
+    When the package restarts the console, this job's thread dies with it;
+    the job recorded its unit, and the new console finishes it from that
+    unit and the update's record (:mod:`noust.web.job_reconcile`), which
+    stays the account a central reads (``GET /api/system/update``).
 
     Args:
         actor: Who asked.
@@ -770,6 +771,10 @@ def self_update_job(actor: str | None = None, job_context: Any = None) -> dict[s
         )
     except SelfUpdateRefused as exc:
         raise NoustError(exc.message, details=exc.hint, output=exc.output) from exc
+    if record.unit:
+        # The package restarts this console; the one that comes back finishes
+        # this job from the unit (noust.web.job_reconcile).
+        context.set_unit(record.unit)
     context.update(f"Installing in {record.unit or 'this process'}", 30)
     record = manager.follow(record, lambda line: context.log(line))
     if record.status == "failed":

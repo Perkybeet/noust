@@ -51,7 +51,7 @@ from noust.core.exceptions import (
     ValidationError,
 )
 from noust.core.fs import DryRunFileSystem, set_fs
-from noust.core.runner import FakeRunner
+from noust.core.runner import CommandResult, FakeRunner
 from noust.core.store import DomainRecord, StoreError
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertificateInfo, CertManager
@@ -1852,3 +1852,314 @@ def test_auto_renewal_writes_the_cron_entry_through_the_seam(
 
     assert "certbot renew -q" in cron_file.read_text()
     assert cron_file.stat().st_mode & 0o022 == 0
+
+
+# ---------------------------------------------------------------------------
+# Testing a site in the context it will run in (spec 3.2, section 2.2)
+# ---------------------------------------------------------------------------
+
+
+class ContextNginx(FakeRunner):
+    """
+    A fake ``nginx -t -c`` that reads the staged tree the way nginx does.
+
+    It follows every ``include`` from the staged main configuration - relative
+    ones against the directory of that file, which is nginx's configuration
+    prefix under ``-c`` - and objects to the two things a site checked on its
+    own cannot get right: a ``limit_req`` zone nobody declared and an upstream
+    name two files declare.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.mains: list[str] = []
+        self.files: list[Path] = []
+
+    def _read(self, pattern: str, prefix: Path) -> list[tuple[Path, str]]:
+        path = Path(pattern) if pattern.startswith("/") else prefix / pattern
+        matched = sorted(path.parent.glob(path.name)) if "*" in path.name else [path]
+        found: list[tuple[Path, str]] = []
+        for file in matched:
+            text = file.read_text()
+            self.files.append(file)
+            found.append((file, text))
+            for included in re.findall(r"^\s*include\s+([^;\s]+);", text, re.MULTILINE):
+                found.extend(self._read(included, prefix))
+        return found
+
+    def run(self, argv: Any, **kwargs: Any) -> Any:
+        """
+        Answer ``nginx -t -c <main>`` from the staged files.
+
+        Args:
+            argv: The command.
+            kwargs: The rest of the runner protocol.
+
+        Returns:
+            nginx's answer.
+        """
+        args = [str(a) for a in argv]
+        if args[:3] != ["nginx", "-t", "-c"]:
+            return super().run(argv, **kwargs)
+        self.calls.append(tuple(args))
+        main = Path(args[3])
+        self.mains.append(main.read_text())
+        files = [(main, main.read_text())]
+        for included in re.findall(r"^\s*include\s+([^;\s]+);", files[0][1], re.MULTILINE):
+            files.extend(self._read(included, main.parent))
+        everything = "\n".join(text for _, text in files)
+        declared = set(re.findall(r"limit_req_zone\s[^;]*zone=(\w+):", everything))
+        for zone in re.findall(r"limit_req\s+zone=(\w+)", everything):
+            if zone not in declared:
+                stderr = f'nginx: [emerg] zero size shared memory zone "{zone}"\n'
+                return CommandResult(tuple(args), 1, "", stderr)
+        seen: set[str] = set()
+        for file, text in files:
+            for name in re.findall(r"^\s*upstream\s+(\S+)\s*\{", text, re.MULTILINE):
+                if name in seen:
+                    stderr = f'nginx: [emerg] duplicate upstream "{name}" in {file}\n'
+                    return CommandResult(tuple(args), 1, "", stderr)
+                seen.add(name)
+        stdout = f"nginx: the configuration file {main} syntax is ok\n"
+        return CommandResult(tuple(args), 0, stdout, "")
+
+
+_LIVE_NGINX_CONF = """\
+user www-data;
+events {
+    worker_connections 768;
+}
+http {
+    # Zones the sites use.
+    limit_req_zone $binary_remote_addr zone=auth_limit:10m rate=5r/s;
+    include conf.d/*.conf;
+    include {enabled}/*;
+}
+"""
+
+
+@pytest.fixture
+def live_nginx(tmp_path: Path, store: FakeStore, validation_tmp: Path) -> tuple[Any, ContextNginx]:
+    """
+    An nginx manager over a tree with a real nginx.conf, and its fake nginx.
+
+    Args:
+        tmp_path: Per-test temporary directory.
+        store: The fake store.
+        validation_tmp: Where validation stages its files.
+
+    Returns:
+        The manager and the runner that answers ``nginx -t -c``.
+    """
+    root = tmp_path / "etc/nginx"
+    for directory in ("sites-available", "sites-enabled", "conf.d", "snippets"):
+        (root / directory).mkdir(parents=True)
+    (root / "nginx.conf").write_text(
+        _LIVE_NGINX_CONF.replace("{enabled}", str(root / "sites-enabled"))
+    )
+    fake = ContextNginx()
+    manager = NginxManager(
+        runner=fake,
+        backend=replace(
+            NGINX_BACKEND,
+            sites_available=root / "sites-available",
+            sites_enabled=root / "sites-enabled",
+        ),
+    )
+    return manager, fake
+
+
+def _enable(manager: WebServerManager, name: str, text: str) -> None:
+    available = manager.sites_available / name
+    available.write_text(text)
+    (manager.sites_enabled / name).symlink_to(available)
+
+
+_AUTH_SITE = """\
+server {
+    listen 80;
+    server_name example.com;
+    location /api/auth/ {
+        limit_req zone=auth_limit burst=10 nodelay;
+        proxy_pass http://127.0.0.1:3000;
+    }
+}
+"""
+
+
+def test_context_validation_accepts_a_zone_nginx_conf_declares(
+    live_nginx: tuple[Any, ContextNginx], validation_tmp: Path
+) -> None:
+    """A site using limit_req passes when nginx.conf declares the zone, as nginx would say."""
+    manager, fake = live_nginx
+
+    ok, output = manager.test_config_text(_AUTH_SITE, domain="example.com")
+
+    assert ok is True, output
+    assert "auth_limit" in fake.mains[0]
+    assert list(validation_tmp.iterdir()) == []
+
+
+def test_context_validation_finds_an_upstream_another_site_declares(
+    live_nginx: tuple[Any, ContextNginx],
+) -> None:
+    """Two enabled sites with one upstream name: the test says so before the reload does."""
+    manager, _ = live_nginx
+    _enable(manager, "other.example.com", "upstream api {\n    server 127.0.0.1:4000;\n}\n")
+    candidate = "upstream api {\n    server 127.0.0.1:3000;\n}\n" + _AUTH_SITE
+
+    ok, output = manager.test_config_text(candidate, domain="example.com")
+
+    assert ok is False
+    assert 'duplicate upstream "api"' in output
+
+
+def test_context_validation_swaps_the_site_for_its_candidate(
+    live_nginx: tuple[Any, ContextNginx],
+) -> None:
+    """The site's live version is left out: it is the one the candidate replaces."""
+    manager, fake = live_nginx
+    live = "upstream api {\n    server 127.0.0.1:3000;\n}\n" + _AUTH_SITE
+    _enable(manager, "example.com", live)
+    _enable(manager, "b.example.com", "server {\n    listen 81;\n}\n")
+
+    ok, output = manager.test_config_text(live.replace("3000", "3001"), domain="example.com")
+
+    assert ok is True, output
+    staged_main = fake.mains[0]
+    assert str(manager.sites_enabled / "b.example.com") in staged_main
+    assert str(manager.sites_enabled / "example.com") not in staged_main
+    assert "sites-enabled/*" not in staged_main
+    # The rest of the live file is copied as it is.
+    assert "include conf.d/*.conf;" in staged_main
+    assert "worker_connections 768;" in staged_main
+
+
+def test_context_validation_tests_a_site_that_is_not_enabled_too(
+    live_nginx: tuple[Any, ContextNginx],
+) -> None:
+    """A disabled or new site is still checked against everything enabled."""
+    manager, _ = live_nginx
+    _enable(manager, "other.example.com", "upstream api {\n    server 127.0.0.1:4000;\n}\n")
+
+    ok, _ = manager.test_config_text(
+        "upstream api {\n    server 127.0.0.1:3000;\n}\n", domain="example.com"
+    )
+
+    assert ok is False
+
+
+def test_context_validation_resolves_relative_includes_like_the_live_one(
+    live_nginx: tuple[Any, ContextNginx],
+) -> None:
+    """``include snippets/x.conf`` means /etc/nginx/snippets, not the staging directory."""
+    manager, fake = live_nginx
+    snippet = manager.sites_available.parent / "snippets/proxy.conf"
+    snippet.write_text("proxy_set_header Host $host;\n")
+    (manager.sites_available.parent / "conf.d/zones.conf").write_text("# nothing\n")
+    site = "server {\n    listen 80;\n    include snippets/proxy.conf;\n}\n"
+
+    ok, output = manager.test_config_text(site, domain="example.com")
+
+    assert ok is True, output
+    assert any(file.name == "proxy.conf" for file in fake.files)
+
+
+def test_context_validation_leaves_the_live_configuration_alone(
+    live_nginx: tuple[Any, ContextNginx], validation_tmp: Path
+) -> None:
+    """Only a copy is rewritten; nginx.conf and the enabled sites stay as they are."""
+    manager, _ = live_nginx
+    main = manager.sites_available.parent / "nginx.conf"
+    before = main.read_text()
+    _enable(manager, "example.com", _AUTH_SITE)
+
+    manager.test_config_text("server {\n    listen 82;\n}\n", domain="example.com")
+
+    assert main.read_text() == before
+    assert (manager.sites_available / "example.com").read_text() == _AUTH_SITE
+    assert list(validation_tmp.iterdir()) == []
+
+
+def test_context_validation_stages_in_a_private_directory(
+    live_nginx: tuple[Any, ContextNginx], validation_tmp: Path
+) -> None:
+    """Root stages the copy where no other account can read or plant anything."""
+    manager, fake = live_nginx
+    modes: list[int] = []
+    original = fake.run
+
+    def run(argv: Any, **kwargs: Any) -> Any:
+        modes.append(Path(str(argv[-1])).parent.stat().st_mode & 0o777)
+        return original(argv, **kwargs)
+
+    fake.run = run  # type: ignore[method-assign]
+
+    manager.test_config_text(_AUTH_SITE, domain="example.com")
+
+    assert modes == [0o700]
+
+
+def test_context_validation_falls_back_when_nginx_conf_has_no_sites_include(
+    live_nginx: tuple[Any, ContextNginx],
+) -> None:
+    """A layout Noust cannot place the candidate in is checked on its own, as before."""
+    manager, fake = live_nginx
+    (manager.sites_available.parent / "nginx.conf").write_text("events {}\nhttp {\n}\n")
+
+    manager.test_config_text("server {\n    listen 80;\n}\n", domain="example.com")
+
+    assert "Written by Noust to check one virtual host" in fake.mains[0]
+
+
+def test_apache_context_validation_copies_apache2_conf_with_the_candidate(
+    tmp_path: Path, store: FakeStore, validation_tmp: Path
+) -> None:
+    """Apache: apache2.conf's sites-enabled include becomes the list, candidate swapped in."""
+    root = tmp_path / "etc/apache2"
+    for directory in ("sites-available", "sites-enabled", "mods-enabled"):
+        (root / directory).mkdir(parents=True)
+    (root / "apache2.conf").write_text(
+        "Timeout 300\nIncludeOptional mods-enabled/*.load\nIncludeOptional sites-enabled/*.conf\n"
+    )
+    snoop = ValidationSnoop()
+    manager = ApacheManager(
+        runner=snoop,
+        backend=replace(
+            APACHE_BACKEND,
+            sites_available=root / "sites-available",
+            sites_enabled=root / "sites-enabled",
+        ),
+    )
+    _enable(manager, "a.example.com.conf", "<VirtualHost *:80>\n</VirtualHost>\n")
+    _enable(manager, "example.com.conf", "<VirtualHost *:80>\n</VirtualHost>\n")
+
+    ok, _ = manager.test_config_text("<VirtualHost *:8080>\n</VirtualHost>\n", domain="example.com")
+
+    assert ok is True
+    (wrapper,) = snoop.wrappers
+    assert f'ServerRoot "{root}"' in wrapper
+    assert "Timeout 300" in wrapper
+    assert "IncludeOptional mods-enabled/*.load" in wrapper
+    # The directive is kept: IncludeOptional stays optional.
+    assert f"IncludeOptional {root / 'sites-enabled/a.example.com.conf'}" in wrapper
+    assert str(root / "sites-enabled/example.com.conf") not in wrapper
+    includes = [line for line in wrapper.splitlines() if line.startswith("IncludeOptional ")]
+    assert includes[-1].endswith("/example.com.conf")
+    assert "sites-enabled/*.conf" not in wrapper
+
+
+def test_a_staging_directory_already_there_is_refused_and_left_alone(
+    live_nginx: tuple[Any, ContextNginx], validation_tmp: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A directory planted under the staging name is neither used nor deleted."""
+    manager, fake = live_nginx
+    monkeypatch.setattr("noust.managers.webserver.os.urandom", lambda size: b"\x00" * size)
+    planted = validation_tmp / "wasm-validate-000000000000"
+    planted.mkdir()
+
+    with pytest.raises(NginxError):
+        manager.test_config_text(_AUTH_SITE, domain="example.com")
+
+    assert planted.is_dir()
+    assert fake.mains == []

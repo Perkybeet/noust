@@ -33,6 +33,7 @@ Four rules the old code broke and this one keeps:
 
 from __future__ import annotations
 
+import fnmatch
 import logging
 import os
 import re
@@ -72,6 +73,11 @@ from noust.core.store import DomainKind, NoustStore, Site, WebServer, get_store
 from noust.core.utils import domain_to_app_name
 from noust.managers.base_manager import BaseManager, MappingRecord
 from noust.managers.cert_manager import CertManager
+from noust.managers.siteconf import Kind, ParseError
+from noust.managers.siteconf import parse as parse_site
+from noust.managers.siteconf.apache import quote as quote_apache
+from noust.managers.siteconf.nginx import quote as quote_nginx
+from noust.managers.siteconf.tree import Block, Comment, Statement, Tree, node_offsets
 from noust.validators.domain import is_valid_domain, should_include_www
 from noust.validators.names import resolve_within, validate_app_name, validate_filename
 
@@ -308,6 +314,12 @@ class WebServerBackend:
             answers on; its first group is the space-separated names.
         upstreams_dir: Directory of the per-application upstream files of
             blue/green activation, or None for a backend that has none.
+        main_config: Name of the main configuration file in the directory
+            holding ``sites_available``, which a candidate site is tested
+            inside of; None to test every site on its own.
+        prefix_is_main_dir: Whether relative paths in the configuration
+            resolve against the directory of the main file given to the
+            syntax check (nginx's ``-c``) rather than a fixed server root.
         error: Exception type raised for failures of this backend, so existing
             callers keep catching what they already catch.
     """
@@ -334,13 +346,15 @@ class WebServerBackend:
     webserver_record: str = WebServer.NGINX.value
     server_name_pattern: re.Pattern[str] = re.compile(r"^\s*server_name\s+([^;]*);", re.MULTILINE)
     upstreams_dir: Path | None = None
+    main_config: str | None = None
+    prefix_is_main_dir: bool = False
 
 
-#: Main configuration wrapping one staged virtual host for ``nginx -t -c``.
-#: A server block is only valid inside http{}, and a main configuration is
-#: only valid with an events{} block, so the wrapper supplies the minimal
-#: skeleton and nothing else: including the live nginx.conf instead would make
-#: the new snippet collide with the site it is about to replace.
+#: Main configuration wrapping one staged virtual host for ``nginx -t -c``,
+#: used only when the live nginx.conf cannot hold the candidate (see
+#: :meth:`WebServerManager.test_config_text`). A server block is only valid
+#: inside http{}, and a main configuration is only valid with an events{}
+#: block, so the wrapper supplies the minimal skeleton and nothing else.
 _NGINX_VALIDATION_WRAPPER = """\
 # Written by Noust to check one virtual host without touching the live
 # configuration. Deleted as soon as nginx -t has answered.
@@ -351,7 +365,8 @@ http {
 }
 """
 
-#: Main configuration wrapping one staged virtual host for apache. The live
+#: Main configuration wrapping one staged virtual host for apache, when the
+#: live apache2.conf cannot hold the candidate. The live
 #: module set is loaded first: a vhost using ProxyPass is only valid with
 #: mod_proxy present, exactly as it will be at the next reload.
 _APACHE_VALIDATION_WRAPPER = """\
@@ -380,6 +395,8 @@ NGINX_BACKEND = WebServerBackend(
     error=NginxError,
     webserver_record=WebServer.NGINX.value,
     upstreams_dir=NGINX_UPSTREAMS_DIR,
+    main_config="nginx.conf",
+    prefix_is_main_dir=True,
 )
 
 APACHE_BACKEND = WebServerBackend(
@@ -408,6 +425,7 @@ APACHE_BACKEND = WebServerBackend(
     required_modules=("proxy", "proxy_http", "proxy_wstunnel", "rewrite", "headers"),
     webserver_record=WebServer.APACHE.value,
     server_name_pattern=re.compile(r"^\s*Server(?:Name|Alias)\s+(.+?)\s*$", re.MULTILINE),
+    main_config="apache2.conf",
 )
 
 
@@ -1619,15 +1637,27 @@ class WebServerManager(BaseManager):
 
     def test_config_text(self, config_text: str, *, domain: str) -> tuple[bool, str]:
         """
-        Ask the web server whether it would accept a configuration snippet.
+        Ask the web server whether it would accept a site's configuration.
 
-        The snippet is staged into a throwaway directory through the
-        filesystem seam, together with a minimal main configuration that
-        includes it, and the backend's own syntax checker runs against that
-        wrapper. The live configuration is never touched and nothing staged
-        outlives this call, whichever way it answers - a "try before you
-        save" caller and :meth:`validate_config_text` share this one
-        implementation of that instead of each staging its own copy.
+        The candidate is tested in the context it will run in: a copy of the
+        live main configuration (``nginx.conf``, ``apache2.conf``) whose
+        include of ``sites-enabled`` is replaced by the explicit list of the
+        enabled sites, with this site's live file swapped for the candidate.
+        A site that uses a ``limit_req_zone``, a ``map`` or a ``log_format``
+        declared there passes, as it will at the reload, and a candidate that
+        declares an upstream another enabled site already declares fails, as
+        it would at the reload. Checked on its own inside an empty ``http``
+        block, the first was refused and the second accepted.
+
+        When there is no main configuration, it does not parse, or it does
+        not include ``sites-enabled`` itself, the candidate is checked on its
+        own inside a minimal wrapper, as before.
+
+        Everything is staged in a private directory through the filesystem
+        seam; the live configuration is never touched and nothing staged
+        outlives this call, whichever way it answers. ``PUT /config``
+        (through :meth:`validate_config_text`) and the console's "Test" share
+        this one implementation.
 
         Args:
             config_text: The virtual host configuration to check.
@@ -1635,31 +1665,35 @@ class WebServerManager(BaseManager):
                 way as everywhere else before it names a staged file.
 
         Returns:
-            Whether the server accepted the snippet, and its own output
-            verbatim. The output is not empty on a pass either: nginx and
-            apache2ctl both print a confirmation ("syntax is ok" / "Syntax
-            OK") even when there is nothing wrong.
+            Whether the server accepted it, and its own output verbatim. The
+            output is not empty on a pass either: nginx and apache2ctl both
+            print a confirmation ("syntax is ok" / "Syntax OK").
 
         Raises:
-            NginxError: When the nginx snippet cannot be staged.
-            ApacheError: When the apache snippet cannot be staged.
+            NginxError: When the nginx configuration cannot be staged.
+            ApacheError: When the apache configuration cannot be staged.
             DomainError: When the domain is not a valid domain name.
         """
         snippet_name = self.config_path(domain).name
-        # A random directory name for the same reason the filesystem seam uses
-        # a random sibling: a predictable path in a world-writable directory is
-        # a symlink an attacker can plant, and this code runs as root.
+        # A random directory name, created as a claim and private to root: a
+        # predictable or pre-existing path in a world-writable directory is
+        # one an attacker can plant links in, and this code runs as root.
         staging = Path(tempfile.gettempdir()) / f"wasm-validate-{os.urandom(6).hex()}"
         snippet = staging / snippet_name
-        wrapper = staging / "wasm-validate.conf"
-        wrapper_text = Template(self.backend.validation_wrapper).substitute(
-            snippet=str(snippet),
-            server_root=str(self.backend.sites_available.parent),
-        )
+        wrapper = staging / _VALIDATION_MAIN
 
+        created = False
         try:
             try:
+                self.fs.make_dir(staging, mode=0o700, parents=False, exist_ok=False)
+                created = True
                 self.fs.write_text(snippet, config_text, mode=_CONFIG_MODE)
+                wrapper_text = self._context_main(staging, snippet)
+                if wrapper_text is None:
+                    wrapper_text = Template(self.backend.validation_wrapper).substitute(
+                        snippet=str(snippet),
+                        server_root=str(self.backend.sites_available.parent),
+                    )
                 self.fs.write_text(wrapper, wrapper_text, mode=_CONFIG_MODE)
             except OSError as exc:
                 raise self.backend.error(
@@ -1670,7 +1704,9 @@ class WebServerManager(BaseManager):
                 [*self.backend.validation_argv, str(wrapper)], timeout=_CONTROL_TIMEOUT
             )
         finally:
-            if staging.exists():
+            # Only what this call created: a directory that was already there
+            # under this name is not ours to delete.
+            if created and staging.exists():
                 self.fs.remove_tree(staging)
 
         output = "\n".join(stream for stream in (result.stderr, result.stdout) if stream.strip())
@@ -1678,6 +1714,103 @@ class WebServerManager(BaseManager):
         # warnings it then describes as "Syntax OK".
         ok = result.success or "Syntax OK" in f"{result.stdout}\n{result.stderr}"
         return ok, output
+
+    def _context_main(self, staging: Path, snippet: Path) -> str | None:
+        """
+        Write the main configuration a candidate is tested inside of.
+
+        Args:
+            staging: The private staging directory; for a backend whose
+                relative paths follow the main file (nginx), it is filled with
+                links to every entry of the live configuration directory, so
+                ``include snippets/x.conf`` means what it means live.
+            snippet: The staged candidate.
+
+        Returns:
+            The text of the staged main configuration, or None when the live
+            one cannot be used (absent, unreadable, unparsable, or not the
+            file that includes ``sites-enabled``).
+        """
+        if self.backend.main_config is None:
+            return None
+        root = self.backend.sites_available.parent
+        live = root / self.backend.main_config
+        try:
+            text = live.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError) as exc:
+            self.logger.debug(f"Testing the site on its own: {live} is unreadable ({exc})")
+            return None
+        kind: Kind = "nginx" if self.backend.name == "nginx" else "apache"
+        try:
+            tree = parse_site(text, kind)
+        except ParseError as exc:
+            self.logger.debug(f"Testing the site on its own: {live} does not parse ({exc})")
+            return None
+
+        enabled = self.backend.sites_enabled
+        try:
+            present = sorted(entry.name for entry in enabled.iterdir())
+        except OSError:
+            present = []
+        includes: list[tuple[Statement, str]] = []
+        for node in _statements(tree):
+            name = node.name.value.lower()
+            if name not in ("include", "includeoptional") or not node.args:
+                continue
+            pattern = node.args[0].word.value
+            target = PurePosixPath(pattern if pattern.startswith("/") else f"{root}/{pattern}")
+            if target.parent == PurePosixPath(enabled):
+                includes.append((node, target.name))
+        if not includes:
+            self.logger.debug(f"Testing the site on its own: {live} does not include {enabled}")
+            return None
+
+        # The candidate goes where the live glob would have read it; a name
+        # no include matches (a disabled site) still goes in the first one.
+        home = next(
+            (
+                index
+                for index, (_, glob) in enumerate(includes)
+                if include_glob_matches(snippet.name, glob)
+            ),
+            0,
+        )
+        newline = "\r\n" if "\r\n" in text else "\n"
+        quote = quote_nginx if kind == "nginx" else quote_apache
+        offsets = node_offsets(tree)
+        rendered = text
+        for index, (node, glob) in reversed(list(enumerate(includes))):
+            files = [
+                enabled / name
+                for name in present
+                if name != snippet.name and include_glob_matches(name, glob)
+            ]
+            if index == home:
+                files = sorted([*files, snippet], key=lambda path: path.name)
+            indent = node.prefix.rsplit("\n", 1)[-1]
+            directive = node.name.raw
+            terminator = ";" if kind == "nginx" else ""
+            lines = [f"{directive} {quote(str(path))}{terminator}" for path in files]
+            _, start, end = offsets[id(node)]
+            replacement = (newline + indent).join(lines) or (
+                f"# Noust: no enabled site matches {glob}"
+            )
+            rendered = rendered[:start] + replacement + rendered[end:]
+
+        header = (
+            f"# Copy of {live} written by Noust to test one site in the context it runs in.{newline}"
+            f"# Deleted as soon as the syntax check has answered.{newline}"
+        )
+        if self.backend.prefix_is_main_dir:
+            for entry in sorted(root.iterdir()):
+                if entry.name in (self.backend.main_config, _VALIDATION_MAIN, snippet.name):
+                    continue
+                self.fs.symlink(entry, staging / entry.name)
+        else:
+            # Apache resolves relative paths against ServerRoot, which a copy
+            # outside the configuration directory would otherwise lose.
+            header += f'ServerRoot "{root}"{newline}'
+        return header + rendered
 
     def validate_config_text(self, config_text: str, *, domain: str) -> None:
         """
@@ -1758,6 +1891,47 @@ class WebServerManager(BaseManager):
 
         self.logger.debug(f"Replaced site configuration: {config_path}")
         return config_path
+
+
+#: Name of the staged main configuration a candidate site is tested inside of.
+_VALIDATION_MAIN = "wasm-validate.conf"
+
+
+def _statements(container: Tree | Block) -> list[Statement]:
+    """
+    Every directive and block of a parsed configuration, depth first.
+
+    Args:
+        container: The tree or a block of it.
+
+    Returns:
+        The statements, in file order.
+    """
+    found: list[Statement] = []
+    for child in container.children:
+        if isinstance(child, Comment):
+            continue
+        found.append(child)
+        if isinstance(child, Block) and child.raw_body is None:
+            found.extend(_statements(child))
+    return found
+
+
+def include_glob_matches(name: str, pattern: str) -> bool:
+    """
+    Tell whether a web server's include glob reads a file of that name.
+
+    Args:
+        name: The file name.
+        pattern: The last component of the include, glob or literal.
+
+    Returns:
+        True when the glob reads it; like glob(3), a wildcard never matches
+        a leading dot.
+    """
+    if name.startswith(".") and not pattern.startswith("."):
+        return False
+    return fnmatch.fnmatchcase(name, pattern)
 
 
 # -- Servers files ---------------------------------------------------------

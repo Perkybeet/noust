@@ -267,6 +267,7 @@ def check_eligible(
     *,
     store: NoustStore | None = None,
     port_free: Callable[[int], bool] | None = None,
+    site: bool = True,
 ) -> None:
     """
     Refuse an application that cannot run as two instances, and say why.
@@ -276,6 +277,9 @@ def check_eligible(
         store: Where the other applications and the site are read.
         port_free: Tells whether nothing listens on a port. None skips the
             check, for a read that must not open sockets.
+        site: False leaves out what turning the mode on prepares itself: a
+            Compose stack's servers files, which an operator's site must
+            include, are written before that site is checked.
 
     Raises:
         ValidationError: With what to do instead.
@@ -296,6 +300,20 @@ def check_eligible(
             "already instant.",
             field="enabled",
         )
+    if app.app_type == AppType.DOCKER_COMPOSE.value:
+        # A stack does not run as two instances: each web service is
+        # recreated behind a relay container (spec 3.2, section 1.3).
+        # Imported here: the relay builds on this module.
+        from noust.deployers import compose_relay
+
+        problems = compose_relay.check_app_relay_eligible(app, site=site)
+        if problems:
+            raise ValidationError(
+                f"{domain} cannot be updated without a cut yet: {problems[0]}",
+                details="\n".join(f"- {problem}" for problem in problems),
+                field="enabled",
+            )
+        return
     if app.app_type in _IN_PLACE_TYPES:
         raise ValidationError(
             f"{domain} is a {app.app_type} application, which deploys in place",
@@ -1534,6 +1552,24 @@ def zero_downtime_status(
             eligible=True,
         )
 
+    if app.app_type == AppType.DOCKER_COMPOSE.value:
+        # A stack's relay has no instances: what nginx is sent to, and a
+        # relay an interrupted update left serving, is what there is to say.
+        from noust.deployers import compose_relay
+
+        port, reason, hint = compose_relay.relay_status(app)
+        return ZeroDowntimeStatus(
+            domain=app.domain,
+            enabled=True,
+            active_color=None,
+            drain_seconds=drain_of(app),
+            instances=(),
+            upstream_port=port,
+            eligible=True,
+            reason=reason,
+            hint=hint,
+        )
+
     services = services if services is not None else ServiceManager()
     if web is None:
         from noust.managers.nginx_manager import NginxManager
@@ -1589,7 +1625,9 @@ def set_zero_downtime(
     without a cut, undone whole when a step fails (see :meth:`BlueGreen.enable`
     and :meth:`BlueGreen.disable`); changing the drain of an application
     already in the mode only records it. Under ``--dry-run`` the request is
-    checked as it would be and nothing changes.
+    checked as it would be and nothing changes. A Compose stack does not run
+    as two instances: for one, the mode means each web service is recreated
+    behind a relay (:mod:`noust.deployers.compose_relay`).
 
     Args:
         domain: The application's domain.
@@ -1638,6 +1676,9 @@ def set_zero_downtime(
                 rehearsed=is_rehearsal(),
             )
 
+        if app.app_type == AppType.DOCKER_COMPOSE.value:
+            return _set_relay(app, enabled, drain, log)
+
         if is_rehearsal():
             if enabled:
                 check_eligible(app, store=store, port_free=is_port_available)
@@ -1673,3 +1714,57 @@ def set_zero_downtime(
             drain_seconds=drain if drain is not None else DEFAULT_DRAIN_SECONDS,
             changed=True,
         )
+
+
+def _set_relay(app: App, enabled: bool, drain: int | None, log: Logger) -> ModeChange:
+    """
+    Turn the relay of a Compose stack on or off: what zero downtime means for one.
+
+    The caller holds the application's lock and has handled a request that
+    changes nothing.
+
+    Args:
+        app: The stack's row.
+        enabled: The mode wanted.
+        drain: The drain to record.
+        log: Where the steps are reported.
+
+    Returns:
+        What was done; a stack has no instance colours.
+
+    Raises:
+        ValidationError: The stack or its site cannot use the relay.
+        DeploymentError: A step failed; the stack serves as it did.
+    """
+    # Imported here: the relay builds on this module.
+    from noust.deployers import compose_relay
+
+    seconds = drain if drain is not None else DEFAULT_DRAIN_SECONDS
+    if is_rehearsal():
+        if enabled:
+            check_eligible(app)
+            log.info(
+                f"Would write the servers files of {app.domain}, point its site at them, and "
+                "recreate each web service behind a relay from the next update on"
+            )
+        else:
+            log.info(f"Would point the site of {app.domain} at the containers' ports again")
+        return ModeChange(
+            domain=app.domain,
+            enabled=enabled,
+            active_color=None,
+            drain_seconds=seconds,
+            changed=True,
+            rehearsed=True,
+        )
+    if enabled:
+        compose_relay.enable_relay(app, drain_seconds=drain, logger=log)
+        log.success(
+            f"{app.domain} recreates each web service behind a relay: updates without a cut"
+        )
+    else:
+        compose_relay.disable_relay(app, logger=log)
+        log.success(f"{app.domain} recreates its containers in place again")
+    return ModeChange(
+        domain=app.domain, enabled=enabled, active_color=None, drain_seconds=seconds, changed=True
+    )

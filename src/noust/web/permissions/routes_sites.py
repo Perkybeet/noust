@@ -5,7 +5,10 @@
 The permissions of ``/api/sites`` (:mod:`noust.web.api.sites`).
 
 Raw site configuration is root-equivalent: an nginx or Apache directive can
-read any file on the machine or proxy to any local socket.
+read any file on the machine or proxy to any local socket. Reading a site's
+structure, editing a draft, asking which location answers a URL and the live
+topology write nothing, so they need only to read applications; saving the
+result is still the one ``PUT /config``.
 """
 
 from __future__ import annotations
@@ -20,6 +23,11 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/sites/{domain}"): Permission.APPS_READ,
     ("GET", "/api/sites/{domain}/config"): Permission.APPS_READ,
     ("POST", "/api/sites/{domain}/config/test"): Permission.APPS_OPERATE,
+    ("GET", "/api/sites/{domain}/structure"): Permission.APPS_READ,
+    ("POST", "/api/sites/{domain}/structure"): Permission.APPS_READ,
+    ("POST", "/api/sites/{domain}/config/edit"): Permission.APPS_READ,
+    ("POST", "/api/sites/{domain}/route"): Permission.APPS_READ,
+    ("GET", "/api/sites/{domain}/topology"): Permission.APPS_READ,
     ("PUT", "/api/sites/{domain}/config"): Permission.ROOT_EQUIVALENT,
     ("POST", "/api/sites/{domain}/enable"): Permission.APPS_MANAGE,
     ("POST", "/api/sites/{domain}/disable"): Permission.APPS_MANAGE,

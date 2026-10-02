@@ -314,6 +314,17 @@ class AptBackend(PackageBackend):
         # another, which is not what "security updates" promised.
         return [*base, "install", "--only-upgrade", "--no-remove", *packages]
 
+    def upgrade_except_argv(
+        self, scope: UpdateScope, packages: Sequence[str], *, full: bool, held: Sequence[str]
+    ) -> list[str] | None:
+        others = [name for name in packages if name not in held]
+        if not others:
+            return None
+        # The packages named, never a removal: whatever the plan's own command
+        # does beyond this (new dependencies, a full upgrade's removals) it
+        # still does when it runs next.
+        return [*self._apply_base(), "install", "--only-upgrade", "--no-remove", *others]
+
     def install_argv(self, packages: Sequence[str]) -> list[str]:
         return ["apt-get", "install", "-y", *packages]
 

@@ -293,6 +293,14 @@ class DnfBackend(PackageBackend):
             argv.append("--security")
         return argv
 
+    def upgrade_except_argv(
+        self, scope: UpdateScope, packages: Sequence[str], *, full: bool, held: Sequence[str]
+    ) -> list[str] | None:
+        return [
+            *self.upgrade_argv(scope, packages, full=full),
+            *(f"--exclude={name}" for name in held),
+        ]
+
     def install_argv(self, packages: Sequence[str]) -> list[str]:
         return ["dnf", "-y", "install", *packages]
 

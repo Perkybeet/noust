@@ -26,6 +26,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from noust.core.exceptions import SchemaChangedError
 from noust.managers.backup_manager import BackupManager, BackupMetadata
 from noust.validators.names import validate_filename
 from noust.web.api.auth import get_current_session
@@ -154,6 +155,11 @@ class RestoreBackupRequest(BaseModel):
     restore_env: bool = Field(default=True, description="Restore the .env files from the archive")
     verify: bool = Field(
         default=True, description="Check the archive against its recorded checksum first"
+    )
+    schema_changed_ok: bool = Field(
+        default=False,
+        description="Put back only the files even past later deployments that changed the "
+        "database schema",
     )
 
 
@@ -446,6 +452,11 @@ def restore_backup(
     cookie session has to confirm itself first; an admin-scoped Bearer
     credential is exempt, per :func:`noust.web.api.deps.ensure_elevated`.
 
+    Putting back only the files of the application the backup is of, past a
+    later deployment that changed its schema, is refused with 409
+    ``schema_changed``, naming the deployments, unless the body says
+    ``schema_changed_ok`` (as a rollback is).
+
     Args:
         backup_id: Backup identifier.
         data: Restore options.
@@ -453,13 +464,32 @@ def restore_backup(
 
     Returns:
         The queued job.
+
+    Raises:
+        HTTPException: 409 ``schema_changed`` when it was not confirmed.
     """
-    _, backup = _load_backup(backup_id)
+    manager, backup = _load_backup(backup_id)
 
     requested = data.target_domain if data else None
     target_domain = strict_domain(requested) if requested else backup.domain
     restore_env = data.restore_env if data else True
     verify = data.verify if data else True
+    confirmed = data.schema_changed_ok if data else False
+    # Answered now, while the console can still confirm; the job asks again.
+    try:
+        changed = manager.require_restore_confirmed(
+            target_domain, source=backup, schema_changed_ok=confirmed
+        )
+    except SchemaChangedError as error:
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "error": "schema_changed",
+                "detail": error.message,
+                "hint": error.details,
+                "deployments": error.deployments,
+            },
+        ) from error
 
     job = get_job_manager().create_job(
         job_type=JobType.RESTORE,
@@ -471,6 +501,9 @@ def restore_backup(
             "target_domain": target_domain,
             "restore_env": restore_env,
             "verify": verify,
+            # Only when it was asked and answered: a job queued without it
+            # still refuses a change made between queueing and running.
+            **({"schema_changed_ok": True} if changed and confirmed else {}),
         },
         metadata={"domain": target_domain, "backup_id": backup.id},
         actor=actor_label(session),

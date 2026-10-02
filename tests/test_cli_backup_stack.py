@@ -74,6 +74,9 @@ class FakeManager:
     def get_backup(self, backup_id: str) -> BackupMetadata | None:
         return type(self).stored
 
+    def require_restore_confirmed(self, domain: str, **kwargs: Any) -> list[int]:
+        return []
+
     def verify(self, backup_id: str) -> dict[str, Any]:
         type(self).calls.append(("verify", {"backup_id": backup_id}))
         return {"valid": True, "errors": [], "warnings": []}

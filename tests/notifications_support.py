@@ -30,6 +30,8 @@ from noust.core.exceptions import DeploymentError, NoustError, RolledBackError
 from noust.core.messages import Locale
 from noust.core.notifications.composers import (
     PreviewOf,
+    compose_app_recovered,
+    compose_app_unreachable,
     compose_approval_decided,
     compose_approval_requested,
     compose_backup_completed,
@@ -457,6 +459,13 @@ def _integration_events(ctx: NotificationContext) -> dict[str, Notification]:
             "npm ERR! 401 Unauthorized - GET https://npm.registry.local/@shop%2fui"
         ),
     )
+    out["app.unreachable"] = compose_app_unreachable(
+        "shop.example.com",
+        ctx,
+        since=datetime(2026, 10, 2, 14, 5, tzinfo=timezone.utc),
+        probe="GET http://127.0.0.1:3004/ -> <urlopen error [Errno 111] Connection refused>",
+    )
+    out["app.recovered"] = compose_app_recovered("shop.example.com", ctx, down_for_s=754)
     return out
 
 

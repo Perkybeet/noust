@@ -70,6 +70,7 @@ Every scan interval (60 seconds by default, never less than 10):
 | Process names | The executable's name starts with a known miner or malware name: `xmrig`, `minerd`, `cpuminer`, `cgminer`, `bfgminer`, `ethminer`, `ccminer`, `kdevtmpfsi`, `kinsing`, `kerberods`, `watchdogs`. Common daemons are never flagged. | `warning` |
 | Process resource use | A process uses more CPU or memory than `monitor.cpu_threshold` or `monitor.memory_threshold` percent (80 by default). | `notice` |
 | Units | A unit Noust manages, or one listed in `monitor.watch_units`, fails: it is `failed`, it crash-loops (its automatic restarts grow between two scans), or it stopped after a failed run. A unit stopped on purpose does not count. All units are read with one `systemctl show` per scan; one message per outage. | notification `unit_failed` |
+| Applications | An application whose unit runs stops answering what the deploy's health gate asks (its health path and expected statuses, on the port that serves now): three failed probes in a row, the first and the last at least a minute apart, so a restart or a deploy is never announced. One message per outage, and one when the first probe passes again. Not asked while a deploy, update, rollback or job of that application runs, nor when its unit was stopped on purpose or failed (that is `unit_failed`). A Compose stack that publishes no port is judged by its containers instead: one that exited with an error or keeps restarting is an outage. The run of failures is kept in `app-reachability.json` next to the observations, so a restart of the monitor neither forgets it nor repeats the message. | notifications `app_unreachable`, `app_recovered` |
 | Certificates | A certificate has less than 14 days left; at most one message per certificate per day. | notification `cert_expiring` |
 | Disks | A filesystem crosses 90% used; one message per crossing. | notification `disk_threshold` |
 
@@ -179,7 +180,7 @@ nginx.service,postgresql.service --list`.
 
 ## Notifications
 
-The `unit_failed`, `cert_expiring` and `disk_threshold` events go through Noust's notification
+The `unit_failed`, `app_unreachable`, `app_recovered`, `cert_expiring` and `disk_threshold` events go through Noust's notification
 channels (webhook, Slack, Discord, Telegram, email), which are configured under
 `notifications.*` in the console's Settings > Notifications or with `noust config set`, and
 only when `notifications.enabled` is on and the event is enabled. Test a channel with

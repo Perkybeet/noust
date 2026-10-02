@@ -1814,6 +1814,7 @@ class BackupDestinationManager:
         target_domain: str | None = None,
         restore_env: bool = True,
         backup_manager: BackupManager | None = None,
+        schema_changed_ok: bool = False,
     ) -> str:
         """
         Download a backup from a destination and restore it: the one remote restore.
@@ -1831,6 +1832,8 @@ class BackupDestinationManager:
                 has checked belongs to ``app_name``.
             restore_env: Restore the ``.env`` files from the archive.
             backup_manager: Manager the restore runs through.
+            schema_changed_ok: Restore only the files even past a schema change
+                (see :meth:`BackupManager.require_restore_confirmed`).
 
         Returns:
             The domain that was restored.
@@ -1862,6 +1865,7 @@ class BackupDestinationManager:
                 restore_env=restore_env,
                 expected_checksum=fallback.checksum,
                 fallback=fallback,
+                schema_changed_ok=schema_changed_ok,
             )
             return domain
         finally:

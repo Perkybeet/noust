@@ -670,12 +670,15 @@ class UpdatesManager:
             on_line(line)
 
         started = time.monotonic()
-        result = self.runner.stream(
-            list(plan.argv),
-            on_line=relay,
-            env=self.backend.env(),
-            timeout=UPGRADE_TIMEOUT,
-        )
+        for argv in self._commands(plan):
+            # One deadline for the whole run: the unit's own RuntimeMaxSec is
+            # set from it, and two commands must not get twice the time.
+            remaining = max(60, int(UPGRADE_TIMEOUT - (time.monotonic() - started)))
+            result = self.runner.stream(
+                argv, on_line=relay, env=self.backend.env(), timeout=remaining
+            )
+            if not result.success:
+                break
         record.exit_code = result.exit_code
         record.tail = list(tail)
         record.conffiles_kept = conffiles_kept("\n".join(tail))
@@ -699,6 +702,32 @@ class UpdatesManager:
         record.stale_services = list(probe.services)
         self.records.write(record)
         return record
+
+    def _commands(self, plan: ApplyPlan) -> list[list[str]]:
+        """
+        Order the commands that apply a plan: Noust's own package last.
+
+        The ``noust`` package restarts the console, and the console that comes
+        back reconciles the run with its unit. With Noust installed last there
+        is nothing left of the run when that happens: every other package is
+        in, and the restart is its last act rather than a cut in the middle.
+
+        Args:
+            plan: The plan.
+
+        Returns:
+            The plan's command alone; or, when Noust is among its packages and
+            this family can hold packages back, everything else first and then
+            the plan's command, which installs Noust and anything left.
+        """
+        names = [package.name for package in plan.packages if package.kind == "package"]
+        held = [name for name in names if name in IMPACT_GROUPS["noust"]]
+        first = (
+            self.backend.upgrade_except_argv(plan.scope, names, full=plan.full, held=held)
+            if held
+            else None
+        )
+        return [first, list(plan.argv)] if first else [list(plan.argv)]
 
     def _failure_hint(self) -> str:
         """

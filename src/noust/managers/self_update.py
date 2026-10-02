@@ -40,13 +40,26 @@ from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from noust import __version__
 from noust.core import paths
 from noust.core.fs import SECRET_MODE, FileSystem, get_fs
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.update_checker import web_installed
+from noust.managers.transient_unit import (
+    JobVerdict,
+    UnitEnding,
+    UnitJobKind,
+    default_verdict,
+    ending_of,
+    entries_from_lines,
+    unit_state,
+    with_output,
+)
+
+if TYPE_CHECKING:
+    from noust.core.store import JobRecord
 
 #: Every transient unit of a self-update starts with this, then the run's id.
 UNIT_PREFIX = "noust-self-update-"
@@ -69,9 +82,6 @@ TAIL_LINES = 40
 #: Seconds after the record is written that the console is restarted, for an
 #: installation whose package does not restart it.
 RESTART_DELAY_SECONDS = 3
-
-#: What systemd calls a unit that is still doing something.
-_ACTIVE_STATES = frozenset({"active", "activating", "deactivating", "reloading"})
 
 
 @dataclass(frozen=True)
@@ -250,20 +260,6 @@ class SelfUpdateRecord:
 def _now() -> str:
     """Returns: Now, ISO 8601 UTC."""
     return datetime.now(timezone.utc).isoformat()
-
-
-def unit_failed(tail: list[str]) -> bool:
-    """
-    Read systemd's verdict on a unit out of its journal.
-
-    Args:
-        tail: The unit's last lines, systemd's own among them.
-
-    Returns:
-        True when systemd said the unit failed (a non-zero exit, a timeout, a
-        signal).
-    """
-    return any("Failed with result" in line for line in tail)
 
 
 def _process_started() -> float:
@@ -447,13 +443,24 @@ class SelfUpdate:
             unit: The unit, without ``.service``.
 
         Returns:
-            True while it is active or starting.
+            True while it is active or starting, and while systemd does not
+            answer: an unanswered question is not an ended update.
         """
-        result = self.runner.run(
-            ["systemctl", "show", f"{unit}.service", "--property=ActiveState"], timeout=15
-        )
-        state = result.stdout.strip().partition("=")[2]
-        return state in _ACTIVE_STATES
+        state = unit_state(self.runner, unit)
+        return state.active or not state.known
+
+    def _ending(self, unit: str, tail: list[str]) -> UnitEnding:
+        """
+        Read how the unit ended, the one way every transient unit's ending is read.
+
+        Args:
+            unit: The unit, without ``.service``.
+            tail: Its last lines, systemd's own among them.
+
+        Returns:
+            The ending (:func:`noust.managers.transient_unit.ending_of`).
+        """
+        return ending_of(unit, unit_state(self.runner, unit), entries_from_lines(tail))
 
     def _tail(self, unit: str) -> list[str]:
         """
@@ -497,8 +504,9 @@ class SelfUpdate:
         """
         Decide how an update ended, once its unit is gone.
 
-        The unit's own end (systemd's "Failed with result" in its journal) is
-        a failure. Otherwise the version this process runs is the verdict: a
+        A unit that failed, as systemd tells it (read the one way every
+        transient unit is, :mod:`noust.managers.transient_unit`), is a
+        failure. Otherwise the version this process runs is the verdict: a
         console running a new version means the installation took; a console
         restarted since the update began and still on the old version means it
         did not; the console that started it, not restarted yet, can only say
@@ -517,7 +525,10 @@ class SelfUpdate:
         if record.unit is not None and not record.tail:
             record.tail = self._tail(record.unit)
         before = record.status
-        if unit_failed(record.tail):
+        failed = record.unit is not None and (
+            self._ending(record.unit, record.tail).status == "failed"
+        )
+        if failed:
             record.status = "failed"
             record.error = record.error or f"{record.argv[0]} failed; its words are below"
         elif self.version != record.from_version:
@@ -744,3 +755,53 @@ class SelfUpdate:
             ],
             timeout=60,
         )
+
+
+def job_kind(manager: Callable[[], SelfUpdate] | None = None) -> UnitJobKind:
+    """
+    Say how a console job that updated Noust is reconciled after a restart.
+
+    The update's record decides, settled as the console that comes back
+    settles it: the version this process runs is the verdict, and the unit's
+    failure is a failure.
+
+    Args:
+        manager: Builds the manager; :class:`SelfUpdate` by default.
+
+    Returns:
+        The kind, for :mod:`noust.web.job_reconcile`.
+    """
+
+    def build() -> SelfUpdate:
+        return manager() if manager is not None else SelfUpdate()
+
+    def find_unit(job: JobRecord) -> str | None:
+        record = build().read()
+        if record is None or record.job_id != job.id:
+            return None
+        return record.unit
+
+    def verdict(job: JobRecord, unit: str, ending: UnitEnding, lines: list[str]) -> JobVerdict:
+        updater = build()
+        record = updater.read()
+        if record is None or record.job_id != job.id:
+            return default_verdict(unit, ending, lines)
+        if not record.tail:
+            record.tail = lines[-TAIL_LINES:]
+        record = updater.settle(record)
+        if record.status == "failed":
+            return JobVerdict(
+                False, error=with_output(record.error or "The update failed", record.tail)
+            )
+        return JobVerdict(True, result=record.to_dict())
+
+    return UnitJobKind(
+        find_unit=find_unit,
+        verdict=verdict,
+        max_seconds=INSTALL_TIMEOUT + 300,
+        # The package restarts the console that queued the job, so this is
+        # where nearly every self-update's outcome is seen: it is audited here.
+        audit_event="system.update",
+        audit_target="noust",
+        audit_details=lambda job, unit: {"unit": unit},
+    )

@@ -1818,6 +1818,65 @@
       "parse": []
     }
   },
+  "app.unreachable": {
+    "embeds": [
+      {
+        "title": "✕ Aplicación sin respuesta · shop.example.com",
+        "description": "Su servicio está en marcha, pero la aplicación no responde a su comprobación de salud.\n\n**Diagnostícala con:** `noust diagnose shop.example.com`\n\n*La última sonda*\n```\nGET http://127.0.0.1:3004/ -> <​urlopen error [Errno 111] Connection refused>\n```",
+        "color": 13580848,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Inaccesible desde",
+            "value": "2026-10-02 14:05 UTC",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
+  "app.recovered": {
+    "embeds": [
+      {
+        "title": "● Aplicación de nuevo operativa · shop.example.com",
+        "description": "Vuelve a pasar su comprobación de salud.",
+        "color": 5096574,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Estuvo inaccesible durante",
+            "value": "12 min 34 s",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    },
+    "flags": 4096
+  },
   "hostile.deploy_failed": {
     "embeds": [
       {

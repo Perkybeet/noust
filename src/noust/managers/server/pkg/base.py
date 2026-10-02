@@ -334,6 +334,29 @@ class PackageBackend(ABC):
             ServerError: The scope does not exist on this system.
         """
 
+    def upgrade_except_argv(
+        self, scope: UpdateScope, packages: Sequence[str], *, full: bool, held: Sequence[str]
+    ) -> list[str] | None:
+        """
+        Build a command that applies the same updates except some packages.
+
+        Used to install Noust last: its package restarts the console, and an
+        update that has nothing left to do when that happens is one whose
+        console comes back to a finished run. The plan's own command runs
+        afterwards and installs what was held back.
+
+        Args:
+            scope: Which updates to apply.
+            packages: Every package of the plan.
+            full: A full upgrade.
+            held: The packages to leave for later.
+
+        Returns:
+            The argv, or None when this family cannot leave packages out (the
+            plan's command then runs alone, as before).
+        """
+        return None
+
     @abstractmethod
     def install_argv(self, packages: Sequence[str]) -> list[str]:
         """

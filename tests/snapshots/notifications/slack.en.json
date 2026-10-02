@@ -3126,6 +3126,122 @@
       }
     ]
   },
+  "app.unreachable": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Application not answering · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Application not answering · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Its service is running, but the application does not answer its health check."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Unreachable since*\n2026-10-02 14:05 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Diagnose with:* `noust diagnose shop.example.com`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_The last probe_\n```GET http://127.0.0.1:3004/ -&gt; &lt;urlopen error [Errno 111] Connection refused&gt;```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "app.recovered": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Application answering again · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Application answering again · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "It passes its health check again."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Was unreachable for*\n12 min 34 s"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "attachments": [
       {

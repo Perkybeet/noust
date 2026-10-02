@@ -63,6 +63,9 @@ PRIORITIES = {
 #: An absolute time, or a relative one such as ``-30min``.
 _ABSOLUTE = re.compile(r"^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2}(:\d{2})?)?$")
 _RELATIVE = re.compile(r"^-\d{1,4}(s|min|h|d|w)$")
+#: Epoch seconds, ``@1759400000``: an interval picked on a chart is exact and has
+#: no time zone to get wrong.
+_EPOCH = re.compile(r"^@\d{1,11}$")
 
 _BOOT_LINE = re.compile(
     r"^\s*(?P<index>-?\d+)\s+(?P<boot_id>[0-9a-f]{32})\s+"
@@ -225,9 +228,9 @@ def _time(value: str, name: str) -> str:
         The value.
 
     Raises:
-        ValidationError: It is not a date, a date and time, or ``-30min``.
+        ValidationError: It is not a date, a date and time, ``-30min`` or ``@<epoch>``.
     """
-    if not (_ABSOLUTE.match(value) or _RELATIVE.match(value)):
+    if not (_ABSOLUTE.match(value) or _RELATIVE.match(value) or _EPOCH.match(value)):
         raise ValidationError(
             f"'{name}' is not a time Noust reads: {value!r}",
             "Use 2026-09-29, 2026-09-29 10:30 or a relative time such as -30min, -2h or -7d.",

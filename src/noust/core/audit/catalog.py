@@ -219,6 +219,7 @@ EVENTS: dict[str, EventSpec] = {
             "apps.backup_before_update": "Whether an update copies a stack's databases first was changed.",
             "apps.identity": "An application's own system account was given or taken away.",
             "apps.hooks": "An application's deploy hooks were set or cleared.",
+            "apps.adopt": "A Docker Compose stack that already ran was registered as it is.",
             "hooks.deploy": "A deploy webhook delivery was handled.",
             "hooks.github": "A GitHub App delivery was handled.",
             "hooks.secret.mint": "An application's webhook secret was created or rotated.",

@@ -375,6 +375,10 @@ def test_deleting_an_app_in_the_mode_removes_instances_template_links_and_upstre
     nginx.create_site(DOMAIN, template="proxy", context={"port": PORT})
     monkeypatch.setattr(lifecycle, "NginxManager", lambda **kwargs: nginx)
     monkeypatch.setattr(lifecycle, "get_store", lambda: store)
+    # Noust's apps directory: one outside it was adopted and is kept.
+    monkeypatch.setattr(
+        lifecycle.Config, "apps_directory", property(lambda _self: tmp_path / "apps")
+    )
 
     outcome = lifecycle.delete_app(DOMAIN, remove_certificate=False)
 

@@ -15,7 +15,9 @@ Every deployer asks :func:`claim_deploy_target` before it fetches anything.
 A directory that is missing or empty is the deploy's to fill. One that holds
 files is refused with the way forward, unless the deploy only adds to it (an
 application already on releases gets a new release beside the ones it has)
-or the operator asked to replace it. Either way the answer records whether
+or the operator asked to replace it, or the deploy is an adoption that
+registers a running stack where it is and fetches nothing. Either way the
+answer records whether
 the directory was there before, so a failed deploy never removes a directory
 it did not create.
 """
@@ -93,6 +95,7 @@ def claim_deploy_target(
     domain: str,
     existing: App | None,
     replace: bool,
+    adopt: bool = False,
 ) -> DeployTarget:
     """
     Decide whether a deploy may write into an application directory.
@@ -103,6 +106,9 @@ def claim_deploy_target(
         existing: The application's store row, when Noust has one.
         replace: The operator asked to deploy over whatever is there
             (``noust create --force``).
+        adopt: The deploy registers what is already there and fetches
+            nothing into it (``noust app adopt``): the files are the
+            application, so they are accepted as they are, and never removed.
 
     Returns:
         How the directory was found.
@@ -119,7 +125,7 @@ def claim_deploy_target(
         )
     had_files = existed and any(path.iterdir())
     target = DeployTarget(path=path, existed=existed, had_files=had_files)
-    if not had_files or replace:
+    if not had_files or replace or adopt:
         return target
     # A redeploy of an application on releases builds one more release next
     # to the ones it has; its shared/ and the release serving stay as they are.

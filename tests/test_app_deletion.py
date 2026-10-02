@@ -22,7 +22,8 @@ from typing import Any
 import pytest
 
 from noust.core.applock import AppBusyError
-from noust.core.exceptions import NoustError, ServiceError
+from noust.core.config import Config
+from noust.core.exceptions import NoustError, ServiceError, ValidationError
 from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore, Service, Site
 from noust.deployers import lifecycle
@@ -31,6 +32,14 @@ from noust.web.jobs import Job, JobContext, JobType, delete_app_job
 from tests.test_applock import Holder
 
 DOMAIN = "shop.example.com"
+
+
+@pytest.fixture(autouse=True)
+def apps_directory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Noust's apps directory, in the test directory: what is outside it was adopted."""
+    apps = tmp_path / "apps"
+    monkeypatch.setattr(Config, "apps_directory", property(lambda _self: apps))
+    return apps
 
 
 @pytest.fixture
@@ -255,3 +264,180 @@ def test_an_operator_s_site_is_kept_and_said_so(
 
     assert asked[0]["keep_operator_sites"] is True
     assert any("noust site delete" in warning for warning in outcome.warnings)
+
+
+# ---------------------------------------------------------------------------
+# An adopted stack's directory is the operator's (owner's 3.2 integration)
+# ---------------------------------------------------------------------------
+
+
+def test_an_adopted_directory_is_kept_and_said_so(
+    tmp_path: Path, store: NoustStore, machine: Any
+) -> None:
+    """
+    ``noust app adopt`` registers a stack where it already ran (/opt/proggest);
+    Noust never created that directory, and removing the files of the
+    application must not remove it. The rest goes as usual.
+    """
+    root = tmp_path / "opt" / "proggest"
+    compose_app(store, root)
+    logged: list[str] = []
+    log = lifecycle.Logger()
+    log.info = logged.append  # type: ignore[method-assign]
+
+    outcome = lifecycle.delete_app(DOMAIN, logger=log)
+
+    assert (root / "data" / "PG_VERSION").is_file(), "the adopted directory stays, whole"
+    assert not outcome.files_removed
+    assert outcome.kept_directory == str(root)
+    assert outcome.warnings == ()
+    assert any(str(root) in line and "--remove-adopted-directory" in line for line in logged)
+    # Containers, unit, Noust's site and the rows went as usual; volumes kept.
+    (down,) = downs(machine.runner)
+    assert "--volumes" not in down
+    assert machine.units.deleted == ["proggest"]
+    assert machine.sites == [(DOMAIN, True)]
+    assert store.get_app(DOMAIN) is None
+
+
+def test_naming_the_adopted_directory_removes_it(
+    tmp_path: Path, store: NoustStore, machine: Any
+) -> None:
+    root = tmp_path / "opt" / "proggest"
+    compose_app(store, root)
+
+    outcome = lifecycle.delete_app(DOMAIN, remove_adopted_directory=str(root) + "/")
+
+    assert not root.exists()
+    assert outcome.files_removed and outcome.kept_directory is None
+
+
+def test_naming_another_directory_is_refused_before_anything_changes(
+    tmp_path: Path, store: NoustStore, machine: Any
+) -> None:
+    root = tmp_path / "opt" / "proggest"
+    compose_app(store, root)
+
+    with pytest.raises(ValidationError, match="not the directory of"):
+        lifecycle.delete_app(DOMAIN, remove_adopted_directory=str(tmp_path / "opt"))
+
+    assert downs(machine.runner) == []
+    assert machine.units.deleted == []
+    assert root.is_dir() and store.get_app(DOMAIN) is not None
+
+
+def test_naming_the_directory_while_keeping_the_files_is_refused(
+    tmp_path: Path, store: NoustStore, machine: Any
+) -> None:
+    root = tmp_path / "opt" / "proggest"
+    compose_app(store, root)
+
+    with pytest.raises(ValidationError, match="keep"):
+        lifecycle.delete_app(DOMAIN, remove_files=False, remove_adopted_directory=str(root))
+
+    assert downs(machine.runner) == [] and root.is_dir()
+
+
+def test_a_link_from_the_apps_directory_to_elsewhere_is_not_followed(
+    tmp_path: Path, store: NoustStore, machine: Any, apps_directory: Path
+) -> None:
+    """Where the tree really is decides, not how the store names it."""
+    real = tmp_path / "srv" / "shop"
+    real.mkdir(parents=True)
+    (real / "index.js").write_text("x")
+    apps_directory.mkdir()
+    link = apps_directory / "shop-example-com"
+    link.symlink_to(real)
+    store.create_app(App(domain=DOMAIN, app_type="nodejs", port=3000, app_path=str(link)))
+
+    outcome = lifecycle.delete_app(DOMAIN)
+
+    assert (real / "index.js").is_file()
+    assert outcome.kept_directory == str(link)
+
+
+def test_the_console_job_keeps_an_adopted_directory_too(
+    tmp_path: Path, store: NoustStore, machine: Any
+) -> None:
+    root = tmp_path / "opt" / "proggest"
+    compose_app(store, root)
+
+    result = delete_app_job(DOMAIN, remove_files=True, job_context=job_context())
+
+    assert root.is_dir()
+    assert result["files_removed"] is False
+    assert result["kept_directory"] == str(root)
+
+
+def test_the_console_job_removes_the_directory_it_is_given(
+    tmp_path: Path, store: NoustStore, machine: Any
+) -> None:
+    root = tmp_path / "opt" / "proggest"
+    compose_app(store, root)
+
+    result = delete_app_job(
+        DOMAIN, remove_files=True, remove_adopted_directory=str(root), job_context=job_context()
+    )
+
+    assert not root.exists()
+    assert result["files_removed"] is True
+
+
+# ---------------------------------------------------------------------------
+# A stack updated through relays: its servers files go with it (C2)
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def upstreams(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """The servers files' directory, in the test directory."""
+    from noust.managers import webserver
+
+    base = tmp_path / "noust-upstreams"
+    base.mkdir()
+    monkeypatch.setattr(webserver, "NGINX_UPSTREAMS_DIR", base)
+    return base
+
+
+def relayed_app(store: NoustStore, root: Path, upstreams: Path) -> Path:
+    """A Compose stack in zero-downtime mode, with its servers file."""
+    compose_app(store, root)
+    store.set_zero_downtime(DOMAIN, True)
+    servers = upstreams / "shop-example-com"
+    servers.mkdir()
+    (servers / "web.servers").write_text("server 127.0.0.1:8080;\n")
+    return servers
+
+
+def test_a_relayed_stack_takes_its_servers_files_with_it(
+    tmp_path: Path, store: NoustStore, machine: Any, upstreams: Path
+) -> None:
+    servers = relayed_app(store, tmp_path / "apps" / "shop-example-com", upstreams)
+
+    outcome = lifecycle.delete_app(DOMAIN)
+
+    assert not servers.exists()
+    # A stack has no blue/green instances to tear down.
+    assert not any("instance" in warning for warning in outcome.warnings), outcome.warnings
+    assert machine.units.deleted == ["shop-example-com"]
+
+
+def test_servers_files_an_operator_site_still_includes_stay(
+    tmp_path: Path,
+    store: NoustStore,
+    machine: Any,
+    upstreams: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """nginx refuses a site that includes a file that is not there."""
+    servers = relayed_app(store, tmp_path / "apps" / "shop-example-com", upstreams)
+    monkeypatch.setattr(
+        lifecycle,
+        "delete_site_completely",
+        lambda domain, **kwargs: SiteDeletion(domain=domain, kept_operator=("nginx",)),
+    )
+
+    outcome = lifecycle.delete_app(DOMAIN)
+
+    assert (servers / "web.servers").is_file()
+    assert any(str(servers) in warning for warning in outcome.warnings), outcome.warnings

@@ -173,7 +173,9 @@ class TestStart:
         assert not any(call[0] == "systemd-run" for call in runner.calls)
 
     def test_one_update_at_a_time(self, tmp_path):
-        runner = FakeRunner().script(["systemctl", "show"], stdout="ActiveState=active\n")
+        runner = FakeRunner().script(
+            ["systemctl", "show"], stdout="LoadState=loaded\nActiveState=active\n"
+        )
         manager = _manager(tmp_path, runner)
         manager.start()
 
@@ -217,7 +219,9 @@ class TestSettle:
 
     def test_the_console_that_comes_back_on_a_new_version_says_it_succeeded(self, tmp_path):
         self._record(tmp_path)
-        runner = FakeRunner().script(["systemctl", "show"], stdout="ActiveState=inactive\n")
+        runner = FakeRunner().script(
+            ["systemctl", "show"], stdout="LoadState=not-found\nActiveState=inactive\n"
+        )
 
         status = _manager(tmp_path, runner, version="3.1.1", process_started=time.time()).status()
 
@@ -228,7 +232,7 @@ class TestSettle:
         self._record(tmp_path)
         runner = (
             FakeRunner()
-            .script(["systemctl", "show"], stdout="ActiveState=failed\n")
+            .script(["systemctl", "show"], stdout="LoadState=not-found\nActiveState=inactive\n")
             .script(
                 ["journalctl"],
                 stdout="E: Sub-process /usr/bin/dpkg returned an error code (1)\n"
@@ -243,7 +247,9 @@ class TestSettle:
 
     def test_a_console_restarted_on_the_same_version_says_nothing_was_newer(self, tmp_path):
         self._record(tmp_path)
-        runner = FakeRunner().script(["systemctl", "show"], stdout="ActiveState=inactive\n")
+        runner = FakeRunner().script(
+            ["systemctl", "show"], stdout="LoadState=not-found\nActiveState=inactive\n"
+        )
 
         run = _manager(tmp_path, runner, process_started=time.time()).status()["last_run"]
 
@@ -252,7 +258,9 @@ class TestSettle:
 
     def test_the_console_that_started_it_can_only_say_installed(self, tmp_path):
         self._record(tmp_path)
-        runner = FakeRunner().script(["systemctl", "show"], stdout="ActiveState=inactive\n")
+        runner = FakeRunner().script(
+            ["systemctl", "show"], stdout="LoadState=not-found\nActiveState=inactive\n"
+        )
 
         run = _manager(tmp_path, runner, process_started=0.0).status()["last_run"]
 
@@ -260,12 +268,16 @@ class TestSettle:
 
     def test_a_running_unit_is_left_running(self, tmp_path):
         self._record(tmp_path)
-        runner = FakeRunner().script(["systemctl", "show"], stdout="ActiveState=active\n")
+        runner = FakeRunner().script(
+            ["systemctl", "show"], stdout="LoadState=loaded\nActiveState=active\n"
+        )
 
         assert _manager(tmp_path, runner).status()["last_run"]["status"] == "running"
 
     def test_follow_restarts_the_console_for_pip(self, tmp_path):
-        runner = FakeRunner().script(["systemctl", "show"], stdout="ActiveState=inactive\n")
+        runner = FakeRunner().script(
+            ["systemctl", "show"], stdout="LoadState=not-found\nActiveState=inactive\n"
+        )
         manager = _manager(tmp_path, runner, method="pip")
         record = manager.start()
         lines: list[str] = []

@@ -21,6 +21,12 @@ in :meth:`MetricsCollector.start`, so no caller can forget it.
 one, and writes it all in one transaction stamped on the interval's grid, so
 the series of a tick share a timestamp and a gap is a whole missing tick.
 
+**Once a minute, the processes behind the numbers.** On the first tick of
+each minute the busiest processes of the minute that just ended are ranked
+(:mod:`noust.monitor.process_samples`) and kept beside the metrics, so a peak
+on a chart can be explained afterwards. There is no such history before the
+collector first ran.
+
 **Failures are visible.** The tick is an error boundary: whatever a machine can
 do to it, the thread logs it with its traceback, keeps the failure on the lease
 row (where the console can show why history has holes) and ticks again. A thread
@@ -43,6 +49,7 @@ from typing import TYPE_CHECKING, Any
 from noust.core.exceptions import NoustError
 from noust.monitor.appsampler import AppSampler
 from noust.monitor.plan import PlanBuilder, Reason, SamplingPlan
+from noust.monitor.process_samples import SAMPLE_SECONDS, ProcessSampler
 from noust.monitor.sampler import SAMPLING_ERRORS, MachineSampler
 
 if TYPE_CHECKING:
@@ -120,6 +127,7 @@ class MetricsCollector:
         machine: MachineSampler | None = None,
         app_sampler: AppSampler | None = None,
         databases: DatabaseSampler | None = None,
+        processes: ProcessSampler | None = None,
     ) -> None:
         """
         Args:
@@ -138,6 +146,8 @@ class MetricsCollector:
                 :class:`AppSampler` on ``store``.
             databases: Reads the database engines once a minute. Defaults to
                 :class:`~noust.managers.database.metrics.DatabaseSampler`.
+            processes: Ranks the busiest processes once a minute. Defaults to
+                :class:`~noust.monitor.process_samples.ProcessSampler`.
         """
         self.store = store
         self.kind = kind
@@ -154,6 +164,8 @@ class MetricsCollector:
 
             databases = DatabaseSampler()
         self._databases = databases
+        self._processes = processes or ProcessSampler()
+        self._process_minute: int | None = None
         self._owner = f"{kind}:{os.getpid()}:{uuid.uuid4().hex[:8]}"
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -358,10 +370,12 @@ class MetricsCollector:
         except SAMPLING_ERRORS as exc:
             self._note("the databases could not be sampled", exc)
 
+        stamp = self._stamp()
         try:
-            self.store.record_many(pairs, ts=self._stamp())
+            self.store.record_many(pairs, ts=stamp)
         except STORE_ERRORS as exc:
             self._note("a metrics tick could not be persisted", exc)
+        self._sample_processes(stamp, now, plans)
 
         if now - self._consolidated_at >= CONSOLIDATE_SECONDS:
             try:
@@ -374,6 +388,33 @@ class MetricsCollector:
         with self._snapshot_lock:
             self._snapshot = snapshot
         return snapshot
+
+    def _sample_processes(self, stamp: int, now: float, plans: dict[str, SamplingPlan]) -> None:
+        """
+        Rank the busiest processes on the first tick of each minute.
+
+        The ranking measures CPU since the previous one, so it describes the
+        minute that just ended and is stored under that minute, the bucket the
+        per-minute metrics put the same moments in.
+
+        Args:
+            stamp: This tick's timestamp on the grid.
+            now: The monotonic clock.
+            plans: The applications' plans, which name the owners.
+        """
+        minute = stamp // SAMPLE_SECONDS * SAMPLE_SECONDS
+        if minute == self._process_minute:
+            return
+        self._process_minute = minute
+        try:
+            samples = self._processes.sample(minute - SAMPLE_SECONDS, now, plans)
+        except SAMPLING_ERRORS as exc:
+            self._note("the processes could not be sampled", exc)
+            return
+        try:
+            self.store.record_process_samples(samples)
+        except STORE_ERRORS as exc:
+            self._note("the process samples could not be persisted", exc)
 
     def _stamp(self) -> int:
         """

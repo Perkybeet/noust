@@ -24,7 +24,6 @@ import logging
 import queue
 import sqlite3
 import threading
-import time
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -358,6 +357,26 @@ class JobContext:
         self._job.result = value
         self._notify(self._job)
 
+    def set_unit(self, unit: str) -> None:
+        """
+        Record the transient systemd unit this job's work runs in.
+
+        Written to the store at once rather than with the next snapshot: the
+        work in that unit can restart this console a moment later (the
+        ``noust`` package among an update's), and the console that comes back
+        reconciles the job with the unit instead of declaring it interrupted
+        (:mod:`noust.web.job_reconcile`).
+
+        Args:
+            unit: The unit's name, without ``.service``.
+        """
+        self._job.metadata["unit"] = unit
+        try:
+            get_store().update_job(self._job.id, unit=unit)
+        except _RECORDING_ERRORS as exc:
+            logger.warning("Could not record the unit of job %s: %s", self._job.id, exc)
+        self._notify(self._job)
+
     def set_metadata(self, key: str, value: Any) -> None:
         """
         Attach context to the job.
@@ -372,51 +391,6 @@ class JobContext:
         self._job.metadata[key] = value
         if key == "domain" and isinstance(value, str) and value:
             self._job.scrubber.add(app_secret_values(value))
-
-
-#: How long a console that came up during its own update waits for it to end.
-UPDATE_FOLLOW_SECONDS = 900
-UPDATE_FOLLOW_INTERVAL = 5.0
-
-
-def _settle_update_job(store: NoustStore, job_id: str, *, sleep: Any = time.sleep) -> None:
-    """
-    Record how a self-update ended on the job that followed it.
-
-    Args:
-        store: The store.
-        job_id: The job.
-        sleep: Waits between looks; replaced in a test.
-    """
-    from noust.managers.self_update import SelfUpdate
-
-    manager = SelfUpdate()
-    waited = 0.0
-    while waited <= UPDATE_FOLLOW_SECONDS:
-        try:
-            record = manager.read()
-            if record is not None and record.job_id == job_id:
-                record = manager.settle(record)
-                if record.status in ("succeeded", "failed"):
-                    store.update_job(
-                        job_id,
-                        status=JobStatus.COMPLETED.value
-                        if record.status == "succeeded"
-                        else JobStatus.FAILED.value,
-                        error="" if record.status == "succeeded" else (record.error or ""),
-                        finished_at=datetime.now().isoformat(),
-                    )
-                    return
-        except _RECORDING_ERRORS as exc:
-            logger.warning("Could not follow the self-update of job %s: %s", job_id, exc)
-        sleep(UPDATE_FOLLOW_INTERVAL)
-        waited += UPDATE_FOLLOW_INTERVAL
-    store.update_job(
-        job_id,
-        status=JobStatus.FAILED.value,
-        error=f"{INTERRUPTED_REASON}; the update did not say how it ended",
-        finished_at=datetime.now().isoformat(),
-    )
 
 
 class JobManager:
@@ -494,10 +468,15 @@ class JobManager:
 
         Called once, at startup: whatever thread was running those jobs is
         gone, and a job stuck at "running" forever is how a history screen
-        comes to lie about the state of the machine. Recording is an error
+        comes to lie about the state of the machine. A job whose work runs in a
+        transient unit is the exception: the unit outlived the process (it is
+        often what restarted it), so the job is reconciled with how the unit
+        ends instead (:mod:`noust.web.job_reconcile`). Recording is an error
         boundary of its own - a store that cannot be reached at startup must
         not stop the panel from starting.
         """
+        from noust.web import job_reconcile
+
         try:
             store = get_store()
             unfinished = [
@@ -506,45 +485,58 @@ class JobManager:
                 for job in store.list_jobs(limit=1000, status=status)
             ]
             restores = [job for job in unfinished if job.type == JobType.RESTORE.value]
-            updates = [job for job in unfinished if job.type == JobType.SELF_UPDATE.value]
-            changed = store.fail_interrupted_jobs(INTERRUPTED_REASON)
+            followed = job_reconcile.units_to_reconcile(unfinished)
+            changed = store.fail_interrupted_jobs(
+                INTERRUPTED_REASON, keep=[item.job.id for item in followed]
+            )
         except _RECORDING_ERRORS as exc:
             logger.warning("Could not check for interrupted jobs at startup: %s", exc)
             return
         if changed:
             logger.warning("%d job(s) marked failed after a panel restart", changed)
         self._report_interrupted_restores(store, restores)
-        self._follow_interrupted_updates(store, updates)
+        job_reconcile.reattach(store, followed, publish=self._publish_reconciled)
 
-    @staticmethod
-    def _follow_interrupted_updates(store: NoustStore, jobs: list[JobRecord]) -> None:
+    def _publish_reconciled(self, job_id: str) -> None:
         """
-        Give each self-update the restart cut off the ending it really had.
+        Tell whoever listens that a reconciled job ended, as if it ran here.
 
-        Noust updating itself is the one job a restart is part of: the package
-        restarts the console that follows the update, so its job was always
-        recorded "Interrupted by a panel restart" while the update, in its own
-        unit, went on and succeeded - every fleet update left one such failure
-        on every node. The update keeps its own record
-        (:mod:`noust.managers.self_update`); the job is set running again and
-        a thread asks that record until it says how the update ended.
+        The event stream, the notifications and the overview hear about jobs
+        through this manager's subscribers; a job that ended in a unit the
+        previous console started is announced the same way.
 
         Args:
-            store: The store.
-            jobs: The self-update jobs the previous process left unfinished.
+            job_id: The job, already recorded as ended.
         """
-        from noust.managers.self_update import SelfUpdate
-
-        for job in jobs:
-            try:
-                record = SelfUpdate().read()
-            except _RECORDING_ERRORS as exc:
-                logger.warning("Could not read the self-update record: %s", exc)
+        # ValueError: a type or status this version does not know, or a
+        # malformed date or result in the row.
+        failures: tuple[type[Exception], ...] = (*_RECORDING_ERRORS, ValueError)
+        try:
+            record = get_store().get_job(job_id)
+            if record is None:
                 return
-            if record is None or record.job_id != job.id:
-                continue
-            store.update_job(job.id, status=JobStatus.RUNNING.value, error="")
-            threading.Thread(target=_settle_update_job, args=(store, job.id), daemon=True).start()
+            job = Job(
+                id=record.id,
+                type=JobType(record.type),
+                name=record.name,
+                description=record.description,
+                status=JobStatus(record.status),
+                progress=record.progress,
+                total_steps=record.total_steps,
+                created_at=datetime.fromisoformat(record.created_at or datetime.now().isoformat()),
+                started_at=datetime.fromisoformat(record.started_at) if record.started_at else None,
+                completed_at=(
+                    datetime.fromisoformat(record.finished_at) if record.finished_at else None
+                ),
+                result=json.loads(record.result_json) if record.result_json else None,
+                error=record.error,
+                metadata={"domain": record.domain} if record.domain else {},
+                actor=record.actor,
+            )
+        except failures as exc:
+            logger.warning("Could not announce the end of job %s: %s", job_id, exc)
+            return
+        self._notify_subscribers(job)
 
     @staticmethod
     def _report_interrupted_restores(store: NoustStore, jobs: list[JobRecord]) -> None:
@@ -1442,6 +1434,7 @@ def delete_app_job(
     remove_files: bool = True,
     remove_ssl: bool = True,
     remove_volumes: bool = False,
+    remove_adopted_directory: str | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
     """
@@ -1459,6 +1452,9 @@ def delete_app_job(
         remove_ssl: Also delete the certificate.
         remove_volumes: Also remove a Docker Compose stack's named volumes,
             which hold its databases. Never unless asked for.
+        remove_adopted_directory: The application's directory, named, when
+            it is outside Noust's apps directory: only then does it go with
+            the files (see :func:`noust.deployers.lifecycle.delete_app`).
         job_context: Injected by the job manager.
 
     Returns:
@@ -1484,16 +1480,24 @@ def delete_app_job(
         remove_files=remove_files,
         remove_certificate=remove_ssl,
         remove_volumes=remove_volumes,
+        remove_adopted_directory=remove_adopted_directory,
         on_phase=lambda index, total, message: context.update(message, 100 * (index - 1) // total),
     )
     for warning in outcome.warnings:
         context.log(warning, "warning")
+    if outcome.kept_directory is not None:
+        context.log(
+            f"{outcome.kept_directory} is outside Noust's apps directory: it was adopted, not "
+            "created by Noust, and was kept. Name it to remove it with the application.",
+            "warning",
+        )
 
     context.update("Deletion complete", 100)
     return {
         "domain": domain,
         "status": "deleted",
-        "files_removed": remove_files,
+        "files_removed": outcome.files_removed,
+        "kept_directory": outcome.kept_directory,
         "ssl_removed": remove_ssl,
         "containers_stopped": outcome.containers_stopped,
         "volumes_removed": outcome.volumes_removed,
@@ -1630,6 +1634,7 @@ def restore_backup_job(
     target_domain: str | None = None,
     restore_env: bool = True,
     verify: bool = True,
+    schema_changed_ok: bool = False,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
     """
@@ -1641,6 +1646,8 @@ def restore_backup_job(
         restore_env: Restore the ``.env`` files from the archive.
         verify: Check the archive against its recorded checksum before
             restoring.
+        schema_changed_ok: The operator confirmed putting back only the files
+            past deployments that changed the schema.
         job_context: Injected by the job manager.
 
     Returns:
@@ -1671,6 +1678,7 @@ def restore_backup_job(
         target_domain=domain,
         restore_env=restore_env,
         verify_checksum=verify,
+        schema_changed_ok=schema_changed_ok,
     ):
         raise BackupError(
             f"Restore failed for backup {backup_id}",

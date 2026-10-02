@@ -308,6 +308,30 @@ class ObservationStore:
         rows = self._get_connection().execute(query, params).fetchall()
         return [dict(row) for row in rows]
 
+    def between(self, start: str, end: str, limit: int = 300) -> list[dict[str, Any]]:
+        """
+        Read the observations made inside a stretch, acknowledged or not.
+
+        Args:
+            start: First moment, in the form ``observed_at`` is written in
+                (naive local ISO 8601).
+            end: Moment the stretch ends before.
+            limit: Maximum number of rows to return.
+
+        Returns:
+            Rows as dictionaries, oldest first.
+        """
+        rows = (
+            self._get_connection()
+            .execute(
+                "SELECT * FROM observations WHERE observed_at >= ? AND observed_at < ? "
+                "ORDER BY observed_at LIMIT ?",
+                (start, end, limit),
+            )
+            .fetchall()
+        )
+        return [dict(row) for row in rows]
+
     def get(self, observation_id: int) -> dict[str, Any] | None:
         """
         Read one observation.

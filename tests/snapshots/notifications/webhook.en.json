@@ -2330,6 +2330,85 @@
       "omitted": 0
     }
   },
+  "app.unreachable": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000050",
+    "event": "app_unreachable",
+    "code": "app.unreachable",
+    "state": "failed",
+    "locale": "en",
+    "title": "Application not answering: shop.example.com",
+    "summary": "Its service is running, but the application does not answer its health check.",
+    "body": "Its service is running, but the application does not answer its health check.\n\nServer: web-1\nUnreachable since: 2026-10-02 14:05 UTC\nDiagnose with: noust diagnose shop.example.com\n\nThe last probe:\n  GET http://127.0.0.1:3004/ -> <urlopen error [Errno 111] Connection refused>\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "since",
+        "label": "Unreachable since",
+        "value": "2026-10-02 14:05 UTC"
+      },
+      {
+        "key": "diagnose",
+        "label": "Diagnose with",
+        "value": "noust diagnose shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "excerpt": {
+      "label": "The last probe",
+      "lines": [
+        "GET http://127.0.0.1:3004/ -> <urlopen error [Errno 111] Connection refused>"
+      ],
+      "omitted": 0
+    }
+  },
+  "app.recovered": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000051",
+    "event": "app_recovered",
+    "code": "app.recovered",
+    "state": "ok",
+    "locale": "en",
+    "title": "Application answering again: shop.example.com",
+    "summary": "It passes its health check again.",
+    "body": "It passes its health check again.\n\nServer: web-1\nWas unreachable for: 12 min 34 s\n\nOpen in the console: https://console.example.com/n/web-1/apps/shop.example.com",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Server",
+        "value": "web-1"
+      },
+      {
+        "key": "downtime",
+        "label": "Was unreachable for",
+        "value": "12 min 34 s"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Open in the console",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "excerpt": null
+  },
   "hostile.deploy_failed": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000001000",
