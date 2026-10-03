@@ -503,3 +503,76 @@ describe("an app whose service failed", () => {
     expect(await screen.findByText("Nothing answers on port 3000")).toBeInTheDocument();
   });
 });
+
+describe("a Compose stack running outside its unit", { timeout: 20_000 }, () => {
+  const ELEVATED = { ...SESSION, elevated_until: "2999-01-01T00:00:00+00:00" };
+  const STACK = { domain: DOMAIN, name: "shop", app_type: "docker-compose", status: "running_unmanaged", active: false, enabled: false, port: 3000, layout: "inplace" };
+  const DRY_RUN = " Container shop-web-1  Running\n Container shop-db-1  Running";
+  const FOUND = { domain: DOMAIN, unit: "shop-example-com", project: "shop-example-com", containers: ["shop-db-1", "shop-web-1"], enabled: false, dry_run: DRY_RUN, changes: [], reclaimed: false };
+
+  function stackRoutes(reclaim: RouteHandler): Record<string, RouteHandler> {
+    return {
+      "GET /api/auth/session": () => json(200, ELEVATED),
+      "GET /api/deployments": () => json(200, { items: [], total: 0, next_before_id: null }),
+      [`GET /api/apps/${DOMAIN}`]: () => json(200, STACK),
+      [`POST /api/apps/${DOMAIN}/reclaim`]: reclaim,
+    };
+  }
+
+  it("says so in amber with a label, and hands it back after showing Compose's rehearsal", async () => {
+    const { backend, user } = await appAt(
+      stackRoutes((call) => {
+        const body = call.body as { preview: boolean };
+        return json(200, body.preview ? FOUND : { ...FOUND, reclaimed: true });
+      }),
+    );
+    expect(await screen.findByText("It runs outside Noust")).toBeInTheDocument();
+    expect(within(header()).getByText("Running outside Noust")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Hand it back to Noust" }));
+    const dialog = await screen.findByRole("dialog", { name: `Hand ${DOMAIN} back to Noust` });
+    expect(await within(dialog).findByText((_, element) => element?.tagName === "PRE" && element.textContent === DRY_RUN)).toBeInTheDocument();
+    expect(within(dialog).getByText("shop-db-1, shop-web-1")).toBeInTheDocument();
+    expect(backend.callsTo(`POST /api/apps/${DOMAIN}/reclaim`).map((call) => call.body)).toEqual([{ preview: true, accept_recreate: false }]);
+    await expectNoAxeViolations(dialog);
+
+    await user.click(within(dialog).getByRole("button", { name: "Hand it back" }));
+    await waitFor(() => {
+      expect(backend.callsTo(`POST /api/apps/${DOMAIN}/reclaim`).at(-1)?.body).toEqual({ preview: false, accept_recreate: false });
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: `Hand ${DOMAIN} back to Noust` })).not.toBeInTheDocument());
+    expect(await screen.findByText(`${DOMAIN} runs under its unit again`)).toBeInTheDocument();
+  });
+
+  it("shows Compose's output when the start would recreate, and goes on only once that is accepted", async () => {
+    const output = " Container shop-web-1  Recreate\n Container shop-web-1  Recreated";
+    const { backend, user } = await appAt(
+      stackRoutes((call) => {
+        const body = call.body as { preview: boolean; accept_recreate: boolean };
+        if (!body.accept_recreate) {
+          return json(409, { error: "adoptionrefusederror", detail: `Starting ${DOMAIN}'s stack as Noust would changes what runs`, hint: "Hand it back with accept_recreate.", fields: null, output });
+        }
+        return json(200, { ...FOUND, changes: ["Container shop-web-1  Recreated"], reclaimed: !body.preview });
+      }),
+    );
+    await user.click(await screen.findByRole("button", { name: "Hand it back to Noust" }));
+    const dialog = await screen.findByRole("dialog", { name: `Hand ${DOMAIN} back to Noust` });
+    expect(await within(dialog).findByText("Starting the unit would recreate containers")).toBeInTheDocument();
+    expect(within(dialog).getByText((_, element) => element?.tagName === "PRE" && element.textContent === output)).toBeInTheDocument();
+    const go = within(dialog).getByRole("button", { name: "Hand it back" });
+    expect(go).toBeDisabled();
+
+    await user.click(within(dialog).getByRole("checkbox", { name: /Hand it back anyway/ }));
+    await user.click(go);
+    await waitFor(() => {
+      expect(backend.callsTo(`POST /api/apps/${DOMAIN}/reclaim`).at(-1)?.body).toEqual({ preview: false, accept_recreate: true });
+    });
+  });
+
+  it("is said in Spanish too", async () => {
+    await act(() => setLocale("es"));
+    await appAt(stackRoutes(() => json(200, FOUND)));
+    expect(await screen.findByText("Está en marcha fuera de Noust")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Devolverla a Noust" })).toBeInTheDocument();
+  });
+});

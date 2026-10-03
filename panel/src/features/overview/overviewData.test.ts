@@ -48,9 +48,9 @@ describe("figure tones", () => {
 
 describe("isEmptyServer", () => {
   it("is a server that runs nothing yet", () => {
-    expect(isEmptyServer(overviewFixture({ apps: { running: 0, failed: 0, stopped: 0, static: 0, error: null } }))).toBe(true);
+    expect(isEmptyServer(overviewFixture({ apps: { running: 0, failed: 0, stopped: 0, static: 0, unmanaged: 0, error: null } }))).toBe(true);
     expect(isEmptyServer(overviewFixture())).toBe(false);
-    expect(isEmptyServer(overviewFixture({ apps: { running: 0, failed: 0, stopped: 0, static: 0, error: "systemctl: not found" } }))).toBe(false);
+    expect(isEmptyServer(overviewFixture({ apps: { running: 0, failed: 0, stopped: 0, static: 0, unmanaged: 0, error: "systemctl: not found" } }))).toBe(false);
   });
 });
 

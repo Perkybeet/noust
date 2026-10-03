@@ -110,6 +110,14 @@ describe("the overview", () => {
     expect(within(figures).getByRole("link", { name: "Operating system updates: Up to date" })).toBeInTheDocument();
   });
 
+  it("counts a stack running outside its unit apart, in amber, never as stopped", async () => {
+    await overview(undefined, "/", overviewFixture({ apps: { running: 3, failed: 0, stopped: 0, static: 1, unmanaged: 1, error: null } }));
+    const figures = await screen.findByRole("region", { name: "Key figures" });
+    const apps = await within(figures).findByRole("link", { name: "Applications: 3 running, 0 failed, 0 stopped, 1 static, 1 running outside Noust" });
+    const count = within(apps).getByText((_, element) => element?.textContent === "1 outside Noust" && element.classList.contains("text-warn"));
+    expect(count).toBeInTheDocument();
+  });
+
   it("colours a figure only when it is a problem, with its glyph and its word", async () => {
     await overview(
       undefined,
@@ -274,7 +282,7 @@ describe("the overview", () => {
   });
 
   it("welcomes an empty server with its first steps instead of empty charts", async () => {
-    await overview(undefined, "/", overviewFixture({ apps: { running: 0, failed: 0, stopped: 0, static: 0, error: null }, backups: { ...overviewFixture().backups, apps: 0, scheduled: 0, with_backup_24h: 0 } }));
+    await overview(undefined, "/", overviewFixture({ apps: { running: 0, failed: 0, stopped: 0, static: 0, unmanaged: 0, error: null }, backups: { ...overviewFixture().backups, apps: 0, scheduled: 0, with_backup_24h: 0 } }));
     const steps = await screen.findByRole("list", { name: "First steps" });
     // Beside the step from a tablet up, under it on a phone: one of the two is shown.
     expect(within(steps).getAllByRole("link", { name: "New application" })[0]).toHaveAttribute("href", "/apps/new");

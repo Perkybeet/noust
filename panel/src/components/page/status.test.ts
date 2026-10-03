@@ -21,6 +21,9 @@ describe("appStatus", () => {
     ["Stopped", "stopped", "Stopped", false],
     ["Failed", "failed", "Failed", true],
     ["Static", "static", "Static", false],
+    // A Compose stack whose containers run while its unit is stopped.
+    ["running_unmanaged", "warning", "Running outside Noust", true],
+    ["Running outside Noust", "warning", "Running outside Noust", true],
   ])("%s is drawn %s, labelled %s, attention %s", (status, state, label, attention) => {
     expect(appStatus(status)).toEqual({ state, label, attention });
   });

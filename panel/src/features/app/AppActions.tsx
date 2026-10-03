@@ -57,6 +57,10 @@ export function useAppHeaderActions(
   if (app === undefined) return {};
   const unit = hasUnit(app);
   const running = appStatus(app.status).state === "running";
+  // A stack running outside its unit is neither started nor stopped through the unit: starting
+  // it skips the rehearsal, and stopping an inactive unit leaves its containers running. The
+  // banner's "Hand it back to Noust" is the way.
+  const outside = app.status === "running_unmanaged";
   const Delete = ICONS.delete;
 
   const restartButton = (
@@ -72,7 +76,7 @@ export function useAppHeaderActions(
           {t("appPages.actions.restart")}
         </MenuItem>
       ) : null}
-      {unit ? (
+      {unit && !outside ? (
         running ? (
           <MenuItem icon={<Square />} disabled={stop.isPending} onClick={() => setConfirmStop(true)}>
             {t("appPages.actions.stop")}

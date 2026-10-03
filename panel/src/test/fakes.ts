@@ -70,7 +70,7 @@ export const MACHINE: Machine = {
   memory: { used: 3_380_000_000, total: 8_000_000_000, percent: 42.3 },
   disk: { used: 61_000_000_000, total: 78_000_000_000, percent: 78.2 },
   units: { running: 9, failed: 1, stopped: 2 },
-  apps: { running: 4, failed: 1, stopped: 1, static: 1 },
+  apps: { running: 4, failed: 1, stopped: 1, static: 1, unmanaged: 0 },
 };
 
 export function json(status: number, body: unknown, headers: Record<string, string> = {}): Response {

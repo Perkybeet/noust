@@ -34,6 +34,8 @@ export const overview: Catalog<typeof en> = {
       static: "{count} estáticas",
       allRunning: "Todas en marcha",
       aria: "Aplicaciones: {running} en marcha, {failed} con fallo, {stopped} paradas, {static} estáticas",
+      unmanaged: { one: "{count} fuera de Noust", other: "{count} fuera de Noust" },
+      ariaUnmanaged: "Aplicaciones: {running} en marcha, {failed} con fallo, {stopped} paradas, {static} estáticas, {unmanaged} en marcha fuera de Noust",
     },
     deploys: {
       label: "Despliegues de hoy",
@@ -117,6 +119,7 @@ export const overview: Catalog<typeof en> = {
     services: "Servicios",
     serviceFailed: "El servicio ha fallado",
     serviceRestarting: "systemd sigue reiniciando el servicio",
+    runningOutsideUnit: "Sus contenedores están en marcha con la unidad parada: Noust no la supervisa",
     serviceState: "El servicio está en el estado {label}",
     noAnswer: "El servicio está en marcha, pero nada responde en su puerto",
     deployFailed: "El último despliegue falló",

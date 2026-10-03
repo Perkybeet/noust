@@ -212,6 +212,7 @@ export const fleet: Catalog<typeof en> = {
     attentionCount: { one: "{count} requiere atención", other: "{count} requieren atención" },
     appsRunning: { one: "{count} en marcha", other: "{count} en marcha" },
     appsFailed: { one: "{count} con fallo", other: "{count} con fallo" },
+    appsUnmanaged: { one: "{count} fuera de Noust", other: "{count} fuera de Noust" },
     figures: {
       servers: "Servidores que responden",
       serversValue: "{answering} de {total}",

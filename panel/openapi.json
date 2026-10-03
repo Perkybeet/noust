@@ -1565,7 +1565,7 @@
         "type": "object"
       },
       "AppInfo": {
-        "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`noust.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit) or ``unknown`` (systemd could not be\n        asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    follow_tags: The glob of git tags it deploys instead of a branch\n        (``v*``), or None when it follows its branch.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.\n    backup_before_update: Whether an update of a Docker Compose stack\n        copies its databases first (on by default; meaningless for any\n        other kind). Set through ``PATCH .../backup-before-update``.",
+        "description": "A deployed application and the live state of its service.\n\nAttributes:\n    name: Application name, which is its domain.\n    domain: Domain the application is served on.\n    status: What is true about it right now, resolved by\n        :func:`noust.core.app_state.resolve_state` - the one place the CLI\n        and the panel agree on this: ``running``, ``restarting`` (systemd\n        is crash-looping the unit), ``no_answer`` (the unit is up but\n        nothing accepts connections on its port), ``stopped``, ``failed``\n        (systemd gave up on it), ``static`` (served directly by the web\n        server, there is no unit), ``running_unmanaged`` (a Compose stack\n        whose containers run while its unit is stopped: hand it back with\n        ``POST .../reclaim``) or ``unknown`` (systemd could not be asked).\n    active: Whether the unit is active.\n    enabled: Whether the unit starts on boot.\n    pid: Main PID when running.\n    uptime: How long the unit has been up.\n    port: Upstream port.\n    app_type: Deployer that owns it.\n    path: Application directory.\n    source: Git URL or local path it was deployed from.\n    branch: Git branch it tracks, or None for a source that has none.\n    follow_tags: The glob of git tags it deploys instead of a branch\n        (``v*``), or None when it follows its branch.\n    layout: ``inplace`` or ``releases``.\n    keep_releases: Release directories kept before older ones are pruned.\n        Meaningful only on ``releases``; the in-place default otherwise.\n    build_command: Argv the deployer runs to build the project, read off\n        the same ``get_build_command()`` the deploy used. Empty in a\n        list response - computing it means instantiating the deployer\n        once per application, which this endpoint does not do for a\n        list - and filled in when this application is fetched on its own.\n    start_command: What its unit runs, exactly as the deploy recorded it\n        on the service row. None for a static site, which has no unit.\n    memory_max_mb: Memory limit of its unit, in MB, or None.\n    cpu_quota_percent: CPU quota of its unit, in percent of one CPU, or None.\n    tasks_max: Task limit of its unit, or None.\n    health_path: Path the health gate probes, or None for ``/``.\n    health_expect: Statuses the health gate accepts, such as\n        ``200-399``, or None for any status below 500.\n    health_timeout: Seconds the health gate waits, or None for its\n        default of 30.\n    webhook_enabled: Whether a webhook secret is set for it. The secret\n        itself is never part of this or any other response; it is set\n        through ``POST /api/apps/{domain}/webhook-secret`` and cleared\n        through the ``DELETE`` of the same path.\n    unit: The systemd unit that runs it, or None for a static site.\n    run_as: The account its unit runs as, or None for a static site.\n    last_deployment: Its most recent deployment attempt, or None when\n        nothing has ever been recorded for it.\n    zero_downtime: Whether it runs as two instances behind an nginx\n        upstream (blue/green); details at ``/zero-downtime``.\n    preview_parent: The application it previews a pull request of, or\n        None when it is not a preview.\n    backup_before_update: Whether an update of a Docker Compose stack\n        copies its databases first (on by default; meaningless for any\n        other kind). Set through ``PATCH .../backup-before-update``.",
         "properties": {
           "active": {
             "title": "Active",
@@ -2411,7 +2411,7 @@
         "type": "object"
       },
       "AppsFigure": {
-        "description": "Applications by state.\n\nAttributes:\n    running: Serving.\n    failed: A unit failed.\n    stopped: Not running, or restarting.\n    static: Served straight from disk: nothing to run.\n    error: Why this could not be read, in the tool's own words.",
+        "description": "Applications by state.\n\nAttributes:\n    running: Serving.\n    failed: A unit failed.\n    stopped: Not running, or restarting.\n    static: Served straight from disk: nothing to run.\n    unmanaged: Compose stacks whose containers run while their unit is\n        stopped: serving, but not under Noust.\n    error: Why this could not be read, in the tool's own words.",
         "properties": {
           "error": {
             "anyOf": [
@@ -2442,6 +2442,11 @@
           "stopped": {
             "default": 0,
             "title": "Stopped",
+            "type": "integer"
+          },
+          "unmanaged": {
+            "default": 0,
+            "title": "Unmanaged",
             "type": "integer"
           }
         },
@@ -2487,7 +2492,7 @@
         "type": "object"
       },
       "AttentionReason": {
-        "description": "One reason an item needs attention.\n\nAttributes:\n    kind: ``state``, ``deploy``, ``certificate``, ``unit`` or ``monitor``.\n    severity: ``fail`` or ``warn``.\n    code: Machine-readable and stable; the console words it. ``service_failed``,\n        ``service_restarting``, ``deploy_failed``, ``deploy_rolled_back``,\n        ``certificate_expired``, ``certificate_expires_today``,\n        ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,\n        ``monitor_finding``.\n    params: Values for the console's sentence (days, a signal).\n    detail: The system's own words, verbatim.\n    when: When it happened.\n    deployment_id: A deployment to open for the full story.\n    actions: What can be done, as identifiers the console maps to buttons:\n        ``view_log``, ``diagnose``, ``view_deployment``,\n        ``renew_certificate``, ``open_service``, ``open_observation``.",
+        "description": "One reason an item needs attention.\n\nAttributes:\n    kind: ``state``, ``deploy``, ``certificate``, ``unit`` or ``monitor``.\n    severity: ``fail`` or ``warn``.\n    code: Machine-readable and stable; the console words it. ``service_failed``,\n        ``service_restarting``, ``running_outside_unit``, ``deploy_failed``, ``deploy_rolled_back``,\n        ``certificate_expired``, ``certificate_expires_today``,\n        ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,\n        ``monitor_finding``.\n    params: Values for the console's sentence (days, a signal).\n    detail: The system's own words, verbatim.\n    when: When it happened.\n    deployment_id: A deployment to open for the full story.\n    actions: What can be done, as identifiers the console maps to buttons:\n        ``view_log``, ``diagnose``, ``view_deployment``,\n        ``renew_certificate``, ``open_service``, ``open_observation``.",
         "properties": {
           "actions": {
             "items": {
@@ -13855,6 +13860,12 @@
           "stopped": {
             "title": "Stopped",
             "type": "integer"
+          },
+          "unmanaged": {
+            "default": 0,
+            "description": "Compose stacks whose containers run while their unit is stopped",
+            "title": "Unmanaged",
+            "type": "integer"
           }
         },
         "required": [
@@ -17820,6 +17831,94 @@
           "available"
         ],
         "title": "RecipeSummaryOut",
+        "type": "object"
+      },
+      "ReclaimRequest": {
+        "description": "Hand a stack that runs outside its unit back to it, or preview doing so.",
+        "properties": {
+          "accept_recreate": {
+            "default": false,
+            "description": "Hand it back even when starting the unit would recreate a container",
+            "title": "Accept Recreate",
+            "type": "boolean"
+          },
+          "preview": {
+            "default": false,
+            "description": "Answer what would be done; change nothing",
+            "title": "Preview",
+            "type": "boolean"
+          }
+        },
+        "title": "ReclaimRequest",
+        "type": "object"
+      },
+      "ReclaimResponse": {
+        "description": "What handing a stack back found, and whether it was done.",
+        "properties": {
+          "changes": {
+            "description": "What starting the unit would change (accepted)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "containers": {
+            "description": "Its containers running now, outside the unit",
+            "items": {
+              "type": "string"
+            },
+            "title": "Containers",
+            "type": "array"
+          },
+          "domain": {
+            "title": "Domain",
+            "type": "string"
+          },
+          "dry_run": {
+            "description": "docker compose up --dry-run's output, verbatim",
+            "title": "Dry Run",
+            "type": "string"
+          },
+          "enabled": {
+            "description": "Whether the unit was already enabled at boot",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Compose project the unit addresses",
+            "title": "Project"
+          },
+          "reclaimed": {
+            "description": "False for a preview or a rehearsal",
+            "title": "Reclaimed",
+            "type": "boolean"
+          },
+          "unit": {
+            "description": "The unit enabled and started",
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "domain",
+          "unit",
+          "project",
+          "containers",
+          "enabled",
+          "dry_run",
+          "changes",
+          "reclaimed"
+        ],
+        "title": "ReclaimResponse",
         "type": "object"
       },
       "RecordLinkRequest": {
@@ -30266,6 +30365,78 @@
           "Previews"
         ],
         "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/apps/{domain}/reclaim": {
+      "post": {
+        "description": "Hand a Docker Compose stack that runs outside its unit back to it.\n\n``noust app reclaim``: the unit is enabled and started, which runs\n``docker compose up -d`` over containers already running. A rehearsal\nproves first that it would recreate nothing; when it would, the answer is\n409 with Compose's own output, unless ``accept_recreate`` says the\noperator read it. ``preview`` answers what was found and changes nothing.\nThe ``app`` event follows from the middleware, as for every mutation of\nan application.\n\nArgs:\n    domain: Domain of the application.\n    session: The authenticated, elevated session.\n    body: Whether to accept a recreate, and whether only to preview.\n\nReturns:\n    What was found and done; 409 with Compose's output when starting the\n    unit would recreate something that was not accepted.\n\nRaises:\n    HTTPException: 404 when nothing is deployed at the domain.\n    DeploymentError: It is not a stack, its unit is missing or already\n        running, or none of its containers runs (400).\n    ServiceError: systemd refused to enable or start the unit.\n    AppBusyError: Another operation is running on it (409).",
+        "operationId": "post_reclaim_api_apps__domain__reclaim_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReclaimRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReclaimResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Starting it would recreate"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Reclaim",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.operate",
         "x-noust-requires-elevation": true
       }
     },

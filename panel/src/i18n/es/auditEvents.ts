@@ -22,6 +22,7 @@ export const auditEvents: Catalog<typeof en> = {
     apps_inventory: "Responsable o criticidad de la aplicación cambiados",
     apps_limits: "Límites de recursos cambiados",
     apps_migrate: "Reversión instantánea activada",
+    apps_reclaim: "Stack de Compose devuelto a su unidad",
     apps_restart: "Aplicación reiniciada",
     apps_rollback: "Aplicación revertida",
     apps_sandbox: "Aislamiento de la compilación cambiado",

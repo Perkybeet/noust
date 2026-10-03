@@ -84,6 +84,8 @@ export function reasonText(t: T, reason: OverviewAttentionReason): string {
       return t("overview.attention.serviceFailed");
     case "service_restarting":
       return t("overview.attention.serviceRestarting");
+    case "running_outside_unit":
+      return t("overview.attention.runningOutsideUnit");
     case "no_answer":
       return t("overview.attention.noAnswer");
     case "deploy_failed":

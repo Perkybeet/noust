@@ -1582,6 +1582,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/reclaim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Post Reclaim
+         * @description Hand a Docker Compose stack that runs outside its unit back to it.
+         *
+         *     ``noust app reclaim``: the unit is enabled and started, which runs
+         *     ``docker compose up -d`` over containers already running. A rehearsal
+         *     proves first that it would recreate nothing; when it would, the answer is
+         *     409 with Compose's own output, unless ``accept_recreate`` says the
+         *     operator read it. ``preview`` answers what was found and changes nothing.
+         *     The ``app`` event follows from the middleware, as for every mutation of
+         *     an application.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated, elevated session.
+         *         body: Whether to accept a recreate, and whether only to preview.
+         *
+         *     Returns:
+         *         What was found and done; 409 with Compose's output when starting the
+         *         unit would recreate something that was not accepted.
+         *
+         *     Raises:
+         *         HTTPException: 404 when nothing is deployed at the domain.
+         *         DeploymentError: It is not a stack, its unit is missing or already
+         *             running, or none of its containers runs (400).
+         *         ServiceError: systemd refused to enable or start the unit.
+         *         AppBusyError: Another operation is running on it (409).
+         */
+        post: operations["post_reclaim_api_apps__domain__reclaim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/releases": {
         parameters: {
             query?: never;
@@ -13270,8 +13314,9 @@ export interface components {
          *             is crash-looping the unit), ``no_answer`` (the unit is up but
          *             nothing accepts connections on its port), ``stopped``, ``failed``
          *             (systemd gave up on it), ``static`` (served directly by the web
-         *             server, there is no unit) or ``unknown`` (systemd could not be
-         *             asked).
+         *             server, there is no unit), ``running_unmanaged`` (a Compose stack
+         *             whose containers run while its unit is stopped: hand it back with
+         *             ``POST .../reclaim``) or ``unknown`` (systemd could not be asked).
          *         active: Whether the unit is active.
          *         enabled: Whether the unit starts on boot.
          *         pid: Main PID when running.
@@ -13727,6 +13772,8 @@ export interface components {
          *         failed: A unit failed.
          *         stopped: Not running, or restarting.
          *         static: Served straight from disk: nothing to run.
+         *         unmanaged: Compose stacks whose containers run while their unit is
+         *             stopped: serving, but not under Noust.
          *         error: Why this could not be read, in the tool's own words.
          */
         AppsFigure: {
@@ -13752,6 +13799,11 @@ export interface components {
              * @default 0
              */
             stopped: number;
+            /**
+             * Unmanaged
+             * @default 0
+             */
+            unmanaged: number;
         };
         /**
          * AttentionItem
@@ -13788,7 +13840,7 @@ export interface components {
          *         kind: ``state``, ``deploy``, ``certificate``, ``unit`` or ``monitor``.
          *         severity: ``fail`` or ``warn``.
          *         code: Machine-readable and stable; the console words it. ``service_failed``,
-         *             ``service_restarting``, ``deploy_failed``, ``deploy_rolled_back``,
+         *             ``service_restarting``, ``running_outside_unit``, ``deploy_failed``, ``deploy_rolled_back``,
          *             ``certificate_expired``, ``certificate_expires_today``,
          *             ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,
          *             ``monitor_finding``.
@@ -19696,6 +19748,12 @@ export interface components {
             static: number;
             /** Stopped */
             stopped: number;
+            /**
+             * Unmanaged
+             * @description Compose stacks whose containers run while their unit is stopped
+             * @default 0
+             */
+            unmanaged: number;
         };
         /**
          * MachineDisk
@@ -21761,6 +21819,67 @@ export interface components {
             title: string;
             /** Unavailable Reason */
             unavailable_reason?: string | null;
+        };
+        /**
+         * ReclaimRequest
+         * @description Hand a stack that runs outside its unit back to it, or preview doing so.
+         */
+        ReclaimRequest: {
+            /**
+             * Accept Recreate
+             * @description Hand it back even when starting the unit would recreate a container
+             * @default false
+             */
+            accept_recreate: boolean;
+            /**
+             * Preview
+             * @description Answer what would be done; change nothing
+             * @default false
+             */
+            preview: boolean;
+        };
+        /**
+         * ReclaimResponse
+         * @description What handing a stack back found, and whether it was done.
+         */
+        ReclaimResponse: {
+            /**
+             * Changes
+             * @description What starting the unit would change (accepted)
+             */
+            changes: string[];
+            /**
+             * Containers
+             * @description Its containers running now, outside the unit
+             */
+            containers: string[];
+            /** Domain */
+            domain: string;
+            /**
+             * Dry Run
+             * @description docker compose up --dry-run's output, verbatim
+             */
+            dry_run: string;
+            /**
+             * Enabled
+             * @description Whether the unit was already enabled at boot
+             */
+            enabled: boolean;
+            /**
+             * Project
+             * @description The Compose project the unit addresses
+             */
+            project: string | null;
+            /**
+             * Reclaimed
+             * @description False for a preview or a rehearsal
+             */
+            reclaimed: boolean;
+            /**
+             * Unit
+             * @description The unit enabled and started
+             */
+            unit: string;
         };
         /**
          * RecordLinkRequest
@@ -28419,6 +28538,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_reclaim_api_apps__domain__reclaim_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReclaimRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReclaimResponse"];
+                };
+            };
+            /** @description Starting it would recreate */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Validation Error */

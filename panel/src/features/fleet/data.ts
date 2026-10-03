@@ -230,6 +230,8 @@ export interface Counts {
   failed: number;
   stopped: number;
   static: number;
+  /** Compose stacks running outside their units; 0 from a server before 3.3, and for units. */
+  unmanaged: number;
 }
 
 /** A block of counters (`apps`, `units`), or null when the server did not give it. */
@@ -237,7 +239,7 @@ export function countsOf(row: FleetRow, key: "apps" | "units"): Counts | null {
   const block = object(row[key]);
   if (block === null) return null;
   const read = (name: string): number => number(block[name]) ?? 0;
-  return { running: read("running"), failed: read("failed"), stopped: read("stopped"), static: read("static") };
+  return { running: read("running"), failed: read("failed"), stopped: read("stopped"), static: read("static"), unmanaged: read("unmanaged") };
 }
 
 export type NoustUpdateState = "up_to_date" | "update_available" | "index_behind" | "on_the_way" | "unknown";

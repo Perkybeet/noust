@@ -222,6 +222,7 @@ export const fleet = {
     attentionCount: { one: "{count} needs attention", other: "{count} need attention" },
     appsRunning: { one: "{count} running", other: "{count} running" },
     appsFailed: { one: "{count} failed", other: "{count} failed" },
+    appsUnmanaged: { one: "{count} outside Noust", other: "{count} outside Noust" },
     figures: {
       servers: "Servers answering",
       serversValue: "{answering} of {total}",

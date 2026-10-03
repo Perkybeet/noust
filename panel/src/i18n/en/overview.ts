@@ -32,6 +32,8 @@ export const overview = {
       static: "{count} static",
       allRunning: "All running",
       aria: "Applications: {running} running, {failed} failed, {stopped} stopped, {static} static",
+      unmanaged: { one: "{count} outside Noust", other: "{count} outside Noust" },
+      ariaUnmanaged: "Applications: {running} running, {failed} failed, {stopped} stopped, {static} static, {unmanaged} running outside Noust",
     },
     deploys: {
       label: "Deploys today",
@@ -114,6 +116,7 @@ export const overview = {
     services: "Services",
     serviceFailed: "The service has failed",
     serviceRestarting: "systemd keeps restarting the service",
+    runningOutsideUnit: "Its containers run while its unit is stopped: Noust is not supervising it",
     serviceState: "The service is in state {label}",
     noAnswer: "The service runs, but nothing answers on its port",
     deployFailed: "Last deploy failed",

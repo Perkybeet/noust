@@ -285,6 +285,12 @@ function serverColumns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>): Column
                 {t("fleet.summary.appsFailed", { count: apps.failed })}
               </span>
             ) : null}
+            {apps.unmanaged > 0 ? (
+              <span className="inline-flex items-center gap-1 font-medium text-warn">
+                <StatusGlyph state="warning" size={10} />
+                {t("fleet.summary.appsUnmanaged", { count: apps.unmanaged })}
+              </span>
+            ) : null}
           </span>
         );
       },
@@ -368,7 +374,7 @@ export function SummaryTab() {
   // counted only the running ones read as if eleven static or stopped ones were missing.
   const allApps = sum(rows, (row) => {
     const apps = countsOf(row, "apps");
-    return apps === null ? null : apps.running + apps.failed + apps.stopped + apps.static;
+    return apps === null ? null : apps.running + apps.failed + apps.stopped + apps.static + apps.unmanaged;
   });
   const failedUnits = sum(rows, (row) => countsOf(row, "units")?.failed ?? null);
   const expiring = sum(rows, (row) => numberOf(row["certificates_expiring"]));

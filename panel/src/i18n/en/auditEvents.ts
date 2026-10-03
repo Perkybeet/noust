@@ -23,6 +23,7 @@ export const auditEvents = {
     apps_inventory: "Application owner or criticality changed",
     apps_limits: "Resource limits changed",
     apps_migrate: "Instant rollback turned on",
+    apps_reclaim: "Compose stack handed back to its unit",
     apps_restart: "Application restarted",
     apps_rollback: "Application rolled back",
     apps_sandbox: "Build isolation changed",

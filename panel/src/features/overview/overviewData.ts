@@ -53,7 +53,7 @@ export function updatesTone(updates: Overview["updates"]): FigureTone {
 export function isEmptyServer(overview: Overview): boolean {
   const { apps } = overview;
   if (apps.error) return false;
-  return apps.running + apps.failed + apps.stopped + apps.static === 0;
+  return apps.running + apps.failed + apps.stopped + apps.static + apps.unmanaged === 0;
 }
 
 const RANK: Readonly<Record<string, number>> = { fail: 0, warn: 1 };

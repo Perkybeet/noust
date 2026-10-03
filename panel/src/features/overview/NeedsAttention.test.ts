@@ -23,6 +23,13 @@ describe("reasonText", () => {
     expect(reasonText(en, { ...monitor("", ""), kind: "unit", code: "unit_failed", params: {} })).toBe("The service has failed");
   });
 
+  it("says a stack running outside its unit is not supervised, in both languages", async () => {
+    const outside = { ...monitor("", ""), kind: "state", code: "running_outside_unit", params: {} };
+    expect(reasonText(en, outside)).toBe("Its containers run while its unit is stopped: Noust is not supervising it");
+    await loadCatalog("es");
+    expect(reasonText(bindT("es"), outside)).toBe("Sus contenedores están en marcha con la unidad parada: Noust no la supervisa");
+  });
+
   it("says it in Spanish", async () => {
     await loadCatalog("es");
     const es = bindT("es");

@@ -205,6 +205,7 @@ export const common: Catalog<typeof en> = {
     stopped: "Detenido",
     failed: "Fallido",
     noAnswer: "Sin respuesta",
+    runningUnmanaged: "En marcha fuera de Noust",
     unknown: "Desconocido",
   },
   deployState: {

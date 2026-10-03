@@ -10,7 +10,7 @@ export function overviewFixture(patch: Partial<Overview> = {}): Overview {
     schema: 1,
     generated_at: "2026-09-29T21:40:00+00:00",
     server: { name: "web-01", version: "3.1.0", role: "server" },
-    apps: { running: 3, failed: 0, stopped: 1, static: 1, error: null },
+    apps: { running: 3, failed: 0, stopped: 1, static: 1, unmanaged: 0, error: null },
     deploys: { since: "2026-09-29T00:00:00+02:00", total: 2, succeeded: 2, failed: 0, rolled_back: 0, running: 0, finished: 2, last_at: null, last_status: "success", last_domain: "shop.example.com", error: null },
     certificates: { total: 4, expiring: 0, expired: 0, next_days: 60, warning_days: 21, error: null },
     backups: { window_hours: 24, apps: 4, scheduled: 4, with_backup_24h: 4, unprotected_scheduled: 0, failed_24h: 0, last_at: null, error: null },

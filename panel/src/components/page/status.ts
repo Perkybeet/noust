@@ -25,14 +25,17 @@ interface KnownState {
  * separately:
  *
  * - `GET /api/apps` and the `app` event: `running`, `restarting`, `no_answer`, `stopped`,
- *   `failed`, `static`, `unknown` (resolved from systemd), and `deploying` while a deploy or
- *   update job runs;
+ *   `failed`, `static`, `unknown` (resolved from systemd), `running_unmanaged` (a Compose stack
+ *   whose containers run while its unit is stopped), and `deploying` while a deploy or update
+ *   job runs;
  * - the store's `AppStatus`: `deploying`, `running`, `stopped`, `failed`, `unknown`;
  * - `noust.core.app_state` (what `noust list` and `noust health` print): `Running`,
- *   `Restarting`, `No answer`, `Stopped`, `Failed`, `Static`, `Unknown`.
+ *   `Restarting`, `No answer`, `Stopped`, `Failed`, `Static`, `Unknown`, `Running outside Noust`.
  *
  * Matching is case-insensitive. A stopped app is not a problem by itself (an operator stops
  * apps on purpose); a crash loop, a unit systemd gave up on, or a port nothing answers on is.
+ * A stack running outside its unit serves, but nothing Noust does reaches it and a reboot would
+ * not bring it back: it needs attention, in amber.
  */
 const APP_STATES: Readonly<Record<string, KnownState>> = {
   running: { state: "running", labelKey: "common.appState.running", attention: false },
@@ -48,6 +51,8 @@ const APP_STATES: Readonly<Record<string, KnownState>> = {
   "no answer": { state: "failed", labelKey: "common.appState.noAnswer", attention: true },
   no_answer: { state: "failed", labelKey: "common.appState.noAnswer", attention: true },
   unknown: { state: "unknown", labelKey: "common.appState.unknown", attention: true },
+  running_unmanaged: { state: "warning", labelKey: "common.appState.runningUnmanaged", attention: true },
+  "running outside noust": { state: "warning", labelKey: "common.appState.runningUnmanaged", attention: true },
 };
 
 function known(view: KnownState, locale: Locale): StatusView {

@@ -1,15 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 
 import type { App } from "../../api/queries/apps";
 import { deploymentsQuery } from "../../api/queries/deployments";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { buttonClassName } from "../../components/ui/Button";
 import { Mono } from "../../components/ui/Mono";
+import { Button } from "../../components/ui/Button";
 import { Notice } from "../../components/ui/Notice";
 import { useT } from "../../i18n";
 import type { Deployment, LastDeployment } from "../apps/data";
 import { deployMoment } from "../apps/data";
+import { ReclaimDialog } from "./ReclaimDialog";
 
 /** How many deploys the app's pages read at once: the overview's dots share the same request. */
 export const RECENT_APP_DEPLOYS = 5;
@@ -22,20 +25,23 @@ export type AppCondition =
   | { kind: "failed"; lastDeploy: Newest | null }
   | { kind: "noAnswer"; port: number | null }
   | { kind: "restarting" }
+  | { kind: "unmanaged" }
   | { kind: "deployFailed"; deploy: Newest };
 
 /**
  * Whether the app is broken, and how. Its service first (failed, not answering, or restarting
- * over and over), then a failed last deploy while an older version still serves. A stopped app
- * is not broken: operators stop apps on purpose. A job running on the app is its own news, said
+ * over and over), then a Compose stack running outside its unit (it serves, but Noust does not
+ * supervise it and a reboot would not bring it back), then a failed last deploy while an older
+ * version still serves. A stopped app is not broken: operators stop apps on purpose. A job running on the app is its own news, said
  * by its progress, so the caller asks only when none is.
  */
 export function appCondition(app: Pick<App, "status" | "port">, newest: Newest | null): AppCondition | null {
-  const word = app.status.trim().toLowerCase().replace(" ", "_");
+  const word = app.status.trim().toLowerCase().replace(/^no answer$/, "no_answer");
   const deployFailed = newest?.status === "failed" ? newest : null;
   if (word === "failed") return { kind: "failed", lastDeploy: deployFailed };
   if (word === "no_answer") return { kind: "noAnswer", port: app.port ?? null };
   if (word === "restarting") return { kind: "restarting" };
+  if (word === "running_unmanaged" || word === "running outside noust") return { kind: "unmanaged" };
   if (deployFailed !== null) return { kind: "deployFailed", deploy: deployFailed };
   return null;
 }
@@ -136,6 +142,8 @@ export function AppBanner({ domain, condition, onDiagnose = false }: { domain: s
           {t("appPages.banner.restartingBody")}
         </Notice>
       );
+    case "unmanaged":
+      return <UnmanagedBanner domain={domain} />;
     case "deployFailed": {
       const line = errorOf(condition.deploy);
       return (
@@ -165,4 +173,39 @@ export function AppBanner({ domain, condition, onDiagnose = false }: { domain: s
       );
     }
   }
+}
+
+/**
+ * A Compose stack whose containers run while its unit is stopped: amber, because it serves but
+ * needs the operator, and the one way back, handing it to its unit, in a dialog that shows what
+ * Compose would do first.
+ */
+function UnmanagedBanner({ domain }: { domain: string }) {
+  const t = useT();
+  const [open, setOpen] = useState(false);
+  // A fresh dialog for each opening: it asks Docker Compose again and keeps no earlier answer.
+  const [opening, setOpening] = useState(0);
+  return (
+    <>
+      <Notice
+        variant="banner"
+        tone="warning"
+        title={t("appPages.banner.unmanagedTitle")}
+        action={
+          <Button
+            size="sm"
+            onClick={() => {
+              setOpening((count) => count + 1);
+              setOpen(true);
+            }}
+          >
+            {t("appPages.reclaim.open")}
+          </Button>
+        }
+      >
+        {t("appPages.banner.unmanagedBody")}
+      </Notice>
+      <ReclaimDialog key={opening} domain={domain} open={open} onOpenChange={setOpen} />
+    </>
+  );
 }

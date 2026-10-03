@@ -94,21 +94,25 @@ interface Figure {
 function appsFigure(t: T, apps: Overview["apps"]): Figure {
   const label = t("overview.figures.apps.label");
   if (apps.error) return unreadable(t, "apps", "/apps", label, apps.error);
-  const total = apps.running + apps.failed + apps.stopped + apps.static;
+  const total = apps.running + apps.failed + apps.stopped + apps.static + apps.unmanaged;
   const tone = appsTone(apps);
   return {
     key: "apps",
     to: "/apps",
     label,
-    aria: t("overview.figures.apps.aria", { running: apps.running, failed: apps.failed, stopped: apps.stopped, static: apps.static }),
+    aria:
+      apps.unmanaged > 0
+        ? t("overview.figures.apps.ariaUnmanaged", { running: apps.running, failed: apps.failed, stopped: apps.stopped, static: apps.static, unmanaged: apps.unmanaged })
+        : t("overview.figures.apps.aria", { running: apps.running, failed: apps.failed, stopped: apps.stopped, static: apps.static }),
     value: <Value tone="neutral">{total === 0 ? t("overview.figures.apps.noneYet") : t("overview.figures.apps.running", { count: formatCount(apps.running, t.locale) })}</Value>,
     detail:
-      apps.failed + apps.stopped === 0 ? (
+      apps.failed + apps.stopped + apps.unmanaged === 0 ? (
         total === 0 ? null : apps.static > 0 ? t("overview.figures.apps.static", { count: apps.static }) : t("overview.figures.apps.allRunning")
       ) : (
         <Parts
           parts={[
             apps.failed > 0 ? <StateCount state={tone === "fail" ? "failed" : "unknown"}>{t("overview.figures.apps.failed", { count: apps.failed })}</StateCount> : null,
+            apps.unmanaged > 0 ? <StateCount state="warning">{t("overview.figures.apps.unmanaged", { count: apps.unmanaged })}</StateCount> : null,
             apps.stopped > 0 ? <StateCount state="stopped">{t("overview.figures.apps.stopped", { count: apps.stopped })}</StateCount> : null,
           ]}
         />
