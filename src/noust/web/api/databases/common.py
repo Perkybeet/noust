@@ -131,6 +131,8 @@ class DatabaseInfoResponse(BaseModel):
         unverified: Recorded by Noust, on an engine that could not be read.
         app: The application it belongs to, whose backups include it.
         apps: Every application linked to it.
+        detected_apps: Applications whose environment names it, without a
+            recorded link.
         username: The account Noust provisioned for it.
         engine_version: The engine's version.
         last_backup: When its newest dump was taken.
@@ -148,6 +150,7 @@ class DatabaseInfoResponse(BaseModel):
     unverified: bool = False
     app: str | None = None
     apps: list[str] = Field(default_factory=list)
+    detected_apps: list[str] = Field(default_factory=list)
     username: str | None = None
     engine_version: str | None = None
     last_backup: str | None = None

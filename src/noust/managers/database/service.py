@@ -37,7 +37,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from noust.core import audit
 from noust.core.config import Config
@@ -74,6 +74,14 @@ from noust.managers.database.base import (
     RestoreOutcome,
     UserInfo,
     console_statement,
+)
+from noust.managers.database.detect_links import (
+    AppReferences,
+    Detected,
+    Endpoint,
+    detect,
+    read_environment,
+    references_in,
 )
 from noust.managers.database.exposure import (
     ExposedPort,
@@ -244,6 +252,9 @@ class DatabaseView:
             this time: whether it is still there is not known.
         app: The application it belongs to, whose backups include it.
         apps: Every application linked to it.
+        detected_apps: Applications whose environment names it, without a
+            link Noust recorded: they use it, and "record the link" makes it
+            one without touching their ``.env``.
         username: The account Noust provisioned for it.
         engine_version: The engine's version.
         last_backup: When the newest dump of it was taken, ISO 8601.
@@ -261,6 +272,7 @@ class DatabaseView:
     unverified: bool = False
     app: str | None = None
     apps: list[str] = field(default_factory=list)
+    detected_apps: list[str] = field(default_factory=list)
     username: str | None = None
     engine_version: str | None = None
     last_backup: str | None = None
@@ -944,7 +956,148 @@ class DatabaseService:
                 views.extend(self._views(manager, [], readable=False))
                 continue
             views.extend(self._views(manager, entries))
+        self._mark_detected(views, self.detected(managers))
         return DatabaseListing(views, problems)
+
+    # ------------------------------------------------------------- detected links
+
+    def _endpoints(self, managers: list[BaseDatabaseManager]) -> list[Endpoint]:
+        """
+        Say where each running engine answers, to resolve references against.
+
+        Args:
+            managers: The engines.
+
+        Returns:
+            One endpoint per running engine: the host's on its port, a
+            container on the ports it publishes and by its Compose service.
+        """
+        endpoints: list[Endpoint] = []
+        for manager in managers:
+            instance = manager.instance
+            if instance is None:
+                if not manager.is_installed() or not manager.is_running():
+                    continue
+                try:
+                    port = manager.server_port()
+                except DatabaseError as exc:
+                    self.logger.warning(f"Could not read {manager.DISPLAY_NAME}'s port: {exc}")
+                    continue
+                endpoints.append(
+                    Endpoint(manager.ENGINE_NAME, manager.engine_type, frozenset({port}))
+                )
+                continue
+            endpoints.append(
+                Endpoint(
+                    manager.ENGINE_NAME,
+                    manager.engine_type,
+                    frozenset(port.host_port for port in instance.published),
+                    project=instance.project,
+                    service=instance.service,
+                )
+            )
+        return endpoints
+
+    def detected(self, managers: list[BaseDatabaseManager] | None = None) -> list[Detected]:
+        """
+        Find the databases every application's environment names.
+
+        Args:
+            managers: The engines to resolve against; every engine when
+                omitted.
+
+        Returns:
+            One entry per reference, resolved to an engine key or not.
+        """
+        endpoints = self._endpoints(managers if managers is not None else self.all_managers())
+        entries: list[AppReferences] = []
+        for app in self.store.list_apps():
+            references = references_in(read_environment(app))
+            if references:
+                project = app.compose_project or domain_to_app_name(app.domain)
+                entries.append(AppReferences(app=app, references=references, project=project))
+        return detect(entries, endpoints)
+
+    @staticmethod
+    def _mark_detected(views: list[DatabaseView], found: list[Detected]) -> None:
+        """
+        Name, on each database, the applications that use it without a link.
+
+        Args:
+            views: The databases.
+            found: What the environments name.
+        """
+        users: dict[tuple[str, str], set[str]] = {}
+        for entry in found:
+            database = entry.reference.database or (
+                "0" if entry.reference.engine == "redis" else None
+            )
+            if entry.engine is None or database is None:
+                continue
+            users.setdefault((entry.engine, database), set()).add(entry.domain)
+        for view in views:
+            domains = users.get((view.engine, view.name), set()) - set(view.apps)
+            view.detected_apps = sorted(domains)
+
+    def record_detected_link(self, engine: str, name: str, domain: str) -> LinkView:
+        """
+        Record, as a link, a use Noust found in an application's environment.
+
+        Nothing in the application changes: its ``.env`` already names the
+        database, which is why the use was found. The link makes it count as
+        the application's for backups and the console.
+
+        Args:
+            engine: The engine key.
+            name: The database.
+            domain: The application.
+
+        Returns:
+            The recorded link.
+
+        Raises:
+            ValidationError: When the application's environment does not
+                name that database.
+        """
+        manager = self.running(engine)
+        app = self._app(domain)
+        match = next(
+            (
+                entry
+                for entry in self.detected([manager])
+                if entry.domain == app.domain
+                and entry.engine == manager.ENGINE_NAME
+                and (
+                    entry.reference.database or ("0" if entry.reference.engine == "redis" else None)
+                )
+                == name
+            ),
+            None,
+        )
+        if match is None:
+            raise ValidationError(
+                f"{app.domain}'s environment does not name {name} on {manager.DISPLAY_NAME}",
+                details="Only a use Noust found can be recorded this way; 'noust db link' "
+                "writes a new connection string instead.",
+            )
+        if app.id is None:
+            raise ValidationError(f"{app.domain} is not in the store")
+        saved = self.records.save_link(
+            DatabaseLink(
+                app_id=app.id,
+                engine=manager.ENGINE_NAME,
+                db_name=name,
+                username=match.reference.username,
+                env_var=match.reference.variable,
+            )
+        )
+        self.audit(
+            "db.link.record",
+            f"{manager.ENGINE_NAME}/{name}",
+            app=app.domain,
+            variable=match.reference.variable,
+        )
+        return self._link_views([saved])[0]
 
     def _views(
         self, manager: BaseDatabaseManager, entries: list[Any], *, readable: bool = True
@@ -1244,7 +1397,8 @@ class DatabaseService:
         if not user and not password:
             raise ValidationError("Give a user, a password or both", field="password")
         candidate = self.manager(name)
-        candidate.config = _CredentialOverlay(manager.config, name, user, password)
+        # The overlay answers get() like the configuration, which is all a manager reads.
+        candidate.config = cast(Config, _CredentialOverlay(manager.config, name, user, password))
         try:
             candidate.list_databases()
         except DatabaseAccessError as exc:
@@ -1298,6 +1452,56 @@ class DatabaseService:
         if adopted:
             self.audit("db.adopt", engine or "all", databases=",".join(adopted))
         return adopted
+
+    def adopt_links(self, engine: str | None = None) -> list[str]:
+        """
+        Record as links the uses found in applications' environments.
+
+        Only a use that resolves to one engine and names a database that
+        engine has is recorded; an ambiguous or external one is left for the
+        operator. Nothing in the applications changes.
+
+        Args:
+            engine: Only this engine.
+
+        Returns:
+            The links recorded, as ``domain -> engine/name``.
+        """
+        managers = [self.manager(engine)] if engine else self.all_managers()
+        listing = {
+            (view.engine, view.name): view
+            for view in self.list_databases(engine)
+            if not view.missing
+        }
+        recorded: list[str] = []
+        seen: set[tuple[str, str, str]] = set()
+        for entry in self.detected(managers):
+            database = entry.reference.database or (
+                "0" if entry.reference.engine == "redis" else None
+            )
+            if entry.engine is None or database is None:
+                continue
+            view = listing.get((entry.engine, database))
+            key = (entry.domain, entry.engine, database)
+            if view is None or entry.domain in view.apps or key in seen:
+                continue
+            seen.add(key)
+            app = self.store.get_app(entry.domain)
+            if app is None or app.id is None:
+                continue
+            self.records.save_link(
+                DatabaseLink(
+                    app_id=app.id,
+                    engine=entry.engine,
+                    db_name=database,
+                    username=entry.reference.username,
+                    env_var=entry.reference.variable,
+                )
+            )
+            recorded.append(f"{entry.domain} -> {entry.engine}/{database}")
+        if recorded:
+            self.audit("db.link.record", engine or "all", links=",".join(recorded))
+        return recorded
 
     def forget(self, engine: str, name: str) -> bool:
         """

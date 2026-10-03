@@ -259,6 +259,7 @@ EVENTS: dict[str, EventSpec] = {
             "backup.destination.update": "A remote backup destination was changed.",
             "backup.destination.delete": "A remote backup destination was removed.",
             "db.create": "A database was created.",
+            "db.link.record": "A database use found in an application's environment was recorded as a link.",
             "db.credentials.set": "The account Noust signs in to a database engine with was changed.",
             "db.drop": "A database was dropped.",
             "db.user.create": "A database user was created.",

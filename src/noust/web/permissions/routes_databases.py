@@ -45,6 +45,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/databases/engines/{engine}/exposure"): Permission.DATABASES_READ,
     ("GET", "/api/databases/exposure"): Permission.DATABASES_READ,
     ("POST", "/api/databases/databases/adopt"): Permission.DATABASES_WRITE,
+    ("POST", "/api/databases/databases/{engine}/{name}/links/detected"): Permission.DATABASES_WRITE,
     ("GET", "/api/databases/provisioning/plan"): Permission.DATABASES_READ,
     ("GET", "/api/databases/databases/{engine}/{name}/overview"): Permission.DATABASES_READ,
     ("POST", "/api/databases/databases/{engine}/{name}/forget"): Permission.DATABASES_MANAGE,

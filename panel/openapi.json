@@ -6594,7 +6594,7 @@
         "type": "object"
       },
       "DatabaseInfoResponse": {
-        "description": "One database, as the engine and the store together describe it.\n\nAttributes:\n    owner: The owning role or account. Null for engines with no such\n        concept: MySQL/MariaDB and Redis have none, and MongoDB grants\n        roles to users rather than owning a database with one.\n    tables: Tables or collections; null when the listing does not count\n        them.\n    keys: Keys in a Redis slot.\n    tracked: Recorded by Noust: backed up with its application, linkable.\n    missing: Recorded by Noust but gone from the engine.\n    unverified: Recorded by Noust, on an engine that could not be read.\n    app: The application it belongs to, whose backups include it.\n    apps: Every application linked to it.\n    username: The account Noust provisioned for it.\n    engine_version: The engine's version.\n    last_backup: When its newest dump was taken.",
+        "description": "One database, as the engine and the store together describe it.\n\nAttributes:\n    owner: The owning role or account. Null for engines with no such\n        concept: MySQL/MariaDB and Redis have none, and MongoDB grants\n        roles to users rather than owning a database with one.\n    tables: Tables or collections; null when the listing does not count\n        them.\n    keys: Keys in a Redis slot.\n    tracked: Recorded by Noust: backed up with its application, linkable.\n    missing: Recorded by Noust but gone from the engine.\n    unverified: Recorded by Noust, on an engine that could not be read.\n    app: The application it belongs to, whose backups include it.\n    apps: Every application linked to it.\n    detected_apps: Applications whose environment names it, without a\n        recorded link.\n    username: The account Noust provisioned for it.\n    engine_version: The engine's version.\n    last_backup: When its newest dump was taken.",
         "properties": {
           "app": {
             "anyOf": [
@@ -6612,6 +6612,13 @@
               "type": "string"
             },
             "title": "Apps",
+            "type": "array"
+          },
+          "detected_apps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Detected Apps",
             "type": "array"
           },
           "encoding": {
@@ -17417,6 +17424,22 @@
         "title": "RecipeSummaryOut",
         "type": "object"
       },
+      "RecordLinkRequest": {
+        "description": "A use found in an application's environment, to record as a link.\n\nAttributes:\n    app: The application whose environment names the database.",
+        "properties": {
+          "app": {
+            "maxLength": 253,
+            "minLength": 1,
+            "title": "App",
+            "type": "string"
+          }
+        },
+        "required": [
+          "app"
+        ],
+        "title": "RecordLinkRequest",
+        "type": "object"
+      },
       "RefusedRestartOut": {
         "description": "A service on replaced libraries that is not restarted from Noust, and why.",
         "properties": {
@@ -26983,13 +27006,20 @@
         "type": "object"
       },
       "noust__web__api__databases__databases__AdoptResponse": {
-        "description": "The databases adopted, as ``engine/name``.",
+        "description": "What adopting recorded.\n\nAttributes:\n    adopted: The databases now tracked, as ``engine/name``.\n    links: The uses found in applications' environments now recorded as\n        links, as ``domain -> engine/name``.",
         "properties": {
           "adopted": {
             "items": {
               "type": "string"
             },
             "title": "Adopted",
+            "type": "array"
+          },
+          "links": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Links",
             "type": "array"
           }
         },
@@ -37627,6 +37657,69 @@
           "Databases"
         ],
         "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/databases/{engine}/{name}/links/detected": {
+      "post": {
+        "description": "Record as a link a use Noust found in an application's environment.\n\nNothing in the application changes: its ``.env`` already names the\ndatabase.\n\nArgs:\n    engine: The engine key.\n    name: The database.\n    request: The application.\n    session: The authenticated session.\n\nReturns:\n    The recorded link.",
+        "operationId": "record_detected_link_api_databases_databases__engine___name__links_detected_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordLinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Record Detected Link",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.write"
       }
     },
     "/api/databases/databases/{engine}/{name}/metrics": {

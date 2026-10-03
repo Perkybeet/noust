@@ -94,9 +94,28 @@ class AdoptRequest(BaseModel):
 
 
 class AdoptResponse(BaseModel):
-    """The databases adopted, as ``engine/name``."""
+    """
+    What adopting recorded.
+
+    Attributes:
+        adopted: The databases now tracked, as ``engine/name``.
+        links: The uses found in applications' environments now recorded as
+            links, as ``domain -> engine/name``.
+    """
 
     adopted: list[str]
+    links: list[str] = Field(default_factory=list)
+
+
+class RecordLinkRequest(BaseModel):
+    """
+    A use found in an application's environment, to record as a link.
+
+    Attributes:
+        app: The application whose environment names the database.
+    """
+
+    app: str = Field(..., min_length=1, max_length=253)
 
 
 class AccessEntryResponse(BaseModel):
@@ -267,7 +286,36 @@ def adopt_databases(
     Returns:
         The databases adopted.
     """
-    return AdoptResponse(adopted=service(session).adopt(request.engine))
+    databases = service(session)
+    return AdoptResponse(
+        adopted=databases.adopt(request.engine), links=databases.adopt_links(request.engine)
+    )
+
+
+@router.post("/databases/{engine}/{name}/links/detected", response_model=LinkResponse)
+def record_detected_link(
+    engine: str,
+    name: str,
+    request: RecordLinkRequest,
+    session: Annotated[dict, Depends(get_current_session)],
+) -> LinkResponse:
+    """
+    Record as a link a use Noust found in an application's environment.
+
+    Nothing in the application changes: its ``.env`` already names the
+    database.
+
+    Args:
+        engine: The engine key.
+        name: The database.
+        request: The application.
+        session: The authenticated session.
+
+    Returns:
+        The recorded link.
+    """
+    view = service(session).record_detected_link(engine, name, request.app)
+    return LinkResponse(**view.to_dict())
 
 
 @router.get("/provisioning/plan", response_model=ProvisioningPlanResponse)

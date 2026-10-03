@@ -1019,3 +1019,50 @@ class TestSetCredentials:
 
         with pytest.raises(ValidationError, match="does not sign in with a stored account"):
             service.set_credentials("postgresql", "postgres", "x")
+
+
+class TestDetectedLinks:
+    """An application whose .env names a database shows beside it, and can be linked as is."""
+
+    def _uses(self, app: App, url: str) -> None:
+        # The fake engine answers on 5433, as a second cluster would.
+        Path(app.app_path, ".env").write_text(f"APP_KEY=x\nDATABASE_URL={url}\n")
+
+    def test_a_database_named_in_an_env_lists_its_application_as_detected(
+        self, service: DatabaseService, app: App
+    ) -> None:
+        self._uses(app, "postgresql://shop_user:pw@127.0.0.1:5433/shop_db")
+
+        (view,) = service.listing().databases
+
+        assert view.detected_apps == [DOMAIN]
+        assert view.apps == []
+
+    def test_another_server_is_not_detected_here(self, service: DatabaseService, app: App) -> None:
+        self._uses(app, "postgresql://shop_user:pw@db.example.net:5432/shop_db")
+
+        assert service.listing().databases[0].detected_apps == []
+
+    def test_recording_the_link_changes_nothing_in_the_application(
+        self, service: DatabaseService, app: App
+    ) -> None:
+        self._uses(app, "postgresql://shop_user:pw@localhost:5433/shop_db")
+        before = Path(app.app_path, ".env").read_text()
+
+        link = service.record_detected_link("postgresql", "shop_db", DOMAIN)
+
+        assert (link.engine, link.database, link.env_var) == ("postgresql", "shop_db", "DATABASE_URL")
+        assert Path(app.app_path, ".env").read_text() == before
+        (view,) = service.listing().databases
+        assert view.apps == [DOMAIN]
+        assert view.detected_apps == []
+
+    def test_a_use_that_is_not_there_cannot_be_recorded(self, service: DatabaseService, app: App) -> None:
+        with pytest.raises(ValidationError, match="does not name"):
+            service.record_detected_link("postgresql", "shop_db", DOMAIN)
+
+    def test_adopt_links_records_the_unambiguous_uses(self, service: DatabaseService, app: App) -> None:
+        self._uses(app, "postgresql://shop_user:pw@127.0.0.1:5433/shop_db")
+
+        assert service.adopt_links() == [f"{DOMAIN} -> postgresql/shop_db"]
+        assert service.adopt_links() == [], "a recorded link is not recorded twice"
