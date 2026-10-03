@@ -41,6 +41,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import hashlib
 import ipaddress
 import json
 import os
@@ -867,6 +868,368 @@ def _sql_identifier(statement: str, quote: str, *, after: str | None = None) -> 
 
 
 # ---------------------------------------------------------------------------
+# Console: engine settings and database containers (3.3). An engine's settings page
+# reads the cluster and the engine's own answers (pg_settings, SHOW GLOBAL VARIABLES)
+# and writes Noust's file under the host tree; the model reads that same file back, so a
+# change made through the API is what the next read reports, as after a real restart.
+# A database container is a Compose service of the modelled machine: Docker's listing,
+# inspect, start/stop and the client Noust runs inside it, answered from one model.
+# ---------------------------------------------------------------------------
+
+#: Debian's ``pg_lsclusters --no-header`` for the one cluster the modelled machine has:
+#: version, name, port, status, owner, data directory, log file.
+_PG_CLUSTER_LINE = (
+    "16  main    5432 online postgres /var/lib/postgresql/16/main "
+    "/var/log/postgresql/postgresql-16-main.log\n"
+)
+
+#: The cluster's own systemd unit, which a settings change restarts. systemd runs it as a
+#: template instance; the model answers it as the machine's ``postgresql`` unit.
+_PG_CLUSTER_UNIT = "postgresql@16-main"
+
+#: The cluster's configuration directory, as it is on the machine.
+_PG_CONFIG_DIR = "/etc/postgresql/16/main"
+
+#: What ``pg_settings`` reports for each setting Noust edits before it writes anything:
+#: the value as ``current_setting`` prints it, the ``context`` (``postmaster`` needs a
+#: restart) and the file that sets it ("" for the compiled-in default).
+_PG_SETTING_DEFAULTS: dict[str, tuple[str, str, str]] = {
+    "listen_addresses": ("localhost", "postmaster", ""),
+    "port": ("5432", "postmaster", f"{_PG_CONFIG_DIR}/postgresql.conf"),
+    "max_connections": ("100", "postmaster", f"{_PG_CONFIG_DIR}/postgresql.conf"),
+    "shared_buffers": ("128MB", "postmaster", f"{_PG_CONFIG_DIR}/postgresql.conf"),
+    "effective_cache_size": ("4GB", "user", ""),
+    "work_mem": ("4MB", "user", ""),
+    "maintenance_work_mem": ("64MB", "user", ""),
+    "log_min_duration_statement": ("-1", "superuser", ""),
+    "timezone": ("Europe/Madrid", "user", f"{_PG_CONFIG_DIR}/postgresql.conf"),
+}
+
+#: What ``SHOW GLOBAL VARIABLES`` reports for each variable Noust edits on a stock MySQL 8.0
+#: (sizes in bytes, ``long_query_time`` with its six decimals).
+_MYSQL_VARIABLE_DEFAULTS: dict[str, str] = {
+    "bind_address": "127.0.0.1",
+    "port": "3306",
+    "max_connections": "151",
+    "innodb_buffer_pool_size": "134217728",
+    "innodb_log_file_size": "50331648",
+    "slow_query_log": "OFF",
+    "long_query_time": "10.000000",
+    "character_set_server": "utf8mb4",
+    "time_zone": "SYSTEM",
+}
+
+#: The file each of Noust's settings writes, below the host tree.
+_PG_NOUST_FILE = f"{_PG_CONFIG_DIR}/conf.d/90-noust.conf"
+_MYSQL_NOUST_FILE = "/etc/mysql/mysql.conf.d/99-noust.cnf"
+
+#: The modelled server's memory and processors, which the recommendations are computed
+#: from: a 2 GiB VPS, as the Server area describes it, whatever machine runs this script.
+_MODELLED_MEMORY_BYTES = 2 * 1024**3
+_MODELLED_CPUS = 2
+
+
+def _file_assignments(path: Path) -> dict[str, str]:
+    """
+    Read the ``key = value`` lines of a file the modelled engine reads.
+
+    Args:
+        path: The file; a missing one sets nothing.
+
+    Returns:
+        The last value of each key, without quotes or a trailing comment.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return {}
+    found: dict[str, str] = {}
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith(("#", "[")):
+            continue
+        key, separator, value = stripped.partition("=")
+        if separator:
+            found[key.strip()] = value.split(" #", 1)[0].strip().strip("'\"")
+    return found
+
+
+def _postgres_settings(host: Path | None) -> dict[str, tuple[str, str, str]]:
+    """
+    What the modelled PostgreSQL reports: its defaults, with Noust's file over them.
+
+    Args:
+        host: The host tree's root; None answers the defaults alone.
+
+    Returns:
+        ``(value, context, source file)`` by setting.
+    """
+    settings = dict(_PG_SETTING_DEFAULTS)
+    written = _file_assignments(host / _PG_NOUST_FILE.lstrip("/")) if host else {}
+    for key, value in written.items():
+        if key in settings:
+            settings[key] = (value, settings[key][1], _PG_NOUST_FILE)
+    return settings
+
+
+def _mysql_bytes(value: str) -> str:
+    """
+    Turn an option file's size (``256M``) into the bytes a variable reports.
+
+    Args:
+        value: The option as written.
+
+    Returns:
+        The decimal bytes, or the text itself when it is not a size.
+    """
+    units = {"K": 1024, "M": 1024**2, "G": 1024**3, "T": 1024**4}
+    if value[-1:].upper() in units and value[:-1].isdigit():
+        return str(int(value[:-1]) * units[value[-1].upper()])
+    return value
+
+
+def _mysql_variables(host: Path | None) -> dict[str, str]:
+    """
+    What the modelled MySQL reports: its defaults, with Noust's file over them.
+
+    Args:
+        host: The host tree's root; None answers the defaults alone.
+
+    Returns:
+        The value of each variable, as ``SHOW GLOBAL VARIABLES`` prints it.
+    """
+    variables = dict(_MYSQL_VARIABLE_DEFAULTS)
+    written = _file_assignments(host / _MYSQL_NOUST_FILE.lstrip("/")) if host else {}
+    for option, value in written.items():
+        name = "time_zone" if option == "default-time-zone" else option.replace("-", "_")
+        if name not in variables:
+            continue
+        if name in ("innodb_buffer_pool_size", "innodb_log_file_size"):
+            value = _mysql_bytes(value)
+        elif name == "long_query_time":
+            value = f"{float(value):.6f}"
+        variables[name] = value
+    return variables
+
+
+def _host_tree() -> Path | None:
+    """
+    Returns:
+        The modelled server's host tree, once the Server area's model is built.
+    """
+    return _SERVER_HOST.root if _SERVER_HOST is not None else None
+
+
+#: The Compose project of the modelled machine's one database container. It is the name of
+#: a seeded application's directory (``catalogo.example.org``), which is how the console
+#: tells whose database it is: ``assign_apps`` matches a project to ``app_name``.
+DB_CONTAINER_PROJECT = "catalogo-example-org"
+
+#: The Compose service and the container Compose names after it.
+DB_CONTAINER_SERVICE = "postgres"
+DB_CONTAINER_NAME = f"{DB_CONTAINER_PROJECT}-{DB_CONTAINER_SERVICE}-1"
+
+#: The database that container's Postgres holds, and the account that owns it (the image's
+#: ``POSTGRES_USER`` is its superuser).
+DB_CONTAINER_DATABASE = "catalogo"
+
+#: The host port the container publishes its 5432 on: the host's own PostgreSQL has 5432.
+DB_CONTAINER_HOST_PORT = 5433
+
+
+@dataclass
+class _DatabaseContainer:
+    """
+    One container of the modelled machine that runs a database.
+
+    Attributes:
+        name: The container's name.
+        image: The image it was created from.
+        project: Its Compose project.
+        service: Its Compose service.
+        env: Its environment, as ``docker inspect`` lists it.
+        container_port: The port its engine listens on inside it.
+        host_port: The host port that is published to it.
+        databases: The databases its engine holds: owner and size in bytes.
+        users: What its role listing answers.
+        state: ``running`` or ``exited``; ``docker start`` and ``stop`` change it.
+    """
+
+    name: str
+    image: str
+    project: str
+    service: str
+    env: tuple[str, ...]
+    container_port: int
+    host_port: int
+    databases: dict[str, tuple[str, int]]
+    users: str
+    state: str = "running"
+
+    @property
+    def container_id(self) -> str:
+        """The 64 hex digits Docker would give it, fixed by its name."""
+        return hashlib.sha256(self.name.encode()).hexdigest()
+
+    def inspect(self) -> dict[str, Any]:
+        """
+        Returns:
+            What ``docker inspect`` prints for it: only the fields Noust reads.
+        """
+        port = f"{self.container_port}/tcp"
+        binding = [{"HostIp": "127.0.0.1", "HostPort": str(self.host_port)}]
+        return {
+            "Id": self.container_id,
+            "Name": f"/{self.name}",
+            "State": {"Status": self.state, "Running": self.state == "running"},
+            "Config": {
+                "Image": self.image,
+                "Env": list(self.env),
+                "ExposedPorts": {port: {}},
+                "Labels": {
+                    "com.docker.compose.project": self.project,
+                    "com.docker.compose.service": self.service,
+                    "com.docker.compose.container-number": "1",
+                    "com.docker.compose.project.working_dir": f"/var/www/apps/{self.project}",
+                },
+            },
+            "NetworkSettings": {"Ports": {port: binding} if self.state == "running" else {}},
+            "HostConfig": {"PortBindings": {port: binding}},
+        }
+
+
+class _DatabaseContainers:
+    """Docker's answers about the machine's database containers, and what runs in them."""
+
+    #: How ``docker ps`` is asked: every container, with the id and image Noust filters on.
+    LISTING = ("docker", "ps", "-a", "--no-trunc", "--format", "{{.ID}}\t{{.Image}}")
+
+    def __init__(self) -> None:
+        """Model the one container: Postgres 16 of ``catalogo.example.org``'s Compose project."""
+        self.lock = threading.Lock()
+        catalogo = _DatabaseContainer(
+            name=DB_CONTAINER_NAME,
+            image="postgres:16-alpine",
+            project=DB_CONTAINER_PROJECT,
+            service=DB_CONTAINER_SERVICE,
+            env=(
+                "POSTGRES_USER=catalogo",
+                f"POSTGRES_DB={DB_CONTAINER_DATABASE}",
+                "POSTGRES_PASSWORD=Cat-demo-4Rn8",
+                "PGDATA=/var/lib/postgresql/data",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            ),
+            container_port=5432,
+            host_port=DB_CONTAINER_HOST_PORT,
+            databases={
+                "postgres": ("catalogo", 7_553_827),
+                DB_CONTAINER_DATABASE: ("catalogo", 31_457_280),
+            },
+            users=f"catalogo|t|t|t|postgres,{DB_CONTAINER_DATABASE}\n",
+        )
+        self.containers = {catalogo.name: catalogo}
+
+    def listing(self) -> str:
+        """
+        Returns:
+            What ``docker ps -a --no-trunc --format '{{.ID}}\\t{{.Image}}'`` prints.
+        """
+        with self.lock:
+            return "".join(f"{c.container_id}\t{c.image}\n" for c in self.containers.values())
+
+    def inspect(self, ids: Sequence[str]) -> str | None:
+        """
+        Args:
+            ids: The arguments of ``docker inspect``.
+
+        Returns:
+            Its JSON for the containers named, or None when an argument names none of the
+            modelled ones (another caller's question, left to the rest of the runner).
+        """
+        with self.lock:
+            found = [c for c in self.containers.values() if c.container_id in ids or c.name in ids]
+            if not ids or len(found) != len(ids):
+                return None
+            return json.dumps([c.inspect() for c in found])
+
+    def named(self, name: str) -> _DatabaseContainer | None:
+        """
+        Args:
+            name: A container's name or id.
+
+        Returns:
+            The modelled container, or None.
+        """
+        with self.lock:
+            return next(
+                (c for c in self.containers.values() if name in (c.name, c.container_id)), None
+            )
+
+    def exec_target(
+        self, args: tuple[str, ...]
+    ) -> tuple[_DatabaseContainer, tuple[str, ...]] | None:
+        """
+        Read the ``docker exec`` Noust builds for a client inside a database container.
+
+        Args:
+            args: The argv.
+
+        Returns:
+            The container and the command that runs in it (program first), or None when
+            this is not such an exec.
+        """
+        from noust.managers.database.instances import CLIENT_SCRIPT
+
+        if args[:2] != ("docker", "exec") or CLIENT_SCRIPT not in args:
+            return None
+        position = args.index(CLIENT_SCRIPT)
+        container = self.named(args[position - 3]) if position >= 3 else None
+        # After the script: "sh", the mode, the variable, the sources, then the programs to
+        # try (comma separated, the first preferred) and the program's own arguments.
+        if container is None or len(args) < position + 6:
+            return None
+        return container, (args[position + 5].split(",")[0], *args[position + 6 :])
+
+    def answer(self, args: tuple[str, ...]) -> tuple[int, str, str] | None:
+        """
+        Answer a ``docker`` command about a modelled container.
+
+        Args:
+            args: The argv.
+
+        Returns:
+            ``(exit code, stdout, stderr)``, or None for any other docker command.
+        """
+        verb = args[1] if len(args) > 1 else ""
+        if args == self.LISTING:
+            return 0, self.listing(), ""
+        if verb == "inspect" and not any(a.startswith("-") for a in args[2:]):
+            printed = self.inspect(args[2:])
+            return (0, printed, "") if printed is not None else None
+        container = self.named(args[-1]) if len(args) > 2 else None
+        if container is None:
+            return None
+        if verb in ("start", "restart"):
+            container.state = "running"
+            return 0, f"{container.name}\n", ""
+        if verb == "stop":
+            container.state = "exited"
+            return 0, f"{container.name}\n", ""
+        if verb == "logs":
+            started = (datetime.now(timezone.utc) - timedelta(hours=3)).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+            return (
+                0,
+                "",
+                f"{started}.318 UTC [1] LOG:  starting PostgreSQL 16.4 on x86_64-pc-linux-musl\n"
+                f'{started}.318 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432\n'
+                f"{started}.331 UTC [1] LOG:  database system is ready to accept connections\n",
+            )
+        return None
+
+
+# ---------------------------------------------------------------------------
 # Console: what a database's own page reads (3.1). The data browser, the row
 # editor, the metrics, the access list and the dumps run their own catalog
 # queries, answered here from a small model of example_production's tables:
@@ -1204,7 +1567,14 @@ class _DemoDatabase:
         # Roles the console created this run: a new user is looked up right after it is made.
         self.roles: set[str] = set()
 
-    def answer(self, database: str | None, statement: str, *, csv: bool) -> str | None:
+    def answer(
+        self,
+        database: str | None,
+        statement: str,
+        *,
+        csv: bool,
+        container: _DatabaseContainer | None = None,
+    ) -> str | None:
         """
         Answer a statement the database page sends, or None to leave it to _sql.
 
@@ -1212,6 +1582,8 @@ class _DemoDatabase:
             database: The database the client was pointed at (``-d``).
             statement: The SQL.
             csv: The structured console asked for a header row.
+            container: The database container the client runs in, whose databases and
+                roles the server-wide answers describe instead of the host's.
 
         Returns:
             What psql prints, or None.
@@ -1232,6 +1604,27 @@ class _DemoDatabase:
             return self.rows(statement)
         if "noust_row_change" in statement and mine:
             return self.edit(statement)
+        if container is not None and "'blks_hit', (SELECT sum(blks_hit)" in statement:
+            return json.dumps(
+                {
+                    "connections": 2,
+                    "max_connections": 100,
+                    "blks_hit": 4_120_311,
+                    "blks_read": 20_311,
+                    "databases": [
+                        {
+                            "name": name,
+                            "size_bytes": size,
+                            "connections": 2,
+                            "xact": 318_207,
+                            "blks_hit": 4_120_311,
+                            "blks_read": 20_311,
+                        }
+                        for name, (_owner, size) in container.databases.items()
+                        if name != "postgres"
+                    ],
+                }
+            )
         if "'blks_hit', (SELECT sum(blks_hit) FROM pg_catalog.pg_stat_database)" in statement:
             return json.dumps(
                 {
@@ -1260,7 +1653,8 @@ class _DemoDatabase:
                 }
             )
         if "'server_connections', (SELECT count(*) FROM pg_catalog.pg_stat_activity" in statement:
-            return self.database_metrics(mine)
+            size = container.databases.get(database or "", (None, 0))[1] if container else None
+            return self.database_metrics(mine, size_bytes=size)
         if "e.extname = 'pg_stat_statements'" in statement:
             return json.dumps({"schema": "public" if mine else None, "preloaded": mine})
         if "pg_stat_statements p" in statement:
@@ -1297,6 +1691,9 @@ class _DemoDatabase:
                 ]
             )
         if "aclexplode(d.defaclacl)" in statement:
+            if container is not None:
+                # The image's POSTGRES_USER owns what it created and is the superuser.
+                return "catalogo|t|t|0|0|0|f|f\n"
             if not mine:
                 return "wasm_app|t|f|0|0|0|f|f\npostgres|f|t|0|0|0|f|f\n"
             return (
@@ -1517,12 +1914,12 @@ class _DemoDatabase:
             rows.append(new)
             return json.dumps({"before": None, "after": image(new)})
 
-    def database_metrics(self, mine: bool) -> str:
+    def database_metrics(self, mine: bool, *, size_bytes: int | None = None) -> str:
         """A database's statistics, as the metrics reader's per-database query answers."""
         if not mine:
             return json.dumps(
                 {
-                    "size_bytes": 9_120_563,
+                    "size_bytes": size_bytes or 9_120_563,
                     "server_connections": 9,
                     "max_connections": 100,
                     "stat": {
@@ -1692,6 +2089,9 @@ def make_runner(
             self._mysql_databases: dict[str, tuple[int, int]] = dict(_MYSQL_DATABASES)
             # What a database's own page reads: its tables, rows, metrics, access.
             self._demo_database = _DemoDatabase()
+            # Docker's database containers, and the one a command is being run inside.
+            self._containers = _DatabaseContainers()
+            self._inside = threading.local()
 
         def run(self, argv: Sequence[str], **kwargs: Any) -> CommandResult:
             # Noust's own SQL reaches the database clients on stdin; the psql
@@ -1704,11 +2104,14 @@ def make_runner(
             argv: Sequence[str],
             user: str | None = None,
             env: Mapping[str, str] | None = None,
+            *,
+            record: bool = True,
         ) -> CommandResult:
             args = tuple(str(a) for a in argv)
             recorded = (*runuser_prefix(user), *args) if user is not None else args
-            self.calls.append(recorded)
-            self.envs.append(dict(env) if env is not None else None)
+            if record:
+                self.calls.append(recorded)
+                self.envs.append(dict(env) if env is not None else None)
             # Answered as the command it runs: switching the account (runuser -u
             # postgres -- psql) asks the same question of the machine.
             program = args[0] if args else ""
@@ -1721,6 +2124,19 @@ def make_runner(
                     return self._systemctl(args)
                 if program == "journalctl":
                     return self._journal(args)
+            if program == "docker":
+                inside = self._containers.exec_target(args)
+                if inside is not None:
+                    return self._exec_in_container(args, *inside)
+                answered = self._containers.answer(args)
+                if answered is not None:
+                    return CommandResult(args, *answered)
+            if program == "pg_lsclusters":
+                return ok(args, _PG_CLUSTER_LINE)
+            if program.endswith("/bin/postgres") and "-C" in args:
+                # postgres -C NAME prints the value its configuration files give NAME.
+                asked = _postgres_settings(_host_tree()).get(args[args.index("-C") + 1])
+                return ok(args, f"{asked[0]}\n" if asked else "")
             if program == "nginx":
                 if "-v" in args:
                     return CommandResult(args, 0, "", "nginx version: nginx/1.24.0 (Ubuntu)\n")
@@ -1742,6 +2158,7 @@ def make_runner(
                     _psql_database(args),
                     getattr(self._stdin, "value", "") or _psql_console_sql(args),
                     csv="--csv" in args,
+                    container=getattr(self._inside, "container", None),
                 )
                 if demo is not None:
                     return ok(args, demo)
@@ -1777,6 +2194,35 @@ def make_runner(
             if program == "ssh-keygen":
                 return self._ssh_keygen(args)
             return ok(args)
+
+        def _exec_in_container(
+            self, args: tuple[str, ...], container: _DatabaseContainer, inner: tuple[str, ...]
+        ) -> CommandResult:
+            """
+            Run a client inside a database container: the same answers as the host's engine,
+            over the container's own databases.
+
+            Args:
+                args: The ``docker exec`` as Noust built it.
+                container: The container it names.
+                inner: The command that runs in it, program first.
+
+            Returns:
+                What the client prints, or Docker's refusal for a container that is stopped.
+            """
+            if container.state != "running":
+                return CommandResult(
+                    args,
+                    1,
+                    "",
+                    f"Error response from daemon: container {container.container_id} "
+                    "is not running\n",
+                )
+            self._inside.container = container
+            try:
+                return replace(self._lookup(inner, record=False), argv=args)
+            finally:
+                self._inside.container = None
 
         @staticmethod
         def _ssh_keygen(args: tuple[str, ...]) -> CommandResult:
@@ -1818,6 +2264,9 @@ def make_runner(
             if verb == "list-units":
                 return ok(args, self._list_units(targets))
             name = unit_of(targets[-1]) if targets else ""
+            if name == _PG_CLUSTER_UNIT:
+                # The cluster's own unit is the machine's `postgresql`: one state for both.
+                name = "postgresql"
             unit = units.get(name)
             template = template_of(name)
             if unit is None and template is not None and verb in ("start", "restart"):
@@ -1918,6 +2367,26 @@ def make_runner(
             # afterwards - including PostgresManager.create_database's own
             # follow-up call to get_database_info, which re-checks existence.
             #
+            # A client run inside a database container (see _exec_in_container) is the
+            # same PostgreSQL over the container's own databases and roles.
+            container = getattr(self._inside, "container", None)
+            pg_databases = container.databases if container is not None else self._pg_databases
+            pg_users = container.users if container is not None else _PG_USERS
+            # The settings page: pg_settings and SHOW GLOBAL VARIABLES, as the engine
+            # would answer them over the files Noust has written (see _postgres_settings).
+            if program == "psql" and "FROM pg_settings" in statement:
+                return "".join(
+                    f"{key}|{value}|{context}|{source}\n"
+                    for key, (value, context, source) in _postgres_settings(_host_tree()).items()
+                    if f"'{key}'" in statement
+                )
+            if program == "mysql" and "SHOW GLOBAL VARIABLES" in statement:
+                return "".join(
+                    f"{name}\t{value}\n"
+                    for name, value in _mysql_variables(_host_tree()).items()
+                    if f"'{name}'" in statement
+                )
+            #
             # More specific matches first: PostgresManager.get_database_info's owner
             # query and database_exists' existence check both contain "pg_database"
             # as a substring (inside "pg_database_size" and "FROM pg_database"), so
@@ -1935,25 +2404,24 @@ def make_runner(
                 and "datistemplate" in statement
             ):
                 return "".join(
-                    f"{name}|UTF8|{size}|{owner}\n"
-                    for name, (owner, size) in self._pg_databases.items()
+                    f"{name}|UTF8|{size}|{owner}\n" for name, (owner, size) in pg_databases.items()
                 )
             if program == "psql" and "d.datdba = r.oid" in statement:
                 name = _sql_literal(statement)
-                info = self._pg_databases.get(name or "")
+                info = pg_databases.get(name or "")
                 return f"{name}|UTF8|{info[1]}|{info[0]}\n" if info else ""
             if program == "psql" and statement.lstrip().startswith("SELECT 1 FROM pg_database"):
-                return "1\n" if _sql_literal(statement) in self._pg_databases else ""
+                return "1\n" if _sql_literal(statement) in pg_databases else ""
             if program == "psql" and statement.lstrip().startswith("CREATE DATABASE"):
                 name = _sql_identifier(statement, '"')
                 if name is not None:
                     owner = _sql_identifier(statement, '"', after="OWNER") or "postgres"
-                    self._pg_databases[name] = (owner, 8192)
+                    pg_databases[name] = (owner, 8192)
                 return ""
             if program == "psql" and statement.lstrip().startswith("DROP DATABASE"):
                 name = _sql_identifier(statement, '"')
                 if name is not None:
-                    self._pg_databases.pop(name, None)
+                    pg_databases.pop(name, None)
                 return ""
             # list_users()'s combined query aliases every column ("r.rolsuper"
             # rather than the old bare "rolsuper"), so it no longer contains
@@ -1961,7 +2429,7 @@ def make_runner(
             # function unique to this query's databases-per-role column - see
             # _PG_USERS for its (now 5-column) shape.
             if program == "psql" and "has_database_privilege" in statement:
-                return _PG_USERS
+                return pg_users
             # PostgresManager.server_port() asks the superuser session which
             # port the cluster listens on, for connection strings and the
             # read-only console's TCP login.
@@ -1973,7 +2441,7 @@ def make_runner(
                 return _PG_DEMO_ROWS_CSV if headers else _PG_DEMO_ROWS
             if program == "psql" and "pg_database" in statement:
                 return "".join(
-                    f"{name}|UTF8|{size}\n" for name, (_owner, size) in self._pg_databases.items()
+                    f"{name}|UTF8|{size}\n" for name, (_owner, size) in pg_databases.items()
                 )
             # Same reasoning for MySQL: get_database_info's size query sums
             # bare "DATA_LENGTH + INDEX_LENGTH" columns (single table, no
@@ -5520,6 +5988,94 @@ def seed_databases(sandbox: Sandbox) -> None:
             ts=stamp,
         )
     metrics.consolidate(now=stamp_now)
+    seed_detected_use(store)
+    model_database_containers()
+
+
+#: The application whose ``.env`` names ``example_staging`` without Noust having linked it:
+#: the database's row offers to record the use (``detected_apps``).
+DETECTED_APP = "docs.example.org"
+
+#: The database that application's ``DATABASE_URL`` points at, on the host's PostgreSQL.
+DETECTED_DATABASE = "example_staging"
+
+
+def seed_detected_use(store: Any) -> None:
+    """
+    Make one application's ``.env`` name a database it has no link to (3.3).
+
+    The use is found the way a real one is: the ``.env`` the layout says (``env_file_for``)
+    is read for connection strings, which here points at the host's PostgreSQL on its port.
+
+    Args:
+        store: The seeded store.
+    """
+    from noust.deployers.helpers.layout import env_file_for
+
+    app = store.get_app(DETECTED_APP)
+    if app is None:
+        return
+    env_file = env_file_for(app)
+    url = f"postgres://staging_app:Stg-demo-9Fq2@127.0.0.1:5432/{DETECTED_DATABASE}"
+    text = env_file.read_text(encoding="utf-8") if env_file.is_file() else "NODE_ENV=production\n"
+    if re.search(r"^DATABASE_URL=", text, re.MULTILINE):
+        text = re.sub(r"^DATABASE_URL=.*$", f"DATABASE_URL={url}", text, flags=re.MULTILINE)
+    else:
+        text = f"{text.rstrip(chr(10))}\nDATABASE_URL={url}\n"
+    env_file.write_text(text, encoding="utf-8")
+    env_file.chmod(0o600)
+
+
+class _DockerInstalled:
+    """
+    The runner database discovery asks, for which Docker is installed.
+
+    The modelled machine has no Docker for every other page (the adoption wizard and the
+    dependency checks say so, and their suites rely on it), yet it holds a database
+    container; discovery gates itself on ``exists("docker")``, so only it is told otherwise.
+    Everything else is the runner's own.
+    """
+
+    def __init__(self, runner: Any) -> None:
+        """
+        Args:
+            runner: The machine's runner.
+        """
+        self._runner = runner
+
+    def exists(self, program: str) -> bool:
+        """
+        Args:
+            program: An executable name.
+
+        Returns:
+            True for ``docker``, otherwise what the runner says.
+        """
+        return program == "docker" or bool(self._runner.exists(program))
+
+    def run(self, argv: Sequence[str], **kwargs: Any) -> Any:
+        """
+        Args:
+            argv: The command.
+            **kwargs: The runner's options.
+
+        Returns:
+            The runner's answer, which for Docker is :class:`_DatabaseContainers`'.
+        """
+        return self._runner.run(argv, **kwargs)
+
+
+def model_database_containers() -> None:
+    """Show the Databases area the machine's database container (``engines``, ``databases``)."""
+    import noust.managers.database.service as service_module
+    from noust.core.runner import get_runner
+
+    discover = service_module.discover
+
+    def discover_with_docker(runner: Any = None) -> Any:
+        return discover(_DockerInstalled(runner or get_runner()))
+
+    service_module.discover = discover_with_docker
 
 
 def seed_release_22(
@@ -7591,6 +8147,46 @@ SERVER_PROGRAMS = (
     "systemd-detect-virt",
 )
 
+#: What Debian's postgresql-common writes for a cluster: the settings Noust edits that it
+#: sets itself, and the include_dir that makes Noust's own conf.d file count.
+_SERVER_POSTGRESQL_CONF = """\
+# -----------------------------
+# PostgreSQL configuration file
+# -----------------------------
+data_directory = '/var/lib/postgresql/16/main'
+hba_file = '/etc/postgresql/16/main/pg_hba.conf'
+ident_file = '/etc/postgresql/16/main/pg_ident.conf'
+external_pid_file = '/var/run/postgresql/16-main.pid'
+port = 5432
+max_connections = 100
+unix_socket_directories = '/var/run/postgresql'
+ssl = on
+shared_buffers = 128MB
+dynamic_shared_memory_type = posix
+max_wal_size = 1GB
+min_wal_size = 80MB
+log_line_prefix = '%m [%p] %q%u@%d '
+cluster_name = '16/main'
+datestyle = 'iso, dmy'
+timezone = 'Europe/Madrid'
+lc_messages = 'en_US.UTF-8'
+default_text_search_config = 'pg_catalog.spanish'
+include_dir = 'conf.d'
+"""
+
+#: Ubuntu's mysqld.cnf: the include directory Noust writes 99-noust.cnf into is the one
+#: /etc/mysql/my.cnf already reads.
+_SERVER_MYSQLD_CNF = """\
+[mysqld]
+user            = mysql
+# bind-address  = 127.0.0.1
+mysqlx-bind-address = 127.0.0.1
+key_buffer_size         = 16M
+myisam-recover-options  = BACKUP
+log_error = /var/log/mysql/error.log
+max_binlog_size   = 100M
+"""
+
 _SERVER_OS_RELEASE = """PRETTY_NAME="Ubuntu 24.04.1 LTS"
 NAME="Ubuntu"
 VERSION_ID="24.04"
@@ -7809,6 +8405,9 @@ class ServerHost:
         self.write(
             "/etc/sudoers", "Defaults env_reset\nroot ALL=(ALL:ALL) ALL\n%sudo ALL=(ALL:ALL) ALL\n"
         )
+        self.write(f"{_PG_CONFIG_DIR}/postgresql.conf", _SERVER_POSTGRESQL_CONF)
+        (self.root / _PG_CONFIG_DIR.lstrip("/") / "conf.d").mkdir(parents=True, exist_ok=True)
+        self.write("/etc/mysql/mysql.conf.d/mysqld.cnf", _SERVER_MYSQLD_CNF)
         self.write("/root/.ssh/authorized_keys", f"{self.operator_key}\n")
         self.write("/home/deploy/.ssh/authorized_keys", f"{self.deploy_key}\n")
         for path in ("root/.ssh", "home/deploy/.ssh"):
@@ -8122,6 +8721,18 @@ def model_server_host(sandbox: Sandbox, hostname: str, units: dict[str, Unit]) -
     host = ServerHost(sandbox.root / "host", hostname, units)
     host.build()
     HostPaths.__init__.__defaults__ = (host.root,)
+
+    # The database area keeps its own HostPaths, made when the module was imported: without
+    # this the engines' settings (and the distribution the install catalog reads) would be
+    # this machine's, and a change made in the console would be a write to its /etc.
+    import noust.managers.database.settings as database_settings
+    from noust.managers.database import flavours
+
+    flavours.HOST = HostPaths(root=host.root)
+    # What the recommendations are computed from: the modelled server, not this machine.
+    database_settings.server_resources = lambda: database_settings.Resources(
+        memory_bytes=_MODELLED_MEMORY_BYTES, cpus=_MODELLED_CPUS
+    )
 
     gib = 1024**3
 
