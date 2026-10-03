@@ -28,7 +28,7 @@ import json
 import os
 import re
 import tempfile
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -56,13 +56,18 @@ from noust.managers.database.base import (
     BaseDatabaseManager,
     DatabaseInfo,
     ListenAddress,
+    RestoreOutcome,
     UserInfo,
     format_size,
     listen_address,
 )
 from noust.managers.database.flavours import InstallPlan, distribution, plan_install
 from noust.managers.database.instances import PASSWORD_SOURCES
+from noust.managers.database.mongo_archive import ArchiveError, read_prelude
 from noust.managers.database.registry import DatabaseRegistry
+
+#: A database name mongorestore reads literally in ``--nsInclude``/``--nsTo``.
+_LITERAL_NAMESPACE = re.compile(r"[A-Za-z0-9_-]+")
 
 #: Roles MongoDB ships. A deployment may define its own, which are accepted as
 #: long as the name is a plain identifier.
@@ -1012,26 +1017,127 @@ class MongoDBManager(BaseDatabaseManager):
                     details=result.stderr.strip() or "mongorestore reported no error text.",
                 )
 
+    def restore(
+        self,
+        database: str,
+        backup_path: Path,
+        drop_existing: bool = False,
+        *,
+        safety_backup: bool = True,
+        on_safety_copy: Callable[[Path], None] | None = None,
+        **kwargs: Any,
+    ) -> RestoreOutcome:
+        """
+        Restore a database, refusing a container archive it cannot aim first.
+
+        A container's archive is loaded into the namespaces it names unless
+        mongorestore is told otherwise, so which database it holds is read
+        before the safety copy is taken or anything is loaded: an archive
+        that cannot be aimed at ``database`` costs nothing.
+
+        Args:
+            database: Target database name.
+            backup_path: Path to the backup file.
+            drop_existing: Drop and recreate the database before loading.
+            safety_backup: Take the safety copy when nothing is dropped.
+            on_safety_copy: Called with the safety copy as soon as it exists.
+            **kwargs: Engine-specific options (``isolated``).
+
+        Returns:
+            What was done, the safety copy included.
+
+        Raises:
+            DatabaseBackupError: When the archive cannot be read or aimed, or
+                the restore fails.
+        """
+        if self.instance is not None and Path(backup_path).exists():
+            self._archive_source(self.validate_database_name(database), Path(backup_path))
+        return super().restore(
+            database,
+            backup_path,
+            drop_existing,
+            safety_backup=safety_backup,
+            on_safety_copy=on_safety_copy,
+            **kwargs,
+        )
+
+    def _archive_source(self, database: str, backup_path: Path) -> str:
+        """
+        Name the database a container archive is loaded from.
+
+        Args:
+            database: The database it is loaded into.
+            backup_path: The archive, plain or gzipped.
+
+        Returns:
+            ``database`` when the archive holds it (or holds nothing), else the
+            one database the archive holds.
+
+        Raises:
+            DatabaseBackupError: When the file is not a mongodump archive, or
+                it holds several databases and none of them is ``database``.
+        """
+        try:
+            prelude = read_prelude(backup_path)
+        except (ArchiveError, OSError) as exc:
+            raise DatabaseBackupError(
+                f"{backup_path.name} cannot be restored into this container's MongoDB",
+                details=(
+                    f"{exc}\nA container's MongoDB restores the archives Noust dumps from a "
+                    "container (.archive or .archive.gz). A dump taken on the host (a "
+                    ".tar.gz tree) is restored into the host's MongoDB."
+                ),
+            ) from exc
+        held = prelude.databases
+        if not held or database in held:
+            source = database
+        elif len(held) == 1:
+            source = held[0]
+        else:
+            raise DatabaseBackupError(
+                f"{backup_path.name} holds several databases and none is '{database}'",
+                details=(
+                    f"It holds: {', '.join(held)}. Restore it into one of those names, or "
+                    "dump the one database you want on its own and restore that."
+                ),
+            )
+        # mongorestore reads '*' and '$name$' in a namespace as patterns, and
+        # the archive is a file anyone with a dump could have written: a name
+        # that is not literal would widen what the restore reaches.
+        for name in (source, database):
+            if not _LITERAL_NAMESPACE.fullmatch(name):
+                raise DatabaseBackupError(
+                    f"'{name}' cannot be named exactly in a mongorestore namespace",
+                    details="Only letters, digits, '_' and '-' are restored into a container.",
+                )
+        return source
+
     def _load_archive(self, database: str, backup_path: Path) -> None:
         """
         Load a container's ``mongodump --archive`` through mongorestore's stdin.
 
-        The archive keeps the namespaces it was dumped from, which is the
-        database it is restored over.
+        The archive keeps the namespaces it was dumped from, and mongorestore
+        writes them back there unless told otherwise. Only the database it is
+        loaded from is included, and it is renamed to ``database`` when they
+        differ, so a restore as a new database, or a restore test, never
+        reaches the original. Nothing is passed ``--drop``: the base restore
+        drops and recreates the database itself when asked to replace it
+        (after the safety copy), exactly as a host restore does.
 
         Args:
-            database: The database it is loaded into, for messages.
+            database: The database it is loaded into.
             backup_path: The archive, plain or gzipped.
 
         Raises:
-            DatabaseBackupError: When mongorestore fails.
+            DatabaseBackupError: When the archive cannot be aimed or
+                mongorestore fails.
         """
+        source = self._archive_source(database, backup_path)
+        argv = ["mongorestore", "--archive", "--nsInclude", f"{source}.*"]
+        if source != database:
+            argv += ["--nsFrom", f"{source}.*", "--nsTo", f"{database}.*"]
         with self._staged_backup(backup_path, f"mongodb-restore-{database}.archive") as staged:
-            result = self._exec(
-                ["mongorestore", "--archive", "--drop"],
-                stdin_path=staged,
-                timeout=TRANSFER_TIMEOUT,
-            )
+            result = self._exec(argv, stdin_path=staged, timeout=TRANSFER_TIMEOUT)
         if not result.success:
             raise DatabaseBackupError(
                 f"Failed to restore database '{database}'",

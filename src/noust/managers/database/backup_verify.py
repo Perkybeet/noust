@@ -9,7 +9,8 @@ Two checks, from cheap to expensive:
 - :func:`check_dump` reads the file the way the engine's own tool would and
   says whether it is whole: ``pg_restore --list`` for a PostgreSQL archive, the
   ``PostgreSQL database dump complete`` trailer of a plain one, mysqldump's
-  ``-- Dump completed`` line, ``tar -tzf`` for a mongodump archive,
+  ``-- Dump completed`` line, ``tar -tzf`` for a host mongodump tree and the
+  prelude of a container's ``mongodump --archive``,
   ``redis-check-rdb`` for a snapshot. A dump that is 0 bytes, truncated or
   corrupt fails here, with the tool's own words, before anything depends on it.
 - :func:`restore_test` loads the dump into a temporary database and drops it
@@ -23,6 +24,7 @@ the tail of a file is plain file access.
 
 from __future__ import annotations
 
+import gzip
 import re
 import secrets
 import tempfile
@@ -35,6 +37,13 @@ from pathlib import Path
 
 from noust.core.exceptions import DatabaseBackupError, DatabaseError
 from noust.managers.database.base import BaseDatabaseManager, backup_format
+from noust.managers.database.mongo_archive import (
+    ARCHIVE_MAGIC,
+    ArchiveError,
+    is_gzip,
+    read_prelude,
+    read_whole,
+)
 from noust.managers.database.postgres import CUSTOM_FORMAT_SIGNATURE
 from noust.managers.database.psql_script import check_plain_dump
 
@@ -281,16 +290,30 @@ def _check_mysql(manager: BaseDatabaseManager, path: Path, size: int) -> DumpChe
 
 def _check_mongodb(manager: BaseDatabaseManager, path: Path, size: int) -> DumpCheck:
     """
-    Check a mongodump archive by listing it.
+    Check a MongoDB dump the way it was written.
+
+    A host dump is a tarball of mongodump's tree, listed with ``tar -tzf``. A
+    container's dump is one ``mongodump --archive`` stream, which tar cannot
+    read: its prelude is read instead (what it holds), and a gzipped one is
+    read to its end so a truncated file shows.
 
     Args:
         manager: The MongoDB manager.
-        path: The archive.
+        path: The dump.
         size: Its size.
 
     Returns:
         The check.
     """
+    try:
+        with gzip.open(path, "rb") if is_gzip(path) else path.open("rb") as stream:
+            head = stream.read(len(ARCHIVE_MAGIC))
+    except (OSError, EOFError, zlib.error):
+        # Not readable as an archive's start: tar says what is wrong with it
+        # in its own words, which is what the operator should see.
+        head = b""
+    if head == ARCHIVE_MAGIC:
+        return _check_mongodb_archive(path)
     result = manager.runner.run(["tar", "-tzf", str(path)], timeout=_CHECK_TIMEOUT)
     if not result.success:
         return _fail("tar -tzf", result.stderr or result.stdout)
@@ -298,6 +321,31 @@ def _check_mongodb(manager: BaseDatabaseManager, path: Path, size: int) -> DumpC
     if not entries:
         return _fail("tar -tzf", "The archive holds nothing.")
     return DumpCheck(True, "tar -tzf", f"{len(entries)} entries listed.")
+
+
+def _check_mongodb_archive(path: Path) -> DumpCheck:
+    """
+    Check a ``mongodump --archive`` by its prelude and, when gzipped, its gzip trailer.
+
+    Args:
+        path: The archive.
+
+    Returns:
+        The check.
+    """
+    try:
+        prelude = read_prelude(path)
+        read_whole(path)
+    except ArchiveError as exc:
+        return _fail("archive prelude", str(exc))
+    except OSError as exc:
+        return _fail("read", f"{exc}")
+    databases = ", ".join(prelude.databases) or "no database"
+    return DumpCheck(
+        True,
+        "archive prelude",
+        f"{len(prelude.namespaces)} collections of {databases} listed.",
+    )
 
 
 def _check_redis(manager: BaseDatabaseManager, path: Path, size: int) -> DumpCheck:
