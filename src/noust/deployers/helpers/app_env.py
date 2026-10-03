@@ -22,7 +22,6 @@ from noust.core.config import Config
 from noust.core.exceptions import DeploymentError
 from noust.core.fs import SECRET_MODE, FileSystem, get_fs
 from noust.core.logger import Logger
-from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, get_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers.env_manager import EnvManager
@@ -137,7 +136,6 @@ def write_app_env(
     *,
     manager: EnvManager | None = None,
     fs: FileSystem | None = None,
-    runner: CommandRunner | None = None,
     logger: Logger | None = None,
 ) -> Path:
     """
@@ -167,8 +165,7 @@ def write_app_env(
         app: The application.
         values: The complete set of variables.
         manager: Writer to use. Defaults to a new one.
-        fs: Filesystem the release link goes through.
-        runner: Runner the ownership change goes through.
+        fs: Filesystem the ownership change and the release link go through.
         logger: Where a failed hand-over or link is reported.
 
     Returns:
@@ -204,7 +201,7 @@ def write_app_env(
         user=service_account(app, config)[0],
         group=service_account(app, config)[1],
         mode=SECRET_MODE,
-        runner=runner or get_runner(),
+        fs=fs or get_fs(),
         logger=log,
     )
 

@@ -83,7 +83,6 @@ from noust.core.exceptions import (
     ValidationError,
 )
 from noust.core.fs import is_rehearsal
-from noust.deployers.helpers.permissions import hand_over_file
 from noust.managers.database import flavours
 from noust.managers.database.base import QUERY_TIMEOUT, SERVICE_TIMEOUT, is_loopback
 
@@ -1393,29 +1392,27 @@ class EngineSettings(ABC):
             except OSError as exc:
                 raise DatabaseEngineError(f"Could not look at {path}", details=str(exc)) from exc
             if info is not None:
-                mode = info.st_mode & 0o7777
+                # Read and write bits only: a configuration file never needs
+                # to be executable, and setuid, setgid or sticky copied from
+                # a file another account can chmod would be carried by root.
+                mode = info.st_mode & 0o666
                 if info.st_uid != 0 or info.st_gid != 0:
                     owner = (info.st_uid, info.st_gid)
         try:
             self.manager.fs.make_dir(path.parent, mode=0o755)
-            self.manager.fs.write_text(path, text, mode=mode)
+            # The owner goes to the temporary file before it takes the path's
+            # place. The directory is often the engine account's own
+            # (/etc/redis), so a chown by name afterwards would follow a link
+            # that account swapped in, handing root's files to it.
+            self.manager.fs.write_text(path, text, mode=mode, owner=owner)
         except OSError as exc:
-            raise DatabaseEngineError(f"Could not write {path}", details=str(exc)) from exc
-        if owner is not None:
+            if owner is None:
+                raise DatabaseEngineError(f"Could not write {path}", details=str(exc)) from exc
             user = _account_name(owner[0], pwd.getpwuid, "pw_name")
             group = _account_name(owner[1], grp.getgrgid, "gr_name")
-            if not hand_over_file(
-                path,
-                user=user,
-                group=group,
-                mode=mode,
-                runner=self.manager.runner,
-                logger=self.manager.logger,
-            ):
-                raise DatabaseEngineError(
-                    f"Could not give {path} back to {user}:{group}",
-                    details=f"Run: chown {user}:{group} {path}",
-                )
+            raise DatabaseEngineError(
+                f"Could not write {path} as {user}:{group}", details=str(exc)
+            ) from exc
 
     def _restart(self) -> None:
         """

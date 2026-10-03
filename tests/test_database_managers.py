@@ -27,6 +27,7 @@ from noust.core.exceptions import (
     DatabaseQueryError,
     DatabaseUserError,
 )
+from noust.core.fs import RealFileSystem
 from noust.core.runner import FakeRunner, SubprocessRunner, set_runner
 from noust.core.store import NoustStore
 from noust.managers.database.base import (
@@ -40,6 +41,7 @@ from noust.managers.database.mysql import MySQLManager, escape_option_file_value
 from noust.managers.database.postgres import PostgresManager
 from noust.managers.database.redis import ACL_COMMAND_PATTERN, ACL_PATTERN_RULE, RedisManager
 from noust.managers.database.registry import DatabaseRegistry, get_db_manager
+from tests.conftest import OwnershipChange
 
 # A dump that breaks every naive "echo '...' > file" implementation: single
 # quotes, shell metacharacters and a run of non-ASCII bytes.
@@ -415,7 +417,10 @@ def test_postgres_backup_argv(
 
 
 def test_postgres_restore_stages_the_dump_for_the_postgres_account(
-    postgres: PostgresManager, runner: FakeRunner, tmp_path: Path
+    postgres: PostgresManager,
+    runner: FakeRunner,
+    tmp_path: Path,
+    ownership_changes: list[OwnershipChange],
 ) -> None:
     """A 0600 root-owned backup is copied and handed to postgres before psql reads it."""
     runner.script(PSQL_PREFIX, stdout="1")
@@ -425,9 +430,8 @@ def test_postgres_restore_stages_the_dump_for_the_postgres_account(
     postgres.restore("shop", dump)
 
     staged = str(postgres.BACKUP_DIR / ".staging" / "postgresql-restore-shop.sql")
-    assert runner.calls[-4] == ("cp", str(dump), staged)
-    assert runner.calls[-3] == ("chown", "postgres:postgres", staged)
-    assert runner.calls[-2] == ("chmod", "600", staged)
+    assert runner.calls[-2] == ("cp", str(dump), staged)
+    assert ownership_changes == [OwnershipChange(Path(staged), "postgres", "postgres", 0o600)]
     assert runner.calls[-1] == (
         "runuser",
         "-u",
@@ -482,7 +486,7 @@ def test_postgres_gzipped_restore_decompresses_without_a_pipe(
     postgres.restore("shop", dump)
 
     staged = str(postgres.BACKUP_DIR / ".staging" / "postgresql-restore-shop.sql")
-    assert runner.calls[-4] == ("gzip", "-dc", str(dump))
+    assert runner.calls[-2] == ("gzip", "-dc", str(dump))
     assert runner.calls[-1][-1] == staged
 
 
@@ -657,7 +661,10 @@ def test_redis_argv_table(redis: RedisManager, runner: FakeRunner) -> None:
 
 
 def test_redis_restore_installs_the_snapshot_and_fixes_ownership(
-    redis: RedisManager, runner: FakeRunner, tmp_path: Path
+    redis: RedisManager,
+    runner: FakeRunner,
+    tmp_path: Path,
+    ownership_changes: list[OwnershipChange],
 ) -> None:
     """A restore takes a safety copy, stops the server, replaces dump.rdb and starts it."""
     runner.script(["redis-cli", "-n", "0", "INFO"], stdout="rdb_bgsave_in_progress:0")
@@ -670,13 +677,17 @@ def test_redis_restore_installs_the_snapshot_and_fixes_ownership(
     stop = runner.calls.index(("systemctl", "stop", "redis-server"))
     assert ("cat", rdb) in runner.calls[:stop], "the safety copy comes before the stop"
     assert runner.calls[stop + 1] == ("cp", str(snapshot), rdb)
-    assert runner.calls[stop + 2] == ("chown", "redis:redis", rdb)
+    assert ownership_changes == [OwnershipChange(Path(rdb), "redis", "redis", 0o660)]
     assert runner.calls[-1] == ("systemctl", "start", "redis-server")
     assert outcome.safety_copy is not None and outcome.safety_copy.exists()
 
 
 def test_redis_restore_puts_the_previous_snapshot_back_when_ownership_fails(
-    redis: RedisManager, runner: FakeRunner, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    redis: RedisManager,
+    runner: FakeRunner,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """
     The chown and chmod used to run with their results discarded, so a
@@ -686,7 +697,11 @@ def test_redis_restore_puts_the_previous_snapshot_back_when_ownership_fails(
     """
     snapshot = tmp_path / "snapshot.rdb"
     snapshot.write_bytes(b"\x00\x01binary")
-    runner.script(["chown"], exit_code=1, stderr="chown: invalid user: 'redis:redis'")
+
+    def no_such_account(*_args: object, **_kwargs: object) -> None:
+        raise KeyError("getpwnam(): name not found: 'redis'")
+
+    monkeypatch.setattr(RealFileSystem, "set_owner", no_such_account)
 
     with pytest.raises(DatabaseBackupError) as excinfo:
         redis.restore("all", snapshot)

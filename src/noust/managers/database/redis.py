@@ -1224,7 +1224,7 @@ class RedisManager(BaseDatabaseManager):
                 user=self.DATA_OWNER,
                 group=self.DATA_OWNER,
                 mode=0o660,
-                runner=self.runner,
+                fs=self.fs,
                 logger=self.logger,
             )
             if not handed_over:

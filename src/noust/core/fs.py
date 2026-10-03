@@ -23,7 +23,9 @@ nothing but noise.
 from __future__ import annotations
 
 import errno
+import grp
 import os
+import pwd
 import shutil
 import stat
 from abc import ABC, abstractmethod
@@ -76,7 +78,14 @@ class FileSystem(ABC):
     """Changes the filesystem. The only thing in the codebase that may."""
 
     @abstractmethod
-    def write_text(self, path: Path, content: str, *, mode: int = 0o644) -> None:
+    def write_text(
+        self,
+        path: Path,
+        content: str,
+        *,
+        mode: int = 0o644,
+        owner: tuple[int, int] | None = None,
+    ) -> None:
         """
         Write a text file, replacing it atomically.
 
@@ -90,6 +99,10 @@ class FileSystem(ABC):
             mode: Permissions to create it with. Use SECRET_MODE for anything
                 holding a credential; the mode is applied at creation, not
                 afterwards, so the file is never briefly world-readable.
+            owner: The uid and gid the file must end up with. They are given
+                to the temporary file through its descriptor before it takes
+                the path's place, because a chown by name afterwards follows
+                whatever an account controlling the directory swapped in.
         """
 
     @abstractmethod
@@ -192,6 +205,29 @@ class FileSystem(ABC):
         """
 
     @abstractmethod
+    def set_owner(self, path: Path, *, user: str, group: str, mode: int) -> None:
+        """
+        Give an existing file or directory to an account, and set its mode.
+
+        The entry is pinned without following a symbolic link and both
+        changes are made to that inode, never by name: a chown or chmod by
+        name in a directory another account controls follows a link swapped
+        in between a check and the change, which hands root's files (say
+        ``/etc/shadow``) to that account.
+
+        Args:
+            path: The entry.
+            user: Account that must own it.
+            group: Group that must own it.
+            mode: Permission bits; setuid, setgid and sticky are never set.
+
+        Raises:
+            KeyError: When the account or the group does not exist.
+            OSError: ``ELOOP`` when the entry is a symbolic link, or what the
+                open, the chown or the chmod report.
+        """
+
+    @abstractmethod
     def symlink(self, target: Path, link: Path) -> None:
         """
         Create a symbolic link, atomically replacing one that is already there.
@@ -238,10 +274,55 @@ def _chmod_entry(path: Path, mode: int) -> None:
         os.close(descriptor)
 
 
+#: The permission bits Noust ever hands out: setuid, setgid and sticky are
+#: never carried onto a file or directory it gives to another account.
+_PERMISSION_BITS = 0o777
+
+
+def _set_owner_entry(path: Path, uid: int, gid: int, mode: int) -> None:
+    """
+    Change the owner and mode of a directory entry without following a link.
+
+    Same technique as :func:`_chmod_entry`: the inode is pinned with
+    ``O_PATH | O_NOFOLLOW`` and changed through the descriptor's ``/proc``
+    alias, so a link swapped in after the open changes nothing.
+
+    Args:
+        path: The entry.
+        uid: New owner.
+        gid: New group.
+        mode: New mode; anything beyond the permission bits is dropped.
+
+    Raises:
+        OSError: ``ELOOP`` when the entry is a symbolic link, or what the
+            open, the chown or the chmod report.
+    """
+    descriptor = os.open(path, os.O_PATH | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        if stat.S_ISLNK(os.fstat(descriptor).st_mode):
+            raise OSError(
+                errno.ELOOP, "refusing to change the owner through a symbolic link", str(path)
+            )
+        alias = f"/proc/self/fd/{descriptor}"
+        os.chown(alias, uid, gid)
+        # After the chown: chown(2) clears setuid and setgid, and the mode
+        # asked for must be the last word.
+        os.chmod(alias, mode & _PERMISSION_BITS)
+    finally:
+        os.close(descriptor)
+
+
 class RealFileSystem(FileSystem):
     """Actually changes the filesystem."""
 
-    def write_text(self, path: Path, content: str, *, mode: int = 0o644) -> None:
+    def write_text(
+        self,
+        path: Path,
+        content: str,
+        *,
+        mode: int = 0o644,
+        owner: tuple[int, int] | None = None,
+    ) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
 
         # A fixed temporary name is a predictable path an attacker can plant a
@@ -260,6 +341,12 @@ class RealFileSystem(FileSystem):
             with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
                 handle.write(content)
                 handle.flush()
+                if owner is not None:
+                    # Through the descriptor and before the rename: the
+                    # directory may be another account's, and nothing after
+                    # os.replace may touch the path by name.
+                    os.fchown(handle.fileno(), owner[0], owner[1])
+                    os.fchmod(handle.fileno(), mode & _PERMISSION_BITS)
                 os.fsync(handle.fileno())
             os.replace(temporary, path)
         except BaseException:
@@ -322,6 +409,10 @@ class RealFileSystem(FileSystem):
             _chmod_entry(path, mode)
         _changed("chmod", path)
 
+    def set_owner(self, path: Path, *, user: str, group: str, mode: int) -> None:
+        _set_owner_entry(path, pwd.getpwnam(user).pw_uid, grp.getgrnam(group).gr_gid, mode)
+        _changed("chown", path)
+
     def symlink(self, target: Path, link: Path) -> None:
         # rename(2) replaces the destination in one step, so the new link is
         # built beside the old one and renamed over it. The random suffix is
@@ -369,7 +460,14 @@ class DryRunFileSystem(FileSystem):
         if self._on_skip is not None:
             self._on_skip(description)
 
-    def write_text(self, path: Path, content: str, *, mode: int = 0o644) -> None:
+    def write_text(
+        self,
+        path: Path,
+        content: str,
+        *,
+        mode: int = 0o644,
+        owner: tuple[int, int] | None = None,
+    ) -> None:
         self._skip(f"would write {path} ({len(content)} bytes, mode {mode:o})")
 
     def make_dir(
@@ -395,6 +493,9 @@ class DryRunFileSystem(FileSystem):
     def chmod(self, path: Path, mode: int, *, follow_symlinks: bool = True) -> None:
         self._skip(f"would set {path} to mode {mode:o}")
 
+    def set_owner(self, path: Path, *, user: str, group: str, mode: int) -> None:
+        self._skip(f"would give {path} to {user}:{group} (mode {mode:o})")
+
     def symlink(self, target: Path, link: Path) -> None:
         self._skip(f"would link {link} to {target}")
 
@@ -410,9 +511,16 @@ class RecordingFileSystem(RealFileSystem):
     def __init__(self) -> None:
         self.changes: list[tuple[str, Path]] = []
 
-    def write_text(self, path: Path, content: str, *, mode: int = 0o644) -> None:
+    def write_text(
+        self,
+        path: Path,
+        content: str,
+        *,
+        mode: int = 0o644,
+        owner: tuple[int, int] | None = None,
+    ) -> None:
         self.changes.append(("write", path))
-        super().write_text(path, content, mode=mode)
+        super().write_text(path, content, mode=mode, owner=owner)
 
     def make_dir(
         self, path: Path, *, mode: int = 0o755, parents: bool = True, exist_ok: bool = True
@@ -443,6 +551,10 @@ class RecordingFileSystem(RealFileSystem):
     def chmod(self, path: Path, mode: int, *, follow_symlinks: bool = True) -> None:
         self.changes.append(("chmod", path))
         super().chmod(path, mode, follow_symlinks=follow_symlinks)
+
+    def set_owner(self, path: Path, *, user: str, group: str, mode: int) -> None:
+        self.changes.append(("chown", path))
+        super().set_owner(path, user=user, group=group, mode=mode)
 
     def symlink(self, target: Path, link: Path) -> None:
         self.changes.append(("symlink", link))

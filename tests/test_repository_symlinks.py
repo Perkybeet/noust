@@ -137,19 +137,18 @@ def test_hand_over_tree_leaves_an_env_file_under_a_linked_directory_alone(
 def test_hand_over_file_refuses_a_link(tmp_path: Path, host_file: Path) -> None:
     link = tmp_path / ".env"
     link.symlink_to(host_file)
-    runner = FakeRunner()
+    before = mode(host_file)
 
     ok = hand_over_file(
         link,
         user="www-data",
         group="www-data",
         mode=SECRET_MODE,
-        runner=runner,
         logger=Logger(no_color=True, stream=io.StringIO()),
     )
 
     assert ok is False
-    assert runner.calls == []
+    assert mode(host_file) == before
 
 
 def test_the_base_env_file_discovery_skips_links(

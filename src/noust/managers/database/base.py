@@ -2277,7 +2277,7 @@ class BaseDatabaseManager(BaseManager):
                 user=owner,
                 group=owner,
                 mode=SECRET_MODE,
-                runner=self.runner,
+                fs=self.fs,
                 logger=self.logger,
             ):
                 raise DatabaseBackupError(

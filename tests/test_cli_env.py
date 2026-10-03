@@ -38,6 +38,7 @@ from noust.core.store import App, NoustStore
 from noust.deployers.helpers import app_env as app_env_module
 from noust.deployers.helpers.env_manager import EnvManager, EnvVariable
 from noust.validators.environment import EnvironmentValidationError
+from tests.conftest import OwnershipChange
 
 #: Flags the root group owns. A subcommand that declares one of them again is
 #: the shadowing defect the Click migration exists to remove.
@@ -841,7 +842,11 @@ def test_export_reads_the_shared_env_of_a_release_app(
 
 
 def test_configure_on_a_release_app_writes_shared_and_never_a_stray_file(
-    deployed: Path, store: NoustStore, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+    deployed: Path,
+    store: NoustStore,
+    runner: FakeRunner,
+    monkeypatch: pytest.MonkeyPatch,
+    ownership_changes: list[OwnershipChange],
 ) -> None:
     """
     Declared by the active release, written to shared/, handed to the service.
@@ -869,6 +874,6 @@ def test_configure_on_a_release_app_writes_shared_and_never_a_stray_file(
     assert stat.S_IMODE(shared_env.stat().st_mode) == 0o600
     assert not os.path.lexists(deployed / ".env")
     assert os.readlink(release / ".env") == "../../shared/.env"
-    assert ("chown", "www-data:www-data", str(shared_env)) in runner.calls
+    assert OwnershipChange(shared_env, "www-data", "www-data", 0o600) in ownership_changes
     assert (deployed / "shared" / ".wasm" / "env-config.json").is_file()
     assert not (deployed / ".wasm").exists()

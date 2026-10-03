@@ -1365,7 +1365,7 @@ class BaseDeployer(AppDeployer):
             user=self._service_account()[0],
             group=self._service_account()[1],
             mode=SECRET_MODE,
-            runner=self.runner,
+            fs=self.fs,
             logger=self.logger,
         )
         return env_file

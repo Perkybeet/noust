@@ -38,6 +38,7 @@ from noust.deployers.monorepo import MonorepoDeployer
 from noust.deployers.nodejs import NodeJSDeployer
 from noust.deployers.static import StaticDeployer
 from noust.validators.environment import EnvironmentValidationError
+from tests.conftest import OwnershipChange
 from tests.test_deployers import (  # noqa: F401 - store is a fixture
     FakeServiceManager,
     build_deployer,
@@ -300,6 +301,7 @@ def test_a_redeploy_moves_the_old_unit_s_inline_variables_to_the_env_file(
 def test_a_conflicting_port_left_in_an_env_file_is_dropped_on_redeploy(
     tmp_path: Path,
     store: NoustStore,  # noqa: F811
+    ownership_changes: list[OwnershipChange],
 ) -> None:
     """
     ``.env.example`` often says PORT=3000, and the env file WASM generated
@@ -317,8 +319,8 @@ def test_a_conflicting_port_left_in_an_env_file_is_dropped_on_redeploy(
 
     assert EnvManager().read_env_file(env_file) == {"KEEP": "1"}
     assert stat.S_IMODE(env_file.stat().st_mode) == SECRET_MODE
-    owner = f"{deployer.config.service_user}:{deployer.config.service_group}"
-    assert deployer.runner.ran("chown", owner, str(env_file))
+    owner = (deployer.config.service_user, deployer.config.service_group)
+    assert (env_file, *owner) in [(c.path, c.user, c.group) for c in ownership_changes]
 
 
 def test_an_env_file_that_agrees_with_the_unit_is_left_alone(

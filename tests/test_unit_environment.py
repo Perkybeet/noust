@@ -33,6 +33,7 @@ from noust.core.runner import FakeRunner, set_runner
 from noust.deployers import unit_environment
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.managers.service_manager import UNIT_MARKER
+from tests.conftest import OwnershipChange
 
 WASM_UNIT = f"""# {UNIT_MARKER}
 [Unit]
@@ -165,7 +166,9 @@ def _migrate(machine: SimpleNamespace) -> Any:
     )
 
 
-def test_the_variables_move_into_the_env_file_and_the_unit_loads_it(machine) -> None:
+def test_the_variables_move_into_the_env_file_and_the_unit_loads_it(
+    machine, ownership_changes: list[OwnershipChange]
+) -> None:
     machine.env_file.write_text("NEXTAUTH_URL=https://old.example.com\nONLY_IN_FILE=1\n")
 
     result = _migrate(machine)
@@ -182,7 +185,7 @@ def test_the_variables_move_into_the_env_file_and_the_unit_loads_it(machine) -> 
     assert result.moved == ("DATABASE_URL", "FEATURE", "JWT_SECRET", "NEXTAUTH_URL")
     unit = (machine.units / "taller-example-com.service").read_text()
     assert "DATABASE_URL" not in unit and f"EnvironmentFile=-{machine.env_file}" in unit
-    assert ("chown", "www-data:www-data", str(machine.env_file)) in machine.runner.calls
+    assert OwnershipChange(machine.env_file, "www-data", "www-data", 0o600) in ownership_changes
 
 
 def test_a_build_time_value_keeps_the_one_builds_used_and_the_old_env_is_kept(machine) -> None:

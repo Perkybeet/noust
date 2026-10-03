@@ -35,11 +35,11 @@ from pathlib import Path
 from noust.core.exceptions import DeploymentError, ValidationError
 from noust.core.fs import get_fs
 from noust.core.logger import Logger
-from noust.core.runner import get_runner
 from noust.core.secret_detection import classify
 from noust.core.store import App, NoustStore, get_store
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.deployers.helpers.layout import app_root, env_file_for
+from noust.deployers.helpers.permissions import hand_over_file
 from noust.managers.service_manager import ServiceManager
 
 #: What a unit keeps inline: not secret, and Noust's to decide (the port, the
@@ -247,8 +247,8 @@ def _unit_of(app: App, store: NoustStore) -> str:
     return units[0]
 
 
-def _owner(unit_text: str) -> str:
-    """The ``user:group`` a unit runs as, for its ``.env``."""
+def _owner(unit_text: str) -> tuple[str, str]:
+    """The user and group a unit runs as, for its ``.env``."""
     user = group = "root"
     for line in unit_text.splitlines():
         stripped = line.strip()
@@ -256,7 +256,31 @@ def _owner(unit_text: str) -> str:
             user = group = stripped.removeprefix("User=").strip() or "root"
         elif stripped.startswith("Group="):
             group = stripped.removeprefix("Group=").strip() or group
-    return f"{user}:{group}"
+    return user, group
+
+
+def _hand_over_env(env_file: Path, unit_text: str, log: Logger) -> None:
+    """
+    Give an application's ``.env`` to the account its unit runs as.
+
+    Through :func:`hand_over_file`, never ``chown`` by name: an in-place
+    application's directory is its own account's, which could swap the
+    file for a link to one of root's between the write and the chown.
+
+    Args:
+        env_file: The file just written.
+        unit_text: The unit, which names the account.
+        log: Where the failure is reported.
+
+    Raises:
+        DeploymentError: When the file could not be handed over.
+    """
+    user, group = _owner(unit_text)
+    if not hand_over_file(env_file, user=user, group=group, mode=0o600, logger=log):
+        raise DeploymentError(
+            f"Could not give {env_file} to {user}:{group}",
+            details=f"The application could not read it. Check: ls -l {env_file}",
+        )
 
 
 def _keep_previous(app: App, text: str) -> Path:
@@ -346,7 +370,7 @@ def migrate(
 
     log.substep(f"Moving {len(moving)} variable(s) of {domain} from {unit}.service to {env_file}")
     env.write_env_file(env_file, merged)
-    get_runner().run(["chown", _owner(before), str(env_file)], timeout=30, check=True)
+    _hand_over_env(env_file, before, log)
     services.rewrite_unit(unit, after)
 
     healthy, evidence = health_gate_for(app, store, log).restart_and_probe()
@@ -368,7 +392,7 @@ def migrate(
         fs.remove(env_file)
     else:
         fs.write_text(env_file, previous_env, mode=0o600)
-        get_runner().run(["chown", _owner(before), str(env_file)], timeout=30, check=True)
+        _hand_over_env(env_file, before, log)
     restored, _ = health_gate_for(app, store, log).restart_and_probe()
     state = (
         "it runs on its previous unit again"

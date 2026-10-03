@@ -1365,7 +1365,7 @@ def _hand_over(directories: Sequence[Path], log: Logger, app: App | None = None)
             user=user,
             group=group,
             mode=_DIR_MODE,
-            runner=get_runner(),
+            fs=get_fs(),
             logger=log,
         )
 
@@ -1382,7 +1382,7 @@ def _keep_the_directory_root_owned(root: Path, log: Logger) -> None:
         root: The application directory.
         log: Where a failure is reported.
     """
-    hand_over_file(root, user="root", group="root", mode=_DIR_MODE, runner=get_runner(), logger=log)
+    hand_over_file(root, user="root", group="root", mode=_DIR_MODE, logger=log)
 
 
 def _rewrite_unit(

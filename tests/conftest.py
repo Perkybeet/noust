@@ -13,9 +13,13 @@ opt out with ``@pytest.mark.allow_subprocess``.
 
 from __future__ import annotations
 
+import errno
+import os
+import stat
 import subprocess
 import sys
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
@@ -43,6 +47,10 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "allow_sockets: permit this test to open real network connections",
     )
+    config.addinivalue_line(
+        "markers",
+        "real_ownership: let RealFileSystem.set_owner really chown (to this account only)",
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -67,6 +75,65 @@ def forbid_real_subprocess(request: pytest.FixtureRequest, monkeypatch: pytest.M
 
     for name in ("run", "Popen", "call", "check_call", "check_output", "getoutput"):
         monkeypatch.setattr(subprocess, name, _blocked, raising=False)
+
+
+@dataclass
+class OwnershipChange:
+    """
+    One hand-over :meth:`~noust.core.fs.RealFileSystem.set_owner` was asked for.
+
+    Attributes:
+        path: The entry.
+        user: Account it was given to.
+        group: Group it was given to.
+        mode: Mode it was given.
+    """
+
+    path: Path
+    user: str
+    group: str
+    mode: int
+
+
+@pytest.fixture(autouse=True)
+def ownership_changes(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> list[OwnershipChange]:
+    """
+    Record hand-overs instead of making them, keeping their other effects.
+
+    A chown to another account needs root, which the suite never is, and the
+    accounts a test names (``redis``, ``www-data``) need not exist here. So
+    the owner is recorded rather than changed, while a symbolic link is still
+    refused and the mode is still applied without following one: what the
+    callers rely on keeps happening for real.
+
+    Args:
+        request: The pytest request, used to honour the opt-out marker.
+        monkeypatch: Patching helper, scoped to the test.
+
+    Returns:
+        The hand-overs, in order.
+    """
+    from noust.core import fs as fs_module
+
+    changes: list[OwnershipChange] = []
+    if request.node.get_closest_marker("real_ownership"):
+        return changes
+
+    def record(_self: object, path: Path, *, user: str, group: str, mode: int) -> None:
+        if not os.path.lexists(path):
+            # A file the FakeRunner was asked to produce (a ``cp``, a
+            # ``gzip -dc``) and so never did: there is nothing to change.
+            changes.append(OwnershipChange(path, user, group, mode))
+            return
+        if stat.S_ISLNK(path.lstat().st_mode):
+            raise OSError(errno.ELOOP, "refusing to change the owner through a link", str(path))
+        fs_module._chmod_entry(path, mode & 0o777)
+        changes.append(OwnershipChange(path, user, group, mode))
+
+    monkeypatch.setattr(fs_module.RealFileSystem, "set_owner", record)
+    return changes
 
 
 class PortProbe:

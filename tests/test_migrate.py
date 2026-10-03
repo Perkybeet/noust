@@ -34,6 +34,7 @@ from noust.core.utils import domain_to_app_name
 from noust.deployers import lifecycle
 from noust.deployers import migrate as migrate_module
 from noust.deployers.migrate import count_tree, migrate, plan_migration, relocate
+from tests.conftest import OwnershipChange
 
 DOMAIN = "shop.example.com"
 PORT = 3100
@@ -340,7 +341,7 @@ def test_only_in_place_applications_of_a_release_type_can_be_migrated(
 
 
 def test_the_live_tree_becomes_the_first_release_and_uploads_move_to_shared(
-    root: Path, store: NoustStore, machine: Any
+    root: Path, store: NoustStore, machine: Any, ownership_changes: list[OwnershipChange]
 ) -> None:
     """Review Focus: every upload in shared/, served through the release; not a byte lost."""
     before_files = files_by_content(root)
@@ -391,10 +392,10 @@ def test_the_live_tree_becomes_the_first_release_and_uploads_move_to_shared(
     assert (history.status, history.triggered_by) == ("success", "panel")
 
     # New directories are the service's; the application directory is root's again.
-    calls = machine.runner.calls
-    assert ("chown", "www-data:www-data", str(release)) in calls
-    assert ("chown", "www-data:www-data", str(root / "shared")) in calls
-    assert ("chown", "root:root", str(root)) in calls
+    handed = [(c.path, c.user, c.group) for c in ownership_changes]
+    assert (release, "www-data", "www-data") in handed
+    assert (root / "shared", "www-data", "www-data") in handed
+    assert (root, "root", "root") in handed
 
 
 def test_a_migration_that_does_not_come_up_is_undone_exactly(

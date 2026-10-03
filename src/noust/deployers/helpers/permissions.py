@@ -17,10 +17,11 @@ every other app type shipped with the bug above.
 
 from __future__ import annotations
 
+import errno
 from collections.abc import Iterable
 from pathlib import Path
 
-from noust.core.fs import SECRET_MODE, FileSystem
+from noust.core.fs import SECRET_MODE, FileSystem, get_fs
 from noust.core.logger import Logger
 from noust.core.runner import CommandRunner
 
@@ -131,52 +132,47 @@ def hand_over_file(
     user: str,
     group: str,
     mode: int,
-    runner: CommandRunner,
     logger: Logger,
+    fs: FileSystem | None = None,
 ) -> bool:
     """
-    Make ``user:group`` the owner of a single file and set its mode.
+    Make ``user:group`` the owner of a single file or directory and set its mode.
 
     Unlike :func:`hand_over_tree`, a failure here is not something the caller
     can shrug off: a restore that goes on to report "restored" over a file
     still owned by root, or a database engine that reports success while its
     own account cannot read the snapshot it was just handed, is the silent
     failure CLAUDE.md rule 2 exists to remove. So this returns whether it
-    actually worked instead of only logging a warning, and the chmod does not
-    run at all when the chown failed - changing the mode of a file still
-    owned by the wrong account would not make it usable and would bury the
-    real failure under a second, unrelated-looking log line.
+    actually worked instead of only logging a warning.
+
+    The change goes to the inode the path names when it is pinned, never to
+    the path by name: these files live in directories other accounts own (an
+    engine's data directory, an application's tree), and a ``chown`` by name
+    after a check follows a link swapped in between the two, handing the
+    file it points at - ``/etc/shadow`` - to that account.
 
     Args:
-        path: File to hand over.
+        path: File or directory to hand over.
         user: Account that must own it.
         group: Group that must own it.
-        mode: Permission bits to apply.
-        runner: Runner the chown and chmod execute through.
+        mode: Permission bits to apply; setuid, setgid and sticky are dropped.
         logger: Logger for the failure, when there is one.
+        fs: Filesystem the change goes through; the process-wide one by default.
 
     Returns:
-        True if both the chown and the chmod succeeded.
+        True if the owner and the mode were both applied (or, in a rehearsal,
+        would have been).
     """
-    # chown and chmod dereference a link given by name, so a link where a
-    # file was expected would hand whatever it points at to the account.
-    if path.is_symlink():
-        logger.warning(f"Refusing to hand {path} over: it is a symbolic link")
+    filesystem = fs or get_fs()
+    try:
+        filesystem.set_owner(path, user=user, group=group, mode=mode)
+    except KeyError:
+        logger.warning(f"Could not hand {path} over to {user}:{group}: no such account or group")
         return False
-    chown = runner.run(
-        ["chown", f"{user}:{group}", str(path)],
-        timeout=_PERMISSIONS_TIMEOUT,
-    )
-    if not chown.success:
-        logger.warning(f"Could not hand {path} over to {user}:{group}: {chown.stderr.strip()}")
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            logger.warning(f"Refusing to hand {path} over: it is a symbolic link")
+        else:
+            logger.warning(f"Could not hand {path} over to {user}:{group}: {exc}")
         return False
-
-    chmod = runner.run(
-        ["chmod", f"{mode:o}", str(path)],
-        timeout=_PERMISSIONS_TIMEOUT,
-    )
-    if not chmod.success:
-        logger.warning(f"Could not set permissions on {path}: {chmod.stderr.strip()}")
-        return False
-
     return True

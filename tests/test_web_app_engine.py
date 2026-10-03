@@ -35,6 +35,7 @@ from noust.deployers.helpers import app_env as app_env_module
 from noust.web.api import apps as apps_api
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import require_elevated
+from tests.conftest import OwnershipChange
 
 DOMAIN = "rel.example.com"
 RELEASE_A = "20260925-120000-aaaaaaa"
@@ -138,7 +139,10 @@ def test_get_env_reads_shared_on_the_release_layout(
 
 
 def test_put_env_writes_shared_hands_it_over_and_links_it(
-    client: TestClient, store: NoustStore, tmp_path: Path, runner: FakeRunner
+    client: TestClient,
+    store: NoustStore,
+    tmp_path: Path,
+    ownership_changes: list[OwnershipChange],
 ) -> None:
     """The write lands where every release reads it, owned by the service account."""
     root = tmp_path / "rel"
@@ -152,7 +156,7 @@ def test_put_env_writes_shared_hands_it_over_and_links_it(
     assert stat.S_IMODE(shared_env.stat().st_mode) == 0o600
     assert not os.path.lexists(root / ".env"), "a stray .env the application never reads"
     assert os.readlink(root / "releases" / RELEASE_A / ".env") == "../../shared/.env"
-    assert ("chown", "www-data:www-data", str(shared_env)) in runner.calls
+    assert OwnershipChange(shared_env, "www-data", "www-data", 0o600) in ownership_changes
 
 
 def test_put_env_in_place_still_writes_the_app_directory(

@@ -567,7 +567,16 @@ def make_sandbox_filesystem(sandbox: Sandbox) -> Any:
             print(f"console_server: {message}", file=sys.stderr, flush=True)
             return False
 
-        def write_text(self, path: Path, content: str, *, mode: int = 0o644) -> None:
+        def write_text(
+            self,
+            path: Path,
+            content: str,
+            *,
+            mode: int = 0o644,
+            owner: tuple[int, int] | None = None,
+        ) -> None:
+            # The owner is dropped: the console server is not root, and the
+            # modelled machine's accounts do not exist on this one.
             if self._inside("write", path):
                 super().write_text(path, content, mode=mode)
 
@@ -600,6 +609,12 @@ def make_sandbox_filesystem(sandbox: Sandbox) -> Any:
         def chmod(self, path: Path, mode: int, *, follow_symlinks: bool = True) -> None:
             if self._inside("chmod", path):
                 super().chmod(path, mode, follow_symlinks=follow_symlinks)
+
+        def set_owner(self, path: Path, *, user: str, group: str, mode: int) -> None:
+            # Only the mode: a chown to the modelled machine's accounts needs
+            # root, which the console server never is.
+            if self._inside("chown", path):
+                super().chmod(path, mode, follow_symlinks=False)
 
         def symlink(self, target: Path, link: Path) -> None:
             if self._inside("symlink", link):

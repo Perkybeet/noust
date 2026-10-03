@@ -30,6 +30,7 @@ could do each of those; every one is pinned here:
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -240,15 +241,45 @@ def test_a_file_replaced_before_its_hand_over_failed_is_still_put_back(
 ) -> None:
     main = root / "etc/redis/redis.conf"
     original = main.read_text()
-    monkeypatch.setattr(settings_module, "hand_over_file", lambda *args, **kwargs: False)
+
+    def refuse(*_args: object) -> None:
+        raise PermissionError(1, "Operation not permitted")
+
+    monkeypatch.setattr(os, "fchown", refuse)
     settings = redis_settings(scripted)
     # The test runs as an ordinary account, so redis.conf is not root's and
-    # is handed back after it is replaced: that hand-over fails here.
+    # is handed back as it is replaced: that hand-over fails here.
 
     with pytest.raises(DatabaseEngineError):
         settings.apply({"appendonly": "yes"})
 
     assert main.read_text() == original
+
+
+def test_a_preserved_file_is_handed_back_through_its_descriptor_never_by_name(
+    scripted: ScriptedRunner, root: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A file of the engine's account gets its owner before it takes its name.
+
+    It used to be written as root's and then handed back with ``chown
+    redis:redis /etc/redis/redis.conf`` and ``chmod``: /etc/redis is the
+    redis account's, which swaps a link to /etc/shadow in between, and root
+    gives the target away. Nothing may name the path after the write, and a
+    setuid bit the account set on the file must not survive root's copy.
+    """
+    main = root / "etc/redis/redis.conf"
+    main.chmod(0o4640)
+    by_name: list[tuple[object, ...]] = []
+    monkeypatch.setattr(os, "chown", lambda *args, **kwargs: by_name.append(args))
+
+    redis_settings(scripted).apply({"appendonly": "yes"})
+
+    assert not [c for c in scripted.calls if c[0] in ("chown", "chmod")]
+    assert by_name == []
+    info = main.stat()
+    assert info.st_mode & 0o7777 == 0o640
+    assert (info.st_uid, info.st_gid) == (os.getuid(), os.getgid())
 
 
 def test_an_interruption_half_way_puts_the_previous_file_back(
