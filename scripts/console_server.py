@@ -612,8 +612,10 @@ def make_sandbox_filesystem(sandbox: Sandbox) -> Any:
 
         def set_owner(self, path: Path, *, user: str, group: str, mode: int) -> None:
             # Only the mode: a chown to the modelled machine's accounts needs
-            # root, which the console server never is.
-            if self._inside("chown", path):
+            # root, which the console server never is. A file the fake runner
+            # only pretended to write (a staged dump's cp) is not there to
+            # change, and on the modelled machine the hand-over would succeed.
+            if self._inside("chown", path) and os.path.lexists(path):
                 super().chmod(path, mode, follow_symlinks=False)
 
         def symlink(self, target: Path, link: Path) -> None:
