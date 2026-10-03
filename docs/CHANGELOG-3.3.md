@@ -95,8 +95,12 @@ does not know is shown as unknown, never as 0.
 
 A Compose application whose unit is stopped while its containers run (started by hand with
 `docker compose up -d`) used to show as stopped and raise "the unit is not running" while it
-served. It is now shown as running outside Noust, the monitor says once that a reboot would not
-bring it back, and the application offers to hand it back to its unit.
+served. It is now its own state, "Running outside Noust" (amber), in `noust list`, the console,
+the overview and the fleet summary; the monitor says once (`app.outside_unit`) that a reboot would
+not bring it back. `noust app reclaim <domain>` (and the button on the application's page,
+`POST /api/apps/{domain}/reclaim`, sudo mode, audited as `apps.reclaim`) enables and starts the
+unit after the same `docker compose up --dry-run` rehearsal adoption uses; if that rehearsal would
+recreate a container it refuses unless `--accept-recreate` is given.
 
 ## Fixes
 
