@@ -30,6 +30,7 @@ from noust.managers.database.engine_setup import install_catalog, plan_engine_in
 from noust.managers.database.flavours import (
     PGDG_KEY,
     catalog,
+    holds_secret_keys,
     install_repository,
     plan_install,
     primary_fingerprints,
@@ -83,6 +84,23 @@ def colons(*fingerprints: str) -> str:
             "fpr:::::::::0000000000000000000000000000AAAABBBBCCCCDDDD:",
         ]
     return "\n".join(lines) + "\n"
+
+
+def secret(fingerprint: str) -> str:
+    """
+    Render what ``gpg --show-keys --with-colons`` prints for a secret key.
+
+    Args:
+        fingerprint: The secret primary key's fingerprint.
+
+    Returns:
+        The output: a ``sec`` record, its fingerprint and a secret subkey.
+    """
+    return (
+        f"sec:-:4096:1:{fingerprint[-16:]}:1318537154:::-:::scSC:::+:::23::0:\n"
+        f"fpr:::::::::{fingerprint}:\n"
+        "ssb:-:4096:1:9999888877776666:1318537154::::::e:::+:::23:\n"
+    )
 
 
 @pytest.fixture
@@ -360,17 +378,29 @@ def test_a_pgdg_install_verifies_the_key_then_adds_the_source_then_installs(
     runner.only_knows("apt-get")
     runner.script(["curl"], stdout="-----BEGIN PGP PUBLIC KEY BLOCK-----\n")
     runner.script(["gpg"], stdout=colons(PGDG_KEY.fingerprint))
+    runner.script(["psql", "--version"], stdout="psql (PostgreSQL) 17.2\n")
     manager = PostgresManager()
 
     manager.install(plan_install("postgresql", "17", flavours.distribution()))
 
     programs = [call[0] for call in runner.calls]
-    assert programs[:3] == ["curl", "gpg", "gpg"]
+    assert programs[:4] == ["curl", "gpg", "gpg", "gpg"]
     assert "--show-keys" in runner.calls[1]
-    assert runner.calls[2][-3:-1] == ("-o", str(host / "usr/share/keyrings/noust-pgdg.gpg"))
-    assert runner.calls[3] == ("apt-get", "update")
-    assert runner.calls[4] == ("apt-get", "install", "-y", "postgresql-17")
-    assert runner.calls[5:7] == [
+    assert "--import" in runner.calls[2]
+    # Only the pinned key, exported from the throwaway home, reaches apt;
+    # never the downloaded file as it was.
+    export = runner.calls[3]
+    assert export[-4:] == (
+        "export-minimal",
+        "-o",
+        str(host / "usr/share/keyrings/noust-pgdg.gpg"),
+        PGDG_KEY.fingerprint,
+    )
+    assert "--export" in export and "--dearmor" not in export
+    assert runner.calls[4] == ("apt-get", "update")
+    assert runner.calls[5] == ("apt-get", "install", "-y", "--no-remove", "postgresql-17")
+    assert runner.calls[6] == ("psql", "--version")
+    assert runner.calls[7:9] == [
         ("systemctl", "enable", "postgresql"),
         ("systemctl", "start", "postgresql"),
     ]
@@ -384,8 +414,17 @@ def test_a_pgdg_install_verifies_the_key_then_adds_the_source_then_installs(
         colons("0" * 40),
         colons(PGDG_KEY.fingerprint, "1" * 40),
         "",
+        colons(PGDG_KEY.fingerprint) + secret("2" * 40),
+        colons(PGDG_KEY.fingerprint)
+        + "ssb:-:4096:1:EEEEFFFF00001111:1318537154::::::e:::+:::23:\n",
     ],
-    ids=["another-key", "a-bundle-with-a-second-key", "nothing"],
+    ids=[
+        "another-key",
+        "a-bundle-with-a-second-key",
+        "nothing",
+        "the-pinned-key-and-a-secret-key",
+        "the-pinned-key-and-a-secret-subkey",
+    ],
 )
 def test_a_key_that_is_not_exactly_the_pinned_one_is_refused(
     host: Path, runner: FakeRunner, served: str
@@ -399,7 +438,7 @@ def test_a_key_that_is_not_exactly_the_pinned_one_is_refused(
 
     assert not [call for call in runner.calls if call[0] == "apt-get"]
     assert not (host / "etc/apt/sources.list.d/noust-pgdg.list").exists()
-    assert not [call for call in runner.calls if "--dearmor" in call]
+    assert not [call for call in runner.calls if "--import" in call or "--export" in call]
 
 
 def test_a_repository_the_operator_already_configured_is_used_as_it_is(
@@ -437,15 +476,17 @@ def test_a_rehearsal_downloads_nothing_and_writes_nothing(host: Path) -> None:
 
 def test_an_install_naming_nothing_does_what_3_2_did(host: Path, runner: FakeRunner) -> None:
     runner.only_knows("apt-get", "mysqldump")
-    runner.script(["apt-get", "install", "-y", "mariadb-server"], exit_code=100, stderr="no")
+    runner.script(
+        ["apt-get", "install", "-y", "--no-remove", "mariadb-server"], exit_code=100, stderr="no"
+    )
     manager = MySQLManager()
 
     manager.install()
 
     installs = [call for call in runner.calls if call[:2] == ("apt-get", "install")]
     assert installs == [
-        ("apt-get", "install", "-y", "mariadb-server"),
-        ("apt-get", "install", "-y", "mysql-server"),
+        ("apt-get", "install", "-y", "--no-remove", "mariadb-server"),
+        ("apt-get", "install", "-y", "--no-remove", "mysql-server"),
     ]
 
 
@@ -455,7 +496,7 @@ def test_mysql_chosen_installs_mysql_and_never_mariadb(host: Path, runner: FakeR
     MySQLManager().install(plan_install("mysql", None, NOBLE))
 
     installs = [call for call in runner.calls if call[:2] == ("apt-get", "install")]
-    assert installs == [("apt-get", "install", "-y", "mysql-server")]
+    assert installs == [("apt-get", "install", "-y", "--no-remove", "mysql-server")]
     assert ("systemctl", "enable", "mysql") in runner.calls
 
 
@@ -465,7 +506,7 @@ def test_valkey_chosen_runs_as_valkey(host: Path, runner: FakeRunner) -> None:
 
     manager.install(plan_install("valkey", None, NOBLE))
 
-    assert ("apt-get", "install", "-y", "valkey-server") in runner.calls
+    assert ("apt-get", "install", "-y", "--no-remove", "valkey-server") in runner.calls
     assert ("systemctl", "start", "valkey-server") in runner.calls
     assert manager.DISPLAY_NAME == "Valkey"
 
@@ -488,6 +529,188 @@ def test_mongodb_7_on_jammy_uses_its_own_key(
 
 def test_primary_fingerprints_ignore_subkeys() -> None:
     assert primary_fingerprints(colons("A" * 40, "B" * 40)) == ["A" * 40, "B" * 40]
+
+
+def test_primary_fingerprints_count_a_secret_primary_key() -> None:
+    assert primary_fingerprints(colons("A" * 40) + secret("B" * 40)) == ["A" * 40, "B" * 40]
+    assert holds_secret_keys(secret("B" * 40))
+    assert not holds_secret_keys(colons("A" * 40))
+
+
+# ------------------------------------------------------------- apt sources
+
+
+class KeyringWritingRunner(FakeRunner):
+    """A FakeRunner whose ``gpg --export -o`` writes the keyring, as gpg would."""
+
+    def run(self, argv, **kwargs):  # type: ignore[no-untyped-def, override]
+        if "--export" in argv:
+            Path(argv[argv.index("-o") + 1]).write_bytes(b"\x99binary-key")
+        return super().run(argv, **kwargs)
+
+
+def jammy(host: Path) -> None:
+    """
+    Make the system root Ubuntu 22.04, where MongoDB 7.0 and 8.0 are both published.
+
+    Args:
+        host: The system root.
+    """
+    (host / "etc" / "os-release").write_text("ID=ubuntu\nVERSION_CODENAME=jammy\n")
+
+
+@pytest.mark.parametrize(
+    ("name", "text"),
+    [
+        (
+            "mongodb-org-7.0.list",
+            "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] "
+            "https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse\n",
+        ),
+        (
+            "mongodb-org.sources",
+            "Types: deb\nURIs: https://repo.mongodb.org/apt/ubuntu/\n"
+            "Suites: jammy/mongodb-org/7.0\nComponents: multiverse\n"
+            "Signed-By: /usr/share/keyrings/mongodb-server-7.0.gpg\n",
+        ),
+    ],
+    ids=["one-line", "deb822"],
+)
+def test_a_leftover_source_of_another_series_is_refused_before_anything(
+    host: Path, runner: FakeRunner, name: str, text: str
+) -> None:
+    jammy(host)
+    (host / "etc/apt/sources.list.d" / name).write_text(text)
+    runner.only_knows("apt-get")
+
+    with pytest.raises(DatabaseEngineError) as excinfo:
+        MongoDBManager().install(plan_install("mongodb", "8.0", flavours.distribution()))
+
+    assert "for another release or version" in excinfo.value.message
+    assert name in excinfo.value.details and "apt-get update" in excinfo.value.details
+    assert runner.calls == []
+    assert not (host / "etc/apt/sources.list.d/mongodb-org-8.0.list").exists()
+
+
+def test_a_leftover_source_of_the_same_series_is_used_as_it_is(
+    host: Path, runner: FakeRunner
+) -> None:
+    jammy(host)
+    (host / "etc/apt/sources.list.d/mongodb.list").write_text(
+        "deb [arch=amd64 signed-by=/etc/apt/keyrings/mongo.gpg] "
+        "https://repo.mongodb.org/apt/ubuntu/ jammy/mongodb-org/8.0 multiverse\n"
+    )
+    repository = plan_install("mongodb", "8.0", flavours.distribution()).repository
+    assert repository is not None
+
+    assert install_repository(repository, runner=runner, fs=get_fs()) == []
+    assert runner.calls == []
+
+
+def test_a_mariadb_source_for_another_release_is_refused(host: Path, runner: FakeRunner) -> None:
+    (host / "etc/apt/sources.list.d/mariadb.list").write_text(
+        "deb [signed-by=/etc/apt/keyrings/mariadb.pgp] "
+        "https://deb.mariadb.org/11.8/ubuntu noble main\n"
+    )
+    repository = plan_install("mariadb", "11.4", NOBLE).repository
+    assert repository is not None
+
+    with pytest.raises(DatabaseEngineError, match="another release or version"):
+        install_repository(repository, runner=runner, fs=get_fs())
+
+
+def test_a_failed_update_takes_back_out_the_source_and_key_just_added(host: Path) -> None:
+    fake = KeyringWritingRunner()
+    set_runner(fake)
+    try:
+        fake.only_knows("apt-get")
+        fake.script(["curl"], stdout="key")
+        fake.script(["gpg"], stdout=colons(PGDG_KEY.fingerprint))
+        fake.script(["apt-get", "update"], exit_code=100, stderr="E: The repository is not signed.")
+
+        with pytest.raises(DatabaseEngineError) as excinfo:
+            PostgresManager().install(plan_install("postgresql", "17", flavours.distribution()))
+    finally:
+        set_runner(None)
+
+    assert "not signed" in excinfo.value.details
+    assert "apt is as it was" in excinfo.value.details
+    assert not (host / "etc/apt/sources.list.d/noust-pgdg.list").exists()
+    assert not (host / "usr/share/keyrings/noust-pgdg.gpg").exists()
+    assert not [call for call in fake.calls if call[:2] == ("apt-get", "install")]
+
+
+def test_a_failed_update_leaves_a_keyring_that_was_already_there(
+    host: Path, runner: FakeRunner
+) -> None:
+    keyring = host / "usr/share/keyrings/noust-pgdg.gpg"
+    keyring.write_bytes(b"earlier")
+    runner.only_knows("apt-get")
+    runner.script(["curl"], stdout="key")
+    runner.script(["gpg"], stdout=colons(PGDG_KEY.fingerprint))
+    runner.script(["apt-get", "update"], exit_code=100, stderr="E: unreachable")
+
+    with pytest.raises(DatabaseEngineError):
+        PostgresManager().install(plan_install("postgresql", "17", flavours.distribution()))
+
+    assert keyring.exists()
+    assert not (host / "etc/apt/sources.list.d/noust-pgdg.list").exists()
+
+
+def test_another_major_installed_than_the_plan_is_an_error(
+    host: Path, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    jammy(host)
+    runner.only_knows("apt-get")
+    runner.script(["curl"], stdout="key")
+    runner.script(["gpg"], stdout=colons(flavours.MONGODB_KEYS["8.0"].fingerprint))
+    runner.script(["mongod", "--version"], stdout="db version v7.0.14\n")
+    monkeypatch.setattr(MongoDBManager, "_post_install", lambda self: None)
+
+    with pytest.raises(DatabaseEngineError) as excinfo:
+        MongoDBManager().install(plan_install("mongodb", "8.0", flavours.distribution()))
+
+    assert excinfo.value.message == "MongoDB 8.0 was asked for, but apt installed 7.0.14"
+    assert "apt-cache policy mongodb-org" in excinfo.value.details
+    assert not [call for call in runner.calls if call[:2] == ("systemctl", "enable")]
+
+
+def test_the_planned_major_installed_passes(
+    host: Path, runner: FakeRunner, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    jammy(host)
+    runner.only_knows("apt-get")
+    runner.script(["curl"], stdout="key")
+    runner.script(["gpg"], stdout=colons(flavours.MONGODB_KEYS["8.0"].fingerprint))
+    runner.script(["mongod", "--version"], stdout="db version v8.0.4\n")
+    monkeypatch.setattr(MongoDBManager, "_post_install", lambda self: None)
+
+    MongoDBManager().install(plan_install("mongodb", "8.0", flavours.distribution()))
+
+    assert ("systemctl", "enable", "mongod") in runner.calls
+
+
+@pytest.mark.parametrize(
+    ("manager", "knows", "flavour", "installed"),
+    [
+        (MySQLManager, ("apt-get", "mysql", "mariadb"), "mysql", "MariaDB"),
+        (RedisManager, ("apt-get", "redis-cli", "redis-server"), "valkey", "Redis"),
+    ],
+)
+def test_install_itself_refuses_the_other_flavour(
+    host: Path,
+    runner: FakeRunner,
+    manager: type,
+    knows: tuple[str, ...],
+    flavour: str,
+    installed: str,
+) -> None:
+    runner.only_knows(*knows)
+
+    with pytest.raises(DatabaseExistsError, match=f"{installed} is installed"):
+        manager().install(plan_install(flavour, None, NOBLE))
+
+    assert not [call for call in runner.calls if call[0] == "apt-get"]
 
 
 def test_the_install_job_passes_the_choice_to_the_service(

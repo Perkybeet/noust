@@ -55,11 +55,17 @@ from noust.core.exceptions import (
     DatabaseUserError,
 )
 from noust.core.fs import SECRET_MODE
-from noust.core.runner import CommandResult, CommandRunner, get_runner
+from noust.core.runner import CommandResult, CommandRunner, DryRunRunner, get_runner
 from noust.deployers.helpers.permissions import hand_over_file
 from noust.managers.base_manager import BaseManager
 from noust.managers.database.eol import support_notice
-from noust.managers.database.flavours import FLAVOURS, InstallPlan, install_repository
+from noust.managers.database.flavours import (
+    FLAVOURS,
+    InstallPlan,
+    install_repository,
+    refuse_other_flavour,
+    withdraw_repository,
+)
 from noust.managers.database.instances import (
     container_secret_values,
     engine_of,
@@ -1108,12 +1114,19 @@ class BaseDatabaseManager(BaseManager):
 
         Raises:
             DatabaseEngineError: When apt is absent, the repository cannot be
-                added, or apt or the unit fails; always for a container, whose
-                image decides its engine.
+                added, apt or the unit fails, or apt installed another
+                version than the plan's; always for a container, whose image
+                decides its engine.
+            EngineInstalledError: When the plan names a flavour while the
+                engine's other flavour is installed (MariaDB over MySQL).
             ValidationError: When the default plan cannot be had on this
                 distribution (MongoDB on a release it does not publish for).
         """
         self.refuse_in_container("install")
+        if plan is not None:
+            # Here and not only in the planner: this is the step every install
+            # reaches, and apt would replace one flavour with the other.
+            refuse_other_flavour(self.installed_flavour(), plan.flavour)
         if not self.runner.exists(APT_GET):
             raise DatabaseEngineError(
                 f"Noust installs {self.DISPLAY_NAME} with apt, which this system does not have",
@@ -1130,22 +1143,34 @@ class BaseDatabaseManager(BaseManager):
         self.logger.info(f"Installing {what}...")
 
         self._pre_install()
+        added: list[Path] = []
         if chosen.repository is not None:
-            install_repository(
+            added = install_repository(
                 chosen.repository, runner=self.runner, fs=self.fs, log=self.logger.info
             )
 
         result = self._exec(["apt-get", "update"], env=APT_ENV, timeout=PACKAGE_TIMEOUT)
         if not result.success:
+            # A source apt cannot read breaks every later apt run on the
+            # server, not just this install: what was just added goes back out.
+            removed = withdraw_repository(added, fs=self.fs)
+            note = (
+                f" Noust removed what it had just added ({', '.join(map(str, removed))}), so "
+                "apt is as it was."
+                if removed
+                else ""
+            )
             raise DatabaseEngineError(
                 "Failed to update the package list",
-                details=result.stderr.strip() or "Check the apt sources in /etc/apt.",
+                details=(result.stderr.strip() or "Check the apt sources in /etc/apt.") + note,
             )
 
         failures: list[str] = []
         for packages in chosen.package_sets:
+            # --no-remove: an engine install never takes another package out
+            # (mariadb-server would otherwise replace an installed mysql-server).
             result = self._exec(
-                ["apt-get", "install", "-y", *packages],
+                ["apt-get", "install", "-y", "--no-remove", *packages],
                 env=APT_ENV,
                 timeout=PACKAGE_TIMEOUT,
             )
@@ -1159,9 +1184,46 @@ class BaseDatabaseManager(BaseManager):
                 details="\n".join(failures) or "apt-get install returned no output.",
             )
 
+        self._check_installed_version(chosen, what)
         self.enable()
         self.start()
         self._post_install()
+
+    def _check_installed_version(self, plan: InstallPlan, what: str) -> None:
+        """
+        Make sure apt installed the version an upstream plan asked for.
+
+        Another source of the same packages (an operator's repository, a
+        leftover one) can win apt's choice with a newer version, and an
+        engine that starts in another major than the one chosen is a
+        surprise found only when its data directory is involved.
+
+        Args:
+            plan: The plan that was installed.
+            what: The plan's name for a person.
+
+        Raises:
+            DatabaseEngineError: When the version that runs is not the plan's.
+        """
+        if plan.repository is None or not plan.version or isinstance(self.runner, DryRunRunner):
+            # A rehearsal installed nothing, so there is no version to compare.
+            return
+        installed = self.get_version()
+        if installed is None:
+            self.logger.warning(f"Could not read the version installed for {what}")
+            return
+        if installed == plan.version or installed.startswith(f"{plan.version}."):
+            return
+        packages = " ".join(plan.package_sets[0]) if plan.package_sets else self.ENGINE_NAME
+        raise DatabaseEngineError(
+            f"{what} was asked for, but apt installed {installed}",
+            details=(
+                f"Another apt source provides a version apt preferred. 'apt-cache policy "
+                f"{packages}' shows which. Noust has not enabled or configured it: remove that "
+                f"source, then 'apt-get remove {packages}' and install again, or keep "
+                f"{installed} and manage it with 'noust db status {self.ENGINE_NAME}'."
+            ),
+        )
 
     def uninstall(self, purge: bool = False) -> None:
         """

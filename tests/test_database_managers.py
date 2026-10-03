@@ -554,7 +554,7 @@ def test_mysql_install_argv(mysql: MySQLManager, runner: FakeRunner) -> None:
     mysql.install()
 
     assert runner.calls[0] == ("apt-get", "update")
-    assert runner.calls[1] == ("apt-get", "install", "-y", "mariadb-server")
+    assert runner.calls[1] == ("apt-get", "install", "-y", "--no-remove", "mariadb-server")
     assert runner.calls[2] == ("systemctl", "enable", "mariadb")
     assert runner.calls[3] == ("systemctl", "start", "mariadb")
     assert runner.inputs[-3:] == [

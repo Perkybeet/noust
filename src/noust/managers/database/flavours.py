@@ -264,6 +264,10 @@ class Repository:
             anywhere in apt's sources, means it is configured already.
         suite: The suite and components that follow the URL on the line.
         architectures: The ``arch=`` option, when the repository needs one.
+        family: The URL prefix every release and version of this vendor's
+            repository shares (``https://repo.mongodb.org/apt/``); a source
+            naming it for another suite or version is a conflict, not a
+            match. The URL itself when empty.
     """
 
     name: str
@@ -273,6 +277,7 @@ class Repository:
     url: str
     suite: str
     architectures: str = ""
+    family: str = ""
 
     def line(self) -> str:
         """
@@ -592,6 +597,7 @@ def _plan_mariadb(
         sources=Path("/etc/apt/sources.list.d/noust-mariadb.list"),
         url=f"https://deb.mariadb.org/{version}/{distro}",
         suite=f"{codename} main",
+        family="https://deb.mariadb.org/",
     )
     return InstallPlan(
         flavour=spec.name,
@@ -700,6 +706,7 @@ def _plan_mongodb(
         url=f"https://repo.mongodb.org/apt/{path}",
         suite=f"{suite}/mongodb-org/{series} {component}",
         architectures="amd64,arm64",
+        family="https://repo.mongodb.org/apt/",
     )
     return InstallPlan(
         flavour=spec.name,
@@ -976,62 +983,232 @@ def conflict_reason(installed: str, requested: str) -> str:
 # --------------------------------------------------------------- repository
 
 
-def _configured_elsewhere(repository: Repository, host: HostPaths) -> Path | None:
+@dataclass(frozen=True)
+class SourceEntry:
     """
-    Find an apt source that already names a repository, other than Noust's.
+    One apt source entry, from a one-line ``.list`` file or a deb822 stanza.
 
-    Two source entries for one URL with different ``signed-by`` keyrings
-    stop apt altogether ("Conflicting values set for option Signed-By"), so
-    an operator's own entry for PGDG is used as it is, not doubled.
+    Attributes:
+        path: The file it is in.
+        text: How it reads there, for messages.
+        uri: The repository URL.
+        suite: The suite (``noble-pgdg``, ``jammy/mongodb-org/8.0``).
+        components: The components after the suite.
+    """
+
+    path: Path
+    text: str
+    uri: str
+    suite: str
+    components: tuple[str, ...]
+
+
+def _normalise_url(url: str) -> str:
+    """
+    Reduce a repository URL to what identifies it.
 
     Args:
-        repository: The repository.
-        host: Where the system files are.
+        url: ``https://repo.mongodb.org/apt/ubuntu/``.
 
     Returns:
-        The file that names it, or None.
+        ``repo.mongodb.org/apt/ubuntu``: no scheme, no trailing slash, lower case.
     """
-    ours = host.at(str(repository.sources))
+    bare = url.strip().split("://", 1)[-1]
+    return bare.rstrip("/").lower()
+
+
+def _one_line_entries(path: Path, text: str) -> list[SourceEntry]:
+    """
+    Read the ``deb`` lines of a one-line-style source file.
+
+    Args:
+        path: The file.
+        text: Its contents.
+
+    Returns:
+        One entry per ``deb`` or ``deb-src`` line that names a URL and a suite.
+    """
+    entries: list[SourceEntry] = []
+    for line in text.splitlines():
+        stripped = line.split("#", 1)[0].strip()
+        kind, _, rest = stripped.partition(" ")
+        if kind not in ("deb", "deb-src"):
+            continue
+        rest = rest.strip()
+        if rest.startswith("["):
+            # The options may hold spaces (arch=amd64 signed-by=...).
+            _, _, rest = rest.partition("]")
+        words = rest.split()
+        if len(words) >= 2:
+            entries.append(SourceEntry(path, stripped, words[0], words[1], tuple(words[2:])))
+    return entries
+
+
+def _deb822_entries(path: Path, text: str) -> list[SourceEntry]:
+    """
+    Read the stanzas of a deb822 ``.sources`` file.
+
+    Args:
+        path: The file.
+        text: Its contents.
+
+    Returns:
+        One entry per URI and suite of every enabled stanza.
+    """
+    entries: list[SourceEntry] = []
+    for stanza in text.split("\n\n"):
+        fields: dict[str, str] = {}
+        for line in stanza.splitlines():
+            if line.lstrip().startswith("#") or ":" not in line or line[:1].isspace():
+                continue
+            key, _, value = line.partition(":")
+            fields[key.strip().lower()] = value.strip()
+        if fields.get("enabled", "yes").lower() == "no":
+            continue
+        components = tuple(fields.get("components", "").split())
+        summary = "; ".join(f"{key}: {value}" for key, value in fields.items())
+        for uri in fields.get("uris", "").split():
+            for suite in fields.get("suites", "").split():
+                entries.append(SourceEntry(path, summary, uri, suite, components))
+    return entries
+
+
+def _source_entries(host: HostPaths, skip: Path) -> list[SourceEntry]:
+    """
+    Read every apt source entry on the server.
+
+    Args:
+        host: Where the system files are.
+        skip: A file to leave out (Noust's own for the repository at hand).
+
+    Returns:
+        Every entry, in the order apt reads the files.
+    """
     candidates = [host.at("/etc/apt/sources.list")]
     directory = host.at("/etc/apt/sources.list.d")
     if directory.is_dir():
         candidates += sorted(
             path for path in directory.iterdir() if path.suffix in (".list", ".sources")
         )
+    entries: list[SourceEntry] = []
     for path in candidates:
-        if path == ours:
+        if path == skip:
             continue
         try:
-            text = path.read_text(encoding="utf-8")
+            text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        for line in text.splitlines():
-            stripped = line.strip()
-            if stripped and not stripped.startswith("#") and repository.url in stripped:
-                return path
-    return None
+        reader = _deb822_entries if path.suffix == ".sources" else _one_line_entries
+        entries += reader(path, text)
+    return entries
+
+
+def _configured_elsewhere(repository: Repository, host: HostPaths) -> Path | None:
+    """
+    Find an apt source that already provides a repository, other than Noust's.
+
+    Two source entries for one URL with different ``signed-by`` keyrings
+    stop apt altogether ("Conflicting values set for option Signed-By"), so
+    an operator's own entry for PGDG is used as it is, not doubled. It must
+    name the same URL, suite and components, though: a leftover
+    ``mongodb-org-7.0.list`` shares MongoDB's URL with an 8.0 plan, and
+    taking it as "configured" would install 7.0 where 8.0 was asked for.
+
+    Args:
+        repository: The repository.
+        host: Where the system files are.
+
+    Returns:
+        The file that provides it, or None when none does.
+
+    Raises:
+        DatabaseEngineError: When a source names the same vendor's repository
+            for another suite or version: apt would mix both, and which one
+            installs would be apt's choice, not the operator's.
+    """
+    url = _normalise_url(repository.url)
+    family = _normalise_url(repository.family or repository.url)
+    suite, *components = repository.suite.split()
+    found: Path | None = None
+    for entry in _source_entries(host, host.at(str(repository.sources))):
+        uri = _normalise_url(entry.uri)
+        if uri != family and not uri.startswith(family + "/"):
+            continue
+        if uri == url and entry.suite == suite and set(components) <= set(entry.components):
+            found = found or entry.path
+            continue
+        raise DatabaseEngineError(
+            f"An apt source already names {repository.name} for another release or version",
+            details=(
+                f"{entry.path} has: {entry.text}\n"
+                f"Noust would add: {repository.line().strip()}\n"
+                "With both, apt picks which one installs, not you. Install the version that "
+                f"source provides, or remove {entry.path} (and the keyring its signed-by "
+                "names), run 'apt-get update', and install again. Nothing was changed."
+            ),
+        )
+    return found
 
 
 def primary_fingerprints(colons: str) -> list[str]:
     """
     Read the primary keys' fingerprints from ``gpg --with-colons`` output.
 
+    A secret primary key (``sec``) counts as a primary key too, so a file
+    carrying one beside the pinned public key is never "exactly one key".
+
     Args:
         colons: The output.
 
     Returns:
-        One fingerprint per ``pub`` record, upper case, in order.
+        One fingerprint per ``pub`` or ``sec`` record, upper case, in order.
     """
     found: list[str] = []
     expecting = False
     for line in colons.splitlines():
         fields = line.split(":")
-        if fields[0] == "pub":
+        if fields[0] in ("pub", "sec"):
             expecting = True
         elif fields[0] == "fpr" and expecting and len(fields) > 9:
             found.append(fields[9].upper())
             expecting = False
     return found
+
+
+def holds_secret_keys(colons: str) -> bool:
+    """
+    Tell whether ``gpg --with-colons`` output lists any secret key material.
+
+    Args:
+        colons: The output.
+
+    Returns:
+        True when a ``sec`` or ``ssb`` record is present.
+    """
+    return any(line.split(":", 1)[0] in ("sec", "ssb") for line in colons.splitlines())
+
+
+def _refuse_key(repository: Repository, found: str, output: str | None) -> DatabaseEngineError:
+    """
+    Build the refusal of a served key that is not exactly the pinned one.
+
+    Args:
+        repository: The repository.
+        found: What was found instead, for a person.
+        output: gpg's own words.
+
+    Returns:
+        The error.
+    """
+    return DatabaseEngineError(
+        f"The signing key served for {repository.name} is not the one Noust trusts",
+        details=(
+            f"Expected exactly one public key with fingerprint {repository.key.fingerprint}, "
+            f"got {found}. Nothing was added to apt. "
+            "Check that the server reaches the real repository (DNS, proxy)."
+        ),
+        output=output,
+    )
 
 
 def install_repository(
@@ -1041,15 +1218,18 @@ def install_repository(
     fs: FileSystem,
     host: HostPaths | None = None,
     log: Callable[[str], None] | None = None,
-) -> None:
+) -> list[Path]:
     """
     Add an upstream repository, trusting only its pinned key.
 
     The key is downloaded into a private temporary directory, read with a
-    throwaway gpg home, and refused unless it is exactly one primary key
-    with the pinned fingerprint: a bundle carrying a second key would make
-    apt trust that one too. Only then is it written where apt reads it, and
-    the source line after it.
+    throwaway gpg home, and refused unless it is exactly one public primary
+    key with the pinned fingerprint and no secret material. Even then the
+    download is never what apt gets: it is imported into the throwaway home
+    and only the pinned key is exported from there, minimal, as the
+    keyring. Dearmouring the file would hand apt everything it held, and a
+    second key in it would be trusted to sign packages too. Only then is
+    the source line written.
 
     Args:
         repository: The repository.
@@ -1058,21 +1238,31 @@ def install_repository(
         host: Where the system files are; :data:`HOST` by default.
         log: Where progress is reported.
 
+    Returns:
+        The files this call created that did not exist before (the source
+        and the keyring), so a caller whose next step fails can take them
+        back out (:func:`withdraw_repository`); empty when an existing
+        source was used, and under a rehearsal.
+
     Raises:
-        DatabaseEngineError: When the key cannot be fetched, is not the
-            pinned one, or the source cannot be written.
+        DatabaseEngineError: When the key cannot be fetched or is not the
+            pinned one, a source names the repository for another version,
+            or the source cannot be written.
     """
     paths = host or HOST
     say = log or (lambda _message: None)
     elsewhere = _configured_elsewhere(repository, paths)
     if elsewhere is not None:
         say(f"{repository.name} is already configured in {elsewhere}; using it as it is")
-        return
+        return []
     say(f"Adding the {repository.name} repository")
     keyring = paths.at(str(repository.keyring))
+    sources = paths.at(str(repository.sources))
+    created = [path for path in (sources, keyring) if not path.exists()]
+    pinned = repository.key.fingerprint
     with tempfile.TemporaryDirectory(prefix="noust-apt-key-") as workdir:
         armoured = Path(workdir) / "key.asc"
-        home = Path(workdir) / "gnupg"
+        gpg = ["gpg", "--homedir", str(Path(workdir) / "gnupg"), "--batch"]
         result = runner.capture_to_file(
             ["curl", "-fsSL", "--proto", "=https", repository.key.url],
             armoured,
@@ -1087,55 +1277,97 @@ def install_repository(
         if not armoured.exists():
             # Only a rehearsal reports a download it did not make; there is
             # nothing to check, and every later step is a rehearsal too.
-            say(f"Would verify the key of {repository.name} ({repository.key.fingerprint})")
-            return
+            say(f"Would verify the key of {repository.name} ({pinned})")
+            return []
         listed = runner.run(
-            [
-                "gpg",
-                "--homedir",
-                str(home),
-                "--batch",
-                "--show-keys",
-                "--with-colons",
-                str(armoured),
-            ],
-            timeout=GPG_TIMEOUT,
+            [*gpg, "--show-keys", "--with-colons", str(armoured)], timeout=GPG_TIMEOUT
         )
-        fingerprints = primary_fingerprints(listed.stdout) if listed.success else []
-        if fingerprints != [repository.key.fingerprint]:
+        said = (listed.stderr or listed.stdout).strip() or None
+        if not listed.success:
+            raise _refuse_key(repository, "a file gpg could not read", said)
+        if holds_secret_keys(listed.stdout):
+            raise _refuse_key(repository, "a file that holds secret key material", said)
+        fingerprints = primary_fingerprints(listed.stdout)
+        if fingerprints != [pinned]:
+            raise _refuse_key(repository, ", ".join(fingerprints) or "none", said)
+        imported = runner.run([*gpg, "--import", str(armoured)], timeout=GPG_TIMEOUT)
+        if not imported.success:
             raise DatabaseEngineError(
-                f"The signing key served for {repository.name} is not the one Noust trusts",
-                details=(
-                    f"Expected exactly one key with fingerprint {repository.key.fingerprint}, "
-                    f"got {', '.join(fingerprints) or 'none'}. Nothing was added to apt. "
-                    "Check that the server reaches the real repository (DNS, proxy)."
-                ),
-                output=(listed.stderr or listed.stdout).strip() or None,
+                f"Failed to read the signing key of {repository.name}",
+                details="gpg could not import the downloaded key. Nothing was added to apt.",
+                output=imported.stderr.strip() or None,
             )
-        converted = runner.run(
+        exported = runner.run(
             [
-                "gpg",
-                "--homedir",
-                str(home),
-                "--batch",
+                *gpg,
                 "--yes",
-                "--dearmor",
+                "--export",
+                "--export-options",
+                "export-minimal",
                 "-o",
                 str(keyring),
-                str(armoured),
+                pinned,
             ],
             timeout=GPG_TIMEOUT,
         )
-        if not converted.success:
+        if not exported.success:
+            withdraw_repository([path for path in created if path == keyring], fs=fs)
             raise DatabaseEngineError(
                 f"Failed to install the signing key of {repository.name}",
-                details=f"Could not write {keyring}.",
-                output=converted.stderr.strip() or None,
+                details=f"Could not write {keyring}. Nothing was added to apt.",
+                output=exported.stderr.strip() or None,
             )
     try:
-        fs.write_text(paths.at(str(repository.sources)), repository.line(), mode=0o644)
+        fs.write_text(sources, repository.line(), mode=0o644)
     except OSError as exc:
         raise DatabaseEngineError(
             f"Failed to add the {repository.name} apt source",
             details=f"{exc}. Write {repository.sources} by hand with: {repository.line().strip()}",
         ) from exc
+    return created
+
+
+def withdraw_repository(created: list[Path], *, fs: FileSystem) -> list[Path]:
+    """
+    Take back out the files :func:`install_repository` created.
+
+    Called when ``apt-get update`` fails right after: a source apt cannot
+    read breaks every later apt run on the server, not only this install.
+
+    Args:
+        created: What :func:`install_repository` returned.
+        fs: Where the files are removed.
+
+    Returns:
+        The files that were there and are now gone.
+    """
+    removed: list[Path] = []
+    for path in created:
+        if path.exists() or path.is_symlink():
+            fs.remove(path)
+            removed.append(path)
+    return removed
+
+
+def refuse_other_flavour(installed: str | None, chosen: str | None) -> None:
+    """
+    Refuse a flavour while its engine's other flavour is installed.
+
+    MySQL and MariaDB, Redis and Valkey share their port and their packages
+    (and the first two ``/var/lib/mysql``): installing one replaces the other.
+
+    Args:
+        installed: The flavour installed, or None.
+        chosen: The flavour asked for, or None for "whichever installs".
+
+    Raises:
+        EngineInstalledError: When both are named and differ.
+    """
+    if installed is None or chosen is None or chosen == installed:
+        return
+    have = FLAVOURS[installed].display_name if installed in FLAVOURS else installed
+    want = FLAVOURS[chosen].display_name if chosen in FLAVOURS else chosen
+    raise EngineInstalledError(
+        f"{have} is installed, so {want} cannot be installed",
+        details=conflict_reason(have, want),
+    )

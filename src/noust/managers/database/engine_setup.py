@@ -7,8 +7,10 @@ Installing an engine: the flavour asked for, the one already there, the plan.
 :class:`~noust.managers.database.service.DatabaseService` calls these, and the
 CLI, the API and the install job call the service; nothing else decides what
 an install does (rule 3). The guard that MySQL and MariaDB, or Redis and
-Valkey, are never installed side by side lives here, the one path every
-install takes (rule 4).
+Valkey, are never installed side by side is
+:func:`~noust.managers.database.flavours.refuse_other_flavour`: it is asked
+here, to refuse before a job is queued, and enforced again in the managers'
+``install``, the one step every install reaches whoever calls it (rule 4).
 """
 
 from __future__ import annotations
@@ -21,12 +23,11 @@ from noust.managers.database.base import APT_GET, BaseDatabaseManager
 from noust.managers.database.flavours import (
     FLAVOURS,
     RELEASE_NAMES,
-    EngineInstalledError,
     InstallPlan,
     catalog,
-    conflict_reason,
     distribution,
     plan_install,
+    refuse_other_flavour,
     release_of,
     resolve_flavour,
 )
@@ -129,7 +130,9 @@ def plan_engine_install(
         The plan, or that the flavour is already installed.
 
     Raises:
-        EngineInstalledError: When the engine's other flavour is installed.
+        EngineInstalledError: When the engine's other flavour is installed;
+            :meth:`~noust.managers.database.base.BaseDatabaseManager.install`
+            refuses it again, whoever calls it.
         ValidationError: When the flavour or the version cannot be had here.
     """
     # A container's engine is its image's: refused here, the one path every install takes.
@@ -137,13 +140,7 @@ def plan_engine_install(
     chosen = resolve_flavour(typed, manager.ENGINE_NAME, flavour=flavour, version=version)
     installed = manager.installed_flavour()
     if installed is not None:
-        if chosen is not None and chosen != installed:
-            have = FLAVOURS[installed].display_name if installed in FLAVOURS else installed
-            want = FLAVOURS[chosen].display_name
-            raise EngineInstalledError(
-                f"{have} is installed, so {want} cannot be installed",
-                details=conflict_reason(have, want),
-            )
+        refuse_other_flavour(installed, chosen)
         return EnginePlan(manager, chosen, None, installed)
     plan = plan_install(chosen, version, distribution()) if chosen else None
     return EnginePlan(manager, chosen, plan, None)
