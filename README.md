@@ -1,3 +1,8 @@
+> **Noust 3.3** shows the databases a server really has: the ones in Docker containers, the
+> applications that already use each one, and why an engine does not let Noust in. Engines can be
+> installed in the version you choose and tuned from the console. See
+> [docs/CHANGELOG-3.3.md](docs/CHANGELOG-3.3.md) and [docs/databases.md](docs/databases.md).
+>
 > **Noust 3.2** makes Docker Compose projects first-class: deploy hooks in a `noust.yaml`,
 > updates without a cut, adopting a stack that already runs, and a copy of its database before
 > every update. It shows a site's web server configuration as a structure and a diagram,
@@ -917,6 +922,9 @@ is.
 
 ## Documentation
 
+- [docs/CHANGELOG-3.3.md](docs/CHANGELOG-3.3.md): what changed in 3.3
+- [docs/UPGRADING-3.3.md](docs/UPGRADING-3.3.md): upgrading a 3.2 server or fleet to 3.3
+- [docs/databases.md](docs/databases.md): databases on the host and in containers, credentials, detected links, versions and settings
 - [docs/CHANGELOG-3.2.md](docs/CHANGELOG-3.2.md): what changed in 3.2
 - [docs/UPGRADING-3.2.md](docs/UPGRADING-3.2.md): upgrading a 3.1 server or fleet to 3.2, and rolling back
 - [docs/compose.md](docs/compose.md): Docker Compose projects: `noust.yaml`, hooks, the relay, adopting a stack, database copies, tags

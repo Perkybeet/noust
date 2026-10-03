@@ -230,6 +230,7 @@ install -d %{buildroot}/var/log/noust
 %doc docs/UPGRADING-3.0.md
 %doc docs/UPGRADING-3.1.md
 %doc docs/UPGRADING-3.2.md
+%doc docs/UPGRADING-3.3.md
 %{python3_sitelib}/noust/
 %{python3_sitelib}/noust-*
 %{_bindir}/noust
