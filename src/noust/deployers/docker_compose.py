@@ -35,6 +35,7 @@ from noust.core import audit
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import (
+    DatabaseQueryError,
     DeploymentError,
     DockerError,
     NoustError,
@@ -1791,21 +1792,63 @@ class DockerComposeDeployer(AppDeployer):
 
     def logs(self, service: str | None = None, lines: int = 50) -> str:
         """
-        Get Docker Compose logs.
+        Get Docker Compose logs, secrets masked.
 
         Args:
             service: Specific service name (None for all).
             lines: Number of lines to show.
 
         Returns:
-            Log output string.
+            The masked output, or why it could not be read.
         """
-        cmd = self._compose("logs", "--tail", str(lines))
+        return self.container_logs(lines, service=service)[1]
+
+    def container_logs(self, lines: int, *, service: str | None = None) -> tuple[bool, str]:
+        """
+        Read the last lines the stack's containers printed, with their secrets masked.
+
+        The one reader of a stack's output: the diagnosis a viewer reads, the
+        evidence a failed update keeps in its job and deployment records, the
+        CLI. A container's log carries what its entrypoint printed - MySQL's
+        generated root password, a connection URL with its password, a
+        statement with ``IDENTIFIED BY`` - so every secret value of every
+        container's environment, and every pattern
+        :func:`~noust.managers.database.instances.mask_container_log` knows,
+        is masked before the text goes anywhere.
+
+        Args:
+            lines: How many lines of each container.
+            service: Only this service's containers.
+
+        Returns:
+            Whether Compose answered, and the masked output (or, when it did
+            not, its masked error). When a container's environment cannot be
+            read, the log is not shown at all, since it could not be masked.
+        """
+        from noust.managers.database.instances import (
+            container_secret_values,
+            mask_container_log,
+        )
+
+        listed = self._run(self._compose("ps", "-a", "-q"))
+        if not listed.success:
+            return False, (
+                "(not shown: Compose did not list the containers, so their output could not "
+                f"be masked: {(listed.stderr or listed.stdout).strip()})"
+            )
+        ids = [line.strip() for line in listed.stdout.splitlines()]
+        secrets: list[str] = []
+        try:
+            for cid in (cid for cid in ids if _CONTAINER_ID.match(cid)):
+                secrets.extend(container_secret_values(cid, self.runner))
+        except DatabaseQueryError as exc:
+            return False, f"(not shown: {exc.message}; {exc.output or exc.details})"
+        cmd = self._compose("logs", "--tail", str(int(lines)), "--no-color")
         if service:
             cmd.append(service)
-
         result = self._run(cmd)
-        return result.stdout if result.success else result.stderr
+        text = result.stdout if result.success else result.stderr
+        return result.success, mask_container_log(text, secrets)
 
     def status(self) -> dict[str, Any]:
         """
@@ -2213,12 +2256,12 @@ class DockerComposeDeployer(AppDeployer):
         Read the last lines of every container's output, before they are replaced.
 
         Returns:
-            Compose's output verbatim, or why it could not be read.
+            Compose's output with its secrets masked, or why it could not be read.
         """
-        result = self._run(self._compose("logs", "--tail", str(COMPOSE_LOG_LINES), "--no-color"))
-        if result.success:
-            return result.stdout.strip() or "(the containers printed nothing)"
-        return f"(the containers' output could not be read: {result.stderr.strip()})"
+        answered, text = self.container_logs(COMPOSE_LOG_LINES)
+        if answered:
+            return text.strip() or "(the containers printed nothing)"
+        return f"(the containers' output could not be read: {text.strip()})"
 
     def _refused_after_the_pull(self, exc: NoustError) -> None:
         """

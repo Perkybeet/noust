@@ -417,7 +417,8 @@ def _check_compose_stack(ctx: _Context) -> ProbeResult:
 
     Returns:
         The check, and ``headless`` in the facts when the stack is one; the
-        evidence is the containers' state and the last lines of their output.
+        evidence is the containers' state and the last lines of their output,
+        secrets masked.
     """
     from noust.deployers.docker_compose import (
         COMPOSE_LOG_LINES,
@@ -435,17 +436,14 @@ def _check_compose_stack(ctx: _Context) -> ProbeResult:
         )
     deployer = stack_deployer(ctx.app, runner=ctx.runner)
     deployer._discover_compose_file()
-    logs = ctx.runner.run(
-        deployer._compose("logs", "--tail", str(COMPOSE_LOG_LINES), "--no-color"),
-        cwd=deployer.app_path,
-        timeout=30,
-    )
+    # Through the deployer's one reader: a viewer reads this, and a
+    # container's output carries the passwords its entrypoint printed.
+    _answered, logs = deployer.container_logs(COMPOSE_LOG_LINES)
     evidence = "\n\n".join(
         part
         for part in (
             state.output,
-            f"docker compose logs --tail {COMPOSE_LOG_LINES}:\n"
-            + ((logs.stdout or logs.stderr).strip() or "(no output)"),
+            f"docker compose logs --tail {COMPOSE_LOG_LINES}:\n" + (logs.strip() or "(no output)"),
         )
         if part
     )

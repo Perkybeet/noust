@@ -83,9 +83,6 @@ MAX_ENV_FILE_SIZE = 1024 * 1024
 #: on a deadline. A day is long enough to be indistinguishable from forever.
 _FOLLOW_TIMEOUT = 86400
 
-#: Docker Compose pulls images and rebuilds; it needs room.
-_COMPOSE_TIMEOUT = 1800
-
 #: Application types ``create`` accepts, in the order they are offered. Read
 #: from the registry rather than typed out here: a hand-written copy is a copy
 #: that goes stale the first time a deployer is added, and it did.
@@ -1428,16 +1425,12 @@ def _show_logs(
             deployer._discover_compose_file()
         except DeploymentError as exc:
             logger.debug(f"No compose file found, asking Compose in {app_path}: {exc}")
-        cmd = deployer._compose("logs", "--tail", str(lines))
-
         if follow:
+            cmd = deployer._compose("logs", "--tail", str(lines))
             cmd.append("-f")
             _follow(cmd, cwd=app_path)
         else:
-            result = get_runner().run(cmd, cwd=app_path, timeout=_COMPOSE_TIMEOUT)
-            _print_or_emit_logs(
-                result.stdout if result.success else result.stderr, json_output=json_output
-            )
+            _print_or_emit_logs(deployer.logs(lines=lines), json_output=json_output)
         return 0
 
     # Resolves both the legacy wasm-* unit names and the current ones.

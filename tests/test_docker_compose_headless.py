@@ -54,14 +54,20 @@ class Docker(FakeRunner):
     def __init__(self) -> None:
         super().__init__()
         self.containers: list[dict[str, Any]] = [RUNNING]
+        self.log = "licitaciones-avisos  | 12 avisos enviados\n"
+        self.environment: list[str] = []
 
     def _lookup(self, argv: Any, user: str | None = None, env: Any = None) -> CommandResult:
         result = super()._lookup(argv, user, env)
         args = result.argv
+        if args[:2] == ("docker", "compose") and "ps" in args and "-q" in args:
+            return replace(result, stdout="a1b2c3d4e5f6\n")
         if args[:2] == ("docker", "compose") and "ps" in args and "-a" in args:
             return replace(result, stdout="\n".join(json.dumps(c) for c in self.containers))
+        if args[:2] == ("docker", "inspect") and "{{json .Config.Env}}" in args:
+            return replace(result, stdout=json.dumps(self.environment))
         if args[:2] == ("docker", "compose") and "logs" in args:
-            return replace(result, stdout="licitaciones-avisos  | 12 avisos enviados\n")
+            return replace(result, stdout=self.log)
         if args[:2] == ("systemctl", "show") and any("ActiveState" in a for a in args):
             return replace(result, stdout="ActiveState=active\nSubState=exited\nNRestarts=0\n")
         return result
@@ -278,6 +284,45 @@ def test_diagnose_judges_the_worker_by_its_containers(
     assert result.verdict == "healthy", [(c.name, c.status, c.summary) for c in result.checks]
     assert "12 avisos enviados" in result.checks[0].evidence
     assert not docker.probed_ports()
+
+
+def test_diagnose_masks_the_secrets_in_the_containers_output(
+    root: Path, store: NoustStore, docker: Docker, unit: None
+) -> None:
+    """
+    A viewer reads the diagnosis: the containers' output reaches it masked.
+
+    It used to carry ``docker compose logs`` verbatim, with whatever password
+    a container printed.
+    """
+    registered(store, root, port=None)
+    docker.environment = ["API_TOKEN=tok-9f8e7d6c5b4a", "TZ=Europe/Madrid"]
+    docker.log = (
+        "licitaciones-avisos  | using tok-9f8e7d6c5b4a\n"
+        "licitaciones-avisos  | postgres://avisos:Url-p4ss@db/avisos\n"
+        "licitaciones-avisos  | 12 avisos enviados\n"
+    )
+
+    result = diagnose.diagnose(DOMAIN, runner=docker, store=store, http_get=_no_http)
+
+    evidence = result.checks[0].evidence
+    assert "12 avisos enviados" in evidence
+    assert "tok-9f8e7d6c5b4a" not in evidence
+    assert "Url-p4ss" not in evidence
+
+
+def test_diagnose_does_not_show_output_it_cannot_mask(
+    root: Path, store: NoustStore, docker: Docker, unit: None
+) -> None:
+    registered(store, root, port=None)
+    docker.script(["docker", "inspect"], exit_code=1, stderr="Error: No such object")
+    docker.log = "licitaciones-avisos  | secret-in-the-log\n"
+
+    result = diagnose.diagnose(DOMAIN, runner=docker, store=store, http_get=_no_http)
+
+    evidence = result.checks[0].evidence
+    assert "secret-in-the-log" not in evidence
+    assert "could not be masked" in evidence or "cannot be masked" in evidence
 
 
 def test_diagnose_names_the_container_that_fails(

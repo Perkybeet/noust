@@ -1972,8 +1972,10 @@ def test_logs_of_a_compose_app_asks_docker(
 
     assert result.exit_code == 0, result.output
     # Built like every other compose command: the project pinned with -p.
+    compose = ("docker", "compose", "-p", "example-com", "-f", str(compose_file))
     assert [call for call in runner.calls if call[:1] == ("docker",)] == [
-        ("docker", "compose", "-p", "example-com", "-f", str(compose_file), "logs", "--tail", "50"),
+        (*compose, "ps", "-a", "-q"),
+        (*compose, "logs", "--tail", "50", "--no-color"),
     ]
 
 

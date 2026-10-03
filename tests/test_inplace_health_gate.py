@@ -126,6 +126,8 @@ class Stack(FakeRunner):
         tag_fails: Restoring an image's tag fails.
         states: Container states answered by ``ps -a``, one list per call;
             the last one repeats.
+        log: What ``docker compose logs`` prints.
+        environment: Each container's environment, as ``docker inspect`` prints it.
     """
 
     def __init__(self) -> None:
@@ -134,6 +136,8 @@ class Stack(FakeRunner):
         self.up_fails = False
         self.previous_up_fails = False
         self.tag_fails = False
+        self.log = "web-1  | Error: Cannot find module 'express'\n"
+        self.environment = ["NODE_ENV=production"]
         self.states: list[list[dict[str, Any]]] = [
             [
                 {"Service": "web", "Name": "stack-web-1", "State": "running", "Health": ""},
@@ -148,6 +152,8 @@ class Stack(FakeRunner):
         def answer(stdout: str = "", stderr: str = "", code: int = 0) -> CommandResult:
             return replace(result, stdout=stdout, stderr=stderr, exit_code=code)
 
+        if args[:2] == ("docker", "inspect") and "{{json .Config.Env}}" in args:
+            return answer(json.dumps(self.environment))
         if args[:2] == ("docker", "inspect"):
             return answer(INSPECTED)
         if args[:3] == ("docker", "image", "tag"):
@@ -166,7 +172,7 @@ class Stack(FakeRunner):
             if "build" in args and self.build_fails:
                 return answer(stderr="failed to solve: npm ci exited with 1", code=1)
             if "logs" in args:
-                return answer("web-1  | Error: Cannot find module 'express'\n")
+                return answer(self.log)
             if "up" in args and "--no-build" in args and self.previous_up_fails:
                 return answer(
                     stderr="Bind for 0.0.0.0:8080 failed: port is already allocated", code=1
@@ -311,6 +317,36 @@ def test_a_stack_that_does_not_answer_goes_back_to_what_served(
     row = store.list_deployments(DOMAIN)[0]
     assert row.status == "failed"
     assert "HTTP 502" in (row.error or "")
+
+
+def test_the_containers_output_kept_by_a_failed_update_has_its_secrets_masked(
+    tmp_path: Path, store: NoustStore, stack_runner: Stack, probe: Probe
+) -> None:
+    """
+    The evidence goes into the job and the deployment record, which viewers read.
+
+    It used to be Compose's output verbatim: a password a container printed
+    (its connection URL, the root password MySQL generated) was kept with it.
+    """
+    root = tmp_path / "stack"
+    compose_app(store, root)
+    probe.failing.add("http://127.0.0.1:8080/")
+    stack_runner.environment = ["DB_PASSWORD=Tr0ub4dor-in-env", "NODE_ENV=production"]
+    stack_runner.log = (
+        "web-1  | connecting as app with Tr0ub4dor-in-env\n"
+        "db-1   | GENERATED ROOT PASSWORD: Zx9-generated-root\n"
+        "web-1  | Error: Cannot find module 'express'\n"
+    )
+
+    with pytest.raises(DeploymentError) as caught:
+        compose_deployer(root, stack_runner).update()
+
+    details = caught.value.details or ""
+    assert "Cannot find module 'express'" in details
+    assert "Tr0ub4dor-in-env" not in details
+    assert "Zx9-generated-root" not in details
+    row = store.list_deployments(DOMAIN)[0]
+    assert "Tr0ub4dor-in-env" not in (row.error or "")
 
 
 def test_going_back_never_touches_a_volume(
