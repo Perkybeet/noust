@@ -60,6 +60,7 @@ from noust.managers.database.base import (
     UserInfo,
     format_size,
     listen_address,
+    restore_timeout,
 )
 from noust.managers.database.flavours import InstallPlan, distribution, plan_install
 from noust.managers.database.instances import PASSWORD_SOURCES
@@ -1142,7 +1143,7 @@ class MongoDBManager(BaseDatabaseManager):
         if source != database:
             argv += ["--nsFrom", f"{source}.*", "--nsTo", f"{database}.*"]
         with self._staged_backup(backup_path, f"mongodb-restore-{database}.archive") as staged:
-            result = self._exec(argv, stdin_path=staged, timeout=TRANSFER_TIMEOUT)
+            result = self._exec(argv, stdin_path=staged, timeout=restore_timeout(staged))
         if not result.success:
             raise DatabaseBackupError(
                 f"Failed to restore database '{database}'",

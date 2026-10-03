@@ -306,3 +306,33 @@ class TestReadingAGzippedArchiveIsBounded:
         path.write_bytes(archive(("shop", "a")))
 
         assert read_whole(path) == path.stat().st_size
+
+
+def test_a_container_restore_gets_a_deadline_that_fits_its_archive(
+    manager: MongoDBManager, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A big archive used to be killed at the fixed two-hour transfer deadline."""
+    from noust.managers.database import mongodb as mongodb_module
+
+    asked: list[Path] = []
+
+    def fitted(path: Path) -> int:
+        asked.append(path)
+        return 54321
+
+    monkeypatch.setattr(mongodb_module, "restore_timeout", fitted, raising=False)
+    deadlines: list[int] = []
+    real_exec = manager._exec
+
+    def exec_(argv, **kwargs):  # type: ignore[no-untyped-def]
+        if "mongorestore" in argv:
+            deadlines.append(kwargs.get("timeout"))
+        return real_exec(argv, **kwargs)
+
+    monkeypatch.setattr(manager, "_exec", exec_)
+
+    manager.restore("shop", dump_of(tmp_path, "shop"), safety_backup=False)
+
+    assert deadlines == [54321]
+    (staged,) = asked
+    assert staged.name.endswith("-restore-shop.archive")
