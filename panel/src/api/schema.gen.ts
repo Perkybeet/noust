@@ -6855,10 +6855,10 @@ export interface paths {
         };
         /**
          * Get Engine Logs
-         * @description Read journal output for an engine's service.
+         * @description Read journal output for an engine's service, or a container's log.
          *
          *     Args:
-         *         engine: Engine name.
+         *         engine: Engine name or instance key.
          *         lines: How many lines to return.
          *         session: The authenticated session.
          *
@@ -16679,19 +16679,48 @@ export interface components {
          *         support: Upstream support for the installed version.
          *         warnings: What the operator must know about the installation.
          *         stored_account: Noust signs in with an account the operator stores
-         *             (``PUT .../credentials``); PostgreSQL and MongoDB do not.
+         *             (``PUT .../credentials``); PostgreSQL and MongoDB do not, nor
+         *             does a container.
+         *         kind: ``host`` for the server's own engine, ``container`` for one
+         *             Docker runs; ``name`` is then its instance key
+         *             (``postgresql@project.service``).
+         *         container: The container's name.
+         *         project: Its Compose project.
+         *         service: Its Compose service.
+         *         image: The image it runs.
+         *         app: The application it belongs to (its Compose project is the
+         *             application's).
+         *         access: ``full``, or ``limited`` when the credentials the container
+         *             carries only let Noust in as the application's own account.
          */
         EngineInfo: {
+            /** Access */
+            access?: string | null;
+            /** App */
+            app?: string | null;
             /** Capabilities */
             capabilities?: string[];
+            /** Compose Service */
+            compose_service?: string | null;
+            /** Container */
+            container?: string | null;
             /** Display Name */
             display_name: string;
+            /** Image */
+            image?: string | null;
             /** Installed */
             installed: boolean;
+            /**
+             * Kind
+             * @default host
+             */
+            kind: string;
             /** Name */
             name: string;
             /** Port */
             port: number;
+            /** Project */
+            project?: string | null;
             /**
              * Running
              * @default false
@@ -19132,6 +19161,8 @@ export interface components {
          *         output: The engine's own message, verbatim.
          *         access: The engine refused to sign Noust in: the fix is to store the
          *             account Noust uses.
+         *         kind: ``host``, ``container`` (an instance Docker runs; ``engine``
+         *             is its key) or ``docker`` (Docker itself did not answer).
          */
         ListingProblemResponse: {
             /** Access */
@@ -19142,6 +19173,11 @@ export interface components {
             engine: string;
             /** Hint */
             hint: string;
+            /**
+             * Kind
+             * @default host
+             */
+            kind: string;
             /** Message */
             message: string;
             /** Output */
