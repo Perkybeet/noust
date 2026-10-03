@@ -1,0 +1,1 @@
+import{t as e}from"./SecuritySettings-oFgpDMQ5.js";var t=e;export{t as component};

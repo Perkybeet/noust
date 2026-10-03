@@ -1,1 +1,0 @@
-import{It as e,r as t}from"./Button-DatP277x.js";var n=e();function r({reason:e}){let r=t();return(0,n.jsxs)(n.Fragment,{children:[(0,n.jsx)(`span`,{"aria-hidden":`true`,className:`text-fg-faint`,children:`–`}),(0,n.jsx)(`span`,{className:`sr-only`,children:e??r(`common.emptyCell.none`)})]})}export{r as t};
