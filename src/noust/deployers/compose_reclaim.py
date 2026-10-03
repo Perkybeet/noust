@@ -51,6 +51,7 @@ from noust.deployers.compose_adopt import (
     PROJECT_LABEL,
     WORKING_DIR_LABEL,
     StackContainer,
+    guard_running_stack,
     list_stack_containers,
     rehearse_up,
 )
@@ -232,6 +233,9 @@ def plan_reclaim(
             containers runs.
         AdoptionRefusedError: The rehearsed ``up`` failed or would change
             something, and that was not accepted.
+        DeploymentError: Also when the compose file asks for root
+            (``privileged``, the Docker socket) the running stack is not
+            proven to have, without an exception.
         ServiceError: The unit is not Noust's.
     """
     from noust.deployers.docker_compose import compose_project_name, stack_deployer
@@ -278,6 +282,9 @@ def plan_reclaim(
         action="Handing the stack back",
         retry="hand it back",
     )
+    # Starting the unit runs ``up -d`` on the file as it is now, which may
+    # have been edited since the stack last ran under Noust.
+    guard_running_stack(deployer, running=True, dry_run=dry_run, changes=changes)
     project = deployer._pinned_project() or compose_project_name(
         deployer.app_path, deployer.compose_path
     )
@@ -329,6 +336,7 @@ def reclaim(
         What was done; nothing under ``--dry-run``.
 
     Raises:
+        DeploymentError: The unit started since the plan was made.
         ServiceError: systemd refused to enable or start the unit, or the
             unit is not Noust's.
         AppBusyError: Another operation is running on the application.
@@ -338,6 +346,15 @@ def reclaim(
     runner = runner if runner is not None else get_runner()
     services = ServiceManager(verbose=False, runner=runner)
     with app_lock(plan.domain, "reclaim"):
+        # Checked again under the lock: the plan was made without it, and an
+        # update or a start in between would make this a second start of a
+        # unit that already runs what it was proven against.
+        if services.get_status(plan.unit).get("active"):
+            raise DeploymentError(
+                f"{plan.domain} already runs under its unit {plan.unit}.service",
+                details=f"Something started it since the check. See it with: noust status "
+                f"{plan.domain}",
+            )
         # Enabled first: a start that fails still leaves the stack coming
         # back at the next boot under the unit, which is what was asked.
         services.enable(plan.unit)

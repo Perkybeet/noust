@@ -397,9 +397,20 @@ def test_a_start_that_would_recreate_is_refused_with_compose_output(
     assert unit_starts(docker) == []
 
 
+def without_the_docker_socket(root: Path) -> None:
+    """Take the Docker socket mount out of Proggest's compose file."""
+    compose = root / "docker-compose.prod.yml"
+    compose.write_text(
+        compose.read_text().replace("      - /var/run/docker.sock:/var/run/docker.sock:ro\n", "")
+    )
+
+
 def test_accepting_the_recreate_hands_it_back(adopted: Path, docker: Docker) -> None:
     from noust.deployers.compose_reclaim import reclaim_stack
 
+    # A recreate proves nothing about what the file asks of the host: that
+    # is the guard's subject below, not this test's.
+    without_the_docker_socket(adopted)
     docker.dry_run = RECREATES
 
     result = reclaim_stack(DOMAIN, accept_recreate=True)
@@ -407,6 +418,37 @@ def test_accepting_the_recreate_hands_it_back(adopted: Path, docker: Docker) -> 
     assert result.reclaimed
     assert result.plan.changes == ("Container proggest-backend   Recreated",)
     assert ("systemctl", "start", f"{UNIT}.service") in unit_starts(docker)
+
+
+def test_a_recreate_does_not_carry_a_docker_socket_the_stack_is_not_proven_to_have(
+    adopted: Path, docker: Docker
+) -> None:
+    """
+    Handing back starts ``up -d`` on the file as it is now, with the guard adoption runs.
+
+    It used to skip the guard: a file edited by hand to mount the Docker
+    socket (root on the server) was started by the unit once the operator
+    accepted the recreate the edit caused.
+    """
+    from noust.deployers.compose_reclaim import reclaim_stack
+
+    docker.dry_run = RECREATES
+
+    with pytest.raises(DeploymentError, match=r"docker\.sock|Docker socket"):
+        reclaim_stack(DOMAIN, accept_recreate=True)
+    assert unit_starts(docker) == []
+
+
+def test_a_unit_started_after_the_plan_is_not_started_again(adopted: Path, docker: Docker) -> None:
+    """The plan is made without the lock; the unit is asked again under it."""
+    from noust.deployers.compose_reclaim import plan_reclaim, reclaim
+
+    plan = plan_reclaim(DOMAIN)
+    docker.script(["systemctl", "is-active"], stdout="active\n")
+
+    with pytest.raises(DeploymentError, match="already runs under its unit"):
+        reclaim(plan)
+    assert unit_starts(docker) == []
 
 
 def test_a_unit_that_runs_has_nothing_to_hand_back(adopted: Path, docker: Docker) -> None:

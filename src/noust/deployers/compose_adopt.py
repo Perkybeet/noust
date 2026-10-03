@@ -44,6 +44,7 @@ import dataclasses
 import os
 import re
 import sqlite3
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -753,17 +754,11 @@ def plan_adoption(
         )
 
     dry_run, changes = rehearse_up(deployer, project, accept_recreate=accept_recreate)
-    # What the guard refuses is accepted only from a stack proven to run with
-    # it: containers made from this file running, and an up that would
-    # neither recreate nor start anything. Otherwise the file is a new stack's.
-    document = deployer._load_compose_document()
-    proven = (
-        any(c.state == "running" for c in containers)
-        and not changes
-        and not _starting_lines(dry_run)
-    )
-    deployer._check_host_privileges(
-        document, accepted=deployer._refusals_in(document) if proven else []
+    guard_running_stack(
+        deployer,
+        running=any(c.state == "running" for c in containers),
+        dry_run=dry_run,
+        changes=changes,
     )
     if changes:
         warnings.append("Accepted: the next start or update changes " + "; ".join(changes) + ".")
@@ -804,6 +799,40 @@ def plan_adoption(
         dry_run=dry_run,
         changes=changes,
         warnings=tuple(warnings),
+    )
+
+
+def guard_running_stack(
+    deployer: DockerComposeDeployer,
+    *,
+    running: bool,
+    dry_run: str,
+    changes: Sequence[str],
+) -> None:
+    """
+    Apply the host privilege guard to a stack Noust is about to take charge of.
+
+    The one rule adopting a stack and handing one back share. What the guard
+    refuses (``privileged``, the Docker socket) is accepted only from a stack
+    proven to run with it: containers made from this file running, and an
+    ``up`` that would neither recreate nor start anything. Otherwise the file
+    is a new stack's, and taking charge of it would start what it asks for
+    as root.
+
+    Args:
+        deployer: The deployer, with the compose file discovered.
+        running: Whether a container made from the file runs.
+        dry_run: Compose's output for the rehearsed ``up``.
+        changes: The lines of it that would change something (accepted).
+
+    Raises:
+        DeploymentError: The file asks for root the stack is not proven to
+            have, without an exception.
+    """
+    document = deployer._load_compose_document()
+    proven = running and not changes and not _starting_lines(dry_run)
+    deployer._check_host_privileges(
+        document, accepted=deployer._refusals_in(document) if proven else []
     )
 
 
@@ -1083,6 +1112,7 @@ __all__ = [
     "changed_lines",
     "find_site",
     "find_stack_project",
+    "guard_running_stack",
     "list_stack_containers",
     "parse_containers",
     "plan_adoption",
