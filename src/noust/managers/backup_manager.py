@@ -645,6 +645,61 @@ def _deployed_at(domain: str, app_name: str, config: Config) -> Path:
     return Path(recorded) if recorded else config.apps_directory / app_name
 
 
+def _stack_copies(entries: Sequence[dict[str, Any]]) -> set[tuple[str, str]]:
+    """
+    Name the databases a copy of a stack's databases holds.
+
+    Args:
+        entries: Backup entries; those with a ``stack`` description count.
+
+    Returns:
+        ``(service, database)`` for each; an empty database is every
+        database of that service.
+    """
+    copies: set[tuple[str, str]] = set()
+    for entry in entries:
+        stack = entry.get("stack")
+        if isinstance(stack, dict):
+            copies.add((str(stack.get("service", "")), str(stack.get("database", ""))))
+    return copies
+
+
+def _held_by_own_stack(
+    app: Any, engine_key: str, name: str, covered: Collection[tuple[str, str]]
+) -> bool:
+    """
+    Say whether a database row is one the copy of the application's own stack holds.
+
+    Args:
+        app: The application's row.
+        engine_key: The row's engine, an instance key for a container.
+        name: The database.
+        covered: What :func:`_stack_copies` found.
+
+    Returns:
+        True when the key names a service of the application's own Compose
+        project (the one :func:`~noust.deployers.compose_reclaim.stack_identity`
+        recognises its containers by) and the stack's copy holds that
+        database of that service. A container of another project is not the
+        application's stack, and is never held by its copy.
+    """
+    if not covered or getattr(app, "app_type", None) != AppType.DOCKER_COMPOSE.value:
+        return False
+    from noust.deployers.compose_reclaim import stack_identity
+    from noust.managers.database.instances import parse_instance_key
+
+    try:
+        key = parse_instance_key(engine_key)
+    except ValidationError:
+        return False
+    if key.project is None or key.service is None:
+        return False
+    identity = stack_identity(app)
+    if key.project not in (identity.pinned, identity.derived):
+        return False
+    return (key.service, name) in covered or (key.service, "") in covered
+
+
 class BackupManager:
     """
     Manager for application backups.
@@ -1414,17 +1469,24 @@ class BackupManager:
             self.fs.make_dir(payload_dir, mode=SECRET_DIR_MODE)
 
             database_backups: list[dict[str, Any]] = []
-            if include_databases:
-                database_backups = self._dump_databases(
-                    domain, payload_dir / DATABASES_DIR, redis_method=redis_method
-                )
+            stack_backups: list[dict[str, Any]] = []
             if include_stack_databases or include_databases:
-                database_backups += self._dump_stack_databases(
+                stack_backups = self._dump_stack_databases(
                     domain,
                     app_path,
                     payload_dir / DATABASES_DIR,
                     explicit=include_databases,
                 )
+            if include_databases:
+                # Taken after the stack's copy, so a database it holds is not
+                # dumped a second time through its store row.
+                database_backups = self._dump_databases(
+                    domain,
+                    payload_dir / DATABASES_DIR,
+                    redis_method=redis_method,
+                    covered=_stack_copies(stack_backups),
+                )
+            database_backups += stack_backups
             if include_databases and not database_backups:
                 self.logger.warning(
                     f"No database was backed up for {domain}: the archive contains files only"
@@ -2163,10 +2225,14 @@ class BackupManager:
 
             # Putting only the files back was silent data loss for every
             # application whose state lives in a database or a volume.
-            self._restore_databases(manifest, extracted, fallback)
-            self._restore_docker_volumes(manifest, extracted, fallback)
+            # The stack's own first: putting one back starts its service,
+            # which a store row of the same stack reaches through afterwards.
             if stack_databases:
                 self._restore_stack_databases(domain, app_path, manifest, extracted, fallback)
+            self._restore_databases(
+                manifest, extracted, fallback, domain=domain, stack_databases=stack_databases
+            )
+            self._restore_docker_volumes(manifest, extracted, fallback)
 
             self._warn_about_missing_environment(self._code_path(app_path))
         except (BackupError, OSError) as exc:
@@ -3082,6 +3148,7 @@ class BackupManager:
         destination: Path,
         *,
         redis_method: str = "rdb",
+        covered: Collection[tuple[str, str]] = (),
     ) -> list[dict[str, Any]]:
         """
         Dump every database of an application into the archive payload.
@@ -3093,6 +3160,10 @@ class BackupManager:
             domain: Domain name of the application.
             destination: Directory inside the payload to write the dumps into.
             redis_method: Method handed to Redis-like engines.
+            covered: ``(service, database)`` of each database the copy of
+                the application's own stack already holds (an empty database
+                is every database of the service). A row of the stack's own
+                project among them is not dumped again.
 
         Returns:
             One entry per database actually dumped, each pointing at a path
@@ -3138,6 +3209,11 @@ class BackupManager:
         service = DatabaseService(logger=self.logger)
         dumps: list[dict[str, Any]] = []
         for db in databases:
+            if _held_by_own_stack(app, db.engine, db.name, covered):
+                self.logger.info(
+                    f"  {db.engine} database {db.name}: in the copy of the stack's databases"
+                )
+                continue
             try:
                 manager = service.manager(db.engine)
             except DatabaseError as exc:
@@ -3334,14 +3410,26 @@ class BackupManager:
         manifest: dict[str, Any] | None,
         extracted: Path,
         fallback: BackupMetadata | None,
+        *,
+        domain: str | None = None,
+        stack_databases: bool = True,
     ) -> None:
         """
         Restore every database dump the archive carries.
+
+        A dump of a database the application's own stack runs, which the
+        archive's copy of the stack's databases also holds, is not loaded
+        through the engine's manager: the restore stopped the stack (its unit
+        runs ``docker compose down``), so that container is not there to be
+        reached, and the stack's copy puts it back. Containers of other
+        projects keep running and are restored here.
 
         Args:
             manifest: Manifest read from inside the archive.
             extracted: Directory the archive was extracted into.
             fallback: Metadata sidecar, for archives with no manifest.
+            domain: The application restored into, whose stack is stopped.
+            stack_databases: Whether the stack's copy is being put back.
 
         Raises:
             BackupError: If a dump is missing or an engine refuses it.
@@ -3351,6 +3439,24 @@ class BackupManager:
             for entry in self._payload_entries(manifest, fallback, "databases", "database_backups")
             if not isinstance(entry.get("stack"), dict)
         ]
+        app = self._app_row(domain) if domain else None
+        if app is not None:
+            covered = _stack_copies(self._stack_entries(manifest, fallback))
+            held = [
+                entry
+                for entry in entries
+                if _held_by_own_stack(
+                    app, str(entry.get("engine", "")), str(entry.get("name", "")), covered
+                )
+            ]
+            for entry in held:
+                reason = (
+                    "put back with the stack's databases"
+                    if stack_databases
+                    else "left as it is: the stack's databases are not being restored"
+                )
+                self.logger.info(f"  {entry.get('engine')} database {entry.get('name')}: {reason}")
+            entries = [entry for entry in entries if entry not in held]
         if not entries:
             return
 

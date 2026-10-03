@@ -1000,3 +1000,110 @@ class TestTheWholeUpdateStopsBeforeTouchingAnything:
 
         with pytest.raises(Reached):
             lifecycle.update_app(DOMAIN)
+
+
+class TestATrackedDatabaseOfTheStackItself:
+    """
+    A store row for a database the application's own stack runs.
+
+    ``--include-databases`` used to dump it twice, once through its row and
+    once with the stack, and a restore stopped the stack (its unit's
+    ``ExecStop`` is ``docker compose down``) and then asked the engine's
+    manager for a container that was gone: the restore failed and was rolled
+    back. The stack's copy covers it; a container of another project does not.
+    """
+
+    @pytest.fixture
+    def own_key(self, store: NoustStore, app_path: Path) -> str:
+        from noust.deployers.compose_reclaim import stack_identity
+
+        app = store.get_app(DOMAIN)
+        assert app is not None
+        project = stack_identity(app).derived
+        assert project
+        return f"postgresql@{project}.postgres"
+
+    @pytest.fixture
+    def tracked(self, store: NoustStore, own_key: str) -> str:
+        from noust.core.store import Database
+
+        app = store.get_app(DOMAIN)
+        assert app is not None and app.id
+        store.create_database(Database(app_id=app.id, name="proggest", engine=own_key))
+        return own_key
+
+    @pytest.fixture
+    def unit(self, manager: BackupManager, runner: StackRunner) -> Any:
+        class Unit:
+            """A running unit whose stop takes its containers down, as ExecStop does."""
+
+            def get_status(self, name: str) -> dict[str, Any]:
+                return {"exists": True, "active": True}
+
+            def stop(self, name: str) -> None:
+                runner.calls.append(("systemctl", "stop", name))
+                runner.running.clear()
+
+            def start(self, name: str) -> None:
+                runner.calls.append(("systemctl", "start", name))
+
+        manager.service_manager = Unit()  # type: ignore[assignment]
+        return manager.service_manager
+
+    def test_a_backup_with_databases_dumps_it_once_with_the_stack(
+        self, manager: BackupManager, runner: StackRunner, tracked: str
+    ) -> None:
+        backup = manager.create(DOMAIN, include_databases=True)
+
+        (entry,) = backup.database_backups
+        assert entry["stack"]["service"] == "postgres"
+        dumps = [call for call in runner.calls if "pg_dump" in call]
+        assert len(dumps) == 1
+
+    def test_a_restore_stops_the_stack_and_still_puts_it_back(
+        self,
+        manager: BackupManager,
+        runner: StackRunner,
+        tracked: str,
+        unit: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """An archive an earlier version took, with both copies, restores."""
+
+        def both(domain: str, destination: Path, **kwargs: Any) -> list[dict[str, Any]]:
+            name = "postgresql.tracked-proggest.dump.gz"
+            destination.mkdir(parents=True, exist_ok=True)
+            (destination / name).write_bytes(b"tracked")
+            return [
+                {
+                    "engine": tracked,
+                    "name": "proggest",
+                    "archive_path": f"{PAYLOAD_DIR}/{DATABASES_DIR}/{name}",
+                }
+            ]
+
+        monkeypatch.setattr(manager, "_dump_databases", both)
+        backup = manager.create(DOMAIN, include_databases=True)
+        assert len(backup.database_backups) == 2
+        monkeypatch.undo()
+
+        assert manager.restore(backup.id) is True
+
+        calls = [" ".join(call) for call in runner.calls]
+        stop = next(i for i, call in enumerate(calls) if "systemctl stop" in call)
+        restore = [i for i, call in enumerate(calls) if "pg_restore" in call]
+        assert len(restore) == 1 and stop < restore[0]
+
+    def test_a_container_of_another_project_is_not_held_by_the_stack_s_copy(
+        self, store: NoustStore, own_key: str
+    ) -> None:
+        from noust.managers.backup_manager import _held_by_own_stack
+
+        app = store.get_app(DOMAIN)
+        assert app is not None
+        covered = {("postgres", "proggest"), ("db", "")}
+
+        assert _held_by_own_stack(app, own_key, "proggest", covered)
+        assert not _held_by_own_stack(app, own_key, "another", covered)
+        assert not _held_by_own_stack(app, "postgresql@other-project.db", "shared", covered)
+        assert not _held_by_own_stack(app, "postgresql", "proggest", covered)
