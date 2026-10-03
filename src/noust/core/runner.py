@@ -2598,6 +2598,7 @@ PROBE_MODULES: tuple[str, ...] = (
     "noust.managers.stack_databases",
     "noust.deployers.compose_adopt",
     "noust.managers.siteconf.regex",
+    "noust.managers.database.settings",
 )
 
 #: Options that turn any declared probe of a program into a change. Checked

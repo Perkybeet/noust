@@ -89,6 +89,10 @@ class ProfileDefaults:
         audit_review_days: An audit review older than this is overdue
             (op.exp.8.r1).
         stale_account_days: An account unused this long is stale (op.acc.1.4).
+        database_remote_listen: Whether ``noust db settings`` may open a
+            database engine on an address beyond loopback (mp.com.1): under
+            the profile an engine is reached through an SSH tunnel, never
+            directly.
     """
 
     name: str
@@ -112,6 +116,7 @@ class ProfileDefaults:
     access_review_days: int
     audit_review_days: int
     stale_account_days: int
+    database_remote_listen: bool = True
 
     @property
     def ens(self) -> bool:
@@ -142,6 +147,7 @@ STANDARD = ProfileDefaults(
     access_review_days=90,
     audit_review_days=7,
     stale_account_days=90,
+    database_remote_listen=True,
 )
 
 #: ENS category MEDIUM (spec §2 and §12.7).
@@ -168,6 +174,7 @@ ENS_MEDIUM = ProfileDefaults(
     access_review_days=90,
     audit_review_days=7,
     stale_account_days=90,
+    database_remote_listen=False,
 )
 
 
@@ -287,6 +294,21 @@ def backup_encryption_required(config: Any | None = None) -> bool:
     if active_defaults(config).backup_encryption == "required":
         return True
     return str(_read(config, "backup.encryption", "optional") or "").strip().lower() == "required"
+
+
+def database_remote_listen_allowed(config: Any | None = None) -> bool:
+    """
+    Report whether a database engine may be opened beyond loopback.
+
+    Args:
+        config: The configuration; the process-wide one by default.
+
+    Returns:
+        False under ``ens-medium``: an engine is reached through an SSH
+        tunnel there, and ``noust db settings`` refuses a non-loopback
+        ``listen_addresses``, ``bind-address``, ``bind`` or ``net.bindIp``.
+    """
+    return active_defaults(config).database_remote_listen
 
 
 @dataclass(frozen=True)
@@ -425,6 +447,13 @@ def baseline() -> list[BaselineItem]:
             "any",
             "operator certificate",
             ("mp.com.2.r1", "mp.com.3.r2"),
+        ),
+        BaselineItem(
+            "database listen addresses",
+            "Noust may open a database engine on an address beyond loopback.",
+            "allowed, with a warning and sudo mode",
+            "refused: reach engines through an SSH tunnel",
+            ("mp.com.1",),
         ),
         BaselineItem(
             "web.ip_whitelist",
