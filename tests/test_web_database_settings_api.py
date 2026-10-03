@@ -112,6 +112,7 @@ def test_an_install_with_a_choice_hands_it_to_the_job(
     client: TestClient, engines, noble: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     created = capture_jobs(monkeypatch)
+    elevate(client)
 
     response = client.post(
         "/api/databases/engines/mysql/install", json={"flavour": "mariadb", "version": "11.4"}
@@ -142,6 +143,7 @@ def test_the_path_can_name_the_flavour(
         lambda engine, verbose=False: resolve("mysql" if engine == "mariadb" else engine, verbose),
     )
 
+    elevate(client)
     response = client.post("/api/databases/engines/mariadb/install")
 
     assert response.status_code == 202, response.text
@@ -152,6 +154,7 @@ def test_a_version_this_server_cannot_have_is_refused_before_queueing(
     client: TestClient, engines, noble: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     created = capture_jobs(monkeypatch)
+    elevate(client)
 
     response = client.post(
         "/api/databases/engines/mysql/install", json={"flavour": "mariadb", "version": "10.3"}

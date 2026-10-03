@@ -418,6 +418,7 @@ def test_installing_queues_a_job(
         )
 
     monkeypatch.setattr(db_api, "get_job_manager", lambda: SimpleNamespace(create_job=create_job))
+    elevate(client)
 
     response = client.post("/api/databases/engines/mysql/install")
 
@@ -426,8 +427,22 @@ def test_installing_queues_a_job(
     assert created[0]["kwargs"] == {"engine": "mysql", "action": "install"}
 
 
+def test_installing_an_engine_requires_elevation(
+    client: TestClient, engines, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Adding an apt repository and its key as root is root-equivalent: sudo mode first."""
+    created = _capture_queued_jobs(monkeypatch)
+
+    response = client.post("/api/databases/engines/mysql/install")
+
+    assert response.status_code == 403, response.text
+    assert response.json()["error"] == "elevation_required"
+    assert not created
+
+
 def test_installing_an_installed_engine_is_refused(client: TestClient, db) -> None:
     """The API answers 409, in the manager's own words."""
+    elevate(client)
     response = client.post("/api/databases/engines/postgresql/install")
 
     assert response.status_code == 409, response.text

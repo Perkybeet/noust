@@ -520,20 +520,22 @@ def get_engine_logs(
 @router.post("/engines/{engine}/install", response_model=JobAcceptedResponse, status_code=202)
 def install_engine(
     engine: str,
-    session: Annotated[dict, Depends(get_current_session)],
+    session: Annotated[dict, Depends(require_elevated)],
     request: EngineInstallRequest | None = None,
 ) -> JobAcceptedResponse:
     """
-    Queue the installation of an engine, in a flavour and version of the catalog.
+    Queue the installation of an engine, in a flavour and version of the catalog, with sudo mode.
 
     Installation drives the distribution package manager, so it runs as a
-    job. What it will install is decided first, so a version this server
-    cannot have, or MariaDB while MySQL is installed, is refused here rather
-    than in the job. Without a body it installs what 3.2 did.
+    job. It can add an apt repository and trust its key as root, which is
+    root-equivalent, hence sudo mode, as for removing an engine. What it
+    will install is decided first, so a version this server cannot have,
+    or MariaDB while MySQL is installed, is refused here rather than in the
+    job. Without a body it installs what 3.2 did.
 
     Args:
         engine: Engine name, or a flavour's (``mariadb``, ``valkey``).
-        session: The authenticated session.
+        session: The authenticated, elevated session.
         request: The flavour and version, both optional.
 
     Returns:
