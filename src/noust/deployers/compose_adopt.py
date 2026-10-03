@@ -304,6 +304,45 @@ def parse_containers(stdout: str) -> list[StackContainer]:
     return found
 
 
+def list_stack_containers(*, runner: CommandRunner) -> list[StackContainer]:
+    """
+    List every container Compose made on this host, running or not, in one call.
+
+    The one place that asks Docker which Compose containers exist (rule 3):
+    adopting a stack reads its project from them, and an application's state
+    reads from them whether a stack runs outside its unit.
+
+    Args:
+        runner: The runner docker is asked through.
+
+    Returns:
+        One entry per container that carries a Compose project label.
+
+    Raises:
+        DeploymentError: Docker cannot be asked.
+    """
+    result = runner.run(
+        [
+            "docker",
+            "ps",
+            "-a",
+            "--no-trunc",
+            "--filter",
+            f"label={PROJECT_LABEL}",
+            "--format",
+            _PS_FORMAT,
+        ],
+        timeout=DOCKER_TIMEOUT,
+    )
+    if not result.success:
+        raise DeploymentError(
+            "Docker could not be asked which containers run",
+            details=(result.stderr or result.stdout).strip()
+            or "Check the daemon: systemctl status docker",
+        )
+    return parse_containers(result.stdout)
+
+
 def _made_from(container: StackContainer, compose_path: Path) -> bool:
     """
     Tell whether a container was made from a compose file.
@@ -343,26 +382,7 @@ def find_stack_project(
             run under more than one project, or under a name Compose would
             not accept back as ``-p``.
     """
-    result = runner.run(
-        [
-            "docker",
-            "ps",
-            "-a",
-            "--no-trunc",
-            "--filter",
-            f"label={PROJECT_LABEL}",
-            "--format",
-            _PS_FORMAT,
-        ],
-        timeout=DOCKER_TIMEOUT,
-    )
-    if not result.success:
-        raise DeploymentError(
-            "Docker could not be asked which containers run",
-            details=(result.stderr or result.stdout).strip()
-            or "Check the daemon: systemctl status docker",
-        )
-    made = [c for c in parse_containers(result.stdout) if _made_from(c, compose_path)]
+    made = [c for c in list_stack_containers(runner=runner) if _made_from(c, compose_path)]
     if not made:
         return None, ()
     running = sorted({c.project for c in made if c.state == "running"})
@@ -732,7 +752,7 @@ def plan_adoption(
             "project is the name Compose gives it, and the rehearsal below creates everything."
         )
 
-    dry_run, changes = _rehearse(deployer, project, accept_recreate=accept_recreate)
+    dry_run, changes = rehearse_up(deployer, project, accept_recreate=accept_recreate)
     # What the guard refuses is accepted only from a stack proven to run with
     # it: containers made from this file running, and an up that would
     # neither recreate nor start anything. Otherwise the file is a new stack's.
@@ -787,16 +807,29 @@ def plan_adoption(
     )
 
 
-def _rehearse(
-    deployer: DockerComposeDeployer, project: str | None, *, accept_recreate: bool
+def rehearse_up(
+    deployer: DockerComposeDeployer,
+    project: str | None,
+    *,
+    accept_recreate: bool,
+    action: str = "Adopting",
+    retry: str = "adopt",
 ) -> tuple[str, tuple[str, ...]]:
     """
     Ask Compose what ``up`` would do to the stack, and refuse what changes it.
+
+    The one proof that starting a stack as Noust would leave the containers
+    that run as they are: adopting a stack asks it, and so does handing back
+    one that runs outside its unit (:mod:`noust.deployers.compose_reclaim`).
 
     Args:
         deployer: The deployer, with the compose file discovered.
         project: The project to address.
         accept_recreate: Return the changes instead of refusing them.
+        action: What needs the proof, capitalised, for the refusal
+            (``Adopting``).
+        retry: The command, as a verb, that takes ``--accept-recreate``
+            (``adopt``).
 
     Returns:
         Compose's output and the lines that would change something.
@@ -813,8 +846,8 @@ def _rehearse(
             return output, ("the rehearsal itself failed, so nothing was proven",)
         raise AdoptionRefusedError(
             "Docker Compose could not show what starting the stack would change",
-            details="Adopting needs 'docker compose up --dry-run' (Docker Compose 2.20 or "
-            "later) to prove nothing would be recreated. Fix what the output says, or adopt "
+            details=f"{action} needs 'docker compose up --dry-run' (Docker Compose 2.20 or "
+            f"later) to prove nothing would be recreated. Fix what the output says, or {retry} "
             "with --accept-recreate (accept_recreate in the API) after reading it.",
             output=output,
         )
@@ -826,7 +859,7 @@ def _rehearse(
             + "; ".join(changes)
             + ". The running containers differ from the compose file (another project, "
             "file, profile or environment). Bring the stack up the way it is meant to run, "
-            "or adopt with --accept-recreate (accept_recreate in the API) to accept it.",
+            f"or {retry} with --accept-recreate (accept_recreate in the API) to accept it.",
             output=output,
             changes=changes,
         )
@@ -1050,6 +1083,8 @@ __all__ = [
     "changed_lines",
     "find_site",
     "find_stack_project",
+    "list_stack_containers",
     "parse_containers",
     "plan_adoption",
+    "rehearse_up",
 ]
