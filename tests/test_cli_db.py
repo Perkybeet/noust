@@ -733,33 +733,39 @@ class TestBackup:
 
 
 class TestConfig:
-    """Credentials are written through the configuration object, by key."""
+    """Credentials go through the service, which tries them before saving."""
 
-    def test_config_stores_the_credentials_it_was_given(
-        self, cli_runner: CliRunner, monkeypatch: pytest.MonkeyPatch
+    @pytest.fixture
+    def given(self, monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+        given: dict[str, Any] = {}
+
+        class FakeService:
+            def set_credentials(self, engine: str, user: str | None, password: str | None):
+                given.update(engine=engine, user=user, password=password)
+
+        monkeypatch.setattr(db_cli, "_service", lambda logger=None: FakeService())
+        return given
+
+    def test_config_hands_the_account_to_the_service(
+        self, cli_runner: CliRunner, given: dict[str, Any]
     ):
-        written: dict[str, Any] = {}
-
-        class FakeConfig:
-            def set(self, key: str, value: Any) -> None:
-                written[key] = value
-
-            def save(self) -> bool:
-                written["saved"] = True
-                return True
-
-        monkeypatch.setattr(db_cli, "Config", FakeConfig)
-
         result = cli_runner.invoke(
             cli_app.cli, ["db", "config", "-e", "mysql", "-u", "root", "-p", "hunter2"]
         )
 
         assert result.exit_code == 0, result.output
-        assert written == {
-            "databases.credentials.mysql.user": "root",
-            "databases.credentials.mysql.password": "hunter2",
-            "saved": True,
-        }
+        assert given == {"engine": "mysql", "user": "root", "password": "hunter2"}
+
+    def test_a_bare_password_option_asks_without_echo(
+        self, cli_runner: CliRunner, given: dict[str, Any]
+    ):
+        result = cli_runner.invoke(
+            cli_app.cli, ["db", "config", "-e", "mysql", "-u", "root", "-p"], input="hunter2\n"
+        )
+
+        assert result.exit_code == 0, result.output
+        assert given["password"] == "hunter2"
+        assert "hunter2" not in result.output
 
 
 class TestQuery:

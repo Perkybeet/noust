@@ -23,6 +23,7 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/databases/engines/{engine}/logs"): Permission.DATABASES_READ,
     ("POST", "/api/databases/engines/{engine}/install"): Permission.DATABASES_MANAGE,
     ("POST", "/api/databases/engines/{engine}/uninstall"): Permission.DATABASES_MANAGE,
+    ("PUT", "/api/databases/engines/{engine}/credentials"): Permission.DATABASES_MANAGE,
     ("POST", "/api/databases/engines/{engine}/start"): Permission.APPS_OPERATE,
     ("POST", "/api/databases/engines/{engine}/stop"): Permission.APPS_OPERATE,
     ("POST", "/api/databases/engines/{engine}/restart"): Permission.APPS_OPERATE,

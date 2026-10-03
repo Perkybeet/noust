@@ -755,13 +755,13 @@ class MySQLManager(BaseDatabaseManager):
         """
         success, output = self._execute_sql(
             "SELECT s.SCHEMA_NAME, s.DEFAULT_CHARACTER_SET_NAME, "
-            "SUM(t.DATA_LENGTH + t.INDEX_LENGTH) "
+            "SUM(t.DATA_LENGTH + t.INDEX_LENGTH), COUNT(t.TABLE_NAME) "
             "FROM INFORMATION_SCHEMA.SCHEMATA s "
             "LEFT JOIN INFORMATION_SCHEMA.TABLES t ON t.TABLE_SCHEMA = s.SCHEMA_NAME "
             "GROUP BY s.SCHEMA_NAME, s.DEFAULT_CHARACTER_SET_NAME;"
         )
         if not success:
-            return []
+            self._listing_failed("databases", output)
 
         databases = []
         for line in output.strip().splitlines():
@@ -774,12 +774,14 @@ class MySQLManager(BaseDatabaseManager):
             size = None
             if len(parts) > 2 and parts[2].isdigit():
                 size = format_size(int(parts[2]))
+            tables = int(parts[3]) if len(parts) > 3 and parts[3].isdigit() else None
             databases.append(
                 DatabaseInfo(
                     name=name,
                     engine=self.ENGINE_NAME,
                     encoding=parts[1] if len(parts) > 1 else None,
                     size=size,
+                    tables=tables,
                 )
             )
         return databases
@@ -950,7 +952,7 @@ class MySQLManager(BaseDatabaseManager):
             "ORDER BY u.User;"
         )
         if not success:
-            return []
+            self._listing_failed("users", output)
 
         users = []
         for line in output.strip().splitlines():

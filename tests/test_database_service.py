@@ -31,6 +31,7 @@ from urllib.parse import quote
 import pytest
 
 from noust.core.exceptions import (
+    DatabaseAccessError,
     DatabaseBackupError,
     DatabaseError,
     DatabaseExistsError,
@@ -900,3 +901,121 @@ def test_a_first_redis_password_that_fails_is_undone_to_no_password(
         "default",
         "",
     )
+
+
+class TestListingProblems:
+    """An engine that cannot be read says so, and does not lose its tracked rows."""
+
+    def test_an_engine_refusing_noust_is_a_problem_not_an_empty_engine(
+        self, service: DatabaseService, store: NoustStore, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        store.create_database(Database(name="shop_db", engine="postgresql"))
+        denied = 'FATAL:  password authentication failed for user "postgres"'
+
+        def refuse(self):
+            raise DatabaseAccessError(
+                "PostgreSQL does not let Noust sign in", details="store it", output=denied
+            )
+
+        monkeypatch.setattr(FakeEngine, "list_databases", refuse)
+
+        listing = service.listing()
+
+        assert [p.engine for p in listing.problems] == ["postgresql"]
+        assert listing.problems[0].access is True
+        assert listing.problems[0].output == denied
+        (row,) = listing.databases
+        assert row.name == "shop_db"
+        assert row.unverified is True
+        assert row.missing is False, "an engine that was not read cannot prove a database gone"
+
+    def test_a_readable_engine_still_marks_a_dropped_database_missing(
+        self, service: DatabaseService, store: NoustStore
+    ) -> None:
+        store.create_database(Database(name="gone_db", engine="postgresql"))
+
+        listing = service.listing()
+
+        assert listing.problems == []
+        gone = next(view for view in listing.databases if view.name == "gone_db")
+        assert gone.missing is True
+        assert gone.unverified is False
+
+
+class FakeMySQL(FakeEngine):
+    """An engine that signs in with a stored account, and checks it."""
+
+    ENGINE_NAME = "mysql"
+    DISPLAY_NAME = "MySQL/MariaDB"
+
+    def list_databases(self):
+        account = self.config.get("databases", {}).get("credentials", {}).get("mysql", {})
+        if account.get("password") != "right":
+            self._listing_failed("databases", "ERROR 1045 (28000): Access denied for user 'root'")
+        return []
+
+
+class TestSetCredentials:
+    """An account is tried through the code that will use it before it is saved."""
+
+    @pytest.fixture
+    def mysql_service(
+        self,
+        tmp_path: Path,
+        store: NoustStore,
+        state: dict[str, Any],
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> tuple[DatabaseService, dict[str, Any]]:
+        saved: dict[str, Any] = {}
+
+        class FakeConfig:
+            def set(self, key: str, value: Any) -> None:
+                saved[key] = value
+
+            def save(self) -> bool:
+                return True
+
+        from noust.managers.database import service as service_module
+
+        monkeypatch.setattr(service_module, "Config", FakeConfig)
+
+        def resolve(name: str) -> BaseDatabaseManager | None:
+            if name == "mysql":
+                engine = FakeMySQL(state, tmp_path / "dumps")
+                engine.config = FakeConfig()
+                engine.config.get = lambda key, default=None: default  # type: ignore[attr-defined]
+                return engine
+            return FakeEngine(state, tmp_path / "dumps") if name == "postgresql" else None
+
+        service = DatabaseService(
+            store=store,
+            secrets=SecretStore(root=tmp_path / "secrets"),
+            resolve=resolve,
+            engines=lambda: ["mysql", "postgresql"],
+        )
+        return service, saved
+
+    def test_a_refused_account_is_not_saved(self, mysql_service) -> None:
+        service, saved = mysql_service
+
+        with pytest.raises(DatabaseAccessError) as caught:
+            service.set_credentials("mysql", "root", "wrong")
+
+        assert "1045" in (caught.value.output or "")
+        assert saved == {}
+
+    def test_an_accepted_account_is_saved(self, mysql_service) -> None:
+        service, saved = mysql_service
+
+        service.set_credentials("mysql", "root", "right")
+
+        assert saved == {
+            "databases.credentials.mysql.user": "root",
+            "databases.credentials.mysql.password": "right",
+        }
+
+    def test_postgresql_has_no_stored_account(self, mysql_service) -> None:
+        service, _ = mysql_service
+
+        with pytest.raises(ValidationError, match="does not sign in with a stored account"):
+            service.set_credentials("postgresql", "postgres", "x")

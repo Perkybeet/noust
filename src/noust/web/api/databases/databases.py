@@ -35,11 +35,38 @@ from noust.web.jobs import JobType
 router = APIRouter(route_class=NoustErrorRoute)
 
 
+class ListingProblemResponse(BaseModel):
+    """
+    An engine whose databases could not be read.
+
+    Attributes:
+        message: What failed.
+        hint: How to fix it.
+        output: The engine's own message, verbatim.
+        access: The engine refused to sign Noust in: the fix is to store the
+            account Noust uses.
+    """
+
+    engine: str
+    display_name: str
+    message: str
+    hint: str
+    output: str
+    access: bool
+
+
 class DatabaseListResponse(BaseModel):
-    """Response for listing databases."""
+    """
+    Response for listing databases.
+
+    Attributes:
+        problems: The engines that could not be read, so an empty list is
+            never mistaken for an engine with nothing in it.
+    """
 
     databases: list[DatabaseInfoResponse]
     total: int
+    problems: list[ListingProblemResponse] = Field(default_factory=list)
 
 
 class CreateDatabaseRequest(BaseModel):
@@ -184,12 +211,15 @@ def list_databases(
         session: The authenticated session.
 
     Returns:
-        Every database the running engines report, and the tracked ones
-        they no longer have (``missing``).
+        Every database the running engines report, the tracked ones they
+        no longer have (``missing``), and the engines that could not be read
+        (``problems``).
     """
-    views = service(session).list_databases(engine)
+    listing = service(session).listing(engine)
     return DatabaseListResponse(
-        databases=[database_response(view) for view in views], total=len(views)
+        databases=[database_response(view) for view in listing.databases],
+        total=len(listing.databases),
+        problems=[ListingProblemResponse(**problem.to_dict()) for problem in listing.problems],
     )
 
 

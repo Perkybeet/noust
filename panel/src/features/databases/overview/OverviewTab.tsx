@@ -135,7 +135,13 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
         <StatTile
           label={t("databases.overview.size")}
           value={size !== null ? formatBytes(size, t.locale) : (sizeWords(database.size, t) ?? "–")}
-          detail={database.tables > 0 ? t("databases.overview.tables", { count: database.tables }) : t("databases.overview.onDisk")}
+          detail={
+            database.keys != null
+              ? t("databases.overview.keyCount", { count: database.keys })
+              : database.tables != null && database.tables > 0
+                ? t("databases.overview.tables", { count: database.tables })
+                : t("databases.overview.onDisk")
+          }
         />
         <StatTile
           label={t("databases.overview.connections")}

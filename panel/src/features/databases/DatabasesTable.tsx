@@ -79,6 +79,7 @@ export function DatabasesTable({ databases, engines, policies, dumps, caption, r
         <span className="flex min-w-0 items-center gap-2">
           <Mono tone="default">{database.name}</Mono>
           {!database.tracked && !database.missing ? <Badge>{t("databases.table.untracked")}</Badge> : null}
+          {database.unverified ? <Badge>{t("databases.table.unverified")}</Badge> : null}
         </span>
       ),
     },

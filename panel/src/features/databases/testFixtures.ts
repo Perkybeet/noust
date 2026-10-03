@@ -27,6 +27,7 @@ export const ENGINES: Engine[] = [
     capabilities: ["dump", "metrics", "profiles", "read_only", "sql", "tables", "users"],
     support: { family: "postgresql", version: "16.4", major: "16", end_of_life: "2028-11-09", status: "supported", message: "Supported." },
     warnings: [],
+    stored_account: false,
   },
   {
     name: "mysql",
@@ -39,9 +40,10 @@ export const ENGINES: Engine[] = [
     capabilities: ["dump", "metrics", "profiles", "read_only", "sql", "tables", "users"],
     support: { family: "mysql", version: "8.0.39", major: "8.0", end_of_life: "2026-04-30", status: "ended", message: "Ended." },
     warnings: [],
+    stored_account: true,
   },
-  { name: "redis", display_name: "Redis", installed: true, version: "7.0.15", running: false, port: 6379, service: "redis-server", capabilities: ["dump", "keys", "metrics"], support: null, warnings: [] },
-  { name: "mongodb", display_name: "MongoDB", installed: false, version: null, running: false, port: 27017, service: "mongod", capabilities: ["documents", "dump"], support: null, warnings: [] },
+  { name: "redis", display_name: "Redis", installed: true, version: "7.0.15", running: false, port: 6379, service: "redis-server", capabilities: ["dump", "keys", "metrics"], support: null, warnings: [], stored_account: false },
+  { name: "mongodb", display_name: "MongoDB", installed: false, version: null, running: false, port: 27017, service: "mongod", capabilities: ["documents", "dump"], support: null, warnings: [], stored_account: false },
 ];
 
 function database(name: string, engine: string, extra: Partial<Database> = {}): Database {
@@ -54,6 +56,7 @@ function database(name: string, engine: string, extra: Partial<Database> = {}): 
     encoding: "UTF8",
     tracked: true,
     missing: false,
+    unverified: false,
     app: null,
     apps: [],
     username: name,

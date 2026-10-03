@@ -21,6 +21,7 @@ from typing import Any
 import pytest
 
 from noust.core.exceptions import (
+    DatabaseAccessError,
     DatabaseBackupError,
     DatabaseError,
     DatabaseQueryError,
@@ -1678,3 +1679,95 @@ def test_redis_says_whether_clients_must_authenticate(
     runner.script(["redis-cli"], stdout=stdout, exit_code=exit_code)
 
     assert redis.requirepass_set() is expected
+
+
+class TestListingFailures:
+    """
+    A listing the engine refused is an error, never an empty list.
+
+    grupotambor's MySQL asks root for a password Noust did not have; the
+    console showed it as a server with no databases and no users.
+    """
+
+    def test_mysql_refusing_root_raises_access_with_the_engine_message(self, mysql, runner):
+        denied = (
+            "ERROR 1045 (28000): Access denied for user 'root'@'localhost' (using password: NO)"
+        )
+        runner.script(["mysql"], stderr=denied, exit_code=1)
+
+        with pytest.raises(DatabaseAccessError) as caught:
+            mysql.list_databases()
+
+        assert caught.value.output == denied
+        assert "noust db config --engine mysql" in caught.value.details
+
+    def test_mysql_users_refused_is_an_error(self, mysql, runner):
+        runner.script(["mysql"], stderr="ERROR 1045 (28000): Access denied", exit_code=1)
+
+        with pytest.raises(DatabaseAccessError):
+            mysql.list_users()
+
+    def test_another_failure_is_a_query_error_not_access(self, mysql, runner):
+        runner.script(["mysql"], stderr="ERROR 2002 (HY000): Can't connect", exit_code=1)
+
+        with pytest.raises(DatabaseQueryError) as caught:
+            mysql.list_databases()
+
+        assert not isinstance(caught.value, DatabaseAccessError)
+        assert "2002" in (caught.value.output or "")
+
+    def test_postgres_refusal_raises(self, postgres, runner):
+        runner.script(
+            ["runuser", "-u", "postgres", "--", "psql"],
+            stderr='psql: error: FATAL:  Peer authentication failed for user "postgres"',
+            exit_code=2,
+        )
+
+        with pytest.raises(DatabaseAccessError):
+            postgres.list_databases()
+        with pytest.raises(DatabaseAccessError):
+            postgres.list_users()
+
+    def test_redis_noauth_on_stdout_with_exit_zero_raises(self, redis, runner):
+        runner.script(["redis-cli"], stdout="NOAUTH Authentication required.\n")
+
+        with pytest.raises(DatabaseAccessError):
+            redis.list_databases()
+        with pytest.raises(DatabaseAccessError):
+            redis.list_users()
+
+    def test_mongodb_refusal_raises(self, mongodb, runner):
+        runner.script(["mongosh"], stderr="MongoServerError: Authentication failed.", exit_code=1)
+
+        with pytest.raises(DatabaseAccessError):
+            mongodb.list_databases()
+
+
+class TestListingCounts:
+    """Counts that are known are given; unknown ones are None, never 0."""
+
+    def test_mysql_counts_tables_in_the_listing_query(self, mysql, runner):
+        runner.script(["mysql"], stdout="appdb\tutf8mb4\t16384\t12\n")
+
+        databases = mysql.list_databases()
+
+        assert len(runner.calls) == 1
+        assert databases[0].tables == 12
+
+    def test_postgres_listing_does_not_claim_zero_tables(self, postgres, runner):
+        runner.script(["runuser", "-u", "postgres", "--", "psql"], stdout="appdb|UTF8|8192|app\n")
+
+        assert postgres.list_databases()[0].tables is None
+
+    def test_redis_reports_keys_not_tables(self, redis, runner):
+        runner.script(
+            ["redis-cli", "-n", "0", "INFO", "keyspace"], stdout="db0:keys=224,expires=0\n"
+        )
+        runner.script(
+            ["redis-cli", "-n", "0", "CONFIG", "GET", "databases"], stdout="databases\n16\n"
+        )
+
+        slot = redis.list_databases()[0]
+
+        assert slot.keys == 224
+        assert slot.tables is None

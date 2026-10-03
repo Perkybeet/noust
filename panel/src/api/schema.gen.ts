@@ -6129,8 +6129,9 @@ export interface paths {
          *         session: The authenticated session.
          *
          *     Returns:
-         *         Every database the running engines report, and the tracked ones
-         *         they no longer have (``missing``).
+         *         Every database the running engines report, the tracked ones they
+         *         no longer have (``missing``), and the engines that could not be read
+         *         (``problems``).
          */
         get: operations["list_databases_api_databases_databases_get"];
         put?: never;
@@ -6748,6 +6749,37 @@ export interface paths {
          */
         get: operations["list_engines_api_databases_engines_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/engines/{engine}/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Engine Credentials
+         * @description Store the account Noust signs in to an engine with, once it works, with sudo mode.
+         *
+         *     The engine is asked first, through the code that will use the account:
+         *     a refusal answers with the engine's own message and saves nothing.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         request: The user and the password.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The outcome.
+         */
+        put: operations["set_engine_credentials_api_databases_engines__engine__credentials_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -15841,8 +15873,12 @@ export interface components {
          *         owner: The owning role or account. Null for engines with no such
          *             concept: MySQL/MariaDB and Redis have none, and MongoDB grants
          *             roles to users rather than owning a database with one.
+         *         tables: Tables or collections; null when the listing does not count
+         *             them.
+         *         keys: Keys in a Redis slot.
          *         tracked: Recorded by Noust: backed up with its application, linkable.
          *         missing: Recorded by Noust but gone from the engine.
+         *         unverified: Recorded by Noust, on an engine that could not be read.
          *         app: The application it belongs to, whose backups include it.
          *         apps: Every application linked to it.
          *         username: The account Noust provisioned for it.
@@ -15860,6 +15896,8 @@ export interface components {
             engine: string;
             /** Engine Version */
             engine_version?: string | null;
+            /** Keys */
+            keys?: number | null;
             /** Last Backup */
             last_backup?: string | null;
             /**
@@ -15873,26 +15911,34 @@ export interface components {
             owner?: string | null;
             /** Size */
             size?: string | null;
-            /**
-             * Tables
-             * @default 0
-             */
-            tables: number;
+            /** Tables */
+            tables?: number | null;
             /**
              * Tracked
              * @default false
              */
             tracked: boolean;
+            /**
+             * Unverified
+             * @default false
+             */
+            unverified: boolean;
             /** Username */
             username?: string | null;
         };
         /**
          * DatabaseListResponse
          * @description Response for listing databases.
+         *
+         *     Attributes:
+         *         problems: The engines that could not be read, so an empty list is
+         *             never mistaken for an engine with nothing in it.
          */
         DatabaseListResponse: {
             /** Databases */
             databases: components["schemas"]["DatabaseInfoResponse"][];
+            /** Problems */
+            problems?: components["schemas"]["ListingProblemResponse"][];
             /** Total */
             total: number;
         };
@@ -16592,6 +16638,21 @@ export interface components {
             password2: string;
         };
         /**
+         * EngineCredentialsRequest
+         * @description The account Noust signs in to an engine with.
+         *
+         *     Attributes:
+         *         user: The administrative user; empty keeps the stored one. Redis has
+         *             none.
+         *         password: Its password; empty keeps the stored one.
+         */
+        EngineCredentialsRequest: {
+            /** Password */
+            password?: string | null;
+            /** User */
+            user?: string | null;
+        };
+        /**
          * EngineExposureResponse
          * @description One engine's listen setting and its open ports.
          */
@@ -16616,6 +16677,8 @@ export interface components {
          *             from these instead of testing engine names.
          *         support: Upstream support for the installed version.
          *         warnings: What the operator must know about the installation.
+         *         stored_account: Noust signs in with an account the operator stores
+         *             (``PUT .../credentials``); PostgreSQL and MongoDB do not.
          */
         EngineInfo: {
             /** Capabilities */
@@ -16635,6 +16698,11 @@ export interface components {
             running: boolean;
             /** Service */
             service?: string | null;
+            /**
+             * Stored Account
+             * @default false
+             */
+            stored_account: boolean;
             support?: components["schemas"]["SupportNoticeResponse"] | null;
             /** Version */
             version?: string | null;
@@ -19018,6 +19086,31 @@ export interface components {
             loopback_only: boolean;
             /** Setting */
             setting: string;
+        };
+        /**
+         * ListingProblemResponse
+         * @description An engine whose databases could not be read.
+         *
+         *     Attributes:
+         *         message: What failed.
+         *         hint: How to fix it.
+         *         output: The engine's own message, verbatim.
+         *         access: The engine refused to sign Noust in: the fix is to store the
+         *             account Noust uses.
+         */
+        ListingProblemResponse: {
+            /** Access */
+            access: boolean;
+            /** Display Name */
+            display_name: string;
+            /** Engine */
+            engine: string;
+            /** Hint */
+            hint: string;
+            /** Message */
+            message: string;
+            /** Output */
+            output: string;
         };
         /**
          * LockdownResponse
@@ -33414,6 +33507,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EngineListResponse"];
+                };
+            };
+        };
+    };
+    set_engine_credentials_api_databases_engines__engine__credentials_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EngineCredentialsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

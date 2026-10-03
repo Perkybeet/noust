@@ -41,7 +41,6 @@ import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.cli.panel_links import open_in_panel
-from noust.core.config import Config
 from noust.core.exceptions import DatabaseError, DatabaseQueryError, NoustError
 from noust.core.logger import Logger
 from noust.managers.database import (
@@ -62,6 +61,9 @@ __all__ = ["MAX_QUERY_LENGTH", "PASSWORD_PLACEHOLDER", "cli", "handle_db"]
 #: Placeholder printed in a connection string when the operator gave no
 #: password. It is a blank to fill in, not a credential.
 PASSWORD_PLACEHOLDER = "<PASSWORD>"  # noqa: S105
+
+#: Stands for "ask for it" when an option that takes a secret is given alone.
+_ASK = "\x00ask"
 
 
 class EngineParamType(click.ParamType):
@@ -619,9 +621,10 @@ def _list(*, engine: str | None, json_output: bool, logger: Logger) -> int:
         Process exit code.
     """
     try:
-        views = _service(logger).list_databases(engine)
+        listing = _service(logger).listing(engine)
     except NoustError as e:
         return _fail(logger, e)
+    views = listing.databases
 
     entries = []
     for view in views:
@@ -632,11 +635,21 @@ def _list(*, engine: str | None, json_output: bool, logger: Logger) -> int:
 
     if json_output:
         _echo_json(entries)
-        return 0
+        for problem in listing.problems:
+            click.echo(f"{problem.message}: {problem.output}", err=True)
+        return 1 if listing.problems else 0
+
+    for problem in listing.problems:
+        logger.error(problem.message)
+        if problem.output:
+            click.echo(f"  {problem.output}")
+        if problem.hint:
+            logger.info(f"  {problem.hint}")
 
     if not entries:
-        logger.info("No databases found")
-        return 0
+        if not listing.problems:
+            logger.info("No databases found")
+        return 1 if listing.problems else 0
 
     by_engine: dict[str, list[dict[str, Any]]] = {}
     for entry in entries:
@@ -647,20 +660,25 @@ def _list(*, engine: str | None, json_output: bool, logger: Logger) -> int:
         click.echo("-" * 50)
         for entry in rows:
             size = entry.get("size", "")
-            tables = entry.get("tables", 0)
+            tables = entry.get("tables")
+            keys = entry.get("keys")
             tracked = "*" if entry.get("tracked") else " "
             apps = entry.get("apps") or []
             linked = f" -> {', '.join(apps)}" if apps else ""
             missing = " (missing from the engine)" if entry.get("missing") else ""
+            if entry.get("unverified"):
+                missing = " (the engine could not be read)"
 
             size_str = f" ({size})" if size else ""
-            tables_str = f" - {tables} tables" if tables else ""
+            tables_str = f" - {tables} tables" if tables is not None else ""
+            if keys is not None:
+                tables_str = f" - {keys} keys"
 
             click.echo(f"  [{tracked}] {entry['name']}{size_str}{tables_str}{linked}{missing}")
 
     click.echo("")
     click.echo("  [*] = tracked by Noust")
-    return 0
+    return 1 if listing.problems else 0
 
 
 def _info(name: str, *, engine: str, json_output: bool, logger: Logger) -> int:
@@ -1643,7 +1661,7 @@ def _exposure(*, json_output: bool, logger: Logger) -> int:
 
 def _config(*, engine: str, user: str | None, password: str | None, logger: Logger) -> int:
     """
-    Store the administrative credentials Noust uses for an engine.
+    Store the account Noust signs in to an engine with, once the engine accepts it.
 
     Args:
         engine: Engine name or alias.
@@ -1654,19 +1672,12 @@ def _config(*, engine: str, user: str | None, password: str | None, logger: Logg
     Returns:
         Process exit code.
     """
-    config = Config()
-
-    if user:
-        config.set(f"databases.credentials.{engine}.user", user)
-    if password:
-        config.set(f"databases.credentials.{engine}.password", password)
-
-    if config.save():
-        logger.success(f"Updated credentials for {engine}")
-        return 0
-
-    logger.error("Failed to save configuration")
-    return 1
+    try:
+        _service(logger).set_credentials(engine, user, password)
+    except NoustError as e:
+        return _fail(logger, e)
+    logger.success(f"Noust signs in to {engine} with that account from now on")
+    return 0
 
 
 # ==================== The argparse front end, on its way out ====================
@@ -2519,11 +2530,20 @@ def connection_string(
 
 @cli.command()
 @click.option("--engine", "-e", type=ENGINE, required=True, help="Engine the credentials are for.")
-@click.option("--user", "-u", help="Administrative user, such as root or postgres.")
-@click.option("--password", "-p", help="Administrative password.")
+@click.option("--user", "-u", help="Administrative user, such as root.")
+@click.option(
+    "--password",
+    "-p",
+    is_flag=False,
+    flag_value=_ASK,
+    help="Administrative password. Alone, it is asked for without echo, so it never "
+    "reaches the shell history or the process list.",
+)
 @pass_context
 def config(ctx: Context, engine: str, user: str | None, password: str | None) -> None:
-    """Store the administrative credentials Noust uses for an engine."""
+    """Store the account Noust signs in to an engine with, after trying it."""
+    if password == _ASK:
+        password = click.prompt("Password", hide_input=True)
     _exit(_config(engine=engine, user=user, password=password, logger=ctx.logger))
 
 

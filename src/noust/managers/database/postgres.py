@@ -725,7 +725,7 @@ class PostgresManager(BaseDatabaseManager):
             "WHERE datistemplate = false;"
         )
         if not success:
-            return []
+            self._listing_failed("databases", output)
 
         databases = []
         for line in output.strip().splitlines():
@@ -923,7 +923,7 @@ class PostgresManager(BaseDatabaseManager):
             "ORDER BY r.rolname;"
         )
         if not success:
-            return []
+            self._listing_failed("users", output)
 
         users = []
         for line in output.strip().splitlines():
@@ -1177,7 +1177,7 @@ class PostgresManager(BaseDatabaseManager):
             database=database,
         )
         if not success:
-            return []
+            self._listing_failed("schemas", output)
         return [line.strip() for line in output.strip().splitlines() if line.strip()]
 
     def backup_schema(
@@ -2348,6 +2348,19 @@ class PostgresManager(BaseDatabaseManager):
             self.fs.remove(self._read_only_password_file(role))
         except OSError as exc:
             self.logger.warning(f"Could not remove the password file of {role}: {exc}")
+
+    def access_hint(self) -> str:
+        """
+        Say how Noust signs in, since there is no password to store.
+
+        Returns:
+            What pg_hba.conf must allow.
+        """
+        return (
+            "Noust signs in as the system's postgres user over the local socket (peer "
+            "authentication). Put 'local all postgres peer' back at the top of pg_hba.conf "
+            "and reload PostgreSQL."
+        )
 
     def listen_addresses(self) -> ListenAddress | None:
         """

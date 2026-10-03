@@ -59,6 +59,10 @@ from noust.managers.database.base import (
 )
 from noust.managers.database.registry import DatabaseRegistry
 
+#: How redis-cli prints an error reply when its output is not a terminal: it
+#: still exits 0, so the text is the only sign a command was refused.
+_ERROR_REPLIES = ("(error)", "ERR ", "NOAUTH", "WRONGPASS", "NOPERM")
+
 #: Where Noust keeps the password it set with ``requirepass``.
 REQUIREPASS_SECRET = "databases/redis/requirepass"  # noqa: S105 - a secret name, not a secret
 
@@ -295,7 +299,7 @@ class RedisManager(BaseDatabaseManager):
             secrets=tuple(env.values()) if env else (),
         )
         output = result.stdout if result.success else result.stderr
-        if result.success and result.stdout.lstrip().startswith(("(error)", "ERR ")):
+        if result.success and result.stdout.lstrip().startswith(_ERROR_REPLIES):
             return False, result.stdout
         return result.success, output
 
@@ -334,7 +338,7 @@ class RedisManager(BaseDatabaseManager):
             timeout=QUERY_TIMEOUT,
             secrets=(secret, *(env.values() if env else ())),
         )
-        if result.success and result.stdout.lstrip().startswith(("(error)", "ERR ")):
+        if result.success and result.stdout.lstrip().startswith(_ERROR_REPLIES):
             return False, result.stdout
         return result.success, result.stdout if result.success else result.stderr
 
@@ -601,11 +605,12 @@ class RedisManager(BaseDatabaseManager):
         """
         keyspace: dict[int, int] = {}
         success, output = self._execute_redis("INFO", "keyspace")
-        if success:
-            for line in output.splitlines():
-                match = re.match(r"db(\d+):keys=(\d+)", line)
-                if match:
-                    keyspace[int(match.group(1))] = int(match.group(2))
+        if not success:
+            self._listing_failed("databases", output)
+        for line in output.splitlines():
+            match = re.match(r"db(\d+):keys=(\d+)", line)
+            if match:
+                keyspace[int(match.group(1))] = int(match.group(2))
 
         databases = []
         for db_number in range(self._database_count()):
@@ -615,7 +620,7 @@ class RedisManager(BaseDatabaseManager):
                     DatabaseInfo(
                         name=str(db_number),
                         engine=self.ENGINE_NAME,
-                        tables=keys,
+                        keys=keys,
                         extra={"keys": keys},
                     )
                 )
@@ -660,7 +665,7 @@ class RedisManager(BaseDatabaseManager):
             name=str(db_number),
             engine=self.ENGINE_NAME,
             size=memory,
-            tables=keys,
+            keys=keys,
             extra={"keys": keys},
         )
 
@@ -777,7 +782,7 @@ class RedisManager(BaseDatabaseManager):
         """
         success, output = self._execute_redis("ACL", "LIST")
         if not success:
-            return []
+            self._listing_failed("users", output)
 
         users = []
         for line in output.splitlines():

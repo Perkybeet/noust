@@ -307,6 +307,12 @@ class DatabaseConnectionError(DatabaseError):
     pass
 
 
+class DatabaseAccessError(DatabaseConnectionError):
+    """Raised when an engine refuses to let Noust sign in."""
+
+    pass
+
+
 class DatabaseNotFoundError(DatabaseError):
     """Raised when a database does not exist."""
 

@@ -397,6 +397,20 @@ class MongoDBManager(BaseDatabaseManager):
             ]
         return []
 
+    def access_hint(self) -> str:
+        """
+        Say how Noust signs in, since there is no password to store.
+
+        Returns:
+            Which account Noust uses and where its password is.
+        """
+        return (
+            f"Noust signs in as {ADMIN_USER}, the administrator it created when it installed "
+            f"MongoDB; its password is the Noust secret {ADMIN_SECRET}. If that account was "
+            "removed or its password changed, recreate it in admin with the root role and "
+            "the password that secret holds."
+        )
+
     def listen_addresses(self) -> ListenAddress | None:
         """
         Ask mongod for ``net.bindIp``.
@@ -647,7 +661,7 @@ class MongoDBManager(BaseDatabaseManager):
         """
         success, data = self._execute_mongo_json("db.adminCommand('listDatabases')")
         if not success or not isinstance(data, dict):
-            return []
+            self._listing_failed("databases", str(data))
 
         databases = []
         for entry in data.get("databases", []):
@@ -831,7 +845,7 @@ class MongoDBManager(BaseDatabaseManager):
             "db.getSiblingDB('admin').system.users.find({}, {user: 1, db: 1, roles: 1}).toArray()"
         )
         if not success or not isinstance(data, list):
-            return []
+            self._listing_failed("users", str(data))
 
         users = []
         for entry in data:

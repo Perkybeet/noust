@@ -47,6 +47,8 @@ class EngineInfo(BaseModel):
             from these instead of testing engine names.
         support: Upstream support for the installed version.
         warnings: What the operator must know about the installation.
+        stored_account: Noust signs in with an account the operator stores
+            (``PUT .../credentials``); PostgreSQL and MongoDB do not.
     """
 
     name: str
@@ -59,6 +61,21 @@ class EngineInfo(BaseModel):
     capabilities: list[str] = Field(default_factory=list)
     support: SupportNoticeResponse | None = None
     warnings: list[str] = Field(default_factory=list)
+    stored_account: bool = False
+
+
+class EngineCredentialsRequest(BaseModel):
+    """
+    The account Noust signs in to an engine with.
+
+    Attributes:
+        user: The administrative user; empty keeps the stored one. Redis has
+            none.
+        password: Its password; empty keeps the stored one.
+    """
+
+    user: str | None = Field(default=None, max_length=128)
+    password: str | None = Field(default=None, max_length=1024)
 
 
 class EngineListResponse(BaseModel):
@@ -294,6 +311,33 @@ def uninstall_engine(
         details={"job": accepted.job_id, "purge": purge},
     )
     return accepted
+
+
+@router.put("/engines/{engine}/credentials", response_model=ActionResponse)
+def set_engine_credentials(
+    engine: str,
+    request: EngineCredentialsRequest,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> ActionResponse:
+    """
+    Store the account Noust signs in to an engine with, once it works, with sudo mode.
+
+    The engine is asked first, through the code that will use the account:
+    a refusal answers with the engine's own message and saves nothing.
+
+    Args:
+        engine: Engine name.
+        request: The user and the password.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The outcome.
+    """
+    manager = service(session).manager(engine)
+    service(session).set_credentials(engine, request.user or None, request.password or None)
+    return ActionResponse(
+        success=True, message=f"Noust signs in to {manager.DISPLAY_NAME} with that account"
+    )
 
 
 @router.post("/engines/{engine}/start", response_model=ActionResponse)

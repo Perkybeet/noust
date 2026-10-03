@@ -42,6 +42,8 @@ from typing import Any
 from noust.core import audit
 from noust.core.config import Config
 from noust.core.exceptions import (
+    ConfigError,
+    DatabaseAccessError,
     DatabaseEngineError,
     DatabaseError,
     DatabaseExistsError,
@@ -50,6 +52,7 @@ from noust.core.exceptions import (
     DatabaseUserError,
     DeploymentError,
     NoustError,
+    ValidationError,
 )
 from noust.core.logger import Logger
 from noust.core.secrets import SecretStore
@@ -98,6 +101,59 @@ PUBLIC_ADDRESS_SETTING = "server.public_address"
 
 #: Stands in for a password in a URL that is only ever shown masked.
 _PLACEHOLDER = "PASSWORD"
+
+#: The engines that sign in with an account the operator stores. PostgreSQL
+#: signs in as the system's postgres user over its socket, and MongoDB as the
+#: administrator Noust created; neither reads a stored password.
+CREDENTIAL_ENGINES = frozenset({"mysql", "redis"})
+
+
+class _CredentialOverlay:
+    """
+    The configuration, with one engine's credentials replaced.
+
+    Lets a manager try an account before it is saved, through the same code
+    that will use it afterwards.
+    """
+
+    def __init__(self, base: Any, engine: str, user: str | None, password: str | None) -> None:
+        """
+        Args:
+            base: The real configuration.
+            engine: The engine whose credentials change.
+            user: The candidate user.
+            password: The candidate password.
+        """
+        self._base = base
+        self._engine = engine
+        self._account = {
+            key: value for key, value in (("user", user), ("password", password)) if value
+        }
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Read a key, with the candidate account in ``databases.credentials``.
+
+        Args:
+            key: Configuration key.
+            default: Value when absent.
+
+        Returns:
+            The value.
+        """
+        value = self._base.get(key, default)
+        if key != "databases":
+            return value
+        databases = dict(value or {})
+        credentials = dict(databases.get("credentials") or {})
+        credentials[self._engine] = dict(self._account)
+        databases["credentials"] = credentials
+        return databases
+
+    def __getattr__(self, name: str) -> Any:
+        """Everything else is the real configuration's."""
+        return getattr(self._base, name)
+
 
 #: Application types whose deployers provision their own databases (from the
 #: repository's compose file): a database asked for with their first deploy is
@@ -166,13 +222,17 @@ class DatabaseView:
         name: The database (a slot number for Redis).
         engine: Canonical engine name.
         size: Human-readable size, when the engine reports one.
-        tables: Tables, collections or keys.
+        tables: Tables or collections, None when the listing does not count
+            them (PostgreSQL would need a connection per database).
+        keys: Keys in a Redis slot.
         owner: The owning account, for engines that have one.
         encoding: Character set or encoding.
         tracked: Whether the store records it: it is Noust's, it is backed up
             with its application, and it can be linked.
         missing: Recorded in the store but gone from the engine (dropped by
             hand); its application's backups would fail until it is forgotten.
+        unverified: Recorded in the store, on an engine that could not be read
+            this time: whether it is still there is not known.
         app: The application it belongs to, whose backups include it.
         apps: Every application linked to it.
         username: The account Noust provisioned for it.
@@ -183,11 +243,13 @@ class DatabaseView:
     name: str
     engine: str
     size: str | None = None
-    tables: int = 0
+    tables: int | None = None
+    keys: int | None = None
     owner: str | None = None
     encoding: str | None = None
     tracked: bool = False
     missing: bool = False
+    unverified: bool = False
     app: str | None = None
     apps: list[str] = field(default_factory=list)
     username: str | None = None
@@ -202,6 +264,51 @@ class DatabaseView:
             A JSON-serialisable dictionary.
         """
         return asdict(self)
+
+
+@dataclass
+class ListingProblem:
+    """
+    An engine whose databases could not be read, and why.
+
+    Attributes:
+        engine: The engine.
+        display_name: Its name for people.
+        message: What failed.
+        hint: How to fix it.
+        output: The engine's own message, verbatim.
+        access: The engine refused to sign Noust in (the fix is credentials).
+    """
+
+    engine: str
+    display_name: str
+    message: str
+    hint: str
+    output: str
+    access: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Render the problem as plain data.
+
+        Returns:
+            A JSON-serialisable dictionary.
+        """
+        return asdict(self)
+
+
+@dataclass
+class DatabaseListing:
+    """
+    Every database the engines report, and the engines that could not be read.
+
+    Attributes:
+        databases: The databases.
+        problems: One entry per engine that failed.
+    """
+
+    databases: list[DatabaseView]
+    problems: list[ListingProblem]
 
 
 @dataclass
@@ -638,6 +745,7 @@ class DatabaseService:
             status = manager.get_status()
             if status.get("running"):
                 status["port"] = manager.server_port()
+            status["stored_account"] = manager.ENGINE_NAME in CREDENTIAL_ENGINES
             described.append(status)
         return described
 
@@ -647,18 +755,35 @@ class DatabaseService:
         """
         List the databases of every running engine, joined with the store.
 
+        Args:
+            engine: Only this engine.
+
+        Returns:
+            The databases, engine by engine; see :meth:`listing` for the
+            engines that could not be read.
+        """
+        return self.listing(engine).databases
+
+    def listing(self, engine: str | None = None) -> DatabaseListing:
+        """
+        List the databases of every running engine, and say which failed.
+
         A database the store tracks but the engine no longer has is listed
         too, marked ``missing``: it is why its application's next backup
-        would fail. One unreachable engine does not hide the others.
+        would fail. One unreachable engine does not hide the others, and it
+        is not silent either: it comes back as a problem with the engine's
+        own message, and its tracked databases as ``unverified`` rather than
+        missing.
 
         Args:
             engine: Only this engine.
 
         Returns:
-            The databases, engine by engine.
+            The databases, engine by engine, and the problems.
         """
         managers = [self.manager(engine)] if engine else self.all_managers()
         views: list[DatabaseView] = []
+        problems: list[ListingProblem] = []
         for manager in managers:
             if not manager.is_installed() or not manager.is_running():
                 continue
@@ -666,17 +791,32 @@ class DatabaseService:
                 entries = manager.list_databases()
             except DatabaseError as exc:
                 self.logger.warning(f"Could not list {manager.DISPLAY_NAME} databases: {exc}")
+                problems.append(
+                    ListingProblem(
+                        engine=manager.ENGINE_NAME,
+                        display_name=manager.DISPLAY_NAME,
+                        message=exc.message,
+                        hint=exc.details,
+                        output=exc.output or "",
+                        access=isinstance(exc, DatabaseAccessError),
+                    )
+                )
+                views.extend(self._views(manager, [], readable=False))
                 continue
             views.extend(self._views(manager, entries))
-        return views
+        return DatabaseListing(views, problems)
 
-    def _views(self, manager: BaseDatabaseManager, entries: list[Any]) -> list[DatabaseView]:
+    def _views(
+        self, manager: BaseDatabaseManager, entries: list[Any], *, readable: bool = True
+    ) -> list[DatabaseView]:
         """
         Join one engine's databases with the store, the links and the dumps.
 
         Args:
             manager: The engine.
             entries: What it listed.
+            readable: Whether the engine could be read at all; when not, the
+                tracked databases are unverified rather than missing.
 
         Returns:
             The views, the missing tracked ones last.
@@ -706,6 +846,7 @@ class DatabaseService:
                     engine=engine,
                     size=info.size,
                     tables=info.tables,
+                    keys=info.keys,
                     owner=info.owner,
                     encoding=info.encoding,
                     tracked=row is not None,
@@ -725,7 +866,8 @@ class DatabaseService:
                     name=name,
                     engine=engine,
                     tracked=True,
-                    missing=True,
+                    missing=readable,
+                    unverified=not readable,
                     app=owner_app,
                     apps=sorted({*linked.get(name, []), *([owner_app] if owner_app else [])}),
                     username=row.username,
@@ -932,6 +1074,57 @@ class DatabaseService:
         manager.drop_read_only_account(name)
         self.audit("db.drop", target, safety_copy=safety, unlinked=",".join(users) or None)
         return DropOutcome(engine=engine_name, database=name, safety_copy=safety, unlinked=users)
+
+    def set_credentials(self, engine: str, user: str | None, password: str | None) -> None:
+        """
+        Store the account Noust signs in to an engine with, once it works.
+
+        The account is tried first, by listing the engine's databases through
+        the code that will use it: a wrong password is refused with the
+        engine's own message and nothing is saved.
+
+        Args:
+            engine: The engine.
+            user: The administrative user; Redis has none.
+            password: Its password.
+
+        Raises:
+            ValidationError: For an engine that does not sign in with a stored
+                account, or when nothing was given.
+            DatabaseAccessError: When the engine refuses the account.
+            ConfigError: When the configuration cannot be written.
+        """
+        manager = self.running(engine)
+        name = manager.ENGINE_NAME
+        if name not in CREDENTIAL_ENGINES:
+            raise ValidationError(
+                f"{manager.DISPLAY_NAME} does not sign in with a stored account",
+                details=manager.access_hint(),
+            )
+        if not user and not password:
+            raise ValidationError("Give a user, a password or both", field="password")
+        candidate = self.manager(name)
+        candidate.config = _CredentialOverlay(manager.config, name, user, password)
+        try:
+            candidate.list_databases()
+        except DatabaseAccessError as exc:
+            self.audit("db.credentials.set", name, outcome="failure", user=user)
+            raise DatabaseAccessError(
+                f"{manager.DISPLAY_NAME} refused that account",
+                details="Check the user and the password; nothing was saved.",
+                output=exc.output,
+            ) from exc
+        config = Config()
+        if user:
+            config.set(f"databases.credentials.{name}.user", user)
+        if password:
+            config.set(f"databases.credentials.{name}.password", password)
+        if not config.save():
+            raise ConfigError(
+                "The credentials work, but the configuration could not be written",
+                details="Check that the configuration file under /etc/noust is writable by root.",
+            )
+        self.audit("db.credentials.set", name, user=user)
 
     def adopt(self, engine: str | None = None) -> list[str]:
         """

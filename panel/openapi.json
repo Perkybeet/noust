@@ -6594,7 +6594,7 @@
         "type": "object"
       },
       "DatabaseInfoResponse": {
-        "description": "One database, as the engine and the store together describe it.\n\nAttributes:\n    owner: The owning role or account. Null for engines with no such\n        concept: MySQL/MariaDB and Redis have none, and MongoDB grants\n        roles to users rather than owning a database with one.\n    tracked: Recorded by Noust: backed up with its application, linkable.\n    missing: Recorded by Noust but gone from the engine.\n    app: The application it belongs to, whose backups include it.\n    apps: Every application linked to it.\n    username: The account Noust provisioned for it.\n    engine_version: The engine's version.\n    last_backup: When its newest dump was taken.",
+        "description": "One database, as the engine and the store together describe it.\n\nAttributes:\n    owner: The owning role or account. Null for engines with no such\n        concept: MySQL/MariaDB and Redis have none, and MongoDB grants\n        roles to users rather than owning a database with one.\n    tables: Tables or collections; null when the listing does not count\n        them.\n    keys: Keys in a Redis slot.\n    tracked: Recorded by Noust: backed up with its application, linkable.\n    missing: Recorded by Noust but gone from the engine.\n    unverified: Recorded by Noust, on an engine that could not be read.\n    app: The application it belongs to, whose backups include it.\n    apps: Every application linked to it.\n    username: The account Noust provisioned for it.\n    engine_version: The engine's version.\n    last_backup: When its newest dump was taken.",
         "properties": {
           "app": {
             "anyOf": [
@@ -6640,6 +6640,17 @@
             ],
             "title": "Engine Version"
           },
+          "keys": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Keys"
+          },
           "last_backup": {
             "anyOf": [
               {
@@ -6683,13 +6694,24 @@
             "title": "Size"
           },
           "tables": {
-            "default": 0,
-            "title": "Tables",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tables"
           },
           "tracked": {
             "default": false,
             "title": "Tracked",
+            "type": "boolean"
+          },
+          "unverified": {
+            "default": false,
+            "title": "Unverified",
             "type": "boolean"
           },
           "username": {
@@ -6712,13 +6734,20 @@
         "type": "object"
       },
       "DatabaseListResponse": {
-        "description": "Response for listing databases.",
+        "description": "Response for listing databases.\n\nAttributes:\n    problems: The engines that could not be read, so an empty list is\n        never mistaken for an engine with nothing in it.",
         "properties": {
           "databases": {
             "items": {
               "$ref": "#/components/schemas/DatabaseInfoResponse"
             },
             "title": "Databases",
+            "type": "array"
+          },
+          "problems": {
+            "items": {
+              "$ref": "#/components/schemas/ListingProblemResponse"
+            },
+            "title": "Problems",
             "type": "array"
           },
           "total": {
@@ -8086,6 +8115,37 @@
         "title": "EncryptionKey",
         "type": "object"
       },
+      "EngineCredentialsRequest": {
+        "description": "The account Noust signs in to an engine with.\n\nAttributes:\n    user: The administrative user; empty keeps the stored one. Redis has\n        none.\n    password: Its password; empty keeps the stored one.",
+        "properties": {
+          "password": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password"
+          },
+          "user": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User"
+          }
+        },
+        "title": "EngineCredentialsRequest",
+        "type": "object"
+      },
       "EngineExposureResponse": {
         "description": "One engine's listen setting and its open ports.",
         "properties": {
@@ -8124,7 +8184,7 @@
         "type": "object"
       },
       "EngineInfo": {
-        "description": "A database engine and whether it is usable on this host.\n\nAttributes:\n    port: The port the server listens on when it runs, its default\n        otherwise.\n    service: The systemd unit it runs as on this server.\n    capabilities: What the engine can do; the console draws its tabs\n        from these instead of testing engine names.\n    support: Upstream support for the installed version.\n    warnings: What the operator must know about the installation.",
+        "description": "A database engine and whether it is usable on this host.\n\nAttributes:\n    port: The port the server listens on when it runs, its default\n        otherwise.\n    service: The systemd unit it runs as on this server.\n    capabilities: What the engine can do; the console draws its tabs\n        from these instead of testing engine names.\n    support: Upstream support for the installed version.\n    warnings: What the operator must know about the installation.\n    stored_account: Noust signs in with an account the operator stores\n        (``PUT .../credentials``); PostgreSQL and MongoDB do not.",
         "properties": {
           "capabilities": {
             "items": {
@@ -8164,6 +8224,11 @@
               }
             ],
             "title": "Service"
+          },
+          "stored_account": {
+            "default": false,
+            "title": "Stored Account",
+            "type": "boolean"
           },
           "support": {
             "anyOf": [
@@ -12867,6 +12932,45 @@
           "loopback_only"
         ],
         "title": "ListenResponse",
+        "type": "object"
+      },
+      "ListingProblemResponse": {
+        "description": "An engine whose databases could not be read.\n\nAttributes:\n    message: What failed.\n    hint: How to fix it.\n    output: The engine's own message, verbatim.\n    access: The engine refused to sign Noust in: the fix is to store the\n        account Noust uses.",
+        "properties": {
+          "access": {
+            "title": "Access",
+            "type": "boolean"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "hint": {
+            "title": "Hint",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "output": {
+            "title": "Output",
+            "type": "string"
+          }
+        },
+        "required": [
+          "engine",
+          "display_name",
+          "message",
+          "hint",
+          "output",
+          "access"
+        ],
+        "title": "ListingProblemResponse",
         "type": "object"
       },
       "LockdownResponse": {
@@ -36495,7 +36599,7 @@
     },
     "/api/databases/databases": {
       "get": {
-        "description": "List databases across the running engines, joined with the store.\n\nArgs:\n    engine: Engine to restrict the listing to.\n    session: The authenticated session.\n\nReturns:\n    Every database the running engines report, and the tracked ones\n    they no longer have (``missing``).",
+        "description": "List databases across the running engines, joined with the store.\n\nArgs:\n    engine: Engine to restrict the listing to.\n    session: The authenticated session.\n\nReturns:\n    Every database the running engines report, the tracked ones they\n    no longer have (``missing``), and the engines that could not be read\n    (``problems``).",
         "operationId": "list_databases_api_databases_databases_get",
         "parameters": [
           {
@@ -38236,6 +38340,61 @@
           "Databases"
         ],
         "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/engines/{engine}/credentials": {
+      "put": {
+        "description": "Store the account Noust signs in to an engine with, once it works, with sudo mode.\n\nThe engine is asked first, through the code that will use the account:\na refusal answers with the engine's own message and saves nothing.\n\nArgs:\n    engine: Engine name.\n    request: The user and the password.\n    session: The authenticated, elevated session.\n\nReturns:\n    The outcome.",
+        "operationId": "set_engine_credentials_api_databases_engines__engine__credentials_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EngineCredentialsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Engine Credentials",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/databases/engines/{engine}/exposure": {

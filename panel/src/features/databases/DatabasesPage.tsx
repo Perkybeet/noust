@@ -23,6 +23,7 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 import { DatabasesTable } from "./DatabasesTable";
+import { ListingProblemsNotice } from "./EngineAccess";
 import { can, engineName, sortEngines } from "./engines";
 import { filterDatabases, isFiltered } from "./filters";
 import type { DatabasesSearch } from "./filters";
@@ -82,7 +83,8 @@ function RowActions({ database, engines, t }: { database: Database; engines: rea
 /**
  * Every database on the server, as a T1 list: the name first and whether it is backed up
  * beside it, the engine, who uses it, its size and its newest dump. Above it, the filters and
- * at most one notice (a port open to the network first); the engines have their own tab.
+ * at most one notice (an engine that could not be read first, since the list itself is then
+ * incomplete; then a port open to the network); the engines have their own tab.
  */
 export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   const t = useT();
@@ -113,9 +115,12 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   const running = (engines.data?.engines ?? []).some((engine) => engine.running);
   const exposed = exposure.data?.exposed ?? [];
   const unprotected = policies.data?.unprotected?.length ?? 0;
+  const problems = list.data?.problems ?? [];
 
   let notice;
-  if (exposed.length > 0) {
+  if (problems.length > 0) {
+    notice = <ListingProblemsNotice problems={problems} engines={engines.data?.engines} />;
+  } else if (exposed.length > 0) {
     notice = (
       <Notice tone="error" title={t("databases.list.exposedTitle", { count: exposed.length })}>
         {t("databases.list.exposedBody", {
@@ -158,6 +163,14 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
         <span aria-busy="true" className="sr-only">
           {t("databases.list.loading")}
         </span>
+        {dialogs}
+      </ListPage>
+    );
+  }
+
+  if (all.length === 0 && problems.length > 0) {
+    return (
+      <ListPage header={header} tabs={tabs} notice={notice} footer={<CommandHint command="noust db list" label={t("databases.common.fromTerminal")} />}>
         {dialogs}
       </ListPage>
     );

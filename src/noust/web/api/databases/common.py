@@ -123,8 +123,12 @@ class DatabaseInfoResponse(BaseModel):
         owner: The owning role or account. Null for engines with no such
             concept: MySQL/MariaDB and Redis have none, and MongoDB grants
             roles to users rather than owning a database with one.
+        tables: Tables or collections; null when the listing does not count
+            them.
+        keys: Keys in a Redis slot.
         tracked: Recorded by Noust: backed up with its application, linkable.
         missing: Recorded by Noust but gone from the engine.
+        unverified: Recorded by Noust, on an engine that could not be read.
         app: The application it belongs to, whose backups include it.
         apps: Every application linked to it.
         username: The account Noust provisioned for it.
@@ -135,11 +139,13 @@ class DatabaseInfoResponse(BaseModel):
     name: str
     engine: str
     size: str | None = None
-    tables: int = 0
+    tables: int | None = None
+    keys: int | None = None
     owner: str | None = None
     encoding: str | None = None
     tracked: bool = False
     missing: bool = False
+    unverified: bool = False
     app: str | None = None
     apps: list[str] = Field(default_factory=list)
     username: str | None = None

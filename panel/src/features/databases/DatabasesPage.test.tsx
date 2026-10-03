@@ -53,6 +53,43 @@ describe("the databases list", () => {
     expect(screen.queryByText("2 databases have no backup schedule")).not.toBeInTheDocument();
   });
 
+  it("says an engine it cannot read before anything else, with the engine's words, and stores an account for it", async () => {
+    const denied = "ERROR 1045 (28000): Access denied for user 'root'@'localhost' (using password: NO)";
+    const { user, backend } = await listAt(
+      "/databases",
+      {
+        "GET /api/databases/databases": () =>
+          json(200, {
+            databases: [],
+            total: 0,
+            problems: [
+              {
+                engine: "mysql",
+                display_name: "MySQL/MariaDB",
+                message: "MySQL/MariaDB does not let Noust sign in, so its databases cannot be listed",
+                hint: "Store the account Noust signs in with.",
+                output: denied,
+                access: true,
+              },
+            ],
+          }),
+        "PUT /api/databases/engines/mysql/credentials": () => json(200, { success: true, message: "ok" }),
+      },
+      { rows: false },
+    );
+    expect(await screen.findByText("Noust cannot read MySQL/MariaDB")).toBeInTheDocument();
+    expect(screen.getByText(denied)).toBeInTheDocument();
+    expect(screen.queryByText("No databases yet")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Store the account" }));
+    const dialog = await screen.findByRole("dialog");
+    await user.type(within(dialog).getByLabelText("User"), "root");
+    await user.type(within(dialog).getByLabelText("Password"), "s3cret");
+    await user.click(within(dialog).getByRole("button", { name: "Try and save" }));
+    await waitFor(() => expect(backend.callsTo("PUT /api/databases/engines/mysql/credentials")).toHaveLength(1));
+    expect(backend.callsTo("PUT /api/databases/engines/mysql/credentials")[0]?.body).toEqual({ user: "root", password: "s3cret" });
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
   it("leaves the engines to their own tab: only the filters and one notice above the list", async () => {
     await listAt();
     expect(await screen.findByRole("region", { name: "Databases" })).toBeInTheDocument();

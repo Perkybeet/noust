@@ -42,11 +42,12 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, NoReturn
 
 from noust.central import require_server_role
 from noust.core import paths
 from noust.core.exceptions import (
+    DatabaseAccessError,
     DatabaseBackupError,
     DatabaseEngineError,
     DatabaseError,
@@ -277,6 +278,17 @@ def validate_privileges(
     return tuple(seen)
 
 
+#: What each engine's client prints when it refuses to sign Noust in: MySQL's
+#: 1045, PostgreSQL's 28P01 and peer refusal, Redis's NOAUTH and WRONGPASS,
+#: MongoDB's authentication and authorization failures.
+_ACCESS_REFUSED = re.compile(
+    r"ERROR 1045|ERROR 1698|28P01|password authentication failed|Peer authentication failed"
+    r"|no password supplied|NOAUTH|WRONGPASS|Authentication failed|requires authentication"
+    r"|not authorized on admin",
+    re.IGNORECASE,
+)
+
+
 @dataclass
 class DatabaseInfo:
     """Information about a database."""
@@ -284,10 +296,11 @@ class DatabaseInfo:
     name: str
     engine: str
     size: str | None = None
-    tables: int = 0
+    tables: int | None = None
     owner: str | None = None
     encoding: str | None = None
     created: datetime | None = None
+    keys: int | None = None
     connection_string: str | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
@@ -303,6 +316,7 @@ class DatabaseInfo:
             "engine": self.engine,
             "size": self.size,
             "tables": self.tables,
+            "keys": self.keys,
             "owner": self.owner,
             "encoding": self.encoding,
             "created": self.created.isoformat() if self.created else None,
@@ -1178,6 +1192,48 @@ class BaseDatabaseManager(BaseManager):
             base has nothing; MongoDB warns when authorization is off.
         """
         return []
+
+    def access_hint(self) -> str:
+        """
+        Say how to give Noust a way in when the engine refuses it.
+
+        Returns:
+            The command that stores the administrative credentials.
+        """
+        return (
+            f"Store the account Noust signs in with: 'noust db config --engine "
+            f"{self.ENGINE_NAME} --user <user> --password', or from the console, on "
+            "the engine's card."
+        )
+
+    def _listing_failed(self, what: str, output: str) -> NoReturn:
+        """
+        Raise the reason a listing could not be read, instead of an empty list.
+
+        An empty answer would read as "this engine has nothing": the console
+        showed a MySQL that refused root as a server with no databases and no
+        users, and the store's tracked rows as gone.
+
+        Args:
+            what: What was being listed, in plural ("databases", "users").
+            output: The client's own output, verbatim.
+
+        Raises:
+            DatabaseAccessError: When the engine refused to sign Noust in.
+            DatabaseQueryError: For any other failure.
+        """
+        text = output.strip()
+        if _ACCESS_REFUSED.search(text):
+            raise DatabaseAccessError(
+                f"{self.DISPLAY_NAME} does not let Noust sign in, so its {what} cannot be listed",
+                details=self.access_hint(),
+                output=text,
+            )
+        raise DatabaseQueryError(
+            f"{self.DISPLAY_NAME} did not list its {what}",
+            details=f"{self.DISPLAY_NAME}'s own message follows.",
+            output=text,
+        )
 
     # ==================== Database Management ====================
 
