@@ -1348,17 +1348,31 @@ class RedisManager(BaseDatabaseManager):
 
         Returns:
             One sentence when no password is known and the server answered.
+            A container started with one (``--requirepass``, or the variable
+            its image reads) has one, though Noust never sees it: the client
+            reads it inside the container, where ``ACL WHOAMI`` then answers
+            ``default`` for a signed-in client as well.
         """
-        if self._known_password():
+        if self.instance is not None:
+            if self.instance.requires_password:
+                return []
+        elif self._known_password():
             return []
         success, output = self._execute_redis("ACL", "WHOAMI")
-        if success and output.strip() == "default":
+        if not success or output.strip() != "default":
+            return []
+        if self.instance is not None:
             return [
-                "Redis accepts every command without a password: any process on this "
-                "server can read and change every key. Set one with 'noust db "
-                "user-password default --engine redis'."
+                f"Redis in {self.instance.container} accepts every command without a "
+                "password: anything that reaches it can read and change every key. Start "
+                "it with --requirepass or REDIS_PASSWORD in the compose file and recreate "
+                "the container."
             ]
-        return []
+        return [
+            "Redis accepts every command without a password: any process on this "
+            "server can read and change every key. Set one with 'noust db "
+            "user-password default --engine redis'."
+        ]
 
     def set_user_password(self, username: str, password: str, host: str = "localhost") -> None:
         """

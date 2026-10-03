@@ -53,6 +53,8 @@ from noust.core.exceptions import (
     DatabaseError,
     DatabaseQueryError,
     DatabaseUserError,
+    ServiceError,
+    ValidationError,
 )
 from noust.core.fs import SECRET_MODE
 from noust.core.runner import CommandResult, CommandRunner, DryRunRunner, get_runner
@@ -1401,6 +1403,9 @@ class BaseDatabaseManager(BaseManager):
         """
         if action not in ("start", "stop", "restart"):
             self.refuse_in_container(action)
+        if instance.unit is not None:
+            self._unit_action(instance, instance.unit, action)
+            return
         result = self.runner.run(["docker", action, instance.container], timeout=SERVICE_TIMEOUT)
         if not result.success:
             raise DatabaseEngineError(
@@ -1410,6 +1415,44 @@ class BaseDatabaseManager(BaseManager):
                     f"docker logs --tail 50 {instance.container}"
                 ),
                 output=(result.stderr or result.stdout).strip(),
+            )
+
+    def _unit_action(self, instance: DatabaseInstance, unit: str, action: str) -> None:
+        """
+        Start, stop or restart a Compose application's stack through its unit.
+
+        A bare ``docker stop`` would leave the unit believing its stack runs,
+        and ``docker start`` would bring back a container the unit did not
+        ask for. The unit owns the stack; :class:`ServiceManager` checks it
+        is Noust's.
+
+        Args:
+            instance: The container.
+            unit: The application's unit.
+            action: ``start``, ``stop`` or ``restart``.
+
+        Raises:
+            DatabaseEngineError: When systemd refuses, with its own words.
+        """
+        from noust.managers.service_manager import ServiceManager
+
+        services = ServiceManager(runner=self.runner)
+        try:
+            if action == "stop":
+                stopped = services.stop(unit)
+            else:
+                getattr(services, action)(unit)
+                stopped = True
+        except (ServiceError, ValidationError) as exc:
+            raise DatabaseEngineError(
+                f"Failed to {action} {unit}, the unit that runs {instance.container}",
+                details=f"{exc.message}\nInspect it with: journalctl -u {unit} -n 50",
+                output=exc.details or "",
+            ) from exc
+        if not stopped:
+            raise DatabaseEngineError(
+                f"Failed to stop {unit}, the unit that runs {instance.container}",
+                details=f"Inspect it with: journalctl -u {unit} -n 50",
             )
 
     def container_logs(self, lines: int) -> str:

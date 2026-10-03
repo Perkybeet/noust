@@ -530,6 +530,9 @@ class DatabaseInstance:
             environment variable. Never rendered.
         command_password_variable: The variable ``--requirepass`` names
             instead, when the command line says ``$NAME``.
+        unit: The systemd unit of the Noust Compose application whose stack
+            it is part of, once known: starting and stopping it goes through
+            that unit, which owns the stack.
     """
 
     key: str
@@ -549,6 +552,7 @@ class DatabaseInstance:
     app: str | None = None
     command_password: str | None = field(default=None, repr=False)
     command_password_variable: str | None = None
+    unit: str | None = None
 
     # ---------------------------------------------------------------- state
 
@@ -651,6 +655,23 @@ class DatabaseInstance:
                 "ALLOW_EMPTY_PASSWORD",
             )
         )
+
+    @property
+    def requires_password(self) -> bool:
+        """
+        Whether a Redis container is started with a password.
+
+        ``--requirepass`` on its command line, or the variable the image
+        reads it from (or its ``*_FILE`` form) in its environment: the
+        client is then signed in inside the container with it, and the
+        server does not take commands from anyone.
+        """
+        if self.command_password:
+            return True
+        names = [*PASSWORD_SOURCES["redis"]]
+        if self.command_password_variable:
+            names.append(self.command_password_variable)
+        return self._has(*names)
 
     @property
     def access(self) -> Access:
@@ -801,6 +822,9 @@ class DatabaseInstance:
 
 
 # ==================== Discovery ====================
+
+#: The store's ``app_type`` of a Docker Compose application.
+COMPOSE_APP_TYPE = "docker-compose"
 
 
 def _labels(value: object) -> dict[str, str]:
@@ -1091,30 +1115,42 @@ def assign_apps(
     ``empleo-arennalabs-com`` is the database of empleo.arennalabs.com even
     when that application is not itself a Compose stack.
 
+    When that application is itself a Compose stack and the container is
+    one of its services, its unit is recorded too (``unit``): the stack is
+    the unit's, and is started and stopped through it.
+
     Args:
         instances: The instances.
-        apps: The store's applications (anything with ``domain`` and
-            ``compose_project``).
+        apps: The store's applications (anything with ``domain``,
+            ``compose_project`` and ``app_type``).
 
     Returns:
         The instances, each with ``app`` set when one matched.
     """
     by_project: dict[str, str] = {}
     by_name: dict[str, str] = {}
+    units: dict[str, str] = {}
     for app in apps:
         domain = getattr(app, "domain", None)
         if not domain:
             continue
+        name = domain_to_app_name(str(domain))
         project = getattr(app, "compose_project", None)
         if project:
             by_project.setdefault(str(project), str(domain))
-        by_name.setdefault(domain_to_app_name(str(domain)), str(domain))
+        by_name.setdefault(name, str(domain))
+        app_type = getattr(app, "app_type", None)
+        if str(getattr(app_type, "value", app_type)) == COMPOSE_APP_TYPE:
+            units.setdefault(str(project or name), name)
     owned: list[DatabaseInstance] = []
     for instance in instances:
         domain = None
         if instance.project:
             domain = by_project.get(instance.project) or by_name.get(instance.project)
-        owned.append(replace(instance, app=domain) if domain else instance)
+        if domain:
+            unit = units.get(instance.project or "")
+            instance = replace(instance, app=domain, unit=unit)
+        owned.append(instance)
     return owned
 
 

@@ -227,7 +227,14 @@ def unlink_app_database(
     if drop:
         ensure_elevated(http_request, session)
     domain = strict_domain(domain)
-    manager = service(session).manager(engine)
+    databases = service(session)
+    # Unlinking only changes the store and the application: a container that
+    # is gone must not stand in its way. Dropping needs the engine itself.
+    if drop:
+        manager = databases.manager(engine)
+        key = manager.ENGINE_NAME
+    else:
+        key, manager = databases.store_key(engine)
     name = manager.validate_database_name(name)
     return queue(
         session,
@@ -238,12 +245,12 @@ def unlink_app_database(
         func=jobs.unlink_job,
         kwargs={
             "domain": domain,
-            "engine": manager.ENGINE_NAME,
+            "engine": key,
             "database": name,
             "drop": drop,
             "restart": restart,
         },
-        metadata={"domain": domain, "engine": manager.ENGINE_NAME, "database": name},
+        metadata={"domain": domain, "engine": key, "database": name},
         message=f"Unlinking {name} from {domain}",
     )
 

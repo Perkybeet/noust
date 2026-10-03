@@ -176,9 +176,7 @@ def get_engine_exposure(
     port = manager.server_port()
     listen = manager.listen_addresses()
     exposed = [
-        ExposedPortResponse(**entry.to_dict())
-        for entry in databases.exposure(extra_ports={port: manager.ENGINE_NAME})
-        if entry.engine == manager.ENGINE_NAME
+        ExposedPortResponse(**entry.to_dict()) for entry in databases.engine_exposure(manager)
     ]
     return EngineExposureResponse(
         engine=manager.ENGINE_NAME,

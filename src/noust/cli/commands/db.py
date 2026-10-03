@@ -836,6 +836,13 @@ def _list(*, engine: str | None, json_output: bool, logger: Logger) -> int:
     """
     List the databases of every running engine, joined with the store.
 
+    Every problem is reported. The exit status is 1 only when an engine
+    that exists could not be read: then the list is incomplete and a script
+    must not take it for the whole truth. Docker failing to list its
+    containers is reported as a warning and does not fail the command,
+    since every engine Noust knows to exist was read; a server whose Docker
+    daemon is down, or that has none, still lists its own databases.
+
     Args:
         engine: Engine name or alias. Every engine when omitted.
         json_output: Print the list as JSON.
@@ -849,6 +856,7 @@ def _list(*, engine: str | None, json_output: bool, logger: Logger) -> int:
     except NoustError as e:
         return _fail(logger, e)
     views = listing.databases
+    failed = 1 if any(problem.kind != "docker" for problem in listing.problems) else 0
 
     entries = []
     for view in views:
@@ -861,10 +869,13 @@ def _list(*, engine: str | None, json_output: bool, logger: Logger) -> int:
         _echo_json(entries)
         for problem in listing.problems:
             click.echo(f"{problem.message}: {problem.output}", err=True)
-        return 1 if listing.problems else 0
+        return failed
 
     for problem in listing.problems:
-        logger.error(problem.message)
+        if problem.kind == "docker":
+            logger.warning(problem.message)
+        else:
+            logger.error(problem.message)
         if problem.output:
             click.echo(f"  {problem.output}")
         if problem.hint:
@@ -873,7 +884,7 @@ def _list(*, engine: str | None, json_output: bool, logger: Logger) -> int:
     if not entries:
         if not listing.problems:
             logger.info("No databases found")
-        return 1 if listing.problems else 0
+        return failed
 
     by_engine: dict[str, list[dict[str, Any]]] = {}
     for entry in entries:
@@ -902,7 +913,7 @@ def _list(*, engine: str | None, json_output: bool, logger: Logger) -> int:
 
     click.echo("")
     click.echo("  [*] = tracked by Noust")
-    return 1 if listing.problems else 0
+    return failed
 
 
 def _info(name: str, *, engine: str, json_output: bool, logger: Logger) -> int:

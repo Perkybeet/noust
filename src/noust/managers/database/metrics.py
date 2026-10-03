@@ -301,7 +301,7 @@ def database_series(engine: str, database: str) -> dict[str, str]:
         "postgresql": ["size", "connections", "cache_hit", "tps"],
         "mysql": ["size", "connections"],
         "redis": ["keys"],
-    }.get(engine, [])
+    }.get(engine_of(engine), [])
     return {name: series(engine, name, database) for name in names}
 
 
@@ -317,7 +317,7 @@ def engine_series(engine: str) -> dict[str, str]:
         "postgresql": ["connections"],
         "mysql": ["connections", "cache_hit", "qps"],
         "redis": ["connections", "memory", "cache_hit", "ops"],
-    }.get(engine, [])
+    }.get(engine_of(engine), [])
     return {name: series(engine, name) for name in names}
 
 

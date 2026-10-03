@@ -777,7 +777,7 @@ class DatabaseService:
         )
         return wanted, base
 
-    def _store_key(self, engine: str) -> tuple[str, BaseDatabaseManager]:
+    def store_key(self, engine: str) -> tuple[str, BaseDatabaseManager]:
         """
         Name the key an engine's rows are filed under, without reaching a container.
 
@@ -1593,7 +1593,7 @@ class DatabaseService:
             DatabaseError: When the database still exists (drop it instead),
                 or its engine cannot be asked whether it does.
         """
-        key, base = self._store_key(engine)
+        key, base = self.store_key(engine)
         name = base.validate_database_name(name)
         if not self._container_gone(key):
             manager = self.running(engine)
@@ -2694,7 +2694,7 @@ class DatabaseService:
         app = self._app(domain)
         # The store and the application's environment are all an unlink
         # changes: a container that is gone does not stand in its way.
-        engine_name, base = self._store_key(engine)
+        engine_name, base = self.store_key(engine)
         database = base.validate_database_name(database)
         link = self.records.link(app.id or 0, engine_name, database)
         row = self.store.get_database(database, engine_name)
@@ -3305,11 +3305,7 @@ class DatabaseService:
             _PLACEHOLDER,
         )
         listen = manager.listen_addresses()
-        exposed = [
-            entry.to_dict()
-            for entry in self.exposure(extra_ports={port: engine_name})
-            if entry.engine == engine_name
-        ]
+        exposed = [entry.to_dict() for entry in self.engine_exposure(manager)]
         return {
             "engine": engine_name,
             "database": database,
@@ -3345,6 +3341,34 @@ class DatabaseService:
         return find_exposed_database_ports(
             extra_ports=extra_ports, include_firewalled=include_firewalled
         )
+
+    def engine_exposure(self, manager: BaseDatabaseManager) -> list[ExposedPort]:
+        """
+        Find the ports of one engine that are open beyond this machine.
+
+        The host's engine owns what the server itself listens on for its
+        family; a container owns the ports Docker publishes for it, by its
+        name or its published host port. The exposure scan names a family
+        (``postgresql``), never an instance key, which is why a container's
+        ports were never matched.
+
+        Args:
+            manager: The engine, bound to a container or not.
+
+        Returns:
+            Its exposed ports.
+        """
+        entries = self.exposure(extra_ports={manager.server_port(): manager.engine_type})
+        instance = manager.instance
+        if instance is None:
+            return [entry for entry in entries if entry.engine == manager.engine_type]
+        published = {port.host_port for port in instance.published}
+        return [
+            entry
+            for entry in entries
+            if entry.source == "docker"
+            and (entry.container == instance.container or entry.port in published)
+        ]
 
     # ------------------------------------------------- installing engines
 

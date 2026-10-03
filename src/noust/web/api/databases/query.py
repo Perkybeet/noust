@@ -540,9 +540,10 @@ def save_query(
     Raises:
         DatabaseExistsError: 409 when the operator has one with that name.
     """
-    saved = console(session).records.save(
+    queries = console(session)
+    saved = queries.records.save(
         name=request.name,
-        engine=service(session).manager(request.engine).ENGINE_NAME,
+        engine=queries.service.manager(request.engine).ENGINE_NAME,
         database=request.database,
         statement=request.query,
     )
@@ -569,9 +570,10 @@ def update_saved_query(
     Raises:
         DatabaseNotFoundError: 404 when the operator has none with that id.
     """
-    saved = console(session).records.save(
+    queries = console(session)
+    saved = queries.records.save(
         name=request.name,
-        engine=service(session).manager(request.engine).ENGINE_NAME,
+        engine=queries.service.manager(request.engine).ENGINE_NAME,
         database=request.database,
         statement=request.query,
         saved_id=saved_id,

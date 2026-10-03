@@ -732,3 +732,173 @@ class TestAnEngineThatCannotBeAsked:
 
         assert drops(docker) == []
         assert not any("pg_dump" in call for call in docker.calls)
+
+
+# ==================== Finding 8: the smaller ones ====================
+
+
+class TestAComposeApplicationsDatabaseIsDrivenThroughItsUnit:
+    """The stack is the unit's: stopping its database by hand would lie to it."""
+
+    @staticmethod
+    def owned(instances: dict[str, DatabaseInstance], app_type: str) -> DatabaseInstance:
+        from types import SimpleNamespace
+
+        from noust.managers.database.instances import assign_apps
+
+        app = SimpleNamespace(
+            domain="tienda.arennalabs.com", compose_project=None, app_type=app_type
+        )
+        (owned,) = [i for i in assign_apps(instances.values(), [app]) if i.key == MYSQL_KEY]
+        return owned
+
+    def test_a_compose_apps_container_goes_through_its_unit(
+        self, docker: Docker, instances, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        asked: list[tuple[str, str]] = []
+
+        class Services:
+            def __init__(self, **kwargs: Any) -> None:
+                pass
+
+            def restart(self, name: str) -> None:
+                asked.append(("restart", name))
+
+            def stop(self, name: str) -> bool:
+                asked.append(("stop", name))
+                return True
+
+        monkeypatch.setattr("noust.managers.service_manager.ServiceManager", Services)
+        owned = self.owned(instances, "docker-compose")
+        assert owned.unit == "tienda-arennalabs-com"
+        manager = MySQLManager().bind(owned)
+
+        manager.restart()
+        manager.stop()
+
+        assert asked == [("restart", "tienda-arennalabs-com"), ("stop", "tienda-arennalabs-com")]
+        assert not any(
+            call[:2] in (("docker", "restart"), ("docker", "stop")) for call in docker.calls
+        )
+
+    def test_another_kind_of_app_leaves_its_database_container_to_docker(
+        self, docker: Docker, instances
+    ) -> None:
+        owned = self.owned(instances, "nextjs")
+        assert owned.app == "tienda.arennalabs.com" and owned.unit is None
+
+        MySQLManager().bind(owned).restart()
+
+        assert docker.calls[-1] == ("docker", "restart", "arenna_tienda_mysql")
+
+
+def test_a_containers_exposure_is_its_published_ports(
+    docker: Docker, instances, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from noust.managers.database import service as service_module
+    from noust.managers.database.exposure import ExposedPort
+    from noust.managers.database.service import DatabaseService
+
+    anywhere = "0.0.0.0"  # noqa: S104 - what the scan reports, not a bind
+    found = [
+        ExposedPort("mysql", 3307, anywhere, None, "docker", container="mariadb_contenedor"),
+        ExposedPort("mysql", 3306, anywhere, "mariadbd", "engine"),
+        ExposedPort("mysql", 3308, anywhere, None, "docker", container="someone-else"),
+    ]
+    monkeypatch.setattr(service_module, "find_exposed_database_ports", lambda **kw: found)
+    service = DatabaseService(resolve=lambda name: MySQLManager() if name == "mysql" else None)
+
+    exposed = service.engine_exposure(MySQLManager().bind(instances["mysql@mariadb_contenedor"]))
+
+    assert [(e.port, e.container) for e in exposed] == [(3307, "mariadb_contenedor")]
+    host = service.engine_exposure(MySQLManager())
+    assert {e.port for e in host} == {3306, 3307, 3308}
+
+
+class TestARedisContainersPassword:
+    """Its password is in its command line or its environment, which Noust never reads."""
+
+    def test_one_started_with_requirepass_is_not_warned_about(
+        self, docker: Docker, instances
+    ) -> None:
+        from noust.managers.database.redis import RedisManager
+
+        docker.script(["docker", "exec"], stdout="default\n")
+        manager = RedisManager().bind(instances["redis@tienda-arennalabs-com.redis"])
+
+        assert manager.warnings() == []
+
+    def test_one_with_redis_password_in_its_environment_is_not_either(
+        self, docker: Docker, instances
+    ) -> None:
+        from dataclasses import replace
+
+        from noust.managers.database.redis import RedisManager
+
+        docker.script(["docker", "exec"], stdout="default\n")
+        bare = replace(
+            instances["redis@tienda-arennalabs-com.redis"],
+            command_password=None,
+            env_names=frozenset({"REDIS_PASSWORD"}),
+        )
+
+        assert RedisManager().bind(bare).warnings() == []
+
+    def test_one_without_any_is_and_the_fix_is_its_compose_file(
+        self, docker: Docker, instances
+    ) -> None:
+        from dataclasses import replace
+
+        from noust.managers.database.redis import RedisManager
+
+        docker.script(["docker", "exec"], stdout="default\n")
+        bare = replace(instances["redis@tienda-arennalabs-com.redis"], command_password=None)
+
+        (warning,) = RedisManager().bind(bare).warnings()
+        assert "compose file" in warning
+
+
+def test_a_containers_metrics_have_their_charts() -> None:
+    from noust.managers.database.metrics import database_series, engine_series
+
+    assert engine_series(PG_KEY) == {"connections": f"db.{PG_KEY}.connections"}
+    assert set(database_series(PG_KEY, "empleo")) == {"size", "connections", "cache_hit", "tps"}
+
+
+class TestDbList:
+    """A Docker that is down is said, and the host's databases still list."""
+
+    @staticmethod
+    def run(monkeypatch: pytest.MonkeyPatch, kinds: list[str]) -> int:
+        from noust.cli.commands import db as db_commands
+        from noust.core.logger import Logger
+        from noust.managers.database.service import DatabaseListing, ListingProblem
+
+        problems = [
+            ListingProblem(
+                engine=kind,
+                display_name=kind,
+                message=f"{kind} failed",
+                hint="",
+                output="",
+                access=False,
+                kind=kind,
+            )
+            for kind in kinds
+        ]
+
+        class Service:
+            def listing(self, engine: str | None) -> DatabaseListing:
+                return DatabaseListing([], problems)
+
+        monkeypatch.setattr(db_commands, "_service", lambda logger: Service())
+        return db_commands._list(engine=None, json_output=True, logger=Logger())
+
+    def test_docker_alone_failing_does_not_fail_the_command(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        assert self.run(monkeypatch, ["docker"]) == 0
+
+    def test_an_engine_that_could_not_be_read_does(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        assert self.run(monkeypatch, ["docker", "host"]) == 1
+        assert self.run(monkeypatch, ["container"]) == 1
