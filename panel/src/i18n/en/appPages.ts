@@ -230,7 +230,7 @@ export const appPages = {
       didNotRun: "Did not run",
       prismaAutomatic: "Prisma's migrations, run automatically",
       inService: "In the {service} service",
-      migrates: "Changes the database schema",
+      migrates: "May change the database schema (a migration hook)",
       outputLabel: "What {run} printed",
       warningsTitle: "Deployed with warnings",
       warningsBody: "The new version serves, but a hook that runs after it started failed. Nothing was undone: going back after serving is worse than a warning.",

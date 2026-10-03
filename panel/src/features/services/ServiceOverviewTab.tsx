@@ -3,6 +3,7 @@ import { KeyValueList, KeyValueListSkeleton } from "../../components/page/KeyVal
 import type { KeyValueItem } from "../../components/page/KeyValueList";
 import { RelativeTime } from "../../components/page/RelativeTime";
 import { Card } from "../../components/ui/Card";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { formatBytes } from "../../lib/format";
 import { useServiceRecord } from "./useServiceRecord";
@@ -32,7 +33,13 @@ export function ServiceOverviewTab({ name }: { name: string }) {
       mono: false,
       copy: false,
     },
-    { label: t("services.detail.startsAtBoot"), value: data.enabled ? t("services.detail.yes") : t("services.detail.no"), mono: false, copy: false },
+    {
+      label: t("services.detail.startsAtBoot"),
+      // An on/off, told at a glance (item 56).
+      value: <StatusPill state={data.enabled ? "running" : "stopped"} label={data.enabled ? t("services.detail.yes") : t("services.detail.no")} size="sm" />,
+      mono: false,
+      copy: false,
+    },
     {
       label: t("services.detail.managedBy"),
       value: record.foreign ? t("services.detail.managedByOther") : record.app !== null ? t("services.detail.managedByApp", { domain: record.app }) : "Noust",

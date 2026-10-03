@@ -75,6 +75,10 @@ describe("General", () => {
     expect(within(facts).getByText("Each deploy is kept apart; going back takes seconds")).toBeInTheDocument();
     expect(within(facts).getByText("shop-example-com.service")).toBeInTheDocument();
     expect(within(facts).getByText(`noust app branch ${DOMAIN} <branch>`)).toBeInTheDocument();
+    // Starting at boot is an on/off at a glance, not a bare "Yes" (item 56).
+    const boot = within(facts).getByText("Starts at boot").closest("div");
+    if (boot === null) throw new Error("no boot row");
+    expect(within(boot).getByText(/^(Yes|No)$/)).toHaveAttribute("data-state", expect.stringMatching(/^(running|stopped)$/));
     // Nothing here is a form: no save bar.
     expect(screen.queryByRole("region", { name: "Unsaved changes" })).not.toBeInTheDocument();
   });

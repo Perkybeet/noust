@@ -22,12 +22,11 @@ import { ICONS } from "../../../components/ui/icons";
 import { Menu, MenuItem } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
-import { StatusGlyph } from "../../../components/ui/StatusPill";
+import { StatusGlyph, StatusPill } from "../../../components/ui/StatusPill";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
-import { SettingState } from "../../app/settings/SettingState";
 import { CreateGitHubApp } from "./CreateGitHubApp";
 import { accountTypeWords, hooksState, repositorySelectionWords } from "./github";
 
@@ -260,14 +259,18 @@ function GitHubSkeleton() {
   );
 }
 
-/** The App's state in a word, beside the section's title: a setting, so neutral. */
+/**
+ * The App's state beside the section's title, readable at a glance: connected in the running
+ * green, not connected in the stopped grey, and a setup left half done as waiting (the still,
+ * dashed ring), because it waits for the operator's next step.
+ */
 function GitHubState({ status }: { status: GitHubStatus | undefined }) {
   const t = useT();
   if (status === undefined) return null;
   const step = setupStep(status);
-  if (!status.configured) return <SettingState on={false} label={t("settings.integrations.github.state.notConnected")} />;
-  if (step === null) return <SettingState on label={t("settings.integrations.github.state.connected")} />;
-  return <SettingState on={false} label={t("settings.integrations.github.state.settingUp")} />;
+  if (!status.configured) return <StatusPill state="stopped" label={t("settings.integrations.github.state.notConnected")} size="sm" />;
+  if (step === null) return <StatusPill state="running" label={t("settings.integrations.github.state.connected")} size="sm" />;
+  return <StatusPill state="queued" label={t("settings.integrations.github.state.settingUp")} size="sm" />;
 }
 
 /**

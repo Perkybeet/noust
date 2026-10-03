@@ -237,7 +237,12 @@ export function FirewallView() {
           ) : (
             <>
               <Mono tone="default">{state.backend}</Mono>
-              <span>{state.active ? t("server.firewall.active", { policy: state.default_incoming }) : t("server.firewall.inactive")}</span>
+              {/* Whether the firewall filters is an on/off told at a glance (item 56). */}
+              <StatusPill
+                state={state.active ? "running" : "stopped"}
+                label={state.active ? t("server.firewall.active", { policy: state.default_incoming }) : t("server.firewall.inactive")}
+                size="sm"
+              />
             </>
           )}
         </p>

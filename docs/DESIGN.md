@@ -33,8 +33,10 @@ looks and behaves; the gallery shows it in both themes; the tests hold it.
    Hue is spent on exactly three things: the **state** of something (green running or
    succeeded, amber in progress or warning, red failed, grey stopped), what the operator **can
    act on** (violet), and the **identity of a series inside a chart** (the `viz` family). Every
-   state is also told by a shape (a glyph) and a word. A value in a form that reads "Enabled"
-   is not a running state: it is neutral with an icon, never green. The state of a feature at
+   state is also told by a shape (a glyph) and a word. Whether something is on, shown as a
+   label (in a card, a row, a list, a fact), is a state too, and is a state badge: the running
+   green for on, the stopped grey for off, never bare text (owner item 56, 3.2.1). A control
+   that changes it (a `Switch`, a `Checkbox`) stays a control. The state of a feature at
    the top of the place that configures it is one, and is a `FeatureState` (green on, grey
    off, amber on but not working), because operators could not tell on from off at a glance
    (owner item 56, 3.2).
@@ -258,8 +260,9 @@ then **20, 24, 32, 40, 48, 64** for layout.
 | Spinner, indeterminate bar | 0.8s linear, 1.4s |
 | Traffic along a `FlowDiagram` connection | `flow`: dashes advance 1.2s linear (`animate-flow`), 0.6s over TLS (`animate-flow-fast`) |
 
-- **M-1** With `prefers-reduced-motion`, every duration is 0 and every animation stops; what is
-  in progress stays readable by its shape and word.
+- **M-1** With `prefers-reduced-motion`, every duration is 0 and every animation stops, except
+  the spinner (`animate-spin`), which keeps turning slower: frozen, it would say nothing is
+  happening. What is in progress also stays readable by its shape and word.
 - **M-2** Nothing animates layout; lists do not reorder with animation; a state never slides.
 - **M-3** An animation is a CSS animation declared in `app.css`, never SMIL (`<animate>` in an
   SVG): the reduced-motion rule stops CSS animations and does not reach SMIL. A component that
@@ -615,7 +618,7 @@ For: sign in, a sealed central, the legal notice.
 | Dialog | sm 440 a question, md 560 a form of up to six fields, lg 720 two columns or steps, xl 1280 only to look closely (an enlarged chart) |
 | Danger | In T3's last subsection or behind `More actions` with a confirmation; destructive options unchecked by default |
 | CLI hint | Once, at the foot of the view (T3: at the end of each subsection) |
-| State colours | Green only for running, serving, succeeded, and a feature that is on (`FeatureState`). "Enabled", "Active", "On" as a value inside a form or a table are neutral with an icon |
+| State colours | Green only for running, serving, succeeded, and something that is on: a feature at the top of its settings (`FeatureState`), or an on/off label in a card, a row, a list or a fact (`StatusPill`, 6.1) |
 
 ---
 
@@ -709,7 +712,9 @@ for screen readers. Never a bare "-".
 eight states with eight shapes: running (dot), deploying (spinning arc), queued (still dashed
 ring), warning (triangle), failed (cross), stopped (ring), static (square), unknown (question
 mark). `AppStatePill` and `DeployStatePill` translate the backend's words. Never a `Badge` or a
-coloured dot for a state.
+coloured dot for a state. It is also the badge of an on/off: `running` with the feature's word
+for on ("On", "Enabled", "Connected", "Starts"), `stopped` for off, read-only (a span, never a
+button; its accessible name is the word, the glyph is hidden).
 
 **`FeatureState`** (`state` `on | off | problem`, `title`, `action`, `children`). Whether a
 feature is on, at the top of the place that configures it: notifications, instant rollback,
@@ -841,6 +846,7 @@ so the page has one navigation landmark in a browser and in a unit test alike.
 | Running text, a tooltip | The word in `stateTextClass`, with its glyph when it is a warning or a failure |
 | An aggregate | The colour and glyph of the worst state in it |
 | Whether a feature is on | `FeatureState` at the top of its settings, never a neutral `Notice` |
+| An on/off as a label: a channel's card, a table cell, a fact | `StatusPill state="running"` (on) or `"stopped"` (off) with the word, `size="sm"`: on its soft ground in a card or a fact, `appearance="inline"` in a table. **A feature's on/off as a label is a state badge, never bare text.** A setup left half done is `queued` |
 | Never | Colour alone; a `Badge`; a dot of your own |
 
 Queued is a still glyph: waiting is not work. A job running on an application is the

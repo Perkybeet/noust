@@ -19,6 +19,7 @@ import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatCount } from "../../lib/format";
@@ -137,12 +138,20 @@ function PolicySection({ t, session }: { t: T; session: SessionInfo }) {
       : []),
     {
       label: t("auth.security.approvals"),
+      // On or off at a glance (item 56); who decides, under it.
       value:
-        approvals.data === undefined
-          ? "…"
-          : approvals.data.enabled
-            ? t("auth.security.approvalsOn", { roles: approvals.data.approvers.map((role) => roleLabel(t, role)).join(", ") })
-            : t("auth.security.approvalsOff"),
+        approvals.data === undefined ? (
+          "…"
+        ) : (
+          <StatusPill
+            state={approvals.data.enabled ? "running" : "stopped"}
+            label={approvals.data.enabled ? t("auth.security.approvalsOn") : t("auth.security.approvalsOff")}
+            size="sm"
+          />
+        ),
+      ...(approvals.data?.enabled === true
+        ? { hint: t("auth.security.approvalsDecidedBy", { roles: approvals.data.approvers.map((role) => roleLabel(t, role)).join(", ") }) }
+        : {}),
       mono: false,
       copy: false,
     },

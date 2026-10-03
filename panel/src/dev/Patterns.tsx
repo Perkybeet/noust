@@ -8,7 +8,6 @@ import {
   DataTable,
   EmptyState,
   Field,
-  ICONS,
   IconButton,
   Input,
   Mono,
@@ -68,7 +67,7 @@ export function Patterns() {
       <Section
         id="p-state"
         title="Showing state"
-        description="An entity's state is a StatusPill: pill in a header, inline in a table (second column, 128px), glyph and number in a counter. A setting that is on is not a state: it is neutral, with an icon, never green."
+        description="An entity's state is a StatusPill: pill in a header, inline in a table (second column, 128px), glyph and number in a counter. Whether something is on, shown as a label, is a state badge too: the running green for on, the stopped grey for off."
       >
         <DoDont
           rule="Colour, shape and word, always together"
@@ -88,15 +87,20 @@ export function Patterns() {
           why="A badge is an attribute, and a coloured dot alone is invisible to one man in twelve: the four state colours are nearly one colour to a deuteranope."
         />
         <DoDont
-          rule="Enabled is a setting, not a state"
+          rule="A feature's on/off as a label is a state badge, never bare text"
           doThis={
-            <Badge>
-              <ICONS.success aria-hidden="true" className="size-icon-xs" />
-              On
-            </Badge>
+            <div className="flex flex-wrap gap-3">
+              <StatusPill state="running" label="On" size="sm" />
+              <StatusPill state="stopped" label="Off" size="sm" />
+            </div>
           }
-          notThis={<StatusPill state="running" label="Enabled" />}
-          why="Green means running or succeeded. A cron job being enabled says nothing about whether it works."
+          notThis={
+            <div className="flex flex-wrap gap-3">
+              <span className="text-13 text-fg">On</span>
+              <span className="text-13 text-fg">Off</span>
+            </div>
+          }
+          why="A word alone has to be read to tell on from off (owner item 56). The badge says it in colour, shape and word, and stays a label: what changes it is a switch or the item's own form."
         />
       </Section>
 

@@ -95,9 +95,10 @@ describe("Settings > API tokens", () => {
       "grafana",
       "old-script",
     ]);
-    expect(within(live).getByText("Active")).toBeInTheDocument();
-    expect(within(expired).getByText("Expired")).toBeInTheDocument();
-    expect(within(revoked).getByText("Revoked")).toBeInTheDocument();
+    // Working or not, at a glance: green with a dot, grey with a ring.
+    expect(within(live).getByText("Active")).toHaveAttribute("data-state", "running");
+    expect(within(expired).getByText("Expired")).toHaveAttribute("data-state", "stopped");
+    expect(within(revoked).getByText("Revoked")).toHaveAttribute("data-state", "stopped");
     // Only a live token can be revoked.
     expect(within(table).getAllByRole("button", { name: /^Revoke / })).toHaveLength(1);
     await expectNoAxeViolations(container);

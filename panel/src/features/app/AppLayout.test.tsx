@@ -358,6 +358,22 @@ describe("an application's page", () => {
       expect(within(runtime).getByText("main")).toBeInTheDocument();
     });
 
+    it("tells deploy on push off from on at a glance: grey and a ring, the dashed ring while it waits", async () => {
+      const app = { domain: DOMAIN, name: "shop", app_type: "nextjs", status: "running", active: true, enabled: true, port: 3000, layout: "inplace" };
+      await appAt({ [`GET /api/apps/${DOMAIN}`]: () => json(200, { ...app, webhook_enabled: false }) });
+      const off = await screen.findByRole("region", { name: "Deploy on push" });
+      const word = within(off).getByText("Off");
+      expect(word).toHaveAttribute("data-state", "stopped");
+      expect(word.closest("button, a")).toBeNull();
+    });
+
+    it("says deploy on push is on and waiting, as a state", async () => {
+      const app = { domain: DOMAIN, name: "shop", app_type: "nextjs", status: "running", active: true, enabled: true, port: 3000, layout: "inplace" };
+      await appAt({ [`GET /api/apps/${DOMAIN}`]: () => json(200, { ...app, webhook_enabled: true }) });
+      const push = await screen.findByRole("region", { name: "Deploy on push" });
+      expect(await within(push).findByText("On, waiting for the first push")).toHaveAttribute("data-state", "queued");
+    });
+
     it("has no accessibility violations", async () => {
       await appAt();
       await screen.findByText("29 days left");

@@ -27,7 +27,8 @@ import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { Skeleton } from "../../components/ui/Skeleton";
-import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
+import { StatusGlyph, StatusPill, stateTextClass } from "../../components/ui/StatusPill";
+import type { Status } from "../../components/ui/StatusPill";
 import { TextLink } from "../../components/ui/TextLink";
 import { Tooltip } from "../../components/ui/Tooltip";
 import { useT } from "../../i18n";
@@ -336,7 +337,8 @@ function Domains({ app, t }: { app: App; t: T }) {
 
 /**
  * Whether a push deploys the app: off, on and waiting for its first push, or on with the last
- * push it received. "On" is a setting, not a state of the app: neutral, with an icon.
+ * push it received. The on/off is told at a glance (item 56): on in the running green, off in
+ * the stopped grey, waiting as the still, dashed ring, as on the setting's own page.
  */
 function DeployOnPush({ app, t }: { app: App; t: T }) {
   const domain = app.domain;
@@ -344,8 +346,10 @@ function DeployOnPush({ app, t }: { app: App; t: T }) {
   const latest = deliveries.data?.items[0];
 
   let state: string;
+  let tone: Status = "running";
   let detail: ReactNode;
   if (!app.webhook_enabled) {
+    tone = "stopped";
     state = t("appPages.overview.pushOff");
     detail = t("appPages.overview.pushOffDetail");
   } else if (deliveries.isError && deliveries.data === undefined) {
@@ -355,6 +359,7 @@ function DeployOnPush({ app, t }: { app: App; t: T }) {
     state = t("appPages.overview.pushOn");
     detail = <Skeleton className="h-3.5 w-56" />;
   } else if (latest === undefined) {
+    tone = "queued";
     state = t("appPages.overview.pushWaiting");
     detail = app.branch
       ? t.rich("appPages.overview.pushBranch", { branch: <Mono>{app.branch}</Mono> })
@@ -383,7 +388,7 @@ function DeployOnPush({ app, t }: { app: App; t: T }) {
         <div className="flex min-w-0 items-start gap-3">
           <Webhook aria-hidden="true" className="mt-0.5 size-icon-md shrink-0 text-fg-muted" />
           <div className="flex min-w-0 flex-col gap-1 text-13">
-            <p className="font-medium text-fg">{state}</p>
+            <StatusPill state={tone} label={state} size="sm" className="self-start" />
             <div className="text-fg-muted">{detail}</div>
           </div>
         </div>

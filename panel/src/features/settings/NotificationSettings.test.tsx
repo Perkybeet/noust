@@ -115,12 +115,20 @@ describe("Settings > Notifications", () => {
     const master = await screen.findByRole("switch", { name: /Send notifications/ });
     expect(master).not.toBeChecked();
     expect(screen.getByText(/Off: nothing is sent/)).toBeInTheDocument();
-    // A channel with a destination is on, in a neutral word; one without says how to set it up.
-    expect(within(row("Slack")).getByText("On")).toBeInTheDocument();
+    // A channel's on or off is a state at a glance (item 56): the running green with its dot,
+    // the stopped grey with its ring, and the word; a label, not a control.
+    const slackOn = within(row("Slack")).getByText("On");
+    expect(slackOn).toHaveAttribute("data-state", "running");
+    expect(slackOn).toHaveClass("text-ok", "bg-ok-soft");
+    expect(slackOn.querySelector("svg")).toHaveAttribute("data-glyph", "dot");
+    expect(slackOn.closest("button, [role='switch'], a")).toBeNull();
     expect(within(row("Slack")).getByRole("button", { name: "Edit Slack" })).toBeInTheDocument();
     expect(within(row("Webhook")).getByText("Deliveries are not signed.")).toBeInTheDocument();
     expect(within(row("Telegram")).getByText("Bot saved; no chat chosen yet.")).toBeInTheDocument();
-    expect(within(row("Email")).getByText("Off")).toBeInTheDocument();
+    const emailOff = within(row("Email")).getByText("Off");
+    expect(emailOff).toHaveAttribute("data-state", "stopped");
+    expect(emailOff).toHaveClass("text-idle", "bg-idle-soft");
+    expect(emailOff.querySelector("svg")).toHaveAttribute("data-glyph", "ring");
     expect(within(row("Email")).getByRole("button", { name: "Set up Email" })).toBeInTheDocument();
     // Every event, by area, each group saying how many of its events are sent.
     expect(screen.getByText("Deploys", { selector: "summary *" })).toBeInTheDocument();

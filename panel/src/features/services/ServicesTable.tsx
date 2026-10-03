@@ -109,7 +109,15 @@ function columnsFor(t: T, mixed: boolean, memory: boolean, appOf: ((service: Ser
       header: t("services.table.boot"),
       width: "w-28",
       hideBelow: "sm",
-      cell: (row) => <span className="text-fg-muted">{row.enabled ? t("services.table.enabled") : t("services.table.disabled")}</span>,
+      // Whether it starts at boot is an on/off, told at a glance like a state (item 56).
+      cell: (row) => (
+        <StatusPill
+          state={row.enabled ? "running" : "stopped"}
+          label={row.enabled ? t("services.table.enabled") : t("services.table.disabled")}
+          appearance="inline"
+          size="sm"
+        />
+      ),
       sortValue: (row) => (row.enabled ? 0 : 1),
     },
   ];

@@ -529,6 +529,18 @@ function Feedback() {
             <Item label="Custom label">
               <StatusPill state="deploying" label="Building" />
             </Item>
+            <Item label="On and off, as a label in a card">
+              <div className="flex items-center gap-3">
+                <StatusPill state="running" label="On" size="sm" />
+                <StatusPill state="stopped" label="Off" size="sm" />
+              </div>
+            </Item>
+            <Item label="On and off, in a table row">
+              <div className="flex items-center gap-3">
+                <StatusPill state="running" label="Enabled" appearance="inline" size="sm" />
+                <StatusPill state="stopped" label="Disabled" appearance="inline" size="sm" />
+              </div>
+            </Item>
             <Item label="State change pulses once">
               <div className="flex items-center gap-3">
                 <StatusPill state={state} />

@@ -286,10 +286,29 @@ describe("Settings > Security", () => {
     expect(await within(policy).findByText("5 failed attempts lock it for 15 minutes")).toBeInTheDocument();
     expect(within(policy).getByText("120 requests a minute")).toBeInTheDocument();
     expect(within(policy).getByText("Any address")).toBeInTheDocument();
-    expect(within(policy).getByText("Off")).toBeInTheDocument();
+    // Four-eyes approvals off is an off at a glance: grey, a ring, the word (item 56).
+    expect(within(policy).getByText("Off")).toHaveAttribute("data-state", "stopped");
     await userEvent.click(within(policy).getByRole("button", { name: "Show what the profile fixes" }));
     expect(await within(policy).findByText("auth.session.idle_minutes")).toBeInTheDocument();
     expect(within(policy).queryByRole("textbox")).toBeNull();
+  });
+
+  it("shows four-eyes approvals on in the running green, with who decides under it", async () => {
+    fakeBackend(
+      securityRoutes(
+        { enabled: true },
+        {
+          "GET /api/approvals/policy": () =>
+            json(200, { enabled: true, approvers: ["security"], request_hours: 24, execute_minutes: 30, reason_required: false, rules: [] }),
+        },
+      ),
+    );
+    renderConsole("/settings/security");
+    const policy = await screen.findByRole("region", { name: "Security profile" });
+    const on = await within(policy).findByText("On");
+    expect(on).toHaveAttribute("data-state", "running");
+    expect(on.closest("button, [role='switch']")).toBeNull();
+    expect(within(policy).getByText("Decided by: Security officer")).toBeInTheDocument();
   });
 
   it("says why passkeys do not work from here instead of hiding them", async () => {

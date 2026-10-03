@@ -19,11 +19,10 @@ import { Drawer } from "../../components/ui/Drawer";
 import { IconButton } from "../../components/ui/IconButton";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
-import { StatusGlyph } from "../../components/ui/StatusPill";
+import { StatusGlyph, StatusPill } from "../../components/ui/StatusPill";
 import { SystemOutput } from "../../components/ui/SystemOutput";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
-import { SettingState } from "../app/settings/SettingState";
 
 export { useRefreshConfig } from "./SettingsForm";
 
@@ -166,10 +165,20 @@ export function TestButton({
   );
 }
 
-/** Whether a channel sends: a setting, so a neutral word and a switch's drawing, never green. */
+/**
+ * Whether a channel sends, readable at a glance: on in the running green, off in the stopped
+ * grey, each with its glyph and word (docs/DESIGN.md 6.1, owner item 56). Read-only: what
+ * changes it is the channel's drawer.
+ */
 export function ChannelState({ on }: { on: boolean }) {
   const t = useT();
-  return <SettingState on={on} label={on ? t("settings.notifications.channels.on") : t("settings.notifications.channels.off")} />;
+  return (
+    <StatusPill
+      state={on ? "running" : "stopped"}
+      label={on ? t("settings.notifications.channels.on") : t("settings.notifications.channels.off")}
+      size="sm"
+    />
+  );
 }
 
 /**

@@ -1,4 +1,3 @@
-import { CirclePause } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { RelativeTime } from "../../components/page/RelativeTime";
@@ -24,8 +23,8 @@ export interface CronJobsTableProps {
 
 /**
  * Every cron job: its name and command, how its last run ended (its state), its schedule in
- * words and as written, and its next run. Whether a job is enabled is a setting, not a state:
- * a disabled one says so, neutrally, where its next run would be.
+ * words and as written, and its next run. A disabled job says so where its next run would be,
+ * in the stopped grey with its ring, so it is told apart at a glance (item 56).
  */
 export function CronJobsTable({ jobs, caption, loading = false, empty, onRowActivate, rowActions, className }: CronJobsTableProps) {
   const t = useT();
@@ -85,10 +84,7 @@ export function CronJobsTable({ jobs, caption, loading = false, empty, onRowActi
         row.enabled ? (
           <RelativeTime value={row.next_run} fallback={row.next_run} />
         ) : (
-          <span className="inline-flex items-center gap-1.5 text-fg-muted">
-            <CirclePause aria-hidden="true" className="size-icon-sm" />
-            {t("cron.table.disabled")}
-          </span>
+          <StatusPill state="stopped" label={t("cron.table.disabled")} appearance="inline" size="sm" />
         ),
       sortValue: (row) => (row.enabled ? (parseTimestamp(row.next_run)?.getTime() ?? null) : null),
     },

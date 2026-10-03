@@ -1,1 +1,0 @@
-import{U as e}from"./Button-B4-wDu12.js";import{o as t}from"./IconButton-b3v5dXEb.js";function n(n,r){let i=t(n);return e(()=>(r(i),()=>{r(e=>e===i?void 0:e)}),[i,r]),i}export{n as t};

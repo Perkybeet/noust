@@ -219,6 +219,11 @@
       transition-duration: 0s !important;
       scroll-behavior: auto !important;
     }
+    /* The one exception: a spinner says something is happening, and frozen it says nothing
+       is (owner, 2026-10-03). Essential motion (WCAG 2.3.3): it keeps turning, slower. */
+    .animate-spin {
+      animation: spin 2.4s linear infinite !important;
+    }
   }
 }
 

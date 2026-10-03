@@ -89,12 +89,13 @@ describe("the services tab", () => {
     const row = running.closest("tr");
     if (!row) throw new Error("no row");
     expect(within(row).getByText("Running")).toBeInTheDocument();
-    expect(within(row).getByText("Starts")).toBeInTheDocument();
+    // Starting at boot is an on/off at a glance: green with a dot, grey with a ring.
+    expect(within(row).getByText("Starts")).toHaveAttribute("data-state", "running");
 
     const stopped = within(table).getByText("wasm-admin-example-com").closest("tr");
     if (!stopped) throw new Error("no row");
     expect(within(stopped).getByText("Stopped")).toBeInTheDocument();
-    expect(within(stopped).getByText("Does not start")).toBeInTheDocument();
+    expect(within(stopped).getByText("Does not start")).toHaveAttribute("data-state", "stopped");
   });
 
   it("is a tab of the Server area, with the old address sending there", async () => {

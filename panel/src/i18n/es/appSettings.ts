@@ -433,7 +433,7 @@ export const appSettings: Catalog<typeof en> = {
     inService: "En el servicio {service}",
     inDirectory: "En {path}",
     timeout: { one: "Hasta {count} segundo", other: "Hasta {count} segundos" },
-    migrates: "Cambia el esquema de la base de datos",
+    migrates: "Puede cambiar el esquema de la base de datos (gancho de migraciones)",
     repositoryErrorTitle: "El noust.yaml del repositorio no es válido",
     repositoryErrorBody: "El siguiente despliegue falla con esto, hasta que se corrija en el repositorio o lo sustituyan los ganchos del operador de abajo.",
     repositoryErrorLabel: "Por qué el noust.yaml no es válido",

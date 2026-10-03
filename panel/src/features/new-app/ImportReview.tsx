@@ -6,6 +6,7 @@ import { KeyValueList } from "../../components/page/KeyValueList";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { parseTimestamp, formatDateTime } from "../../lib/format";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
@@ -16,6 +17,11 @@ import { missingValues, secretField, sourceStripped } from "./exportFile";
 import type { ImportForm } from "./exportFile";
 import { joinList, typeName } from "./wizard";
 import type { AppTypeOption, ReviewErrors } from "./wizard";
+
+/** Whether the export turns something on, as a state at a glance. */
+function OnOff({ t, on }: { t: T; on: boolean }) {
+  return <StatusPill state={on ? "running" : "stopped"} label={on ? t("newApp.importApp.on") : t("newApp.importApp.off")} size="sm" />;
+}
 
 /** What an export defines, one fact per row, as it was exported (its source already redacted by the server). */
 export function exportFacts(t: T, document: AppExportDocument, types: readonly AppTypeOption[]): KeyValueItem[] {
@@ -56,15 +62,17 @@ export function exportFacts(t: T, document: AppExportDocument, types: readonly A
       copy: false,
       ...(destinations.length > 0 ? { hint: joinList(destinations, t.locale) } : {}),
     },
+    // What the export turns on, at a glance (item 56): on in the running green, off in grey.
     {
       label: t("newApp.importApp.previews"),
-      value: previews !== null ? t("newApp.importApp.previewsOn", { domain: previews.base_domain }) : t("newApp.importApp.off"),
+      value: <OnOff t={t} on={previews !== null} />,
+      ...(previews !== null ? { hint: t("newApp.importApp.previewsOn", { domain: previews.base_domain }) } : {}),
       mono: false,
       copy: false,
     },
     {
       label: t("newApp.importApp.zeroDowntime"),
-      value: t(app.zero_downtime?.enabled === true ? "newApp.importApp.on" : "newApp.importApp.off"),
+      value: <OnOff t={t} on={app.zero_downtime?.enabled === true} />,
       mono: false,
       copy: false,
     },

@@ -71,6 +71,11 @@ describe("the Server area", () => {
       "Logs",
       "System",
     ]);
+    // Automatic updates on, at a glance (item 56), and which ones under it.
+    const auto = screen.getByText("Automatic updates").closest("div");
+    if (auto === null) throw new Error("no automatic updates row");
+    expect(within(auto).getByText("On")).toHaveAttribute("data-state", "running");
+    expect(within(auto).getByText("Security updates only")).toBeInTheDocument();
   });
 
   it("puts what needs attention first, each with its way out", async () => {
@@ -481,6 +486,8 @@ describe("the Security tab", () => {
     });
     const { user } = renderConsole("/n/web-2/server/security?view=firewall");
     await user.click(await screen.findByRole("button", { name: "Turn on" }));
+    // An inactive firewall is an off at a glance: grey, a ring, the word (item 56).
+    expect(screen.getByText("installed, not active")).toHaveAttribute("data-state", "stopped");
     const dialog = await screen.findByRole("dialog", {
       name: "Turn on the firewall",
     });
@@ -535,6 +542,7 @@ describe("the Security tab", () => {
     expect(
       await screen.findByText("Docker publishes 1 port around the firewall"),
     ).toBeInTheDocument();
+    expect(screen.getByText(/^active · incoming traffic/)).toHaveAttribute("data-state", "running");
     await expectNoAxeViolations(screen.getByRole("main"));
     await user.click(screen.getByRole("radio", { name: "Brute force" }));
     expect(

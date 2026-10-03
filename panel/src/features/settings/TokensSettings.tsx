@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, KeyRound } from "lucide-react";
+import { KeyRound } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { apiTokensQuery, authKeys, revokeApiToken, sessionQuery } from "../../api/queries/auth";
@@ -18,7 +18,7 @@ import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
-import { StatusGlyph } from "../../components/ui/StatusPill";
+import { StatusPill } from "../../components/ui/StatusPill";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
@@ -30,24 +30,13 @@ import type { TokenState } from "./tokens";
 import { SettingsPrimaryAction } from "./SettingsShell";
 
 /**
- * A token's state. Working is not a running state, so "Active" is plain words with an icon;
- * expired and revoked are stopped, grey.
+ * A token's state, an on/off at a glance (item 56): an active token works, in the running
+ * green; an expired or revoked one does not, in the stopped grey.
  */
 function TokenStateLabel({ t, state }: { t: T; state: TokenState }) {
-  if (state === "active") {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-13 text-fg">
-        <KeyRound aria-hidden="true" className="size-icon-xs text-fg-muted" />
-        {t("settings.tokens.state.active")}
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 text-13 text-fg-muted">
-      {state === "expired" ? <StatusGlyph state="stopped" className="text-idle" /> : <Ban aria-hidden="true" className="size-icon-xs text-idle" />}
-      {state === "expired" ? t("settings.tokens.state.expired") : t("settings.tokens.state.revoked")}
-    </span>
-  );
+  const label =
+    state === "active" ? t("settings.tokens.state.active") : state === "expired" ? t("settings.tokens.state.expired") : t("settings.tokens.state.revoked");
+  return <StatusPill state={state === "active" ? "running" : "stopped"} label={label} appearance="inline" size="sm" />;
 }
 
 function columnsFor(t: T, ownerName: (token: ApiToken) => string | null): Column<ApiToken>[] {

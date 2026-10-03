@@ -33,6 +33,10 @@ describe("a service's page", () => {
     const tabs = await screen.findByRole("navigation", { name: "Service sections" });
     expect(within(tabs).getAllByRole("link").map((link) => link.textContent)).toEqual(["Overview", "Logs"]);
     expect(await screen.findByText("Process ID")).toBeInTheDocument();
+    // Starting at boot is an on/off at a glance, not a bare "Yes" (item 56).
+    const boot = screen.getByText("Starts at boot").closest("div");
+    if (boot === null) throw new Error("no boot row");
+    expect(within(boot).getByText(/^(Yes|No)$/)).toHaveAttribute("data-state", expect.stringMatching(/^(running|stopped)$/));
     // Restart is the one primary action; the unit file is its own page.
     expect(screen.getByRole("button", { name: "Restart" })).toHaveAttribute("data-variant", "primary");
     expect(screen.getByRole("link", { name: "Configuration" })).toHaveAttribute("href", `/server/services/${NAME}/unit`);

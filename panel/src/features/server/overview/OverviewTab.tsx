@@ -19,7 +19,7 @@ import { Card } from "../../../components/ui/Card";
 import { ICONS } from "../../../components/ui/icons";
 import { Mono } from "../../../components/ui/Mono";
 import { Skeleton } from "../../../components/ui/Skeleton";
-import { StatusGlyph, stateTextClass } from "../../../components/ui/StatusPill";
+import { StatusGlyph, StatusPill, stateTextClass } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatBytes, formatBytesPair, formatDate, formatDuration, formatPercent, parseTimestamp } from "../../../lib/format";
@@ -190,12 +190,22 @@ function supportText(t: T, summary: ServerSummary): string {
   return t("server.overview.supportUnknown");
 }
 
-function autoText(t: T, summary: ServerSummary): string {
+/** Automatic updates: on or off told at a glance (item 56), and which updates when on. */
+function autoFact(t: T, summary: ServerSummary): KeyValueItem {
   const auto = summary.auto_updates;
-  if (auto.supported === false) return t("server.overview.autoUnavailable");
-  if (auto.enabled === true) return auto.security_only === true ? t("server.overview.autoSecurity") : t("server.overview.autoAll");
-  if (auto.enabled === false) return t("server.overview.autoOff");
-  return t("server.overview.autoUnknown");
+  const label = t("server.overview.autoUpdates");
+  if (auto.supported === false) return { label, value: t("server.overview.autoUnavailable"), mono: false, copy: false };
+  if (auto.enabled === true) {
+    return {
+      label,
+      value: <StatusPill state="running" label={t("server.overview.autoOn")} size="sm" />,
+      hint: auto.security_only === true ? t("server.overview.autoSecurityHint") : t("server.overview.autoAllHint"),
+      mono: false,
+      copy: false,
+    };
+  }
+  if (auto.enabled === false) return { label, value: <StatusPill state="stopped" label={t("server.overview.autoOff")} size="sm" />, mono: false, copy: false };
+  return { label, value: t("server.overview.autoUnknown"), mono: false, copy: false };
 }
 
 function Facts({ summary }: { summary: ServerSummary | undefined }) {
@@ -232,7 +242,7 @@ function Facts({ summary }: { summary: ServerSummary | undefined }) {
       mono: false,
       copy: false,
     },
-    { label: t("server.overview.autoUpdates"), value: autoText(t, summary), mono: false, copy: false },
+    autoFact(t, summary),
     {
       label: t("server.overview.scheduled"),
       value:

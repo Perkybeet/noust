@@ -1,0 +1,1 @@
+import{l as e}from"./passkeys-B3c-30v_.js";function t(t,n){let{browser:r,system:i}=e(n);return i===null?r:t(`auth.passkeys.suggestedName`,{browser:r,system:i})}export{t};

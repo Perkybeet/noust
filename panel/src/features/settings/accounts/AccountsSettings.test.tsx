@@ -98,13 +98,14 @@ describe("Settings > Accounts", () => {
       return within(found);
     };
     await within(table).findByText("ana");
-    expect(row("ana").getByText("Active")).toBeInTheDocument();
+    // Active or disabled at a glance: green with a dot, grey with a ring (item 56).
+    expect(row("ana").getByText("Active")).toHaveAttribute("data-state", "running");
     expect(row("ana").getByText("Operator")).toBeInTheDocument();
     expect(row("bea").getByText("2 passkeys")).toBeInTheDocument();
     expect(row("carlos").getByText(/^Locked until/)).toBeInTheDocument();
     expect(row("dani").getByText("Invited")).toBeInTheDocument();
     expect(row("dani").getByText("Not set up")).toBeInTheDocument();
-    expect(row("eva").getByText("Disabled")).toBeInTheDocument();
+    expect(row("eva").getByText("Disabled")).toHaveAttribute("data-state", "stopped");
     expect(screen.getByText("5 accounts")).toBeInTheDocument();
     // Your own account cannot be changed from here: another officer does it.
     await expectNoAxeViolations(container);

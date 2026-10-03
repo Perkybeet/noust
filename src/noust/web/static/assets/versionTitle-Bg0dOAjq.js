@@ -1,1 +1,0 @@
-import{h as e,i as t,s as n}from"./format-CbsE4eUD.js";function r(r,i,a=new Date){let o=e(r??null);return o===null?null:`${n(o,{year:o.getFullYear()!==a.getFullYear()},i)}, ${t(o,i)}`}export{r as t};

@@ -510,7 +510,7 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
         />
       ) : null}
       <RestoreDialog
-        key={restoring?.dump ?? "none"}
+        key={`restore:${restoring?.dump ?? "none"}`}
         engine={engine}
         name={name}
         source={restoring}
@@ -519,7 +519,7 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
         onQueued={(accepted, target, database) => job.track(accepted, target === "new" ? "restoreNew" : "restore", database)}
       />
       <PushDialog
-        key={pushing?.name ?? "none"}
+        key={`push:${pushing?.name ?? "none"}`}
         dump={pushing}
         onClose={() => setPushing(null)}
         onPush={async (destination) => {

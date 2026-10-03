@@ -4,6 +4,7 @@ import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { Section } from "../../../components/page/Section";
 import { Card } from "../../../components/ui/Card";
 import { Mono } from "../../../components/ui/Mono";
+import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import { hasUnit } from "../../apps/AppRowActions";
 import { useTypeName } from "../../apps/data";
@@ -79,7 +80,12 @@ export function GeneralSettings() {
       ? [
           fact(t("appSettings.general.service"), app.unit ?? null),
           fact(t("appSettings.general.runsAs"), app.run_as ?? null),
-          fact(t("appSettings.general.startsAtBoot"), app.enabled ? t("appSettings.general.yes") : t("appSettings.general.no"), prose),
+          // Whether it starts at boot is an on/off, told at a glance (item 56).
+          fact(
+            t("appSettings.general.startsAtBoot"),
+            <StatusPill state={app.enabled ? "running" : "stopped"} label={app.enabled ? t("appSettings.general.yes") : t("appSettings.general.no")} size="sm" />,
+            prose,
+          ),
         ]
       : [fact(t("appSettings.general.servedBy"), t("appSettings.general.servedByStatic"), prose)]),
   ];

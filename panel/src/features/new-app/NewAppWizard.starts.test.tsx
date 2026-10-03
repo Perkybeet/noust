@@ -220,6 +220,10 @@ describe("importing an application", () => {
     expect(within(summary).getByText("Schedule daily")).toBeInTheDocument();
     expect(within(summary).getByText("store.example.com")).toBeInTheDocument();
     expect(within(summary).getByText("2 values left out")).toBeInTheDocument();
+    // Previews and zero-downtime, both off in this export, are an off at a glance (item 56).
+    const offs = within(summary).getAllByText("Off");
+    expect(offs).toHaveLength(2);
+    for (const off of offs) expect(off).toHaveAttribute("data-state", "stopped");
     await expectNoAxeViolations(screen.getByRole("main"));
 
     // The source had its credentials taken out: Continue points at it.

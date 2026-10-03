@@ -34,7 +34,7 @@ describe("deploy hooks in an app's settings", { timeout: 20_000 }, () => {
     const before = within(inUse).getByRole("list", { name: "Before serving" });
     expect(within(before).getByText("/app/node_modules/.bin/prisma migrate deploy")).toBeInTheDocument();
     expect(within(before).getByText("In the backend service")).toBeInTheDocument();
-    expect(within(before).getByText("Changes the database schema")).toBeInTheDocument();
+    expect(within(before).getByText("May change the database schema (a migration hook)")).toBeInTheDocument();
     expect(within(inUse).getByText("./scripts/purge-cache.sh")).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });

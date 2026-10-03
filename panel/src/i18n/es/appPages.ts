@@ -225,7 +225,7 @@ export const appPages: Catalog<typeof en> = {
       didNotRun: "No se ejecutó",
       prismaAutomatic: "Las migraciones de Prisma, ejecutadas automáticamente",
       inService: "En el servicio {service}",
-      migrates: "Cambia el esquema de la base de datos",
+      migrates: "Puede cambiar el esquema de la base de datos (gancho de migraciones)",
       outputLabel: "Lo que imprimió {run}",
       warningsTitle: "Desplegado con avisos",
       warningsBody: "La versión nueva sirve, pero falló un gancho que se ejecuta después de arrancarla. No se deshizo nada: volver atrás después de servir es peor que un aviso.",

@@ -56,12 +56,12 @@ export function filterAccounts(accounts: readonly Account[], search: AccountsSea
 }
 
 export interface StateView {
-  /** A pill state, or null for "active": being able to sign in is not a running state. */
-  state: Status | null;
+  /** The pill state: an active account is on, in the running green (item 56). */
+  state: Status;
   label: string;
 }
 
-/** An account's state in the state language: waiting, a problem, stopped - or plainly active. */
+/** An account's state in the state language: waiting, a problem, stopped or active. */
 export function stateView(t: T, account: Pick<Account, "status" | "locked_until">, now: number = Date.now()): StateView {
   switch (accountStatus(account, now)) {
     case "invited":
@@ -77,7 +77,7 @@ export function stateView(t: T, account: Pick<Account, "status" | "locked_until"
     case "disabled":
       return { state: "stopped", label: t("accounts.state.disabled") };
     case "active":
-      return { state: null, label: t("accounts.state.active") };
+      return { state: "running", label: t("accounts.state.active") };
   }
 }
 

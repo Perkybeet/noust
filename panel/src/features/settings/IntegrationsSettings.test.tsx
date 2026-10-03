@@ -102,7 +102,7 @@ describe("Settings > Integrations", () => {
     expect(screen.getByText(/private key is kept on this server/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Organization/)).toBeInTheDocument();
     // The state first, then the steps: creating the App is the one to do now.
-    expect(screen.getByText("Not connected")).toBeInTheDocument();
+    expect(screen.getByText("Not connected")).toHaveAttribute("data-state", "stopped");
     expect(screen.getByRole("list", { name: /steps/i })).toHaveTextContent("Create the App");
     // No public hooks address: why code hosts cannot deliver, and the command that fixes it.
     expect(screen.getByText("Not set")).toBeInTheDocument();
@@ -185,7 +185,7 @@ describe("Settings > Integrations", () => {
     expect(within(personal).getByText("All repositories")).toBeInTheDocument();
 
     expect(screen.getByText("Noust web-01")).toBeInTheDocument();
-    expect(screen.getByText("Connected")).toBeInTheDocument();
+    expect(screen.getByText("Connected")).toHaveAttribute("data-state", "running");
     expect(screen.getByRole("link", { name: /Install on another account/ })).toHaveAttribute("href", CONFIGURED.install_url);
     expect(screen.getByText("Receiving pushes")).toBeInTheDocument();
     // Every step is done: no stepper left.

@@ -435,7 +435,7 @@ export const appSettings = {
     inService: "In the {service} service",
     inDirectory: "In {path}",
     timeout: { one: "Up to {count} second", other: "Up to {count} seconds" },
-    migrates: "Changes the database schema",
+    migrates: "May change the database schema (a migration hook)",
     repositoryErrorTitle: "The repository's noust.yaml is not valid",
     repositoryErrorBody: "The next deploy fails with this, until it is fixed in the repository or replaced by the operator's hooks below.",
     repositoryErrorLabel: "Why the noust.yaml is not valid",

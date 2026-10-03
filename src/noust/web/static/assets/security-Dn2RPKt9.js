@@ -1,0 +1,1 @@
+import{t as e}from"./SecuritySettings-13LQTple.js";var t=e;export{t as component};

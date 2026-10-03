@@ -22,7 +22,7 @@ import { Menu, MenuItem, MenuSeparator } from "../../../components/ui/Menu";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
-import { StatusGlyph, stateTextClass } from "../../../components/ui/StatusPill";
+import { StatusGlyph, StatusPill, stateTextClass } from "../../../components/ui/StatusPill";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
@@ -40,23 +40,10 @@ import { ROLES, roleLabel } from "./roles";
 const ALL = "all";
 const STATE_FILTERS: readonly AccountStatus[] = ["active", "locked", "disabled", "invited"];
 
-/** An account's state: colour, shape and word - except "Active", which is not a running state. */
+/** An account's state in colour, shape and word: active, invited, locked or disabled at a glance. */
 export function AccountState({ t, account }: { t: T; account: Account }) {
   const view = stateView(t, account);
-  if (view.state === null) {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-13 text-fg">
-        <UserCheck aria-hidden="true" className="size-icon-sm text-fg-muted" />
-        {view.label}
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1.5 text-13">
-      <StatusGlyph state={view.state} className={stateTextClass(view.state)} />
-      <span className={view.state === "stopped" ? "text-fg-muted" : "text-fg"}>{view.label}</span>
-    </span>
-  );
+  return <StatusPill state={view.state} label={view.label} appearance="inline" size="sm" />;
 }
 
 /** A missing second factor is a problem to see at a glance; one that exists is plain text. */

@@ -106,8 +106,8 @@ describe("the cron jobs list", () => {
 
     const disabledRow = within(table).getByText("hourly-sync").closest("tr");
     if (!disabledRow) throw new Error("no row");
-    // Enabled is a setting, not a state: a paused job says so, neutrally, where its next run would be.
-    expect(within(disabledRow).getByText("Disabled")).toBeInTheDocument();
+    // A paused job says so where its next run would be, as an off at a glance: grey, a ring.
+    expect(within(disabledRow).getByText("Disabled")).toHaveAttribute("data-state", "stopped");
     expect(within(disabledRow).getByText("Never run")).toBeInTheDocument();
     expect(within(disabledRow).getByText("Every hour, on the hour")).toBeInTheDocument();
     expect(screen.getByText("2 jobs")).toBeInTheDocument();
