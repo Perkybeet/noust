@@ -883,3 +883,14 @@ class TestWhatRunsInsideTheContainer:
         # Only "mysql" is among the stand-ins; "mariadb" is tried first.
         assert report["program"] == "mysql"
         assert report["MYSQL_PWD"] == ROOT_PASSWORD
+
+
+def test_a_redis_container_counts_as_installed_without_a_client_on_the_host(
+    fleet: FakeRunner, instances: dict[str, DatabaseInstance]
+) -> None:
+    # Found on arennalabs: redis-cli was not on the host, so both Redis
+    # containers were listed as not installed and their slots never shown.
+    fleet.only_knows("docker")
+    manager = RedisManager().bind(instances["redis@tienda-arennalabs-com.redis"])
+
+    assert manager.is_installed()

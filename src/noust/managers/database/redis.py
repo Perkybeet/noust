@@ -198,8 +198,11 @@ class RedisManager(BaseDatabaseManager):
         Report whether a Redis or Valkey client is installed.
 
         Returns:
-            True when either client is on PATH.
+            True when either client is on PATH; always for a container, whose
+            image is the installation.
         """
+        if self.instance is not None:
+            return True
         return self.runner.exists(self.CLIENT_BINARY) or self.runner.exists(self.VALKEY_CLIENT)
 
     def get_version(self) -> str | None:
