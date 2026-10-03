@@ -17,7 +17,7 @@ import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Select } from "../../../components/ui/Select";
 import { useT } from "../../../i18n";
-import { can, sortEngines } from "../../databases/engines";
+import { can, isContainer, sortEngines } from "../../databases/engines";
 import type { Accepted } from "../../databases/jobs";
 import { defaultEnvVar } from "../../databases/LinkDialog";
 
@@ -26,7 +26,11 @@ const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /** Engines an application can be given a database on: running, with databases or slots. */
 export function provisionableEngines(engines: readonly Engine[]): Engine[] {
-  return sortEngines(engines.filter((engine) => engine.running && (can(engine, "sql") || can(engine, "documents") || can(engine, "keys"))));
+  // A container's databases belong to its compose file: the connection string Noust writes
+  // points at the host's engine, so only the host's engines provision.
+  return sortEngines(
+    engines.filter((engine) => !isContainer(engine) && engine.running && (can(engine, "sql") || can(engine, "documents") || can(engine, "keys"))),
+  );
 }
 
 export interface CreateLinkDialogProps {
