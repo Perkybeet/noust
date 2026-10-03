@@ -30,11 +30,6 @@ export const databases: Catalog<typeof en> = {
     nothing: "Todas las bases de datos están registradas",
     done: { one: "Se registró {count} base de datos", other: "Se registraron {count} bases de datos" },
     failed: "No se pudieron registrar las bases de datos",
-    linksOnly: "Registrar los vínculos encontrados en el entorno de las aplicaciones",
-    links: {
-      one: "Se registró {count} vínculo encontrado en el entorno de una aplicación",
-      other: "Se registraron {count} vínculos encontrados en el entorno de las aplicaciones",
-    },
   },
   engine: {
     state: {
@@ -257,8 +252,8 @@ export const databases: Catalog<typeof en> = {
     reloaded: "Guardado, y {engine} los volvió a leer.",
     runtime: "Guardado, y aplicado a {engine} en marcha.",
     unchanged: "No cambió nada: {engine} ya tenía estos valores.",
-    exposureTitle: "Abrir {engine} a la red",
-    exposureAction: "Abrir a la red",
+    confirmTitle: "Cambiar {engine} sabiendo lo que cuesta",
+    confirmAction: "Aplicar de todos modos",
     exposed: "{engine} ahora escucha más allá de este servidor. Accede a él por un túnel SSH siempre que puedas.",
   },
   create: {

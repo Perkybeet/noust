@@ -28,17 +28,12 @@ export function useDatabasesHeader(): { header: PageHeaderProps; tabs: ReactNode
   const [creating, setCreating] = useState(false);
   const list = useQuery(databasesQuery());
   const untracked = (list.data?.databases ?? []).filter((database) => !database.tracked && !database.missing).length;
-  // Adopting also records the uses found in applications' environments that point at one
-  // database without doubt, so it has work to do while any database shows one.
-  const detected = (list.data?.databases ?? []).some((database) => (database.detected_apps ?? []).some((app) => !(database.apps ?? []).includes(app)));
 
   const adopt = useMutation({
     mutationFn: () => request("post", "/api/databases/databases/adopt", { body: { engine: null } }),
     onSuccess: (result) => {
       void queryClient.invalidateQueries({ queryKey: databaseKeys.lists });
-      const links = result.links?.length ?? 0;
-      if (result.adopted.length === 0 && links > 0) toast.success(t("databases.adopt.links", { count: links }));
-      else toast.success(t("databases.adopt.done", { count: result.adopted.length }), links > 0 ? { description: t("databases.adopt.links", { count: links }) } : {});
+      toast.success(t("databases.adopt.done", { count: result.adopted.length }));
     },
     onError: (error) => reportActionError(t("databases.adopt.failed"), error),
   });
@@ -55,8 +50,8 @@ export function useDatabasesHeader(): { header: PageHeaderProps; tabs: ReactNode
         </Button>
       ),
       overflow: (
-        <MenuItem icon={<RefreshCcwDot />} disabled={(untracked === 0 && !detected) || adopt.isPending} onClick={() => adopt.mutate()}>
-          {untracked > 0 ? t("databases.adopt.action", { count: untracked }) : detected ? t("databases.adopt.linksOnly") : t("databases.adopt.nothing")}
+        <MenuItem icon={<RefreshCcwDot />} disabled={untracked === 0 || adopt.isPending} onClick={() => adopt.mutate()}>
+          {untracked > 0 ? t("databases.adopt.action", { count: untracked }) : t("databases.adopt.nothing")}
         </MenuItem>
       ),
     },

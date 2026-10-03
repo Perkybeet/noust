@@ -6930,16 +6930,18 @@ export interface paths {
         put?: never;
         /**
          * Install Engine
-         * @description Queue the installation of an engine, in a flavour and version of the catalog.
+         * @description Queue the installation of an engine, in a flavour and version of the catalog, with sudo mode.
          *
          *     Installation drives the distribution package manager, so it runs as a
-         *     job. What it will install is decided first, so a version this server
-         *     cannot have, or MariaDB while MySQL is installed, is refused here rather
-         *     than in the job. Without a body it installs what 3.2 did.
+         *     job. It can add an apt repository and trust its key as root, which is
+         *     root-equivalent, hence sudo mode, as for removing an engine. What it
+         *     will install is decided first, so a version this server cannot have,
+         *     or MariaDB while MySQL is installed, is refused here rather than in the
+         *     job. Without a body it installs what 3.2 did.
          *
          *     Args:
          *         engine: Engine name, or a flavour's (``mariadb``, ``valkey``).
-         *         session: The authenticated session.
+         *         session: The authenticated, elevated session.
          *         request: The flavour and version, both optional.
          *
          *     Returns:
@@ -6966,6 +6968,12 @@ export interface paths {
          * Get Engine Logs
          * @description Read journal output for an engine's service, or a container's log.
          *
+         *     A container's log also needs ``databases.manage``: it is masked, but it
+         *     is the image's own output, where an entrypoint may print a secret in a
+         *     form no mask knows, so it is not for every viewer. The route declares
+         *     ``databases.read``, what a host engine's journal needs, because only the
+         *     engine says which kind it is.
+         *
          *     Args:
          *         engine: Engine name or instance key.
          *         lines: How many lines to return.
@@ -6973,6 +6981,10 @@ export interface paths {
          *
          *     Returns:
          *         The log output.
+         *
+         *     Raises:
+         *         PermissionDenied: 403 ``permission_denied`` for a container's log
+         *             without ``databases.manage``.
          */
         get: operations["get_engine_logs_api_databases_engines__engine__logs_get"];
         put?: never;
@@ -7096,7 +7108,7 @@ export interface paths {
          *
          *     Args:
          *         engine: Engine name.
-         *         request: The new values and the exposure confirmation.
+         *         request: The new values and the confirmation.
          *         session: The authenticated, elevated session.
          *
          *     Returns:
@@ -17021,7 +17033,7 @@ export interface components {
          *             null when it depends on the applications.
          *         restart: Changing it restarts the engine.
          *         listen: It decides where the engine listens; a non-loopback value
-         *             needs ``confirm_exposure``.
+         *             needs ``confirm``.
          *         editable: Noust changes it; ``locked_reason`` says why not.
          *         source: The file the engine read the current value from (PostgreSQL).
          */
@@ -17100,11 +17112,19 @@ export interface components {
          *     Attributes:
          *         values: New values by key, as text (``256MB``, ``on``, ``127.0.0.1``);
          *             ``default`` removes a setting from Noust's file.
-         *         confirm_exposure: The operator accepts that the engine will listen
-         *             beyond loopback. Without it such a change is refused with the
-         *             exposure warning, on the ``confirm_exposure`` field.
+         *         confirm: The operator accepts what the change costs: listening beyond
+         *             loopback, a Redis that would refuse writes or drop keys,
+         *             persistence turned off. Without it such a change is refused with
+         *             ``error`` ``confirmation_required``, every warning in
+         *             ``warnings``, on the ``confirm`` field; nothing is changed.
+         *         confirm_exposure: The older name of ``confirm``, still honoured.
          */
         EngineSettingsRequest: {
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
             /**
              * Confirm Exposure
              * @default false
@@ -26743,14 +26763,10 @@ export interface components {
          *
          *     Attributes:
          *         adopted: The databases now tracked, as ``engine/name``.
-         *         links: The uses found in applications' environments now recorded as
-         *             links, as ``domain -> engine/name``.
          */
         noust__web__api__databases__databases__AdoptResponse: {
             /** Adopted */
             adopted: string[];
-            /** Links */
-            links?: string[];
         };
         /**
          * BackupListResponse

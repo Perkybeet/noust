@@ -146,7 +146,7 @@ function SettingsForm({ engine, data }: { engine: string; data: EngineSettings }
   const [baseline, setBaseline] = useState(current);
   const [draft, setDraft] = useState(current);
   const [outcome, setOutcome] = useState<EngineSettingsOutcome | null>(null);
-  const [exposure, setExposure] = useState<{ warning: string; values: Record<string, string> } | null>(null);
+  const [exposure, setExposure] = useState<{ warnings: string[]; values: Record<string, string> } | null>(null);
 
   // Noust's file changed underneath an untouched form (saved here, or from a terminal): follow it.
   const same = (a: Draft, b: Draft): boolean => Object.keys(a).length === Object.keys(b).length && Object.keys(a).every((key) => a[key] === b[key]);
@@ -157,7 +157,7 @@ function SettingsForm({ engine, data }: { engine: string; data: EngineSettings }
 
   const save = useMutation({
     mutationFn: ({ values, confirm }: { values: Record<string, string>; confirm: boolean }) =>
-      request("put", "/api/databases/engines/{engine}/settings", { params: { engine }, body: { values, confirm_exposure: confirm } }),
+      request("put", "/api/databases/engines/{engine}/settings", { params: { engine }, body: { values, confirm, confirm_exposure: false } }),
     onSuccess: (result) => {
       setOutcome(result);
       setExposure(null);
@@ -165,16 +165,20 @@ function SettingsForm({ engine, data }: { engine: string; data: EngineSettings }
       void queryClient.invalidateQueries({ queryKey: databaseKeys.engines, exact: true });
     },
     onError: (error, { values, confirm }) => {
-      const warning = isApiError(error) ? error.fields?.["confirm_exposure"] : undefined;
-      if (!confirm && warning !== undefined) setExposure({ warning, values });
+      // A change that costs something comes back with every warning: all of them are read
+      // before the one confirmation.
+      if (confirm || !isApiError(error) || error.error !== "confirmation_required") return;
+      const listed = error.extra["warnings"];
+      const warnings = Array.isArray(listed) ? listed.filter((item): item is string => typeof item === "string") : [];
+      setExposure({ warnings: warnings.length > 0 ? warnings : [error.detail], values });
     },
   });
 
   const values = changedValues(data.settings, draft);
   const changes = Object.keys(values).length;
   const refusal = isApiError(save.error) ? (save.error.fields ?? {}) : {};
-  const asksExposure = refusal["confirm_exposure"] !== undefined;
-  const fieldErrors = Object.fromEntries(Object.entries(refusal).filter(([key]) => key !== "confirm_exposure"));
+  const asksExposure = isApiError(save.error) && save.error.error === "confirmation_required";
+  const fieldErrors = Object.fromEntries(Object.entries(refusal).filter(([key]) => key !== "confirm" && key !== "confirm_exposure"));
   const failure = save.isError && exposure === null && !asksExposure && Object.keys(fieldErrors).length === 0 ? save.error : null;
 
   const edit = (key: string, value: string): void => {
@@ -251,9 +255,15 @@ function SettingsForm({ engine, data }: { engine: string; data: EngineSettings }
           open
           friction="simple"
           onOpenChange={(open) => (open ? undefined : setExposure(null))}
-          title={t("databases.engineSettings.exposureTitle", { engine: display })}
-          description={exposure.warning}
-          actionLabel={t("databases.engineSettings.exposureAction")}
+          title={t("databases.engineSettings.confirmTitle", { engine: display })}
+          description={
+            <span className="flex flex-col gap-2">
+              {exposure.warnings.map((warning) => (
+                <span key={warning}>{warning}</span>
+              ))}
+            </span>
+          }
+          actionLabel={t("databases.engineSettings.confirmAction")}
           server={node}
           onConfirm={async () => {
             await save.mutateAsync({ values: exposure.values, confirm: true });

@@ -32,11 +32,6 @@ export const databases = {
     nothing: "Every database is tracked",
     done: { one: "Tracked {count} database", other: "Tracked {count} databases" },
     failed: "Could not track the databases",
-    linksOnly: "Record the links found in applications' environments",
-    links: {
-      one: "Recorded {count} link found in an application's environment",
-      other: "Recorded {count} links found in applications' environments",
-    },
   },
   engine: {
     state: {
@@ -259,8 +254,8 @@ export const databases = {
     reloaded: "Saved, and {engine} read them again.",
     runtime: "Saved, and applied to the running {engine}.",
     unchanged: "Nothing changed: {engine} already had these values.",
-    exposureTitle: "Open {engine} to the network",
-    exposureAction: "Open to the network",
+    confirmTitle: "Change {engine} knowing what it costs",
+    confirmAction: "Apply anyway",
     exposed: "{engine} now listens beyond this server. Reach it through an SSH tunnel where you can.",
   },
   create: {

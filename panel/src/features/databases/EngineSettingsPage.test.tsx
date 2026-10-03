@@ -52,28 +52,38 @@ describe("an engine's settings", () => {
     await waitFor(() => expect(backend.callsTo(ROUTE)).toHaveLength(1));
     expect(backend.callsTo(ROUTE)[0]?.body).toEqual({
       values: { max_connections: "150", shared_buffers: "512MB", log_min_duration_statement: "default" },
+      confirm: false,
       confirm_exposure: false,
     });
     expect(await screen.findByText("Saved, and PostgreSQL restarted with the new settings.")).toBeInTheDocument();
     await waitFor(() => expect(backend.callsTo("GET /api/databases/engines/postgresql/settings").length).toBeGreaterThan(1));
   });
 
-  it("asks before opening the engine to the network, in the server's own words, then sends the confirmation", async () => {
+  it("lists every warning of a change that costs something, in the server's own words, then sends the confirmation", async () => {
     const warning = "PostgreSQL will accept connections from the network on 0.0.0.0. Anyone who can reach this server can try to sign in.";
+    const second = "max_connections above 500 uses memory for every connection.";
     const { user, backend } = await settingsAt({
       [ROUTE]: (call) =>
-        (call.body as { confirm_exposure: boolean }).confirm_exposure
+        (call.body as { confirm: boolean }).confirm
           ? json(200, { ...OUTCOME, changed: ["listen_addresses"], exposed: true })
-          : problem(400, "validation_error", warning, { hint: "Confirm it to go ahead.", fields: { confirm_exposure: warning } }),
+          : json(400, {
+              error: "confirmation_required",
+              detail: "This change needs your confirmation: 2 things to know",
+              hint: "Confirm it to go ahead.",
+              fields: { confirm: "This change needs your confirmation: 2 things to know" },
+              output: null,
+              warnings: [warning, second],
+            }),
     });
     await user.type(screen.getByLabelText("listen_addresses"), "0.0.0.0");
     await user.click(screen.getByRole("button", { name: "Save" }));
-    const dialog = await screen.findByRole("alertdialog", { name: "Open PostgreSQL to the network" });
+    const dialog = await screen.findByRole("alertdialog", { name: "Change PostgreSQL knowing what it costs" });
     expect(within(dialog).getByText(warning)).toBeInTheDocument();
+    expect(within(dialog).getByText(second)).toBeInTheDocument();
     await expectNoAxeViolations(dialog);
-    await user.click(within(dialog).getByRole("button", { name: "Open to the network" }));
+    await user.click(within(dialog).getByRole("button", { name: "Apply anyway" }));
     await waitFor(() => expect(backend.callsTo(ROUTE)).toHaveLength(2));
-    expect(backend.callsTo(ROUTE)[1]?.body).toEqual({ values: { listen_addresses: "0.0.0.0" }, confirm_exposure: true });
+    expect(backend.callsTo(ROUTE)[1]?.body).toEqual({ values: { listen_addresses: "0.0.0.0" }, confirm: true, confirm_exposure: false });
     expect(await screen.findByText("PostgreSQL now listens beyond this server. Reach it through an SSH tunnel where you can.")).toBeInTheDocument();
   });
 
