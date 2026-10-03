@@ -50,7 +50,9 @@ test("the list says which databases are backed up, and the engines have a tab of
   await expectNoA11yViolations(page, "the engines tab");
 });
 
-test("the engines in containers have their own section, and an engine's settings are saved and applied", async ({ page, consoleServer }) => {
+test("the engines in containers have their own section, and an engine's settings are saved and applied", async ({ page, consoleServer, problems }) => {
+  // Saving settings is behind sudo mode: the first answer is the 403 that asks for it.
+  problems.expect(/status of 403 .*\/api\/databases\/engines\/postgresql\/settings$/);
   await signIn(page, consoleServer, "/databases/engines");
   const containers = page.getByRole("region", { name: "In containers" });
   const row = containers.getByRole("row", { name: /catalogo-example-org\/postgres/ });
@@ -61,7 +63,7 @@ test("the engines in containers have their own section, and an engine's settings
   await page.getByRole("menuitem", { name: "Settings" }).click();
   await expect(page).toHaveURL(/\/databases\/engines\/postgresql\/settings$/);
   await expect(page.getByRole("heading", { level: 1, name: "PostgreSQL settings" })).toBeVisible();
-  const slow = page.getByLabel("log_min_duration_statement");
+  const slow = page.getByRole("textbox", { name: "log_min_duration_statement", exact: true });
   await expect(slow).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "an engine's settings");
