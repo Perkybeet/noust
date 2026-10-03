@@ -55,7 +55,6 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
-import psutil
 import yaml  # type: ignore[import-untyped]
 
 from noust.core.exceptions import DatabaseEngineError, DatabaseError, ValidationError
@@ -210,9 +209,16 @@ def server_resources() -> Resources:
     Measure this server.
 
     Returns:
-        Its memory and processors.
+        Its memory and processors; memory 0 (no recommendations of size,
+        no caps) where the system does not say.
     """
-    return Resources(memory_bytes=int(psutil.virtual_memory().total), cpus=os.cpu_count() or 1)
+    # The standard library, not psutil: psutil is optional, and the CLI loads
+    # without it.
+    try:
+        memory = os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES")
+    except (ValueError, OSError, AttributeError):
+        memory = 0
+    return Resources(memory_bytes=max(int(memory), 0), cpus=os.cpu_count() or 1)
 
 
 def format_size(size: int) -> str:
