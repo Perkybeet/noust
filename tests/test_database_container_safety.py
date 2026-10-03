@@ -38,6 +38,7 @@ from noust.managers.database.mongodb import MongoDBManager
 from noust.managers.database.mysql import MySQLManager
 from noust.managers.database.postgres import PostgresManager
 from tests.test_database_instances import FLEET, PS_LINES, container
+from tests.test_mongo_container_restore import archive as mongodump_archive
 
 PG_KEY = "postgresql@empleo-arennalabs-com.db"
 MYSQL_KEY = "mysql@tienda-arennalabs-com.mysql"
@@ -68,6 +69,13 @@ class Docker(FakeRunner):
             tuple(str(a) for a in argv), kwargs.get("input"), kwargs.get("stdin_path")
         )
         return custom if custom is not None else result
+
+    def capture_to_file(self, argv: Any, destination: Path, **kwargs: Any) -> CommandResult:  # type: ignore[override]
+        # gzip really decompresses: what the loader is then given is checked.
+        result = super().capture_to_file(argv, destination, **kwargs)
+        if result.success and tuple(argv[:2]) == ("gzip", "-dc"):
+            destination.write_bytes(gzip.decompress(Path(argv[2]).read_bytes()))
+        return result
 
 
 def inner(call: tuple[str, ...]) -> tuple[str, ...]:
@@ -329,7 +337,7 @@ def test_a_mongo_archive_is_decompressed_on_the_host_before_the_drop(
     manager = MongoDBManager().bind(instance)
     manager.BACKUP_DIR = tmp_path / "backups"
     archive = tmp_path / "shop.archive.gz"
-    archive.write_bytes(gzip.compress(b"archive"))
+    archive.write_bytes(gzip.compress(mongodump_archive(("shop", "orders"))))
     docker.calls.clear()
 
     manager.restore("shop", archive, drop_existing=True)
@@ -902,3 +910,37 @@ class TestDbList:
     def test_an_engine_that_could_not_be_read_does(self, monkeypatch: pytest.MonkeyPatch) -> None:
         assert self.run(monkeypatch, ["docker", "host"]) == 1
         assert self.run(monkeypatch, ["container"]) == 1
+
+
+# ==================== A link recorded from detection ====================
+
+
+class TestUnlinkingADetectedLink:
+    """Noust never wrote the variable a detected link names, so it never removes it."""
+
+    def test_only_the_store_row_goes(self, docker: Docker, linked: Any, tmp_path: Path) -> None:
+        env = tmp_path / "apps" / "shop-example-com" / ".env"
+        before = env.read_text()
+        (link,) = linked.service.records.links(app_id=linked.app.id)
+        assert link.username is None
+
+        linked.service.unlink("shop.example.com", GONE_KEY, "shop", restart=True)
+
+        assert env.read_text() == before
+        assert linked.service.records.links(app_id=linked.app.id) == []
+        assert not any(call[:1] == ("systemctl",) for call in docker.calls)
+
+    def test_a_link_noust_made_still_takes_its_variables(
+        self, docker: Docker, linked: Any, tmp_path: Path
+    ) -> None:
+        from noust.managers.database.records import DatabaseLink
+
+        env = tmp_path / "apps" / "shop-example-com" / ".env"
+        linked.service.records.delete_link(linked.app.id, GONE_KEY, "shop")
+        linked.service.records.save_link(
+            DatabaseLink(app_id=linked.app.id, engine=GONE_KEY, db_name="shop", username="shop")
+        )
+
+        linked.service.unlink("shop.example.com", GONE_KEY, "shop", restart=False)
+
+        assert "DATABASE_URL" not in env.read_text()

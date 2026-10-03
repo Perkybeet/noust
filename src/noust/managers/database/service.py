@@ -2635,6 +2635,13 @@ class DatabaseService:
         """
         Remove a link's variables from an application.
 
+        A link recorded from detection (:meth:`record_detected_link`, no
+        account) names a variable the application's own ``.env`` carries,
+        which Noust never wrote: removing it would take the application's
+        database away. Such a link leaves the environment alone and the
+        application running; only its store row goes, which is the
+        caller's.
+
         Args:
             app: The application.
             link: The link.
@@ -2643,6 +2650,8 @@ class DatabaseService:
         Returns:
             Whether it restarted.
         """
+        if link.username is None:
+            return False
         names = {link.env_var, *(EXTRA_VARIABLES if link.extra_vars else ())}
 
         def edit(env: dict[str, str]) -> dict[str, str]:
@@ -2675,7 +2684,10 @@ class DatabaseService:
         Its variables are removed and the application restarts behind its
         gate: one that does not come up without the database gets them back
         and nothing is unlinked. The database stops being the application's,
-        or passes to another application that still uses it.
+        or passes to another application that still uses it. A link recorded
+        from detection only loses its store row: the variable is the
+        application's own, so its ``.env`` is not touched and it does not
+        restart.
 
         Args:
             domain: The application.
