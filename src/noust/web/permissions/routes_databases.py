@@ -21,6 +21,10 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/databases/engines/{engine}/status"): Permission.DATABASES_READ,
     ("GET", "/api/databases/engines/{engine}/privileges"): Permission.DATABASES_READ,
     ("GET", "/api/databases/engines/{engine}/logs"): Permission.DATABASES_READ,
+    # 3.3 (item 71): what can be installed here, and each engine's settings.
+    ("GET", "/api/databases/engines/catalog"): Permission.DATABASES_READ,
+    ("GET", "/api/databases/engines/{engine}/settings"): Permission.DATABASES_READ,
+    ("PUT", "/api/databases/engines/{engine}/settings"): Permission.DATABASES_MANAGE,
     ("POST", "/api/databases/engines/{engine}/install"): Permission.DATABASES_MANAGE,
     ("POST", "/api/databases/engines/{engine}/uninstall"): Permission.DATABASES_MANAGE,
     ("PUT", "/api/databases/engines/{engine}/credentials"): Permission.DATABASES_MANAGE,

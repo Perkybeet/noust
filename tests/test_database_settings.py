@@ -767,3 +767,26 @@ def test_the_settings_change_event_is_declared() -> None:
     from noust.core.audit.catalog import EVENTS
 
     assert "db.settings.change" in EVENTS
+
+
+def test_an_engine_in_a_container_is_never_configured(scripted: ScriptedRunner) -> None:
+    from noust.managers.database.instances import DatabaseInstance
+    from noust.managers.database.settings import settings_for
+
+    manager = PostgresManager().bind(
+        DatabaseInstance(
+            key="postgresql@shop.db",
+            engine="postgresql",
+            flavour="postgres",
+            container="shop-db-1",
+            container_id="d",
+            image="postgres:16",
+            project="shop",
+            service="db",
+            state="running",
+        )
+    )
+
+    with pytest.raises(DatabaseEngineError, match="does not configure"):
+        settings_for(manager, EIGHT_GB)
+    assert scripted.calls == []

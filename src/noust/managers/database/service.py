@@ -41,6 +41,7 @@ from typing import Any, cast
 
 from noust.core import audit
 from noust.core.config import Config
+from noust.core.ens import profile as security_profile
 from noust.core.exceptions import (
     ConfigError,
     DatabaseAccessError,
@@ -83,6 +84,13 @@ from noust.managers.database.detect_links import (
     read_environment,
     references_in,
 )
+from noust.managers.database.engine_setup import (
+    EnginePlan,
+    InstallOutcome,
+    install_catalog,
+    install_engine,
+    plan_engine_install,
+)
 from noust.managers.database.exposure import (
     ExposedPort,
     find_exposed_database_ports,
@@ -106,6 +114,7 @@ from noust.managers.database.linking import (
 )
 from noust.managers.database.records import DatabaseLink, DatabaseRecords, default_env_var
 from noust.managers.database.registry import DatabaseRegistry, get_db_manager
+from noust.managers.database.settings import SettingsOutcome, SettingsReport, settings_for
 from noust.managers.database.urls import connection_url, masked
 from noust.validators.domain import validate_domain
 from noust.validators.names import resolve_within, validate_filename
@@ -3261,3 +3270,159 @@ class DatabaseService:
         return find_exposed_database_ports(
             extra_ports=extra_ports, include_firewalled=include_firewalled
         )
+
+    # ------------------------------------------------- installing engines
+
+    def install_catalog(self) -> dict[str, Any]:
+        """
+        Describe what the install dialog can offer on this server.
+
+        Returns:
+            The distribution, whether apt is present, and per flavour whether
+            it can be installed, why not, and in which versions.
+        """
+        return install_catalog(self.all_managers())
+
+    def plan_engine_install(
+        self, engine: str, *, flavour: str | None = None, version: str | None = None
+    ) -> EnginePlan:
+        """
+        Decide what installing an engine means, before anything is touched.
+
+        Args:
+            engine: The engine name as typed (``mariadb`` and ``valkey`` name
+                a flavour).
+            flavour: A flavour named explicitly.
+            version: A version asked for.
+
+        Returns:
+            The decision.
+
+        Raises:
+            DatabaseEngineError: When the engine is unknown.
+            DatabaseExistsError: When the engine's other flavour is installed.
+            ValidationError: When the flavour or version cannot be had here.
+        """
+        return plan_engine_install(self.manager(engine), engine, flavour=flavour, version=version)
+
+    def install_engine(
+        self, engine: str, *, flavour: str | None = None, version: str | None = None
+    ) -> InstallOutcome:
+        """
+        Install an engine in the flavour and version asked for.
+
+        Without a flavour or a version it does what 3.2 did: the
+        distribution's package, MariaDB before MySQL and Redis before Valkey.
+
+        Args:
+            engine: The engine name as typed.
+            flavour: A flavour named explicitly.
+            version: A version asked for.
+
+        Returns:
+            What was done; nothing when it was already installed.
+
+        Raises:
+            DatabaseEngineError: When apt, the repository or the unit fails.
+            DatabaseExistsError: When the engine's other flavour is installed.
+            ValidationError: When the flavour or version cannot be had here.
+        """
+        return install_engine(self.plan_engine_install(engine, flavour=flavour, version=version))
+
+    # ------------------------------------------------------ engine settings
+
+    def _host_engine(self, engine: str) -> BaseDatabaseManager:
+        """
+        Resolve an engine on this host whose configuration Noust may change.
+
+        Args:
+            engine: The engine name.
+
+        Returns:
+            Its manager.
+
+        Raises:
+            ValidationError: For an engine in a container, whose image and
+                compose file configure it (3.3 spec, 9.3).
+            DatabaseEngineError: When it is unknown or not installed.
+        """
+        if "@" in engine:
+            raise ValidationError(
+                "Noust does not configure an engine that runs in a container",
+                details="Its image and the project's compose file configure it.",
+                field="engine",
+            )
+        manager = self.manager(engine)
+        if not manager.is_installed():
+            raise DatabaseEngineError(
+                f"{manager.DISPLAY_NAME} is not installed",
+                details=f"Install it with: noust db install {manager.ENGINE_NAME}",
+            )
+        return manager
+
+    def engine_settings(self, engine: str) -> SettingsReport:
+        """
+        Describe an engine's settings: current, configured and recommended.
+
+        Args:
+            engine: The engine name.
+
+        Returns:
+            The report.
+
+        Raises:
+            ValidationError: For an engine in a container.
+            DatabaseEngineError: When it is unknown, not installed, or has no
+                place to write settings.
+        """
+        return settings_for(self._host_engine(engine)).report()
+
+    def change_engine_settings(
+        self,
+        engine: str,
+        values: Mapping[str, str],
+        *,
+        confirm_exposure: bool = False,
+    ) -> SettingsOutcome:
+        """
+        Change an engine's settings, leaving it on the previous ones if it refuses them.
+
+        Args:
+            engine: The engine name.
+            values: New values by key; ``default`` removes one from Noust's file.
+            confirm_exposure: The operator accepts that the engine will listen
+                beyond loopback.
+
+        Returns:
+            What changed and how it was applied.
+
+        Raises:
+            ValidationError: For an unknown setting, an unacceptable value,
+                or an exposure not confirmed or not allowed by the profile.
+            DatabaseEngineError: When the engine is not running, or did not
+                come back on the new settings (the previous ones are back).
+        """
+        self._host_engine(engine)
+        manager = self.running(engine)
+        try:
+            outcome = settings_for(manager).apply(
+                values,
+                confirm_exposure=confirm_exposure,
+                remote_listen_allowed=security_profile.database_remote_listen_allowed(),
+            )
+        except DatabaseEngineError:
+            # The keys only: a value is not a secret here, but the trail has
+            # never carried one and is not the place to start.
+            self.audit(
+                "db.settings.change", manager.ENGINE_NAME, outcome="failure", keys=sorted(values)
+            )
+            raise
+        if outcome.changed:
+            self.audit(
+                "db.settings.change",
+                manager.ENGINE_NAME,
+                keys=outcome.changed,
+                action=outcome.action,
+                exposed=outcome.exposed,
+            )
+        return outcome

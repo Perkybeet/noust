@@ -287,41 +287,193 @@ def _echo_json(data: Any) -> None:
 # ==================== Engine management ====================
 
 
-def _install(engine: str, *, logger: Logger) -> int:
+def _install(engine: str, *, logger: Logger, version: str | None = None) -> int:
     """
-    Install a database engine.
+    Install a database engine, in the flavour its name says and the version asked.
+
+    Args:
+        engine: Engine name or alias; ``mariadb`` and ``valkey`` name a flavour.
+        logger: Logger for progress and errors.
+        version: The version to install; the distribution's when None.
+
+    Returns:
+        Process exit code.
+    """
+    if _get_manager(engine, logger) is None:
+        return 1
+    service = _service(logger)
+    try:
+        decided = service.plan_engine_install(engine, version=version)
+        if decided.already_installed:
+            installed = decided.manager.get_version()
+            logger.info(f"{decided.display_name} is already installed (v{installed})")
+            return 0
+
+        logger.step(1, 2, f"Installing {decided.describe()}...")
+        outcome = service.install_engine(engine, version=version)
+
+        logger.step(2, 2, "Installation complete")
+        logger.success(f"{outcome.display_name} v{outcome.version} installed successfully")
+        for warning in outcome.warnings:
+            logger.warning(warning)
+        return 0
+    except NoustError as e:
+        return _fail(logger, e)
+
+
+def _catalog(*, json_output: bool, logger: Logger) -> int:
+    """
+    Show what can be installed on this server, and in which versions.
+
+    Args:
+        json_output: Print the catalog as JSON.
+        logger: Logger for errors.
+
+    Returns:
+        Process exit code.
+    """
+    try:
+        catalog = _service(logger).install_catalog()
+    except NoustError as e:
+        return _fail(logger, e)
+    if json_output:
+        _echo_json(catalog)
+        return 0
+    click.echo(f"\nWhat Noust can install on {catalog['distribution']['name']}:")
+    click.echo("-" * 70)
+    for entry in catalog["flavours"]:
+        versions = ", ".join(
+            f"{choice['version']}{'*' if choice['default'] else ''}"
+            f"{' (upstream)' if choice['source'] == 'upstream' else ''}"
+            for choice in entry["versions"]
+        )
+        state = "installable" if entry["installable"] else entry["blocked"]
+        click.echo(f"  {entry['display_name']:<12} {state:<14} {versions}")
+        if entry["reason"] and not entry["installable"] and entry["blocked"] != "installed":
+            click.echo(f"  {'':<12} {entry['reason']}")
+    click.echo("\n  * the version installed when none is asked for")
+    click.echo("  noust db install <flavour> [--version <version>]\n")
+    return 0
+
+
+def _parse_assignments(assignments: Sequence[str]) -> dict[str, str]:
+    """
+    Split ``KEY=VALUE`` arguments.
+
+    Only the syntax is undone here; which keys exist and which values are
+    acceptable is the settings module's to decide.
+
+    Args:
+        assignments: The arguments.
+
+    Returns:
+        Values by key.
+
+    Raises:
+        click.BadParameter: For an argument without ``=``.
+    """
+    values: dict[str, str] = {}
+    for assignment in assignments:
+        key, sep, value = assignment.partition("=")
+        if not sep or not key.strip():
+            raise click.BadParameter(
+                f"{assignment!r} is not KEY=VALUE", param_hint="'KEY=VALUE...'"
+            )
+        values[key.strip()] = value
+    return values
+
+
+def _settings(
+    engine: str,
+    assignments: Sequence[str],
+    *,
+    confirm_exposure: bool,
+    json_output: bool,
+    logger: Logger,
+) -> int:
+    """
+    Show an engine's settings, or change some of them.
 
     Args:
         engine: Engine name or alias.
+        assignments: ``KEY=VALUE`` arguments; none to show the settings.
+        confirm_exposure: Accept that the engine will listen beyond loopback.
+        json_output: Print the result as JSON.
         logger: Logger for progress and errors.
 
     Returns:
         Process exit code.
     """
-    manager = _get_manager(engine, logger)
-    if not manager:
-        return 1
-
+    service = _service(logger)
     try:
-        if manager.is_installed():
-            version = manager.get_version()
-            logger.info(f"{manager.DISPLAY_NAME} is already installed (v{version})")
+        if not assignments:
+            report = service.engine_settings(engine).to_dict()
+            if json_output:
+                _echo_json(report)
+                return 0
+            _print_settings(report)
             return 0
-
-        logger.step(1, 2, f"Installing {manager.DISPLAY_NAME}...")
-        manager.install()
-
-        logger.step(2, 2, "Installation complete")
-        version = manager.get_version()
-        logger.success(f"{manager.DISPLAY_NAME} v{version} installed successfully")
-        notice = manager.support(version)
-        if notice.status in ("ending_soon", "ended"):
-            logger.warning(notice.message)
-        for warning in manager.warnings():
-            logger.warning(warning)
+        values = _parse_assignments(assignments)
+        outcome = service.change_engine_settings(engine, values, confirm_exposure=confirm_exposure)
+    except NoustError as e:
+        if getattr(e, "field", None) == "confirm_exposure":
+            logger.warning(e.message)
+            logger.info("Run it again with --yes to go ahead.")
+            return 1
+        logger.error(str(e))
+        output = getattr(e, "output", None)
+        if output:
+            click.echo(output)
+        return 1
+    if json_output:
+        _echo_json(outcome.to_dict())
         return 0
-    except DatabaseError as e:
-        return _fail(logger, e)
+    if not outcome.changed:
+        logger.info(f"{outcome.display_name} already has those settings; nothing changed")
+        return 0
+    how = {
+        "restart": "restarted",
+        "reload": "reloaded",
+        "runtime": "applied to the running server",
+    }.get(outcome.action, outcome.action)
+    logger.success(
+        f"{outcome.display_name}: {', '.join(outcome.changed)} changed in {outcome.file} ({how})"
+    )
+    for warning in outcome.warnings:
+        logger.warning(warning)
+    return 0
+
+
+def _print_settings(report: dict[str, Any]) -> None:
+    """
+    Print an engine's settings as a table.
+
+    Args:
+        report: The report, as plain data.
+    """
+    memory = report["memory_bytes"] / 1024**3
+    click.echo(
+        f"\n{report['display_name']} settings ({report['file']}); recommendations for "
+        f"{memory:.1f} GB and {report['cpus']} CPUs"
+    )
+    if not report["running"]:
+        click.echo("The engine did not answer, so its current values are unknown.")
+    click.echo("-" * 96)
+    click.echo(f"  {'Setting':<44} {'Current':<16} {'Noust':<14} {'Recommended':<14} Restart")
+    for item in report["settings"]:
+        unit = f" {item['unit']}" if item["unit"] and item["kind"] != "size" else ""
+        current = f"{item['current']}{unit}" if item["current"] is not None else "-"
+        configured = item["configured"] if item["configured"] is not None else "-"
+        recommended = item["recommended"] if item["recommended"] is not None else "-"
+        restart = "yes" if item["restart"] else "no"
+        locked = "  (not changed by Noust)" if not item["editable"] else ""
+        click.echo(
+            f"  {item['key']:<44} {current:<16} {configured:<14} {recommended:<14} "
+            f"{restart}{locked}"
+        )
+    click.echo(
+        "\n  noust db settings <engine> KEY=VALUE ...   (KEY=default removes Noust's value)\n"
+    )
 
 
 def _uninstall(engine: str, *, purge: bool, force: bool, logger: Logger) -> int:
@@ -1944,10 +2096,50 @@ def cli() -> None:
 
 @cli.command()
 @click.argument("engine", type=ENGINE)
+@click.option(
+    "--version",
+    "version",
+    help="Version to install (see 'noust db catalog'); the distribution's by default.",
+)
 @pass_context
-def install(ctx: Context, engine: str) -> None:
-    """Install a database engine on this server."""
-    _exit(_install(engine, logger=ctx.logger))
+def install(ctx: Context, engine: str, version: str | None) -> None:
+    """Install a database engine: postgresql, mysql, mariadb, redis, valkey or mongodb."""
+    _exit(_install(engine, logger=ctx.logger, version=version))
+
+
+@cli.command(read_only=True)
+@json_option("Print the catalog as JSON.")
+@pass_context
+def catalog(ctx: Context) -> None:
+    """Show which engines and versions can be installed on this server."""
+    _exit(_catalog(json_output=ctx.json_output, logger=ctx.logger))
+
+
+@cli.command(read_only=lambda params: not params.get("assignments"))
+@click.argument("engine", type=ENGINE)
+@click.argument("assignments", nargs=-1, metavar="[KEY=VALUE]...")
+@click.option(
+    "--yes",
+    "-y",
+    "confirm_exposure",
+    is_flag=True,
+    help="Accept that the engine will listen beyond this server.",
+)
+@json_option("Print the settings or the outcome as JSON.")
+@pass_context
+def settings(
+    ctx: Context, engine: str, assignments: tuple[str, ...], confirm_exposure: bool
+) -> None:
+    """Show an engine's settings, or change them with KEY=VALUE."""
+    _exit(
+        _settings(
+            engine,
+            assignments,
+            confirm_exposure=confirm_exposure,
+            json_output=ctx.json_output,
+            logger=ctx.logger,
+        )
+    )
 
 
 @cli.command()

@@ -2447,8 +2447,11 @@ def settings_for(
         Its settings.
 
     Raises:
-        DatabaseEngineError: When Noust offers no settings for the engine.
+        DatabaseEngineError: When the manager drives a container, whose image
+            and compose file configure it (3.3 spec, 9.3), or when Noust
+            offers no settings for the engine.
     """
+    manager.refuse_in_container("configure")
     backend = BACKENDS.get(manager.ENGINE_NAME)
     if backend is None:
         raise DatabaseEngineError(f"Noust offers no settings for {manager.DISPLAY_NAME}")

@@ -127,6 +127,181 @@ class EngineLogsResponse(BaseModel):
     lines: int
 
 
+class VersionChoiceResponse(BaseModel):
+    """
+    One version of a flavour this server can be given.
+
+    Attributes:
+        source: ``distribution`` (the release's own packages) or ``upstream``
+            (the engine's repository, added with its pinned key).
+        default: What installs when no version is chosen.
+    """
+
+    version: str
+    source: str
+    default: bool = False
+
+
+class FlavourChoiceResponse(BaseModel):
+    """
+    A flavour as the install dialog offers it.
+
+    Attributes:
+        flavour: ``postgresql``, ``mysql``, ``mariadb``, ``redis``,
+            ``valkey`` or ``mongodb``; what ``POST .../install`` takes.
+        engine: The engine that runs it, the ``{engine}`` of every other route.
+        installed: This flavour is the one installed.
+        installable: It can be installed now.
+        blocked: Why not, as a stable code: ``installed``, ``conflict`` (the
+            engine's other flavour is installed), ``not_available`` (nothing
+            publishes it for this release) or ``no_apt``.
+        reason: The same in one English sentence, with what to do.
+        versions: The versions offered, oldest first.
+    """
+
+    flavour: str
+    engine: str
+    display_name: str
+    installed: bool
+    installable: bool
+    blocked: str | None = None
+    reason: str | None = None
+    versions: list[VersionChoiceResponse] = Field(default_factory=list)
+
+
+class DistributionResponse(BaseModel):
+    """
+    The distribution the catalog was computed for.
+
+    Attributes:
+        known: Whether Noust knows which versions it ships; on a release it
+            does not know, only the distribution's own packages are offered.
+    """
+
+    id: str
+    codename: str
+    name: str
+    known: bool
+
+
+class EngineCatalogResponse(BaseModel):
+    """Response for ``GET /api/databases/engines/catalog``."""
+
+    distribution: DistributionResponse
+    apt: bool
+    flavours: list[FlavourChoiceResponse]
+
+
+class EngineInstallRequest(BaseModel):
+    """
+    What to install. Both fields are optional, and so is the body.
+
+    Attributes:
+        flavour: A flavour of the engine in the path (``mariadb`` for
+            ``mysql``, ``valkey`` for ``redis``). The path may name it too.
+        version: One of the catalog's versions; the distribution's when
+            empty.
+    """
+
+    flavour: str | None = Field(default=None, max_length=32)
+    version: str | None = Field(default=None, max_length=16)
+
+
+class EngineSettingResponse(BaseModel):
+    """
+    One setting of an engine.
+
+    Attributes:
+        key: The engine's own name for it; stable, the key the console
+            translates ``description`` by.
+        kind: ``addresses``, ``port``, ``integer``, ``size``,
+            ``duration_ms``, ``seconds``, ``gigabytes``, ``boolean``,
+            ``enum``, ``timezone`` or ``snapshots``.
+        current: What the running engine uses; null when it did not answer.
+        configured: What Noust's file sets; null when it sets nothing.
+        recommended: Noust's advice for this server's memory and cores;
+            null when it depends on the applications.
+        restart: Changing it restarts the engine.
+        listen: It decides where the engine listens; a non-loopback value
+            needs ``confirm_exposure``.
+        editable: Noust changes it; ``locked_reason`` says why not.
+        source: The file the engine read the current value from (PostgreSQL).
+    """
+
+    key: str
+    kind: str
+    unit: str | None = None
+    description: str
+    current: str | None = None
+    configured: str | None = None
+    recommended: str | None = None
+    restart: bool
+    choices: list[str] = Field(default_factory=list)
+    minimum: float | None = None
+    maximum: float | None = None
+    listen: bool = False
+    editable: bool = True
+    locked_reason: str | None = None
+    source: str | None = None
+
+
+class EngineSettingsResponse(BaseModel):
+    """
+    Response for ``GET /api/databases/engines/{engine}/settings``.
+
+    Attributes:
+        file: The file Noust writes the settings to.
+        running: The engine answered, so ``current`` is known.
+        memory_bytes: The memory the recommendations were computed from.
+        cpus: The processors they were computed from.
+    """
+
+    engine: str
+    display_name: str
+    file: str
+    running: bool
+    memory_bytes: int
+    cpus: int
+    settings: list[EngineSettingResponse]
+
+
+class EngineSettingsRequest(BaseModel):
+    """
+    Settings to change.
+
+    Attributes:
+        values: New values by key, as text (``256MB``, ``on``, ``127.0.0.1``);
+            ``default`` removes a setting from Noust's file.
+        confirm_exposure: The operator accepts that the engine will listen
+            beyond loopback. Without it such a change is refused with the
+            exposure warning, on the ``confirm_exposure`` field.
+    """
+
+    values: dict[str, str] = Field(default_factory=dict)
+    confirm_exposure: bool = False
+
+
+class EngineSettingsOutcomeResponse(BaseModel):
+    """
+    What applying settings did.
+
+    Attributes:
+        changed: The keys whose value changed.
+        action: ``none``, ``reload``, ``runtime`` (applied to the running
+            engine) or ``restart``.
+        exposed: The engine now listens beyond loopback.
+        warnings: What the operator must know, in English.
+    """
+
+    engine: str
+    display_name: str
+    file: str
+    changed: list[str]
+    action: str
+    exposed: bool = False
+    warnings: list[str] = Field(default_factory=list)
+
+
 class PrivilegesResponse(BaseModel):
     """Response for ``GET /api/databases/engines/{engine}/privileges``."""
 
@@ -183,6 +358,69 @@ def list_engines(session: Annotated[dict, Depends(get_current_session)]) -> Engi
             for status in service(session).engines()
         ]
     )
+
+
+@router.get("/engines/catalog", response_model=EngineCatalogResponse)
+def get_engine_catalog(
+    session: Annotated[dict, Depends(get_current_session)],
+) -> EngineCatalogResponse:
+    """
+    Say which flavours and versions can be installed on this server.
+
+    MySQL and MariaDB, Redis and Valkey are separate choices; one is never
+    offered while the other is installed.
+
+    Args:
+        session: The authenticated session.
+
+    Returns:
+        The catalog for this distribution.
+    """
+    return EngineCatalogResponse(**service(session).install_catalog())
+
+
+@router.get("/engines/{engine}/settings", response_model=EngineSettingsResponse)
+def get_engine_settings(
+    engine: str, session: Annotated[dict, Depends(get_current_session)]
+) -> EngineSettingsResponse:
+    """
+    Read an engine's settings: current, configured and recommended.
+
+    Args:
+        engine: Engine name.
+        session: The authenticated session.
+
+    Returns:
+        The settings.
+    """
+    return EngineSettingsResponse(**service(session).engine_settings(engine).to_dict())
+
+
+@router.put("/engines/{engine}/settings", response_model=EngineSettingsOutcomeResponse)
+def put_engine_settings(
+    engine: str,
+    request: EngineSettingsRequest,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> EngineSettingsOutcomeResponse:
+    """
+    Change an engine's settings, with sudo mode.
+
+    The file is written, checked by the engine's own tool, and the engine
+    restarted, reloaded or changed at runtime; when it does not answer, the
+    previous settings are put back and the error carries its journal.
+
+    Args:
+        engine: Engine name.
+        request: The new values and the exposure confirmation.
+        session: The authenticated, elevated session.
+
+    Returns:
+        What changed and how it was applied.
+    """
+    outcome = service(session).change_engine_settings(
+        engine, request.values, confirm_exposure=request.confirm_exposure
+    )
+    return EngineSettingsOutcomeResponse(**outcome.to_dict())
 
 
 @router.get("/engines/{engine}/status", response_model=EngineStatusResponse)
@@ -268,16 +506,22 @@ def get_engine_logs(
 
 @router.post("/engines/{engine}/install", response_model=JobAcceptedResponse, status_code=202)
 def install_engine(
-    engine: str, session: Annotated[dict, Depends(get_current_session)]
+    engine: str,
+    session: Annotated[dict, Depends(get_current_session)],
+    request: EngineInstallRequest | None = None,
 ) -> JobAcceptedResponse:
     """
-    Queue the installation of an engine.
+    Queue the installation of an engine, in a flavour and version of the catalog.
 
-    Installation drives the distribution package manager, so it runs as a job.
+    Installation drives the distribution package manager, so it runs as a
+    job. What it will install is decided first, so a version this server
+    cannot have, or MariaDB while MySQL is installed, is refused here rather
+    than in the job. Without a body it installs what 3.2 did.
 
     Args:
-        engine: Engine name.
+        engine: Engine name, or a flavour's (``mariadb``, ``valkey``).
         session: The authenticated session.
+        request: The flavour and version, both optional.
 
     Returns:
         The queued job.
@@ -285,22 +529,42 @@ def install_engine(
     Raises:
         HTTPException: 409 when the engine is already installed.
     """
-    manager = service(session).manager(engine)
-    manager.refuse_in_container("install")
-    if manager.is_installed():
-        raise HTTPException(status_code=409, detail=f"{manager.DISPLAY_NAME} is already installed")
+    choice = request or EngineInstallRequest()
+    decided = service(session).plan_engine_install(
+        engine, flavour=choice.flavour or None, version=choice.version or None
+    )
+    manager = decided.manager
+    if decided.already_installed:
+        raise HTTPException(status_code=409, detail=f"{decided.display_name} is already installed")
+    what = decided.describe()
+    kwargs: dict[str, object] = {"engine": manager.ENGINE_NAME, "action": "install"}
+    if decided.flavour is not None:
+        kwargs["flavour"] = decided.flavour
+    if decided.plan is not None and choice.version:
+        kwargs["version"] = decided.plan.version
     accepted = queue(
         session,
         job_type=JobType.CUSTOM,
-        name=f"Install {manager.DISPLAY_NAME}",
-        description=f"Installing {manager.DISPLAY_NAME}",
+        name=f"Install {what}",
+        description=f"Installing {what}",
         func=database_engine_job,
-        kwargs={"engine": manager.ENGINE_NAME, "action": "install"},
-        metadata={"engine": manager.ENGINE_NAME},
-        message=f"Installation queued for {manager.DISPLAY_NAME}",
+        kwargs=kwargs,
+        metadata={
+            "engine": manager.ENGINE_NAME,
+            "plan": decided.plan.to_dict() if decided.plan is not None else None,
+        },
+        message=f"Installation queued for {what}",
         pass_actor=False,
     )
-    audit.record("db.install", target=f"db:{manager.ENGINE_NAME}", details={"job": accepted.job_id})
+    audit.record(
+        "db.install",
+        target=f"db:{manager.ENGINE_NAME}",
+        details={
+            "job": accepted.job_id,
+            "flavour": decided.flavour,
+            "version": kwargs.get("version"),
+        },
+    )
     return accepted
 
 

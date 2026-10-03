@@ -73,6 +73,9 @@ CONTRACT_COMMANDS = [
     "provision",
     "unlink",
     "user-password",
+    # 3.3: what can be installed here, and each engine's settings.
+    "catalog",
+    "settings",
 ]
 
 #: Flags that belong to the root command. A subcommand that declares one of

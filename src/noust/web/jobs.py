@@ -1883,6 +1883,8 @@ def database_engine_job(
     engine: str,
     action: str,
     purge: bool = False,
+    flavour: str | None = None,
+    version: str | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
     """
@@ -1893,9 +1895,12 @@ def database_engine_job(
     a request.
 
     Args:
-        engine: Engine name, as registered in the database registry.
+        engine: Engine name, as registered in the database registry, or a
+            flavour's (``mariadb``, ``valkey``).
         action: Either ``install`` or ``uninstall``.
         purge: Also remove configuration and data when uninstalling.
+        flavour: The flavour to install; None for the install of 3.2.
+        version: The version to install; None for the distribution's.
         job_context: Injected by the job manager.
 
     Returns:
@@ -1906,22 +1911,24 @@ def database_engine_job(
             fails.
     """
     from noust.core.exceptions import DatabaseEngineError
-    from noust.managers.database import get_db_manager
+    from noust.managers.database.service import DatabaseService
 
     context = _require_context(job_context)
     context.set_metadata("engine", engine)
-
-    manager = get_db_manager(engine, verbose=False)
-    if manager is None:
-        raise DatabaseEngineError(
-            f"Unknown database engine: {engine}",
-            details="Check the engine list at GET /api/databases/engines.",
-        )
+    database_service = DatabaseService()
+    manager = database_service.manager(engine)
 
     if action == "install":
         context.update(f"Installing {manager.DISPLAY_NAME}", 20)
-        manager.install()
-    elif action == "uninstall":
+        outcome = database_service.install_engine(engine, flavour=flavour, version=version)
+        context.update("Complete", 100)
+        return {
+            "engine": engine,
+            "action": action,
+            "status": "completed",
+            "installed": outcome.to_dict(),
+        }
+    if action == "uninstall":
         context.update(f"Uninstalling {manager.DISPLAY_NAME}", 20)
         manager.uninstall(purge=purge)
     else:

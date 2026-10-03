@@ -132,6 +132,8 @@ def plan_engine_install(
         EngineInstalledError: When the engine's other flavour is installed.
         ValidationError: When the flavour or the version cannot be had here.
     """
+    # A container's engine is its image's: refused here, the one path every install takes.
+    manager.refuse_in_container("install")
     chosen = resolve_flavour(typed, manager.ENGINE_NAME, flavour=flavour, version=version)
     installed = manager.installed_flavour()
     if installed is not None:
