@@ -48,7 +48,19 @@ class EngineInfo(BaseModel):
         support: Upstream support for the installed version.
         warnings: What the operator must know about the installation.
         stored_account: Noust signs in with an account the operator stores
-            (``PUT .../credentials``); PostgreSQL and MongoDB do not.
+            (``PUT .../credentials``); PostgreSQL and MongoDB do not, nor
+            does a container.
+        kind: ``host`` for the server's own engine, ``container`` for one
+            Docker runs; ``name`` is then its instance key
+            (``postgresql@project.service``).
+        container: The container's name.
+        project: Its Compose project.
+        service: Its Compose service.
+        image: The image it runs.
+        app: The application it belongs to (its Compose project is the
+            application's).
+        access: ``full``, or ``limited`` when the credentials the container
+            carries only let Noust in as the application's own account.
     """
 
     name: str
@@ -62,6 +74,13 @@ class EngineInfo(BaseModel):
     support: SupportNoticeResponse | None = None
     warnings: list[str] = Field(default_factory=list)
     stored_account: bool = False
+    kind: str = "host"
+    container: str | None = None
+    project: str | None = None
+    compose_service: str | None = None
+    image: str | None = None
+    app: str | None = None
+    access: str | None = None
 
 
 class EngineCredentialsRequest(BaseModel):
@@ -152,6 +171,14 @@ def list_engines(session: Annotated[dict, Depends(get_current_session)]) -> Engi
                 capabilities=list(status.get("capabilities", [])),
                 support=_support(status.get("support")),
                 warnings=list(status.get("warnings", [])),
+                stored_account=bool(status.get("stored_account")),
+                kind=str(status.get("kind") or "host"),
+                container=status.get("container"),
+                project=status.get("project"),
+                compose_service=status.get("compose_service"),
+                image=status.get("image"),
+                app=status.get("app"),
+                access=status.get("access"),
             )
             for status in service(session).engines()
         ]
@@ -220,10 +247,10 @@ def get_engine_logs(
     lines: Annotated[int, Query(ge=1, le=1000)] = 100,
 ) -> EngineLogsResponse:
     """
-    Read journal output for an engine's service.
+    Read journal output for an engine's service, or a container's log.
 
     Args:
-        engine: Engine name.
+        engine: Engine name or instance key.
         lines: How many lines to return.
         session: The authenticated session.
 
@@ -232,7 +259,10 @@ def get_engine_logs(
     """
     manager = service(session).manager(engine)
     unit = manager.service_unit()
-    logs = ServiceManager(verbose=False).logs(unit, lines=lines) or "No logs available"
+    if manager.instance is not None:
+        logs = manager.container_logs(lines) or "No logs available"
+    else:
+        logs = ServiceManager(verbose=False).logs(unit, lines=lines) or "No logs available"
     return EngineLogsResponse(engine=manager.ENGINE_NAME, service=unit, logs=logs, lines=lines)
 
 
@@ -256,6 +286,7 @@ def install_engine(
         HTTPException: 409 when the engine is already installed.
     """
     manager = service(session).manager(engine)
+    manager.refuse_in_container("install")
     if manager.is_installed():
         raise HTTPException(status_code=409, detail=f"{manager.DISPLAY_NAME} is already installed")
     accepted = queue(
@@ -293,6 +324,7 @@ def uninstall_engine(
         The queued job.
     """
     manager = service(session).manager(engine)
+    manager.refuse_in_container("uninstall")
     accepted = queue(
         session,
         job_type=JobType.CUSTOM,

@@ -8184,8 +8184,30 @@
         "type": "object"
       },
       "EngineInfo": {
-        "description": "A database engine and whether it is usable on this host.\n\nAttributes:\n    port: The port the server listens on when it runs, its default\n        otherwise.\n    service: The systemd unit it runs as on this server.\n    capabilities: What the engine can do; the console draws its tabs\n        from these instead of testing engine names.\n    support: Upstream support for the installed version.\n    warnings: What the operator must know about the installation.\n    stored_account: Noust signs in with an account the operator stores\n        (``PUT .../credentials``); PostgreSQL and MongoDB do not.",
+        "description": "A database engine and whether it is usable on this host.\n\nAttributes:\n    port: The port the server listens on when it runs, its default\n        otherwise.\n    service: The systemd unit it runs as on this server.\n    capabilities: What the engine can do; the console draws its tabs\n        from these instead of testing engine names.\n    support: Upstream support for the installed version.\n    warnings: What the operator must know about the installation.\n    stored_account: Noust signs in with an account the operator stores\n        (``PUT .../credentials``); PostgreSQL and MongoDB do not, nor\n        does a container.\n    kind: ``host`` for the server's own engine, ``container`` for one\n        Docker runs; ``name`` is then its instance key\n        (``postgresql@project.service``).\n    container: The container's name.\n    project: Its Compose project.\n    service: Its Compose service.\n    image: The image it runs.\n    app: The application it belongs to (its Compose project is the\n        application's).\n    access: ``full``, or ``limited`` when the credentials the container\n        carries only let Noust in as the application's own account.",
         "properties": {
+          "access": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Access"
+          },
+          "app": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "App"
+          },
           "capabilities": {
             "items": {
               "type": "string"
@@ -8193,13 +8215,51 @@
             "title": "Capabilities",
             "type": "array"
           },
+          "compose_service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compose Service"
+          },
+          "container": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container"
+          },
           "display_name": {
             "title": "Display Name",
             "type": "string"
           },
+          "image": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Image"
+          },
           "installed": {
             "title": "Installed",
             "type": "boolean"
+          },
+          "kind": {
+            "default": "host",
+            "title": "Kind",
+            "type": "string"
           },
           "name": {
             "title": "Name",
@@ -8208,6 +8268,17 @@
           "port": {
             "title": "Port",
             "type": "integer"
+          },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project"
           },
           "running": {
             "default": false,
@@ -12968,7 +13039,7 @@
         "type": "object"
       },
       "ListingProblemResponse": {
-        "description": "An engine whose databases could not be read.\n\nAttributes:\n    message: What failed.\n    hint: How to fix it.\n    output: The engine's own message, verbatim.\n    access: The engine refused to sign Noust in: the fix is to store the\n        account Noust uses.",
+        "description": "An engine whose databases could not be read.\n\nAttributes:\n    message: What failed.\n    hint: How to fix it.\n    output: The engine's own message, verbatim.\n    access: The engine refused to sign Noust in: the fix is to store the\n        account Noust uses.\n    kind: ``host``, ``container`` (an instance Docker runs; ``engine``\n        is its key) or ``docker`` (Docker itself did not answer).",
         "properties": {
           "access": {
             "title": "Access",
@@ -12984,6 +13055,11 @@
           },
           "hint": {
             "title": "Hint",
+            "type": "string"
+          },
+          "kind": {
+            "default": "host",
+            "title": "Kind",
             "type": "string"
           },
           "message": {
@@ -38520,7 +38596,7 @@
     },
     "/api/databases/engines/{engine}/logs": {
       "get": {
-        "description": "Read journal output for an engine's service.\n\nArgs:\n    engine: Engine name.\n    lines: How many lines to return.\n    session: The authenticated session.\n\nReturns:\n    The log output.",
+        "description": "Read journal output for an engine's service, or a container's log.\n\nArgs:\n    engine: Engine name or instance key.\n    lines: How many lines to return.\n    session: The authenticated session.\n\nReturns:\n    The log output.",
         "operationId": "get_engine_logs_api_databases_engines__engine__logs_get",
         "parameters": [
           {

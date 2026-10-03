@@ -82,6 +82,15 @@ from noust.managers.database.exposure import (
     ssh_port,
     tunnel_instructions,
 )
+from noust.managers.database.instances import (
+    DatabaseInstance,
+    assign_apps,
+    discover,
+    engine_of,
+    instance_key,
+    is_instance_key,
+    parse_instance_key,
+)
 from noust.managers.database.linking import (
     EXTRA_VARIABLES,
     change_app_env,
@@ -278,6 +287,8 @@ class ListingProblem:
         hint: How to fix it.
         output: The engine's own message, verbatim.
         access: The engine refused to sign Noust in (the fix is credentials).
+        kind: ``host`` for the host's engine, ``container`` for an instance
+            Docker runs, ``docker`` when Docker itself could not be asked.
     """
 
     engine: str
@@ -286,6 +297,7 @@ class ListingProblem:
     hint: str
     output: str
     access: bool
+    kind: str = "host"
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -560,6 +572,7 @@ class DatabaseService:
         secrets: SecretStore | None = None,
         resolve: Callable[[str], BaseDatabaseManager | None] | None = None,
         engines: Callable[[], list[str]] | None = None,
+        instances: Callable[[], list[DatabaseInstance]] | None = None,
     ) -> None:
         """
         Args:
@@ -570,6 +583,10 @@ class DatabaseService:
             secrets: The secret store. Defaults to one beside the store.
             resolve: Engine name to manager; the registry by default.
             engines: The engine names to list; the registry's by default.
+                A list given here is the whole list: no container is
+                discovered unless ``instances`` is given too.
+            instances: The database containers on this server; Docker's,
+                discovered once per service, by default.
         """
         self.actor = actor
         self.logger = logger or Logger()
@@ -577,6 +594,8 @@ class DatabaseService:
         self._secrets = secrets
         self._resolve = resolve
         self._engine_names = engines
+        self._instances = instances
+        self._discovered: list[DatabaseInstance] | None = None
 
     # ------------------------------------------------------------ plumbing
 
@@ -629,9 +648,12 @@ class DatabaseService:
 
         Raises:
             DatabaseEngineError: When no engine answers to the name. The
-                registry is the allow-list.
+                registry is the allow-list, and for an instance key the
+                containers Docker runs.
         """
         resolve = self._resolve or (lambda name: get_db_manager(name, verbose=False))
+        if is_instance_key(engine):
+            return self._instance_manager(engine, resolve)
         manager = resolve(engine)
         if manager is None:
             names = self._engine_names() if self._engine_names else DatabaseRegistry.list_engines()
@@ -640,6 +662,102 @@ class DatabaseService:
                 details=f"Available engines: {', '.join(names)}.",
             )
         return manager
+
+    def instances(self) -> list[DatabaseInstance]:
+        """
+        The database containers on this server, each with its application.
+
+        Discovered once per service (it is built per request or command).
+
+        Returns:
+            The instances, sorted by key.
+
+        Raises:
+            DatabaseQueryError: When Docker does not answer.
+        """
+        if self._discovered is None:
+            if self._instances is not None:
+                found = self._instances()
+            elif self._engine_names is not None:
+                found = []
+            else:
+                found = assign_apps(discover(), self.store.list_apps())
+            self._discovered = found
+        return self._discovered
+
+    def _instance_manager(
+        self, key: str, resolve: Callable[[str], BaseDatabaseManager | None]
+    ) -> BaseDatabaseManager:
+        """
+        Resolve an instance key to a manager bound to its container.
+
+        Args:
+            key: ``engine@project.service`` or ``engine@container``; the
+                engine part may be an alias (``pg@...``).
+            resolve: Engine name to manager.
+
+        Returns:
+            The manager.
+
+        Raises:
+            DatabaseEngineError: When the key is malformed, its engine is
+                unknown, or no container answers to it.
+        """
+        try:
+            parts = parse_instance_key(key)
+        except ValidationError as exc:
+            raise DatabaseEngineError(exc.message, details=exc.details) from exc
+        canonical = DatabaseRegistry.canonical(parts.engine) or parts.engine
+        wanted = instance_key(
+            canonical, project=parts.project, service=parts.service, container=parts.container
+        )
+        found = next((item for item in self.instances() if item.key == wanted), None)
+        base = resolve(canonical) if found is not None else None
+        if found is None or base is None:
+            known = ", ".join(item.key for item in self.instances()) or "none"
+            raise DatabaseEngineError(
+                f"No database container answers to {key}",
+                details=f"Containers found: {known}. List them with: noust db engines",
+            )
+        return base.bind(found)
+
+    def instance_managers(
+        self, problems: list[ListingProblem] | None = None
+    ) -> list[BaseDatabaseManager]:
+        """
+        One manager per database container.
+
+        Args:
+            problems: Where Docker's failure to answer is recorded; logged
+                when None.
+
+        Returns:
+            The bound managers, by key.
+        """
+        try:
+            found = self.instances()
+        except DatabaseError as exc:
+            self.logger.warning(f"Could not list the database containers: {exc}")
+            if problems is not None:
+                problems.append(
+                    ListingProblem(
+                        engine="docker",
+                        display_name="Docker",
+                        message=exc.message,
+                        hint=exc.details,
+                        output=exc.output or "",
+                        access=False,
+                        kind="docker",
+                    )
+                )
+            return []
+        resolve = self._resolve or (lambda name: get_db_manager(name, verbose=False))
+        managers: list[BaseDatabaseManager] = []
+        for instance in found:
+            base = resolve(instance.engine)
+            if base is not None:
+                managers.append(base.bind(instance))
+        return managers
 
     def running(self, engine: str) -> BaseDatabaseManager:
         """
@@ -655,6 +773,11 @@ class DatabaseService:
             DatabaseEngineError: When it is unknown, not installed or stopped.
         """
         manager = self.manager(engine)
+        if manager.instance is not None and not manager.is_running():
+            raise DatabaseEngineError(
+                f"The container {manager.instance.container} is not running",
+                details=f"Start it with: noust db start {manager.ENGINE_NAME}",
+            )
         if not manager.is_installed():
             raise DatabaseEngineError(
                 f"{manager.DISPLAY_NAME} is not installed",
@@ -670,6 +793,16 @@ class DatabaseService:
     def all_managers(self) -> list[BaseDatabaseManager]:
         """
         Every engine Noust manages, one manager each.
+
+        Returns:
+            The managers: the host's engines in registry order, then the
+            database containers by key.
+        """
+        return [*self._host_managers(), *self.instance_managers()]
+
+    def _host_managers(self) -> list[BaseDatabaseManager]:
+        """
+        One manager per engine of the host.
 
         Returns:
             The managers, in registry order.
@@ -745,7 +878,10 @@ class DatabaseService:
             status = manager.get_status()
             if status.get("running"):
                 status["port"] = manager.server_port()
-            status["stored_account"] = manager.ENGINE_NAME in CREDENTIAL_ENGINES
+            # A container signs Noust in with what its own environment holds.
+            status["stored_account"] = (
+                manager.instance is None and manager.ENGINE_NAME in CREDENTIAL_ENGINES
+            )
             described.append(status)
         return described
 
@@ -781,9 +917,12 @@ class DatabaseService:
         Returns:
             The databases, engine by engine, and the problems.
         """
-        managers = [self.manager(engine)] if engine else self.all_managers()
-        views: list[DatabaseView] = []
         problems: list[ListingProblem] = []
+        if engine:
+            managers = [self.manager(engine)]
+        else:
+            managers = [*self._host_managers(), *self.instance_managers(problems)]
+        views: list[DatabaseView] = []
         for manager in managers:
             if not manager.is_installed() or not manager.is_running():
                 continue
@@ -799,6 +938,7 @@ class DatabaseService:
                         hint=exc.details,
                         output=exc.output or "",
                         access=isinstance(exc, DatabaseAccessError),
+                        kind="host" if manager.instance is None else "container",
                     )
                 )
                 views.extend(self._views(manager, [], readable=False))
@@ -1822,7 +1962,7 @@ class DatabaseService:
         """
         manager = self.manager(link.engine)
         options: dict[str, str] | None = None
-        if link.engine == "mongodb" and link.username:
+        if engine_of(link.engine) == "mongodb" and link.username:
             home = getattr(manager, "_user_database", lambda _user: None)(link.username)
             if home and home != link.db_name:
                 options = {"authSource": str(home)}
@@ -2125,7 +2265,7 @@ class DatabaseService:
                 or it is internal.
         """
         engine = manager.ENGINE_NAME
-        if engine == "redis":
+        if engine_of(engine) == "redis":
             known = getattr(manager, "client_password", None)
             name = username or "default"
             password = self._password(engine, name) if name != "default" else None
@@ -2320,10 +2460,10 @@ class DatabaseService:
         """
         engine_name = manager.ENGINE_NAME
         app_name = domain_to_app_name(domain)
-        if engine_name == "redis":
+        if engine_of(engine_name) == "redis":
             return name or "0", None, False
 
-        if engine_name in SUPPORTED_ENGINES:
+        if engine_of(engine_name) in SUPPORTED_ENGINES:
             default_db, user = database_identifiers(app_name, engine_name)
             db_name = name or default_db
             created = not manager.database_exists(db_name)
@@ -2563,7 +2703,7 @@ class DatabaseService:
             error: What the deploy raised; its details are extended.
         """
         engine, database, user = prepared.engine, prepared.database, prepared.username
-        if engine == "redis":
+        if engine_of(engine) == "redis":
             note = f"Redis slot {database} was not linked; nothing was created in it."
         else:
             note = (
@@ -2607,9 +2747,9 @@ class DatabaseService:
         app_name = domain_to_app_name(validate_domain(domain))
         installed = manager.is_installed()
         running = installed and manager.is_running()
-        if engine_name == "redis":
+        if engine_of(engine_name) == "redis":
             database, user = "0", "default"
-        elif engine_name in SUPPORTED_ENGINES:
+        elif engine_of(engine_name) in SUPPORTED_ENGINES:
             database, user = database_identifiers(app_name, engine_name)
         else:
             base = app_name.replace("-", "_")
@@ -2848,7 +2988,7 @@ class DatabaseService:
         database = manager.validate_database_name(database)
         row = self.store.get_database(database, engine_name)
         user = username or (row.username if row else None)
-        if engine_name == "redis":
+        if engine_of(engine_name) == "redis":
             user = username or "default"
         port = manager.server_port()
         password = self._password(engine_name, user) if user else None

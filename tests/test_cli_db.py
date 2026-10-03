@@ -123,6 +123,13 @@ class FakeManager:
     DEFAULT_PORT = 5432
     CAPABILITIES = frozenset({"sql", "read_only", "users", "dump"})
     BACKUP_DIR = Path("/nonexistent/noust-test-dumps")
+    #: The host's engine, never a container (BaseDatabaseManager.instance).
+    instance = None
+
+    @property
+    def engine_type(self) -> str:
+        """The engine it stands in for, as BaseDatabaseManager.engine_type."""
+        return self.ENGINE_NAME.partition("@")[0]
 
     def __init__(
         self,

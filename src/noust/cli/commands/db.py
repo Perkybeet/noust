@@ -41,7 +41,7 @@ import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.cli.panel_links import open_in_panel
-from noust.core.exceptions import DatabaseError, DatabaseQueryError, NoustError
+from noust.core.exceptions import DatabaseError, DatabaseQueryError, NoustError, ValidationError
 from noust.core.logger import Logger
 from noust.managers.database import (
     PROFILES,
@@ -50,6 +50,7 @@ from noust.managers.database import (
     get_db_manager,
 )
 from noust.managers.database.backups import DatabaseBackups
+from noust.managers.database.instances import is_instance_key, parse_instance_key
 from noust.managers.database.service import (
     MAX_QUERY_LENGTH,
     DatabaseService,
@@ -92,9 +93,26 @@ class EngineParamType(click.ParamType):
             param: The parameter being converted.
             ctx: The Click context.
 
+        An instance key (``postgresql@project.service``) is checked for its
+        form and its engine here; whether a container answers to it is the
+        service's to say, with the containers it found.
+
         Returns:
             The name, unchanged, for the manager to resolve again.
         """
+        if is_instance_key(str(value)):
+            try:
+                parts = parse_instance_key(str(value))
+            except ValidationError as exc:
+                self.fail(exc.message, param, ctx)
+            if DatabaseRegistry.canonical(parts.engine) is None:
+                self.fail(
+                    f"unknown database engine {parts.engine!r} in {value!r}. "
+                    f"Available: {', '.join(sorted(DatabaseRegistry.list_engines()))}",
+                    param,
+                    ctx,
+                )
+            return str(value)
         if get_db_manager(str(value)) is None:
             self.fail(
                 f"unknown database engine {value!r}. "
@@ -159,6 +177,14 @@ def _get_manager(engine: str | None, logger: Logger) -> BaseDatabaseManager | No
         logger.error("Database engine is required")
         logger.info("Available engines: " + ", ".join(DatabaseRegistry.list_engines()))
         return None
+
+    if is_instance_key(engine):
+        # A container is found by the service, which asks Docker.
+        try:
+            return _service(logger).manager(engine)
+        except DatabaseError as exc:
+            _fail(logger, exc)
+            return None
 
     manager = get_db_manager(engine, verbose=logger.verbose)
     if not manager:
@@ -497,11 +523,37 @@ def _engines(*, json_output: bool, logger: Logger) -> int:
                     "version": manager.get_version() if installed else None,
                     "port": manager.server_port() if installed else manager.DEFAULT_PORT,
                     "capabilities": sorted(manager.CAPABILITIES),
+                    "kind": "host",
                 }
             )
 
+    service = _service(logger)
+    containers: list[dict[str, Any]] = []
+    try:
+        bound = service.instance_managers()
+    except DatabaseError as exc:
+        logger.warning(f"Could not list the database containers: {exc}")
+        bound = []
+    for manager in bound:
+        if manager.instance is None:
+            continue
+        status = manager.get_status()
+        containers.append(
+            {
+                "name": manager.ENGINE_NAME,
+                "display_name": manager.DISPLAY_NAME,
+                "installed": True,
+                "running": status["running"],
+                "version": status["version"],
+                "port": status["port"],
+                "capabilities": status["capabilities"],
+                **manager.instance.to_dict(),
+                "kind": "container",
+            }
+        )
+
     if json_output:
-        _echo_json(engines)
+        _echo_json([*engines, *containers])
         return 0
 
     click.echo("\nAvailable Database Engines:")
@@ -511,6 +563,18 @@ def _engines(*, json_output: bool, logger: Logger) -> int:
         marker = "*" if eng["installed"] else " "
         version = f"v{eng['version']}" if eng["version"] else "not installed"
         click.echo(f"  [{marker}] {eng['display_name']:<20} {version:<15} (port {eng['port']})")
+
+    if containers:
+        click.echo("\nDatabase containers (use the name as --engine):")
+        click.echo("-" * 50)
+        for item in containers:
+            marker = "*" if item["running"] else " "
+            owner = f", {item['app']}" if item["app"] else ""
+            limited = ", limited access" if item["access"] == "limited" else ""
+            click.echo(
+                f"  [{marker}] {item['name']:<40} {item['display_name']} "
+                f"(container {item['container']}, port {item['port']}{owner}{limited})"
+            )
 
     click.echo("")
     return 0

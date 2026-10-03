@@ -45,6 +45,8 @@ class ListingProblemResponse(BaseModel):
         output: The engine's own message, verbatim.
         access: The engine refused to sign Noust in: the fix is to store the
             account Noust uses.
+        kind: ``host``, ``container`` (an instance Docker runs; ``engine``
+            is its key) or ``docker`` (Docker itself did not answer).
     """
 
     engine: str
@@ -53,6 +55,7 @@ class ListingProblemResponse(BaseModel):
     hint: str
     output: str
     access: bool
+    kind: str = "host"
 
 
 class DatabaseListResponse(BaseModel):
