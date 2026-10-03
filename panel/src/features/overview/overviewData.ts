@@ -21,6 +21,19 @@ export function diskTone(disk: Overview["disk"]): FigureTone {
   return "neutral";
 }
 
+/**
+ * Stacks running outside their units. A node before 3.3 sends no `unmanaged` (a central reads
+ * its overview through the proxy), and an `undefined` here turns every sum into NaN.
+ */
+export function unmanagedApps(apps: Overview["apps"]): number {
+  return (apps as Partial<Overview["apps"]>).unmanaged ?? 0;
+}
+
+/** Every application the figure counts, whatever state it is in. */
+export function appsTotal(apps: Overview["apps"]): number {
+  return apps.running + apps.failed + apps.stopped + apps.static + unmanagedApps(apps);
+}
+
 export function appsTone(apps: Overview["apps"]): FigureTone {
   return !apps.error && apps.failed > 0 ? "fail" : "neutral";
 }
@@ -53,7 +66,7 @@ export function updatesTone(updates: Overview["updates"]): FigureTone {
 export function isEmptyServer(overview: Overview): boolean {
   const { apps } = overview;
   if (apps.error) return false;
-  return apps.running + apps.failed + apps.stopped + apps.static + apps.unmanaged === 0;
+  return appsTotal(apps) === 0;
 }
 
 const RANK: Readonly<Record<string, number>> = { fail: 0, warn: 1 };

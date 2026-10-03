@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+import type { Overview } from "../../api/queries/overview";
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
@@ -116,6 +117,14 @@ describe("the overview", () => {
     const apps = await within(figures).findByRole("link", { name: "Applications: 3 running, 0 failed, 0 stopped, 1 static, 1 running outside Noust" });
     const count = within(apps).getByText((_, element) => element?.textContent === "1 outside Noust" && element.classList.contains("text-warn"));
     expect(count).toBeInTheDocument();
+  });
+
+  it("reads the overview of a node before 3.3, which sends no count of stacks outside their units", async () => {
+    // Every sum used to be NaN: an empty node was shown key figures of nothing, never its first steps.
+    const apps = { running: 0, failed: 0, stopped: 0, static: 0, error: null } as unknown as Overview["apps"];
+    await overview(undefined, "/", overviewFixture({ apps, backups: { ...overviewFixture().backups, apps: 0, scheduled: 0, with_backup_24h: 0 } }));
+    expect(await screen.findByRole("list", { name: "First steps" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Key figures" })).not.toBeInTheDocument();
   });
 
   it("colours a figure only when it is a problem, with its glyph and its word", async () => {

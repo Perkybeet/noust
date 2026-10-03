@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import type { Overview } from "../../api/queries/overview";
 import type { AppInfo } from "../apps/data";
 import { overviewFixture } from "./testFixtures";
 import { summaryOf } from "./useFleetSummary";
-import { activityDays, attentionItems, attentionTotal, backupsTone, certificatesTone, deploysTone, diskTone, isEmptyServer, updatesTone } from "./overviewData";
+import { activityDays, appsTotal, attentionItems, attentionTotal, backupsTone, certificatesTone, deploysTone, diskTone, isEmptyServer, unmanagedApps, updatesTone } from "./overviewData";
 
 const app = (domain: string, status: string): AppInfo => ({ domain, name: domain, status, active: true, enabled: true, layout: "inplace" }) as AppInfo;
 
@@ -51,6 +52,21 @@ describe("isEmptyServer", () => {
     expect(isEmptyServer(overviewFixture({ apps: { running: 0, failed: 0, stopped: 0, static: 0, unmanaged: 0, error: null } }))).toBe(true);
     expect(isEmptyServer(overviewFixture())).toBe(false);
     expect(isEmptyServer(overviewFixture({ apps: { running: 0, failed: 0, stopped: 0, static: 0, unmanaged: 0, error: "systemctl: not found" } }))).toBe(false);
+  });
+});
+
+describe("an overview from a node before 3.3", () => {
+  // A central reads a node's overview through the proxy; 3.2.1 sends no `unmanaged`.
+  const fromOld = (apps: Record<string, unknown>) => overviewFixture({ apps: apps as unknown as Overview["apps"] });
+
+  it("counts no stack outside its unit instead of NaN", () => {
+    const apps = fromOld({ running: 3, failed: 0, stopped: 1, static: 1, error: null }).apps;
+    expect(unmanagedApps(apps)).toBe(0);
+    expect(appsTotal(apps)).toBe(5);
+  });
+
+  it("is still an empty server when it runs nothing", () => {
+    expect(isEmptyServer(fromOld({ running: 0, failed: 0, stopped: 0, static: 0, error: null }))).toBe(true);
   });
 });
 
