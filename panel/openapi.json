@@ -7932,6 +7932,35 @@
         "title": "DiskSummary",
         "type": "object"
       },
+      "DistributionResponse": {
+        "description": "The distribution the catalog was computed for.\n\nAttributes:\n    known: Whether Noust knows which versions it ships; on a release it\n        does not know, only the distribution's own packages are offered.",
+        "properties": {
+          "codename": {
+            "title": "Codename",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "known": {
+            "title": "Known",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "codename",
+          "name",
+          "known"
+        ],
+        "title": "DistributionResponse",
+        "type": "object"
+      },
       "DnsCheckResponse": {
         "description": "Whether a domain resolves to this server.\n\nAttributes:\n    domain: The domain that was resolved.\n    expected_addresses: This server's addresses.\n    resolved_addresses: What the domain resolves to, A and AAAA.\n    points_here: Whether every address it resolves to is this server's.",
         "properties": {
@@ -8120,6 +8149,32 @@
           "password2"
         ],
         "title": "EncryptionKey",
+        "type": "object"
+      },
+      "EngineCatalogResponse": {
+        "description": "Response for ``GET /api/databases/engines/catalog``.",
+        "properties": {
+          "apt": {
+            "title": "Apt",
+            "type": "boolean"
+          },
+          "distribution": {
+            "$ref": "#/components/schemas/DistributionResponse"
+          },
+          "flavours": {
+            "items": {
+              "$ref": "#/components/schemas/FlavourChoiceResponse"
+            },
+            "title": "Flavours",
+            "type": "array"
+          }
+        },
+        "required": [
+          "distribution",
+          "apt",
+          "flavours"
+        ],
+        "title": "EngineCatalogResponse",
         "type": "object"
       },
       "EngineCredentialsRequest": {
@@ -8346,6 +8401,37 @@
         "title": "EngineInfo",
         "type": "object"
       },
+      "EngineInstallRequest": {
+        "description": "What to install. Both fields are optional, and so is the body.\n\nAttributes:\n    flavour: A flavour of the engine in the path (``mariadb`` for\n        ``mysql``, ``valkey`` for ``redis``). The path may name it too.\n    version: One of the catalog's versions; the distribution's when\n        empty.",
+        "properties": {
+          "flavour": {
+            "anyOf": [
+              {
+                "maxLength": 32,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flavour"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "title": "EngineInstallRequest",
+        "type": "object"
+      },
       "EngineListResponse": {
         "description": "Response for listing engines.",
         "properties": {
@@ -8457,6 +8543,255 @@
           "engine"
         ],
         "title": "EngineMetricsResponse",
+        "type": "object"
+      },
+      "EngineSettingResponse": {
+        "description": "One setting of an engine.\n\nAttributes:\n    key: The engine's own name for it; stable, the key the console\n        translates ``description`` by.\n    kind: ``addresses``, ``port``, ``integer``, ``size``,\n        ``duration_ms``, ``seconds``, ``gigabytes``, ``boolean``,\n        ``enum``, ``timezone`` or ``snapshots``.\n    current: What the running engine uses; null when it did not answer.\n    configured: What Noust's file sets; null when it sets nothing.\n    recommended: Noust's advice for this server's memory and cores;\n        null when it depends on the applications.\n    restart: Changing it restarts the engine.\n    listen: It decides where the engine listens; a non-loopback value\n        needs ``confirm_exposure``.\n    editable: Noust changes it; ``locked_reason`` says why not.\n    source: The file the engine read the current value from (PostgreSQL).",
+        "properties": {
+          "choices": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Choices",
+            "type": "array"
+          },
+          "configured": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Configured"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "editable": {
+            "default": true,
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "listen": {
+            "default": false,
+            "title": "Listen",
+            "type": "boolean"
+          },
+          "locked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked Reason"
+          },
+          "maximum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum"
+          },
+          "minimum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum"
+          },
+          "recommended": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recommended"
+          },
+          "restart": {
+            "title": "Restart",
+            "type": "boolean"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          }
+        },
+        "required": [
+          "key",
+          "kind",
+          "description",
+          "restart"
+        ],
+        "title": "EngineSettingResponse",
+        "type": "object"
+      },
+      "EngineSettingsOutcomeResponse": {
+        "description": "What applying settings did.\n\nAttributes:\n    changed: The keys whose value changed.\n    action: ``none``, ``reload``, ``runtime`` (applied to the running\n        engine) or ``restart``.\n    exposed: The engine now listens beyond loopback.\n    warnings: What the operator must know, in English.",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "changed": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed",
+            "type": "array"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "exposed": {
+            "default": false,
+            "title": "Exposed",
+            "type": "boolean"
+          },
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "engine",
+          "display_name",
+          "file",
+          "changed",
+          "action"
+        ],
+        "title": "EngineSettingsOutcomeResponse",
+        "type": "object"
+      },
+      "EngineSettingsRequest": {
+        "description": "Settings to change.\n\nAttributes:\n    values: New values by key, as text (``256MB``, ``on``, ``127.0.0.1``);\n        ``default`` removes a setting from Noust's file.\n    confirm_exposure: The operator accepts that the engine will listen\n        beyond loopback. Without it such a change is refused with the\n        exposure warning, on the ``confirm_exposure`` field.",
+        "properties": {
+          "confirm_exposure": {
+            "default": false,
+            "title": "Confirm Exposure",
+            "type": "boolean"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "title": "EngineSettingsRequest",
+        "type": "object"
+      },
+      "EngineSettingsResponse": {
+        "description": "Response for ``GET /api/databases/engines/{engine}/settings``.\n\nAttributes:\n    file: The file Noust writes the settings to.\n    running: The engine answered, so ``current`` is known.\n    memory_bytes: The memory the recommendations were computed from.\n    cpus: The processors they were computed from.",
+        "properties": {
+          "cpus": {
+            "title": "Cpus",
+            "type": "integer"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "memory_bytes": {
+            "title": "Memory Bytes",
+            "type": "integer"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "settings": {
+            "items": {
+              "$ref": "#/components/schemas/EngineSettingResponse"
+            },
+            "title": "Settings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "engine",
+          "display_name",
+          "file",
+          "running",
+          "memory_bytes",
+          "cpus",
+          "settings"
+        ],
+        "title": "EngineSettingsResponse",
         "type": "object"
       },
       "EngineStatusResponse": {
@@ -9996,6 +10331,69 @@
           }
         },
         "title": "FixRequest",
+        "type": "object"
+      },
+      "FlavourChoiceResponse": {
+        "description": "A flavour as the install dialog offers it.\n\nAttributes:\n    flavour: ``postgresql``, ``mysql``, ``mariadb``, ``redis``,\n        ``valkey`` or ``mongodb``; what ``POST .../install`` takes.\n    engine: The engine that runs it, the ``{engine}`` of every other route.\n    installed: This flavour is the one installed.\n    installable: It can be installed now.\n    blocked: Why not, as a stable code: ``installed``, ``conflict`` (the\n        engine's other flavour is installed), ``not_available`` (nothing\n        publishes it for this release) or ``no_apt``.\n    reason: The same in one English sentence, with what to do.\n    versions: The versions offered, oldest first.",
+        "properties": {
+          "blocked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "flavour": {
+            "title": "Flavour",
+            "type": "string"
+          },
+          "installable": {
+            "title": "Installable",
+            "type": "boolean"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/VersionChoiceResponse"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "flavour",
+          "engine",
+          "display_name",
+          "installed",
+          "installable"
+        ],
+        "title": "FlavourChoiceResponse",
         "type": "object"
       },
       "FleetActionOut": {
@@ -25752,6 +26150,30 @@
         "title": "VerifyUnitResponse",
         "type": "object"
       },
+      "VersionChoiceResponse": {
+        "description": "One version of a flavour this server can be given.\n\nAttributes:\n    source: ``distribution`` (the release's own packages) or ``upstream``\n        (the engine's repository, added with its pinned key).\n    default: What installs when no version is chosen.",
+        "properties": {
+          "default": {
+            "default": false,
+            "title": "Default",
+            "type": "boolean"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "source"
+        ],
+        "title": "VersionChoiceResponse",
+        "type": "object"
+      },
       "WebConfig": {
         "description": "Web interface configuration.",
         "properties": {
@@ -38544,6 +38966,29 @@
         "x-noust-permission": "databases.read"
       }
     },
+    "/api/databases/engines/catalog": {
+      "get": {
+        "description": "Say which flavours and versions can be installed on this server.\n\nMySQL and MariaDB, Redis and Valkey are separate choices; one is never\noffered while the other is installed.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The catalog for this distribution.",
+        "operationId": "get_engine_catalog_api_databases_engines_catalog_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineCatalogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Engine Catalog",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
     "/api/databases/engines/{engine}/credentials": {
       "put": {
         "description": "Store the account Noust signs in to an engine with, once it works, with sudo mode.\n\nThe engine is asked first, through the code that will use the account:\na refusal answers with the engine's own message and saves nothing.\n\nArgs:\n    engine: Engine name.\n    request: The user and the password.\n    session: The authenticated, elevated session.\n\nReturns:\n    The outcome.",
@@ -38645,7 +39090,7 @@
     },
     "/api/databases/engines/{engine}/install": {
       "post": {
-        "description": "Queue the installation of an engine.\n\nInstallation drives the distribution package manager, so it runs as a job.\n\nArgs:\n    engine: Engine name.\n    session: The authenticated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 409 when the engine is already installed.",
+        "description": "Queue the installation of an engine, in a flavour and version of the catalog.\n\nInstallation drives the distribution package manager, so it runs as a\njob. What it will install is decided first, so a version this server\ncannot have, or MariaDB while MySQL is installed, is refused here rather\nthan in the job. Without a body it installs what 3.2 did.\n\nArgs:\n    engine: Engine name, or a flavour's (``mariadb``, ``valkey``).\n    session: The authenticated session.\n    request: The flavour and version, both optional.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 409 when the engine is already installed.",
         "operationId": "install_engine_api_databases_engines__engine__install_post",
         "parameters": [
           {
@@ -38658,6 +39103,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/EngineInstallRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "content": {
@@ -38873,6 +39335,103 @@
           "Databases"
         ],
         "x-noust-permission": "apps.operate"
+      }
+    },
+    "/api/databases/engines/{engine}/settings": {
+      "get": {
+        "description": "Read an engine's settings: current, configured and recommended.\n\nArgs:\n    engine: Engine name.\n    session: The authenticated session.\n\nReturns:\n    The settings.",
+        "operationId": "get_engine_settings_api_databases_engines__engine__settings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineSettingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Engine Settings",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      },
+      "put": {
+        "description": "Change an engine's settings, with sudo mode.\n\nThe file is written, checked by the engine's own tool, and the engine\nrestarted, reloaded or changed at runtime; when it does not answer, the\nprevious settings are put back and the error carries its journal.\n\nArgs:\n    engine: Engine name.\n    request: The new values and the exposure confirmation.\n    session: The authenticated, elevated session.\n\nReturns:\n    What changed and how it was applied.",
+        "operationId": "put_engine_settings_api_databases_engines__engine__settings_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "engine",
+            "required": true,
+            "schema": {
+              "title": "Engine",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EngineSettingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineSettingsOutcomeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Engine Settings",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/databases/engines/{engine}/start": {
