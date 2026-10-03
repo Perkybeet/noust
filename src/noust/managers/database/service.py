@@ -136,10 +136,12 @@ CREDENTIAL_ENGINES = frozenset({"mysql", "redis"})
 
 class _CredentialOverlay:
     """
-    The configuration, with one engine's credentials replaced.
+    The configuration, with one engine's credentials changed as saving would.
 
     Lets a manager try an account before it is saved, through the same code
-    that will use it afterwards.
+    that will use it afterwards. Only what is given replaces the stored
+    value; an empty user or password keeps the stored one, which is what
+    :meth:`DatabaseService.set_credentials` writes.
     """
 
     def __init__(self, base: Any, engine: str, user: str | None, password: str | None) -> None:
@@ -172,7 +174,12 @@ class _CredentialOverlay:
             return value
         databases = dict(value or {})
         credentials = dict(databases.get("credentials") or {})
-        credentials[self._engine] = dict(self._account)
+        # What is given replaces only its own key, as saving it will: a
+        # password alone is tried with the stored user, not the default one.
+        credentials[self._engine] = {
+            **dict(credentials.get(self._engine) or {}),
+            **self._account,
+        }
         databases["credentials"] = credentials
         return databases
 

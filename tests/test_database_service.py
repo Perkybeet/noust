@@ -1014,6 +1014,53 @@ class TestSetCredentials:
             "databases.credentials.mysql.password": "right",
         }
 
+    def test_a_password_alone_is_tried_with_the_stored_user(
+        self, tmp_path: Path, store: NoustStore, state: dict[str, Any], monkeypatch
+    ) -> None:
+        """What is tried is what is saved: the stored user with the new password."""
+        saved: dict[str, Any] = {}
+        stored = {"databases": {"credentials": {"mysql": {"user": "admin", "password": "old"}}}}
+
+        class StoredConfig:
+            def get(self, key: str, default: Any = None) -> Any:
+                return stored.get(key, default)
+
+            def set(self, key: str, value: Any) -> None:
+                saved[key] = value
+
+            def save(self) -> bool:
+                return True
+
+        class AdminOnly(FakeMySQL):
+            def list_databases(self):
+                credentials = self.config.get("databases", {}).get("credentials", {})
+                account = credentials.get("mysql", {})
+                if (account.get("user", "root"), account.get("password")) != ("admin", "right"):
+                    self._listing_failed("databases", "ERROR 1045 (28000): Access denied")
+                return []
+
+        from noust.managers.database import service as service_module
+
+        monkeypatch.setattr(service_module, "Config", StoredConfig)
+
+        def resolve(name: str) -> BaseDatabaseManager | None:
+            if name != "mysql":
+                return None
+            engine = AdminOnly(state, tmp_path / "dumps")
+            engine.config = StoredConfig()
+            return engine
+
+        service = DatabaseService(
+            store=store,
+            secrets=SecretStore(root=tmp_path / "secrets"),
+            resolve=resolve,
+            engines=lambda: ["mysql"],
+        )
+
+        service.set_credentials("mysql", None, "right")
+
+        assert saved == {"databases.credentials.mysql.password": "right"}
+
     def test_postgresql_has_no_stored_account(self, mysql_service) -> None:
         service, _ = mysql_service
 
