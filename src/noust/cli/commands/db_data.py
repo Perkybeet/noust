@@ -133,7 +133,7 @@ def _default_schema(logger: Logger, engine: str, database: str, schema: str | No
     """
     if schema:
         return schema
-    return database if _service(logger).manager(engine).ENGINE_NAME == "mysql" else "public"
+    return database if _service(logger).manager(engine).engine_type == "mysql" else "public"
 
 
 def _pairs(values: tuple[str, ...], option: str) -> dict[str, Any]:

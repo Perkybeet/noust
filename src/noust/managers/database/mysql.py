@@ -28,7 +28,7 @@ import time
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from noust.core.exceptions import (
     DatabaseBackupError,
@@ -60,6 +60,9 @@ from noust.managers.database.base import (
     validate_name,
 )
 from noust.managers.database.registry import DatabaseRegistry
+
+if TYPE_CHECKING:
+    from noust.managers.database.instances import DatabaseInstance
 
 #: How long the read-only account this process provisioned is reused as it
 #: is. Provisioning sets a new password and flushes privileges; the data
@@ -356,6 +359,17 @@ class MySQLManager(BaseDatabaseManager):
             self.DISPLAY_NAME = "MariaDB"
             self.EOL_FAMILY = "mariadb"
 
+    def _bind_names(self, instance: DatabaseInstance) -> None:
+        """
+        Name the engine after the container's image, never after the host.
+
+        Args:
+            instance: The container.
+        """
+        mariadb = instance.flavour == "mariadb"
+        self.DISPLAY_NAME = "MariaDB" if mariadb else "MySQL"
+        self.EOL_FAMILY = "mariadb" if mariadb else "mysql"
+
     def _package_sets(self) -> tuple[list[str], ...]:
         """
         Prefer MariaDB, which is what current Debian and Ubuntu ship.
@@ -456,6 +470,13 @@ class MySQLManager(BaseDatabaseManager):
             DatabaseError: When a credential cannot be written to an option file
                 without changing its value.
         """
+        if self.instance is not None:
+            # Inside a container the account is the one its environment names
+            # and its password is found there too (MYSQL_PWD, by the client
+            # script): a file on the host is nothing the client could open,
+            # and the host's stored account belongs to the host's server.
+            yield ["-u", self.instance.admin_user]
+            return
         credentials = self.config.get("databases", {}).get("credentials", {}).get("mysql", {})
         user = credentials.get("user")
         password = credentials.get("password")
@@ -561,6 +582,11 @@ class MySQLManager(BaseDatabaseManager):
             DatabaseQueryError: When the account cannot be provisioned.
         """
         username, password = account or self._ensure_read_only_user(database)
+        if self.instance is not None:
+            # Forwarded by name into the container, never in argv; the name
+            # on the command line beats any option file the image carries.
+            yield [f"--user={username}"], {"MYSQL_PWD": password}
+            return
 
         content = (
             "[client]\n"
@@ -1386,7 +1412,7 @@ class MySQLManager(BaseDatabaseManager):
         limit = self.statement_timeout_sql(timeout_s)
         if read_only and database:
             script = f"{limit}START TRANSACTION READ ONLY;\n{sql.rstrip()}\n;\nCOMMIT;\n"
-            cached = _provisioned.get(database)
+            cached = _provisioned.get(f"{self.ENGINE_NAME}/{database}")
             fresh = (
                 (cached[0], cached[1])
                 if cached and time.monotonic() - cached[2] <= _PROVISION_REUSE_SECONDS
@@ -1397,7 +1423,7 @@ class MySQLManager(BaseDatabaseManager):
             for account in attempts:
                 if account is None:
                     account = self._ensure_read_only_user(database)
-                    _provisioned[database] = (*account, time.monotonic())
+                    _provisioned[f"{self.ENGINE_NAME}/{database}"] = (*account, time.monotonic())
                 with self._read_only_credentials(database, account=account) as (credentials, env):
                     result = self._exec(
                         [*self._client_argv(credentials, database), "--raw", "--binary-mode"],
@@ -1486,8 +1512,11 @@ class MySQLManager(BaseDatabaseManager):
         Return the port the server listens on, as it reports it.
 
         Returns:
-            ``@@port``, or :attr:`DEFAULT_PORT` when the server cannot say.
+            ``@@port``, or :attr:`DEFAULT_PORT` when the server cannot say;
+            for a container, the port it is reached on from the host.
         """
+        if self.instance is not None:
+            return self.instance.port
         cached = getattr(self, "_port", None)
         if cached is not None:
             return int(cached)
@@ -1684,14 +1713,18 @@ class MySQLManager(BaseDatabaseManager):
             username: User to connect as.
 
         Returns:
-            The argument vector. The client prompts for the password itself.
+            The argument vector. The client prompts for the password itself,
+            except inside a container, where the administrative account signs
+            in the way every other command does.
         """
         argv = ["mysql"]
         if username:
             argv.extend(["-u", username, "-p"])
+        elif self.instance is not None:
+            argv.extend(["-u", self.instance.admin_user])
         if database:
             argv.append(database)
-        return argv
+        return self._interactive(argv)
 
 
 DatabaseRegistry.register(MySQLManager, aliases=["mariadb", "maria"])

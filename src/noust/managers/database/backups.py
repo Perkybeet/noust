@@ -75,6 +75,7 @@ from noust.managers.database.backup_records import (
 )
 from noust.managers.database.backup_verify import check_dump, restore_test
 from noust.managers.database.base import BackupInfo, RestoreOutcome, backup_format, format_size
+from noust.managers.database.instances import engine_of
 from noust.managers.database.service import DatabaseService
 from noust.managers.retention import select_expired
 
@@ -113,7 +114,8 @@ def remote_folder(engine: str, database: str) -> str:
     Returns:
         ``databases/<engine>/<database>``; a Redis instance has one folder.
     """
-    return f"{REMOTE_ROOT}/{engine}/{REDIS_FOLDER if engine == 'redis' else database}"
+    folder = REDIS_FOLDER if engine_of(engine) == "redis" else database
+    return f"{REMOTE_ROOT}/{engine}/{folder}"
 
 
 @dataclass
@@ -570,16 +572,17 @@ class DatabaseBackups:
             ``{"engine", "database"}`` per database without an enabled policy.
         """
         covered = {(p.engine, p.db_name) for p in self.records.policies() if p.enabled}
-        redis_covered = any(engine_name == "redis" for engine_name, _ in covered)
+        # One snapshot per Redis instance: the host's, and each container's.
+        redis_covered = {key for key, _ in covered if engine_of(key) == "redis"}
         missing: list[dict[str, str]] = []
-        redis_listed = False
+        redis_listed: set[str] = set()
         for view in self.service.list_databases(engine):
             if view.missing or (view.engine, view.name) in covered:
                 continue
-            if view.engine == "redis":
-                if redis_covered or redis_listed:
+            if engine_of(view.engine) == "redis":
+                if view.engine in redis_covered or view.engine in redis_listed:
                     continue
-                redis_listed = True
+                redis_listed.add(view.engine)
             missing.append({"engine": view.engine, "database": view.name})
         return missing
 
@@ -703,14 +706,14 @@ class DatabaseBackups:
         count = _limit(retention_count, MAX_RETENTION_COUNT, "retention_count")
         days = _limit(retention_days, MAX_RETENTION_DAYS, "retention_days")
         if dump_format is not None and (
-            engine_name != "postgresql" or dump_format not in _POLICY_FORMATS
+            manager.engine_type != "postgresql" or dump_format not in _POLICY_FORMATS
         ):
             raise ValidationError(
                 f"Dump format {dump_format!r} is not available for {manager.DISPLAY_NAME}",
                 details="PostgreSQL takes custom, plain or tar; every other engine has one format.",
                 field="dump_format",
             )
-        if verify_restore and engine_name == "redis":
+        if verify_restore and manager.engine_type == "redis":
             raise ValidationError(
                 "A Redis snapshot cannot be test-restored",
                 details="Restoring one replaces every key of the instance, so it cannot be "
@@ -959,7 +962,7 @@ class DatabaseBackups:
             DatabaseEngineError: When the engine is not running.
         """
         manager = self.service.running(view.info.engine)
-        if manager.ENGINE_NAME == "redis":
+        if manager.engine_type == "redis":
             raise DatabaseBackupError(
                 "A Redis snapshot cannot be test-restored",
                 details="It would replace every key of the instance.",
@@ -1330,7 +1333,7 @@ class DatabaseBackups:
             DatabaseEngineError: When the engine is not running.
         """
         manager = self.service.running(engine)
-        if manager.ENGINE_NAME == "redis":
+        if manager.engine_type == "redis":
             raise ValidationError(
                 "Redis cannot restore as a new database",
                 details="A snapshot replaces every key of the instance.",
@@ -1378,7 +1381,7 @@ class DatabaseBackups:
             ValidationError: For a new name on Redis, which cannot restore
                 beside itself.
         """
-        if new_name is not None and self.service.manager(engine).ENGINE_NAME == "redis":
+        if new_name is not None and self.service.manager(engine).engine_type == "redis":
             raise ValidationError(
                 "Redis cannot restore as a new database",
                 details="A snapshot replaces every key of the instance.",

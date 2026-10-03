@@ -73,6 +73,7 @@ from noust.managers.database.base import (
     quote_identifier,
     validate_name,
 )
+from noust.managers.database.instances import storage_name
 from noust.managers.database.psql_script import check_plain_dump
 from noust.managers.database.registry import DatabaseRegistry
 
@@ -550,6 +551,8 @@ class PostgresManager(BaseDatabaseManager):
         Raises:
             DatabaseQueryError: When the configured port is not a TCP port.
         """
+        if self.instance is not None:
+            return self.instance.port
         return self._server_port()[0]
 
     def _server_port(self) -> tuple[int, str]:
@@ -564,6 +567,12 @@ class PostgresManager(BaseDatabaseManager):
             DatabaseQueryError: When the configured port is not a TCP port.
         """
         if self._port is not None:
+            return self._port
+        if self.instance is not None:
+            # The read-only login runs inside the container, where the
+            # engine listens on its own port whatever the host publishes,
+            # and the host's configuration says nothing about it.
+            self._port = (self.instance.default_port, "the container's own port")
             return self._port
 
         settings = self.config.get("databases", {}).get("credentials", {}).get("postgresql", {})
@@ -1340,13 +1349,28 @@ class PostgresManager(BaseDatabaseManager):
                 carries its output.
         """
         dump_format = self._dump_format(backup_path, kwargs.get("format"))
-        staged_name = f"{self.ENGINE_NAME}-restore-{database}{DUMP_SUFFIXES[dump_format]}"
-        with self._staged_backup(backup_path, staged_name, owner=self.SUPERUSER) as staged:
-            if dump_format == "plain":
-                argv = self._psql_argv(database, "-f", str(staged))
-            else:
-                argv = ["pg_restore", "--no-password", "-d", database, str(staged)]
-            result = self._exec(argv, timeout=TRANSFER_TIMEOUT, user=self.SUPERUSER)
+        staged_name = (
+            f"{storage_name(self.ENGINE_NAME)}-restore-{database}{DUMP_SUFFIXES[dump_format]}"
+        )
+        if self.instance is not None:
+            # A client inside a container cannot open a file on the host: the
+            # dump is its stdin, which psql (-f -) and pg_restore (no file)
+            # both read, and nothing needs handing to an account of the host.
+            with self._staged_backup(backup_path, staged_name) as staged:
+                if dump_format == "plain":
+                    argv = self._psql_argv(database, "-f", "-")
+                else:
+                    argv = ["pg_restore", "--no-password", "-d", database]
+                result = self._exec(
+                    argv, stdin_path=staged, timeout=TRANSFER_TIMEOUT, user=self.SUPERUSER
+                )
+        else:
+            with self._staged_backup(backup_path, staged_name, owner=self.SUPERUSER) as staged:
+                if dump_format == "plain":
+                    argv = self._psql_argv(database, "-f", str(staged))
+                else:
+                    argv = ["pg_restore", "--no-password", "-d", database, str(staged)]
+                result = self._exec(argv, timeout=TRANSFER_TIMEOUT, user=self.SUPERUSER)
 
         if not result.success:
             raise DatabaseBackupError(
@@ -1558,6 +1582,7 @@ class PostgresManager(BaseDatabaseManager):
         # report its port is not asked between provisioning and the login.
         port, source = self._server_port()
         role = _read_only_role_name(database)
+        provisioned_key = f"{self.ENGINE_NAME}/{database}"
         password = self._reusable_password(database, role) if reuse else None
         # Whether this call provisioned: a failure before it may be staleness.
         provisioned = password is None
@@ -1566,7 +1591,7 @@ class PostgresManager(BaseDatabaseManager):
         while True:
             if password is None:
                 role, password = self._ensure_read_only_role(database, rotate=rotate)
-                _provisioned_at[database] = time.monotonic()
+                _provisioned_at[provisioned_key] = time.monotonic()
             argv = self._console_argv(
                 database,
                 [
@@ -1624,7 +1649,7 @@ class PostgresManager(BaseDatabaseManager):
         Returns:
             The password, or None when the role must be provisioned first.
         """
-        provisioned = _provisioned_at.get(database)
+        provisioned = _provisioned_at.get(f"{self.ENGINE_NAME}/{database}")
         if provisioned is None or time.monotonic() - provisioned > _PROVISION_REUSE_SECONDS:
             return None
         return self._stored_password(self._read_only_password_file(role))
@@ -1932,7 +1957,12 @@ class PostgresManager(BaseDatabaseManager):
         # this module needs it.
         from noust.core.store import get_store
 
-        return get_store().db_path.parent.joinpath(*_READ_ONLY_SECRETS_PATH, f"{role}.password")
+        # A container's cluster has roles of the same name as the host's and
+        # passwords of its own.
+        prefix = f"{storage_name(self.ENGINE_NAME)}." if self.instance is not None else ""
+        return get_store().db_path.parent.joinpath(
+            *_READ_ONLY_SECRETS_PATH, f"{prefix}{role}.password"
+        )
 
     def _stored_password(self, path: Path) -> str | None:
         """
@@ -2354,8 +2384,11 @@ class PostgresManager(BaseDatabaseManager):
         Say how Noust signs in, since there is no password to store.
 
         Returns:
-            What pg_hba.conf must allow.
+            What pg_hba.conf must allow; for a container, what its
+            environment must carry.
         """
+        if self.instance is not None:
+            return super().access_hint()
         return (
             "Noust signs in as the system's postgres user over the local socket (peer "
             "authentication). Put 'local all postgres peer' back at the top of pg_hba.conf "
@@ -2508,13 +2541,16 @@ class PostgresManager(BaseDatabaseManager):
             instead of going through the runner - an interactive client needs
             the real terminal - so the ``runuser`` prefix that peer
             authentication requires is applied here rather than by ``user=``.
+            For a container, the ``docker exec -it`` that opens it there.
         """
-        argv = [*runuser_prefix(self.SUPERUSER), "psql"]
+        argv = ["psql"]
         if database:
             argv.extend(["-d", database])
         if username:
             argv.extend(["-U", username])
-        return argv
+        if self.instance is not None:
+            return self._interactive(argv, user=self.SUPERUSER)
+        return [*runuser_prefix(self.SUPERUSER), *argv]
 
 
 DatabaseRegistry.register(PostgresManager, aliases=["postgres", "pg", "pgsql"])

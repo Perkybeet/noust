@@ -30,8 +30,8 @@ import re
 import shlex
 import time
 from collections.abc import Mapping, Sequence
-from pathlib import Path
-from typing import Any
+from pathlib import Path, PurePosixPath
+from typing import TYPE_CHECKING, Any
 
 from noust.core.exceptions import (
     ConfigError,
@@ -58,6 +58,9 @@ from noust.managers.database.base import (
     listen_address,
 )
 from noust.managers.database.registry import DatabaseRegistry
+
+if TYPE_CHECKING:
+    from noust.managers.database.instances import DatabaseInstance
 
 #: How redis-cli prints an error reply when its output is not a terminal: it
 #: still exits 0, so the text is the only sign a command was refused.
@@ -151,13 +154,27 @@ class RedisManager(BaseDatabaseManager):
 
     # ==================== Family ====================
 
+    def _bind_names(self, instance: DatabaseInstance) -> None:
+        """
+        Name the engine after the container's image.
+
+        Args:
+            instance: The container.
+        """
+        valkey = instance.flavour == "valkey"
+        self.DISPLAY_NAME = "Valkey" if valkey else "Redis"
+        self.EOL_FAMILY = "valkey" if valkey else ""
+
     def _is_valkey(self) -> bool:
         """
         Tell whether the instance is Valkey rather than Redis.
 
         Returns:
-            True when Valkey's server is installed and Redis's is not.
+            True when Valkey's server is installed and Redis's is not; for a
+            container, when its image is Valkey's.
         """
+        if self.instance is not None:
+            return self.instance.flavour == "valkey"
         return self.runner.exists("valkey-server") and not self.runner.exists("redis-server")
 
     def _cli(self) -> str:
@@ -166,7 +183,10 @@ class RedisManager(BaseDatabaseManager):
 
         Returns:
             ``redis-cli``, or ``valkey-cli`` where only Valkey's client exists.
+            Inside a container the client script tries both.
         """
+        if self.instance is not None:
+            return self.CLIENT_BINARY
         if self.runner.exists(self.CLIENT_BINARY):
             return self.CLIENT_BINARY
         if self.runner.exists(self.VALKEY_CLIENT):
@@ -227,11 +247,17 @@ class RedisManager(BaseDatabaseManager):
         Redis's own ``NOAUTH``, which says what is wrong.
 
         Returns:
-            The password, or None when there is none.
+            The password, or None when there is none. For a container, the
+            ``--requirepass`` its command line carries: a password its
+            environment holds is read inside it by the client script, and the
+            host's stored password is the host's server's.
         """
         if self._password_loaded:
             return self._password
         self._password_loaded = True
+        if self.instance is not None:
+            self._password = self.instance.command_password
+            return self._password
         settings = self.config.get("databases", {}).get("credentials", {}).get("redis", {})
         configured = settings.get("password") if isinstance(settings, dict) else None
         if configured:
@@ -897,6 +923,7 @@ class RedisManager(BaseDatabaseManager):
         """
         if kwargs.get("method") == "aof":
             return self.backup_aof(output_path=output_path, compress=compress)
+        snapshot = self._snapshot_path()
 
         success, output = self._execute_redis("BGSAVE")
         if not success:
@@ -910,7 +937,7 @@ class RedisManager(BaseDatabaseManager):
 
         destination = self._backup_path(database, output_path, compress, label="dump")
         return self._dump_to_file(
-            ["cat", str(self.DATA_DIR / "dump.rdb")],
+            ["cat", str(snapshot)],
             destination,
             database="all",
             compress=compress,
@@ -932,8 +959,14 @@ class RedisManager(BaseDatabaseManager):
             Information about the backup.
 
         Raises:
-            DatabaseBackupError: When the rewrite or the copy fails.
+            DatabaseBackupError: When the rewrite or the copy fails, or the
+                server runs in a container.
         """
+        if self.instance is not None:
+            raise DatabaseBackupError(
+                "Noust copies a container's Redis as its RDB snapshot only",
+                details="Back it up without --method aof: the snapshot holds every slot.",
+            )
         success, output = self._execute_redis("BGREWRITEAOF")
         if not success:
             raise DatabaseBackupError(
@@ -949,6 +982,28 @@ class RedisManager(BaseDatabaseManager):
             database="all",
             compress=compress,
         )
+
+    def _snapshot_path(self) -> PurePosixPath | Path:
+        """
+        Locate the RDB snapshot the server writes.
+
+        Returns:
+            ``dump.rdb`` in the host's data directory; inside a container,
+            where the server says (``CONFIG GET dir`` and ``dbfilename``),
+            ``/data/dump.rdb`` in the official image.
+        """
+        if self.instance is None:
+            return self.DATA_DIR / "dump.rdb"
+        directory, filename = "/data", "dump.rdb"
+        for setting in ("dir", "dbfilename"):
+            success, output = self._execute_redis("CONFIG", "GET", setting)
+            lines = output.strip().splitlines() if success else []
+            value = lines[1].strip() if len(lines) >= 2 else ""
+            if value and setting == "dir":
+                directory = value
+            elif value:
+                filename = value
+        return PurePosixPath(directory) / PurePosixPath(filename).name
 
     def _wait_for(self, marker: str) -> None:
         """
@@ -1043,8 +1098,21 @@ class RedisManager(BaseDatabaseManager):
 
         Raises:
             DatabaseBackupError: When the file is missing, the server uses
-                the append-only file, or the snapshot cannot be installed.
+                the append-only file, or the snapshot cannot be installed;
+                and for a container, whose data directory is a volume Noust
+                does not write into.
         """
+        if self.instance is not None:
+            raise DatabaseBackupError(
+                f"Noust does not restore the snapshot of the container {self.instance.container}",
+                details=(
+                    "A snapshot is installed with the server stopped, into its data volume. "
+                    f"Stop the container (docker stop {self.instance.container}), copy the "
+                    "file in as dump.rdb (docker cp <file> "
+                    f"{self.instance.container}:/data/dump.rdb), make it readable by the "
+                    "server's account and start it again."
+                ),
+            )
         backup_path = Path(backup_path)
         if not backup_path.exists():
             raise DatabaseBackupError(
@@ -1218,8 +1286,11 @@ class RedisManager(BaseDatabaseManager):
         Return the port the server says it listens on.
 
         Returns:
-            ``CONFIG GET port``, or :attr:`DEFAULT_PORT` when it cannot say.
+            ``CONFIG GET port``, or :attr:`DEFAULT_PORT` when it cannot say;
+            for a container, the port it is reached on from the host.
         """
+        if self.instance is not None:
+            return self.instance.port
         cached = getattr(self, "_port", None)
         if cached is not None:
             return int(cached)
@@ -1391,7 +1462,7 @@ class RedisManager(BaseDatabaseManager):
             argv.extend(["-n", str(int(database))])
         if username:
             argv.extend(["--user", username])
-        return argv
+        return self._interactive(argv)
 
     # ==================== Redis-specific ====================
 
@@ -1406,8 +1477,10 @@ class RedisManager(BaseDatabaseManager):
             password: The new password.
 
         Raises:
-            DatabaseError: When the server refuses the change.
+            DatabaseError: When the server refuses the change, or it runs in
+                a container, whose command line or environment sets it.
         """
+        self.refuse_in_container("change the password of")
         success, output = self._execute_redis_with_secret(
             f"CONFIG SET requirepass {self._quote_for_stdin(password)}", password
         )

@@ -39,6 +39,7 @@ from noust.core.audit.sanitize import scrub_statement
 from noust.core.exceptions import DatabaseError, DatabaseQueryError, ValidationError
 from noust.managers.database.base import NAME_PATTERN, BaseDatabaseManager
 from noust.managers.database.dialects import MySQLDialect, PostgresDialect, load_json
+from noust.managers.database.instances import engine_of
 from noust.managers.database.keys import parse_csv_reply
 from noust.managers.database.mysql import MySQLManager
 from noust.managers.database.redis import RedisManager
@@ -459,7 +460,7 @@ class DatabaseMetricsReader:
             DatabaseQueryError: When the engine reports no metrics.
         """
         manager = self.service.running(engine)
-        if manager.ENGINE_NAME not in ("postgresql", "mysql", "redis"):
+        if manager.engine_type not in ("postgresql", "mysql", "redis"):
             raise DatabaseQueryError(
                 f"Metrics are not available for {manager.DISPLAY_NAME}",
                 details="PostgreSQL, MySQL/MariaDB and Redis report metrics.",
@@ -480,7 +481,7 @@ class DatabaseMetricsReader:
         """
         manager = self._manager(engine)
         name = manager.ENGINE_NAME
-        if name == "postgresql":
+        if engine_of(name) == "postgresql":
             data = load_json(
                 manager.run_sql(
                     "postgres", _read_only(_PG_ENGINE), read_only=False, timeout_s=METRICS_TIMEOUT
@@ -505,7 +506,7 @@ class DatabaseMetricsReader:
                 ],
                 series=engine_series(name),
             )
-        if name == "mysql":
+        if engine_of(name) == "mysql":
             return self._mysql_engine(manager)
         return self._redis_engine(manager)
 
@@ -645,7 +646,7 @@ class DatabaseMetricsReader:
         manager = self._manager(engine)
         name = manager.ENGINE_NAME
         database = manager.validate_database_name(database)
-        if name == "postgresql":
+        if engine_of(name) == "postgresql":
             data = load_json(
                 manager.run_sql(
                     database, _read_only(_PG_DATABASE), read_only=False, timeout_s=METRICS_TIMEOUT
@@ -668,7 +669,7 @@ class DatabaseMetricsReader:
                 tables=[_table(item) for item in data.get("tables") or []],
                 series=database_series(name, database),
             )
-        if name == "mysql":
+        if engine_of(name) == "mysql":
             schema = _MY.literal(database)
             output = manager.run_sql(
                 database,
@@ -744,7 +745,7 @@ class DatabaseMetricsReader:
             )
         manager = self._manager(engine)
         database = manager.validate_database_name(database)
-        if manager.ENGINE_NAME == "postgresql":
+        if manager.engine_type == "postgresql":
             state = load_json(
                 manager.run_sql(
                     database,
@@ -783,7 +784,7 @@ class DatabaseMetricsReader:
                 source="pg_stat_statements",
                 queries=[_statement(item) for item in rows or []],
             )
-        if manager.ENGINE_NAME == "mysql":
+        if manager.engine_type == "mysql":
             output = manager.run_sql(
                 database,
                 "SHOW GLOBAL VARIABLES WHERE Variable_name = 'performance_schema';\n"
@@ -946,7 +947,7 @@ class DatabaseSampler:
         service = self._service or DatabaseService()
         pairs: list[tuple[str, float]] = []
         for manager in service.all_managers():
-            if manager.ENGINE_NAME not in ("postgresql", "mysql", "redis"):
+            if manager.engine_type not in ("postgresql", "mysql", "redis"):
                 continue
             try:
                 if not manager.is_installed() or not manager.is_running():
@@ -1030,7 +1031,7 @@ class DatabaseSampler:
             if value is not None:
                 pairs.append((series(engine, metric, database), float(value)))
 
-        if engine == "postgresql":
+        if engine_of(engine) == "postgresql":
             data = load_json(
                 manager.run_sql(
                     "postgres", _read_only(_PG_ENGINE), read_only=False, timeout_s=METRICS_TIMEOUT
@@ -1059,7 +1060,9 @@ class DatabaseSampler:
                 )
             return pairs
         metrics = (
-            reader._mysql_engine(manager) if engine == "mysql" else reader._redis_engine(manager)
+            reader._mysql_engine(manager)
+            if engine_of(engine) == "mysql"
+            else reader._redis_engine(manager)
         )
         details = metrics.details
         add("connections", metrics.connections)
@@ -1067,12 +1070,12 @@ class DatabaseSampler:
             name = str(item.get("name") or "")
             if not NAME_PATTERN.match(name):
                 continue
-            if engine == "mysql":
+            if engine_of(engine) == "mysql":
                 add("size", _number(item.get("size_bytes")), name)
                 add("connections", _number(item.get("connections")), name)
             else:
                 add("keys", _number(item.get("keys")), name)
-        if engine == "mysql":
+        if engine_of(engine) == "mysql":
             add("qps", self._rate(f"{engine}.questions", _number(details.get("questions")), now))
             requests = _number(details.get("buffer_pool_read_requests"))
             reads = _number(details.get("buffer_pool_reads"))

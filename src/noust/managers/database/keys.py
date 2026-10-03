@@ -36,6 +36,7 @@ from typing import Any
 
 from noust.core.exceptions import ConfigError, DatabaseQueryError, ValidationError
 from noust.core.sealing import SealError
+from noust.managers.database.instances import storage_name
 from noust.managers.database.redis import PROFILE_RULES, RedisManager, RedisSignInError
 from noust.managers.database.service import DatabaseService
 
@@ -379,13 +380,21 @@ class KeyBrowser:
             DatabaseQueryError: When the server refuses for another reason.
         """
         secret_store = self.service.secrets
+        # A Redis in a container has its own ACL users: its read-only
+        # password is kept apart from the host's.
+        secret = (
+            READ_ONLY_SECRET
+            if manager.instance is None
+            else f"databases/{storage_name(manager.ENGINE_NAME)}/{READ_ONLY_USER}"
+        )
         try:
-            password = secret_store.read(READ_ONLY_SECRET)
+            password = secret_store.read(secret)
         except (ConfigError, SealError) as exc:
             self.service.logger.warning(f"Could not read the key browser's password: {exc}")
             password = None
         with _state_lock:
-            fresh = time.monotonic() - _provisioned_at.get("at", -1e9) <= _PROVISION_REUSE_SECONDS
+            last = _provisioned_at.get(manager.ENGINE_NAME, -1e9)
+            fresh = time.monotonic() - last <= _PROVISION_REUSE_SECONDS
         if password and fresh and not force:
             return READ_ONLY_USER, password
         if not password:
@@ -410,9 +419,9 @@ class KeyBrowser:
             if "unknown command" in exc.details.lower():
                 return None
             raise
-        secret_store.write(READ_ONLY_SECRET, password)
+        secret_store.write(secret, password)
         with _state_lock:
-            _provisioned_at["at"] = time.monotonic()
+            _provisioned_at[manager.ENGINE_NAME] = time.monotonic()
         return READ_ONLY_USER, password
 
     def _batch(

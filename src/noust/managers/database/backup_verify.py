@@ -359,7 +359,7 @@ def check_dump(manager: BaseDatabaseManager, path: Path) -> DumpCheck:
         return _fail("size", f"The dump cannot be read: {exc}")
     if size == 0:
         return _fail("size", "The dump is empty (0 bytes).")
-    checker = _CHECKERS.get(manager.ENGINE_NAME)
+    checker = _CHECKERS.get(manager.engine_type)
     if checker is None:
         return DumpCheck(True, "size", f"{size} bytes; no integrity check exists for this engine.")
     return checker(manager, path, size)

@@ -42,7 +42,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal, NoReturn
+from typing import TYPE_CHECKING, Any, Literal, NoReturn, TypeVar
 
 from noust.central import require_server_role
 from noust.core import paths
@@ -59,7 +59,11 @@ from noust.core.runner import CommandResult, CommandRunner, get_runner
 from noust.deployers.helpers.permissions import hand_over_file
 from noust.managers.base_manager import BaseManager
 from noust.managers.database.eol import support_notice
+from noust.managers.database.instances import engine_of, storage_name
 from noust.managers.database.urls import connection_url
+
+if TYPE_CHECKING:
+    from noust.managers.database.instances import DatabaseInstance
 
 #: What an engine can do, as the console decides which tabs to draw. The
 #: console reads these from ``GET /api/databases/engines`` instead of testing
@@ -668,6 +672,9 @@ def console_statement(query: str, *, read_only: bool) -> str:
     return statement
 
 
+_Manager = TypeVar("_Manager", bound="BaseDatabaseManager")
+
+
 class BaseDatabaseManager(BaseManager):
     """
     Base class for database engine managers.
@@ -721,6 +728,95 @@ class BaseDatabaseManager(BaseManager):
     #: Where backups are written when the caller gives no path.
     BACKUP_DIR = paths.backup_dir() / "databases"
 
+    #: The container this manager drives, or None for the host's engine.
+    #: Set by :meth:`bind`; see :mod:`noust.managers.database.instances`.
+    instance: DatabaseInstance | None = None
+
+    # ==================== Instances ====================
+
+    def bind(self: _Manager, instance: DatabaseInstance) -> _Manager:
+        """
+        Make this manager drive a database container instead of the host's engine.
+
+        Nothing else changes: every statement, listing, dump and restore is
+        the same code, and :meth:`_exec` runs it inside the container. The
+        manager's :attr:`ENGINE_NAME` becomes the instance key, which is what
+        the store, the audit trail and the file names use, so a container's
+        databases, links and dumps never mix with the host's; code that needs
+        the engine itself asks :attr:`engine_type`.
+
+        Args:
+            instance: The container, as discovery found it.
+
+        Returns:
+            This manager.
+        """
+        self.instance = instance
+        self.ENGINE_NAME = instance.key
+        self._bind_names(instance)
+        return self
+
+    def _bind_names(self, instance: DatabaseInstance) -> None:
+        """
+        Name the engine after what the container's image runs.
+
+        Args:
+            instance: The container.
+        """
+
+    @property
+    def engine_type(self) -> str:
+        """
+        The engine this manager speaks (``postgresql``, ``mysql``, ``redis``, ``mongodb``).
+
+        The same for the host's engine and for a container: what engine
+        specific code compares, where :attr:`ENGINE_NAME` is the key.
+        """
+        return engine_of(type(self).ENGINE_NAME)
+
+    def refuse_in_container(self, action: str) -> None:
+        """
+        Refuse what a container's image decides, not Noust.
+
+        Args:
+            action: What was asked, as a verb ("install").
+
+        Raises:
+            DatabaseEngineError: Always, when this manager drives a container.
+        """
+        if self.instance is None:
+            return
+        where = (
+            f"the {self.instance.service} service of the Compose project {self.instance.project}"
+            if self.instance.project
+            else f"the container {self.instance.container}"
+        )
+        raise DatabaseEngineError(
+            f"Noust does not {action} {self.DISPLAY_NAME} inside {self.instance.container}",
+            details=(
+                f"The engine of {where} is what its image ({self.instance.image}) makes it. "
+                "Change the image or its settings in the project's compose file and recreate "
+                "the container."
+            ),
+        )
+
+    def _interactive(self, argv: Sequence[str], *, user: str | None = None) -> list[str]:
+        """
+        Open an interactive client where the engine is.
+
+        Args:
+            argv: The client command as it runs on the host.
+            user: The account it runs as inside a container (``-u``).
+
+        Returns:
+            ``argv`` for the host's engine; for a container, the
+            ``docker exec -it`` that runs it there, signed in the way every
+            other command is.
+        """
+        if self.instance is None:
+            return list(argv)
+        return self.instance.exec_argv(argv, user=user, interactive=True)
+
     # ==================== Process execution ====================
 
     @property
@@ -768,9 +864,23 @@ class BaseDatabaseManager(BaseManager):
                 ``sudo``: Noust already runs as root, so the runner wraps the
                 command in ``runuser`` instead.
 
+        A manager bound to a container (:meth:`bind`) runs the same command
+        inside it: ``docker exec -i``, ``user`` as ``-u`` and every variable
+        of ``env`` forwarded by name, never by value
+        (:meth:`~noust.managers.database.instances.DatabaseInstance.exec_argv`).
+
         Returns:
             The command outcome.
         """
+        if self.instance is not None:
+            return self.runner.run(
+                self.instance.exec_argv(argv, user=user, env=env),
+                input=input,
+                stdin_path=stdin_path,
+                env=env,
+                timeout=timeout,
+                secrets=secrets,
+            )
         return self.runner.run(
             argv,
             input=input,
@@ -882,8 +992,11 @@ class BaseDatabaseManager(BaseManager):
         Report whether the engine's client is installed.
 
         Returns:
-            True when the client binary is on PATH.
+            True when the client binary is on PATH; always for a container,
+            whose image is the installation.
         """
+        if self.instance is not None:
+            return True
         return bool(self.CLIENT_BINARY) and self.runner.exists(self.CLIENT_BINARY)
 
     def server_port(self) -> int:
@@ -895,8 +1008,11 @@ class BaseDatabaseManager(BaseManager):
         here, so none of them assumes the default on its own.
 
         Returns:
-            The port.
+            The port. For a container, the host port its engine is published
+            on, or its own port when it is not published.
         """
+        if self.instance is not None:
+            return self.instance.port
         return self.DEFAULT_PORT
 
     def get_version(self) -> str | None:
@@ -948,8 +1064,10 @@ class BaseDatabaseManager(BaseManager):
         engine installed with the distribution's own tool just the same.
 
         Raises:
-            DatabaseEngineError: When apt is absent, or apt or the unit fails.
+            DatabaseEngineError: When apt is absent, or apt or the unit fails;
+                always for a container, whose image decides its engine.
         """
+        self.refuse_in_container("install")
         if not self.runner.exists(APT_GET):
             raise DatabaseEngineError(
                 f"Noust installs {self.DISPLAY_NAME} with apt, which this system does not have",
@@ -999,8 +1117,10 @@ class BaseDatabaseManager(BaseManager):
             purge: Also delete the data and configuration directories.
 
         Raises:
-            DatabaseEngineError: When every package set fails to be removed.
+            DatabaseEngineError: When every package set fails to be removed;
+                always for a container.
         """
+        self.refuse_in_container("uninstall")
         self.logger.info(f"Uninstalling {self.DISPLAY_NAME}...")
 
         try:
@@ -1042,8 +1162,10 @@ class BaseDatabaseManager(BaseManager):
         will bring.
 
         Returns:
-            The unit name.
+            The unit name; for a container, the container's name.
         """
+        if self.instance is not None:
+            return self.instance.container
         if len(self.SERVICE_CANDIDATES) < 2 or getattr(self, "_unit_detected", False):
             return self.SERVICE_NAME
         for candidate in self.SERVICE_CANDIDATES:
@@ -1077,8 +1199,13 @@ class BaseDatabaseManager(BaseManager):
             action: The systemctl verb.
 
         Raises:
-            DatabaseEngineError: When systemctl reports failure.
+            DatabaseEngineError: When systemctl reports failure. For a
+                container, ``start``, ``stop`` and ``restart`` are Docker's
+                and the rest is refused.
         """
+        if self.instance is not None:
+            self._container_action(self.instance, action)
+            return
         result = self._systemctl(action)
         if not result.success:
             raise DatabaseEngineError(
@@ -1088,6 +1215,65 @@ class BaseDatabaseManager(BaseManager):
                     f"Inspect the unit with: journalctl -u {self.service_unit()} -n 50"
                 ).strip(),
             )
+
+    def _container_action(self, instance: DatabaseInstance, action: str) -> None:
+        """
+        Start, stop or restart the container this manager drives.
+
+        Args:
+            instance: The container.
+            action: ``start``, ``stop`` or ``restart``; ``enable`` and
+                ``disable`` are the container's restart policy, which its
+                compose file decides.
+
+        Raises:
+            DatabaseEngineError: When Docker refuses, with its own words, or
+                for any other action.
+        """
+        if action not in ("start", "stop", "restart"):
+            self.refuse_in_container(action)
+        result = self.runner.run(["docker", action, instance.container], timeout=SERVICE_TIMEOUT)
+        if not result.success:
+            raise DatabaseEngineError(
+                f"Failed to {action} the container {instance.container}",
+                details=(
+                    "Docker's own message follows. Inspect the container with: "
+                    f"docker logs --tail 50 {instance.container}"
+                ),
+                output=(result.stderr or result.stdout).strip(),
+            )
+
+    def container_logs(self, lines: int) -> str:
+        """
+        Read the last lines a container's engine wrote.
+
+        Args:
+            lines: How many lines.
+
+        Returns:
+            What ``docker logs`` printed, both streams, verbatim.
+
+        Raises:
+            DatabaseEngineError: For the host's engine, whose log is its
+                unit's journal, or when Docker refuses.
+        """
+        if self.instance is None:
+            raise DatabaseEngineError(
+                f"{self.DISPLAY_NAME} runs on the host, not in a container",
+                details=f"Read its journal with: journalctl -u {self.service_unit()}",
+            )
+        result = self.runner.run(
+            ["docker", "logs", "--tail", str(int(lines)), self.instance.container],
+            timeout=SERVICE_TIMEOUT,
+        )
+        if not result.success:
+            raise DatabaseEngineError(
+                f"Docker did not show the log of {self.instance.container}",
+                details="Docker's own message follows.",
+                output=(result.stderr or result.stdout).strip(),
+            )
+        # The engines log to stderr; docker logs keeps the two streams apart.
+        return "\n".join(part for part in (result.stdout.strip(), result.stderr.strip()) if part)
 
     def start(self) -> None:
         """
@@ -1139,8 +1325,11 @@ class BaseDatabaseManager(BaseManager):
         Report whether the engine's service is active.
 
         Returns:
-            True when systemd reports the unit as active.
+            True when systemd reports the unit as active, or Docker the
+            container as running.
         """
+        if self.instance is not None:
+            return self.instance.running
         return self._systemctl("is-active").output == "active"
 
     def get_status(self) -> dict[str, Any]:
@@ -1153,20 +1342,34 @@ class BaseDatabaseManager(BaseManager):
             know about the installation (``warnings``).
         """
         installed = self.is_installed()
-        version = self.get_version() if installed else None
         running = self.is_running() if installed else False
-        return {
+        # A stopped container cannot be asked: its client lives inside it.
+        asked = installed and (running or self.instance is None)
+        version = self.get_version() if asked else None
+        status: dict[str, Any] = {
             "engine": self.ENGINE_NAME,
             "display_name": self.DISPLAY_NAME,
             "installed": installed,
             "version": version,
             "running": running,
-            "port": self.DEFAULT_PORT,
+            "port": self.instance.port if self.instance is not None else self.DEFAULT_PORT,
             "service": self.service_unit(),
             "capabilities": sorted(self.CAPABILITIES),
             "support": self.support(version).to_dict() if installed else None,
             "warnings": self.warnings() if running else [],
+            "kind": "host",
         }
+        if self.instance is not None:
+            status.update(
+                kind="container",
+                container=self.instance.container,
+                project=self.instance.project,
+                compose_service=self.instance.service,
+                image=self.instance.image,
+                app=self.instance.app,
+                access=self.instance.access,
+            )
+        return status
 
     def support(self, version: str | None = None) -> Any:
         """
@@ -1179,7 +1382,7 @@ class BaseDatabaseManager(BaseManager):
             A :class:`~noust.managers.database.eol.SupportNotice`.
         """
         return support_notice(
-            self.EOL_FAMILY or self.ENGINE_NAME,
+            self.EOL_FAMILY or self.engine_type,
             version if version is not None else self.get_version(),
         )
 
@@ -1198,8 +1401,21 @@ class BaseDatabaseManager(BaseManager):
         Say how to give Noust a way in when the engine refuses it.
 
         Returns:
-            The command that stores the administrative credentials.
+            The command that stores the administrative credentials; for a
+            container, the variables of its environment Noust reads.
         """
+        if self.instance is not None:
+            sources = self.instance.launch(self.CLIENT_BINARY).candidates
+            account = self.instance.admin_user
+            where = f" ({', '.join(sources)}, or the file a *_FILE variable names)"
+            return (
+                f"Noust signs in to the container {self.instance.container}"
+                + (f" as {account}" if account else "")
+                + " with what its environment carries"
+                + (where if sources else "")
+                + ". Set it in the service's environment in the compose file and recreate "
+                "the container."
+            )
         return (
             f"Store the account Noust signs in with: 'noust db config --engine "
             f"{self.ENGINE_NAME} --user <user> --password', or from the console, on "
@@ -1447,6 +1663,8 @@ class BaseDatabaseManager(BaseManager):
         Such an account is listed but never altered or dropped through Noust:
         the superuser, the engine's maintenance accounts, and the read-only
         console's ``wasm_ro_`` accounts, which Noust re-provisions on its own.
+        In a container, the account Noust signs in as is one too: the image
+        created it, and its compose file holds its password.
 
         Args:
             username: The account.
@@ -1454,6 +1672,8 @@ class BaseDatabaseManager(BaseManager):
         Returns:
             True for an internal account.
         """
+        if self.instance is not None and username == self.instance.admin_user:
+            return True
         return username in self.INTERNAL_USERS or username.startswith(READ_ONLY_ACCOUNT_PREFIX)
 
     def apply_profile(
@@ -1655,11 +1875,28 @@ class BaseDatabaseManager(BaseManager):
             return Path(output_path)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = (
-            f"{self.ENGINE_NAME}-{label or database}-{timestamp}{suffix or self.BACKUP_SUFFIX}"
+            f"{self._backup_prefix()}{label or database}-{timestamp}{suffix or self.BACKUP_SUFFIX}"
         )
         if compress:
             filename += ".gz"
         return self.BACKUP_DIR / filename
+
+    def _backup_prefix(self) -> str:
+        """
+        Start the name of every backup file this engine writes.
+
+        ``postgresql-`` for the host's engine, as it always was;
+        ``postgresql.project.service.`` for a container. A database name
+        never holds a dot, so what follows the prefix is the database, and a
+        service whose name starts with another's (``db`` and ``db-2``) never
+        claims its dumps.
+
+        Returns:
+            The prefix.
+        """
+        if self.instance is None:
+            return f"{self.ENGINE_NAME}-"
+        return f"{storage_name(self.ENGINE_NAME)}."
 
     def _dump_to_file(
         self,
@@ -1698,15 +1935,25 @@ class BaseDatabaseManager(BaseManager):
             DatabaseBackupError: When the dump command fails or writes nothing.
         """
         self._ensure_backup_directory(destination)
-        result = self.runner.capture_to_file(
-            argv,
-            destination,
-            compress=compress,
-            env=env,
-            timeout=timeout,
-            secrets=secrets,
-            user=user,
-        )
+        if self.instance is not None:
+            result = self.runner.capture_to_file(
+                self.instance.exec_argv(argv, user=user, env=env),
+                destination,
+                compress=compress,
+                env=env,
+                timeout=timeout,
+                secrets=secrets,
+            )
+        else:
+            result = self.runner.capture_to_file(
+                argv,
+                destination,
+                compress=compress,
+                env=env,
+                timeout=timeout,
+                secrets=secrets,
+                user=user,
+            )
         if not result.success:
             raise DatabaseBackupError(
                 f"Failed to back up '{database}'",
@@ -2028,13 +2275,16 @@ class BaseDatabaseManager(BaseManager):
             return []
 
         # engine-database-YYYYmmdd_HHMMSS.ext, where the database name itself may
-        # contain dashes, so the timestamp is what anchors the split.
+        # contain dashes, so the timestamp is what anchors the split. A
+        # container's prefix ends in a dot, which no database name holds.
+        prefix = self._backup_prefix()
+        name_pattern = "[^.]+" if self.instance is not None else ".+"
         pattern = re.compile(
-            rf"\A{re.escape(self.ENGINE_NAME)}-(?P<database>.+)-\d{{8}}_\d{{6}}(?P<ext>\..+)?\Z"
+            rf"\A{re.escape(prefix)}(?P<database>{name_pattern})-\d{{8}}_\d{{6}}(?P<ext>\..+)?\Z"
         )
 
         backups: list[BackupInfo] = []
-        for path in sorted(self.BACKUP_DIR.glob(f"{self.ENGINE_NAME}-*")):
+        for path in sorted(self.BACKUP_DIR.glob(f"{prefix}*")):
             match = pattern.match(path.name)
             if not match:
                 continue
@@ -2198,7 +2448,7 @@ class BaseDatabaseManager(BaseManager):
             The connection string.
         """
         return connection_url(
-            self.ENGINE_NAME,
+            self.engine_type,
             database=database,
             user=username,
             password=password,

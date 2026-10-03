@@ -170,7 +170,7 @@ class DataBrowser:
         """
         manager = self.service.manager(engine)
         dialect = dialect_for(
-            manager.ENGINE_NAME, mariadb=bool(getattr(manager, "is_mariadb", False))
+            manager.engine_type, mariadb=bool(getattr(manager, "is_mariadb", False))
         )
         if dialect is None or "tables" not in manager.CAPABILITIES:
             raise DatabaseQueryError(

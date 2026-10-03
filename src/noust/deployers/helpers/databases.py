@@ -40,6 +40,7 @@ from noust.core.logger import Logger
 from noust.core.secrets import SecretStore
 from noust.core.store import Database, NoustStore, get_store
 from noust.managers.database.base import BaseDatabaseManager
+from noust.managers.database.instances import storage_name
 from noust.managers.database.registry import DatabaseRegistry
 from noust.managers.database.urls import connection_url
 
@@ -266,8 +267,13 @@ def _refuse_reserved(name: str, *, kind: str, display_name: str) -> None:
 
 
 def _password_secret(engine: str, user: str) -> str:
-    """Name the secret holding a provisioned user's password."""
-    return f"databases/{engine}/{user}"
+    """
+    Name the secret holding a provisioned user's password.
+
+    An instance key is spelled with file-name characters (``@`` is refused
+    in a secret's path), which keeps every host engine's secret where it was.
+    """
+    return f"databases/{storage_name(engine)}/{user}"
 
 
 def _owner_secret(engine: str, user: str) -> str:
@@ -279,7 +285,7 @@ def _owner_secret(engine: str, user: str) -> str:
     deletes its row, which unlinks the database. The domain survives both.
     A user name never contains a dot, so this never collides with a password.
     """
-    return f"databases/{engine}/{user}.owner"
+    return f"databases/{storage_name(engine)}/{user}.owner"
 
 
 def _owner_key(domain: str | None) -> str:
@@ -483,7 +489,7 @@ def provision_database(
         canonical, manager = _resolve_manager(engine)
     else:
         canonical = manager.ENGINE_NAME
-        if canonical not in SUPPORTED_ENGINES:
+        if manager.engine_type not in SUPPORTED_ENGINES:
             raise DatabaseError(
                 f"Noust does not provision a {manager.DISPLAY_NAME} database and user",
                 details=f"Noust provisions: {', '.join(SUPPORTED_ENGINES)}.",

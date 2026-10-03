@@ -61,6 +61,7 @@ from noust.managers.database.base import (
     format_size,
     listen_address,
 )
+from noust.managers.database.instances import PASSWORD_SOURCES
 from noust.managers.database.registry import DatabaseRegistry
 
 #: Roles MongoDB ships. A deployment may define its own, which are accepted as
@@ -252,8 +253,11 @@ class MongoDBManager(BaseDatabaseManager):
         Read the administrator's password, when Noust created one.
 
         Returns:
-            The password, or None on an install Noust did not secure.
+            The password, or None on an install Noust did not secure; always
+            None for a container, whose password stays inside it.
         """
+        if self.instance is not None:
+            return None
         cached = getattr(self, "_admin", None)
         if cached is not None:
             return str(cached) or None
@@ -274,7 +278,23 @@ class MongoDBManager(BaseDatabaseManager):
 
         Returns:
             The line (empty without credentials) and the password it carries.
+            In a container the line reads the root account's password from
+            the container's own environment (or the file a ``*_FILE``
+            variable names), so it never leaves the container and the line
+            carries none.
         """
+        if self.instance is not None:
+            user = self.instance.admin_user
+            if not user:
+                return "", None
+            names = self._js(list(PASSWORD_SOURCES["mongo"]))
+            return (
+                "void (() => { const env = process.env; const read = (name) => env[name] || "
+                "(env[name + '_FILE'] ? require('fs').readFileSync(env[name + '_FILE'], 'utf8')"
+                f".trim() : ''); const password = {names}.map(read).find(Boolean); "
+                f"if (password) db.getSiblingDB('admin').auth({self._js(user)}, password); }})();\n",
+                None,
+            )
         password = self._admin_password()
         if not password:
             return "", None
@@ -292,7 +312,9 @@ class MongoDBManager(BaseDatabaseManager):
         tools read for exactly this purpose; the user name is not a secret.
 
         Yields:
-            Arguments for the tool, empty on an install without credentials.
+            Arguments for the tool, empty on an install without credentials
+            and in a container, where the client script signs the tool in
+            from the container's own environment.
         """
         password = self._admin_password()
         if not password:
@@ -317,8 +339,11 @@ class MongoDBManager(BaseDatabaseManager):
         Read whether mongod enforces authorization, from its configuration.
 
         Returns:
-            True or False, or None when the file cannot be read.
+            True or False, or None when the file cannot be read, or the
+            server runs in a container (the host's file is not its).
         """
+        if self.instance is not None:
+            return None
         try:
             config = yaml.safe_load(MONGOD_CONF.read_text(encoding="utf-8")) or {}
         except (OSError, yaml.YAMLError):
@@ -404,6 +429,8 @@ class MongoDBManager(BaseDatabaseManager):
         Returns:
             Which account Noust uses and where its password is.
         """
+        if self.instance is not None:
+            return super().access_hint()
         return (
             f"Noust signs in as {ADMIN_USER}, the administrator it created when it installed "
             f"MongoDB; its password is the Noust secret {ADMIN_SECRET}. If that account was "
@@ -433,8 +460,11 @@ class MongoDBManager(BaseDatabaseManager):
         Return the port mongod says it listens on.
 
         Returns:
-            ``net.port``, or :attr:`DEFAULT_PORT`.
+            ``net.port``, or :attr:`DEFAULT_PORT`; for a container, the port
+            it is reached on from the host.
         """
+        if self.instance is not None:
+            return self.instance.port
         success, data = self._execute_mongo_json("db.adminCommand({getCmdLineOpts: 1}).parsed")
         net = data.get("net") if success and isinstance(data, dict) else None
         port = net.get("port") if isinstance(net, dict) else None
@@ -485,6 +515,9 @@ class MongoDBManager(BaseDatabaseManager):
         Raises:
             DatabaseEngineError: When no MongoDB shell is installed.
         """
+        if self.instance is not None:
+            # The client script tries mongosh, then the legacy shell.
+            return self.SHELLS[0]
         for shell in self.SHELLS:
             if self.runner.exists(shell):
                 return shell
@@ -971,6 +1004,16 @@ class MongoDBManager(BaseDatabaseManager):
         if not self.database_exists(database):
             raise DatabaseNotFoundError(f"Database '{database}' does not exist")
 
+        if self.instance is not None:
+            # mongodump writes its tree inside the container, where Noust
+            # cannot tar it: one archive on stdout reaches the host instead.
+            return self._dump_to_file(
+                ["mongodump", "--archive", "--db", database],
+                self._backup_path(database, output_path, compress, suffix=".archive"),
+                database=database,
+                compress=compress,
+            )
+
         archive = self._backup_path(database, output_path, False)
 
         with (
@@ -1026,6 +1069,9 @@ class MongoDBManager(BaseDatabaseManager):
             DatabaseBackupError: When the archive cannot be extracted or
                 mongorestore fails.
         """
+        if self.instance is not None:
+            self._load_archive(database, backup_path)
+            return
         with tempfile.TemporaryDirectory(prefix="wasm-mongorestore-") as workdir:
             if backup_path.is_dir():
                 dump_dir = backup_path
@@ -1055,6 +1101,32 @@ class MongoDBManager(BaseDatabaseManager):
                     f"Failed to restore database '{database}'",
                     details=result.stderr.strip() or "mongorestore reported no error text.",
                 )
+
+    def _load_archive(self, database: str, backup_path: Path) -> None:
+        """
+        Load a container's ``mongodump --archive`` through mongorestore's stdin.
+
+        The archive keeps the namespaces it was dumped from, which is the
+        database it is restored over.
+
+        Args:
+            database: The database it is loaded into, for messages.
+            backup_path: The archive, plain or gzipped.
+
+        Raises:
+            DatabaseBackupError: When mongorestore fails.
+        """
+        with self._staged_backup(backup_path, f"mongodb-restore-{database}.archive") as staged:
+            result = self._exec(
+                ["mongorestore", "--archive", "--drop"],
+                stdin_path=staged,
+                timeout=TRANSFER_TIMEOUT,
+            )
+        if not result.success:
+            raise DatabaseBackupError(
+                f"Failed to restore database '{database}'",
+                details=result.stderr.strip() or "mongorestore reported no error text.",
+            )
 
     # ==================== Query Execution ====================
 
@@ -1225,7 +1297,7 @@ class MongoDBManager(BaseDatabaseManager):
             argv.append(database)
         if username:
             argv.extend(["--username", username])
-        return argv
+        return self._interactive(argv)
 
 
 DatabaseRegistry.register(MongoDBManager, aliases=["mongo", "mongod"])

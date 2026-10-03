@@ -7,9 +7,14 @@ Database manager registry for Noust.
 Provides registration and lookup of database engine managers.
 """
 
-from typing import ClassVar
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, ClassVar
 
 from noust.managers.database.base import BaseDatabaseManager
+
+if TYPE_CHECKING:
+    from noust.managers.database.instances import DatabaseInstance
 
 
 class DatabaseRegistry:
@@ -65,6 +70,37 @@ class DatabaseRegistry:
             return manager_class(verbose=verbose)
 
         return None
+
+    @classmethod
+    def canonical(cls, engine: str) -> str | None:
+        """
+        Resolve an engine name or alias to the name it is registered under.
+
+        Args:
+            engine: Engine name or alias (``pg``, ``mariadb``, ``valkey``).
+
+        Returns:
+            The registered name, or None for an unknown engine.
+        """
+        name = engine.lower()
+        name = cls._aliases.get(name, name)
+        return name if name in cls._managers else None
+
+    @classmethod
+    def bound(cls, instance: DatabaseInstance, verbose: bool = False) -> BaseDatabaseManager | None:
+        """
+        Get a manager that drives a database container.
+
+        Args:
+            instance: The container, as discovery found it.
+            verbose: Enable verbose logging.
+
+        Returns:
+            The engine's manager, bound to the container, or None when no
+            manager speaks its engine.
+        """
+        manager = cls.get(instance.engine, verbose)
+        return manager.bind(instance) if manager is not None else None
 
     @classmethod
     def list_engines(cls) -> list[str]:
