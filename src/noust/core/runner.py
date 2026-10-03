@@ -62,6 +62,7 @@ import atexit
 import contextlib
 import contextvars
 import fnmatch
+import gzip
 import importlib
 import logging
 import os
@@ -3155,13 +3156,32 @@ class FakeRunner(CommandRunner):
         user: str | None = None,
         secrets: Sequence[str] = (),
     ) -> CommandResult:
+        scripted = self._scripted_for(tuple(str(part) for part in argv))
         result = self._lookup(argv, user, env)
         self.written[destination] = result.argv
         if result.success:
             destination.parent.mkdir(parents=True, exist_ok=True)
-            destination.write_text(result.stdout)
+            source = Path(str(argv[-1]))
+            if not scripted and tuple(argv[:2]) == ("gzip", "-dc") and source.is_file():
+                # An unscripted decompression really decompresses, so what
+                # the code under test reads next is the dump, not nothing.
+                destination.write_bytes(gzip.decompress(source.read_bytes()))
+            else:
+                destination.write_text(result.stdout)
         _notify_execution(_redact(_validate(argv), secrets), cwd=cwd, result=result, user=user)
         return result
+
+    def _scripted_for(self, argv: tuple[str, ...]) -> bool:
+        """
+        Say whether a test scripted an answer for a command.
+
+        Args:
+            argv: The command, as given.
+
+        Returns:
+            True when a registered prefix matches it.
+        """
+        return any(argv[: len(item.match)] == item.match for item in self._scripted)
 
     def start(
         self,

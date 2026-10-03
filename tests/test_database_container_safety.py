@@ -70,13 +70,6 @@ class Docker(FakeRunner):
         )
         return custom if custom is not None else result
 
-    def capture_to_file(self, argv: Any, destination: Path, **kwargs: Any) -> CommandResult:  # type: ignore[override]
-        # gzip really decompresses: what the loader is then given is checked.
-        result = super().capture_to_file(argv, destination, **kwargs)
-        if result.success and tuple(argv[:2]) == ("gzip", "-dc"):
-            destination.write_bytes(gzip.decompress(Path(argv[2]).read_bytes()))
-        return result
-
 
 def inner(call: tuple[str, ...]) -> tuple[str, ...]:
     """The client a ``docker exec`` runs, program first, or () for a host call."""
