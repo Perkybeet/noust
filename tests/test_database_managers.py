@@ -15,6 +15,7 @@ import re
 import stat
 import tarfile
 from collections.abc import Iterator
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -1787,3 +1788,64 @@ class TestListingCounts:
 
         assert slot.keys == 224
         assert slot.tables is None
+
+
+class SqlByStatement(FakeRunner):
+    """A psql answering by the statement it reads on stdin."""
+
+    def __init__(self, answers: dict[str, str]) -> None:
+        super().__init__()
+        self.answers = answers
+
+    def run(self, argv, *, input=None, **kwargs):  # type: ignore[no-untyped-def]
+        result = super().run(argv, input=input, **kwargs)
+        for needle, stdout in self.answers.items():
+            if input and needle in input:
+                return replace(result, stdout=stdout)
+        return result
+
+    def statements(self) -> list[str]:
+        return [text.strip() for text in self.inputs if text]
+
+
+@pytest.mark.parametrize(
+    ("version", "forced", "terminated"),
+    [("160002", True, False), ("130000", True, False), ("120018", False, True), ("", False, True)],
+)
+def test_a_forced_drop_on_postgresql_13_and_later_is_one_statement(
+    version: str, forced: bool, terminated: bool
+) -> None:
+    """
+    A reconnecting application could break the drop between its two steps.
+
+    The drop used to terminate the connections and then drop: a pool that
+    reconnects at once makes the drop fail, and a restore's put-back with
+    it. From 13 the server does both itself, atomically.
+    """
+    from noust.core.runner import set_runner
+
+    runner = SqlByStatement({"pg_database WHERE datname": "1", "server_version_num": version})
+    set_runner(runner)
+    try:
+        PostgresManager().drop_database("shop", force=True)
+    finally:
+        set_runner(None)
+
+    statements = runner.statements()
+    drop = next(text for text in statements if text.startswith("DROP DATABASE"))
+    assert drop.endswith("WITH (FORCE);") is forced
+    assert any("pg_terminate_backend" in text for text in statements) is terminated
+
+
+def test_an_unforced_drop_does_not_ask_the_version() -> None:
+    from noust.core.runner import set_runner
+
+    runner = SqlByStatement({"pg_database WHERE datname": "1"})
+    set_runner(runner)
+    try:
+        PostgresManager().drop_database("shop")
+    finally:
+        set_runner(None)
+
+    assert runner.statements()[-1] == 'DROP DATABASE "shop";'
+    assert not any("server_version_num" in text for text in runner.statements())

@@ -373,6 +373,10 @@ def _sign_in_failed(result: CommandResult) -> bool:
     return result.exit_code == _PSQL_EXIT_BADCONN and bool(_SIGN_IN_FAILURE.search(result.stderr))
 
 
+#: The first ``server_version_num`` with ``DROP DATABASE ... WITH (FORCE)``.
+_DROP_WITH_FORCE_SINCE = 130000
+
+
 class PostgresManager(BaseDatabaseManager):
     """Manager for PostgreSQL databases."""
 
@@ -506,6 +510,20 @@ class PostgresManager(BaseDatabaseManager):
             user=self.SUPERUSER,
         )
         return result.success, result.stdout if result.success else result.stderr
+
+    def _server_version_num(self) -> int:
+        """
+        Ask the server for its version, as ``server_version_num`` gives it.
+
+        The server's, not the client's: the ``psql`` on the host can be newer
+        than the cluster it talks to.
+
+        Returns:
+            The number (``160002`` for 16.2), or 0 when the server could not
+            say, which every comparison reads as an old server.
+        """
+        value = self._show("server_version_num")
+        return int(value) if value is not None and value.isdigit() else 0
 
     def _show(self, setting: str) -> str | None:
         """
@@ -689,13 +707,21 @@ class PostgresManager(BaseDatabaseManager):
                 details="Run 'noust db list --engine postgresql' to see the databases.",
             )
 
-        if force:
+        statement = f"DROP DATABASE {self._escape_identifier(name)}"
+        if force and self._server_version_num() >= _DROP_WITH_FORCE_SINCE:
+            # One statement: the server refuses new connections and ends the
+            # open ones itself. Terminating them first and dropping after
+            # leaves a window in which an application that reconnects at
+            # once (a pool does) makes the drop fail, and a put-back fail
+            # with it.
+            statement += " WITH (FORCE)"
+        elif force:
             self._execute_sql(
                 "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "  # noqa: S608 - quoted literal, not interpolated data
                 f"WHERE datname = {self._escape_literal(name)};"
             )
 
-        success, output = self._execute_sql(f"DROP DATABASE {self._escape_identifier(name)};")
+        success, output = self._execute_sql(f"{statement};")
         if not success:
             raise DatabaseError(
                 f"Failed to drop database '{name}'",
