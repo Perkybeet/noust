@@ -37,7 +37,8 @@ import re
 import secrets
 import stat
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from typing import Any
@@ -57,7 +58,6 @@ from noust.managers.database.base import (
     DEFAULT_STRUCTURED_ROW_CAP,
     PROFILES,
     QUERY_TIMEOUT,
-    TRANSFER_TIMEOUT,
     AccessEntry,
     BackupInfo,
     BaseDatabaseManager,
@@ -68,9 +68,11 @@ from noust.managers.database.base import (
     console_statement,
     format_size,
     listen_address,
+    load_failure,
     parse_tabular_query_output,
     query_deadline,
     quote_identifier,
+    restore_timeout,
     validate_name,
 )
 from noust.managers.database.instances import storage_name
@@ -1331,53 +1333,89 @@ class PostgresManager(BaseDatabaseManager):
         if self._dump_format(backup_path, kwargs.get("format")) == "plain":
             check_plain_dump(backup_path)
 
-    def _load_backup(self, database: str, backup_path: Path, **kwargs: Any) -> None:
+    @contextmanager
+    def _restore_input(self, database: str, backup_path: Path, **kwargs: Any) -> Iterator[Path]:
         """
-        Load a plain dump with psql or an archive with pg_restore.
+        Prepare a dump for psql or pg_restore, before anything is dropped.
 
-        psql and pg_restore open the file themselves, as the postgres
-        account, so the 0600 root-owned backup is staged for that account
-        first.
+        On the host they open the file themselves, as the postgres account,
+        so the 0600 root-owned backup is staged for that account. Inside a
+        container the dump is their stdin: a plain file is used where it is
+        and a gzipped one decompressed on the host.
 
         Args:
-            database: The database to load into.
+            database: The database it will be loaded into.
             backup_path: The dump, plain or gzipped.
             **kwargs: Accepts ``format`` to override the detected one.
 
+        Yields:
+            The dump as the loader reads it.
+
         Raises:
-            DatabaseBackupError: When psql or pg_restore fails; the error
-                carries its output.
+            DatabaseBackupError: When it cannot be read or staged.
         """
         dump_format = self._dump_format(backup_path, kwargs.get("format"))
         staged_name = (
             f"{storage_name(self.ENGINE_NAME)}-restore-{database}{DUMP_SUFFIXES[dump_format]}"
         )
+        owner = None if self.instance is not None else self.SUPERUSER
+        with self._staged_backup(backup_path, staged_name, owner=owner) as staged:
+            yield staged
+
+    def _staged_format(self, path: Path) -> str | None:
+        """
+        Read the format :meth:`_restore_input` found back from the name it staged under.
+
+        The staged copy is named after the format read from the original's
+        first bytes (:data:`DUMP_SUFFIXES`), so it is not read twice.
+
+        Args:
+            path: The dump the loader is given.
+
+        Returns:
+            The format, or None for a file that is not a staged copy.
+        """
+        if path.parent != self.BACKUP_DIR / ".staging":
+            return None
+        return next(
+            (kind for kind, suffix in DUMP_SUFFIXES.items() if path.name.endswith(suffix)), None
+        )
+
+    def _load_backup(self, database: str, backup_path: Path, **kwargs: Any) -> None:
+        """
+        Load a plain dump with psql or an archive with pg_restore.
+
+        Args:
+            database: The database to load into.
+            backup_path: The dump as :meth:`_restore_input` prepared it.
+            **kwargs: Accepts ``format`` to override the detected one.
+
+        Raises:
+            DatabaseBackupError: When psql or pg_restore fails or runs out of
+                time; the error carries its output.
+        """
+        dump_format = self._dump_format(
+            backup_path, kwargs.get("format") or self._staged_format(backup_path)
+        )
+        timeout = restore_timeout(backup_path)
         if self.instance is not None:
             # A client inside a container cannot open a file on the host: the
             # dump is its stdin, which psql (-f -) and pg_restore (no file)
-            # both read, and nothing needs handing to an account of the host.
-            with self._staged_backup(backup_path, staged_name) as staged:
-                if dump_format == "plain":
-                    argv = self._psql_argv(database, "-f", "-")
-                else:
-                    argv = ["pg_restore", "--no-password", "-d", database]
-                result = self._exec(
-                    argv, stdin_path=staged, timeout=TRANSFER_TIMEOUT, user=self.SUPERUSER
-                )
+            # both read.
+            if dump_format == "plain":
+                argv = self._psql_argv(database, "-f", "-")
+            else:
+                argv = ["pg_restore", "--no-password", "-d", database]
+            result = self._exec(argv, stdin_path=backup_path, timeout=timeout, user=self.SUPERUSER)
         else:
-            with self._staged_backup(backup_path, staged_name, owner=self.SUPERUSER) as staged:
-                if dump_format == "plain":
-                    argv = self._psql_argv(database, "-f", str(staged))
-                else:
-                    argv = ["pg_restore", "--no-password", "-d", database, str(staged)]
-                result = self._exec(argv, timeout=TRANSFER_TIMEOUT, user=self.SUPERUSER)
+            if dump_format == "plain":
+                argv = self._psql_argv(database, "-f", str(backup_path))
+            else:
+                argv = ["pg_restore", "--no-password", "-d", database, str(backup_path)]
+            result = self._exec(argv, timeout=timeout, user=self.SUPERUSER)
 
         if not result.success:
-            raise DatabaseBackupError(
-                f"Failed to restore database '{database}'",
-                details=(result.stderr or result.stdout).strip()
-                or "The dump may be truncated or in another format.",
-            )
+            raise load_failure(database, result, "The dump may be truncated or in another format.")
 
     # ==================== Query Execution ====================
 

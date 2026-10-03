@@ -1210,7 +1210,8 @@ class RedisManager(BaseDatabaseManager):
                     timeout=TRANSFER_TIMEOUT,
                 )
             else:
-                result = self._exec(
+                # A file of this machine: never through _exec, which runs in a container.
+                result = self.runner.run(
                     ["cp", str(backup_path), str(rdb_file)], timeout=TRANSFER_TIMEOUT
                 )
             if not result.success:

@@ -542,10 +542,11 @@ def test_mysql_restore_reads_the_staged_file_through_the_client(
 
     mysql.restore("shop", dump)
 
-    staged = mysql.BACKUP_DIR / ".staging" / "mysql-restore-shop.sql"
+    # A plain dump is opened by the runner, as root: no copy is needed.
     assert runner.calls[-1] == ("mysql", "-N", "-B", "-D", "shop", "--binary-mode")
     assert runner.inputs[-1] is None
-    assert runner.stdin_paths[-1] == staged
+    assert runner.stdin_paths[-1] == dump
+    assert not any(call[0] == "cp" for call in runner.calls)
 
 
 def test_mysql_install_argv(mysql: MySQLManager, runner: FakeRunner) -> None:
@@ -1225,7 +1226,7 @@ def test_staging_directory_mode_is_enforced_on_a_preexisting_one(
     source = tmp_path / "dump.sql"
     source.write_text(NASTY_DUMP)
 
-    with postgres._staged_backup(source, "postgresql-restore-shop.sql"):
+    with postgres._staged_backup(source, "postgresql-restore-shop.sql", owner="postgres"):
         assert stat.S_IMODE(staging.stat().st_mode) == 0o711
 
 
@@ -1241,7 +1242,7 @@ def test_staging_directory_that_is_a_symlink_is_refused(
     source.write_text(NASTY_DUMP)
 
     with pytest.raises(DatabaseBackupError) as excinfo:
-        with postgres._staged_backup(source, "postgresql-restore-shop.sql"):
+        with postgres._staged_backup(source, "postgresql-restore-shop.sql", owner="postgres"):
             pass
 
     assert "staging" in str(excinfo.value).lower()
@@ -1259,7 +1260,7 @@ def test_a_preexisting_staged_file_is_removed_before_the_copy(
     source = tmp_path / "dump.sql"
     source.write_text(NASTY_DUMP)
 
-    with postgres._staged_backup(source, "postgresql-restore-shop.sql") as staged:
+    with postgres._staged_backup(source, "postgresql-restore-shop.sql", owner="postgres") as staged:
         assert not staged.is_symlink()
         assert not staged.exists()
 

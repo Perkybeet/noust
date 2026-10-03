@@ -152,8 +152,61 @@ SERVICE_TIMEOUT = 120
 #: Deadline for apt. Package downloads are slow and must not be cut short.
 PACKAGE_TIMEOUT = 1800
 
-#: Deadline for a dump, a restore or a decompression.
-TRANSFER_TIMEOUT = 3600
+#: Deadline for a dump or a decompression, and the least a restore is given.
+#: A restore that is cut short leaves a half-loaded database, so it errs long.
+TRANSFER_TIMEOUT = 7200
+
+#: The longest a restore is ever given, however big its dump.
+RESTORE_TIMEOUT_CAP = 6 * 3600
+
+#: Bytes of plain dump a restore is assumed to load per second, at worst.
+#: Index builds and constraint checks, not the reading, are what take the time.
+_RESTORE_BYTES_PER_SECOND = 1024 * 1024
+
+
+def restore_timeout(path: Path) -> int:
+    """
+    Give a restore a deadline that fits its dump.
+
+    A 9.9 GB database does not reload in an hour, and a restore killed by its
+    deadline is a failed restore: the safety copy is put back. So the
+    deadline grows with the dump, from :data:`TRANSFER_TIMEOUT` up to
+    :data:`RESTORE_TIMEOUT_CAP`.
+
+    Args:
+        path: The dump as the loader reads it (decompressed already).
+
+    Returns:
+        Seconds the loader may run.
+    """
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return TRANSFER_TIMEOUT
+    return int(min(RESTORE_TIMEOUT_CAP, TRANSFER_TIMEOUT + size / _RESTORE_BYTES_PER_SECOND))
+
+
+def load_failure(database: str, result: CommandResult, fallback: str) -> DatabaseBackupError:
+    """
+    Describe a loader that did not finish, in its own words.
+
+    Args:
+        database: The database it was loading.
+        result: What the loader returned.
+        fallback: What to say when it printed nothing.
+
+    Returns:
+        The error to raise. A loader killed by its deadline says so first,
+        since the half-loaded database is then put back from the safety copy.
+    """
+    said = (result.stderr or result.stdout).strip()
+    if result.timed_out:
+        said = f"The loader was stopped by its deadline before it finished.\n{said}".strip()
+    return DatabaseBackupError(
+        f"Failed to restore database '{database}'",
+        details=said or fallback,
+    )
+
 
 #: apt must never stop to ask a question on a server.
 APT_ENV: Mapping[str, str] = {"DEBIAN_FRONTEND": "noninteractive"}
@@ -2115,12 +2168,20 @@ class BaseDatabaseManager(BaseManager):
         owner: str | None = None,
     ) -> Iterator[Path]:
         """
-        Make a backup readable by the account that will restore it.
+        Make a backup readable by whatever loads it.
 
-        Backups are written 0600 and owned by root, and a client such as psql
-        opens the file itself, as the engine's own account. The file is therefore
-        copied (or decompressed) into a traversable staging directory and handed
-        to that account for the duration of the restore.
+        Backups are written 0600 and owned by root. A loader that reads the
+        dump on its stdin (MySQL's client, every client inside a container)
+        is handed the file by the runner, which opens it as root, so a plain
+        dump is used where it is and only a gzipped one is decompressed. A
+        client that opens the file itself, as the engine's own account (psql
+        and pg_restore on the host), needs a copy in a traversable staging
+        directory, handed to that account for the duration of the restore.
+
+        Every step here acts on files of this machine, so every process runs
+        on the host (:attr:`runner`), never through :meth:`_exec`: for a
+        container, that would run ``cp`` or ``gzip`` inside it, where the
+        host's paths do not exist.
 
         The staging directory is adopted, never merely reused: it is traversable
         by design, so whoever gets there first must not be able to leave a
@@ -2130,14 +2191,18 @@ class BaseDatabaseManager(BaseManager):
         Args:
             source: The backup file, plain or gzipped.
             staged_name: File name to use inside the staging directory.
-            owner: Account that must be able to read the staged file.
+            owner: Account that must be able to open the file itself; None
+                for a loader that reads it on its stdin.
 
         Yields:
-            The path of the staged, plain-text copy.
+            The path of the plain-text dump to load.
 
         Raises:
             DatabaseBackupError: When staging fails.
         """
+        if owner is None and source.suffix != ".gz":
+            yield source
+            return
         self._ensure_private_directory(self.BACKUP_DIR, BACKUP_DIR_MODE)
         staging_dir = self._ensure_private_directory(self.BACKUP_DIR / ".staging", STAGING_DIR_MODE)
         staged = staging_dir / staged_name
@@ -2158,7 +2223,7 @@ class BaseDatabaseManager(BaseManager):
                     timeout=TRANSFER_TIMEOUT,
                 )
             else:
-                result = self._exec(["cp", str(source), str(staged)], timeout=TRANSFER_TIMEOUT)
+                result = self.runner.run(["cp", str(source), str(staged)], timeout=TRANSFER_TIMEOUT)
             if not result.success:
                 raise DatabaseBackupError(
                     f"Failed to stage the backup {source}",
@@ -2182,6 +2247,39 @@ class BaseDatabaseManager(BaseManager):
             yield staged
         finally:
             staged.unlink(missing_ok=True)
+
+    #: Whether the loader reads the dump on its stdin even on the host, so
+    #: a gzipped dump is decompressed before anything is dropped. Inside a
+    #: container every loader does.
+    RESTORE_READS_STDIN: bool = False
+
+    @contextmanager
+    def _restore_input(self, database: str, backup_path: Path, **kwargs: Any) -> Iterator[Path]:
+        """
+        Prepare the file the loader reads, before anything is dropped.
+
+        :meth:`restore` and :meth:`_put_back` enter this before the drop, so
+        a dump that cannot be decompressed, copied or handed over costs the
+        database nothing. :meth:`_load_backup` is given what it yields.
+
+        Args:
+            database: The database it will be loaded into.
+            backup_path: The dump, plain or gzipped.
+            **kwargs: The restore's engine-specific options.
+
+        Yields:
+            The dump as the loader reads it: plain, and readable by it.
+
+        Raises:
+            DatabaseBackupError: When it cannot be prepared.
+        """
+        if self.instance is None and not self.RESTORE_READS_STDIN:
+            yield backup_path
+            return
+        plain = Path(backup_path.name.removesuffix(".gz"))
+        name = f"{storage_name(self.ENGINE_NAME)}-restore-{database}{plain.suffix}"
+        with self._staged_backup(backup_path, name) as staged:
+            yield staged
 
     @abstractmethod
     def backup(
@@ -2228,10 +2326,13 @@ class BaseDatabaseManager(BaseManager):
            safety copy. It is mandatory when ``drop_existing`` asks to
            replace the database, and taken by default otherwise too, since
            loading a dump over live data overwrites rows as surely.
-        3. The database is dropped and recreated (with its owner) when asked,
+        3. The dump is made loadable (:meth:`_restore_input`: decompressed,
+           handed to the loader's account), still before anything is dropped.
+        4. The database is dropped and recreated (with its owner) when asked,
            then the dump is loaded (:meth:`_load_backup`).
-        4. When loading fails and there is a safety copy, the database is
-           dropped, recreated and loaded from the safety copy, and the error
+        5. When loading fails, its deadline included, and there is a safety
+           copy, the database is dropped, recreated and loaded from the
+           safety copy (itself made loadable before that drop), and the error
            carries both tools' own words. The copy is kept either way.
 
         The previous version dropped the database and then loaded the dump,
@@ -2279,17 +2380,22 @@ class BaseDatabaseManager(BaseManager):
                 on_safety_copy(safety)
 
         replaced = exists and drop_existing
-        if replaced:
-            self.drop_database(database, force=True)
-        if replaced or not exists:
-            self._create_for_restore(database, owner)
-
-        try:
-            self._load_backup(database, backup_path, **kwargs)
-        except DatabaseBackupError as exc:
+        failure: DatabaseBackupError | None = None
+        # The dump is made loadable first: a gzip that does not decompress or
+        # a disk that is full must fail while the database is still whole.
+        with self._restore_input(database, backup_path, **kwargs) as loadable:
+            if replaced:
+                self.drop_database(database, force=True)
+            if replaced or not exists:
+                self._create_for_restore(database, owner)
+            try:
+                self._load_backup(database, loadable, **kwargs)
+            except DatabaseBackupError as exc:
+                failure = exc
+        if failure is not None:
             if safety is None:
-                raise
-            raise self._put_back(database, safety, owner, exc) from exc
+                raise failure
+            raise self._put_back(database, safety, owner, failure) from failure
 
         self.logger.info(f"Restored database: {database} from {backup_path}")
         return RestoreOutcome(
@@ -2314,9 +2420,10 @@ class BaseDatabaseManager(BaseManager):
         """
         said = failure.details or str(failure)
         try:
-            self.drop_database(database, force=True)
-            self._create_for_restore(database, owner)
-            self._load_backup(database, safety)
+            with self._restore_input(database, safety) as loadable:
+                self.drop_database(database, force=True)
+                self._create_for_restore(database, owner)
+                self._load_backup(database, loadable)
         except DatabaseError as again:
             return DatabaseBackupError(
                 f"Restoring '{database}' failed, and putting its previous contents back failed too",
@@ -2381,7 +2488,7 @@ class BaseDatabaseManager(BaseManager):
 
         Args:
             database: The database.
-            backup_path: The dump, plain or gzipped.
+            backup_path: The dump as :meth:`_restore_input` prepared it.
             **kwargs: The restore's engine-specific options.
 
         Raises:

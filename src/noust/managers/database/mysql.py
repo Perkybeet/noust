@@ -43,7 +43,6 @@ from noust.managers.database.base import (
     DEFAULT_STRUCTURED_ROW_CAP,
     PROFILES,
     QUERY_TIMEOUT,
-    TRANSFER_TIMEOUT,
     AccessEntry,
     BackupInfo,
     BaseDatabaseManager,
@@ -54,9 +53,11 @@ from noust.managers.database.base import (
     console_statement,
     format_size,
     listen_address,
+    load_failure,
     parse_tabular_query_output,
     query_deadline,
     quote_identifier,
+    restore_timeout,
     validate_name,
 )
 from noust.managers.database.registry import DatabaseRegistry
@@ -328,6 +329,8 @@ class MySQLManager(BaseDatabaseManager):
     DEFAULT_PRIVILEGES = ("ALL PRIVILEGES",)
     SUPPORTS_STRUCTURED_QUERY = True
     CAPABILITIES = frozenset({"sql", "tables", "read_only", "users", "profiles", "dump", "metrics"})
+    #: The client reads a dump on its stdin, never by name; see _load_backup().
+    RESTORE_READS_STDIN = True
     EOL_FAMILY = "mysql"
     INTERNAL_USERS = frozenset(
         {
@@ -1177,28 +1180,24 @@ class MySQLManager(BaseDatabaseManager):
 
         Args:
             database: The database to load into.
-            backup_path: The dump.
+            backup_path: The dump as :meth:`_restore_input` prepared it:
+                plain, decompressed before anything was dropped.
             **kwargs: ``isolated``, see above.
 
         Raises:
-            DatabaseBackupError: When the client fails; the error carries its
-                output.
+            DatabaseBackupError: When the client fails or runs out of time;
+                the error carries its output.
         """
-        staged_name = f"{self.ENGINE_NAME}-restore-{database}{self.BACKUP_SUFFIX}"
         isolation = ["--one-database"] if kwargs.get("isolated") else []
-        with self._staged_backup(backup_path, staged_name) as staged:
-            with self._credentials() as credentials:
-                result = self._exec(
-                    [*self._client_argv(credentials, database), "--binary-mode", *isolation],
-                    stdin_path=staged,
-                    timeout=TRANSFER_TIMEOUT,
-                )
+        with self._credentials() as credentials:
+            result = self._exec(
+                [*self._client_argv(credentials, database), "--binary-mode", *isolation],
+                stdin_path=backup_path,
+                timeout=restore_timeout(backup_path),
+            )
 
         if not result.success:
-            raise DatabaseBackupError(
-                f"Failed to restore database '{database}'",
-                details=result.stderr.strip() or "The dump may be truncated.",
-            )
+            raise load_failure(database, result, "The dump may be truncated.")
 
     # ==================== Query Execution ====================
 
