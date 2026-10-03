@@ -28,7 +28,9 @@ only ``-m conntrack --ctorigdstport`` sees the host's: a rule that names the
 host port with ``--dport`` refuses nothing where the two differ (the owner's
 central had one for ``3307->3306``, with a firewall upstream as the only thing
 closing it). A
-``RETURN`` or ``ACCEPT`` that lets the port through first ends the walk;
+``RETURN`` or ``ACCEPT`` that lets the port through first ends the walk, and so
+does a jump or goto to another chain (or a queue), which this module does not
+follow and which may accept it: past one, a ``DROP`` proves nothing;
 ``RELATED,ESTABLISHED`` rules never decide a new connection and are passed
 over; a rule with a condition this module does not read (a source, a mark, a
 set) never counts as filtering, and never lets the walk go on past an
@@ -63,6 +65,37 @@ _VERDICTS = {
     "return": "return",
 }
 
+#: iptables targets that change, count or log a packet and let it go on down
+#: the chain. Any other target that is not a verdict sends it somewhere this
+#: module does not read (a jump or goto to another chain, a queue to a
+#: program), where it may be accepted: such a rule ends the walk unproven.
+_NON_TERMINATING = frozenset(
+    {
+        "LOG",
+        "NFLOG",
+        "ULOG",
+        "MARK",
+        "CONNMARK",
+        "NOTRACK",
+        "CT",
+        "TRACE",
+        "AUDIT",
+        "CLASSIFY",
+        "DSCP",
+        "TOS",
+        "TTL",
+        "HL",
+        "SECMARK",
+        "CONNSECMARK",
+        "TCPMSS",
+        "TCPOPTSTRIP",
+        "IDLETIMER",
+        "LED",
+        "RATEEST",
+        "CHECKSUM",
+    }
+)
+
 #: Connection states that never start a connection: a rule limited to them
 #: decides nothing about a stranger connecting.
 _NOT_NEW = frozenset({"ESTABLISHED", "RELATED", "INVALID", "UNTRACKED"})
@@ -84,6 +117,8 @@ _IPTABLES_ARGUMENTS = frozenset(
         "--state",
         "-j",
         "--jump",
+        "-g",
+        "--goto",
     }
 )
 
@@ -120,8 +155,10 @@ class FilterRule:
 
     Attributes:
         text: The rule, verbatim.
-        verdict: ``drop``, ``reject``, ``accept``, ``return``, or empty for any
-            other target (a log, a jump to another chain).
+        verdict: ``drop``, ``reject``, ``accept``, ``return``; ``jump`` for
+            a target that hands the packet to something this module does not
+            read (another chain, by jump or goto, or a queue), which may
+            accept it; empty for a target that lets it go on (a log, a mark).
         proto: ``tcp``, ``udp``, or None for every protocol.
         ports: Destination ports as the chain sees them (after Docker's
             translation: the container's), or None for every port.
@@ -320,10 +357,18 @@ def _rule_from(
     elif direction is not None and direction.upper() != "ORIGINAL":
         unknown = True
     target = value("-j", "--jump") or ""
+    if value("-g", "--goto") is not None:
+        verdict = "jump"
+    elif target in _VERDICTS:
+        verdict = _VERDICTS[target]
+    elif target and target.upper() not in _NON_TERMINATING:
+        verdict = "jump"
+    else:
+        verdict = ""
     interface = values.get("-i") or values.get("--in-interface")
     return FilterRule(
         text=text,
-        verdict=_VERDICTS.get(target, ""),
+        verdict=verdict,
         proto=proto.lower() if proto else None,
         ports=ports,
         original_ports=original,
@@ -406,8 +451,9 @@ def _nft_rule(line: str) -> FilterRule:
             verdict = _VERDICTS[word]
             # "reject with icmp type port-unreachable": the rest is the reply.
             break
-        if word in ("jump", "goto"):
-            verdict = ""
+        if word in ("jump", "goto", "queue"):
+            # Handed to another chain or a program, which may accept it.
+            fields["-g"] = tokens[index] if index < len(tokens) else word
             break
         negate = index < len(tokens) and tokens[index] == "!="
         if negate:
@@ -570,8 +616,9 @@ def _decides(
             if rule.sources or rule.unknown or applies is None:
                 continue
             return rule, matched
-        # accept or return: some sources let through before a refusal still
-        # leave it refusing everyone else; anything else ends the walk.
+        # accept, return, or a jump to a chain not read here (which may accept
+        # it): some sources let through before a refusal still leave it
+        # refusing everyone else; anything else ends the walk unproven.
         if rule.sources and not rule.unknown:
             continue
         return None

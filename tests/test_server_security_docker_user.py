@@ -245,6 +245,45 @@ class TestWhatTheChainCovers:
 
         assert chain.covering(3307, 3307, "tcp") is None
 
+    @pytest.mark.parametrize(
+        "handed_over",
+        [
+            "-A DOCKER-USER -j OFFICE",
+            "-A DOCKER-USER -p tcp --dport 3307 -j OFFICE",
+            "-A DOCKER-USER -g OFFICE",
+            "-A DOCKER-USER --goto OFFICE",
+            "-A DOCKER-USER -j NFQUEUE --queue-num 0",
+        ],
+    )
+    def test_a_jump_to_a_chain_not_read_before_the_drop_proves_nothing(
+        self, handed_over: str
+    ) -> None:
+        # OFFICE may accept 3307 for everyone: the DROP after it is not proof.
+        chain = _chain(f"{handed_over}\n-A DOCKER-USER -i ens6 -p tcp --dport 3307 -j DROP\n")
+
+        assert chain.rules[0].verdict == "jump"
+        assert chain.covering(3307, 3307, "tcp") is None
+
+    def test_a_jump_for_another_port_or_a_log_lets_the_walk_go_on(self) -> None:
+        chain = _chain(
+            "-A DOCKER-USER -p tcp --dport 80 -j OFFICE\n"
+            "-A DOCKER-USER -j LOG --log-prefix docker-user\n"
+            "-A DOCKER-USER -j MARK --set-mark 0x1\n"
+            "-A DOCKER-USER -i ens6 -p tcp --dport 3307 -j DROP\n"
+        )
+
+        assert chain.covering(3307, 3307, "tcp") is not None
+
+    @pytest.mark.parametrize("word", ["jump", "goto"])
+    def test_an_nftables_jump_before_the_drop_proves_nothing(self, word: str) -> None:
+        rules = parse_nft_chain(
+            f"\t\tcounter packets 3 bytes 180 {word} office\n"
+            '\t\tiifname "ens6" tcp dport 3307 drop\n'
+        )
+
+        assert rules[0].verdict == "jump"
+        assert DockerUserChain(tuple(rules), ("ens6",)).covering(3307, 3307, "tcp") is None
+
 
 # -- through the firewall and the check ----------------------------------------------
 
