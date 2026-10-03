@@ -408,3 +408,140 @@ class TestCheckingAContainersDump:
 
         assert check_dump(PostgresManager(), archive).ok
         assert docker.calls == [("pg_restore", "--list", str(archive))]
+
+
+# ==================== Finding 3: the sampler never holds the collector's tick ====================
+
+
+class TestTheSamplerKeepsToItsBudget:
+    """One container that does not answer costs the tick a few seconds, once."""
+
+    @pytest.fixture
+    def release(self) -> Iterator[Any]:
+        import threading
+
+        event = threading.Event()
+        yield event
+        event.set()
+
+    @pytest.fixture
+    def asked(self, monkeypatch: pytest.MonkeyPatch, release: Any) -> list[str]:
+        from noust.managers.database.metrics import DatabaseSampler
+
+        asked: list[str] = []
+
+        def engine_pairs(self, reader, manager, now):
+            asked.append(manager.ENGINE_NAME)
+            if manager.instance is not None:
+                release.wait(10)
+                return [(f"db.{manager.ENGINE_NAME}.connections", 2.0)]
+            return [("db.postgresql.connections", 1.0)]
+
+        monkeypatch.setattr(DatabaseSampler, "_engine_pairs", engine_pairs)
+        return asked
+
+    def service(self, tmp_path: Path, found: Callable[[], list[DatabaseInstance]]) -> Any:
+        from noust.core.secrets import SecretStore
+        from noust.core.store import NoustStore
+        from noust.managers.database.service import DatabaseService
+
+        return DatabaseService(
+            store=NoustStore(tmp_path / "noust.db"),
+            secrets=SecretStore(root=tmp_path / "secrets"),
+            resolve=lambda name: PostgresManager() if name == "postgresql" else None,
+            engines=lambda: ["postgresql"],
+            instances=found,
+        )
+
+    def test_a_hung_container_is_left_out_and_not_asked_again_while_it_waits(
+        self, docker: Docker, instances, asked: list[str], release: Any, tmp_path: Path
+    ) -> None:
+        import time
+
+        from noust.managers.database.metrics import DatabaseSampler
+
+        docker.script(["systemctl", "is-active"], stdout="active\n")
+        service = self.service(tmp_path, lambda: [instances[PG_KEY]])
+        sampler = DatabaseSampler(service=service, budget=0.3, backoff=600)
+
+        started = time.monotonic()
+        pairs = sampler.sample(0.0)
+        took = time.monotonic() - started
+
+        assert took < 2.0
+        assert pairs == [("db.postgresql.connections", 1.0)]
+        assert sorted(asked) == ["postgresql", PG_KEY]
+
+        # A minute later its last ask still waits: it is not asked twice.
+        assert sampler.sample(60.0) == [("db.postgresql.connections", 1.0)]
+        assert asked.count(PG_KEY) == 1
+
+        # It answers at last, but stays out until the back-off has passed.
+        release.set()
+        for _ in range(100):
+            if not any(t.is_alive() for t, _since in sampler._stalled.values()):
+                break
+            time.sleep(0.01)
+        sampler.sample(120.0)
+        assert asked.count(PG_KEY) == 1
+        sampler.sample(700.0)
+        assert asked.count(PG_KEY) == 2
+
+    def test_a_docker_that_does_not_answer_leaves_the_hosts_engines_sampled(
+        self, docker: Docker, asked: list[str], release: Any, tmp_path: Path
+    ) -> None:
+        import time
+
+        from noust.managers.database.metrics import DatabaseSampler
+
+        docker.script(["systemctl", "is-active"], stdout="active\n")
+        listings: list[int] = []
+
+        def hung() -> list[DatabaseInstance]:
+            listings.append(1)
+            release.wait(10)
+            return []
+
+        sampler = DatabaseSampler(service=self.service(tmp_path, hung), budget=0.3)
+
+        started = time.monotonic()
+        assert sampler.sample(0.0) == [("db.postgresql.connections", 1.0)]
+        assert time.monotonic() - started < 2.0
+        assert sampler.sample(60.0) == [("db.postgresql.connections", 1.0)]
+        assert len(listings) == 1
+
+    def test_a_failure_is_logged_when_it_starts_and_when_it_ends(
+        self,
+        docker: Docker,
+        instances,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+        tmp_path: Path,
+    ) -> None:
+        import logging
+
+        from noust.core.exceptions import DatabaseQueryError
+        from noust.managers.database.metrics import DatabaseSampler
+
+        docker.script(["systemctl", "is-active"], stdout="inactive\n")
+        broken = [True]
+
+        def engine_pairs(self, reader, manager, now):
+            if broken[0]:
+                raise DatabaseQueryError("psql: error: connection refused")
+            return []
+
+        monkeypatch.setattr(DatabaseSampler, "_engine_pairs", engine_pairs)
+        sampler = DatabaseSampler(service=self.service(tmp_path, lambda: [instances[PG_KEY]]))
+
+        with caplog.at_level(logging.INFO, logger="noust.managers.database.metrics"):
+            for minute in range(5):
+                sampler.sample(minute * 60.0)
+            broken[0] = False
+            sampler.sample(300.0)
+            sampler.sample(360.0)
+
+        warnings = [r for r in caplog.records if r.levelno == logging.WARNING]
+        assert len(warnings) == 1 and "connection refused" in warnings[0].getMessage()
+        recovered = [r for r in caplog.records if r.levelno == logging.INFO]
+        assert len(recovered) == 1 and PG_KEY in recovered[0].getMessage()

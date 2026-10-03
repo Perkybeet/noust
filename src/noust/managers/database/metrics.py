@@ -43,7 +43,7 @@ from noust.managers.database.instances import engine_of
 from noust.managers.database.keys import parse_csv_reply
 from noust.managers.database.mysql import MySQLManager
 from noust.managers.database.redis import RedisManager
-from noust.managers.database.service import DatabaseService
+from noust.managers.database.service import DatabaseService, ListingProblem
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +52,16 @@ SAMPLE_SECONDS = 60.0
 
 #: Seconds the server may spend on one metrics query.
 METRICS_TIMEOUT = 30
+
+#: Seconds one database sample may hold the collector's tick, finding the
+#: containers included. The tick also samples the machine and the
+#: applications and renews a 20-second lease: one container that does not
+#: answer must cost it a few seconds, not two minutes.
+SAMPLE_BUDGET_SECONDS = 8.0
+
+#: Seconds an engine whose sample overran the budget is left alone, so a
+#: hung container is not asked again every minute while the last ask waits.
+STALL_BACKOFF_SECONDS = 600.0
 
 #: Biggest tables listed.
 TOP_TABLES = 10
@@ -886,8 +896,14 @@ class DatabaseSampler:
     so :meth:`sample` does nothing until :data:`SAMPLE_SECONDS` have passed
     since the last sample. Drive it from the collector's tick:
     ``pairs.extend(self._databases.sample(now))`` - the pairs are then
-    stamped and written with the tick's own. Each engine is one query; an
-    engine that fails is logged and skipped, never the tick.
+    stamped and written with the tick's own.
+
+    The tick is never held longer than :data:`SAMPLE_BUDGET_SECONDS`: the
+    containers are found and every engine is asked in threads of their own,
+    and what has not answered by then is left out of this sample. An engine
+    that overran is not asked again while its last ask still waits, nor for
+    :data:`STALL_BACKOFF_SECONDS` after. An engine that fails is logged when
+    it starts failing and when it recovers, not every minute in between.
 
     Rates (``tps``, ``qps``, ``ops``) and the interval's cache hit ratio come
     from the difference between two samples, so the first sample of a
@@ -900,19 +916,31 @@ class DatabaseSampler:
         service: DatabaseService | None = None,
         clock: Callable[[], float] = time.monotonic,
         every: float = SAMPLE_SECONDS,
+        budget: float = SAMPLE_BUDGET_SECONDS,
+        backoff: float = STALL_BACKOFF_SECONDS,
     ) -> None:
         """
         Args:
             service: The database service; one without an actor by default.
             clock: Monotonic time source, injected for tests.
             every: Seconds between samples.
+            budget: Seconds one sample may take, in real time.
+            backoff: Seconds an engine that overran the budget is skipped.
         """
         self._service = service
         self._clock = clock
         self._every = every
+        self._budget = budget
+        self._backoff = backoff
         self._last: float | None = None
         self._counters: dict[str, tuple[float, float]] = {}
         self._lock = threading.Lock()
+        self._counters_lock = threading.Lock()
+        #: Engines (and ``docker``, for finding the containers) whose last
+        #: ask overran the budget: the thread still asking, and when.
+        self._stalled: dict[str, tuple[threading.Thread, float]] = {}
+        #: Engines whose last sample failed, with what was logged.
+        self._failing: dict[str, str] = {}
 
     def due(self, now: float | None = None) -> bool:
         """
@@ -927,7 +955,7 @@ class DatabaseSampler:
 
     def sample(self, now: float | None = None) -> list[tuple[str, float]]:
         """
-        Sample every running engine, when a sample is due.
+        Sample every running engine, when a sample is due, within the budget.
 
         Args:
             now: The monotonic time; the clock's when None.
@@ -944,18 +972,154 @@ class DatabaseSampler:
             # A hub has no databases of its own (central.role), and saying so
             # once a minute would only fill the journal.
             return []
+        deadline = time.monotonic() + self._budget
         service = self._service or DatabaseService()
-        pairs: list[tuple[str, float]] = []
-        for manager in service.all_managers():
-            if manager.engine_type not in ("postgresql", "mysql", "redis"):
+        managers = self._managers(service, now, deadline)
+        reader = DatabaseMetricsReader(service)
+        outcomes: dict[str, list[tuple[str, float]] | BaseException] = {}
+        asking: dict[str, tuple[BaseDatabaseManager, threading.Thread]] = {}
+        for manager in managers:
+            key = manager.ENGINE_NAME
+            if manager.engine_type not in ("postgresql", "mysql", "redis") or self._held(key, now):
                 continue
-            try:
-                if not manager.is_installed() or not manager.is_running():
-                    continue
-                pairs.extend(self._engine_pairs(DatabaseMetricsReader(service), manager, now))
-            except (DatabaseError, RoleError, OSError) as exc:
-                log.warning("%s metrics could not be sampled: %s", manager.DISPLAY_NAME, exc)
+            thread = threading.Thread(
+                target=self._ask,
+                args=(reader, manager, now, outcomes),
+                name=f"noust-db-metrics-{key}",
+                daemon=True,
+            )
+            thread.start()
+            asking[key] = (manager, thread)
+        pairs: list[tuple[str, float]] = []
+        for key, (manager, thread) in asking.items():
+            what = f"{manager.DISPLAY_NAME} ({key}) metrics"
+            thread.join(max(0.0, deadline - time.monotonic()))
+            if thread.is_alive():
+                self._stalled[key] = (thread, now)
+                self._failed(key, what, self._overran())
+                continue
+            outcome = outcomes.get(key)
+            if isinstance(outcome, BaseException):
+                self._failed(key, what, str(outcome))
+            elif outcome is not None:
+                self._recovered(key, what)
+                pairs.extend(outcome)
         return pairs
+
+    def _managers(
+        self, service: DatabaseService, now: float, deadline: float
+    ) -> list[BaseDatabaseManager]:
+        """
+        Find the engines to sample: the host's at once, the containers within the budget.
+
+        Args:
+            service: The database service, which discovers once.
+            now: The monotonic time of this sample.
+            deadline: When the budget runs out, in real monotonic time.
+
+        Returns:
+            The managers: the host's, then the containers Docker listed in time.
+        """
+        managers = service.host_managers()
+        if self._held("docker", now):
+            return managers
+        found: list[BaseDatabaseManager] = []
+        problems: list[ListingProblem] = []
+
+        def discover() -> None:
+            found.extend(service.instance_managers(problems))
+
+        thread = threading.Thread(target=discover, name="noust-db-metrics-docker", daemon=True)
+        thread.start()
+        thread.join(max(0.0, deadline - time.monotonic()))
+        if thread.is_alive():
+            self._stalled["docker"] = (thread, now)
+            self._failed("docker", "Database containers", self._overran())
+            return managers
+        if problems:
+            self._failed("docker", "Database containers", problems[0].message)
+        else:
+            self._recovered("docker", "Database containers")
+        return [*managers, *found]
+
+    def _ask(
+        self,
+        reader: DatabaseMetricsReader,
+        manager: BaseDatabaseManager,
+        now: float,
+        outcomes: dict[str, list[tuple[str, float]] | BaseException],
+    ) -> None:
+        """
+        Sample one engine, in its own thread.
+
+        Args:
+            reader: The metrics reader.
+            manager: The engine.
+            now: The monotonic time of this sample.
+            outcomes: Where its pairs, or what it raised, are left.
+        """
+        key = manager.ENGINE_NAME
+        try:
+            if not manager.is_installed() or not manager.is_running():
+                outcomes[key] = []
+                return
+            outcomes[key] = self._engine_pairs(reader, manager, now)
+        except (DatabaseError, RoleError, OSError) as exc:
+            outcomes[key] = exc
+
+    def _held(self, key: str, now: float) -> bool:
+        """
+        Say whether an engine whose last ask overran is still left alone.
+
+        Args:
+            key: The engine, or ``docker``.
+            now: The monotonic time of this sample.
+
+        Returns:
+            True while its last ask still waits, or within the back-off.
+        """
+        stalled = self._stalled.get(key)
+        if stalled is None:
+            return False
+        thread, since = stalled
+        if thread.is_alive() or now - since < self._backoff:
+            return True
+        del self._stalled[key]
+        return False
+
+    def _overran(self) -> str:
+        """
+        Returns:
+            Why an engine was left out, for the log.
+        """
+        return (
+            f"no answer within {self._budget:g} s; left out of the samples for {self._backoff:g} s"
+        )
+
+    def _failed(self, key: str, what: str, reason: str) -> None:
+        """
+        Log a failure once, when it starts or changes, not every minute.
+
+        Args:
+            key: The engine, or ``docker``.
+            what: What could not be sampled, for the log.
+            reason: Why.
+        """
+        if self._failing.get(key) == reason:
+            return
+        self._failing[key] = reason
+        log.warning("%s could not be sampled: %s", what, reason)
+
+    def _recovered(self, key: str, what: str) -> None:
+        """
+        Log that a failing engine answers again.
+
+        Args:
+            key: The engine, or ``docker``.
+            what: What is sampled again, for the log.
+        """
+        if self._failing.pop(key, None) is not None:
+            log.info("%s are sampled again", what)
 
     def record(self, store: Any, now: float | None = None) -> int:
         """
@@ -987,8 +1151,9 @@ class DatabaseSampler:
         """
         if value is None:
             return None
-        previous = self._counters.get(name)
-        self._counters[name] = (value, now)
+        with self._counters_lock:
+            previous = self._counters.get(name)
+            self._counters[name] = (value, now)
         if previous is None or now <= previous[1] or value < previous[0]:
             return None
         return (value - previous[0]) / (now - previous[1])

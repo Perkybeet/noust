@@ -765,8 +765,9 @@ class DatabaseService:
         try:
             found = self.instances()
         except DatabaseError as exc:
-            self.logger.warning(f"Could not list the database containers: {exc}")
-            if problems is not None:
+            if problems is None:
+                self.logger.warning(f"Could not list the database containers: {exc}")
+            else:
                 problems.append(
                     ListingProblem(
                         engine="docker",
@@ -826,9 +827,9 @@ class DatabaseService:
             The managers: the host's engines in registry order, then the
             database containers by key.
         """
-        return [*self._host_managers(), *self.instance_managers()]
+        return [*self.host_managers(), *self.instance_managers()]
 
-    def _host_managers(self) -> list[BaseDatabaseManager]:
+    def host_managers(self) -> list[BaseDatabaseManager]:
         """
         One manager per engine of the host.
 
@@ -949,7 +950,7 @@ class DatabaseService:
         if engine:
             managers = [self.manager(engine)]
         else:
-            managers = [*self._host_managers(), *self.instance_managers(problems)]
+            managers = [*self.host_managers(), *self.instance_managers(problems)]
         views: list[DatabaseView] = []
         for manager in managers:
             if not manager.is_installed() or not manager.is_running():
