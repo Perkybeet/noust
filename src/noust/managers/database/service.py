@@ -3378,7 +3378,7 @@ class DatabaseService:
         engine: str,
         values: Mapping[str, str],
         *,
-        confirm_exposure: bool = False,
+        confirm: bool = False,
     ) -> SettingsOutcome:
         """
         Change an engine's settings, leaving it on the previous ones if it refuses them.
@@ -3386,15 +3386,18 @@ class DatabaseService:
         Args:
             engine: The engine name.
             values: New values by key; ``default`` removes one from Noust's file.
-            confirm_exposure: The operator accepts that the engine will listen
-                beyond loopback.
+            confirm: The operator accepts what the change costs (listening
+                beyond loopback, writes refused or keys dropped, persistence
+                off), each named by the refusal that asks for it.
 
         Returns:
             What changed and how it was applied.
 
         Raises:
             ValidationError: For an unknown setting, an unacceptable value,
-                or an exposure not confirmed or not allowed by the profile.
+                or an exposure the profile does not allow.
+            ConfirmationRequired: When the change costs something and was not
+                confirmed; nothing changed.
             DatabaseEngineError: When the engine is not running, or did not
                 come back on the new settings (the previous ones are back).
         """
@@ -3403,7 +3406,7 @@ class DatabaseService:
         try:
             outcome = settings_for(manager).apply(
                 values,
-                confirm_exposure=confirm_exposure,
+                confirm=confirm,
                 remote_listen_allowed=security_profile.database_remote_listen_allowed(),
             )
         except DatabaseEngineError:

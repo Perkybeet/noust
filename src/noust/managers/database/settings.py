@@ -34,30 +34,55 @@ Noust waits for it to answer. When it does not, the previous file is put back,
 the engine restarted on it, and the error carries the engine's journal
 verbatim, as the health gate does for applications.
 
-Opening an engine beyond loopback asks for an explicit confirmation, carries
-the exposure warning, and is refused outright under the ENS profile
-(:func:`noust.core.ens.profile.database_remote_listen_allowed`). Engines in
-containers are configured by their image and their compose file, never here
-(spec 9.3).
+A change that costs something asks for one explicit confirmation carrying
+every warning (:class:`~noust.core.exceptions.ConfirmationRequired`), before
+anything is written: opening an engine beyond loopback (removing a listen
+setting included, unless what the engine falls back to is known to be
+loopback; and what the engine reports once it answers is held to the same
+rule), a Redis ``maxmemory`` below what it holds, and Redis persistence
+turned off. Opening an engine is refused outright under the ENS profile
+(:func:`noust.core.ens.profile.database_remote_listen_allowed`).
+
+**What keeps it safe.** One change per engine at a time (the applications'
+lock, under a name no domain has). No path Noust reads or writes the
+configuration through may be a symbolic link: the engine's account owns some
+of those directories, and Noust writes as root. Every file is on the list to
+put back before it is replaced, and the previous files come back whatever
+stops the change, an interruption included. A slow start is waited for while
+the engine says it is starting. Redis writes a snapshot before Noust restarts
+it. Every PostgreSQL step names the one cluster it configures.
+
+Engines in containers are configured by their image and their compose file,
+never here (spec 9.3).
 """
 
 from __future__ import annotations
 
+import errno
 import grp
 import ipaddress
 import os
 import pwd
 import re
+import stat
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import yaml  # type: ignore[import-untyped]
 
-from noust.core.exceptions import DatabaseEngineError, DatabaseError, ValidationError
+from noust.core.applock import AppBusyError, app_lock
+from noust.core.exceptions import (
+    ConfirmationRequired,
+    DatabaseEngineError,
+    DatabaseError,
+    ValidationError,
+)
+from noust.core.fs import is_rehearsal
 from noust.deployers.helpers.permissions import hand_over_file
 from noust.managers.database import flavours
 from noust.managers.database.base import QUERY_TIMEOUT, SERVICE_TIMEOUT, is_loopback
@@ -72,7 +97,25 @@ READ_ONLY_PROBES: tuple[tuple[object, ...], ...] = (("pg_lsclusters", "--no-head
 CHECK_TIMEOUT = 120
 
 #: How long Noust waits for an engine to answer after a restart, in seconds.
-WAIT_SECONDS = 60
+#: Generous on purpose: a healthy engine that is slow to start must not be
+#: rolled back half way through it.
+WAIT_SECONDS = 120
+
+#: How long Noust keeps waiting while the engine says it is still starting
+#: (systemd's ``activating``, Redis's ``LOADING``), in seconds: a large data
+#: set loads, or a crash is recovered, for as long as it takes, up to this.
+LOADING_SECONDS = 900
+
+#: Deadline of ``systemctl restart``, which returns only once the engine has
+#: started: MySQL's crash recovery and a large Redis data set happen inside it.
+RESTART_TIMEOUT = 900
+
+#: How long a Redis snapshot taken before a restart may take, in seconds.
+SNAPSHOT_SECONDS = 900
+
+#: The largest share of the server's memory a cache setting may take; the
+#: rest is what the system and the applications run in.
+MEMORY_SHARE = 0.9
 
 #: Lines of the engine's journal an error carries.
 JOURNAL_LINES = 50
@@ -168,6 +211,8 @@ class SettingSpec:
         words: How this engine spells true and false.
         editable: Whether Noust changes it.
         locked_reason: Why not, when it does not.
+        memory_share: The largest share of the server's memory a size may
+            take (a cache), None for the whole of it.
     """
 
     key: str
@@ -183,6 +228,7 @@ class SettingSpec:
     words: tuple[str, str] = ("on", "off")
     editable: bool = True
     locked_reason: str | None = None
+    memory_share: float | None = None
 
     @property
     def listen(self) -> bool:
@@ -392,6 +438,16 @@ def parse_value(spec: SettingSpec, raw: str, engine: str, resources: Resources) 
     maximum = spec.maximum
     if spec.kind in ("size", "gigabytes") and resources.memory_bytes:
         memory = resources.memory_bytes if spec.kind == "size" else resources.memory_bytes / 1024**3
+        if spec.memory_share is not None:
+            share = memory * spec.memory_share
+            if number > share and (maximum is None or share < maximum):
+                raise _refuse(
+                    spec,
+                    f"{spec.key} is at most {_shown(spec, share)}, "
+                    f"{spec.memory_share:.0%} of this server's memory",
+                    "The rest is what the system and the applications run in: a cache that "
+                    "takes all of it makes the server swap, or the kernel kill the engine.",
+                )
         maximum = min(maximum, memory) if maximum is not None else memory
     if maximum is not None and number > maximum:
         raise _refuse(spec, f"{spec.key} is at most {_shown(spec, maximum)}")
@@ -796,12 +852,7 @@ class EngineSettings(ABC):
         Raises:
             DatabaseError: When the engine refuses one.
         """
-        result = self.manager._exec(["systemctl", "reload", self.unit()], timeout=SERVICE_TIMEOUT)
-        if not result.success:
-            raise DatabaseEngineError(
-                f"{self.display_name()} did not reload",
-                output=(result.stderr or result.stdout).strip() or None,
-            )
+        self._reload()
 
     def after(self, changed: Sequence[str], values: Mapping[str, Any]) -> list[str]:
         """
@@ -815,6 +866,76 @@ class EngineSettings(ABC):
             Warnings, in English.
         """
         return []
+
+    def config_paths(self) -> list[Path]:
+        """
+        Name the paths that must not be symbolic links.
+
+        Noust writes as root into directories the engine's own account may
+        own (``/etc/postgresql/<v>/<c>`` is ``postgres``'s, ``/etc/redis``
+        ``redis``'s): a link there would turn a settings change into a root
+        write wherever that account points it.
+
+        Returns:
+            The directory of Noust's file, the file itself and, in a subclass,
+            the engine's main file and the directories above it it owns.
+        """
+        path = self.settings_file()
+        return [path.parent, path]
+
+    def listen_fallback(self) -> tuple[str, ...] | None:
+        """
+        Say where the engine listens when Noust's file sets no address.
+
+        Returns:
+            Every address the engine's other configuration gives (all of
+            them, not only the one that wins, so a loopback answer is never
+            a guess), the engine's default when it gives none, or None when
+            Noust cannot tell.
+        """
+        return None
+
+    def confirmations(self, changes: Mapping[str, Any], live: Mapping[str, LiveValue]) -> list[str]:
+        """
+        Name what the changes would cost, for the operator to accept first.
+
+        Args:
+            changes: The changed settings and their new canonical values;
+                None for a setting removed from Noust's file.
+            live: What the engine reports now.
+
+        Returns:
+            One warning per cost, in English; none by default.
+        """
+        return []
+
+    def before_restart(self, *, strict: bool) -> None:
+        """
+        Make a restart lose nothing the engine holds only in memory.
+
+        Args:
+            strict: Raise when it cannot be done (before a restart Noust
+                chose), rather than log it (before the restart that puts the
+                previous settings back, which must happen anyway).
+
+        Raises:
+            DatabaseEngineError: When ``strict`` and it cannot be done.
+        """
+        return None
+
+    def starting(self) -> bool:
+        """
+        Tell whether the engine is still starting, rather than down.
+
+        systemd says ``activating`` while a unit starts: MySQL's crash
+        recovery, PostgreSQL replaying its log. Waiting for it is what keeps
+        a slow, healthy start from being rolled back half way.
+
+        Returns:
+            True while the engine's unit is starting or reloading.
+        """
+        result = self.manager._exec(["systemctl", "is-active", self.unit()], timeout=QUERY_TIMEOUT)
+        return result.stdout.strip() in ("activating", "reloading")
 
     # -- the one sequence ---------------------------------------------------------
 
@@ -878,7 +999,11 @@ class EngineSettings(ABC):
 
         Returns:
             The report.
+
+        Raises:
+            DatabaseEngineError: When a configuration path is a symbolic link.
         """
+        self._guard_links()
         path = self.settings_file()
         configured = self._configured(_read(path))
         live = self.live_values()
@@ -912,7 +1037,7 @@ class EngineSettings(ABC):
         self,
         requested: Mapping[str, str],
         *,
-        confirm_exposure: bool = False,
+        confirm: bool = False,
         remote_listen_allowed: bool = True,
     ) -> SettingsOutcome:
         """
@@ -921,19 +1046,26 @@ class EngineSettings(ABC):
         Args:
             requested: New values by key, as typed; ``default`` removes a
                 setting from Noust's file.
-            confirm_exposure: The operator accepted that the engine will
-                listen beyond loopback.
-            remote_listen_allowed: Whether the security profile allows it.
+            confirm: The operator accepted what the change costs: listening
+                beyond loopback, a Redis that would refuse writes or drop
+                keys, persistence turned off (:class:`ConfirmationRequired`
+                names each one).
+            remote_listen_allowed: Whether the security profile allows
+                listening beyond loopback.
 
         Returns:
             What changed and how it was applied.
 
         Raises:
             ValidationError: For an unknown setting, a value that is not
-                acceptable, an exposure not confirmed or not allowed.
-            DatabaseEngineError: When the engine did not come back on the new
-                settings; the previous ones are back, and the error carries
-                the checker's output or the engine's journal.
+                acceptable, or an exposure the profile does not allow.
+            ConfirmationRequired: When the change costs something and
+                ``confirm`` is not given; nothing was changed.
+            DatabaseEngineError: When another change of this engine's
+                settings is running, a configuration path is a symbolic link,
+                or the engine did not come back on the new settings; the
+                previous ones are back, and the error carries the checker's
+                output or the engine's journal.
         """
         if not requested:
             raise ValidationError("No setting to change", field="values")
@@ -950,30 +1082,26 @@ class EngineSettings(ABC):
                 changes[key] = None
             else:
                 changes[key] = parse_value(spec, raw, self.ENGINE, self.resources)
+        with self._locked():
+            self._guard_links()
+            return self._apply(
+                changes, confirm=confirm, remote_listen_allowed=remote_listen_allowed
+            )
 
-        exposing = [
-            (key, value)
-            for key, value in changes.items()
-            if value is not None and self._spec(key).listen and _beyond_loopback(value)
-        ]
-        if exposing:
-            key, value = exposing[0]
-            if not remote_listen_allowed:
-                raise ValidationError(
-                    f"The ENS profile does not let {self.display_name()} listen beyond this server",
-                    details=(
-                        "Under security.profile ens-medium engines are reached through an SSH "
-                        "tunnel: 'noust db connect' prints one."
-                    ),
-                    field=key,
-                )
-            if not confirm_exposure:
-                raise ValidationError(
-                    exposure_warning(self.display_name(), value),
-                    details="Confirm it to go ahead (--yes, or confirm_exposure in the API).",
-                    field="confirm_exposure",
-                )
+    def _apply(
+        self, changes: Mapping[str, Any], *, confirm: bool, remote_listen_allowed: bool
+    ) -> SettingsOutcome:
+        """
+        The one write-check-apply-wait-or-put-back sequence, under the engine's lock.
 
+        Args:
+            changes: The requested values, canonical; None removes one.
+            confirm: See :meth:`apply`.
+            remote_listen_allowed: See :meth:`apply`.
+
+        Returns:
+            What changed and how it was applied.
+        """
         path = self.settings_file()
         previous = _read(path)
         configured = self._configured(previous)
@@ -987,43 +1115,234 @@ class EngineSettings(ABC):
         if not changed:
             return SettingsOutcome(self.ENGINE, self.display_name(), str(path), [], "none")
 
+        listen_key = self._listen_key()
+        exposing = self._exposing(changed, merged)
+        if exposing is not None and not remote_listen_allowed:
+            raise self._ens_refusal(listen_key)
         live = self.live_values()
+        pending = [self._exposure_text(exposing)] if exposing is not None else []
+        pending += self.confirmations({key: merged.get(key) for key in changed}, live)
+        if pending and not confirm:
+            raise ConfirmationRequired(pending)
+
         restart = any(self._needs_restart(key, live, merged) for key in changed)
         text = self.render_file(previous, merged)
         included = [(target, _read(target), new) for target, new in self.includes()]
 
         written: list[tuple[Path, str | None]] = []
         stage = "write"
+        committed = False
+        put_back = False
+        exposed_now: bool | None = None
         try:
             for target, before, new in included:
-                self._write(target, new, preserve=True)
+                # Recorded before the write: _write can fail after the file was
+                # replaced (handing it back to its owner), and a file that is
+                # not on the list is never put back.
                 written.append((target, before))
-            self._write(path, text, preserve=not self.OWN_FILE)
+                self._write(target, new, preserve=True)
             written.append((path, previous))
+            self._write(path, text, preserve=not self.OWN_FILE)
             self.check(changed)
-            stage = "restart" if restart else "runtime"
             if restart:
+                self.before_restart(strict=True)
+                stage = "restart"
                 self._restart()
             else:
+                stage = "runtime"
                 self.apply_runtime({key: merged.get(key) for key in changed})
             if not self._wait():
                 raise DatabaseEngineError(f"{self.display_name()} did not answer")
+            if listen_key in changed:
+                exposed_now = self._listening_now(
+                    listen_key,
+                    accepted=exposing is not None,
+                    confirm=confirm,
+                    remote_listen_allowed=remote_listen_allowed,
+                )
+            committed = True
         except DatabaseError as exc:
+            put_back = True
             raise self._put_back(written, exc, stage=stage, live=live, changed=changed) from exc
+        finally:
+            if not committed and not put_back:
+                # Anything else - an interruption, a cancelled job, an exposure
+                # found only once the engine answered - leaves the engine on
+                # the previous files too; the exception itself goes on up.
+                self._put_back_after_interruption(written, stage=stage, live=live, changed=changed)
 
         warnings = self.after(changed, merged)
-        if exposing:
-            warnings.append(exposure_warning(self.display_name(), exposing[0][1]))
-        listening = merged.get(next((s.key for s in self.specs() if s.listen), ""), ())
+        if listen_key in changed:
+            if exposed_now is not None:
+                exposed = exposed_now
+            elif listen_key in merged:
+                exposed = _beyond_loopback(merged[listen_key])
+            else:
+                exposed = exposing is not None
+        else:
+            entry = live.get(listen_key)
+            exposed = _beyond_loopback(entry.value if entry else merged.get(listen_key, ()))
+        if exposed and listen_key in changed:
+            warnings.append(self._exposure_text(exposing or ()))
         return SettingsOutcome(
             engine=self.ENGINE,
             display_name=self.display_name(),
             file=str(path),
             changed=changed,
             action="restart" if restart else ("runtime" if self.RUNTIME else "reload"),
-            exposed=_beyond_loopback(listening),
+            exposed=exposed,
             warnings=warnings,
         )
+
+    def _listen_key(self) -> str:
+        """
+        Returns:
+            The key of the setting that decides where the engine listens.
+        """
+        return next(spec.key for spec in self.specs() if spec.listen)
+
+    def _exposing(
+        self, changed: Sequence[str], merged: Mapping[str, Any]
+    ) -> tuple[str, ...] | None:
+        """
+        Tell whether the change makes the engine listen beyond loopback.
+
+        A listen setting removed from Noust's file is not "no exposure": the
+        engine falls back to what its other configuration says, which may be
+        every address. It counts as exposing unless that fallback is known to
+        be loopback.
+
+        Args:
+            changed: The keys that change.
+            merged: The values Noust's file will set.
+
+        Returns:
+            The addresses it would listen on, ``()`` when they cannot be known,
+            or None when it stays on loopback.
+        """
+        key = self._listen_key()
+        if key not in changed:
+            return None
+        if key in merged:
+            value = merged[key]
+            return tuple(_split_addresses(value)) if _beyond_loopback(value) else None
+        fallback = self.listen_fallback()
+        if fallback is None:
+            return ()
+        return fallback if _beyond_loopback(fallback) else None
+
+    def _exposure_text(self, addresses: tuple[str, ...]) -> str:
+        """
+        Say what the exposure means.
+
+        Args:
+            addresses: Where the engine will listen, ``()`` when unknown.
+
+        Returns:
+            The warning, in English.
+        """
+        if addresses:
+            return exposure_warning(self.display_name(), addresses)
+        return exposure_warning(
+            self.display_name(),
+            ("wherever its other configuration says, which Noust cannot tell is this server only",),
+        )
+
+    def _ens_refusal(self, key: str) -> ValidationError:
+        """
+        Build the refusal of an exposure under the ENS profile.
+
+        Args:
+            key: The listen setting.
+
+        Returns:
+            The error.
+        """
+        return ValidationError(
+            f"The ENS profile does not let {self.display_name()} listen beyond this server",
+            details=(
+                "Under security.profile ens-medium engines are reached through an SSH "
+                "tunnel: 'noust db connect' prints one."
+            ),
+            field=key,
+        )
+
+    def _listening_now(
+        self, key: str, *, accepted: bool, confirm: bool, remote_listen_allowed: bool
+    ) -> bool | None:
+        """
+        Read where the engine listens once it answers, and hold it to what was accepted.
+
+        The files said one thing; the running engine is the truth. When it
+        listens beyond loopback and that was neither foreseen and confirmed
+        nor allowed, the change is refused here and put back by the caller.
+
+        Args:
+            key: The listen setting.
+            accepted: The exposure was foreseen, so allowed and confirmed.
+            confirm: The operator confirmed the change.
+            remote_listen_allowed: Whether the security profile allows it.
+
+        Returns:
+            Whether it listens beyond loopback; None when it does not say
+            (or under a rehearsal, where nothing ran).
+
+        Raises:
+            ValidationError: The profile does not allow what it listens on.
+            ConfirmationRequired: It was not confirmed.
+        """
+        if is_rehearsal():
+            return None
+        entry = self.live_values().get(key)
+        if entry is None:
+            return None
+        addresses = tuple(_split_addresses(entry.value))
+        exposed = _beyond_loopback(addresses)
+        if exposed and not accepted:
+            if not remote_listen_allowed:
+                raise self._ens_refusal(key)
+            if not confirm:
+                raise ConfirmationRequired([exposure_warning(self.display_name(), addresses)])
+        return exposed
+
+    @contextmanager
+    def _locked(self) -> Iterator[None]:
+        """
+        Hold this engine's settings lock: one change at a time.
+
+        Two changes interleaved would each put back the other's files on a
+        failure. The lock is the applications' own
+        (:func:`noust.core.applock.app_lock`), under a name no domain can have.
+
+        Yields:
+            Nothing; the lock is held until the block exits.
+
+        Raises:
+            DatabaseEngineError: Another change of this engine's settings is
+                running.
+        """
+        with ExitStack() as stack:
+            try:
+                stack.enter_context(app_lock(f"database-settings@{self.ENGINE}", "settings change"))
+            except AppBusyError as exc:
+                running = (
+                    f" (pid {exc.holder.pid}, since {exc.holder.started_at})" if exc.holder else ""
+                )
+                raise DatabaseEngineError(
+                    f"Another change of {self.display_name()}'s settings is running{running}",
+                    details="Wait for it to finish, then try again.",
+                ) from exc
+            yield
+
+    def _guard_links(self) -> None:
+        """
+        Refuse to read or write the configuration through a symbolic link.
+
+        Raises:
+            DatabaseEngineError: When one of :meth:`config_paths` is a link.
+        """
+        for path in self.config_paths():
+            _refuse_link(path)
 
     def _needs_restart(self, key: str, live: Mapping[str, LiveValue], merged: Mapping) -> bool:
         """
@@ -1058,14 +1377,25 @@ class EngineSettings(ABC):
                 files are root's, 0644, and hold no secret.
 
         Raises:
-            DatabaseEngineError: When the file cannot be written or handed back.
+            DatabaseEngineError: When the file cannot be written or handed
+                back, or it or its directory is a symbolic link.
         """
+        # Checked again right before the write, so the window a link could be
+        # swapped in through is as narrow as it can be made.
+        _refuse_link(path.parent)
+        _refuse_link(path)
         mode, owner = 0o644, None
-        if preserve and path.exists():
-            info = path.stat()
-            mode = info.st_mode & 0o7777
-            if info.st_uid != 0 or info.st_gid != 0:
-                owner = (info.st_uid, info.st_gid)
+        if preserve:
+            try:
+                info: os.stat_result | None = os.lstat(path)
+            except FileNotFoundError:
+                info = None
+            except OSError as exc:
+                raise DatabaseEngineError(f"Could not look at {path}", details=str(exc)) from exc
+            if info is not None:
+                mode = info.st_mode & 0o7777
+                if info.st_uid != 0 or info.st_gid != 0:
+                    owner = (info.st_uid, info.st_gid)
         try:
             self.manager.fs.make_dir(path.parent, mode=0o755)
             self.manager.fs.write_text(path, text, mode=mode)
@@ -1094,10 +1424,24 @@ class EngineSettings(ABC):
         Raises:
             DatabaseEngineError: When systemd reports the restart failed.
         """
-        result = self.manager._exec(["systemctl", "restart", self.unit()], timeout=SERVICE_TIMEOUT)
+        result = self.manager._exec(["systemctl", "restart", self.unit()], timeout=RESTART_TIMEOUT)
         if not result.success:
             raise DatabaseEngineError(
                 f"{self.display_name()} did not restart",
+                output=(result.stderr or result.stdout).strip() or None,
+            )
+
+    def _reload(self) -> None:
+        """
+        Have the engine's unit read its files again.
+
+        Raises:
+            DatabaseEngineError: When systemd reports the reload failed.
+        """
+        result = self.manager._exec(["systemctl", "reload", self.unit()], timeout=SERVICE_TIMEOUT)
+        if not result.success:
+            raise DatabaseEngineError(
+                f"{self.display_name()} did not reload",
                 output=(result.stderr or result.stdout).strip() or None,
             )
 
@@ -1106,14 +1450,22 @@ class EngineSettings(ABC):
         Wait for the engine to answer.
 
         Returns:
-            Whether it did within :data:`WAIT_SECONDS`.
+            Whether it did within :data:`WAIT_SECONDS`, or within
+            :data:`LOADING_SECONDS` while it says it is still starting. Under
+            a rehearsal nothing was restarted, so there is nothing to wait for.
         """
-        for attempt in range(WAIT_SECONDS):
+        if is_rehearsal():
+            return True
+        waited = 0
+        while True:
             if self.ping():
                 return True
-            if attempt < WAIT_SECONDS - 1:
-                _sleep(1)
-        return False
+            if waited >= LOADING_SECONDS:
+                return False
+            if waited >= WAIT_SECONDS and not self.starting():
+                return False
+            _sleep(1)
+            waited += 1
 
     def journal(self) -> str:
         """
@@ -1127,6 +1479,37 @@ class EngineSettings(ABC):
             timeout=QUERY_TIMEOUT,
         )
         return (result.stdout if result.success else result.stderr).strip()
+
+    def _put_back_after_interruption(
+        self,
+        written: list[tuple[Path, str | None]],
+        *,
+        stage: str,
+        live: Mapping[str, LiveValue],
+        changed: Sequence[str],
+    ) -> None:
+        """
+        Put the previous settings back while an exception other than a database error goes up.
+
+        Args:
+            written: The files written so far, with what they held.
+            stage: How far the change got (see :meth:`_put_back`).
+            live: What the engine reported before.
+            changed: The keys that changed.
+        """
+        if not written:
+            return
+        outcome = self._put_back(
+            written,
+            DatabaseEngineError("The change was interrupted"),
+            stage=stage,
+            live=live,
+            changed=changed,
+        )
+        self.manager.logger.warning(
+            f"{self.display_name()}'s settings change stopped half way. {outcome.message}. "
+            f"{outcome.details}".strip()
+        )
 
     def _put_back(
         self,
@@ -1165,6 +1548,7 @@ class EngineSettings(ABC):
         restarted = stage == "restart"
         back = True
         if restarted:
+            self.before_restart(strict=False)
             try:
                 self._restart()
             except DatabaseEngineError as exc:
@@ -1174,8 +1558,20 @@ class EngineSettings(ABC):
             previous = {key: live[key].value for key in changed if key in live}
             try:
                 self.restore_runtime(previous)
-            except DatabaseError as exc:
+            except (DatabaseError, ValidationError) as exc:
+                # A value the engine reported that Noust would not write (a
+                # wildcard, a unit it does not use) must not stop the rest of
+                # the way back.
                 problems.append(f"The running values could not all be put back: {exc.message}")
+        elif stage == "runtime":
+            # A reload that failed, or an engine that stopped answering after
+            # one, may already have read some of the new files: only reading
+            # the previous ones again puts it back on them.
+            try:
+                self._reload()
+            except DatabaseEngineError as exc:
+                problems.append(exc.message)
+            back = self._wait()
         if not back:
             problems.append(
                 f"{self.display_name()} did not come back on the previous settings either: "
@@ -1201,12 +1597,63 @@ class EngineSettings(ABC):
 
         Raises:
             DatabaseError: When the engine refuses one.
+            ValidationError: When a value it reported is not one Noust writes.
         """
         parsed = {
             key: parse_value(self._spec(key), value, self.ENGINE, Resources(0, 1))
             for key, value in previous.items()
         }
         self.apply_runtime(parsed)
+
+
+def _split_addresses(addresses: Any) -> list[str]:
+    """
+    Turn listen addresses into a list.
+
+    Args:
+        addresses: A tuple of addresses, a value kept from a file that is not
+            Noust's alone, or an engine's own text (``127.0.0.1 -::1``).
+
+    Returns:
+        The addresses.
+    """
+    if isinstance(addresses, Kept):
+        addresses = addresses.text
+    if isinstance(addresses, str):
+        return [part for part in re.split(r"[\s,]+", addresses) if part]
+    return [str(address) for address in addresses]
+
+
+def _refuse_link(path: Path) -> None:
+    """
+    Refuse a configuration path that is a symbolic link.
+
+    Args:
+        path: A file or directory; one that does not exist passes.
+
+    Raises:
+        DatabaseEngineError: When it is a link, or cannot be looked at.
+    """
+    try:
+        info = os.lstat(path)
+    except FileNotFoundError:
+        return
+    except OSError as exc:
+        raise DatabaseEngineError(f"Could not look at {path}", details=str(exc)) from exc
+    if not stat.S_ISLNK(info.st_mode):
+        return
+    try:
+        target = f"It points to {os.readlink(path)}. "
+    except OSError:
+        target = ""
+    raise DatabaseEngineError(
+        f"{path} is a symbolic link, so Noust will not read or write the settings through it",
+        details=(
+            f"{target}Noust writes as root, and whoever owns the engine's configuration could "
+            "point a link anywhere. Replace the link with the file or directory itself, then "
+            "try again."
+        ),
+    )
 
 
 def _beyond_loopback(addresses: Any) -> bool:
@@ -1220,8 +1667,7 @@ def _beyond_loopback(addresses: Any) -> bool:
     Returns:
         True when any address is not a loopback one.
     """
-    if isinstance(addresses, Kept):
-        addresses = [part for part in re.split(r"[\s,]+", addresses.text) if part]
+    addresses = _split_addresses(addresses)
     return bool(addresses) and not all(is_loopback(str(a).lstrip("-")) for a in addresses)
 
 
@@ -1243,22 +1689,45 @@ def _account_name(number: int, lookup: Callable[[int], Any], attribute: str) -> 
         return str(number)
 
 
-def _read(path: Path) -> str | None:
+def _read(path: Path, *, follow_links: bool = False) -> str | None:
     """
-    Read a file, if it exists.
+    Read a configuration file, if it exists.
 
     Args:
         path: The file.
+        follow_links: Follow a symbolic link at the path. Only for a file
+            Noust reads to learn something and never writes (Debian's
+            ``my.cnf`` is a link through the alternatives system); a file it
+            rewrites is refused when it is a link.
 
     Returns:
         Its text, or None.
+
+    Raises:
+        DatabaseEngineError: When it cannot be read, is not a regular file,
+            is not UTF-8, or is a symbolic link not to be followed.
     """
+    flags = os.O_RDONLY | os.O_CLOEXEC | (0 if follow_links else os.O_NOFOLLOW)
     try:
-        return path.read_text(encoding="utf-8")
+        descriptor = os.open(path, flags)
     except FileNotFoundError:
         return None
     except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            _refuse_link(path)
         raise DatabaseEngineError(f"Could not read {path}", details=str(exc)) from exc
+    with os.fdopen(descriptor, "rb") as handle:
+        if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+            raise DatabaseEngineError(
+                f"{path} is not a regular file", details="Replace it with the file itself."
+            )
+        data = handle.read()
+    try:
+        return data.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise DatabaseEngineError(
+            f"{path} is not UTF-8 text, so Noust will not rewrite it", details=str(exc)
+        ) from exc
 
 
 def _round_mb(size: float, minimum: int = 0) -> int:
@@ -1336,6 +1805,7 @@ POSTGRES_SPECS: tuple[SettingSpec, ...] = (
         "the server's memory is the usual start.",
         unit="MB",
         minimum=16 * _MEGABYTE,
+        memory_share=MEMORY_SHARE,
     ),
     SettingSpec(
         "effective_cache_size",
@@ -1384,6 +1854,21 @@ POSTGRES_SPECS: tuple[SettingSpec, ...] = (
 )
 
 
+#: A value as PostgreSQL's configuration reads it: quoted (a quote doubled
+#: inside) or bare, after ``=`` or a space.
+_PG_VALUE = r"[ \t]*(?:=[ \t]*|[ \t]+)(?:'((?:[^']|'')*)'|([^\s#']+))"
+
+#: ``include_dir`` in any spelling PostgreSQL accepts; the keyword is
+#: case-insensitive.
+_PG_INCLUDE_DIR = re.compile(r"^[ \t]*include_dir" + _PG_VALUE, re.IGNORECASE | re.MULTILINE)
+
+#: ``include`` and ``include_if_exists``: a file Noust does not follow.
+_PG_INCLUDE = re.compile(r"^[ \t]*include(?:_if_exists)?" + _PG_VALUE, re.IGNORECASE | re.MULTILINE)
+
+#: ``listen_addresses`` in any spelling.
+_PG_LISTEN = re.compile(r"^[ \t]*listen_addresses" + _PG_VALUE, re.IGNORECASE | re.MULTILINE)
+
+
 @dataclass(frozen=True)
 class Cluster:
     """
@@ -1425,13 +1910,20 @@ class PostgresSettings(EngineSettings):
 
     def cluster(self) -> Cluster:
         """
-        Find the cluster Noust administers: the first one online, else the first.
+        Find the cluster Noust administers: the one online, or the only one.
+
+        Every step then targets that cluster by name (its files, its unit,
+        its checker, and ``PGCLUSTER`` for psql), so the file written, the
+        values read and the server waited for are the same cluster's. With
+        several clusters running there is no single answer, and guessing one
+        would write one cluster's file and judge it by another's answers.
 
         Returns:
             The cluster.
 
         Raises:
-            DatabaseEngineError: When ``pg_lsclusters`` lists none.
+            DatabaseEngineError: When ``pg_lsclusters`` lists none, or several
+                run (or several exist and none runs).
         """
         if self._cluster is not None:
             return self._cluster
@@ -1450,8 +1942,110 @@ class PostgresSettings(EngineSettings):
                 ),
                 output=(result.stderr or result.stdout).strip() or None,
             )
-        self._cluster = next((cluster for cluster in clusters if cluster.online), clusters[0])
+        online = [cluster for cluster in clusters if cluster.online]
+        candidates = online or clusters
+        if len(candidates) > 1:
+            names = ", ".join(f"{cluster.version}/{cluster.name}" for cluster in candidates)
+            raise DatabaseEngineError(
+                f"Several PostgreSQL clusters {'run' if online else 'exist'} ({names}), so Noust "
+                "cannot tell which one to configure",
+                details=(
+                    "Noust configures a server with one cluster. Stop the ones you no longer use "
+                    "(pg_ctlcluster <version> <name> stop, and set it to manual in its "
+                    "start.conf), or edit each cluster's postgresql.conf by hand."
+                ),
+                output=(result.stdout or result.stderr).strip() or None,
+            )
+        self._cluster = candidates[0]
         return self._cluster
+
+    def _sql(self, query: str) -> tuple[bool, str]:
+        """
+        Run SQL on the cluster Noust configures, not on pg_wrapper's default.
+
+        Args:
+            query: The statement, built from this module's constants.
+
+        Returns:
+            Whether psql succeeded, and its output or its error text.
+        """
+        cluster = self.cluster()
+        return self.manager._execute_sql(  # type: ignore[attr-defined,no-any-return]
+            query, env={"PGCLUSTER": f"{cluster.version}/{cluster.name}"}
+        )
+
+    def config_paths(self) -> list[Path]:
+        """
+        Returns:
+            ``/etc/postgresql/<version>``, the cluster's directory (owned by
+            ``postgres``), ``conf.d``, Noust's file and ``postgresql.conf``.
+        """
+        directory = self._config_dir()
+        return [
+            directory.parent,
+            directory,
+            *super().config_paths(),
+            directory / "postgresql.conf",
+        ]
+
+    def listen_fallback(self) -> tuple[str, ...] | None:
+        """
+        Read ``listen_addresses`` from every other file of the cluster.
+
+        Returns:
+            Every address ``postgresql.conf``, the other files of ``conf.d``
+            and ``postgresql.auto.conf`` set; ``localhost``, PostgreSQL's
+            default, when none does; None when a file cannot be read or
+            includes one Noust does not follow.
+        """
+        directory = self._config_dir()
+        main = directory / "postgresql.conf"
+        ours = self.settings_file()
+        try:
+            texts = [_read(main)]
+            others = sorted(path for path in ours.parent.glob("*.conf") if path != ours)
+            texts += [_read(path, follow_links=True) for path in others]
+            cluster = self.cluster()
+            texts.append(
+                _read(
+                    flavours.HOST.at(f"{cluster.data_directory}/postgresql.auto.conf"),
+                    follow_links=True,
+                )
+            )
+        except (OSError, DatabaseEngineError):
+            return None
+        found: list[str] = []
+        for text in texts:
+            if text is None:
+                continue
+            if _PG_INCLUDE.search(text):
+                return None
+            if any(
+                not self._is_our_include_dir(main, match)
+                for match in _PG_INCLUDE_DIR.finditer(text)
+            ):
+                return None
+            for match in _PG_LISTEN.finditer(text):
+                found += _split_addresses(
+                    match.group(1) if match.group(1) is not None else match.group(2)
+                )
+        return tuple(found) or ("localhost",)
+
+    def _is_our_include_dir(self, main: Path, match: re.Match[str]) -> bool:
+        """
+        Tell whether an ``include_dir`` line names the cluster's ``conf.d``.
+
+        Args:
+            main: The ``postgresql.conf`` it is in, which a relative path is
+                read from.
+            match: The line, matched by :data:`_PG_INCLUDE_DIR`.
+
+        Returns:
+            True when it is the directory Noust's file is in.
+        """
+        value = match.group(1).replace("''", "'") if match.group(1) is not None else match.group(2)
+        target = flavours.HOST.at(value) if value.startswith("/") else main.parent / value
+        return os.path.normpath(target) == os.path.normpath(self.settings_file().parent)
 
     def _config_dir(self) -> Path:
         """
@@ -1490,7 +2084,7 @@ class PostgresSettings(EngineSettings):
             raise DatabaseEngineError(
                 f"{main} does not exist", details="Noust configures Debian-style clusters."
             )
-        if re.search(r"^\s*include_dir\s*=\s*['\"]?conf\.d['\"]?", text, re.MULTILINE):
+        if any(self._is_our_include_dir(main, match) for match in _PG_INCLUDE_DIR.finditer(text)):
             return []
         addition = (
             "\n# Added by Noust: 'noust db settings postgresql' writes conf.d/90-noust.conf.\n"
@@ -1547,7 +2141,7 @@ class PostgresSettings(EngineSettings):
             "SELECT lower(name), current_setting(name), context, coalesce(sourcefile, '') "  # noqa: S608
             f"FROM pg_settings WHERE lower(name) IN ({names});"
         )
-        success, output = self.manager._execute_sql(query)  # type: ignore[attr-defined]
+        success, output = self._sql(query)
         if not success:
             return {}
         found: dict[str, LiveValue] = {}
@@ -1630,7 +2224,7 @@ class PostgresSettings(EngineSettings):
         Returns:
             Whether ``SELECT 1`` answers.
         """
-        success, _ = self.manager._execute_sql("SELECT 1;")  # type: ignore[attr-defined]
+        success, _ = self._sql("SELECT 1;")
         return bool(success)
 
     def after(self, changed: Sequence[str], values: Mapping[str, Any]) -> list[str]:
@@ -1714,6 +2308,7 @@ MYSQL_SPECS: tuple[SettingSpec, ...] = (
         unit="MB",
         restart=False,
         minimum=32 * _MEGABYTE,
+        memory_share=MEMORY_SHARE,
     ),
     SettingSpec(
         "innodb_log_file_size",
@@ -1808,6 +2403,40 @@ class MySQLSettings(EngineSettings):
                 ),
             )
         return folder / "99-noust.cnf"
+
+    def listen_fallback(self) -> tuple[str, ...] | None:
+        """
+        Read ``bind-address`` from every other option file of the server.
+
+        Returns:
+            Every address the other files set, in any section; ``*`` when
+            none does, which is where MySQL 8 and MariaDB listen by default;
+            None when a file cannot be read.
+        """
+        etc = flavours.HOST.at("/etc/mysql")
+        ours = self.settings_file()
+        candidates = [
+            etc / "my.cnf",
+            etc / "mysql.cnf",
+            etc / "mariadb.cnf",
+            etc / "debian.cnf",
+            flavours.HOST.at("/etc/my.cnf"),
+        ]
+        try:
+            for directory in ("conf.d", "mysql.conf.d", "mariadb.conf.d"):
+                candidates += sorted((etc / directory).glob("*.cnf"))
+            # Read, never written: Debian's my.cnf is a link through the
+            # alternatives system, and following it is the only way to read it.
+            texts = [_read(path, follow_links=True) for path in candidates if path != ours]
+        except (OSError, DatabaseEngineError):
+            return None
+        found: list[str] = []
+        for text in texts:
+            for line in (text or "").splitlines():
+                key, separator, value = line.strip().partition("=")
+                if separator and key.strip().lower().replace("_", "-") == "bind-address":
+                    found += _split_addresses(value.split("#", 1)[0].strip().strip("'\""))
+        return tuple(found) or ("*",)
 
     def read_file(self, text: str | None) -> dict[str, str]:
         """
@@ -2005,6 +2634,7 @@ REDIS_SPECS: tuple[SettingSpec, ...] = (
         unit="MB",
         restart=False,
         minimum=0,
+        memory_share=MEMORY_SHARE,
     ),
     SettingSpec(
         "maxmemory-policy",
@@ -2207,6 +2837,254 @@ class RedisSettings(EngineSettings):
         success, output = self.manager._execute_redis("PING")  # type: ignore[attr-defined]
         return bool(success) and "PONG" in output
 
+    def starting(self) -> bool:
+        """
+        Returns:
+            True while Redis answers ``LOADING`` (it is reading its data set
+            back into memory, which takes as long as the data set is large),
+            or its unit is starting.
+        """
+        _, output = self.manager._execute_redis("PING")  # type: ignore[attr-defined]
+        return "LOADING" in output or super().starting()
+
+    def config_paths(self) -> list[Path]:
+        """
+        Returns:
+            ``/etc/redis`` (owned by ``redis``), Noust's file and the server's.
+        """
+        return [*super().config_paths(), self._main_file()]
+
+    def listen_fallback(self) -> tuple[str, ...] | None:
+        """
+        Read ``bind`` from the server's own file.
+
+        Returns:
+            Every address its ``bind`` lines give; ``*`` when there is none,
+            since Redis then listens on every interface; None when the file
+            includes another one Noust does not follow.
+        """
+        text = _read(self._main_file())
+        if text is None:
+            return None
+        directive = f"include {self._directory()}/noust.conf"
+        found: list[str] = []
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            word, _, rest = stripped.partition(" ")
+            if word.lower() == "include" and stripped != directive:
+                return None
+            if word.lower() == "bind":
+                found += rest.split()
+        return tuple(found) or ("*",)
+
+    def _info(self, section: str) -> dict[str, str] | None:
+        """
+        Read one section of ``INFO``.
+
+        Args:
+            section: ``memory`` or ``persistence``.
+
+        Returns:
+            Its fields, or None when Redis did not answer.
+        """
+        success, output = self.manager._execute_redis("INFO", section)  # type: ignore[attr-defined]
+        if not success:
+            return None
+        fields: dict[str, str] = {}
+        for line in output.splitlines():
+            key, separator, value = line.strip().partition(":")
+            if separator:
+                fields[key] = value
+        return fields or None
+
+    def confirmations(self, changes: Mapping[str, Any], live: Mapping[str, LiveValue]) -> list[str]:
+        """
+        Name the changes that would lose data, or refuse the applications' writes.
+
+        - ``maxmemory`` below what Redis holds now: under ``noeviction`` every
+          write that needs memory fails; under any other policy keys are
+          dropped at once until it fits.
+        - ``appendonly no`` and ``save off``: what is written stops reaching
+          the disk the way it did.
+
+        Args:
+            changes: The changed settings and their new values.
+            live: What Redis reports now.
+
+        Returns:
+            One warning per cost.
+        """
+        name = self.display_name()
+        warnings: list[str] = []
+        if "maxmemory" in changes or "maxmemory-policy" in changes:
+            limit = changes.get("maxmemory") if "maxmemory" in changes else None
+            if "maxmemory" not in changes and "maxmemory" in live:
+                limit = _parsed(self._spec("maxmemory"), live["maxmemory"].value, self.ENGINE)
+            info = self._info("memory") if isinstance(limit, int) and limit > 0 else None
+            used = info.get("used_memory", "") if info else ""
+            if isinstance(limit, int) and used.isdigit() and limit < int(used):
+                policy = changes.get("maxmemory-policy") or (
+                    live["maxmemory-policy"].value if "maxmemory-policy" in live else "noeviction"
+                )
+                holds = f"{name} holds {_about(int(used))} now"
+                shown = format_size(limit)
+                if policy == "noeviction":
+                    warnings.append(
+                        f"{holds}. With maxmemory {shown} it refuses every write that needs "
+                        "more memory (OOM errors) until data is removed: applications that "
+                        "write to it will fail."
+                    )
+                else:
+                    warnings.append(
+                        f"{holds}. With maxmemory {shown} and {policy} it drops keys at once "
+                        "until it fits under the limit, and the keys it drops are gone."
+                    )
+        if changes.get("appendonly") is False and _live_text(live, "appendonly") != "no":
+            warnings.append(
+                f"With appendonly no, {name} stops logging every write: a crash or a restart "
+                "loses everything written since its last snapshot."
+            )
+        if changes.get("save", None) == () and _live_text(live, "save") != "off":
+            warnings.append(
+                f"With save off, {name} writes no snapshots: unless appendonly is on, a restart "
+                "loses everything it holds."
+            )
+        return warnings
+
+    def before_restart(self, *, strict: bool) -> None:
+        """
+        Have Redis write its data set to disk before Noust restarts it.
+
+        Whatever was written since the last snapshot, and is not in an
+        append-only file, would otherwise be lost with the process. A
+        background save is waited for rather than a ``SAVE``, which would
+        block every client, and the wait is long enough for a large data set.
+
+        Args:
+            strict: Raise when the snapshot cannot be taken (before a restart
+                Noust chose); otherwise log it and go on.
+
+        Raises:
+            DatabaseEngineError: When ``strict`` and the snapshot failed.
+        """
+        try:
+            self._snapshot()
+        except DatabaseEngineError as exc:
+            if strict:
+                raise
+            self.manager.logger.warning(
+                f"{self.display_name()} restarts without a fresh snapshot: {exc.message}"
+            )
+
+    def _snapshot(self) -> None:
+        """
+        Take a background snapshot and wait for it to finish.
+
+        Raises:
+            DatabaseEngineError: When Redis refuses it, it fails, or it does
+                not finish within :data:`SNAPSHOT_SECONDS`.
+        """
+        if is_rehearsal():
+            # Nothing is restarted under a rehearsal; the command is still
+            # handed to the runner so it is listed among what would run.
+            self.manager._execute_redis("BGSAVE")  # type: ignore[attr-defined]
+            return
+        self._snapshot_finished()  # one already running would refuse BGSAVE
+        success, output = self.manager._execute_redis("BGSAVE")  # type: ignore[attr-defined]
+        if not success:
+            raise DatabaseEngineError(
+                f"{self.display_name()} could not save its data before the restart",
+                details=(
+                    "Noust restarts it only once what it holds in memory is on disk. Look at "
+                    "its 'dir' and the free space there, then try again."
+                ),
+                output=output.strip() or None,
+            )
+        fields = self._snapshot_finished()
+        if fields.get("rdb_last_bgsave_status") != "ok":
+            raise DatabaseEngineError(
+                f"{self.display_name()}'s snapshot before the restart failed",
+                details="Its log says why: journalctl -u " + self.unit(),
+                output="\n".join(f"{key}:{value}" for key, value in fields.items()) or None,
+            )
+
+    def _snapshot_finished(self) -> dict[str, str]:
+        """
+        Wait until no background snapshot runs.
+
+        Returns:
+            ``INFO persistence`` once none does.
+
+        Raises:
+            DatabaseEngineError: When Redis does not say, or one is still
+                running after :data:`SNAPSHOT_SECONDS`.
+        """
+        for waited in range(SNAPSHOT_SECONDS + 1):
+            fields = self._info("persistence")
+            if fields is None or "rdb_bgsave_in_progress" not in fields:
+                raise DatabaseEngineError(
+                    f"Noust could not tell whether {self.display_name()} saved its data",
+                    details="INFO persistence did not answer, so the restart did not happen.",
+                )
+            if fields["rdb_bgsave_in_progress"] == "0":
+                return fields
+            if waited < SNAPSHOT_SECONDS:
+                _sleep(1)
+        raise DatabaseEngineError(
+            f"{self.display_name()}'s snapshot was still running after {SNAPSHOT_SECONDS} seconds",
+            details="Noust did not restart it. Try again once the snapshot has finished.",
+        )
+
+
+def _parsed(spec: SettingSpec, text: str, engine: str) -> Any:
+    """
+    Parse a value an engine reported, when it parses.
+
+    Args:
+        spec: The setting.
+        text: The engine's canonical text.
+        engine: The engine.
+
+    Returns:
+        The canonical value, or None.
+    """
+    try:
+        return parse_value(spec, text, engine, Resources(0, 1))
+    except ValidationError:
+        return None
+
+
+def _live_text(live: Mapping[str, LiveValue], key: str) -> str | None:
+    """
+    Args:
+        live: What the engine reports.
+        key: A setting.
+
+    Returns:
+        Its reported value, or None when it did not say.
+    """
+    entry = live.get(key)
+    return entry.value if entry else None
+
+
+def _about(size: int) -> str:
+    """
+    Show a size roughly, for a sentence.
+
+    Args:
+        size: Bytes.
+
+    Returns:
+        ``1.5GB``, ``300MB`` or ``512kB``.
+    """
+    if size >= 1024**3:
+        return f"{size / 1024**3:.1f}GB"
+    if size >= 1024**2:
+        return f"{size / 1024**2:.0f}MB"
+    return f"{max(size // 1024, 1)}kB"
+
 
 # ------------------------------------------------------------------- MongoDB
 
@@ -2287,6 +3165,21 @@ class MongoSettings(EngineSettings):
         from noust.managers.database import mongodb
 
         return Path(mongodb.MONGOD_CONF)
+
+    def config_paths(self) -> list[Path]:
+        """
+        Returns:
+            ``mongod.conf`` alone: its directory is ``/etc``, root's.
+        """
+        return [self.settings_file()]
+
+    def listen_fallback(self) -> tuple[str, ...] | None:
+        """
+        Returns:
+            ``127.0.0.1``: ``mongod.conf`` is its only file, and without
+            ``net.bindIp`` mongod listens on loopback (since MongoDB 3.6).
+        """
+        return ("127.0.0.1",)
 
     def _document(self, text: str | None) -> dict[str, Any]:
         """

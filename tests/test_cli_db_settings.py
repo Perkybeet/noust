@@ -23,7 +23,7 @@ from click.testing import CliRunner
 from noust.cli import app as cli_app
 from noust.cli.audit_policy import is_read_only
 from noust.cli.commands import db as db_cli
-from noust.core.exceptions import ValidationError
+from noust.core.exceptions import ConfirmationRequired
 from noust.managers.database import flavours
 from noust.managers.database.service import DatabaseService
 from noust.managers.server.host import HostPaths
@@ -57,8 +57,8 @@ def test_settings_assignments_reach_the_service(
 ) -> None:
     calls: list[tuple[str, dict[str, str], bool]] = []
 
-    def change(self, engine, values, *, confirm_exposure=False):
-        calls.append((engine, dict(values), confirm_exposure))
+    def change(self, engine, values, *, confirm=False):
+        calls.append((engine, dict(values), confirm))
         return outcome()
 
     monkeypatch.setattr(DatabaseService, "change_engine_settings", change)
@@ -83,22 +83,26 @@ def test_an_assignment_without_equals_is_a_usage_error(
     assert "KEY=VALUE" in result.output
 
 
-def test_an_exposure_asks_for_yes(
+def test_a_change_to_confirm_shows_every_warning_and_asks_for_yes(
     cli_runner: CliRunner, runner, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def change(self, engine, values, *, confirm_exposure=False):
-        raise ValidationError(
-            "PostgreSQL will accept connections from beyond this server (10.0.0.5).",
-            field="confirm_exposure",
+    def change(self, engine, values, *, confirm=False):
+        raise ConfirmationRequired(
+            [
+                "Redis holds 2.0GB now. With maxmemory 1GB it refuses every write.",
+                "With appendonly no, Redis stops logging every write.",
+            ]
         )
 
     monkeypatch.setattr(DatabaseService, "change_engine_settings", change)
 
     result = cli_runner.invoke(
-        cli_app.cli, ["db", "settings", "postgresql", "listen_addresses=10.0.0.5"]
+        cli_app.cli, ["db", "settings", "redis", "maxmemory=1GB", "appendonly=no"]
     )
 
     assert result.exit_code == 1
+    assert "refuses every write" in result.output
+    assert "stops logging every write" in result.output
     assert "--yes" in result.output
 
 

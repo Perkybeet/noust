@@ -494,23 +494,30 @@ def test_a_rehearsal_writes_nothing_and_restarts_nothing(root: Path, monkeypatch
 # ---------------------------------------------------------------- exposure
 
 
-def test_opening_an_engine_needs_a_confirmation(postgres: PostgresSettings, root: Path) -> None:
+def test_opening_an_engine_needs_a_confirmation(
+    postgres: PostgresSettings, scripted: ScriptedRunner, root: Path
+) -> None:
     with pytest.raises(ValidationError) as excinfo:
         postgres.apply({"listen_addresses": "10.0.0.5"})
 
-    assert excinfo.value.field == "confirm_exposure"
+    assert excinfo.value.field == "confirm"
     assert "beyond this server" in excinfo.value.message
     assert not (root / "etc/postgresql/16/main/conf.d/90-noust.conf").exists()
 
-    outcome = postgres.apply({"listen_addresses": "10.0.0.5"}, confirm_exposure=True)
+    # Restarted, the cluster reports where it listens now.
+    listening = PG_SETTINGS.replace("listen_addresses|localhost|", "listen_addresses|10.0.0.5|")
+    scripted.answer = pg_answers()
+    base = scripted.answer
+    scripted.answer = lambda argv, stdin: (
+        ok(listening) if stdin and "pg_settings" in stdin else base(argv, stdin)
+    )
+    outcome = postgres.apply({"listen_addresses": "10.0.0.5"}, confirm=True)
     assert outcome.exposed and any("firewall" in warning for warning in outcome.warnings)
 
 
 def test_the_ens_profile_refuses_opening_an_engine(postgres: PostgresSettings) -> None:
     with pytest.raises(ValidationError) as excinfo:
-        postgres.apply(
-            {"listen_addresses": "10.0.0.5"}, confirm_exposure=True, remote_listen_allowed=False
-        )
+        postgres.apply({"listen_addresses": "10.0.0.5"}, confirm=True, remote_listen_allowed=False)
 
     assert "ENS profile" in excinfo.value.message
 
@@ -582,7 +589,7 @@ def test_mariadb_writes_its_own_directory_checks_with_help_and_binds_one_address
     settings = mysql_settings(scripted, mariadb=True)
 
     with pytest.raises(ValidationError, match="takes one address"):
-        settings.apply({"bind-address": "127.0.0.1,10.0.0.5"}, confirm_exposure=True)
+        settings.apply({"bind-address": "127.0.0.1,10.0.0.5"}, confirm=True)
 
     outcome = settings.apply({"port": "3307"})
 
@@ -676,7 +683,7 @@ def test_redis_port_is_not_changed_by_noust(scripted: ScriptedRunner, root: Path
 
 def test_the_redis_report_reads_noust_s_file_back(scripted: ScriptedRunner, root: Path) -> None:
     settings = redis_settings(scripted)
-    settings.apply({"save": "off", "maxmemory-policy": "allkeys-lru"})
+    settings.apply({"save": "off", "maxmemory-policy": "allkeys-lru"}, confirm=True)
 
     report = {item.spec.key: item for item in settings.report().settings}
 

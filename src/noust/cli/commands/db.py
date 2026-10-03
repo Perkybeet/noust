@@ -41,7 +41,13 @@ import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.cli.panel_links import open_in_panel
-from noust.core.exceptions import DatabaseError, DatabaseQueryError, NoustError, ValidationError
+from noust.core.exceptions import (
+    ConfirmationRequired,
+    DatabaseError,
+    DatabaseQueryError,
+    NoustError,
+    ValidationError,
+)
 from noust.core.logger import Logger
 from noust.managers.database import (
     PROFILES,
@@ -387,7 +393,7 @@ def _settings(
     engine: str,
     assignments: Sequence[str],
     *,
-    confirm_exposure: bool,
+    confirm: bool,
     json_output: bool,
     logger: Logger,
 ) -> int:
@@ -397,7 +403,8 @@ def _settings(
     Args:
         engine: Engine name or alias.
         assignments: ``KEY=VALUE`` arguments; none to show the settings.
-        confirm_exposure: Accept that the engine will listen beyond loopback.
+        confirm: Accept what the change costs (listening beyond loopback,
+            writes refused or keys dropped, persistence off).
         json_output: Print the result as JSON.
         logger: Logger for progress and errors.
 
@@ -414,12 +421,13 @@ def _settings(
             _print_settings(report)
             return 0
         values = _parse_assignments(assignments)
-        outcome = service.change_engine_settings(engine, values, confirm_exposure=confirm_exposure)
+        outcome = service.change_engine_settings(engine, values, confirm=confirm)
+    except ConfirmationRequired as e:
+        for warning in e.warnings:
+            logger.warning(warning)
+        logger.info("Nothing was changed. Run it again with --yes to go ahead.")
+        return 1
     except NoustError as e:
-        if getattr(e, "field", None) == "confirm_exposure":
-            logger.warning(e.message)
-            logger.info("Run it again with --yes to go ahead.")
-            return 1
         logger.error(str(e))
         output = getattr(e, "output", None)
         if output:
@@ -2118,21 +2126,22 @@ def catalog(ctx: Context) -> None:
 @click.option(
     "--yes",
     "-y",
-    "confirm_exposure",
+    "confirm",
     is_flag=True,
-    help="Accept that the engine will listen beyond this server.",
+    help=(
+        "Accept what the change costs: listening beyond this server, a Redis that "
+        "refuses writes or drops keys, persistence turned off."
+    ),
 )
 @json_option("Print the settings or the outcome as JSON.")
 @pass_context
-def settings(
-    ctx: Context, engine: str, assignments: tuple[str, ...], confirm_exposure: bool
-) -> None:
+def settings(ctx: Context, engine: str, assignments: tuple[str, ...], confirm: bool) -> None:
     """Show an engine's settings, or change them with KEY=VALUE."""
     _exit(
         _settings(
             engine,
             assignments,
-            confirm_exposure=confirm_exposure,
+            confirm=confirm,
             json_output=ctx.json_output,
             logger=ctx.logger,
         )

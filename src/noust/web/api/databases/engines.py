@@ -225,7 +225,7 @@ class EngineSettingResponse(BaseModel):
             null when it depends on the applications.
         restart: Changing it restarts the engine.
         listen: It decides where the engine listens; a non-loopback value
-            needs ``confirm_exposure``.
+            needs ``confirm``.
         editable: Noust changes it; ``locked_reason`` says why not.
         source: The file the engine read the current value from (PostgreSQL).
     """
@@ -274,12 +274,16 @@ class EngineSettingsRequest(BaseModel):
     Attributes:
         values: New values by key, as text (``256MB``, ``on``, ``127.0.0.1``);
             ``default`` removes a setting from Noust's file.
-        confirm_exposure: The operator accepts that the engine will listen
-            beyond loopback. Without it such a change is refused with the
-            exposure warning, on the ``confirm_exposure`` field.
+        confirm: The operator accepts what the change costs: listening beyond
+            loopback, a Redis that would refuse writes or drop keys,
+            persistence turned off. Without it such a change is refused with
+            ``error`` ``confirmation_required``, every warning in
+            ``warnings``, on the ``confirm`` field; nothing is changed.
+        confirm_exposure: The older name of ``confirm``, still honoured.
     """
 
     values: dict[str, str] = Field(default_factory=dict)
+    confirm: bool = False
     confirm_exposure: bool = False
 
 
@@ -413,14 +417,14 @@ def put_engine_settings(
 
     Args:
         engine: Engine name.
-        request: The new values and the exposure confirmation.
+        request: The new values and the confirmation.
         session: The authenticated, elevated session.
 
     Returns:
         What changed and how it was applied.
     """
     outcome = service(session).change_engine_settings(
-        engine, request.values, confirm_exposure=request.confirm_exposure
+        engine, request.values, confirm=request.confirm or request.confirm_exposure
     )
     return EngineSettingsOutcomeResponse(**outcome.to_dict())
 

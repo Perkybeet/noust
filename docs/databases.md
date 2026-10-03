@@ -77,8 +77,28 @@ noust db settings mysql max_connections=default   # back to the engine's own def
 Each engine has a closed set of settings. They are written to Noust's own file
 (`conf.d/90-noust.conf` for PostgreSQL, `99-noust.cnf` for MySQL and MariaDB,
 `/etc/redis/noust.conf` for Redis and Valkey, and MongoDB's YAML), checked with the engine's own
-tool, applied, and put back if the engine does not come back. Listening beyond the loopback asks
-for confirmation (`--yes`) and is refused under the `ens-medium` profile.
+tool, applied, and put back if the engine does not come back, or if the change is interrupted half
+way. One change per engine runs at a time. A slow start (a large Redis data set loading, MySQL
+recovering after a crash) is waited for up to 15 minutes while the engine says it is still
+starting, rather than rolled back.
+
+A change that costs something is refused until it is confirmed (`--yes`, or `confirm` in the API,
+whose refusal lists every warning in `warnings`); nothing is written before that:
+
+- listening beyond the loopback, including removing a listen setting (`listen_addresses=default`)
+  when what the engine falls back to is not known to be the loopback. Under the `ens-medium`
+  profile it is refused outright, and an engine that turns out to listen beyond the loopback once
+  it restarts is put back on its previous settings;
+- a Redis `maxmemory` below what Redis holds now: with `noeviction` writes start failing, with any
+  other policy keys are dropped at once;
+- `appendonly no` or `save off` on Redis.
+
+Redis writes a snapshot (`BGSAVE`, waited for) before Noust restarts it, and the restart does not
+happen when the snapshot fails. Cache sizes (`shared_buffers`, `innodb_buffer_pool_size`,
+`maxmemory`) stop at 90% of the server's memory. A configuration file or directory that is a
+symbolic link is refused: Noust writes as root, and the engine's own account owns some of those
+directories. On a server with several PostgreSQL clusters running, Noust does not guess which one
+to configure and says so; every step targets the one cluster by name.
 
 ## Exposure
 

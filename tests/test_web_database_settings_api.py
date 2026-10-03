@@ -21,7 +21,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from noust.core.exceptions import ValidationError
+from noust.core.exceptions import ConfirmationRequired
 from noust.managers.database import flavours
 from noust.managers.database.service import DatabaseService
 from noust.managers.server.host import HostPaths
@@ -212,8 +212,8 @@ def test_changing_settings_needs_sudo_mode(
 ) -> None:
     calls: list[tuple[str, dict[str, str], bool]] = []
 
-    def change(self, engine, values, *, confirm_exposure=False):
-        calls.append((engine, dict(values), confirm_exposure))
+    def change(self, engine, values, *, confirm=False):
+        calls.append((engine, dict(values), confirm))
         return SimpleNamespace(
             to_dict=lambda: {
                 "engine": "postgresql",
@@ -241,14 +241,15 @@ def test_changing_settings_needs_sudo_mode(
     assert calls == [("postgresql", {"work_mem": "64MB"}, False)]
 
 
-def test_an_exposure_to_confirm_comes_back_on_its_field(
+def test_a_change_to_confirm_comes_back_with_every_warning(
     client: TestClient, engines, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def change(self, engine, values, *, confirm_exposure=False):
-        raise ValidationError(
-            "PostgreSQL will accept connections from beyond this server (10.0.0.5).",
-            details="Confirm it to go ahead.",
-            field="confirm_exposure",
+    def change(self, engine, values, *, confirm=False):
+        raise ConfirmationRequired(
+            [
+                "PostgreSQL will accept connections from beyond this server (10.0.0.5).",
+                "Something else to know.",
+            ]
         )
 
     monkeypatch.setattr(DatabaseService, "change_engine_settings", change)
@@ -260,4 +261,42 @@ def test_an_exposure_to_confirm_comes_back_on_its_field(
     )
 
     assert response.status_code == 400
-    assert "confirm_exposure" in response.json()["fields"]
+    body = response.json()
+    assert body["error"] == "confirmation_required"
+    assert "confirm" in body["fields"]
+    assert body["warnings"] == [
+        "PostgreSQL will accept connections from beyond this server (10.0.0.5).",
+        "Something else to know.",
+    ]
+
+
+@pytest.mark.parametrize("field", ["confirm", "confirm_exposure"])
+def test_either_confirmation_field_confirms(
+    client: TestClient, engines, monkeypatch: pytest.MonkeyPatch, field: str
+) -> None:
+    calls: list[bool] = []
+
+    def change(self, engine, values, *, confirm=False):
+        calls.append(confirm)
+        return SimpleNamespace(
+            to_dict=lambda: {
+                "engine": "postgresql",
+                "display_name": "PostgreSQL",
+                "file": "/etc/postgresql/16/main/conf.d/90-noust.conf",
+                "changed": ["listen_addresses"],
+                "action": "restart",
+                "exposed": True,
+                "warnings": [],
+            }
+        )
+
+    monkeypatch.setattr(DatabaseService, "change_engine_settings", change)
+    elevate(client)
+
+    response = client.put(
+        "/api/databases/engines/postgresql/settings",
+        json={"values": {"listen_addresses": "10.0.0.5"}, field: True},
+    )
+
+    assert response.status_code == 200, response.text
+    assert calls == [True]
