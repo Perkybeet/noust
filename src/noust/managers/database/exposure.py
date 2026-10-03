@@ -234,14 +234,22 @@ def published_database_ports(runner: CommandRunner | None = None) -> list[Expose
             continue
         name, image, ports = parts[0], parts[1], parts[2]
         # The image's repository decides, never a substring of it: a
-        # zabbix-server-mysql container is not a MySQL (item 72).
+        # zabbix-server-mysql container is not a MySQL (item 72). An image it
+        # does not know (another registry, an id, supabase/postgres) is still
+        # judged by the engine port inside the container: a database published
+        # to the world must not go unreported because its image is unusual,
+        # while zabbix's 8080 and 10051 are no database's port.
         recognised = image_engine(image)
-        if recognised is None:
-            continue
-        engine = recognised.engine
         for match in _PUBLISHED.finditer(ports):
             address = match.group("address").strip("[]") or "0.0.0.0"  # noqa: S104 - reporting a binding
             if is_loopback(address):
+                continue
+            engine = (
+                recognised.engine
+                if recognised is not None
+                else DEFAULT_PORTS.get(int(match.group("container")))
+            )
+            if engine is None:
                 continue
             found.append(
                 ExposedPort(

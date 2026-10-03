@@ -316,6 +316,51 @@ class TestIPv6AndUnreadableChains:
         assert "could not be read" not in exposed[(5435, ANY)].advice
 
 
+class TestAnImageNoustDoesNotKnow:
+    """An unusual image publishing a database's port is still reported; zabbix is not."""
+
+    @pytest.mark.parametrize(
+        ("image", "container_port", "engine"),
+        [
+            ("ghcr.io/acme/postgres:16", 5432, "postgresql"),
+            ("supabase/postgres:15.1.0.147", 5432, "postgresql"),
+            ("quay.io/team/mysql:8", 3306, "mysql"),
+            ("123456789012.dkr.ecr.eu-west-1.amazonaws.com/cache:7", 6379, "redis"),
+            ("3f2a9c1d7b8e", 27017, "mongodb"),
+            ("mysql/mysql-server:8.0", 33060, "mysql"),
+        ],
+    )
+    def test_the_container_port_names_the_engine(
+        self, server: FakeRunner, image: str, container_port: int, engine: str
+    ) -> None:
+        server.script(
+            ["docker", "ps"], stdout=f"odd-db\t{image}\t0.0.0.0:15000->{container_port}/tcp\n"
+        )
+
+        [entry] = find_exposed_database_ports(server)
+
+        assert (entry.engine, entry.port, entry.container, entry.image) == (
+            engine,
+            15000,
+            "odd-db",
+            image,
+        )
+        assert not entry.firewalled
+
+    def test_zabbix_web_and_server_are_not_databases(self, server: FakeRunner) -> None:
+        server.script(
+            ["docker", "ps"],
+            stdout=(
+                "zabbix-web\tzabbix/zabbix-web-nginx-mysql:alpine-7.0-latest\t"
+                "0.0.0.0:8080->8080/tcp, [::]:8080->8080/tcp\n"
+                "zabbix-server\tzabbix/zabbix-server-mysql:alpine-7.0-latest\t"
+                "0.0.0.0:10051->10051/tcp, [::]:10051->10051/tcp\n"
+            ),
+        )
+
+        assert find_exposed_database_ports(server, include_firewalled=True) == []
+
+
 def test_every_command_it_runs_is_a_declared_read_only_probe(server: FakeRunner) -> None:
     find_exposed_database_ports(server, include_firewalled=True)
 
