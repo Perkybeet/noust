@@ -53,6 +53,7 @@ from noust.core.applock import AppBusyError
 from noust.core.ens.incident import IncidentLockdownError
 from noust.core.exceptions import (
     ConfigError,
+    ConfirmationRequired,
     DatabaseExistsError,
     DatabaseNotFoundError,
     DomainConflictError,
@@ -177,6 +178,9 @@ _CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
     # Every way back past a schema change refuses in these words: the console
     # opens one dialog for a rollback, a release, a backup and a restore.
     (SchemaChangedError, "schema_changed"),
+    # A change that costs something waits for the operator's yes; the
+    # console lists every warning before asking.
+    (ConfirmationRequired, "confirmation_required"),
 )
 
 #: Fleet errors whose ``error`` code is a promise to the console, like
@@ -319,6 +323,9 @@ def error_response(exc: NoustError) -> JSONResponse:
         # The deployments the console names, and whose migrations it lists,
         # before the operator confirms.
         content["deployments"] = list(exc.deployments)
+    if isinstance(exc, ConfirmationRequired):
+        # Every warning, not only the one the message leads with.
+        content["warnings"] = list(exc.warnings)
     return JSONResponse(status_code=status_for(exc), content=content)
 
 

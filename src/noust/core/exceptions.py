@@ -57,6 +57,37 @@ class ValidationError(NoustError):
     pass
 
 
+class ConfirmationRequired(ValidationError):
+    """
+    Raised when a change would cost something the operator has to accept first.
+
+    Nothing has been changed when it is raised. The same request with its
+    confirmation (``--yes`` on the command line, ``confirm`` in the API) goes
+    ahead; the API carries every warning in its error body, so a client shows
+    them all before asking.
+
+    Attributes:
+        warnings: What the operator accepts by confirming, one English
+            sentence or paragraph each.
+    """
+
+    def __init__(self, warnings: list[str], *, field: str = "confirm"):
+        """
+        Args:
+            warnings: What the operator accepts by confirming; at least one.
+            field: The request field that confirms it.
+        """
+        self.warnings = list(warnings)
+        message = (
+            self.warnings[0]
+            if len(self.warnings) == 1
+            else f"This change needs your confirmation: {len(self.warnings)} things to know"
+        )
+        details = "\n\n".join(self.warnings[1:] if len(self.warnings) == 1 else self.warnings)
+        hint = "Confirm it to go ahead (--yes, or confirm in the API)."
+        super().__init__(message, details=f"{details}\n\n{hint}".strip(), field=field)
+
+
 class DeploymentError(NoustError):
     """Raised when deployment fails at any step."""
 
