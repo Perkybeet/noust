@@ -226,6 +226,30 @@ class RedisManager(BaseDatabaseManager):
         """
         return (list(self.PACKAGE_NAMES), list(self.VALKEY_PACKAGES))
 
+    def _on_packages_installed(self, packages: Sequence[str]) -> None:
+        """
+        Name the unit and the family after the flavour that installed.
+
+        Args:
+            packages: The package names that installed successfully.
+        """
+        if list(packages) == list(self.VALKEY_PACKAGES):
+            self.SERVICE_NAME = "valkey-server"
+            self.DISPLAY_NAME = "Valkey"
+            self.EOL_FAMILY = "valkey"
+            self._unit_detected = True
+
+    def installed_flavour(self) -> str | None:
+        """
+        Name the flavour installed: ``valkey`` or ``redis``.
+
+        Returns:
+            The flavour, or None when neither is installed.
+        """
+        if not self.is_installed():
+            return None
+        return "valkey" if self._is_valkey() else "redis"
+
     # ==================== Client ====================
 
     def _secrets(self) -> SecretStore:

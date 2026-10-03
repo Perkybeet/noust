@@ -391,6 +391,17 @@ class MySQLManager(BaseDatabaseManager):
             self.DISPLAY_NAME = "MariaDB"
             self.EOL_FAMILY = "mariadb"
 
+    def installed_flavour(self) -> str | None:
+        """
+        Name the flavour installed: ``mariadb`` or ``mysql``.
+
+        Returns:
+            The flavour, or None when neither is installed.
+        """
+        if not self.is_installed():
+            return None
+        return "mariadb" if self.is_mariadb else "mysql"
+
     def _post_install(self) -> None:
         """Drop the anonymous accounts and the test database a fresh install ships."""
         self._execute_sql("DELETE FROM mysql.user WHERE User='';")

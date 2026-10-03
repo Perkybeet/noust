@@ -48,7 +48,6 @@ from noust.core.exceptions import (
 from noust.core.sealing import SealError
 from noust.core.secrets import SecretStore
 from noust.managers.database.base import (
-    PACKAGE_TIMEOUT,
     PROFILES,
     QUERY_TIMEOUT,
     TRANSFER_TIMEOUT,
@@ -61,6 +60,7 @@ from noust.managers.database.base import (
     format_size,
     listen_address,
 )
+from noust.managers.database.flavours import InstallPlan, distribution, plan_install
 from noust.managers.database.instances import PASSWORD_SOURCES
 from noust.managers.database.registry import DatabaseRegistry
 
@@ -92,29 +92,6 @@ BUILT_IN_ROLES = frozenset(
 #: accept letters from any script, and a role name that is only distinguishable
 #: from another by its Unicode block is not a role name anyone typed on purpose.
 CUSTOM_ROLE_PATTERN = re.compile(r"\A[A-Za-z0-9_]+\Z")
-
-#: Release series of the packages this manager installs: the one MongoDB
-#: publishes for every distribution below, supported until October 2029.
-SERVER_SERIES = "8.0"
-
-#: Where the repository signing key is stored.
-KEYRING_PATH = Path(f"/usr/share/keyrings/mongodb-server-{SERVER_SERIES}.gpg")
-
-#: The apt source list this manager owns.
-SOURCES_PATH = Path(f"/etc/apt/sources.list.d/mongodb-org-{SERVER_SERIES}.list")
-
-#: Where the distribution names itself.
-OS_RELEASE = Path("/etc/os-release")
-
-#: The repository line per distribution and release MongoDB publishes packages
-#: for: the path, the suite and the component. Anything else is refused
-#: rather than pointed at another distribution's packages, which is what the
-#: fixed "ubuntu jammy" line did on Debian.
-REPOSITORIES: dict[tuple[str, str], tuple[str, str, str]] = {
-    ("ubuntu", "jammy"): ("ubuntu", "jammy", "multiverse"),
-    ("ubuntu", "noble"): ("ubuntu", "noble", "multiverse"),
-    ("debian", "bookworm"): ("debian", "bookworm", "main"),
-}
 
 #: The administrator a new install is given, and where its password is kept.
 ADMIN_USER = "noust_admin"
@@ -153,89 +130,22 @@ class MongoDBManager(BaseDatabaseManager):
 
     # ==================== Installation ====================
 
-    def _repository(self) -> tuple[str, str, str]:
+    def default_install_plan(self) -> InstallPlan:
         """
-        Pick MongoDB's repository for the distribution this server runs.
+        Install the default series from MongoDB's repository.
 
-        Checked before the signing key is downloaded, so an unsupported
-        distribution costs nothing.
+        No distribution ships ``mongodb-org``, so even an install that names
+        no version adds the upstream repository, for the series
+        :data:`~noust.managers.database.flavours.MONGODB_DEFAULT_SERIES`.
 
         Returns:
-            The repository's path, suite and component.
+            The plan.
 
         Raises:
-            DatabaseEngineError: When MongoDB publishes no packages for it.
+            ValidationError: When MongoDB publishes no packages for this
+                distribution; nothing has been downloaded.
         """
-        facts: dict[str, str] = {}
-        try:
-            for line in OS_RELEASE.read_text(encoding="utf-8").splitlines():
-                name, _, value = line.partition("=")
-                facts[name.strip()] = value.strip().strip('"')
-        except OSError as exc:
-            raise DatabaseEngineError(
-                f"Could not read {OS_RELEASE} to choose MongoDB's repository",
-                details=str(exc),
-            ) from exc
-        release = (facts.get("ID", ""), facts.get("VERSION_CODENAME", ""))
-        repository = REPOSITORIES.get(release)
-        if repository is None:
-            supported = ", ".join(f"{name} {codename}" for name, codename in REPOSITORIES)
-            raise DatabaseEngineError(
-                f"MongoDB {SERVER_SERIES} publishes no packages for "
-                f"{facts.get('PRETTY_NAME') or ' '.join(release).strip() or 'this system'}",
-                details=(
-                    f"Noust installs MongoDB on {supported}. Elsewhere, install it by hand "
-                    "following mongodb.com/docs/manual/installation, then manage it with "
-                    "'noust db status mongodb'."
-                ),
-            )
-        return repository
-
-    def _pre_install(self) -> None:
-        """
-        Add the upstream repository, since no distribution ships mongodb-org.
-
-        Raises:
-            DatabaseEngineError: When the distribution is not one MongoDB
-                publishes packages for, or the key cannot be fetched or
-                converted.
-        """
-        self._repository()
-        with tempfile.TemporaryDirectory(prefix="wasm-mongodb-") as workdir:
-            armoured = Path(workdir) / "server.asc"
-            result = self.runner.capture_to_file(
-                ["curl", "-fsSL", f"https://www.mongodb.org/static/pgp/server-{SERVER_SERIES}.asc"],
-                armoured,
-                timeout=PACKAGE_TIMEOUT,
-            )
-            if not result.success:
-                raise DatabaseEngineError(
-                    "Failed to download the MongoDB signing key",
-                    details=result.stderr.strip() or "Check outbound HTTPS access.",
-                )
-
-            result = self._exec(
-                ["gpg", "--batch", "--yes", "--dearmor", "-o", str(KEYRING_PATH), str(armoured)],
-                timeout=QUERY_TIMEOUT,
-            )
-            if not result.success:
-                raise DatabaseEngineError(
-                    "Failed to install the MongoDB signing key",
-                    details=result.stderr.strip() or f"Could not write {KEYRING_PATH}.",
-                )
-
-        path, suite, component = self._repository()
-        source = (
-            f"deb [ arch=amd64,arm64 signed-by={KEYRING_PATH} ] "
-            f"https://repo.mongodb.org/apt/{path} {suite}/mongodb-org/{SERVER_SERIES} {component}\n"
-        )
-        try:
-            self.fs.write_text(SOURCES_PATH, source)
-        except OSError as exc:
-            raise DatabaseEngineError(
-                "Failed to add the MongoDB apt source",
-                details=f"{exc}. Write {SOURCES_PATH} manually and retry.",
-            ) from exc
+        return plan_install("mongodb", None, distribution())
 
     # ==================== Authorization ====================
 

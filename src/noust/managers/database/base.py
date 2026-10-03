@@ -59,6 +59,7 @@ from noust.core.runner import CommandResult, CommandRunner, get_runner
 from noust.deployers.helpers.permissions import hand_over_file
 from noust.managers.base_manager import BaseManager
 from noust.managers.database.eol import support_notice
+from noust.managers.database.flavours import FLAVOURS, InstallPlan, install_repository
 from noust.managers.database.instances import engine_of, storage_name
 from noust.managers.database.urls import connection_url
 
@@ -1039,8 +1040,40 @@ class BaseDatabaseManager(BaseManager):
         """
         return (list(self.PACKAGE_NAMES),)
 
+    def default_install_plan(self) -> InstallPlan:
+        """
+        Describe what an install that names no flavour and no version does.
+
+        This is the install of 3.2 and before, kept for every caller that
+        still asks for it (an API request with no body, a script): the
+        package sets of :meth:`_package_sets`, from the distribution.
+
+        Returns:
+            The plan.
+        """
+        return InstallPlan(
+            flavour=self.ENGINE_NAME,
+            engine=self.ENGINE_NAME,
+            version=None,
+            source="distribution",
+            package_sets=tuple(tuple(packages) for packages in self._package_sets()),
+        )
+
+    def installed_flavour(self) -> str | None:
+        """
+        Name the flavour of this engine that is installed.
+
+        Engines with two flavours (MySQL and MariaDB, Redis and Valkey)
+        override this; the rest have one, named after the engine.
+
+        Returns:
+            A key of :data:`~noust.managers.database.flavours.FLAVOURS`, or
+            None when the engine is not installed.
+        """
+        return self.ENGINE_NAME if self.is_installed() else None
+
     def _pre_install(self) -> None:
-        """Prepare apt sources. Engines outside the distro repos override this."""
+        """Prepare the system before apt runs. Engines that need it override this."""
 
     def _post_install(self) -> None:
         """Harden the fresh installation. Engines that need it override this."""
@@ -1053,7 +1086,7 @@ class BaseDatabaseManager(BaseManager):
             packages: The package names that installed successfully.
         """
 
-    def install(self) -> None:
+    def install(self, plan: InstallPlan | None = None) -> None:
         """
         Install the engine, enable its unit and start it.
 
@@ -1063,9 +1096,17 @@ class BaseDatabaseManager(BaseManager):
         ``apt-get: command not found`` halfway through: Noust manages an
         engine installed with the distribution's own tool just the same.
 
+        Args:
+            plan: The flavour and version to install, as
+                :func:`~noust.managers.database.flavours.plan_install` built
+                it; :meth:`default_install_plan` when None.
+
         Raises:
-            DatabaseEngineError: When apt is absent, or apt or the unit fails;
-                always for a container, whose image decides its engine.
+            DatabaseEngineError: When apt is absent, the repository cannot be
+                added, or apt or the unit fails; always for a container, whose
+                image decides its engine.
+            ValidationError: When the default plan cannot be had on this
+                distribution (MongoDB on a release it does not publish for).
         """
         self.refuse_in_container("install")
         if not self.runner.exists(APT_GET):
@@ -1077,9 +1118,17 @@ class BaseDatabaseManager(BaseManager):
                     f"'noust db status {self.ENGINE_NAME}': Noust manages it from there."
                 ),
             )
-        self.logger.info(f"Installing {self.DISPLAY_NAME}...")
+        chosen = plan if plan is not None else self.default_install_plan()
+        what = self.DISPLAY_NAME
+        if plan is not None and plan.flavour in FLAVOURS:
+            what = f"{FLAVOURS[plan.flavour].display_name} {plan.version or ''}".strip()
+        self.logger.info(f"Installing {what}...")
 
         self._pre_install()
+        if chosen.repository is not None:
+            install_repository(
+                chosen.repository, runner=self.runner, fs=self.fs, log=self.logger.info
+            )
 
         result = self._exec(["apt-get", "update"], env=APT_ENV, timeout=PACKAGE_TIMEOUT)
         if not result.success:
@@ -1089,7 +1138,7 @@ class BaseDatabaseManager(BaseManager):
             )
 
         failures: list[str] = []
-        for packages in self._package_sets():
+        for packages in chosen.package_sets:
             result = self._exec(
                 ["apt-get", "install", "-y", *packages],
                 env=APT_ENV,
@@ -1101,7 +1150,7 @@ class BaseDatabaseManager(BaseManager):
             failures.append(f"{' '.join(packages)}: {result.stderr.strip()}")
         else:
             raise DatabaseEngineError(
-                f"Failed to install {self.DISPLAY_NAME}",
+                f"Failed to install {what}",
                 details="\n".join(failures) or "apt-get install returned no output.",
             )
 

@@ -23,10 +23,11 @@ from typing import Any
 import pytest
 import yaml
 
-from noust.core.exceptions import DatabaseEngineError, DatabaseUserError
+from noust.core.exceptions import DatabaseEngineError, DatabaseUserError, ValidationError
 from noust.core.runner import FakeRunner
 from noust.core.secrets import SecretStore
 from noust.core.store import NoustStore
+from noust.managers.database import flavours
 from noust.managers.database import mongodb as mongodb_module
 from noust.managers.database.base import BaseDatabaseManager, is_loopback
 from noust.managers.database.eol import support_notice
@@ -40,6 +41,7 @@ from noust.managers.database.postgres import PostgresManager
 from noust.managers.database.redis import REQUIREPASS_SECRET, RedisManager
 from noust.managers.database.registry import get_db_manager
 from noust.managers.database.urls import connection_url, masked
+from noust.managers.server.host import HostPaths
 
 PSQL = ("runuser", "-u", "postgres", "--", "psql")
 
@@ -480,29 +482,41 @@ def test_mongodb_scripts_authenticate_on_stdin(
 @pytest.mark.parametrize(
     ("release", "expected"),
     [
-        ("ID=ubuntu\nVERSION_CODENAME=noble\n", ("ubuntu", "noble", "multiverse")),
-        ("ID=debian\nVERSION_CODENAME=bookworm\n", ("debian", "bookworm", "main")),
+        (
+            "ID=ubuntu\nVERSION_CODENAME=noble\n",
+            "https://repo.mongodb.org/apt/ubuntu noble/mongodb-org/8.0 multiverse",
+        ),
+        (
+            "ID=debian\nVERSION_CODENAME=bookworm\n",
+            "https://repo.mongodb.org/apt/debian bookworm/mongodb-org/8.0 main",
+        ),
     ],
 )
 def test_mongodb_repository_follows_the_distribution(
     runner: FakeRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, release, expected
 ) -> None:
-    os_release = tmp_path / "os-release"
-    os_release.write_text(release)
-    monkeypatch.setattr(mongodb_module, "OS_RELEASE", os_release)
+    (tmp_path / "etc").mkdir()
+    (tmp_path / "etc" / "os-release").write_text(release)
+    monkeypatch.setattr(flavours, "HOST", HostPaths(tmp_path))
 
-    assert MongoDBManager()._repository() == expected
+    plan = MongoDBManager().default_install_plan()
+
+    assert plan.repository is not None
+    assert expected in plan.repository.line()
 
 
 def test_mongodb_refuses_a_distribution_it_has_no_packages_for(
     runner: FakeRunner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    os_release = tmp_path / "os-release"
-    os_release.write_text('ID=fedora\nVERSION_CODENAME=""\nPRETTY_NAME="Fedora Linux 41"\n')
-    monkeypatch.setattr(mongodb_module, "OS_RELEASE", os_release)
+    (tmp_path / "etc").mkdir()
+    (tmp_path / "etc" / "os-release").write_text(
+        'ID=fedora\nVERSION_CODENAME=""\nPRETTY_NAME="Fedora Linux 41"\n'
+    )
+    monkeypatch.setattr(flavours, "HOST", HostPaths(tmp_path))
+    runner.only_knows("apt-get")
 
-    with pytest.raises(DatabaseEngineError, match="Fedora Linux 41"):
-        MongoDBManager()._pre_install()
+    with pytest.raises(ValidationError, match="Fedora Linux 41"):
+        MongoDBManager().install()
 
     assert runner.calls == [], "no key is downloaded for a distribution that is refused"
 
