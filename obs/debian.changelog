@@ -1,3 +1,9 @@
+noust (3.3.0-1) unstable; urgency=medium
+
+  * Databases as they really are: containers, engines that refuse Noust, detected links, engine versions and settings, exposure without false alarms, Compose stacks running outside their unit
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Sat, 03 Oct 2026 07:47:57 +0000
+
 noust (3.2.1-1) unstable; urgency=medium
 
   * A Compose stack with the zero-downtime relay is no longer read as blue/green units: it showed as Stopped and its start or restart named units that do not exist

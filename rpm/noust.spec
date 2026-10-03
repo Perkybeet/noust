@@ -10,7 +10,7 @@
 #
 
 Name:           noust
-Version:        3.2.1
+Version:        3.3.0
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -392,6 +392,8 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Sat Oct 03 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.3.0-1
+- Databases as they really are: containers, engines that refuse Noust, detected links, engine versions and settings, exposure without false alarms, Compose stacks running outside their unit
 * Sat Oct 03 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.2.1-1
 - A Compose stack with the zero-downtime relay is no longer read as blue/green units: it showed as Stopped and its start or restart named units that do not exist
 - The Compose unit never pulls images when it starts: a boot recreated the database with whatever its image tag had become
