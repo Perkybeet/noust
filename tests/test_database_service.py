@@ -1067,10 +1067,98 @@ class TestDetectedLinks:
         with pytest.raises(ValidationError, match="does not name"):
             service.record_detected_link("postgresql", "shop_db", DOMAIN)
 
-    def test_adopt_links_records_the_unambiguous_uses(
-        self, service: DatabaseService, app: App
+    def test_adopting_records_no_detected_link(
+        self, service: DatabaseService, app: App, store: NoustStore, monkeypatch
+    ) -> None:
+        """A .env is the deployer's claim: only an operator's one-by-one action records it."""
+        from noust.cli.commands import db as db_commands
+        from noust.web.api.databases.databases import AdoptResponse
+        from noust.web.pydantic_compat import dump_model
+
+        self._uses(app, "postgresql://shop_user:pw@127.0.0.1:5433/shop_db")
+        monkeypatch.setattr(db_commands, "_service", lambda logger: service)
+
+        assert (
+            db_commands._adopt(
+                engine=None,
+                logger=SimpleNamespace(
+                    info=lambda *_: None, success=lambda *_: None, error=lambda *_: None
+                ),
+            )
+            == 0
+        )
+
+        assert store.get_database("shop_db", "postgresql") is not None, "the database is tracked"
+        assert DatabaseRecords(store).links() == []
+        assert dump_model(AdoptResponse(adopted=[])) == {"adopted": []}
+
+    def test_a_detected_link_carries_no_account(
+        self, service: DatabaseService, app: App, store: NoustStore
     ) -> None:
         self._uses(app, "postgresql://shop_user:pw@127.0.0.1:5433/shop_db")
 
-        assert service.adopt_links() == [f"{DOMAIN} -> postgresql/shop_db"]
-        assert service.adopt_links() == [], "a recorded link is not recorded twice"
+        link = service.record_detected_link("postgresql", "shop_db", DOMAIN)
+
+        assert link.username is None
+        (stored,) = DatabaseRecords(store).links(app_id=app.id)
+        assert stored.username is None and stored.env_var == "DATABASE_URL"
+
+    def test_a_rotation_never_writes_into_an_app_that_only_named_the_account(
+        self, service: DatabaseService, app: App, store: NoustStore, tmp_path: Path, gate
+    ) -> None:
+        """An application whose .env names another app's account must not get its new password."""
+        service.secrets.write("databases/postgresql/shop_user", "old-secret")
+        self._uses(app, "postgresql://shop_user:guess@127.0.0.1:5433/shop_db")
+        service.record_detected_link("postgresql", "shop_db", DOMAIN)
+        before = read_app_env(app)
+
+        outcome = service.rotate_password("postgresql", "shop_user")
+
+        assert outcome.apps == []
+        assert read_app_env(app) == before
+        assert outcome.password not in Path(app.app_path, ".env").read_text()
+
+    def test_a_database_another_application_owns_cannot_be_claimed(
+        self, service: DatabaseService, app: App, store: NoustStore, tmp_path: Path
+    ) -> None:
+        owner_path = tmp_path / "apps" / "owner-example-com"
+        owner_path.mkdir(parents=True)
+        owner = store.create_app(App(domain="owner.example.com", app_path=str(owner_path)))
+        store.create_database(
+            Database(app_id=owner.id, name="shop_db", engine="postgresql", username="shop_user")
+        )
+        self._uses(app, "postgresql://shop_user:pw@127.0.0.1:5433/shop_db")
+
+        with pytest.raises(ValidationError, match=r"belongs to owner\.example\.com"):
+            service.record_detected_link("postgresql", "shop_db", DOMAIN)
+
+        assert DatabaseRecords(store).links() == []
+
+    def test_a_database_the_same_application_owns_can_be_recorded(
+        self, service: DatabaseService, app: App, store: NoustStore
+    ) -> None:
+        store.create_database(
+            Database(app_id=app.id, name="shop_db", engine="postgresql", username="shop_user")
+        )
+        self._uses(app, "postgresql://shop_user:pw@127.0.0.1:5433/shop_db")
+
+        link = service.record_detected_link("postgresql", "shop_db", DOMAIN)
+
+        assert (link.domain, link.database) == (DOMAIN, "shop_db")
+
+    def test_an_existing_link_is_never_overwritten(
+        self, service: DatabaseService, app: App, store: NoustStore, gate
+    ) -> None:
+        service.secrets.write("databases/postgresql/shop_user", "old-secret")
+        store.create_database(Database(name="shop_db", engine="postgresql", username="shop_user"))
+        service.link(DOMAIN, "postgresql", "shop_db", env_var="PRIMARY_DB")
+        Path(app.app_path, ".env").write_text(
+            Path(app.app_path, ".env").read_text()
+            + "DATABASE_URL=postgresql://other:pw@127.0.0.1:5433/shop_db\n"
+        )
+
+        with pytest.raises(ValidationError, match="already linked"):
+            service.record_detected_link("postgresql", "shop_db", DOMAIN)
+
+        (stored,) = DatabaseRecords(store).links(app_id=app.id)
+        assert (stored.username, stored.env_var) == ("shop_user", "PRIMARY_DB")

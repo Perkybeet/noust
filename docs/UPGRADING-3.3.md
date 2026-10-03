@@ -18,8 +18,10 @@ the upgrade is the usual package update. A fleet upgrades as before: the nodes w
   MySQL/MariaDB and Redis, store the account from the console or with
   `noust db config --engine mysql --user root --password`.
 - **Detected links.** Applications whose `.env` names a database appear beside it as detected.
-  Nothing is linked until you record it or run `noust db adopt`, which now also records those
-  links.
+  Nothing is linked until you record one ("Record the link" in the console). `noust db adopt` does
+  not record them. A recorded detected link carries no account, so rotating that account's
+  password does not rewrite the application's `.env`; link it with `noust db link` if Noust
+  should.
 - **Exposure.** Ports Docker publishes that the `DOCKER-USER` chain already refuses on the public
   interface stop being reported as open. `noust db exposure --json` still lists them, marked
   `"firewalled": true`; its exit status counts only the open ones.

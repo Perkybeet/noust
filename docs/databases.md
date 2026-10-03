@@ -46,8 +46,13 @@ PostgreSQL is reached as the system's `postgres` user (peer authentication), and
 Besides the links Noust writes (`noust db link`), Noust reads each application's environment and
 shows the databases it already names as **detected**: connection URLs (`DATABASE_URL`,
 `REDIS_URL`...) and the `DB_*`/`REDIS_*` sets, resolved to one engine by port or by Compose
-service. Recording one (the console's "Record the link", or `noust db adopt` for every
-unambiguous one) makes it a link without touching the application.
+service. Recording one (the console's "Record the link") makes it a link without touching the
+application. It is always one use at a time, asked for by the operator, because an application's
+`.env` is written by whoever deploys it: Noust refuses to record a use of a database another
+application owns, never overwrites an existing link, and records the link without an account, so a
+password rotation (`noust db user-password`) does not write the new password into that
+application. When Noust should manage the application's connection string, link it with
+`noust db link` instead.
 
 ## Installing an engine
 

@@ -1056,6 +1056,18 @@ class DatabaseService:
         database, which is why the use was found. The link makes it count as
         the application's for backups and the console.
 
+        An application's environment is written by whoever deploys it, so
+        what it names is a claim, not a fact. Three limits keep that claim
+        from reaching another application's data:
+
+        - a database another application owns cannot be claimed this way;
+        - an existing link is never overwritten, so a link made by
+          ``noust db link`` keeps its account and variable;
+        - the link is recorded with no account. A password rotation writes
+          the new password only into links that carry the rotated account,
+          so naming someone else's account in a ``.env`` never earns its
+          next password.
+
         Args:
             engine: The engine key.
             name: The database.
@@ -1066,7 +1078,8 @@ class DatabaseService:
 
         Raises:
             ValidationError: When the application's environment does not
-                name that database.
+                name that database, another application owns it, or the
+                application is already linked to it.
         """
         manager = self.running(engine)
         app = self._app(domain)
@@ -1091,12 +1104,32 @@ class DatabaseService:
             )
         if app.id is None:
             raise ValidationError(f"{app.domain} is not in the store")
+        row = self.store.get_database(name, manager.ENGINE_NAME)
+        stack_app = manager.instance.app if manager.instance is not None else None
+        owner = (self._domain_of(row.app_id) if row is not None else None) or stack_app
+        if owner is not None and owner != app.domain:
+            raise ValidationError(
+                f"{name} on {manager.DISPLAY_NAME} belongs to {owner}, not to {app.domain}",
+                details=(
+                    f"A database another application owns is not recorded from what "
+                    f"{app.domain}'s environment says. If {app.domain} really is meant to "
+                    f"use it, link it explicitly: noust db link {app.domain} {name} "
+                    f"--engine {manager.ENGINE_NAME}"
+                ),
+            )
+        if self.records.link(app.id, manager.ENGINE_NAME, name) is not None:
+            raise ValidationError(
+                f"{app.domain} is already linked to {name} on {manager.DISPLAY_NAME}",
+                details=f"See the link with: noust db links {app.domain}",
+            )
+        # No account: the detected username is whatever the .env says, and a
+        # link's account is what a rotation writes the new password for.
         saved = self.records.save_link(
             DatabaseLink(
                 app_id=app.id,
                 engine=manager.ENGINE_NAME,
                 db_name=name,
-                username=match.reference.username,
+                username=None,
                 env_var=match.reference.variable,
             )
         )
@@ -1464,56 +1497,6 @@ class DatabaseService:
         if adopted:
             self.audit("db.adopt", engine or "all", databases=",".join(adopted))
         return adopted
-
-    def adopt_links(self, engine: str | None = None) -> list[str]:
-        """
-        Record as links the uses found in applications' environments.
-
-        Only a use that resolves to one engine and names a database that
-        engine has is recorded; an ambiguous or external one is left for the
-        operator. Nothing in the applications changes.
-
-        Args:
-            engine: Only this engine.
-
-        Returns:
-            The links recorded, as ``domain -> engine/name``.
-        """
-        managers = [self.manager(engine)] if engine else self.all_managers()
-        listing = {
-            (view.engine, view.name): view
-            for view in self.list_databases(engine)
-            if not view.missing
-        }
-        recorded: list[str] = []
-        seen: set[tuple[str, str, str]] = set()
-        for entry in self.detected(managers):
-            database = entry.reference.database or (
-                "0" if entry.reference.engine == "redis" else None
-            )
-            if entry.engine is None or database is None:
-                continue
-            view = listing.get((entry.engine, database))
-            key = (entry.domain, entry.engine, database)
-            if view is None or entry.domain in view.apps or key in seen:
-                continue
-            seen.add(key)
-            app = self.store.get_app(entry.domain)
-            if app is None or app.id is None:
-                continue
-            self.records.save_link(
-                DatabaseLink(
-                    app_id=app.id,
-                    engine=entry.engine,
-                    db_name=database,
-                    username=entry.reference.username,
-                    env_var=entry.reference.variable,
-                )
-            )
-            recorded.append(f"{entry.domain} -> {entry.engine}/{database}")
-        if recorded:
-            self.audit("db.link.record", engine or "all", links=",".join(recorded))
-        return recorded
 
     def forget(self, engine: str, name: str) -> bool:
         """
@@ -2113,6 +2096,9 @@ class DatabaseService:
             The applications, each once.
         """
         found: dict[str, App] = {}
+        # Only links that carry this very account: a link recorded from what
+        # an application's .env says has none, and must never be handed the
+        # new password of an account it merely named.
         for link in self.records.links(engine=engine, username=username):
             app = self.store.get_app_by_id(link.app_id)
             if app is not None:

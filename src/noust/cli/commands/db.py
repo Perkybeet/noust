@@ -955,15 +955,12 @@ def _adopt(*, engine: str | None, logger: Logger) -> int:
     try:
         service = _service(logger)
         adopted = service.adopt(engine)
-        links = service.adopt_links(engine)
     except NoustError as e:
         return _fail(logger, e)
     if not adopted:
         logger.info("Every database is already tracked")
     for name in adopted:
         logger.success(f"Now tracked: {name}")
-    for link in links:
-        logger.success(f"Linked, as its environment already says: {link}")
     return 0
 
 
@@ -2267,7 +2264,7 @@ def info(ctx: Context, name: str, engine: str) -> None:
 @click.option("--engine", "-e", type=ENGINE, help="Only this engine. Defaults to all of them.")
 @pass_context
 def adopt(ctx: Context, engine: str | None) -> None:
-    """Track the databases created outside Noust, and the uses applications' .env already name."""
+    """Track the databases created outside Noust."""
     _exit(_adopt(engine=engine, logger=ctx.logger))
 
 

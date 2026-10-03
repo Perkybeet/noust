@@ -99,12 +99,9 @@ class AdoptResponse(BaseModel):
 
     Attributes:
         adopted: The databases now tracked, as ``engine/name``.
-        links: The uses found in applications' environments now recorded as
-            links, as ``domain -> engine/name``.
     """
 
     adopted: list[str]
-    links: list[str] = Field(default_factory=list)
 
 
 class RecordLinkRequest(BaseModel):
@@ -286,10 +283,7 @@ def adopt_databases(
     Returns:
         The databases adopted.
     """
-    databases = service(session)
-    return AdoptResponse(
-        adopted=databases.adopt(request.engine), links=databases.adopt_links(request.engine)
-    )
+    return AdoptResponse(adopted=service(session).adopt(request.engine))
 
 
 @router.post("/databases/{engine}/{name}/links/detected", response_model=LinkResponse)

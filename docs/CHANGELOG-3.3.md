@@ -56,7 +56,11 @@ new is what Noust sees and says, and the actions it offers.
   `.env` that leads outside the application's tree is not read.
 - The databases list shows those applications as **detected** beside the database. "Record the
   link" makes one a link without touching the application (`POST .../links/detected`, audited as
-  `db.link.record`), and `noust db adopt` records every use that resolves without doubt.
+  `db.link.record`), one at a time and only when the operator asks: an application's `.env` is
+  written by whoever deploys it, so what it names is a claim. A database another application owns
+  is refused, an existing link is never overwritten, and the recorded link carries no account, so
+  a later password rotation never writes the new password into an application that merely named
+  the account. `noust db adopt` tracks databases and records no links.
 
 ## Counts (item 70)
 
