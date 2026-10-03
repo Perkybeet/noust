@@ -37,6 +37,7 @@ from typing import Any
 
 from noust.core.runner import CommandRunner, get_runner
 from noust.managers.database.base import is_loopback
+from noust.managers.database.instances import image_engine
 from noust.managers.server.security_docker_user import DockerUserReader
 from noust.managers.server.security_sockets import ANY_ADDRESSES
 
@@ -62,19 +63,6 @@ PROCESS_ENGINES: dict[str, str] = {
     "valkey-server": "redis",
     "mongod": "mongodb",
 }
-
-#: Image names that are a database, and which one. Matched against the image
-#: without its registry and tag: ``docker.io/library/postgres:16`` is postgres.
-IMAGE_ENGINES: tuple[tuple[str, str], ...] = (
-    ("postgis", "postgresql"),
-    ("postgres", "postgresql"),
-    ("timescaledb", "postgresql"),
-    ("mariadb", "mysql"),
-    ("mysql", "mysql"),
-    ("valkey", "redis"),
-    ("redis", "redis"),
-    ("mongo", "mongodb"),
-)
 
 #: How to close each engine's port, in the engine's own configuration.
 ENGINE_ADVICE: dict[str, str] = {
@@ -220,23 +208,6 @@ def listening_sockets(runner: CommandRunner | None = None) -> list[Listener]:
     return sockets
 
 
-def _image_engine(image: str) -> str | None:
-    """
-    Tell which database an image runs, from its name.
-
-    Args:
-        image: The image, as ``docker ps`` prints it.
-
-    Returns:
-        The engine, or None for an image that is not a database.
-    """
-    name = image.rsplit("/", 1)[-1].split(":", 1)[0].split("@", 1)[0].lower()
-    for fragment, engine in IMAGE_ENGINES:
-        if fragment in name:
-            return engine
-    return None
-
-
 def published_database_ports(runner: CommandRunner | None = None) -> list[ExposedPort]:
     """
     List the database containers' ports Docker publishes beyond the loopback.
@@ -262,9 +233,12 @@ def published_database_ports(runner: CommandRunner | None = None) -> list[Expose
         if len(parts) < 3:
             continue
         name, image, ports = parts[0], parts[1], parts[2]
-        engine = _image_engine(image)
-        if engine is None:
+        # The image's repository decides, never a substring of it: a
+        # zabbix-server-mysql container is not a MySQL (item 72).
+        recognised = image_engine(image)
+        if recognised is None:
             continue
+        engine = recognised.engine
         for match in _PUBLISHED.finditer(ports):
             address = match.group("address").strip("[]") or "0.0.0.0"  # noqa: S104 - reporting a binding
             if is_loopback(address):

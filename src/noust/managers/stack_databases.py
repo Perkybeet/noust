@@ -28,7 +28,16 @@ that client takes a secret outside a command line (``PGPASSWORD``,
 ``MYSQL_PWD``, or a ``0600`` config file for ``mongodump``). So the value is in
 no argv on the host, in none in the container, and in no environment Noust
 builds. The script itself is a constant; every value that varies reaches it as a
-positional parameter, never spliced into the text.
+positional parameter, never spliced into the text. It is the one script every
+client inside a database container runs through, the Databases area's too:
+:data:`noust.managers.database.instances.CLIENT_SCRIPT`, with the same table of
+where each engine's password is, and the same :func:`image_engine` underneath.
+
+Why a stack's copy keeps its own commands instead of a database instance's
+dump (3.3): it addresses the service through Compose (``-p`` and the file the
+update uses), it must start a stopped service to put a dump back, it dumps
+every database of a MySQL that only lets root in (``--all-databases``), and the
+manifests of 3.2 archives name these files and these clients.
 
 **What a failure does.** A dump that cannot be taken raises
 :class:`StackBackupError`, which carries the engine's own words and the command
@@ -68,6 +77,8 @@ from noust.core.exceptions import (
 )
 from noust.core.runner import CommandResult, CommandRunner
 from noust.core.store import AppType, get_store
+from noust.managers.database.instances import CLIENT_SCRIPT, PASSWORD_SOURCES
+from noust.managers.database.instances import image_engine as instance_image_engine
 from noust.validators.names import validate_filename
 
 
@@ -165,17 +176,6 @@ CONFIG_TIMEOUT = 60
 READY_ATTEMPTS = 30
 READY_INTERVAL = 2.0
 
-#: Registries that are Docker Hub under another spelling.
-_HUB_REGISTRIES = frozenset({"docker.io", "index.docker.io", "registry-1.docker.io"})
-
-#: The repository an official image is published under.
-_OFFICIAL_IMAGES: dict[str, Engine] = {
-    "postgres": "postgres",
-    "mysql": "mysql",
-    "mariadb": "mariadb",
-    "mongo": "mongo",
-}
-
 #: What a user or database name may be: never anything a client could read as
 #: an option (a leading dash), a path or a shell word.
 _NAME = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.@$-]{0,127}$")
@@ -184,54 +184,8 @@ _NAME = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.@$-]{0,127}$")
 _SERVICE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 
 #: Where each engine's superuser password comes from when the user is root or
-#: ``postgres``, and where the others' do. Names Noust writes, never names read
-#: from a repository: the script that resolves them evaluates them.
-_PASSWORD_SOURCES: dict[str, tuple[str, ...]] = {
-    "postgres": ("POSTGRES_PASSWORD", "POSTGRESQL_PASSWORD", "POSTGRESQL_POSTGRES_PASSWORD"),
-    "mysql-user": ("MYSQL_PASSWORD",),
-    "mysql-root": ("MYSQL_ROOT_PASSWORD",),
-    "mariadb-user": ("MARIADB_PASSWORD", "MYSQL_PASSWORD"),
-    "mariadb-root": ("MARIADB_ROOT_PASSWORD", "MYSQL_ROOT_PASSWORD"),
-    "mongo": ("MONGO_INITDB_ROOT_PASSWORD",),
-}
-
-#: The one script every client runs through, inside the container. Positional
-#: parameters: the mode (``env`` or ``mongo``), the variable to hand the
-#: password to (or the mongo user), the comma-separated environment variables
-#: the password may be in, the comma-separated program names to try, then the
-#: program's own arguments. Names reach ``eval`` only from the constants above.
-CLIENT_SCRIPT = """\
-mode=$1; target=$2; candidates=$3; programs=$4
-shift 4
-value=
-program=
-saved=$IFS; IFS=,
-for name in $candidates; do
-  eval "value=\\${$name:-}"
-  eval "file=\\${${name}_FILE:-}"
-  if [ -z "$value" ] && [ -n "$file" ] && [ -r "$file" ]; then value=$(cat "$file"); fi
-  if [ -n "$value" ]; then break; fi
-done
-for name in $programs; do
-  if command -v "$name" >/dev/null 2>&1; then program=$name; break; fi
-done
-IFS=$saved
-if [ -z "$program" ]; then
-  echo "none of $programs is installed in this container" >&2
-  exit 127
-fi
-if [ "$mode" = mongo ]; then
-  if [ -z "$target" ] || [ -z "$value" ]; then exec "$program" "$@"; fi
-  config=$(mktemp) || exit 1
-  trap 'rm -f "$config"' EXIT
-  escaped=$(printf '%s' "$value" | sed -e 's/\\\\/\\\\\\\\/g' -e 's/"/\\\\"/g')
-  printf 'password: "%s"\\n' "$escaped" > "$config"
-  "$program" "$@" --username "$target" --authenticationDatabase admin --config "$config"
-  exit $?
-fi
-if [ -n "$value" ]; then export "$target=$value"; fi
-exec "$program" "$@"
-"""
+#: ``postgres``, and where the others' do: the Databases area's one table.
+_PASSWORD_SOURCES = PASSWORD_SOURCES
 
 
 class StackBackupError(BackupError):
@@ -379,7 +333,13 @@ def switch_off_hint(domain: str) -> str:
 
 def image_engine(image: str | None) -> Engine | None:
     """
-    Tell whether an image reference is an official database image.
+    Tell whether an image reference is an official database image a stack's copy dumps.
+
+    The image is read by :func:`noust.managers.database.instances.image_engine`,
+    the one reader; a stack's copy keeps to the official images of the engines
+    it can dump, whose variables are the ones their documentation names.
+    Anything else (``bitnami/postgresql``, ``postgis/postgis``, Redis) is
+    declared by the operator, because a copy that fails stops the update.
 
     Args:
         image: What ``image:`` says: ``postgres:16-alpine``,
@@ -388,23 +348,10 @@ def image_engine(image: str | None) -> Engine | None:
     Returns:
         The engine, or None for any other image.
     """
-    if not image or not isinstance(image, str):
+    match = instance_image_engine(image)
+    if match is None or not match.official:
         return None
-    reference = image.split("@", 1)[0]
-    parts = reference.split("/")
-    first = parts[0]
-    registry = None
-    # A first component is a registry when it names a host: a dot, a port or localhost.
-    if len(parts) > 1 and ("." in first or ":" in first or first == "localhost"):
-        registry, parts = first, parts[1:]
-    if registry is not None and registry not in _HUB_REGISTRIES:
-        return None
-    if len(parts) == 2 and parts[0] == "library":
-        parts = parts[1:]
-    if len(parts) != 1:
-        return None
-    repository = parts[0].split(":", 1)[0]
-    return _OFFICIAL_IMAGES.get(repository)
+    return _ENGINE_NAMES.get(match.flavour)
 
 
 def _environment(service: Mapping[str, Any]) -> dict[str, str]:
