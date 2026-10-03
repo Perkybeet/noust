@@ -16,6 +16,9 @@ closes those ports to the Internet. This module reads the chain (``iptables
 -S DOCKER-USER``, ``ip6tables`` for IPv6, ``nft list chain`` when nftables is
 the only tool) and decides, for one published port, whether a rule refuses it
 on the public interface: the interface of the default route, or every interface.
+:class:`DockerUserReader` is that reading, shared: the server's security check
+and the databases' exposure report both ask it, so a port the operator closed is
+closed in both and there is one parser to keep right.
 
 The chain is walked in order, the way the kernel does, and only what can be
 proven counts as filtering: a ``DROP`` or ``REJECT`` that applies to every source
@@ -637,6 +640,19 @@ def _missing_chain(output: str) -> bool:
     return "no chain/target/match" in text or "no such file or directory" in text
 
 
+def _family_of(host_address: str) -> str:
+    """
+    Tell which chain a publication goes through.
+
+    Args:
+        host_address: The address the port is published on.
+
+    Returns:
+        ``ipv6`` for an IPv6 address, ``ipv4`` otherwise.
+    """
+    return "ipv6" if ":" in host_address else "ipv4"
+
+
 class DockerUserReader:
     """
     Reads ``DOCKER-USER`` and the default routes through a runner, once each.
@@ -782,5 +798,17 @@ class DockerUserReader:
         Returns:
             Why it is filtered, or None when nothing provably refuses it.
         """
-        family = "ipv6" if ":" in host_address else "ipv4"
-        return self.chain(family).covering(host_port, container_port, proto)
+        return self.chain(_family_of(host_address)).covering(host_port, container_port, proto)
+
+    def read_error(self, host_address: str) -> str:
+        """
+        Say why the chain that judges a publication could not be read.
+
+        Args:
+            host_address: The address the port is published on.
+
+        Returns:
+            The tools' own words, or empty when the chain was read (or is
+            not there to read).
+        """
+        return self.chain(_family_of(host_address)).error

@@ -1637,26 +1637,35 @@ def _exposure(*, json_output: bool, logger: Logger) -> int:
     """
     List the database ports open beyond this machine.
 
+    A Docker-published port the firewall keeps the Internet out of (the
+    ``DOCKER-USER`` chain refuses it on the public interface) is shown as
+    information, with what closes it, and does not count.
+
     Args:
-        json_output: Print the list as JSON.
+        json_output: Print the list as JSON: every finding, the closed ones
+            flagged ``firewalled`` with ``closed_by`` and ``rule``.
         logger: Logger for the findings.
 
     Returns:
         Process exit code: 0 when nothing is exposed, 1 when something is,
-        so a script can alert on it.
+        so a script can alert on it. A port the firewall closes is not.
     """
-    found = _service(logger).exposure()
+    found = _service(logger).exposure(include_firewalled=True)
+    open_ports = [entry for entry in found if not entry.firewalled]
     if json_output:
         _echo_json([entry.to_dict() for entry in found])
-        return 1 if found else 0
-    if not found:
+        return 1 if open_ports else 0
+    if not open_ports:
         logger.success("No database port is open beyond this machine")
-        return 0
     for entry in found:
         where = f" (container {entry.container}, {entry.image})" if entry.container else ""
-        logger.warning(f"{entry.engine} on {entry.address}:{entry.port}{where}")
+        line = f"{entry.engine} on {entry.address}:{entry.port}{where}"
+        if entry.firewalled:
+            logger.info(f"{line}: closed by {entry.closed_by}")
+            continue
+        logger.warning(line)
         logger.info(f"  {entry.advice}")
-    return 1
+    return 1 if open_ports else 0
 
 
 def _config(*, engine: str, user: str | None, password: str | None, logger: Logger) -> int:

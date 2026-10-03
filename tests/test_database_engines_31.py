@@ -574,6 +574,9 @@ def test_exposure_reads_the_kernel_and_docker(runner: FakeRunner) -> None:
             'LISTEN 0 128 0.0.0.0:22 0.0.0.0:* users:(("sshd",pid=5,fd=3))\n'
         ),
     )
+    # A server that has an IPv6 route: its [::] publication is a real one. Without
+    # a route nothing outside reaches it, and exposure leaves it out.
+    runner.script(["ip", "-6", "route", "show", "default"], stdout="default via fe80::1 dev eth0\n")
     runner.script(
         ["docker", "ps"],
         stdout=(

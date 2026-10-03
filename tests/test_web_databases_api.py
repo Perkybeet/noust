@@ -1083,6 +1083,40 @@ def test_exposure_reports_a_database_port_open_to_the_network(
     assert "listen_addresses" in body["exposed"][0]["advice"]
 
 
+def test_exposure_lists_what_the_firewall_closes_apart_from_what_is_open(
+    client: TestClient, db, runner
+) -> None:
+    """
+    The console reads ``exposed`` for its notice: a port ``DOCKER-USER`` refuses on
+    the public interface must not be in it, and is still shown in ``firewalled``.
+    """
+    runner.script(["ss", "-ltnpH"], stdout="")
+    runner.script(
+        ["docker", "ps"],
+        stdout=(
+            "arenna_postgres\tpostgres:16\t0.0.0.0:5435->5432/tcp\n"
+            "arenna_cache\tredis:7\t0.0.0.0:6380->6379/tcp\n"
+        ),
+    )
+    runner.script(
+        ["iptables", "-S", "DOCKER-USER"],
+        stdout="-N DOCKER-USER\n"
+        "-A DOCKER-USER -i ens6 -p tcp -m conntrack --ctorigdstport 5435 --ctdir ORIGINAL -j DROP\n",
+    )
+    runner.script(["ip", "route", "show", "default"], stdout="default via 203.0.113.1 dev ens6\n")
+
+    body = client.get("/api/databases/exposure").json()
+
+    assert [(e["engine"], e["port"], e["firewalled"]) for e in body["exposed"]] == [
+        ("redis", 6380, False)
+    ]
+    [closed] = body["firewalled"]
+    assert (closed["engine"], closed["port"], closed["firewalled"]) == ("postgresql", 5435, True)
+    assert closed["closed_by"] == "the DOCKER-USER chain on ens6"
+    assert closed["rule"].endswith("--ctorigdstport 5435 --ctdir ORIGINAL -j DROP")
+    assert closed["container_port"] == 5432
+
+
 def test_every_new_route_has_a_permission(app: FastAPI) -> None:
     """A route missing from the permission map would be refused, or worse, open."""
     from noust.web.api.openapi import api_routes

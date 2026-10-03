@@ -27,12 +27,20 @@ router = APIRouter(route_class=NoustErrorRoute)
 
 class ExposedPortResponse(BaseModel):
     """
-    A database port open beyond this machine.
+    A database port open beyond this machine, or one the firewall closes.
 
     Attributes:
         source: ``engine`` for a server on the host, ``docker`` for a port
             Docker publishes for a container.
         advice: How to close it, in English.
+        container_port: The port inside the container, for ``docker``.
+        firewalled: Something keeps the Internet out of this port: the
+            ``DOCKER-USER`` chain refuses it on the public interface, or it is
+            an IPv6 publication with no IPv6 route to the server. Only
+            ``ExposureResponse.firewalled`` carries such entries.
+        closed_by: What closes it, when ``firewalled``.
+        rule: The ``DOCKER-USER`` rule that refuses it, verbatim, when there
+            is one.
     """
 
     engine: str
@@ -43,12 +51,26 @@ class ExposedPortResponse(BaseModel):
     container: str | None = None
     image: str | None = None
     advice: str = ""
+    container_port: int | None = None
+    firewalled: bool = False
+    closed_by: str = ""
+    rule: str = ""
 
 
 class ExposureResponse(BaseModel):
-    """Every database port open beyond this machine."""
+    """
+    Every database port beyond this machine, and the ones the firewall closes.
+
+    Attributes:
+        exposed: The ports a stranger on the Internet can reach. This is the
+            list every alarm (the console's notice, the CLI's exit code) reads.
+        firewalled: Ports Docker publishes on every address that the firewall
+            keeps the Internet out of (``firewalled`` true, ``closed_by`` and
+            ``rule`` say how). Shown as information, never as a finding.
+    """
 
     exposed: list[ExposedPortResponse]
+    firewalled: list[ExposedPortResponse] = Field(default_factory=list)
 
 
 class ListenResponse(BaseModel):
@@ -125,10 +147,13 @@ def get_exposure(session: Annotated[dict, Depends(get_current_session)]) -> Expo
         session: The authenticated session.
 
     Returns:
-        The exposed ports, Docker's published ones included.
+        The exposed ports, Docker's published ones included, and apart from
+        them the published ones the firewall closes.
     """
+    found = service(session).exposure(include_firewalled=True)
     return ExposureResponse(
-        exposed=[ExposedPortResponse(**entry.to_dict()) for entry in service(session).exposure()]
+        exposed=[ExposedPortResponse(**e.to_dict()) for e in found if not e.firewalled],
+        firewalled=[ExposedPortResponse(**e.to_dict()) for e in found if e.firewalled],
     )
 
 

@@ -9507,7 +9507,7 @@
         "type": "object"
       },
       "ExposedPortResponse": {
-        "description": "A database port open beyond this machine.\n\nAttributes:\n    source: ``engine`` for a server on the host, ``docker`` for a port\n        Docker publishes for a container.\n    advice: How to close it, in English.",
+        "description": "A database port open beyond this machine, or one the firewall closes.\n\nAttributes:\n    source: ``engine`` for a server on the host, ``docker`` for a port\n        Docker publishes for a container.\n    advice: How to close it, in English.\n    container_port: The port inside the container, for ``docker``.\n    firewalled: Something keeps the Internet out of this port: the\n        ``DOCKER-USER`` chain refuses it on the public interface, or it is\n        an IPv6 publication with no IPv6 route to the server. Only\n        ``ExposureResponse.firewalled`` carries such entries.\n    closed_by: What closes it, when ``firewalled``.\n    rule: The ``DOCKER-USER`` rule that refuses it, verbatim, when there\n        is one.",
         "properties": {
           "address": {
             "title": "Address",
@@ -9516,6 +9516,11 @@
           "advice": {
             "default": "",
             "title": "Advice",
+            "type": "string"
+          },
+          "closed_by": {
+            "default": "",
+            "title": "Closed By",
             "type": "string"
           },
           "container": {
@@ -9529,9 +9534,25 @@
             ],
             "title": "Container"
           },
+          "container_port": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Container Port"
+          },
           "engine": {
             "title": "Engine",
             "type": "string"
+          },
+          "firewalled": {
+            "default": false,
+            "title": "Firewalled",
+            "type": "boolean"
           },
           "image": {
             "anyOf": [
@@ -9559,6 +9580,11 @@
             ],
             "title": "Process"
           },
+          "rule": {
+            "default": "",
+            "title": "Rule",
+            "type": "string"
+          },
           "source": {
             "title": "Source",
             "type": "string"
@@ -9574,13 +9600,20 @@
         "type": "object"
       },
       "ExposureResponse": {
-        "description": "Every database port open beyond this machine.",
+        "description": "Every database port beyond this machine, and the ones the firewall closes.\n\nAttributes:\n    exposed: The ports a stranger on the Internet can reach. This is the\n        list every alarm (the console's notice, the CLI's exit code) reads.\n    firewalled: Ports Docker publishes on every address that the firewall\n        keeps the Internet out of (``firewalled`` true, ``closed_by`` and\n        ``rule`` say how). Shown as information, never as a finding.",
         "properties": {
           "exposed": {
             "items": {
               "$ref": "#/components/schemas/ExposedPortResponse"
             },
             "title": "Exposed",
+            "type": "array"
+          },
+          "firewalled": {
+            "items": {
+              "$ref": "#/components/schemas/ExposedPortResponse"
+            },
+            "title": "Firewalled",
             "type": "array"
           }
         },
@@ -38864,7 +38897,7 @@
     },
     "/api/databases/exposure": {
       "get": {
-        "description": "List every database port reachable from beyond this machine.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The exposed ports, Docker's published ones included.",
+        "description": "List every database port reachable from beyond this machine.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The exposed ports, Docker's published ones included, and apart from\n    them the published ones the firewall closes.",
         "operationId": "get_exposure_api_databases_exposure_get",
         "responses": {
           "200": {

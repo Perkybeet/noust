@@ -2899,15 +2899,21 @@ class DatabaseService:
             "exposed": exposed,
         }
 
-    def exposure(self, *, extra_ports: dict[int, str] | None = None) -> list[ExposedPort]:
+    def exposure(
+        self, *, extra_ports: dict[int, str] | None = None, include_firewalled: bool = False
+    ) -> list[ExposedPort]:
         """
         Find the database ports open beyond this machine.
 
         Args:
             extra_ports: Ports an engine is known to listen on besides the
                 defaults.
+            include_firewalled: Also return the Docker-published ports the
+                firewall keeps the Internet out of, flagged ``firewalled``.
 
         Returns:
-            The exposed ports.
+            The exposed ports; with ``include_firewalled``, the closed ones too.
         """
-        return find_exposed_database_ports(extra_ports=extra_ports)
+        return find_exposed_database_ports(
+            extra_ports=extra_ports, include_firewalled=include_firewalled
+        )

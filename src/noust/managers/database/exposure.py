@@ -13,6 +13,14 @@ Docker what it publishes: a compose file that maps ``5435:5432`` publishes the
 container's PostgreSQL on every address of the host, and nothing in
 PostgreSQL's own configuration shows it (owner feedback 8).
 
+A port Docker publishes is not an exposure when the operator refuses it in the
+``DOCKER-USER`` chain on the public interface, or when it is an IPv6 publication
+on a server nothing reaches over IPv6. That is the server security check's own
+reading (:class:`~noust.managers.server.security_docker_user.DockerUserReader`,
+used here as is, never a second parser), and such a port is still listed, flagged
+``firewalled`` with the rule that closes it, so what the operator did stays
+visible and does not raise an alarm (item 72).
+
 It never needs a database engine to be installed or running, and never asks
 one anything, so it also runs on a central (``hub``) that has none.
 
@@ -24,11 +32,13 @@ opens a database port to offer the same thing.
 from __future__ import annotations
 
 import re
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from typing import Any
 
 from noust.core.runner import CommandRunner, get_runner
 from noust.managers.database.base import is_loopback
+from noust.managers.server.security_docker_user import DockerUserReader
+from noust.managers.server.security_sockets import ANY_ADDRESSES
 
 #: Deadline for ``ss`` and ``docker ps``.
 PROBE_TIMEOUT = 30
@@ -94,6 +104,13 @@ DOCKER_ADVICE = (
     "firewall does not close a published port."
 )
 
+#: What to say about a published port the firewall already keeps the Internet out of.
+FIREWALLED_ADVICE = (
+    "The Internet does not reach it. To close it to every other address as well, publish it "
+    "on the loopback only ('127.0.0.1:{host_port}:{container_port}' in the compose file's "
+    "ports), which does not depend on a firewall rule surviving a reboot."
+)
+
 #: One published port in ``docker ps``: ``0.0.0.0:5435->5432/tcp`` or ``[::]:5435->5432/tcp``.
 _PUBLISHED = re.compile(r"(?P<address>\[[^\]]*\]|[^,\s\[]*?):(?P<host>\d+)->(?P<container>\d+)/tcp")
 
@@ -117,6 +134,16 @@ class ExposedPort:
         container: The container's name, for ``docker``.
         image: The container's image, for ``docker``.
         advice: How to close it, in English.
+        container_port: The port inside the container, for ``docker``: it is
+            what a ``DOCKER-USER`` rule that names a port sees.
+        firewalled: Something the server can prove keeps the Internet out of
+            it: a ``DOCKER-USER`` rule refusing it on the public interface, or
+            an IPv6 publication with no IPv6 route to the server. The port is
+            still listed so the operator sees it, but it is not an exposure.
+        closed_by: What closes it, when ``firewalled`` (``the DOCKER-USER chain
+            on ens6``).
+        rule: The ``DOCKER-USER`` rule that refuses it, verbatim, when there is
+            one.
     """
 
     engine: str
@@ -127,6 +154,10 @@ class ExposedPort:
     container: str | None = None
     image: str | None = None
     advice: str = ""
+    container_port: int | None = None
+    firewalled: bool = False
+    closed_by: str = ""
+    rule: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -250,13 +281,85 @@ def published_database_ports(runner: CommandRunner | None = None) -> list[Expose
                     advice=DOCKER_ADVICE.format(
                         host_port=match.group("host"), container_port=match.group("container")
                     ),
+                    container_port=int(match.group("container")),
                 )
             )
     return found
 
 
+def _closed(entry: ExposedPort, closed_by: str, rule: str) -> ExposedPort:
+    """
+    Flag a published port as closed to the Internet.
+
+    Args:
+        entry: The published port.
+        closed_by: What closes it.
+        rule: The ``DOCKER-USER`` rule that does, verbatim; empty when none.
+
+    Returns:
+        The port, ``firewalled``, with advice that no longer says it is open.
+    """
+    return replace(
+        entry,
+        firewalled=True,
+        closed_by=closed_by,
+        rule=rule,
+        advice=FIREWALLED_ADVICE.format(host_port=entry.port, container_port=entry.container_port),
+    )
+
+
+def _judged_by_the_firewall(entries: list[ExposedPort], runner: CommandRunner) -> list[ExposedPort]:
+    """
+    Flag the published ports the firewall already keeps the Internet out of.
+
+    The same question, answered by the same code, as the server's security check
+    (``fw.docker_bypass``): a ``DROP`` or ``REJECT`` in ``DOCKER-USER`` for the
+    port on the public interface, or an IPv6 publication on a server with no
+    IPv6 route. Only a publication on every address can be proven closed that
+    way; one on a specific address stays as it was. A chain that cannot be read
+    proves nothing, and says so in the port's advice.
+
+    Args:
+        entries: The ports Docker publishes.
+        runner: The runner to read the chain through.
+
+    Returns:
+        The same ports, in the same order, the closed ones flagged.
+    """
+    if not any(e.container_port is not None and e.address in ANY_ADDRESSES for e in entries):
+        return entries  # nothing to judge: do not even read the chain
+    reader = DockerUserReader(runner)
+    judged: list[ExposedPort] = []
+    for entry in entries:
+        if entry.container_port is None or entry.address not in ANY_ADDRESSES:
+            judged.append(entry)
+            continue
+        unrouted = reader.unrouted(entry.address)
+        if unrouted:
+            judged.append(_closed(entry, unrouted, ""))
+            continue
+        coverage = reader.covering(entry.address, entry.port, entry.container_port, "tcp")
+        if coverage is not None:
+            judged.append(
+                _closed(entry, f"the DOCKER-USER chain on {coverage.interfaces}", coverage.rule)
+            )
+            continue
+        error = reader.read_error(entry.address)
+        if error:
+            entry = replace(
+                entry,
+                advice=f"{entry.advice} The DOCKER-USER chain could not be read ({error}), "
+                "so a rule there is not taken into account.",
+            )
+        judged.append(entry)
+    return judged
+
+
 def find_exposed_database_ports(
-    runner: CommandRunner | None = None, *, extra_ports: dict[int, str] | None = None
+    runner: CommandRunner | None = None,
+    *,
+    extra_ports: dict[int, str] | None = None,
+    include_firewalled: bool = False,
 ) -> list[ExposedPort]:
     """
     Find every database port reachable from beyond this machine.
@@ -266,12 +369,16 @@ def find_exposed_database_ports(
     ports are added from ``docker ps``, where the image says which database
     it is. Only sockets bound to a non-loopback address are reported: a
     database on ``127.0.0.1`` is reachable through an SSH tunnel and nothing
-    else.
+    else. A published port the firewall refuses on the public interface is not
+    reachable either: it is left out, or kept and flagged ``firewalled`` with
+    ``include_firewalled``.
 
     Args:
         runner: The runner to ask through. Defaults to the process-wide one.
         extra_ports: Ports a caller knows an engine listens on besides the
             defaults, such as a PostgreSQL moved to 5433.
+        include_firewalled: Also return the ports the firewall keeps the
+            Internet out of, flagged, for a caller that shows them.
 
     Returns:
         The exposed ports, one per port and address, sorted by port.
@@ -303,9 +410,12 @@ def find_exposed_database_ports(
             source="engine",
             advice=ENGINE_ADVICE.get(engine, ""),
         )
-    for entry in published:
+    for entry in _judged_by_the_firewall(published, active):
         found.setdefault((entry.port, entry.address), entry)
-    return sorted(found.values(), key=lambda entry: (entry.port, entry.address))
+    return sorted(
+        (entry for entry in found.values() if include_firewalled or not entry.firewalled),
+        key=lambda entry: (entry.port, entry.address),
+    )
 
 
 @dataclass(frozen=True)
