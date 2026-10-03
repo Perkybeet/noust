@@ -6,7 +6,7 @@ import { renderConsole } from "../../test/console";
 import { fakeBackend, json } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { screenWidth } from "../app/testRoutes";
-import { databaseRoutes } from "./testFixtures";
+import { CONTAINER_DATABASE, CONTAINER_ENGINE, DATABASES, DETECTED_DATABASE, ENGINES, databaseRoutes } from "./testFixtures";
 
 async function listAt(path = "/databases", extra: Record<string, RouteHandler> = {}, { rows = true } = {}) {
   screenWidth(1440);
@@ -110,6 +110,71 @@ describe("the databases list", () => {
     await waitFor(() => expect(backend.callsTo("POST /api/databases/databases")).toHaveLength(1));
     expect(backend.callsTo("POST /api/databases/databases")[0]?.body).toEqual({ engine: "postgresql", name: "acme_shop", owner: null, encoding: null, app: null });
     await waitFor(() => expect(location().pathname).toBe("/databases/postgresql/acme_shop"));
+  });
+
+  it("says where a database in a container lives, and offers its instance as a filter", async () => {
+    const { user, table, location } = await listAt("/databases", {
+      "GET /api/databases/engines": () => json(200, { engines: [...ENGINES, CONTAINER_ENGINE] }),
+      "GET /api/databases/databases": () => json(200, { databases: [...DATABASES, CONTAINER_DATABASE], total: DATABASES.length + 1 }),
+    });
+    const row = (await within(table).findByText("proggest")).closest("tr");
+    if (!row) throw new Error("no row");
+    expect(within(row).getByText("Container")).toBeInTheDocument();
+    expect(within(row).getByText("proggest/postgres")).toBeInTheDocument();
+    expect(within(row).getByRole("link", { name: "proggest.es" })).toHaveAttribute("href", "/apps/proggest.es");
+    // A host database says nothing about containers.
+    const production = within(table).getByText("example_production").closest("tr");
+    if (!production) throw new Error("no row");
+    expect(within(production).queryByText("Container")).not.toBeInTheDocument();
+    await expectNoAxeViolations(screen.getByRole("main"));
+
+    await user.click(screen.getByRole("combobox", { name: "Engine" }));
+    await user.click(await screen.findByRole("option", { name: "PostgreSQL in proggest/postgres" }));
+    await waitFor(() => expect(location().search).toEqual({ engine: "postgresql@proggest.postgres" }));
+    await waitFor(() => expect(within(table).queryByText("example_production")).not.toBeInTheDocument());
+    expect(within(table).getByText("proggest")).toBeInTheDocument();
+  });
+
+  it("marks an application found using a database as detected, and records the link without touching it", async () => {
+    let recorded = false;
+    const { user, backend, table } = await listAt("/databases", {
+      "GET /api/databases/databases": () =>
+        json(200, {
+          databases: [DATABASES[0], recorded ? { ...DETECTED_DATABASE, apps: ["docs.example.com"], detected_apps: [] } : DETECTED_DATABASE, DATABASES[2]],
+          total: 3,
+        }),
+      "POST /api/databases/databases/postgresql/example_staging/links/detected": () => {
+        recorded = true;
+        return json(200, { domain: "docs.example.com", engine: "postgresql", database: "example_staging", username: "example_staging", env_var: "DATABASE_URL" });
+      },
+    });
+    const row = (await within(table).findByText("example_staging")).closest("tr");
+    if (!row) throw new Error("no row");
+    expect(within(row).getByRole("link", { name: "docs.example.com" })).toHaveAttribute("href", "/apps/docs.example.com");
+    expect(within(row).getByText("Detected")).toBeInTheDocument();
+
+    await user.click(within(row).getByRole("button", { name: "Actions for example_staging" }));
+    const item = await screen.findByRole("menuitem", { name: "Record that docs.example.com uses it" });
+    expect(item).toHaveAccessibleDescription("Nothing in the application changes: its environment already names this database.");
+    await expectNoAxeViolations(document.body);
+    await user.click(item);
+    await waitFor(() => expect(backend.callsTo("POST /api/databases/databases/postgresql/example_staging/links/detected")).toHaveLength(1));
+    expect(backend.callsTo("POST /api/databases/databases/postgresql/example_staging/links/detected")[0]?.body).toEqual({ app: "docs.example.com" });
+    // The list is read again: the application is now a recorded link to its Database tab.
+    await waitFor(() => expect(within(table).getByRole("link", { name: "docs.example.com" })).toHaveAttribute("href", "/apps/docs.example.com/database"));
+    expect(within(table).queryByText("Detected")).not.toBeInTheDocument();
+  });
+
+  it("counts only the ports really open: one the firewall closes is not an alarm", async () => {
+    await listAt("/databases", {
+      "GET /api/databases/exposure": () =>
+        json(200, {
+          exposed: [],
+          firewalled: [{ engine: "postgresql", port: 5433, address: "0.0.0.0", source: "docker", container: "proggest-postgres-1", firewalled: true, closed_by: "DOCKER-USER" }],
+        }),
+    });
+    expect(await screen.findByText("2 databases have no backup schedule")).toBeInTheDocument();
+    expect(screen.queryByText(/open to the network/)).not.toBeInTheDocument();
   });
 
   it("offers the first database when there is none, or the engines when none runs", async () => {

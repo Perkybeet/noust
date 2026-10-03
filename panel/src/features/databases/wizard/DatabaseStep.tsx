@@ -15,7 +15,7 @@ import type { T } from "../../../i18n";
 import { ChoiceCards } from "../../new-app/ChoiceCards";
 import type { CreateAppBody, Step } from "../../new-app/wizard";
 import { provisionableEngines } from "../../app/database/CreateLinkDialog";
-import { can, engineName, sortEngines } from "../engines";
+import { can, engineName, isContainer, sortEngines } from "../engines";
 
 /** What the wizard's Database step decided: no database, or a new one on an engine. */
 export interface DatabaseChoice {
@@ -57,12 +57,20 @@ export function withDatabase(body: CreateAppBody, choice: DatabaseChoice): Creat
 const NONE = "none";
 
 /**
+ * The engines a new application's database can be created on: the server's own. An engine in a
+ * container belongs to the stack that runs it, not to an application that does not exist yet.
+ */
+function newAppEngines(engines: readonly Engine[]): Engine[] {
+  return provisionableEngines(engines).filter((engine) => !isContainer(engine));
+}
+
+/**
  * Whether the wizard asks about a database: when an engine that can hold one runs here. Read
  * once, quietly: a server where the engines cannot be read deploys as before, without the step.
  */
 export function useDatabaseStepAvailable(): boolean {
   const engines = useQuery({ ...enginesQuery(), retry: false, staleTime: 60_000 });
-  return provisionableEngines(engines.data?.engines ?? []).length > 0;
+  return newAppEngines(engines.data?.engines ?? []).length > 0;
 }
 
 /** The steps with Database before Deploy, when it is asked. */
@@ -104,8 +112,8 @@ export interface DatabaseStepProps {
 export function DatabaseStep({ domain, value, onChange }: DatabaseStepProps) {
   const t = useT();
   const engines = useQuery(enginesQuery());
-  const choices = provisionableEngines(engines.data?.engines ?? []);
-  const others = sortEngines((engines.data?.engines ?? []).filter((engine) => !choices.includes(engine)));
+  const choices = newAppEngines(engines.data?.engines ?? []);
+  const others = sortEngines((engines.data?.engines ?? []).filter((engine) => !isContainer(engine) && !choices.includes(engine)));
   const chosen = choices.find((engine) => engine.name === value.engine);
   const plan = useQuery({ ...provisioningPlanQuery(domain, chosen?.name ?? ""), enabled: chosen !== undefined && domain.trim() !== "" });
 

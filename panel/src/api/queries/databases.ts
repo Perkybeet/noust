@@ -17,6 +17,12 @@ import type { BodyOf, QueryOf, ResponseOf } from "../client";
 export type EngineList = ResponseOf<"/api/databases/engines", "get">;
 export type Engine = EngineList["engines"][number];
 export type SupportNotice = NonNullable<Engine["support"]>;
+export type EngineCatalog = ResponseOf<"/api/databases/engines/catalog", "get">;
+export type FlavourChoice = EngineCatalog["flavours"][number];
+export type VersionChoice = NonNullable<FlavourChoice["versions"]>[number];
+export type EngineSettings = ResponseOf<"/api/databases/engines/{engine}/settings", "get">;
+export type EngineSetting = EngineSettings["settings"][number];
+export type EngineSettingsOutcome = ResponseOf<"/api/databases/engines/{engine}/settings", "put">;
 export type DatabaseList = ResponseOf<"/api/databases/databases", "get">;
 export type Database = DatabaseList["databases"][number];
 export type DatabaseOverview = ResponseOf<"/api/databases/databases/{engine}/{name}/overview", "get">;
@@ -64,6 +70,9 @@ export const databaseKeys = {
   all: ["databases"] as const,
   engines: ["databases", "engines"] as const,
   engineLogs: (engine: string) => ["databases", "engines", engine, "logs"] as const,
+  engineSettings: (engine: string) => ["databases", "engines", engine, "settings"] as const,
+  /** What can be installed here: flavours and versions, which change only when one is installed. */
+  installCatalog: ["databases", "engines", "catalog"] as const,
   /** Every list, whatever engine it is filtered to: the prefix of `list`. */
   lists: ["databases", "list"] as const,
   list: (engine: string | null) => ["databases", "list", { engine }] as const,
@@ -105,6 +114,20 @@ export const engineLogsQuery = (engine: string) =>
   queryOptions({
     queryKey: databaseKeys.engineLogs(engine),
     queryFn: ({ signal }) => request("get", "/api/databases/engines/{engine}/logs", { params: { engine }, query: { lines: 300 }, signal }),
+  });
+
+/** The flavours and versions this server can install, and why the others cannot be. */
+export const engineCatalogQuery = () =>
+  queryOptions({
+    queryKey: databaseKeys.installCatalog,
+    queryFn: ({ signal }) => request("get", "/api/databases/engines/catalog", { signal }),
+  });
+
+/** An engine's settings: what it runs with, what Noust's file sets, and the advice for this server. */
+export const engineSettingsQuery = (engine: string) =>
+  queryOptions({
+    queryKey: databaseKeys.engineSettings(engine),
+    queryFn: ({ signal }) => request("get", "/api/databases/engines/{engine}/settings", { params: { engine }, signal }),
   });
 
 export const databasesQuery = (engine: string | null = null) =>

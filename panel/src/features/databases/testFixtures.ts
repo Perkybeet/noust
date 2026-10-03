@@ -10,6 +10,8 @@ import type {
   DatabaseBackup,
   DatabaseOverview,
   Engine,
+  EngineCatalog,
+  EngineSettings,
   PolicyList,
 } from "../../api/queries/databases";
 import { json, signedInRoutes } from "../../test/fakes";
@@ -166,6 +168,176 @@ export const OVERVIEW: DatabaseOverview = {
   backups: 2,
 };
 
+/** PostgreSQL in a Compose stack, as discovery lists it: its key carries the project and service. */
+export const CONTAINER_ENGINE: Engine = {
+  name: "postgresql@proggest.postgres",
+  display_name: "PostgreSQL",
+  installed: true,
+  version: "16.4",
+  running: true,
+  port: 5433,
+  service: null,
+  capabilities: ["dump", "metrics", "profiles", "read_only", "sql", "tables", "users"],
+  support: null,
+  warnings: [],
+  stored_account: false,
+  kind: "container",
+  container: "proggest-postgres-1",
+  project: "proggest",
+  compose_service: "postgres",
+  image: "postgres:16-alpine",
+  app: "proggest.es",
+  access: "limited",
+};
+
+/** The database inside that container, untracked, and a host database an application's .env names. */
+export const CONTAINER_DATABASE: Database = database("proggest", CONTAINER_ENGINE.name, { tracked: false, size: "30.0 MB", engine_version: "16.4" });
+
+export const DETECTED_DATABASE: Database = database("example_staging", "postgresql", { tracked: false, size: "8.7 MB", detected_apps: ["docs.example.com"] });
+
+/** What this server can install: PostgreSQL in several versions, MariaDB blocked beside MySQL. */
+export const CATALOG: EngineCatalog = {
+  distribution: { id: "ubuntu", codename: "noble", name: "Ubuntu 24.04.1 LTS", known: true },
+  apt: true,
+  flavours: [
+    {
+      flavour: "postgresql",
+      engine: "postgresql",
+      display_name: "PostgreSQL",
+      installed: false,
+      installable: true,
+      blocked: null,
+      reason: null,
+      versions: [
+        { version: "15", source: "upstream", default: false },
+        { version: "16", source: "distribution", default: true },
+        { version: "17", source: "upstream", default: false },
+      ],
+    },
+    { flavour: "mysql", engine: "mysql", display_name: "MySQL", installed: true, installable: false, blocked: "installed", reason: "MySQL is installed.", versions: [{ version: "8.0", source: "distribution", default: true }] },
+    {
+      flavour: "mariadb",
+      engine: "mysql",
+      display_name: "MariaDB",
+      installed: false,
+      installable: false,
+      blocked: "conflict",
+      reason: "MySQL is installed, and MariaDB cannot run beside it: they share port 3306, their packages and /var/lib/mysql.",
+      versions: [{ version: "10.11", source: "distribution", default: true }],
+    },
+    {
+      flavour: "mongodb",
+      engine: "mongodb",
+      display_name: "MongoDB",
+      installed: false,
+      installable: true,
+      blocked: null,
+      reason: null,
+      versions: [
+        { version: "7.0", source: "upstream", default: true },
+        { version: "8.0", source: "upstream", default: false },
+      ],
+    },
+  ],
+};
+
+/** PostgreSQL's settings on a 2 GiB, 2-processor server. */
+export const SETTINGS: EngineSettings = {
+  engine: "postgresql",
+  display_name: "PostgreSQL",
+  file: "/etc/postgresql/16/main/conf.d/90-noust.conf",
+  running: true,
+  memory_bytes: 2 * 1024 ** 3,
+  cpus: 2,
+  settings: [
+    {
+      key: "listen_addresses",
+      kind: "addresses",
+      unit: null,
+      description: "The addresses PostgreSQL accepts connections on.",
+      current: "localhost",
+      configured: null,
+      recommended: "localhost",
+      restart: true,
+      choices: [],
+      minimum: null,
+      maximum: null,
+      listen: true,
+      editable: true,
+      locked_reason: null,
+      source: null,
+    },
+    {
+      key: "port",
+      kind: "port",
+      unit: null,
+      description: "The TCP port.",
+      current: "5432",
+      configured: null,
+      recommended: null,
+      restart: true,
+      choices: [],
+      minimum: 1024,
+      maximum: 65535,
+      listen: false,
+      editable: false,
+      locked_reason: "Noust's own client reaches the server on its default port.",
+      source: null,
+    },
+    {
+      key: "max_connections",
+      kind: "integer",
+      unit: null,
+      description: "How many connections at once.",
+      current: "100",
+      configured: null,
+      recommended: "100",
+      restart: true,
+      choices: [],
+      minimum: 10,
+      maximum: 10000,
+      listen: false,
+      editable: true,
+      locked_reason: null,
+      source: null,
+    },
+    {
+      key: "shared_buffers",
+      kind: "size",
+      unit: "MB",
+      description: "Memory PostgreSQL keeps for its own cache.",
+      current: "128MB",
+      configured: null,
+      recommended: "512MB",
+      restart: true,
+      choices: [],
+      minimum: null,
+      maximum: null,
+      listen: false,
+      editable: true,
+      locked_reason: null,
+      source: null,
+    },
+    {
+      key: "log_min_duration_statement",
+      kind: "duration_ms",
+      unit: "ms",
+      description: "Statements slower than this are logged.",
+      current: "-1",
+      configured: "500",
+      recommended: null,
+      restart: false,
+      choices: [],
+      minimum: -1,
+      maximum: null,
+      listen: false,
+      editable: true,
+      locked_reason: null,
+      source: null,
+    },
+  ],
+};
+
 /** Every route the databases area reads, answered from the fixtures above. */
 export function databaseRoutes(extra: Record<string, RouteHandler> = {}): Record<string, RouteHandler> {
   const base = "/api/databases/databases/postgresql/example_production";
@@ -175,7 +347,9 @@ export function databaseRoutes(extra: Record<string, RouteHandler> = {}): Record
     "GET /api/databases/databases": () => json(200, { databases: DATABASES, total: DATABASES.length }),
     "GET /api/databases/backup-policies": () => json(200, POLICIES),
     "GET /api/databases/backups": () => json(200, { backups: DUMPS, total: DUMPS.length }),
-    "GET /api/databases/exposure": () => json(200, { exposed: [] }),
+    "GET /api/databases/exposure": () => json(200, { exposed: [], firewalled: [] }),
+    "GET /api/databases/engines/catalog": () => json(200, CATALOG),
+    "GET /api/databases/engines/postgresql/settings": () => json(200, SETTINGS),
     "GET /api/jobs/active": () => json(200, { jobs: [], total: 0 }),
     [`GET ${base}/overview`]: () => json(200, OVERVIEW),
     [`GET ${base}`]: () => json(200, DATABASES[0]),

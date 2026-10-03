@@ -18,11 +18,11 @@ import { Input } from "../../components/ui/Input";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
-import { can, sortEngines } from "./engines";
+import { can, instancePlace, isContainer, sortInstances } from "./engines";
 
 /** Engines a database can be created on: running, and holding named databases (not Redis's slots). */
 export function creatableEngines(engines: readonly Engine[]): Engine[] {
-  return sortEngines(engines.filter((engine) => engine.running && (can(engine, "sql") || can(engine, "documents"))));
+  return sortInstances(engines.filter((engine) => engine.running && (can(engine, "sql") || can(engine, "documents"))));
 }
 
 const NO_APP = "";
@@ -159,7 +159,11 @@ export function CreateDatabaseDialog({ open, onOpenChange, engine: preset }: Cre
               setEngine(value);
               setErrors((previous) => Object.fromEntries(Object.entries(previous).filter(([field]) => field !== "engine")));
             }}
-            options={choices.map((item) => ({ value: item.name, label: item.version ? `${item.display_name} ${item.version}` : item.display_name }))}
+            options={choices.map((item) => {
+              const engine = item.version ? `${item.display_name} ${item.version}` : item.display_name;
+              // Two PostgreSQLs are told apart by where the second one runs.
+              return { value: item.name, label: isContainer(item) ? t("databases.instances.choice", { engine, place: instancePlace(item) }) : engine };
+            })}
           />
         </Field>
         <Field

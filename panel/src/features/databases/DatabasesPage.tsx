@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Archive, Database as DatabaseIcon, PanelTop, Plug, SquareTerminal, X } from "lucide-react";
+import { Archive, Database as DatabaseIcon, Link2, PanelTop, Plug, SquareTerminal, X } from "lucide-react";
 import { useMemo } from "react";
 
 import { request } from "../../api/client";
-import { databaseBackupsQuery, databasesQuery, enginesQuery, exposureQuery, policiesQuery } from "../../api/queries/databases";
+import { databaseBackupsQuery, databaseKeys, databasesQuery, enginesQuery, exposureQuery, policiesQuery } from "../../api/queries/databases";
 import type { Database, Engine } from "../../api/queries/databases";
 import { jobKeys } from "../../api/queries/jobs";
 import { CommandHint } from "../../components/page/CommandHint";
@@ -15,7 +15,7 @@ import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { ICONS } from "../../components/ui/icons";
 import { IconButton } from "../../components/ui/IconButton";
-import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
+import { Menu, MenuGroup, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import { toast } from "../../components/ui/toast";
@@ -24,7 +24,7 @@ import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
 import { DatabasesTable } from "./DatabasesTable";
 import { ListingProblemsNotice } from "./EngineAccess";
-import { can, engineName, sortEngines } from "./engines";
+import { can, engineName, instanceLabel, isContainer, sortInstances } from "./engines";
 import { filterDatabases, isFiltered } from "./filters";
 import type { DatabasesSearch } from "./filters";
 import { useDatabasesHeader } from "./listHeader";
@@ -55,6 +55,19 @@ function RowActions({ database, engines, t }: { database: Database; engines: rea
     },
     onError: (error) => reportActionError(t("databases.list.backupFailed", { name: database.name }), error),
   });
+  // A use found in an application's environment becomes a recorded link; the application is
+  // not touched (its environment already names the database), so nothing needs confirming.
+  const record = useMutation({
+    mutationFn: (app: string) =>
+      request("post", "/api/databases/databases/{engine}/{name}/links/detected", { params: { engine: database.engine, name: database.name }, body: { app } }),
+    onSuccess: (_link, app) => {
+      void queryClient.invalidateQueries({ queryKey: databaseKeys.lists });
+      void queryClient.invalidateQueries({ queryKey: databaseKeys.database(database.engine, database.name) });
+      toast.success(t("databases.list.linkRecorded", { app, name: database.name }));
+    },
+    onError: (error, app) => reportActionError(t("databases.list.recordFailed", { app, name: database.name }), error),
+  });
+  const detected = (database.detected_apps ?? []).filter((app) => !(database.apps ?? []).includes(app));
   return (
     <Menu align="end" trigger={<IconButton label={t("databases.list.actionsFor", { name: database.name })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
       <MenuItem icon={<PanelTop />} onClick={() => void navigate({ to: "/databases/$engine/$name", params })}>
@@ -74,6 +87,24 @@ function RowActions({ database, engines, t }: { database: Database; engines: rea
           <MenuItem icon={<Archive />} disabled={database.missing || backup.isPending} onClick={() => backup.mutate()}>
             {t("databases.list.backUpNow")}
           </MenuItem>
+        </>
+      ) : null}
+      {detected.length > 0 ? (
+        <>
+          <MenuSeparator />
+          <MenuGroup label={t("databases.list.detectedGroup")}>
+            {detected.map((app) => (
+              <MenuItem
+                key={app}
+                icon={<Link2 />}
+                disabled={record.isPending}
+                description={t("databases.list.recordLinkDescription")}
+                onClick={() => record.mutate(app)}
+              >
+                {t("databases.list.recordLink", { app })}
+              </MenuItem>
+            ))}
+          </MenuGroup>
         </>
       ) : null}
     </Menu>
@@ -99,7 +130,12 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   const byPolicy = useMemo(() => policiesById(policies.data), [policies.data]);
   const newest = useMemo(() => newestDumps(dumps.data?.backups), [dumps.data]);
   const shown = useMemo(() => filterDatabases(all, search, byPolicy), [all, search, byPolicy]);
-  const engineOptions = useMemo(() => sortEngines((engines.data?.engines ?? []).filter((engine) => engine.installed)), [engines.data]);
+  // The server's own engines, then each instance in a container, named by where it runs so two
+  // PostgreSQLs are told apart.
+  const engineOptions = useMemo(
+    () => sortInstances((engines.data?.engines ?? []).filter((engine) => engine.installed || isContainer(engine))),
+    [engines.data],
+  );
 
   const set = (patch: SearchPatch, replace = false): void => {
     const next: SearchPatch = { ...search, ...patch };
@@ -221,7 +257,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
                   aria-label={t("databases.list.engineLabel")}
                   value={search.engine ?? ALL}
                   onValueChange={(value) => set({ engine: value === ALL ? undefined : value })}
-                  options={[{ value: ALL, label: t("databases.list.everyEngine") }, ...engineOptions.map((engine) => ({ value: engine.name, label: engine.display_name }))]}
+                  options={[{ value: ALL, label: t("databases.list.everyEngine") }, ...engineOptions.map((engine) => ({ value: engine.name, label: instanceLabel(t, engine) }))]}
                   className="min-w-40"
                 />
                 <Select

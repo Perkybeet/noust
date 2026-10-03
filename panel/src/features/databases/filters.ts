@@ -34,7 +34,8 @@ export function validateDatabasesSearch(search: Record<string, unknown>): Databa
   const backups = text(search["backups"]);
   return {
     ...(q !== undefined ? { q } : {}),
-    ...(engine !== undefined && /^[a-z]+$/.test(engine) ? { engine } : {}),
+    // An engine, or an instance of one in a container (`postgresql@proggest.postgres`).
+    ...(engine !== undefined && /^[a-z]+(@[a-z0-9_.-]+)?$/.test(engine) ? { engine } : {}),
     ...(backups !== undefined && (BACKUP_FILTERS as readonly string[]).includes(backups) ? { backups: backups as BackupFilter } : {}),
   };
 }
@@ -57,7 +58,7 @@ export function filterDatabases(
       if (protection === "protected" || protection === "scheduled") return false;
     }
     if (needle !== undefined) {
-      const haystack = `${database.name} ${database.engine} ${(database.apps ?? []).join(" ")}`.toLowerCase();
+      const haystack = `${database.name} ${database.engine} ${[...(database.apps ?? []), ...(database.detected_apps ?? [])].join(" ")}`.toLowerCase();
       if (!haystack.includes(needle)) return false;
     }
     return true;

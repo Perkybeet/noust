@@ -32,6 +32,33 @@ export function engineName(engine: string, engines?: readonly Engine[]): string 
   return engines?.find((item) => item.name === engine)?.display_name ?? DISPLAY_NAMES[engine] ?? engine;
 }
 
+/**
+ * Whether a listed engine is an instance in a container rather than the server's own engine:
+ * the image decides its engine and version, so it is never installed, uninstalled or configured
+ * from the console (the server refuses it too, and says why).
+ */
+export function isContainer(engine: { kind?: string | null | undefined } | undefined | null): boolean {
+  return engine?.kind === "container";
+}
+
+/** Where a container instance runs: its Compose project and service, else the container's name. */
+export function instancePlace(engine: Pick<Engine, "name" | "container" | "project" | "compose_service">): string {
+  if (engine.project && engine.compose_service) return `${engine.project}/${engine.compose_service}`;
+  return engine.container ?? engine.name;
+}
+
+/** An engine's name in a list of choices: an instance in a container also says where it runs. */
+export function instanceLabel(t: T, engine: Engine): string {
+  return isContainer(engine) ? t("databases.instances.choice", { engine: engine.display_name, place: instancePlace(engine) }) : engine.display_name;
+}
+
+/** The server's own engines first, in the CLI's order, then the containers by where they run. */
+export function sortInstances(engines: readonly Engine[]): Engine[] {
+  const hosts = sortEngines(engines.filter((engine) => !isContainer(engine)));
+  const containers = engines.filter(isContainer).sort((a, b) => instancePlace(a).localeCompare(instancePlace(b)));
+  return [...hosts, ...containers];
+}
+
 /** Engines in the CLI's order, anything the console does not know last. */
 export function sortEngines<T extends { name: string }>(engines: readonly T[]): T[] {
   const rank = (name: string): number => {

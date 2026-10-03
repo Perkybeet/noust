@@ -50,12 +50,36 @@ test("the list says which databases are backed up, and the engines have a tab of
   await expectNoA11yViolations(page, "the engines tab");
 });
 
+test("the engines in containers have their own section, and an engine's settings are saved and applied", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/databases/engines");
+  const containers = page.getByRole("region", { name: "In containers" });
+  const row = containers.getByRole("row", { name: /catalogo-example-org\/postgres/ });
+  await expect(row.getByText("postgres:16-alpine")).toBeVisible();
+  await expect(row.getByRole("link", { name: "catalogo.example.org" })).toBeVisible();
+
+  await page.getByRole("region", { name: "Database engines" }).getByRole("button", { name: "Actions for PostgreSQL" }).click();
+  await page.getByRole("menuitem", { name: "Settings" }).click();
+  await expect(page).toHaveURL(/\/databases\/engines\/postgresql\/settings$/);
+  await expect(page.getByRole("heading", { level: 1, name: "PostgreSQL settings" })).toBeVisible();
+  const slow = page.getByLabel("log_min_duration_statement");
+  await expect(slow).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "an engine's settings");
+  // A value no earlier run left there, so there is always something to save.
+  await slow.fill(String(1000 + (Date.now() % 9000)));
+  await page.getByRole("button", { name: "Save" }).click();
+  await confirmItsYou(page, consoleServer);
+  await expect(page.getByText(/^Saved, and PostgreSQL /)).toBeVisible();
+  await expect(page.getByText("No unsaved changes")).toBeVisible();
+});
+
 test("creating a database opens its page", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/databases");
   await page.getByRole("button", { name: "New database" }).click();
   const dialog = page.getByRole("dialog", { name: "New database" });
   await dialog.getByRole("combobox", { name: "Engine" }).click();
-  await page.getByRole("option", { name: /PostgreSQL/ }).click();
+  // The server's own PostgreSQL, not the one in a Compose stack ("PostgreSQL 16.4 in ...").
+  await page.getByRole("option", { name: /^PostgreSQL [\d.]+$/ }).click();
   const name = `acme_${String(Date.now()).slice(-6)}`;
   await dialog.getByLabel("Name").fill(name);
   await expectNoA11yViolations(page, "the new database dialog");

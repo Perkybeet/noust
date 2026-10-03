@@ -13,7 +13,7 @@ import { SM_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatBytes } from "../../lib/format";
-import { engineName } from "./engines";
+import { engineName, instancePlace, isContainer } from "./engines";
 import { PROTECTION_RANK, databaseId, databaseProtection } from "./protection";
 import { TEXT_LINK } from "./ui";
 import { VerifiedMark } from "./VerifiedMark";
@@ -44,18 +44,73 @@ export function sizeWords(size: string | null | undefined, t: T): string | null 
   return bytes === null ? (size ?? null) : formatBytes(bytes, t.locale);
 }
 
-/** The applications using a database, each a link, the first two named and the rest counted. */
-function UsedBy({ apps, t }: { apps: readonly string[]; t: T }) {
-  if (apps.length === 0) return <EmptyCell reason={t("databases.table.noApp")} />;
-  const shown = apps.slice(0, 2);
+/**
+ * The applications using a database, the first two named and the rest counted: those Noust
+ * recorded, each a link to its Database tab, then those whose environment names it without a
+ * recorded link, marked "Detected" in words (recording one is in the row's menu).
+ */
+function UsedBy({ apps, detected, t }: { apps: readonly string[]; detected: readonly string[]; t: T }) {
+  const all = [
+    ...apps.map((domain) => ({ domain, detected: false })),
+    ...detected.filter((domain) => !apps.includes(domain)).map((domain) => ({ domain, detected: true })),
+  ];
+  if (all.length === 0) return <EmptyCell reason={t("databases.table.noApp")} />;
+  const shown = all.slice(0, 2);
   return (
     <span className="flex min-w-0 items-center gap-x-2">
-      {shown.map((domain) => (
-        <Link key={domain} to="/apps/$domain/database" params={{ domain }} translate="no" className={`${TEXT_LINK} truncate`}>
-          {domain}
-        </Link>
-      ))}
-      {apps.length > shown.length ? <span className="text-fg-muted">{t("databases.table.moreApps", { count: apps.length - shown.length })}</span> : null}
+      {shown.map((app) =>
+        app.detected ? (
+          <span key={app.domain} className="flex min-w-0 items-center gap-1.5">
+            <Link to="/apps/$domain" params={{ domain: app.domain }} translate="no" className={`${TEXT_LINK} truncate`}>
+              {app.domain}
+            </Link>
+            <Badge>{t("databases.table.detected")}</Badge>
+          </span>
+        ) : (
+          <Link key={app.domain} to="/apps/$domain/database" params={{ domain: app.domain }} translate="no" className={`${TEXT_LINK} truncate`}>
+            {app.domain}
+          </Link>
+        ),
+      )}
+      {all.length > shown.length ? <span className="text-fg-muted">{t("databases.table.moreApps", { count: all.length - shown.length })}</span> : null}
+    </span>
+  );
+}
+
+/**
+ * Where a database lives: the server's own engine by its name and version, or an instance in a
+ * container, said in words ("Container") with where it runs and the application it belongs to.
+ */
+function EngineCell({ database, engines, t }: { database: Database; engines: readonly Engine[] | undefined; t: T }) {
+  const instance = engines?.find((engine) => engine.name === database.engine);
+  const version = database.engine_version ?? instance?.version;
+  const container = instance !== undefined && isContainer(instance);
+  const name = (
+    <span className="flex min-w-0 items-center gap-1.5">
+      <span className="truncate">{engineName(database.engine, engines)}</span>
+      {version ? <Mono tone="muted">{version}</Mono> : null}
+      {container ? <Badge>{t("databases.table.container")}</Badge> : null}
+    </span>
+  );
+  if (!container) return name;
+  return (
+    <span className="flex min-w-0 flex-col">
+      {name}
+      <span className="flex min-w-0 items-center gap-1.5 text-12 text-fg-muted">
+        <Mono tone="muted" truncate>
+          {instancePlace(instance)}
+        </Mono>
+        {instance.app ? (
+          <>
+            <span aria-hidden="true" className="text-fg-faint">
+              ·
+            </span>
+            <Link to="/apps/$domain" params={{ domain: instance.app }} translate="no" className={`${TEXT_LINK} truncate`}>
+              {instance.app}
+            </Link>
+          </>
+        ) : null}
+      </span>
     </span>
   );
 }
@@ -97,21 +152,16 @@ export function DatabasesTable({ databases, engines, policies, dumps, caption, r
     {
       id: "engine",
       header: t("databases.table.engine"),
-      width: "w-48",
+      width: "w-60",
       sortValue: (database) => database.engine,
-      cell: (database) => (
-        <span className="flex items-center gap-1.5">
-          <span>{engineName(database.engine, engines)}</span>
-          {database.engine_version ? <Mono tone="muted">{database.engine_version}</Mono> : null}
-        </span>
-      ),
+      cell: (database) => <EngineCell database={database} engines={engines} t={t} />,
     },
     {
       id: "apps",
       header: t("databases.table.usedBy"),
       hideBelow: "md",
-      sortValue: (database) => (database.apps ?? []).join(",") || null,
-      cell: (database) => <UsedBy apps={database.apps ?? []} t={t} />,
+      sortValue: (database) => [...(database.apps ?? []), ...(database.detected_apps ?? [])].join(",") || null,
+      cell: (database) => <UsedBy apps={database.apps ?? []} detected={database.detected_apps ?? []} t={t} />,
     },
     {
       id: "size",
@@ -153,8 +203,17 @@ export function DatabasesTable({ databases, engines, policies, dumps, caption, r
         const size = sizeWords(database.size, t);
         const newest = dumps.get(databaseId(database.engine, database.name));
         const apps = database.apps ?? [];
+        const instance = engines?.find((engine) => engine.name === database.engine);
         const facts: ReactNode[] = [
           engineName(database.engine, engines),
+          ...(instance !== undefined && isContainer(instance)
+            ? [
+                <span className="inline-flex items-center gap-1.5">
+                  <Badge>{t("databases.table.container")}</Badge>
+                  <Mono tone="muted">{instancePlace(instance)}</Mono>
+                </span>,
+              ]
+            : []),
           ...(apps.length > 0 ? [<span translate="no">{apps.join(", ")}</span>] : []),
           ...(size !== null ? [size] : []),
           ...(newest !== undefined ? [<RelativeTime value={newest.created} />] : []),
