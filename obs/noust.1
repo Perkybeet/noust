@@ -1692,7 +1692,7 @@ Print the access list as JSON.
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
 .SS noust db adopt
-Track the databases created outside Noust, so they can be linked and backed up.
+Track the databases created outside Noust, and the uses applications' .env already name.
 .TP
 .B \-\-engine, \-e
 Only this engine. Defaults to all of them.
@@ -1900,17 +1900,26 @@ Print the backup list as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust db catalog
+Show which engines and versions can be installed on this server.
+.TP
+.B \-\-json
+Print the catalog as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust db config
-Store the administrative credentials Noust uses for an engine.
+Store the account Noust signs in to an engine with, after trying it.
 .TP
 .B \-\-engine, \-e
 Engine the credentials are for.
 .TP
 .B \-\-user, \-u
-Administrative user, such as root or postgres.
+Administrative user, such as root.
 .TP
 .B \-\-password, \-p
-Administrative password.
+Administrative password. Alone, it is asked for without echo, so it never reaches the shell history or the process list.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -2204,11 +2213,14 @@ Print the database's details as JSON.
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
 .SS noust db install
-Install a database engine on this server.
+Install a database engine: postgresql, mysql, mariadb, redis, valkey or mongodb.
 .TP
 .B Arguments
 .br
 \fIengine\fR
+.TP
+.B \-\-version
+Version to install (see 'noust db catalog'); the distribution's by default.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -2634,6 +2646,24 @@ Delete one of your saved queries.
 .B Arguments
 .br
 \fIsaved_id\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust db settings
+Show an engine's settings, or change them with KEY=VALUE.
+.TP
+.B Arguments
+.br
+\fIengine\fR
+.br
+\fIassignments\fR
+.TP
+.B \-\-yes, \-y
+Accept that the engine will listen beyond this server.
+.TP
+.B \-\-json
+Print the settings or the outcome as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
