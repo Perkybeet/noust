@@ -33,7 +33,7 @@ import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
 from noust.cli.panel_links import open_in_panel
-from noust.core.app_state import RUNNING, STATIC, resolve_states
+from noust.core.app_state import RUNNING, RUNNING_UNMANAGED, STATIC, resolve_states
 from noust.core.config import Config
 from noust.core.dependencies import check_deployment_ready
 from noust.core.exceptions import DeploymentError, NoustError, ServiceError, SourceError
@@ -851,10 +851,14 @@ def _list_apps(logger: Logger, *, json_output: bool = False) -> int:
 
     running = sum(1 for s in states.values() if s.label == RUNNING)
     static = sum(1 for s in states.values() if s.label == STATIC)
+    outside = sum(1 for s in states.values() if s.label == RUNNING_UNMANAGED)
     unhealthy = [(domain, s) for domain, s in states.items() if not s.healthy]
 
     logger.blank()
-    logger.info(f"Total: {len(apps)} apps ({running} running, {static} static)")
+    counts = f"{running} running, {static} static"
+    if outside:
+        counts += f", {outside} running outside Noust"
+    logger.info(f"Total: {len(apps)} apps ({counts})")
 
     # The reason belongs next to the list. Making the operator run a second
     # command to find out why something says Stopped is how the contradiction

@@ -268,7 +268,7 @@ class TestPartial:
         assert outcome.status == "unsupported"
         assert set(outcome.missing) == {"/api/overview", "/api/server/summary"}
         (row,) = result.items
-        assert row["apps"] == {"running": 3, "failed": 1, "stopped": 0, "static": 2}
+        assert row["apps"] == {"running": 3, "failed": 1, "stopped": 0, "static": 2, "unmanaged": 0}
         assert row["units"] == {"running": 5, "failed": 1, "stopped": 0}
         # Counted from the certificate list, the older node's way.
         assert row["certificates_expiring"] == 1

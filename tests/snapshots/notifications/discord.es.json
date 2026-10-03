@@ -1877,6 +1877,40 @@
     },
     "flags": 4096
   },
+  "app.outside_unit": {
+    "embeds": [
+      {
+        "title": "▲ Aplicación en marcha fuera de Noust · shop.example.com",
+        "description": "Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa y un reinicio del servidor no la volvería a levantar.\n\n**Devuélvela a Noust con:** `noust app reclaim shop.example.com`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Servidor",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Unidad",
+            "value": "`shop-example-com`",
+            "inline": true
+          },
+          {
+            "name": "Contenedores",
+            "value": "`shop-example-com-web-1, shop-example-com-db-1`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
   "hostile.deploy_failed": {
     "embeds": [
       {

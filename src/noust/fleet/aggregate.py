@@ -669,13 +669,17 @@ def _row(view: NodeView, page: str, fields: Mapping[str, Any]) -> dict[str, Any]
     }
 
 
-def _counts(value: Any, keys: tuple[str, ...]) -> dict[str, int] | None:
+def _counts(
+    value: Any, keys: tuple[str, ...], optional: tuple[str, ...] = ()
+) -> dict[str, int] | None:
     """
     Read a block of counters from a server's answer.
 
     Args:
         value: The block, such as ``{"running": 3, "failed": 0, ...}``.
         keys: The counters to keep.
+        optional: Counters a server of an older version does not send,
+            read as 0 when absent.
 
     Returns:
         The counters, or None when the block is not what a server sends.
@@ -683,12 +687,17 @@ def _counts(value: Any, keys: tuple[str, ...]) -> dict[str, int] | None:
     if not isinstance(value, dict):
         return None
     counts: dict[str, int] = {}
-    for key in keys:
-        number = value.get(key)
+    for key in (*keys, *optional):
+        number = value.get(key, 0 if key in optional else None)
         if not isinstance(number, int) or isinstance(number, bool):
             return None
         counts[key] = number
     return counts
+
+
+#: The application counters every server sends, and the one 3.3 added.
+_APP_COUNTS = ("running", "failed", "stopped", "static")
+_APP_COUNTS_SINCE_3_3 = ("unmanaged",)
 
 
 def _dict(value: Any) -> dict[str, Any] | None:
@@ -829,13 +838,9 @@ def _build_summary(view: NodeView) -> builtins.list[dict[str, Any]]:
     """
     machine = _dict(view.parts.get("machine"))
     overview = _dict(view.parts.get("overview"))
-    apps = (
-        _counts(machine.get("apps"), ("running", "failed", "stopped", "static"))
-        if machine
-        else None
-    )
+    apps = _counts(machine.get("apps"), _APP_COUNTS, _APP_COUNTS_SINCE_3_3) if machine else None
     if apps is None and overview is not None:
-        apps = _counts(overview.get("apps"), ("running", "failed", "stopped", "static"))
+        apps = _counts(overview.get("apps"), _APP_COUNTS, _APP_COUNTS_SINCE_3_3)
     return [
         _row(
             view,

@@ -62,6 +62,7 @@ STATE_STYLES: dict[str, str] = {
     "expiring": "yellow",
     "degraded": "yellow",
     "restarting": "bold yellow",
+    "running outside noust": "bold yellow",
     "no answer": "bold red",
     "failed": "bold red",
     "error": "bold red",

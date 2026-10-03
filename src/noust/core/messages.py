@@ -116,6 +116,10 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "Application answering again",
         "es": "Aplicación de nuevo operativa",
     },
+    "title.app.outside_unit": {
+        "en": "Application running outside Noust",
+        "es": "Aplicación en marcha fuera de Noust",
+    },
     "title.disk.threshold": {"en": "Disk almost full", "es": "Disco casi lleno"},
     "title.disk.recovered": {
         "en": "Disk space recovered",
@@ -332,6 +336,16 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "Every container of this stack runs again.",
         "es": "Todos los contenedores de este stack vuelven a estar en marcha.",
     },
+    "summary.app.outside_unit": {
+        "en": (
+            "Its containers run, but its unit is stopped: Noust is not supervising it, and a "
+            "restart of the server would not bring it back."
+        ),
+        "es": (
+            "Sus contenedores están en marcha, pero su unidad está parada: Noust no la "
+            "supervisa y un reinicio del servidor no la volvería a levantar."
+        ),
+    },
     "summary.disk.threshold": {
         "en": (
             "It is past the {threshold}% alert threshold, and a full disk stops deployments, "
@@ -464,6 +478,8 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     "fact.renew": {"en": "Renew with", "es": "Renuévalo con"},
     "fact.inspect": {"en": "Inspect with", "es": "Revísalo con"},
     "fact.diagnose": {"en": "Diagnose with", "es": "Diagnostícala con"},
+    "fact.reclaim": {"en": "Hand it back with", "es": "Devuélvela a Noust con"},
+    "fact.containers": {"en": "Containers", "es": "Contenedores"},
     "fact.reschedule": {"en": "Save it again with", "es": "Guárdala de nuevo con"},
     "fact.verify": {"en": "Check it with", "es": "Compruébalo con"},
     "fact.processes": {"en": "Processes", "es": "Procesos"},

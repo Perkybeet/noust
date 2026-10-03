@@ -29,10 +29,18 @@ A PHP application is stored as static too (no unit of its own runs it), but
 something does run it: its pool in the shared PHP-FPM. Its state is the
 pool's - FPM's own state, the pool file, and the health check asked of the
 pool over FastCGI, as the deploy gate asks it.
+
+A Docker Compose stack whose unit is down may still run: someone brought its
+containers up by hand (``docker compose up -d``) and the site serves. It is
+not stopped, and not Noust's either - a reboot would not bring it back and
+nothing done to the unit reaches it - so it has a state of its own,
+:data:`RUNNING_UNMANAGED` (item 73). Only stacks whose unit is not active
+are looked at, all of them with one ``docker ps``.
 """
 
 from __future__ import annotations
 
+import logging
 import socket
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
@@ -44,6 +52,8 @@ from noust.core.utils import domain_to_app_name
 if TYPE_CHECKING:  # pragma: no cover - imported for types only
     from noust.core.store import App
     from noust.managers.service_manager import ServiceManager
+
+log = logging.getLogger(__name__)
 
 #: How long to wait for a port to accept a connection. The probe runs against
 #: loopback, where anything listening answers immediately; a longer wait would
@@ -59,6 +69,8 @@ STOPPED = "Stopped"
 FAILED = "Failed"
 STATIC = "Static"
 UNKNOWN = "Unknown"
+#: A Compose stack whose containers run while its unit does not.
+RUNNING_UNMANAGED = "Running outside Noust"
 
 
 @dataclass(frozen=True)
@@ -140,6 +152,7 @@ def resolve_state_with_status(
     service_manager: ServiceManager,
     *,
     probe: bool = True,
+    look_at_containers: bool = True,
 ) -> tuple[AppState, dict[str, Any]]:
     """
     Work out an application's state, keeping the systemd status it read.
@@ -155,6 +168,9 @@ def resolve_state_with_status(
         app: The application record.
         service_manager: Used to ask systemd about the unit.
         probe: Whether to check that the port answers.
+        look_at_containers: Whether a Compose stack whose unit is down is
+            asked whether its containers run. The batch resolvers turn it off
+            and ask once for every such stack instead.
 
     Returns:
         The state, and the raw mapping ``ServiceManager.get_status`` returned
@@ -185,9 +201,80 @@ def resolve_state_with_status(
             return AppState(UNKNOWN, healthy=False, detail=str(error)), {}
         state = _state_from_status(app, status, probe=probe)
         if not state.healthy:
+            if look_at_containers and _unit_down(app, state, status):
+                return _outside_unit(app, _running_stacks([app]).get(app.domain), state), status
             return state, status
         resolved.append((state, status))
     return resolved[0]
+
+
+def _unit_down(app: App, state: AppState, status: dict[str, Any]) -> bool:
+    """
+    Tell whether a stack's state comes from a unit that exists and is not running.
+
+    Only then can its containers say something the unit does not: a missing
+    unit has nothing to hand the stack back to, one systemd is starting is
+    not down, and one that failed is a failure to read whatever its
+    containers do (a start that brought up half the stack and gave up).
+
+    Args:
+        app: The application record.
+        state: What its unit's status decided.
+        status: That status.
+
+    Returns:
+        True for a Compose stack whose unit exists and is stopped.
+    """
+    return (
+        app.app_type == "docker-compose"
+        and state.label == STOPPED
+        and bool(status.get("exists", True))
+        and not status.get("active")
+    )
+
+
+def _running_stacks(apps: list[App]) -> dict[str, tuple[str, ...]]:
+    """
+    Ask Docker, once, which of these stacks have containers running.
+
+    Args:
+        apps: Stacks whose units are down.
+
+    Returns:
+        Domain to its running containers' names; empty when Docker cannot be
+        asked, which leaves each stack the state its unit gave it.
+    """
+    from noust.deployers.compose_reclaim import running_outside_units
+
+    try:
+        return running_outside_units(apps)
+    except NoustError as error:
+        log.debug("Could not ask Docker which stacks run outside their units: %s", error)
+        return {}
+
+
+def _outside_unit(app: App, containers: tuple[str, ...] | None, state: AppState) -> AppState:
+    """
+    Decide a stack's state from its containers, when its unit is down.
+
+    Args:
+        app: The application record.
+        containers: The names of its running containers, if any runs.
+        state: What its unit's status decided.
+
+    Returns:
+        :data:`RUNNING_UNMANAGED` when any container runs; the unit's state
+        otherwise.
+    """
+    if not containers:
+        return state
+    return AppState(
+        RUNNING_UNMANAGED,
+        healthy=False,
+        detail=f"its containers run ({', '.join(containers)}) but its unit is not running: "
+        "Noust is not supervising it and a reboot would not bring it back; hand it back "
+        f"with: noust app reclaim {app.domain}",
+    )
 
 
 def _pool_state(app: App, *, probe: bool) -> AppState:
@@ -363,12 +450,8 @@ def resolve_states(
     if not apps:
         return {}
 
-    def one(app: App) -> tuple[str, AppState]:
-        return app.domain, resolve_state(app, service_manager, probe=probe)
-
-    workers = min(8, len(apps))
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        return dict(pool.map(one, apps))
+    resolved = resolve_states_with_status(apps, service_manager, probe=probe)
+    return {domain: state for domain, (state, _status) in resolved.items()}
 
 
 def resolve_states_with_status(
@@ -397,8 +480,19 @@ def resolve_states_with_status(
         return {}
 
     def one(app: App) -> tuple[str, tuple[AppState, dict[str, Any]]]:
-        return app.domain, resolve_state_with_status(app, service_manager, probe=probe)
+        return app.domain, resolve_state_with_status(
+            app, service_manager, probe=probe, look_at_containers=False
+        )
 
     workers = min(8, len(apps))
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        return dict(pool.map(one, apps))
+        resolved = dict(pool.map(one, apps))
+
+    # One docker call for every stack whose unit is down, not one per stack.
+    down = [app for app in apps if _unit_down(app, *resolved[app.domain])]
+    if down:
+        running = _running_stacks(down)
+        for app in down:
+            state, status = resolved[app.domain]
+            resolved[app.domain] = (_outside_unit(app, running.get(app.domain), state), status)
+    return resolved

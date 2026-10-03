@@ -400,7 +400,7 @@ class TestFleetStatus:
         assert [summary["name"] for summary in summaries] == ["web-2", "web-3"]
         up, down = summaries
         assert up["reachable"] and up["status"] == "reachable"
-        assert up["apps"] == {"running": 3, "failed": 1, "stopped": 0, "static": 2}
+        assert up["apps"] == {"running": 3, "failed": 1, "stopped": 0, "static": 2, "unmanaged": 0}
         assert up["units"] == {"running": 5, "failed": 1, "stopped": 0}
         assert up["certificates_expiring"] == 1
         assert up["warnings"] == []

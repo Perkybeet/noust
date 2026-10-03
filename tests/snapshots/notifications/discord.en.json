@@ -1877,6 +1877,40 @@
     },
     "flags": 4096
   },
+  "app.outside_unit": {
+    "embeds": [
+      {
+        "title": "▲ Application running outside Noust · shop.example.com",
+        "description": "Its containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back.\n\n**Hand it back with:** `noust app reclaim shop.example.com`",
+        "color": 14919484,
+        "fields": [
+          {
+            "name": "Server",
+            "value": "web-1",
+            "inline": true
+          },
+          {
+            "name": "Unit",
+            "value": "`shop-example-com`",
+            "inline": true
+          },
+          {
+            "name": "Containers",
+            "value": "`shop-example-com-web-1, shop-example-com-db-1`",
+            "inline": true
+          }
+        ],
+        "footer": {
+          "text": "Noust · web-1"
+        },
+        "timestamp": "2026-09-29T10:45:51+00:00",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "allowed_mentions": {
+      "parse": []
+    }
+  },
   "hostile.deploy_failed": {
     "embeds": [
       {

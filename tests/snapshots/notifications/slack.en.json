@@ -3242,6 +3242,68 @@
       }
     ]
   },
+  "app.outside_unit": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Application running outside Noust · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Application running outside Noust · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Its containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Server*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Unit*\n`shop-example-com`"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Containers*\n`shop-example-com-web-1, shop-example-com-db-1`"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Hand it back with:* `noust app reclaim shop.example.com`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com|Open in the console>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
   "hostile.deploy_failed": {
     "attachments": [
       {

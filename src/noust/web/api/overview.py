@@ -104,6 +104,8 @@ class AppsFigure(BaseModel):
         failed: A unit failed.
         stopped: Not running, or restarting.
         static: Served straight from disk: nothing to run.
+        unmanaged: Compose stacks whose containers run while their unit is
+            stopped: serving, but not under Noust.
         error: Why this could not be read, in the tool's own words.
     """
 
@@ -111,6 +113,7 @@ class AppsFigure(BaseModel):
     failed: int = 0
     stopped: int = 0
     static: int = 0
+    unmanaged: int = 0
     error: str | None = None
 
 
@@ -273,7 +276,7 @@ class AttentionReason(BaseModel):
         kind: ``state``, ``deploy``, ``certificate``, ``unit`` or ``monitor``.
         severity: ``fail`` or ``warn``.
         code: Machine-readable and stable; the console words it. ``service_failed``,
-            ``service_restarting``, ``deploy_failed``, ``deploy_rolled_back``,
+            ``service_restarting``, ``running_outside_unit``, ``deploy_failed``, ``deploy_rolled_back``,
             ``certificate_expired``, ``certificate_expires_today``,
             ``certificate_expires_in``, ``unit_failed``, ``unit_restarting``,
             ``monitor_finding``.

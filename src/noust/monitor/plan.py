@@ -828,21 +828,12 @@ class PlanBuilder:
             ``(full id, name)`` per container, or a Reason when docker could
             not be asked.
         """
-        from noust.deployers.docker_compose import compose_project_name
+        from noust.deployers.compose_reclaim import stack_identity
 
-        app_path = Path(getattr(app, "app_path", "") or "")
-        filters: list[str] = []
-        # An adopted stack runs under the project it already had, which need
-        # not be its directory's name: that project is the one that answers.
-        pinned = getattr(app, "compose_project", None)
-        if pinned:
-            filters.append(f"label=com.docker.compose.project={pinned}")
-        filters.append(f"label=com.docker.compose.project.working_dir={app_path}")
-        project = compose_project_name(app_path, None) if app_path.name else None
-        if project and project != pinned:
-            filters.append(f"label=com.docker.compose.project={project}")
-
-        for docker_filter in filters:
+        # The one identity of a stack's containers, which the application's
+        # state reads too: an adopted stack runs under the project it already
+        # had, which need not be its directory's name.
+        for docker_filter in stack_identity(app).filters():
             result = self.runner.run(
                 [
                     "docker",

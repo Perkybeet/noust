@@ -176,7 +176,7 @@ def test_the_snapshot_survives_asdict_and_json_dumps(runner: FakeRunner, store: 
     assert set(payload["memory"]) == {"used", "total", "percent"}
     assert set(payload["disk"]) == {"used", "total", "percent"}
     assert set(payload["units"]) == {"running", "failed", "stopped"}
-    assert set(payload["apps"]) == {"running", "failed", "stopped", "static"}
+    assert set(payload["apps"]) == {"running", "failed", "stopped", "static", "unmanaged"}
 
 
 # --------------------------------------------------------------- unit tally
@@ -437,7 +437,7 @@ def test_get_machine_answers_with_the_snapshot(client: TestClient) -> None:
         "apps",
     }
     assert set(body["units"]) == {"running", "failed", "stopped"}
-    assert set(body["apps"]) == {"running", "failed", "stopped", "static"}
+    assert set(body["apps"]) == {"running", "failed", "stopped", "static", "unmanaged"}
 
 
 def test_get_machine_reports_the_live_unit_tally(client: TestClient, runner: FakeRunner) -> None:

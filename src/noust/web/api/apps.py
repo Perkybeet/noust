@@ -115,6 +115,7 @@ _STATUS_LABELS: dict[str, str] = {
     app_state.FAILED: "failed",
     app_state.STATIC: "static",
     app_state.UNKNOWN: "unknown",
+    app_state.RUNNING_UNMANAGED: "running_unmanaged",
 }
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -159,8 +160,9 @@ class AppInfo(BaseModel):
             is crash-looping the unit), ``no_answer`` (the unit is up but
             nothing accepts connections on its port), ``stopped``, ``failed``
             (systemd gave up on it), ``static`` (served directly by the web
-            server, there is no unit) or ``unknown`` (systemd could not be
-            asked).
+            server, there is no unit), ``running_unmanaged`` (a Compose stack
+            whose containers run while its unit is stopped: hand it back with
+            ``POST .../reclaim``) or ``unknown`` (systemd could not be asked).
         active: Whether the unit is active.
         enabled: Whether the unit starts on boot.
         pid: Main PID when running.

@@ -2409,6 +2409,50 @@
     ],
     "excerpt": null
   },
+  "app.outside_unit": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000052",
+    "event": "unit_failed",
+    "code": "app.outside_unit",
+    "state": "warning",
+    "locale": "es",
+    "title": "Aplicación en marcha fuera de Noust: shop.example.com",
+    "summary": "Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa y un reinicio del servidor no la volvería a levantar.",
+    "body": "Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa y un reinicio del servidor no la volvería a levantar.\n\nServidor: web-1\nUnidad: shop-example-com\nContenedores: shop-example-com-web-1, shop-example-com-db-1\nDevuélvela a Noust con: noust app reclaim shop.example.com\n\nAbrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "unit",
+        "label": "Unidad",
+        "value": "shop-example-com"
+      },
+      {
+        "key": "containers",
+        "label": "Contenedores",
+        "value": "shop-example-com-web-1, shop-example-com-db-1"
+      },
+      {
+        "key": "reclaim",
+        "label": "Devuélvela a Noust con",
+        "value": "noust app reclaim shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "excerpt": null
+  },
   "hostile.deploy_failed": {
     "version": 1,
     "id": "00000000-0000-4000-8000-000000001000",

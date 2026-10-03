@@ -51,6 +51,7 @@ APP_FAILED = "failed"
 APP_STOPPED = "stopped"
 APP_STATIC = "static"
 APP_RESTARTING = "restarting"
+APP_UNMANAGED = "running_unmanaged"
 
 #: Days before expiry at which a certificate needs attention: the same window
 #: the console's attention list has always used.
@@ -274,7 +275,8 @@ def _apps_figure(states: dict[str, str]) -> dict[str, int]:
 
     Returns:
         Applications running, failed and stopped (a restarting one counts as
-        stopped, as the machine snapshot counts it) and static.
+        stopped, as the machine snapshot counts it), static, and running
+        outside their units.
     """
     values = list(states.values())
     return {
@@ -282,6 +284,7 @@ def _apps_figure(states: dict[str, str]) -> dict[str, int]:
         "failed": values.count(APP_FAILED),
         "stopped": values.count(APP_STOPPED) + values.count(APP_RESTARTING),
         "static": values.count(APP_STATIC),
+        "unmanaged": values.count(APP_UNMANAGED),
     }
 
 
@@ -654,6 +657,15 @@ def _attention(
                 {"kind": "app", "domain": domain},
                 domain,
                 _reason("state", "warn", "service_restarting", actions=["view_log", "diagnose"]),
+            )
+        elif state == APP_UNMANAGED:
+            # It serves, but nothing done to its unit reaches it and a server
+            # restart would not bring it back; the app's page hands it back.
+            add(
+                f"app:{domain}",
+                {"kind": "app", "domain": domain},
+                domain,
+                _reason("state", "warn", "running_outside_unit"),
             )
 
     _add_deployments(store, domains, add)

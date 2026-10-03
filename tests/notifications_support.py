@@ -30,6 +30,7 @@ from noust.core.exceptions import DeploymentError, NoustError, RolledBackError
 from noust.core.messages import Locale
 from noust.core.notifications.composers import (
     PreviewOf,
+    compose_app_outside_unit,
     compose_app_recovered,
     compose_app_unreachable,
     compose_approval_decided,
@@ -466,6 +467,12 @@ def _integration_events(ctx: NotificationContext) -> dict[str, Notification]:
         probe="GET http://127.0.0.1:3004/ -> <urlopen error [Errno 111] Connection refused>",
     )
     out["app.recovered"] = compose_app_recovered("shop.example.com", ctx, down_for_s=754)
+    out["app.outside_unit"] = compose_app_outside_unit(
+        "shop.example.com",
+        ctx,
+        unit="shop-example-com",
+        containers=["shop-example-com-web-1", "shop-example-com-db-1"],
+    )
     return out
 
 

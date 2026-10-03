@@ -1329,6 +1329,29 @@ Sent by Noust · web-1 · 2026-09-29 10:45 UTC
 Change what you receive in Settings > Notifications
 
 ========================================================================
+### app.outside_unit
+Subject: [Noust] Application running outside Noust: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: app.outside_unit
+X-Noust-Server: web-1
+
+▲ Application running outside Noust · shop.example.com
+Its containers run, but its unit is stopped: Noust is not supervising it, and a restart of the server would not bring it back.
+
+Server: web-1
+Unit: shop-example-com
+Containers: shop-example-com-web-1, shop-example-com-db-1
+Hand it back with: noust app reclaim shop.example.com
+
+Open in the console: https://console.example.com/n/web-1/apps/shop.example.com
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
 ### hostile.deploy_failed
 Subject: [Noust] Deploy failed: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated

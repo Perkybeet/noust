@@ -28,6 +28,7 @@ from __future__ import annotations
 import logging
 import socket
 import sqlite3
+import time
 from collections import deque
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -85,12 +86,23 @@ class UnitTally:
 
 @dataclass
 class AppTally:
-    """How many deployed applications are in each state."""
+    """
+    How many deployed applications are in each state.
+
+    Attributes:
+        running: Serving under their units.
+        failed: A unit failed.
+        stopped: Not running, or restarting.
+        static: Served straight from disk.
+        unmanaged: Compose stacks whose containers run while their unit does
+            not (item 73): serving, but not under Noust.
+    """
 
     running: int
     failed: int
     stopped: int
     static: int
+    unmanaged: int = 0
 
 
 @dataclass
@@ -212,6 +224,44 @@ APP_STATIC = "static"
 #: below folds into ``stopped`` (the JSON has no fourth bucket) and the
 #: Overview's attention list shows on its own.
 APP_RESTARTING = "restarting"
+#: A Compose stack whose unit is stopped while its containers run (item 73).
+APP_UNMANAGED = "running_unmanaged"
+
+#: Seconds an answer about which stacks run outside their units is reused.
+#: The snapshot is read every five seconds by every open console; Docker is
+#: asked at most this often, and only while some stack's unit is stopped.
+OUTSIDE_UNITS_TTL = 30.0
+
+_outside_units_cache: dict[str, Any] = {}
+
+
+def _running_outside(apps: list[Any]) -> dict[str, tuple[str, ...]]:
+    """
+    Ask which of these stacks run outside their units, reusing a recent answer.
+
+    Args:
+        apps: Compose stacks whose units are stopped.
+
+    Returns:
+        Domain to its running containers; empty when Docker cannot be asked,
+        which leaves every stack stopped.
+    """
+    from noust.core.runner import get_runner
+    from noust.deployers.compose_reclaim import running_outside_units
+
+    # The runner is part of the key: an answer is about the host it asked.
+    key = (id(get_runner()), tuple(sorted(app.domain for app in apps)))
+    now = time.monotonic()
+    cached = _outside_units_cache.get("entry")
+    if cached is not None and cached[0] == key and now - cached[1] < OUTSIDE_UNITS_TTL:
+        return dict(cached[2])
+    try:
+        found = running_outside_units(apps)
+    except NoustError as exc:
+        log.debug("Could not ask Docker which stacks run outside their units: %s", exc)
+        found = {}
+    _outside_units_cache["entry"] = (key, now, found)
+    return found
 
 
 def classify_apps(services: list[dict[str, Any]]) -> dict[str, str]:
@@ -235,8 +285,10 @@ def classify_apps(services: list[dict[str, Any]]) -> dict[str, str]:
         services: What :func:`fetch_service_states` returned.
 
     Returns:
-        Domain to ``running``, ``failed``, ``stopped``, ``static`` or
-        ``restarting``. Empty when the store cannot be read.
+        Domain to ``running``, ``failed``, ``stopped``, ``static``,
+        ``restarting`` or ``running_unmanaged`` (a Compose stack whose unit
+        is stopped while its containers run). Empty when the store cannot be
+        read.
     """
     from noust.core.store import get_store
 
@@ -259,6 +311,7 @@ def classify_apps(services: list[dict[str, Any]]) -> dict[str, str]:
 
     manager: ServiceManager | None = None
     states: dict[str, str] = {}
+    stopped_stacks: list[Any] = []
     for app in apps:
         if is_php_fpm(app):
             # Stored as static, but its pool runs it: classified by the pool.
@@ -292,6 +345,13 @@ def classify_apps(services: list[dict[str, Any]]) -> dict[str, str]:
             states[app.domain] = APP_RESTARTING
         else:
             states[app.domain] = APP_STOPPED
+            if buckets and app.app_type == "docker-compose":
+                stopped_stacks.append(app)
+    # A stack whose unit is stopped may still run, brought up by hand: one
+    # docker call for all of them, and none when there is no such stack.
+    if stopped_stacks:
+        for domain in _running_outside(stopped_stacks):
+            states[domain] = APP_UNMANAGED
     return states
 
 
@@ -303,8 +363,8 @@ def _count_apps(services: list[dict[str, Any]]) -> AppTally:
         services: What :func:`fetch_service_states` returned.
 
     Returns:
-        How many applications are running, failed, stopped or static; one
-        restarting counts as stopped.
+        How many applications are running, failed, stopped, static or
+        running outside their units; one restarting counts as stopped.
     """
     states = classify_apps(services)
     return AppTally(
@@ -312,6 +372,7 @@ def _count_apps(services: list[dict[str, Any]]) -> AppTally:
         failed=sum(state == APP_FAILED for state in states.values()),
         stopped=sum(state in (APP_STOPPED, APP_RESTARTING) for state in states.values()),
         static=sum(state == APP_STATIC for state in states.values()),
+        unmanaged=sum(state == APP_UNMANAGED for state in states.values()),
     )
 
 

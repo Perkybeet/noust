@@ -967,6 +967,25 @@
       ]
     }
   },
+  "app.outside_unit": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Aplicación en marcha fuera de Noust</b> · shop.example.com\nSus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa y un reinicio del servidor no la volvería a levantar.\n\n<b>Servidor:</b> web-1\n<b>Unidad:</b> <code>shop-example-com</code>\n<b>Contenedores:</b> <code>shop-example-com-web-1, shop-example-com-db-1</code>\n<b>Devuélvela a Noust con:</b> <code>noust app reclaim shop.example.com</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Abrir en la consola",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+          }
+        ]
+      ]
+    }
+  },
   "hostile.deploy_failed": {
     "chat_id": "-1001234567890",
     "text": "✕ <b>Despliegue fallido</b> · shop.example.com\nSe ha detenido por un error antes de que la nueva versión tomara el relevo.\n\n<b>Servidor:</b> wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww\n<b>Versión:</b> 20260929-104449\n<b>Commit:</b> a1b2c3d (&lt;b&gt;x&lt;/b&gt;&amp;amp;&lt;!channel&gt; @everyone `tick` _under_ *star* ~tilde~ [a](http://evil.example)): fixgnp.exe @here &lt;@U123&gt; &lt;#C1&gt; red emoji 🚀\n<b>Iniciado por:</b> Webhook\n<b>Duración:</b> 1 min 12 s\n<b>Revísalo con:</b> <code>noust diagnose shop.example.com</code>\n\n<i>Lo que ha informado el sistema</i>\n<pre>Release did not pass &lt;its&gt; health &amp; check\n&lt;urlopen error [Errno 111] Connection refused&gt;\n```\n@everyone &lt;!channel&gt; &lt;@U123|admin&gt; &amp;lt;b&amp;gt;\nred *bold* _italic_ ~strike~ `code`\nnoitcnuf\nxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx…</pre>",

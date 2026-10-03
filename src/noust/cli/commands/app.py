@@ -36,6 +36,7 @@ from noust.cli.commands.app_backup import backup_before_update_command
 from noust.cli.commands.app_headless import headless_command
 from noust.cli.commands.app_hooks import hooks as hooks_group
 from noust.cli.commands.app_identity import identity as identity_group
+from noust.cli.commands.app_reclaim import reclaim_command
 from noust.cli.commands.app_sandbox import sandbox as sandbox_group
 from noust.cli.commands.app_webhook import webhook as webhook_group
 from noust.cli.commands.webapp import _create_app, _read_env_file
@@ -116,6 +117,7 @@ cli.add_command(hooks_group)
 cli.add_command(backup_before_update_command)
 cli.add_command(headless_command)
 cli.add_command(adopt_command)
+cli.add_command(reclaim_command)
 
 
 @cli.command("migrate")

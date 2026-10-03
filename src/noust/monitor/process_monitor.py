@@ -33,6 +33,7 @@ from noust.core.exceptions import MonitorError, NoustError
 from noust.core.fs import SECRET_MODE, get_fs
 from noust.core.logger import Logger
 from noust.core.notifications.composers import (
+    compose_app_outside_unit,
     compose_app_recovered,
     compose_app_unreachable,
     compose_certificate,
@@ -138,6 +139,10 @@ CERT_STATE_FILE_NAME = "cert-notifications.json"
 #: the certificate one: the daemon restarts on every upgrade, and an outage
 #: must not be announced twice, or its end never told, because of that.
 REACHABILITY_STATE_FILE_NAME = "app-reachability.json"
+
+#: Sidecar holding the Compose stacks already announced as running outside
+#: their units, so a restart of the daemon does not announce them again.
+OUTSIDE_UNITS_STATE_FILE_NAME = "stacks-outside-units.json"
 
 #: Applications asked whether they answer at the same time. Each probe may
 #: wait out its own timeout, and one that hangs must not hold up the rest of
@@ -1044,12 +1049,15 @@ class ProcessMonitor:
         }
 
         askable: list[App] = []
+        stopped_stacks: list[App] = []
         for app in candidates:
             if app.domain not in serving:
                 continue
             state = self._unit_state(app.domain, serving[app.domain], health)
             if state == "stopped":
                 tracker.forget(app.domain)
+                if app.app_type == "docker-compose" and serving[app.domain]:
+                    stopped_stacks.append(app)
                 continue
             if state == "unwell":
                 tracker.hold(app.domain)
@@ -1087,6 +1095,87 @@ class ProcessMonitor:
         after = tracker.to_dict()
         if after != before:
             self._write_reachability_state(after)
+
+        self._check_outside_units(stopped_stacks, serving, {app.domain for app in apps})
+
+    def _outside_state_file(self) -> Path:
+        """
+        Where the stacks already announced as running outside their units are kept.
+
+        Returns:
+            A sidecar next to the reachability one.
+        """
+        return self._reachability_state_file().with_name(OUTSIDE_UNITS_STATE_FILE_NAME)
+
+    def _announced_outside(self) -> set[str]:
+        """
+        Read which stacks were announced as running outside their units.
+
+        Returns:
+            Their domains; empty when nothing was announced or the file
+            cannot be read, which at worst announces one again.
+        """
+        path = self._outside_state_file()
+        try:
+            data = json.loads(path.read_text())
+        except FileNotFoundError:
+            return set()
+        except (OSError, json.JSONDecodeError) as exc:
+            self.logger.debug(f"Could not read {path}: {exc}")
+            return set()
+        if not isinstance(data, list):
+            return set()
+        return {str(domain) for domain in data}
+
+    def _check_outside_units(
+        self, stopped_stacks: list[App], serving: dict[str, list[str]], known: set[str]
+    ) -> None:
+        """
+        Announce, once, a Compose stack whose containers run while its unit is stopped.
+
+        Someone ran ``docker compose up -d`` by hand (item 73): the site
+        serves, so it is no outage, but Noust is not supervising it and a
+        reboot would not bring it back. One ``docker ps`` covers every stack
+        whose unit is stopped, and none is run when there is no such stack.
+        Announced once per episode: a stack is announced again only after it
+        stopped running outside its unit.
+
+        Args:
+            stopped_stacks: Stacks whose units are stopped on purpose.
+            serving: The units that serve each application.
+            known: Every application's domain, to forget the deleted ones.
+        """
+        from noust.deployers.compose_reclaim import running_outside_units
+
+        before = self._announced_outside()
+        outside: dict[str, tuple[str, ...]] = {}
+        if stopped_stacks:
+            try:
+                outside = running_outside_units(stopped_stacks, runner=self.runner)
+            except NoustError as exc:
+                # Not knowing is not a change: what was announced stays so.
+                self.logger.warning(f"Could not ask Docker which stacks run: {exc}")
+                return
+        announced = {domain for domain in before if domain in outside and domain in known}
+        for domain, containers in sorted(outside.items()):
+            if domain in announced:
+                continue
+            unit = (serving.get(domain) or [domain])[0]
+            self.logger.warning(
+                f"{domain} runs outside its unit {unit}: {', '.join(containers)} run while "
+                f"the unit is stopped; hand it back with: noust app reclaim {domain}"
+            )
+            self._publish(
+                partial(compose_app_outside_unit, domain, unit=unit, containers=containers)
+            )
+            announced.add(domain)
+        if announced != before:
+            path = self._outside_state_file()
+            fs = get_fs()
+            try:
+                fs.write_text(path, json.dumps(sorted(announced)), mode=SECRET_MODE)
+            except OSError as exc:
+                self.logger.warning(f"Could not persist {path}: {exc}")
 
     def _record_probe(
         self, tracker: OutageTracker, domain: str, found: AppProbe | None, now: float

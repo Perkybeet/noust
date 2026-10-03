@@ -162,7 +162,7 @@ def test_applications_are_counted_by_state(store: NoustStore) -> None:
 
     body = collect(store, services=lambda: units)
 
-    assert body["apps"] == {"running": 1, "failed": 1, "stopped": 1, "static": 1}
+    assert body["apps"] == {"running": 1, "failed": 1, "stopped": 1, "static": 1, "unmanaged": 0}
 
 
 def test_todays_deployments_are_counted_by_the_store(store: NoustStore) -> None:
@@ -612,7 +612,7 @@ def test_a_unit_list_that_cannot_be_read_does_not_blank_the_page(store: NoustSto
 
     body = collect(store, services=down)
 
-    assert body["apps"] == {"running": 0, "failed": 0, "stopped": 0, "static": 0}
+    assert body["apps"] == {"running": 0, "failed": 0, "stopped": 0, "static": 0, "unmanaged": 0}
 
 
 def test_history_says_whether_metrics_are_recorded(store: NoustStore) -> None:

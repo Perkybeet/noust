@@ -1329,6 +1329,29 @@ Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
 Cambia lo que recibes en Ajustes > Notificaciones
 
 ========================================================================
+### app.outside_unit
+Subject: [Noust] Aplicación en marcha fuera de Noust: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: unit_failed
+X-Noust-Code: app.outside_unit
+X-Noust-Server: web-1
+
+▲ Aplicación en marcha fuera de Noust · shop.example.com
+Sus contenedores están en marcha, pero su unidad está parada: Noust no la supervisa y un reinicio del servidor no la volvería a levantar.
+
+Servidor: web-1
+Unidad: shop-example-com
+Contenedores: shop-example-com-web-1, shop-example-com-db-1
+Devuélvela a Noust con: noust app reclaim shop.example.com
+
+Abrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com
+
+-- 
+Enviado por Noust · web-1 · 2026-09-29 10:45 UTC
+Cambia lo que recibes en Ajustes > Notificaciones
+
+========================================================================
 ### hostile.deploy_failed
 Subject: [Noust] Despliegue fallido: shop.example.com (wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww)
 Auto-Submitted: auto-generated

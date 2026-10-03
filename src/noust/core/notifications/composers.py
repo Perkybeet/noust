@@ -865,6 +865,48 @@ def compose_app_recovered(
     )
 
 
+def compose_app_outside_unit(
+    domain: str,
+    ctx: NotificationContext,
+    *,
+    unit: str,
+    containers: Sequence[str] = (),
+) -> Notification:
+    """
+    Compose the notification for a Compose stack that runs outside its unit (item 73).
+
+    Someone brought its containers up by hand while its unit is stopped: it
+    serves, but Noust does not supervise it and a reboot would not bring it
+    back. Sent once per episode under the ``unit_failed`` switch, whose unit
+    is down; it is a warning, not a failure, because the site still serves.
+
+    Args:
+        domain: The application (the subject).
+        ctx: The context.
+        unit: Its unit, which is stopped.
+        containers: The names of its containers that run.
+
+    Returns:
+        The notification, under the ``unit_failed`` switch.
+    """
+    code = "app.outside_unit"
+    facts = [_fact("unit", unit, ctx, mono=True)]
+    if containers:
+        facts.append(_fact("containers", ", ".join(containers), ctx, mono=True))
+    return build(
+        ctx,
+        kind="unit_failed",
+        code=code,
+        state=State.WARNING,
+        subject=domain,
+        summary=message(f"summary.{code}", ctx.locale),
+        facts=facts,
+        command=_fact("reclaim", f"noust app reclaim {domain}", ctx, mono=True),
+        path=f"/apps/{domain}",
+        domain=domain,
+    )
+
+
 def _used_value(percent: float, used_bytes: int | None, total_bytes: int | None) -> str:
     """
     Args:
@@ -1339,6 +1381,7 @@ __all__ = [
     "OPERATIONS",
     "PreviewOf",
     "build",
+    "compose_app_outside_unit",
     "compose_app_recovered",
     "compose_app_unreachable",
     "compose_approval_decided",

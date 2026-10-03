@@ -28,7 +28,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Literal
 
-from noust.core.app_state import RUNNING, STATIC, resolve_states
+from noust.core.app_state import RUNNING, RUNNING_UNMANAGED, STATIC, resolve_states
 from noust.core.config import Config
 from noust.core.exceptions import NoustError
 from noust.core.store import WebServer, get_store
@@ -324,7 +324,9 @@ def _check_applications(verbose: bool, warnings: list[str]) -> HealthCheck:
     # static sites that have no service to run in the first place.
     states = resolve_states(apps, service_manager)
 
-    apps_running = sum(1 for s in states.values() if s.label == RUNNING)
+    # A stack running outside its unit serves too; it is listed below as
+    # needing attention, not counted as down.
+    apps_running = sum(1 for s in states.values() if s.label in (RUNNING, RUNNING_UNMANAGED))
     apps_static = sum(1 for s in states.values() if s.label == STATIC)
     unhealthy = [(domain, s) for domain, s in states.items() if not s.healthy]
 

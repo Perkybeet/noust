@@ -221,6 +221,7 @@ EVENTS: dict[str, EventSpec] = {
             "apps.headless": "A Compose stack that publishes no port was recorded as a worker.",
             "apps.hooks": "An application's deploy hooks were set or cleared.",
             "apps.adopt": "A Docker Compose stack that already ran was registered as it is.",
+            "apps.reclaim": "A Compose stack running outside its unit was handed back to it.",
             "hooks.deploy": "A deploy webhook delivery was handled.",
             "hooks.github": "A GitHub App delivery was handled.",
             "hooks.secret.mint": "An application's webhook secret was created or rotated.",

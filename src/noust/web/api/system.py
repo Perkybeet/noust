@@ -204,6 +204,10 @@ class MachineApps(BaseModel):
     failed: int
     stopped: int
     static: int
+    unmanaged: int = Field(
+        default=0,
+        description="Compose stacks whose containers run while their unit is stopped",
+    )
 
 
 class MachineOut(BaseModel):
