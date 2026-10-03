@@ -38,8 +38,15 @@ import shlex
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
+from noust.core.runner import CommandRunner
+from noust.managers.server.host import PROBE_TIMEOUT
+
 #: The chain Docker leaves to the operator.
 CHAIN = "DOCKER-USER"
+
+#: Environment of every firewall command: the tools' own words, untranslated, so
+#: what they say can be recognised.
+FIREWALL_ENV = {"LC_ALL": "C", "TERM": "dumb"}
 
 #: What a terminating rule does, as both tools spell it.
 _VERDICTS = {
@@ -613,3 +620,167 @@ class DockerUserChain:
             else ", ".join(self.interfaces)
         )
         return Coverage(rule.text, matched, where)
+
+
+def _missing_chain(output: str) -> bool:
+    """
+    Tell "the chain does not exist" from a failure to read it.
+
+    Args:
+        output: What iptables or nft said.
+
+    Returns:
+        True when the tool said there is no such chain (Docker not running, or
+        not managing this family's rules): no rule, and nothing wrong.
+    """
+    text = output.lower()
+    return "no chain/target/match" in text or "no such file or directory" in text
+
+
+class DockerUserReader:
+    """
+    Reads ``DOCKER-USER`` and the default routes through a runner, once each.
+
+    The one place that answers "is this published port refused on the public
+    interface" (rule 3): the server's security checks and the databases'
+    exposure report both go through it, so the two cannot disagree about a port
+    the operator closed. Every command it runs is a declared read-only probe
+    (``managers/server/probes.py``).
+    """
+
+    def __init__(self, runner: CommandRunner) -> None:
+        """
+        Args:
+            runner: The runner every command goes through.
+        """
+        self.runner = runner
+        self._chains: dict[str, DockerUserChain] = {}
+        self._routes: dict[str, tuple[str, ...]] = {}
+        self._interfaces: tuple[str, ...] | None = None
+
+    def default_routes(self, family: str) -> tuple[str, ...]:
+        """
+        The interfaces of one address family's default routes.
+
+        Args:
+            family: ``ipv4`` or ``ipv6``.
+
+        Returns:
+            Their names; empty when ``ip`` is missing or says none.
+        """
+        if family not in self._routes:
+            found: tuple[str, ...] = ()
+            if self.runner.exists("ip"):
+                argv = ["ip", "route", "show", "default"]
+                if family == "ipv6":
+                    argv.insert(1, "-6")
+                result = self.runner.run(argv, timeout=PROBE_TIMEOUT, env=FIREWALL_ENV)
+                if result.success:
+                    found = parse_default_interfaces(result.stdout)
+            self._routes[family] = found
+        return self._routes[family]
+
+    def public_interfaces(self) -> tuple[str, ...]:
+        """
+        The interfaces the Internet comes in on: those of the default routes.
+
+        Returns:
+            Their names, IPv4's first; empty when ``ip`` is missing or says none.
+        """
+        if self._interfaces is None:
+            found: list[str] = []
+            for family in ("ipv4", "ipv6"):
+                found += [name for name in self.default_routes(family) if name not in found]
+            self._interfaces = tuple(found)
+        return self._interfaces
+
+    def chain(self, family: str) -> DockerUserChain:
+        """
+        Read Docker's ``DOCKER-USER`` chain for one address family.
+
+        ``iptables -S`` reads it on both of iptables' backends; ``nft list
+        chain`` when nftables is the only tool there is.
+
+        Args:
+            family: ``ipv4`` or ``ipv6``.
+
+        Returns:
+            The chain; without rules when it does not exist, with the tool's
+            own words in ``error`` when it could not be read.
+        """
+        if family in self._chains:
+            return self._chains[family]
+        ipv6 = family == "ipv6"
+        tool = "ip6tables" if ipv6 else "iptables"
+        if self.runner.exists(tool):
+            argv = [tool, "-S", CHAIN]
+            parse = parse_iptables_chain
+        elif self.runner.exists("nft"):
+            argv = ["nft", "list", "chain", "ip6" if ipv6 else "ip", "filter", CHAIN]
+            parse = parse_nft_chain
+        else:
+            self._chains[family] = DockerUserChain()
+            return self._chains[family]
+        result = self.runner.run(argv, timeout=PROBE_TIMEOUT, env=FIREWALL_ENV)
+        output = (result.stderr or result.stdout).strip()
+        source = " ".join(argv)
+        if result.success:
+            chain = DockerUserChain(tuple(parse(result.stdout)), self.public_interfaces(), source)
+        elif _missing_chain(output):
+            chain = DockerUserChain(source=source)
+        else:
+            chain = DockerUserChain(
+                source=source, error=f"{source}: {output or f'exit {result.exit_code}'}"
+            )
+        self._chains[family] = chain
+        return chain
+
+    def errors(self) -> list[str]:
+        """
+        Why a ``DOCKER-USER`` chain that was needed could not be read.
+
+        Returns:
+            The tools' own words, one line per chain; empty when every chain
+            read was read.
+        """
+        return [chain.error for chain in self._chains.values() if chain.error]
+
+    def unrouted(self, host_address: str) -> str:
+        """
+        Say why the Internet cannot reach an IPv6 publication at all.
+
+        Docker publishes on ``[::]`` as well as ``0.0.0.0`` whether or not the
+        server has IPv6; without an IPv6 default route nothing from outside can
+        answer back, so that publication is not an exposure. The owner's central
+        was told its six IPv6 publications were open when it has no IPv6 address.
+
+        Args:
+            host_address: The address the port is published on.
+
+        Returns:
+            The reason, or empty when it is reachable (or IPv4).
+        """
+        if ":" not in host_address or not self.runner.exists("ip"):
+            return ""
+        if self.default_routes("ipv6"):
+            return ""
+        return "no IPv6 default route: nothing outside reaches it over IPv6"
+
+    def covering(
+        self, host_address: str, host_port: int, container_port: int, proto: str
+    ) -> Coverage | None:
+        """
+        Find the rule that closes a publication to the Internet.
+
+        Args:
+            host_address: The address the port is published on; its family
+                picks the chain (``iptables`` or ``ip6tables``).
+            host_port: The port on the host.
+            container_port: The port inside the container.
+            proto: ``tcp`` or ``udp``.
+
+        Returns:
+            Why it is filtered, or None when nothing provably refuses it.
+        """
+        family = "ipv6" if ":" in host_address else "ipv4"
+        return self.chain(family).covering(host_port, container_port, proto)
