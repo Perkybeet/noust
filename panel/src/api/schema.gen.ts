@@ -6458,6 +6458,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/databases/{engine}/{name}/links/detected": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record Detected Link
+         * @description Record as a link a use Noust found in an application's environment.
+         *
+         *     Nothing in the application changes: its ``.env`` already names the
+         *     database.
+         *
+         *     Args:
+         *         engine: The engine key.
+         *         name: The database.
+         *         request: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The recorded link.
+         */
+        post: operations["record_detected_link_api_databases_databases__engine___name__links_detected_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/databases/{engine}/{name}/metrics": {
         parameters: {
             query?: never;
@@ -6756,6 +6788,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/engines/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Engine Catalog
+         * @description Say which flavours and versions can be installed on this server.
+         *
+         *     MySQL and MariaDB, Redis and Valkey are separate choices; one is never
+         *     offered while the other is installed.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The catalog for this distribution.
+         */
+        get: operations["get_engine_catalog_api_databases_engines_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/engines/{engine}/credentials": {
         parameters: {
             query?: never;
@@ -6825,13 +6886,17 @@ export interface paths {
         put?: never;
         /**
          * Install Engine
-         * @description Queue the installation of an engine.
+         * @description Queue the installation of an engine, in a flavour and version of the catalog.
          *
-         *     Installation drives the distribution package manager, so it runs as a job.
+         *     Installation drives the distribution package manager, so it runs as a
+         *     job. What it will install is decided first, so a version this server
+         *     cannot have, or MariaDB while MySQL is installed, is refused here rather
+         *     than in the job. Without a body it installs what 3.2 did.
          *
          *     Args:
-         *         engine: Engine name.
+         *         engine: Engine name, or a flavour's (``mariadb``, ``valkey``).
          *         session: The authenticated session.
+         *         request: The flavour and version, both optional.
          *
          *     Returns:
          *         The queued job.
@@ -6952,6 +7017,49 @@ export interface paths {
          *         The action outcome.
          */
         post: operations["restart_engine_api_databases_engines__engine__restart_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/engines/{engine}/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Engine Settings
+         * @description Read an engine's settings: current, configured and recommended.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The settings.
+         */
+        get: operations["get_engine_settings_api_databases_engines__engine__settings_get"];
+        /**
+         * Put Engine Settings
+         * @description Change an engine's settings, with sudo mode.
+         *
+         *     The file is written, checked by the engine's own tool, and the engine
+         *     restarted, reloaded or changed at runtime; when it does not answer, the
+         *     previous settings are put back and the error carries its journal.
+         *
+         *     Args:
+         *         engine: Engine name.
+         *         request: The new values and the exposure confirmation.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What changed and how it was applied.
+         */
+        put: operations["put_engine_settings_api_databases_engines__engine__settings_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -15882,6 +15990,8 @@ export interface components {
          *         unverified: Recorded by Noust, on an engine that could not be read.
          *         app: The application it belongs to, whose backups include it.
          *         apps: Every application linked to it.
+         *         detected_apps: Applications whose environment names it, without a
+         *             recorded link.
          *         username: The account Noust provisioned for it.
          *         engine_version: The engine's version.
          *         last_backup: When its newest dump was taken.
@@ -15891,6 +16001,8 @@ export interface components {
             app?: string | null;
             /** Apps */
             apps?: string[];
+            /** Detected Apps */
+            detected_apps?: string[];
             /** Encoding */
             encoding?: string | null;
             /** Engine */
@@ -16546,6 +16658,24 @@ export interface components {
             worst_percent?: number | null;
         };
         /**
+         * DistributionResponse
+         * @description The distribution the catalog was computed for.
+         *
+         *     Attributes:
+         *         known: Whether Noust knows which versions it ships; on a release it
+         *             does not know, only the distribution's own packages are offered.
+         */
+        DistributionResponse: {
+            /** Codename */
+            codename: string;
+            /** Id */
+            id: string;
+            /** Known */
+            known: boolean;
+            /** Name */
+            name: string;
+        };
+        /**
          * DnsCheckResponse
          * @description Whether a domain resolves to this server.
          *
@@ -16637,6 +16767,17 @@ export interface components {
             password: string;
             /** Password2 */
             password2: string;
+        };
+        /**
+         * EngineCatalogResponse
+         * @description Response for ``GET /api/databases/engines/catalog``.
+         */
+        EngineCatalogResponse: {
+            /** Apt */
+            apt: boolean;
+            distribution: components["schemas"]["DistributionResponse"];
+            /** Flavours */
+            flavours: components["schemas"]["FlavourChoiceResponse"][];
         };
         /**
          * EngineCredentialsRequest
@@ -16740,6 +16881,22 @@ export interface components {
             warnings?: string[];
         };
         /**
+         * EngineInstallRequest
+         * @description What to install. Both fields are optional, and so is the body.
+         *
+         *     Attributes:
+         *         flavour: A flavour of the engine in the path (``mariadb`` for
+         *             ``mysql``, ``valkey`` for ``redis``). The path may name it too.
+         *         version: One of the catalog's versions; the distribution's when
+         *             empty.
+         */
+        EngineInstallRequest: {
+            /** Flavour */
+            flavour?: string | null;
+            /** Version */
+            version?: string | null;
+        };
+        /**
          * EngineListResponse
          * @description Response for listing engines.
          */
@@ -16795,6 +16952,142 @@ export interface components {
             series?: {
                 [key: string]: string;
             };
+        };
+        /**
+         * EngineSettingResponse
+         * @description One setting of an engine.
+         *
+         *     Attributes:
+         *         key: The engine's own name for it; stable, the key the console
+         *             translates ``description`` by.
+         *         kind: ``addresses``, ``port``, ``integer``, ``size``,
+         *             ``duration_ms``, ``seconds``, ``gigabytes``, ``boolean``,
+         *             ``enum``, ``timezone`` or ``snapshots``.
+         *         current: What the running engine uses; null when it did not answer.
+         *         configured: What Noust's file sets; null when it sets nothing.
+         *         recommended: Noust's advice for this server's memory and cores;
+         *             null when it depends on the applications.
+         *         restart: Changing it restarts the engine.
+         *         listen: It decides where the engine listens; a non-loopback value
+         *             needs ``confirm_exposure``.
+         *         editable: Noust changes it; ``locked_reason`` says why not.
+         *         source: The file the engine read the current value from (PostgreSQL).
+         */
+        EngineSettingResponse: {
+            /** Choices */
+            choices?: string[];
+            /** Configured */
+            configured?: string | null;
+            /** Current */
+            current?: string | null;
+            /** Description */
+            description: string;
+            /**
+             * Editable
+             * @default true
+             */
+            editable: boolean;
+            /** Key */
+            key: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Listen
+             * @default false
+             */
+            listen: boolean;
+            /** Locked Reason */
+            locked_reason?: string | null;
+            /** Maximum */
+            maximum?: number | null;
+            /** Minimum */
+            minimum?: number | null;
+            /** Recommended */
+            recommended?: string | null;
+            /** Restart */
+            restart: boolean;
+            /** Source */
+            source?: string | null;
+            /** Unit */
+            unit?: string | null;
+        };
+        /**
+         * EngineSettingsOutcomeResponse
+         * @description What applying settings did.
+         *
+         *     Attributes:
+         *         changed: The keys whose value changed.
+         *         action: ``none``, ``reload``, ``runtime`` (applied to the running
+         *             engine) or ``restart``.
+         *         exposed: The engine now listens beyond loopback.
+         *         warnings: What the operator must know, in English.
+         */
+        EngineSettingsOutcomeResponse: {
+            /** Action */
+            action: string;
+            /** Changed */
+            changed: string[];
+            /** Display Name */
+            display_name: string;
+            /** Engine */
+            engine: string;
+            /**
+             * Exposed
+             * @default false
+             */
+            exposed: boolean;
+            /** File */
+            file: string;
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * EngineSettingsRequest
+         * @description Settings to change.
+         *
+         *     Attributes:
+         *         values: New values by key, as text (``256MB``, ``on``, ``127.0.0.1``);
+         *             ``default`` removes a setting from Noust's file.
+         *         confirm_exposure: The operator accepts that the engine will listen
+         *             beyond loopback. Without it such a change is refused with the
+         *             exposure warning, on the ``confirm_exposure`` field.
+         */
+        EngineSettingsRequest: {
+            /**
+             * Confirm Exposure
+             * @default false
+             */
+            confirm_exposure: boolean;
+            /** Values */
+            values?: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * EngineSettingsResponse
+         * @description Response for ``GET /api/databases/engines/{engine}/settings``.
+         *
+         *     Attributes:
+         *         file: The file Noust writes the settings to.
+         *         running: The engine answered, so ``current`` is known.
+         *         memory_bytes: The memory the recommendations were computed from.
+         *         cpus: The processors they were computed from.
+         */
+        EngineSettingsResponse: {
+            /** Cpus */
+            cpus: number;
+            /** Display Name */
+            display_name: string;
+            /** Engine */
+            engine: string;
+            /** File */
+            file: string;
+            /** Memory Bytes */
+            memory_bytes: number;
+            /** Running */
+            running: boolean;
+            /** Settings */
+            settings: components["schemas"]["EngineSettingResponse"][];
         };
         /**
          * EngineStatusResponse
@@ -17604,6 +17897,40 @@ export interface components {
              * @default false
              */
             epel: boolean;
+        };
+        /**
+         * FlavourChoiceResponse
+         * @description A flavour as the install dialog offers it.
+         *
+         *     Attributes:
+         *         flavour: ``postgresql``, ``mysql``, ``mariadb``, ``redis``,
+         *             ``valkey`` or ``mongodb``; what ``POST .../install`` takes.
+         *         engine: The engine that runs it, the ``{engine}`` of every other route.
+         *         installed: This flavour is the one installed.
+         *         installable: It can be installed now.
+         *         blocked: Why not, as a stable code: ``installed``, ``conflict`` (the
+         *             engine's other flavour is installed), ``not_available`` (nothing
+         *             publishes it for this release) or ``no_apt``.
+         *         reason: The same in one English sentence, with what to do.
+         *         versions: The versions offered, oldest first.
+         */
+        FlavourChoiceResponse: {
+            /** Blocked */
+            blocked?: string | null;
+            /** Display Name */
+            display_name: string;
+            /** Engine */
+            engine: string;
+            /** Flavour */
+            flavour: string;
+            /** Installable */
+            installable: boolean;
+            /** Installed */
+            installed: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Versions */
+            versions?: components["schemas"]["VersionChoiceResponse"][];
         };
         /**
          * FleetActionOut
@@ -21434,6 +21761,17 @@ export interface components {
             title: string;
             /** Unavailable Reason */
             unavailable_reason?: string | null;
+        };
+        /**
+         * RecordLinkRequest
+         * @description A use found in an application's environment, to record as a link.
+         *
+         *     Attributes:
+         *         app: The application whose environment names the database.
+         */
+        RecordLinkRequest: {
+            /** App */
+            app: string;
         };
         /**
          * RefusedRestartOut
@@ -25576,6 +25914,26 @@ export interface components {
             success: boolean;
         };
         /**
+         * VersionChoiceResponse
+         * @description One version of a flavour this server can be given.
+         *
+         *     Attributes:
+         *         source: ``distribution`` (the release's own packages) or ``upstream``
+         *             (the engine's repository, added with its pinned key).
+         *         default: What installs when no version is chosen.
+         */
+        VersionChoiceResponse: {
+            /**
+             * Default
+             * @default false
+             */
+            default: boolean;
+            /** Source */
+            source: string;
+            /** Version */
+            version: string;
+        };
+        /**
          * WebConfig
          * @description Web interface configuration.
          */
@@ -26262,11 +26620,18 @@ export interface components {
         };
         /**
          * AdoptResponse
-         * @description The databases adopted, as ``engine/name``.
+         * @description What adopting recorded.
+         *
+         *     Attributes:
+         *         adopted: The databases now tracked, as ``engine/name``.
+         *         links: The uses found in applications' environments now recorded as
+         *             links, as ``domain -> engine/name``.
          */
         noust__web__api__databases__databases__AdoptResponse: {
             /** Adopted */
             adopted: string[];
+            /** Links */
+            links?: string[];
         };
         /**
          * BackupListResponse
@@ -33199,6 +33564,42 @@ export interface operations {
             };
         };
     };
+    record_detected_link_api_databases_databases__engine___name__links_detected_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     database_metrics_api_databases_databases__engine___name__metrics_get: {
         parameters: {
             query?: never;
@@ -33582,6 +33983,26 @@ export interface operations {
             };
         };
     };
+    get_engine_catalog_api_databases_engines_catalog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineCatalogResponse"];
+                };
+            };
+        };
+    };
     set_engine_credentials_api_databases_engines__engine__credentials_put: {
         parameters: {
             query?: never;
@@ -33657,7 +34078,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["EngineInstallRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             202: {
@@ -33792,6 +34217,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_engine_settings_api_databases_engines__engine__settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_engine_settings_api_databases_engines__engine__settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EngineSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineSettingsOutcomeResponse"];
                 };
             };
             /** @description Validation Error */

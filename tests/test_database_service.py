@@ -1051,17 +1051,25 @@ class TestDetectedLinks:
 
         link = service.record_detected_link("postgresql", "shop_db", DOMAIN)
 
-        assert (link.engine, link.database, link.env_var) == ("postgresql", "shop_db", "DATABASE_URL")
+        assert (link.engine, link.database, link.env_var) == (
+            "postgresql",
+            "shop_db",
+            "DATABASE_URL",
+        )
         assert Path(app.app_path, ".env").read_text() == before
         (view,) = service.listing().databases
         assert view.apps == [DOMAIN]
         assert view.detected_apps == []
 
-    def test_a_use_that_is_not_there_cannot_be_recorded(self, service: DatabaseService, app: App) -> None:
+    def test_a_use_that_is_not_there_cannot_be_recorded(
+        self, service: DatabaseService, app: App
+    ) -> None:
         with pytest.raises(ValidationError, match="does not name"):
             service.record_detected_link("postgresql", "shop_db", DOMAIN)
 
-    def test_adopt_links_records_the_unambiguous_uses(self, service: DatabaseService, app: App) -> None:
+    def test_adopt_links_records_the_unambiguous_uses(
+        self, service: DatabaseService, app: App
+    ) -> None:
         self._uses(app, "postgresql://shop_user:pw@127.0.0.1:5433/shop_db")
 
         assert service.adopt_links() == [f"{DOMAIN} -> postgresql/shop_db"]
