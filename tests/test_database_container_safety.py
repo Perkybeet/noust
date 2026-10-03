@@ -354,3 +354,57 @@ def test_a_restore_deadline_grows_with_the_dump_up_to_a_cap(tmp_path: Path) -> N
 
     big = restore_timeout(Huge())  # type: ignore[arg-type]
     assert TRANSFER_TIMEOUT < big <= RESTORE_TIMEOUT_CAP == 6 * 3600
+
+
+# ==================== Finding 2: a container's dump is checked by its own pg_restore ====================
+
+
+class TestCheckingAContainersDump:
+    """The host may have no pg_restore, or an older one than the container's."""
+
+    @pytest.fixture
+    def archive(self, tmp_path: Path) -> Path:
+        dump = tmp_path / "postgresql.empleo-arennalabs-com.db.empleo-20261003_010101.dump"
+        dump.write_bytes(b"PGDMP\x01\x0e\x00archive")
+        return dump
+
+    def test_it_is_listed_inside_the_container_on_stdin(
+        self, docker: Docker, instances, archive: Path
+    ) -> None:
+        from noust.managers.database.backup_verify import check_dump
+
+        docker.script(["docker", "exec"], stdout="; Archive created\n1; 2 TABLE public t\n")
+        docker.script(["pg_restore"], stderr="pg_restore: unsupported version (1.16)", exit_code=1)
+        manager = PostgresManager().bind(instances[PG_KEY])
+
+        outcome = check_dump(manager, archive)
+
+        assert (outcome.ok, outcome.method) == (True, "pg_restore --list")
+        (listing,) = [call for call in docker.calls if "pg_restore" in call]
+        assert inner(listing) == ("pg_restore", "--list")
+        assert docker.stdin_paths == [archive]
+        assert not any(call[0] == "pg_restore" for call in docker.calls)
+
+    def test_a_stopped_container_leaves_the_hosts(
+        self, docker: Docker, instances, archive: Path
+    ) -> None:
+        from dataclasses import replace
+
+        from noust.managers.database.backup_verify import check_dump
+
+        docker.script(["pg_restore"], stdout="1; 2 TABLE public t\n")
+        stopped = replace(instances[PG_KEY], state="exited")
+        manager = PostgresManager().bind(stopped)
+
+        outcome = check_dump(manager, archive)
+
+        assert outcome.ok
+        assert docker.calls == [("pg_restore", "--list", str(archive))]
+
+    def test_the_hosts_engine_keeps_its_check(self, docker: Docker, archive: Path) -> None:
+        from noust.managers.database.backup_verify import check_dump
+
+        docker.script(["pg_restore"], stdout="1; 2 TABLE public t\n")
+
+        assert check_dump(PostgresManager(), archive).ok
+        assert docker.calls == [("pg_restore", "--list", str(archive))]

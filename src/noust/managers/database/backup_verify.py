@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from noust.core.exceptions import DatabaseBackupError, DatabaseError
+from noust.core.runner import CommandResult
 from noust.managers.database.base import BaseDatabaseManager, backup_format
 from noust.managers.database.mongo_archive import (
     ARCHIVE_MAGIC,
@@ -215,6 +216,29 @@ def _postgres_format(path: Path) -> str:
     return "plain"
 
 
+def _list_archive(manager: BaseDatabaseManager, path: Path) -> CommandResult:
+    """
+    List a PostgreSQL archive with the pg_restore that would restore it.
+
+    A container's dump is listed by the container's own pg_restore, on its
+    stdin (the manager's :meth:`~BaseDatabaseManager._exec` runs it there):
+    the host may have no client, or an older major that refuses the
+    archive's header. A stopped container cannot be asked, and the host's
+    is the only one left.
+
+    Args:
+        manager: The PostgreSQL manager, bound to a container or not.
+        path: The archive, not gzipped, on this machine.
+
+    Returns:
+        What ``pg_restore --list`` returned.
+    """
+    instance = manager.instance
+    if instance is not None and instance.running:
+        return manager._exec(["pg_restore", "--list"], stdin_path=path, timeout=_CHECK_TIMEOUT)
+    return manager.runner.run(["pg_restore", "--list", str(path)], timeout=_CHECK_TIMEOUT)
+
+
 def _check_postgresql(manager: BaseDatabaseManager, path: Path, size: int) -> DumpCheck:
     """
     Check a PostgreSQL dump: an archive by listing it, a plain one by its trailer.
@@ -231,9 +255,7 @@ def _check_postgresql(manager: BaseDatabaseManager, path: Path, size: int) -> Du
         with _plain_copy(manager, path) as readable:
             fmt = _postgres_format(readable)
             if fmt in ("custom", "tar"):
-                result = manager.runner.run(
-                    ["pg_restore", "--list", str(readable)], timeout=_CHECK_TIMEOUT
-                )
+                result = _list_archive(manager, readable)
                 if not result.success:
                     return _fail("pg_restore --list", result.stderr or result.stdout)
                 entries = sum(
