@@ -1137,10 +1137,13 @@ class DatabaseService:
 
         views: list[DatabaseView] = []
         seen: set[str] = set()
+        # A container's databases belong to the application its Compose project
+        # is, unless the store records another owner.
+        stack_app = manager.instance.app if manager.instance is not None else None
         for info in entries:
             seen.add(info.name)
             row = rows.get(info.name)
-            owner_app = self._domain_of(row.app_id) if row else None
+            owner_app = (self._domain_of(row.app_id) if row else None) or stack_app
             apps = sorted({*linked.get(info.name, []), *([owner_app] if owner_app else [])})
             views.append(
                 DatabaseView(

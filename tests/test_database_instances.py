@@ -894,3 +894,29 @@ def test_a_redis_container_counts_as_installed_without_a_client_on_the_host(
     manager = RedisManager().bind(instances["redis@tienda-arennalabs-com.redis"])
 
     assert manager.is_installed()
+
+
+def test_a_containers_databases_belong_to_its_compose_projects_app(
+    fleet: FakeRunner, tmp_path: Path
+) -> None:
+    from noust.core.secrets import SecretStore
+    from noust.core.store import App, NoustStore
+    from noust.managers.database.service import DatabaseService
+
+    store = NoustStore(tmp_path / "noust.db")
+    store.create_app(App(domain="proggest.es", app_path="/opt/proggest", app_type="docker-compose"))
+    store.set_app_compose_project("proggest.es", "proggest")
+    service = DatabaseService(
+        store=store,
+        secrets=SecretStore(root=tmp_path / "secrets"),
+        resolve=lambda name: {"postgresql": PostgresManager}.get(name, lambda: None)(),
+    )
+    fleet.script(["docker", "exec"], stdout="proggest|UTF8|8192|proggest\n")
+    fleet.script(["systemctl"], stdout="inactive", exit_code=3)
+
+    view = next(
+        v for v in service.listing().databases if v.engine == "postgresql@proggest.postgres"
+    )
+
+    assert view.app == "proggest.es"
+    assert view.apps == ["proggest.es"]
