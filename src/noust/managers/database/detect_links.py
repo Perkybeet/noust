@@ -18,7 +18,9 @@ service), so this module stays a pure function of the environment.
 
 from __future__ import annotations
 
+import os
 import re
+import stat
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -278,31 +280,62 @@ def resolve(
     return matching[0].engine if len(matching) == 1 else None
 
 
-def read_environment(app: App, *, manager: EnvManager | None = None) -> dict[str, str]:
+#: A ``.env`` larger than this is not one an application meant: reading it
+#: whole for every listing would let one repository slow the console down.
+ENV_READ_LIMIT = 1024 * 1024
+
+
+def read_environment(app: App) -> dict[str, str]:
     """
     Read an application's ``.env``, refusing one that leads outside its tree.
 
     A repository is untrusted input: a ``.env`` that is a link to a file
     elsewhere is not read, because what this module parses out of it ends up
-    in the console.
+    in the console. The check and the read are one: the file is opened
+    without following a final link, and what was opened is then proved to
+    be a regular file inside the application's tree (a FIFO, a device, or a
+    directory swapped for a link between the check and the open are all
+    refused). One file must not break the listing of every application, so
+    bytes that are not UTF-8 are replaced rather than raised on, and a file
+    over :data:`ENV_READ_LIMIT` is not read.
 
     Args:
         app: The application.
-        manager: Parser to read with.
 
     Returns:
-        Variable name to value; empty when there is none or it leads outside.
+        Variable name to value; empty when there is none, it leads outside,
+        it is not a regular file, or it is too large.
     """
     path = env_file_for(app)
     root = app_root(app)
     try:
+        real_root = root.resolve(strict=True)
         resolved = path.resolve(strict=True)
-        inside = resolved.is_relative_to(root.resolve(strict=True))
     except (OSError, RuntimeError):
         return {}
-    if not inside or not resolved.is_file():
+    if not resolved.is_relative_to(real_root):
         return {}
-    return (manager or EnvManager()).read_env_file(Path(resolved))
+    try:
+        # O_NONBLOCK: opening a FIFO for reading would otherwise wait for a
+        # writer; with it the open returns and fstat refuses the FIFO.
+        descriptor = os.open(resolved, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    except OSError:
+        return {}
+    with os.fdopen(descriptor, "rb") as handle:
+        try:
+            if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+                return {}
+            # A directory on the way may have been replaced by a link after
+            # resolve(): what counts is where the open descriptor really is.
+            opened = Path(os.readlink(f"/proc/self/fd/{descriptor}"))
+            if not opened.is_relative_to(real_root):
+                return {}
+            data = handle.read(ENV_READ_LIMIT + 1)
+        except OSError:
+            return {}
+    if len(data) > ENV_READ_LIMIT:
+        return {}
+    return EnvManager.parse_env_text(data.decode("utf-8", errors="replace"))
 
 
 @dataclass

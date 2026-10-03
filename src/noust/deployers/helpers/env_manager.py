@@ -901,30 +901,45 @@ class EnvManager:
         Returns:
             Variable name to value; empty when the file does not exist.
         """
-        values: dict[str, str] = {}
         if not env_file.exists():
-            return values
-
+            return {}
         try:
-            for line in env_file.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if "=" not in line:
-                    continue
-                key, _, val = line.partition("=")
-                key = key.strip()
-                exported = self._EXPORT_PREFIX.match(key)
-                if exported:
-                    key = exported.group(1)
-                val = val.strip()
-                if len(val) >= 2:
-                    if (val[0] == '"' and val[-1] == '"') or (val[0] == "'" and val[-1] == "'"):
-                        val = val[1:-1]
-                values[key] = val
+            return self.parse_env_text(env_file.read_text(encoding="utf-8"))
         except OSError:
-            pass
+            return {}
 
+    @classmethod
+    def parse_env_text(cls, content: str) -> dict[str, str]:
+        """
+        Parse the text of an environment file.
+
+        The one parser behind :meth:`read_env_file`, for a caller that has
+        to open the file itself (without following links, with a size cap)
+        and only then hand over what it read.
+
+        Args:
+            content: The file's text.
+
+        Returns:
+            Variable name to value, quotes and a leading ``export`` stripped.
+        """
+        values: dict[str, str] = {}
+        for line in content.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            key, _, val = line.partition("=")
+            key = key.strip()
+            exported = cls._EXPORT_PREFIX.match(key)
+            if exported:
+                key = exported.group(1)
+            val = val.strip()
+            if len(val) >= 2:
+                if (val[0] == '"' and val[-1] == '"') or (val[0] == "'" and val[-1] == "'"):
+                    val = val[1:-1]
+            values[key] = val
         return values
 
 

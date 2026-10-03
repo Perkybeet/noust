@@ -1038,6 +1038,17 @@ class TestDetectedLinks:
         assert view.detected_apps == [DOMAIN]
         assert view.apps == []
 
+    def test_an_env_that_is_not_utf8_does_not_break_the_listing(
+        self, service: DatabaseService, app: App
+    ) -> None:
+        Path(app.app_path, ".env").write_bytes(
+            b"APP_NAME=Caf\xe9\nDATABASE_URL=postgresql://shop_user:pw@127.0.0.1:5433/shop_db\n"
+        )
+
+        (view,) = service.listing().databases
+
+        assert view.detected_apps == [DOMAIN]
+
     def test_another_server_is_not_detected_here(self, service: DatabaseService, app: App) -> None:
         self._uses(app, "postgresql://shop_user:pw@db.example.net:5432/shop_db")
 

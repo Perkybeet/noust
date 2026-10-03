@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
 
 from noust.core.store import App
+from noust.managers.database import detect_links
 from noust.managers.database.detect_links import (
     AppReferences,
     Endpoint,
@@ -181,5 +183,58 @@ class TestReadEnvironment:
     def test_no_env_is_empty(self, tmp_path: Path) -> None:
         root = tmp_path / "shop"
         root.mkdir()
+
+        assert read_environment(App(domain="shop.example.com", app_path=str(root))) == {}
+
+    def test_an_env_that_is_not_utf8_is_read_with_replacements(self, tmp_path: Path) -> None:
+        """One Latin-1 .env must not break the listing of every application."""
+        root = tmp_path / "shop"
+        root.mkdir()
+        (root / ".env").write_bytes(b"APP_NAME=Caf\xe9\nDATABASE_URL=mysql://u:p@localhost/shop\n")
+
+        env = read_environment(App(domain="shop.example.com", app_path=str(root)))
+
+        assert env["DATABASE_URL"] == "mysql://u:p@localhost/shop"
+        assert env["APP_NAME"] == "Caf�"
+
+    def test_an_env_over_the_limit_is_not_read(self, tmp_path: Path) -> None:
+        root = tmp_path / "shop"
+        root.mkdir()
+        (root / ".env").write_text(
+            "DATABASE_URL=mysql://u:p@localhost/shop\n" + "#" * detect_links.ENV_READ_LIMIT
+        )
+
+        assert read_environment(App(domain="shop.example.com", app_path=str(root))) == {}
+
+    def test_a_fifo_is_not_read_and_does_not_hang(self, tmp_path: Path) -> None:
+        root = tmp_path / "shop"
+        root.mkdir()
+        os.mkfifo(root / ".env")
+
+        assert read_environment(App(domain="shop.example.com", app_path=str(root))) == {}
+
+    @pytest.mark.parametrize("swapped", [".env", "config/.env"])
+    def test_a_link_swapped_in_after_the_check_is_not_followed(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, swapped: str
+    ) -> None:
+        """The path is checked, then replaced by a link: the read must not follow it."""
+        root = tmp_path / "shop"
+        root.mkdir()
+        outside = tmp_path / "elsewhere"
+        outside.mkdir()
+        (outside / ".env").write_text("DATABASE_URL=mysql://root:p@localhost/mysql\n")
+        if swapped == ".env":
+            (root / ".env").symlink_to(outside / ".env")
+        else:
+            (root / "config").symlink_to(outside)
+        target = root / swapped
+        monkeypatch.setattr(detect_links, "env_file_for", lambda app: target)
+        real_resolve = Path.resolve
+
+        def resolve(self: Path, strict: bool = False) -> Path:
+            # What resolve() saw before the swap: the path itself.
+            return self if self == target else real_resolve(self, strict=strict)
+
+        monkeypatch.setattr(Path, "resolve", resolve)
 
         assert read_environment(App(domain="shop.example.com", app_path=str(root))) == {}
