@@ -501,6 +501,31 @@ kept for going back and the records, and leaves what Noust did not create:
 - **Noust's own servers files** for a stack that was relayed, when no site of yours includes them,
   are removed with it.
 
+## A stack running outside its unit
+
+When someone runs `docker compose up -d` by hand while the stack's unit is stopped, the site
+serves but Noust does not supervise it, and a reboot would not bring it back: the unit is what
+starts it at boot. Noust shows that as its own state, **Running outside Noust**
+(`running_unmanaged` in the API), never as stopped: `noust list`, `noust health`, the console,
+the overview and the fleet summary all say it, and the monitor announces it once (a warning
+under the "Service down, and back" switch), not again until it has stopped running outside.
+
+Only stacks whose unit exists and is stopped are looked at, all of them with one `docker ps`; a
+unit that failed stays failed.
+
+Hand it back to its unit:
+
+```bash
+noust app reclaim convertidordepdf.com
+```
+
+or "Hand it back to Noust" on the application's page (`POST /api/apps/{domain}/reclaim`, sudo
+mode). The unit is enabled and started. Starting it runs `docker compose up -d`, which leaves
+containers that already run as the compose file says exactly as they are; that is proven first
+with the same `docker compose up --dry-run` adoption uses, and a start that would recreate
+something is refused with Compose's output until you accept it (`--accept-recreate`,
+`accept_recreate` in the API).
+
 ## Stack database backups and restore
 
 Going back to the previous containers puts the previous code back, never the data: a migration

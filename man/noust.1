@@ -436,6 +436,25 @@ Print the migration plan (or, with \-\-yes, its result) as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust app reclaim
+Hand a Docker Compose stack that runs outside its unit back to Noust.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-accept\-recreate
+Hand it back even if starting the unit would recreate a container.
+.TP
+.B \-\-yes, \-y
+Hand it back without asking.
+.TP
+.B \-\-json
+Print what was done as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust app sandbox
 Build an application without root: see, try, enable or disable its sandbox.
 
