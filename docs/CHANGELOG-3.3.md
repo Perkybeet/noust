@@ -74,7 +74,13 @@ does not know is shown as unknown, never as 0.
   repository) or the distribution's, MySQL from the distribution, Redis or Valkey, MongoDB 7.0
   or 8.0, as far as each upstream publishes for the server's release. Every upstream signing key
   is pinned by fingerprint and checked before apt trusts it, MongoDB's included. MySQL and MariaDB,
-  and Redis and Valkey, cannot be installed beside each other. `GET /api/databases/engines/catalog`
+  and Redis and Valkey, cannot be installed beside each other, a check the install itself makes.
+  Only the pinned primary key is written to apt's keyring (exported from a throwaway keyring, so
+  a file that also carries another key or a secret key is refused); a leftover source for another
+  release (`mongodb-org-7.0.list` under an 8.0 install) is refused with the file to remove; a
+  source Noust added is removed again when `apt-get update` then fails; `apt-get install` runs
+  with `--no-remove`; and the version that ends up running is compared with the one asked for.
+  Installing needs sudo mode in the API, as removing does. `GET /api/databases/engines/catalog`
   and `noust db catalog` say what this server can install; `noust db install postgresql --version 17`.
 - **Settings.** A closed set per engine (connections, memory, listen addresses, slow-query
   logging, time zone...) with the current value, a recommendation for this server's memory and
@@ -84,7 +90,15 @@ does not know is shown as unknown, never as 0.
   each change is checked with the engine's own tool, applied (reload, restart or at runtime, as
   the setting needs), and put back with the engine's journal in the error if the engine does not
   come back. Opening an engine beyond the loopback asks for confirmation, and the `ens-medium`
-  profile refuses it.
+  profile refuses it; removing a listen setting counts as opening it unless what the engine falls
+  back to is known to be the loopback, and the live value is read back after the change. A Redis
+  `maxmemory` below what it already uses, `appendonly no` and `save off` ask for confirmation too
+  (`confirm` in the API, which answers `confirmation_required` with every warning;
+  `confirm_exposure` is still honoured), memory settings are capped at 90% of the RAM, and Redis
+  writes a snapshot before any restart Noust makes. Changes to one engine are serialised, a
+  symlinked configuration file or directory is refused, every PostgreSQL step targets the same
+  cluster (several online clusters are refused), a slow start that is still loading is waited
+  for, and the previous files are put back whatever interrupts the change.
 
 ## Exposure without false alarms (item 72)
 
@@ -93,7 +107,11 @@ does not know is shown as unknown, never as 0.
   likewise. The database exposure check reads the chain with the same code as the server's
   security check.
 - An image that only mentions a database in its name (`zabbix/zabbix-server-mysql`) is no longer
-  taken for one: there is one reader of images, which compares the repository name.
+  taken for one: there is one reader of images, which compares the repository name. A container
+  of an image that reader does not know (a registry other than Docker Hub, an image id,
+  `supabase/postgres`) is still reported when it publishes a database's own port.
+- A rule in `DOCKER-USER` that jumps to another chain before the drop leaves the port exposed:
+  where the packet goes is not proven closed.
 
 ## Compose stacks running outside their unit (item 73)
 
@@ -109,3 +127,12 @@ recreate a container it refuses unless `--accept-recreate` is given.
 ## Fixes
 
 - A Redis container counts as installed even when the host has no `redis-cli`.
+- A container's MongoDB archive is restored into the database asked for: the archive says which
+  database it holds and `mongorestore` renames it (`--nsFrom`/`--nsTo`), so restoring "as a new
+  database" or testing a dump never touches the original. Container archives pass verification.
+- A container's log masks the passwords in it (generated root passwords, the container's secret
+  variables, passwords in logged statements) and needs `databases.manage`.
+- One `.env` that is not UTF-8 no longer breaks the databases list; a `.env` is opened once,
+  without following links, and at most 1 MiB of it is read.
+- Changing only the password of an engine's stored account is tested with the stored user, as it
+  is saved.
