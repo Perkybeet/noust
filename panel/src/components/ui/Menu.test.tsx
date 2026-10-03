@@ -61,6 +61,18 @@ describe("Menu", () => {
     expect(onRestart).toHaveBeenCalledOnce();
   });
 
+  it("reads an item's description as its accessible description, not as part of its name", async () => {
+    render(
+      <Menu trigger={<Button>Actions</Button>}>
+        <MenuItem description="Nothing in the application changes.">Record the link</MenuItem>
+      </Menu>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Actions" }));
+    const item = await screen.findByRole("menuitem", { name: "Record the link" });
+    expect(item).toHaveAccessibleDescription("Nothing in the application changes.");
+    await expectNoAxeViolations(document.body);
+  });
+
   it("has no accessibility violations when open", async () => {
     render(<Example />);
     await userEvent.click(screen.getByRole("button", { name: "Actions" }));

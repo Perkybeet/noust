@@ -1,4 +1,5 @@
 import { Menu as BaseMenu } from "@base-ui/react/menu";
+import { useId } from "react";
 import type { ReactElement, ReactNode } from "react";
 
 import { cx } from "../../lib/cx";
@@ -48,15 +49,27 @@ export interface MenuItemProps {
   /** For actions that destroy something: set in the fail colour. */
   destructive?: boolean;
   disabled?: boolean;
+  /**
+   * One sentence under the label, read as the item's description: what the action does not
+   * do, when that is what the operator would otherwise ask ("Nothing in the application
+   * changes"). Most items need none.
+   */
+  description?: string;
 }
 
-export function MenuItem({ children, onClick, icon, shortcut, destructive = false, disabled = false }: MenuItemProps) {
+export function MenuItem({ children, onClick, icon, shortcut, destructive = false, disabled = false, description }: MenuItemProps) {
+  const descriptionId = useId();
+  const labelId = useId();
+  const described = description !== undefined && description !== "";
   return (
     <BaseMenu.Item
       {...(onClick ? { onClick } : {})}
+      // Named by its label alone: the description is read after it, not as part of the name.
+      {...(described ? { "aria-labelledby": labelId, "aria-describedby": descriptionId } : {})}
       disabled={disabled}
       className={cx(
-        "flex h-8 cursor-pointer items-center gap-2.5 rounded-control px-2 text-13 outline-none select-none",
+        "flex cursor-pointer gap-2.5 rounded-control px-2 text-13 outline-none select-none",
+        described ? "max-w-80 items-start py-1.5" : "h-8 items-center",
         "data-disabled:cursor-not-allowed data-disabled:opacity-50",
         destructive
           ? "text-fail data-highlighted:bg-fail-soft"
@@ -69,7 +82,18 @@ export function MenuItem({ children, onClick, icon, shortcut, destructive = fals
           {icon}
         </span>
       ) : null}
-      <span className="flex-1 truncate">{children}</span>
+      {described ? (
+        <span className="flex min-w-0 flex-1 flex-col">
+          <span id={labelId} className="truncate">
+            {children}
+          </span>
+          <span id={descriptionId} className="text-12 text-pretty whitespace-normal text-fg-muted">
+            {description}
+          </span>
+        </span>
+      ) : (
+        <span className="flex-1 truncate">{children}</span>
+      )}
       {shortcut && shortcut.length > 0 ? (
         <span className="ml-4 flex gap-0.5" aria-hidden="true">
           {shortcut.map((key) => (

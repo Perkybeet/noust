@@ -3,6 +3,7 @@ import {
   ExternalLink,
   GitBranch,
   Info,
+  Link2,
   Pencil,
   Play,
   Plus,
@@ -470,6 +471,10 @@ function Navigation() {
                 </MenuItem>
                 <MenuItem icon={<ExternalLink />}>Open site</MenuItem>
               </MenuGroup>
+              <MenuSeparator />
+              <MenuItem icon={<Link2 />} description="Nothing in the application changes: its environment already names this database.">
+                Record that shop.example.dev uses it
+              </MenuItem>
               <MenuSeparator />
               <MenuItem icon={<Power />}>Stop</MenuItem>
               <MenuItem icon={<Trash2 />} destructive>

@@ -688,8 +688,11 @@ for approval" toast that leads to Approvals.
 **`Drawer`** (`size` `md | lg`). Detail with the page still behind it: a log, a unit file, a
 certificate, a channel's form.
 
-**`Menu`**, **`MenuItem`**, **`MenuSeparator`**. A row's actions and a header's "More actions":
-seven items at most, the destructive ones last after a separator.
+**`Menu`**, **`MenuItem`** (`description`), **`MenuSeparator`**. A row's actions and a header's
+"More actions": seven items at most, the destructive ones last after a separator. An item's
+`description` is one sentence under its label, wired as its accessible description, for what
+the operator would otherwise stop to ask ("Nothing in the application changes"); most items have
+none.
 
 **`Tooltip`**. A complement to an icon; never the only place something is said, never on a
 button that already has text. **`Popover`**: help and small panels (the session menu), never a
