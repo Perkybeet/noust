@@ -2423,21 +2423,33 @@ class BaseDatabaseManager(BaseManager):
                 on_safety_copy(safety)
 
         replaced = exists and drop_existing
-        failure: DatabaseBackupError | None = None
+        failure: DatabaseError | None = None
+        dropped = False
         # The dump is made loadable first: a gzip that does not decompress or
         # a disk that is full must fail while the database is still whole.
         with self._restore_input(database, backup_path, **kwargs) as loadable:
-            if replaced:
-                self.drop_database(database, force=True)
-            if replaced or not exists:
-                self._create_for_restore(database, owner)
+            # Every engine error once the database may have changed, not only
+            # the loader's: a create that fails after the drop (an owner that
+            # is gone, a credential that cannot be read) leaves no database
+            # at all, and only the safety copy brings it back.
             try:
+                if replaced:
+                    self.drop_database(database, force=True)
+                    dropped = True
+                if replaced or not exists:
+                    self._create_for_restore(database, owner)
                 self._load_backup(database, loadable, **kwargs)
-            except DatabaseBackupError as exc:
+            except DatabaseError as exc:
                 failure = exc
         if failure is not None:
             if safety is None:
                 raise failure
+            if replaced and not dropped:
+                raise DatabaseBackupError(
+                    f"Restoring '{database}' failed before anything was changed",
+                    details=f"{failure.details or failure}\n\nThe database was not dropped. "
+                    f"The safety copy taken before the restore is kept at {safety}.",
+                ) from failure
             raise self._put_back(database, safety, owner, failure) from failure
 
         self.logger.info(f"Restored database: {database} from {backup_path}")
@@ -2446,7 +2458,7 @@ class BaseDatabaseManager(BaseManager):
         )
 
     def _put_back(
-        self, database: str, safety: Path, owner: str | None, failure: DatabaseBackupError
+        self, database: str, safety: Path, owner: str | None, failure: DatabaseError
     ) -> DatabaseBackupError:
         """
         Load the safety copy back after a failed restore.

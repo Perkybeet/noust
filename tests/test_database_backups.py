@@ -1328,3 +1328,72 @@ def test_a_restore_that_finishes_leaves_nothing_to_reconcile(
     backups.restore("postgresql", "shop", taken.name, drop_existing=True)
 
     assert reconcile_interrupted_restores(backups.service.store) == []
+
+
+class TestAnyEngineErrorAfterTheDropPutsTheDatabaseBack:
+    """
+    Not only the loader's failure: the database is gone from the drop on.
+
+    Only a failed load used to trigger the put-back. A create that failed
+    after the drop (an owner that no longer exists, a credential that could
+    not be read) left no database and an error that did not name the copy.
+    """
+
+    def manager(self, dumps_dir: Path, *, fail: str) -> BaseDatabaseManager:
+        from noust.core.exceptions import DatabaseError
+
+        cls = make_engine(dumps_dir)
+        real_create = cls.create_database
+        real_drop = cls.drop_database
+        creates: list[str] = []
+
+        def create(self, name, owner=None, encoding=None, **kwargs):  # type: ignore[no-untyped-def]
+            creates.append(name)
+            if fail == "create" and len(creates) == 1:
+                raise DatabaseError(
+                    f"Failed to create database '{name}'", details='role "gone" does not exist'
+                )
+            return real_create(self, name, owner=owner, encoding=encoding, **kwargs)
+
+        def drop(self, name, force=False):  # type: ignore[no-untyped-def]
+            if fail == "drop":
+                raise DatabaseError(f"Failed to drop database '{name}'", details="in use")
+            return real_drop(self, name, force=force)
+
+        cls.create_database = create  # type: ignore[method-assign]
+        cls.drop_database = drop  # type: ignore[method-assign]
+        return cls()
+
+    def dump(self, tmp_path: Path) -> Path:
+        path = tmp_path / "incoming.dump"
+        path.write_bytes(PG_ARCHIVE)
+        return path
+
+    def test_a_create_that_fails_after_the_drop_is_put_back(
+        self, dumps_dir: Path, tmp_path: Path
+    ) -> None:
+        manager = self.manager(dumps_dir, fail="create")
+
+        with pytest.raises(DatabaseBackupError) as failure:
+            manager.restore("shop", self.dump(tmp_path), drop_existing=True)
+
+        state = type(manager).state  # type: ignore[attr-defined]
+        assert "its previous contents were put back" in failure.value.message
+        assert 'role "gone" does not exist' in (failure.value.details or "")
+        loads = [call for call in state["calls"] if call[0] == "load"]
+        (put_back,) = loads
+        assert put_back[2] in (failure.value.details or "")
+        assert "shop" in state["dbs"]
+
+    def test_a_drop_that_fails_names_the_safety_copy_and_changes_nothing(
+        self, dumps_dir: Path, tmp_path: Path
+    ) -> None:
+        manager = self.manager(dumps_dir, fail="drop")
+
+        with pytest.raises(DatabaseBackupError) as failure:
+            manager.restore("shop", self.dump(tmp_path), drop_existing=True)
+
+        state = type(manager).state  # type: ignore[attr-defined]
+        assert "before anything was changed" in failure.value.message
+        assert "The safety copy" in (failure.value.details or "")
+        assert not [call for call in state["calls"] if call[0] == "load"]
