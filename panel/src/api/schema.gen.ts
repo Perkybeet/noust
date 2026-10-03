@@ -7084,7 +7084,8 @@ export interface paths {
          *         session: The authenticated session.
          *
          *     Returns:
-         *         The exposed ports, Docker's published ones included.
+         *         The exposed ports, Docker's published ones included, and apart from
+         *         them the published ones the firewall closes.
          */
         get: operations["get_exposure_api_databases_exposure_get"];
         put?: never;
@@ -17356,12 +17357,20 @@ export interface components {
         };
         /**
          * ExposedPortResponse
-         * @description A database port open beyond this machine.
+         * @description A database port open beyond this machine, or one the firewall closes.
          *
          *     Attributes:
          *         source: ``engine`` for a server on the host, ``docker`` for a port
          *             Docker publishes for a container.
          *         advice: How to close it, in English.
+         *         container_port: The port inside the container, for ``docker``.
+         *         firewalled: Something keeps the Internet out of this port: the
+         *             ``DOCKER-USER`` chain refuses it on the public interface, or it is
+         *             an IPv6 publication with no IPv6 route to the server. Only
+         *             ``ExposureResponse.firewalled`` carries such entries.
+         *         closed_by: What closes it, when ``firewalled``.
+         *         rule: The ``DOCKER-USER`` rule that refuses it, verbatim, when there
+         *             is one.
          */
         ExposedPortResponse: {
             /** Address */
@@ -17371,26 +17380,52 @@ export interface components {
              * @default
              */
             advice: string;
+            /**
+             * Closed By
+             * @default
+             */
+            closed_by: string;
             /** Container */
             container?: string | null;
+            /** Container Port */
+            container_port?: number | null;
             /** Engine */
             engine: string;
+            /**
+             * Firewalled
+             * @default false
+             */
+            firewalled: boolean;
             /** Image */
             image?: string | null;
             /** Port */
             port: number;
             /** Process */
             process?: string | null;
+            /**
+             * Rule
+             * @default
+             */
+            rule: string;
             /** Source */
             source: string;
         };
         /**
          * ExposureResponse
-         * @description Every database port open beyond this machine.
+         * @description Every database port beyond this machine, and the ones the firewall closes.
+         *
+         *     Attributes:
+         *         exposed: The ports a stranger on the Internet can reach. This is the
+         *             list every alarm (the console's notice, the CLI's exit code) reads.
+         *         firewalled: Ports Docker publishes on every address that the firewall
+         *             keeps the Internet out of (``firewalled`` true, ``closed_by`` and
+         *             ``rule`` say how). Shown as information, never as a finding.
          */
         ExposureResponse: {
             /** Exposed */
             exposed: components["schemas"]["ExposedPortResponse"][];
+            /** Firewalled */
+            firewalled?: components["schemas"]["ExposedPortResponse"][];
         };
         /**
          * Fail2banInstallRequest
