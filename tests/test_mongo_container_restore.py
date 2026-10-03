@@ -32,9 +32,10 @@ import pytest
 
 from noust.core.exceptions import DatabaseBackupError
 from noust.core.runner import FakeRunner
+from noust.managers.database import mongo_archive
 from noust.managers.database.backup_verify import check_dump, restore_test
 from noust.managers.database.instances import DatabaseInstance
-from noust.managers.database.mongo_archive import ArchiveError, read_prelude
+from noust.managers.database.mongo_archive import ArchiveError, read_prelude, read_whole
 from noust.managers.database.mongodb import MongoDBManager
 
 
@@ -231,3 +232,77 @@ class TestThePreludeReader:
 
         with pytest.raises(ArchiveError):
             read_prelude(path)
+
+    def test_a_database_or_collection_name_mongodb_would_refuse_is_an_error(
+        self, tmp_path: Path
+    ) -> None:
+        """Names past MongoDB's own limits are a forged prelude, not one to aim with."""
+        path = tmp_path / "a.archive"
+        path.write_bytes(archive(("d" * 63, "c" * 255)))
+        assert read_prelude(path).namespaces == (("d" * 63, "c" * 255),)
+
+        path.write_bytes(archive(("d" * 64, "orders")))
+        with pytest.raises(ArchiveError, match="database of more than 63 bytes"):
+            read_prelude(path)
+
+        path.write_bytes(archive(("shop", "c" * 256)))
+        with pytest.raises(ArchiveError, match="collection of more than 255 bytes"):
+            read_prelude(path)
+
+    def test_a_prelude_of_too_many_namespaces_is_an_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(mongo_archive, "_MAX_NAMESPACES", 3)
+        path = tmp_path / "a.archive"
+        path.write_bytes(archive(*[("shop", f"c{n}") for n in range(4)]))
+
+        with pytest.raises(ArchiveError, match="more than 3 collections"):
+            read_prelude(path)
+
+    def test_a_prelude_past_its_byte_budget_is_an_error(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(mongo_archive, "_MAX_PRELUDE", 300)
+        path = tmp_path / "a.archive"
+        path.write_bytes(archive(*[("shop", "c" * 60 + str(n)) for n in range(5)]))
+
+        with pytest.raises(ArchiveError, match="runs past"):
+            read_prelude(path)
+
+
+class TestReadingAGzippedArchiveIsBounded:
+    """A gzip bomb is untrusted input: its expansion and its time are capped."""
+
+    def test_an_archive_that_expands_past_its_cap_is_refused(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(mongo_archive, "_EXPANSION_FLOOR", 1024 * 1024)
+        path = tmp_path / "bomb.archive.gz"
+        path.write_bytes(gzip.compress(archive(("shop", "a")) + b"\x00" * (8 * 1024 * 1024)))
+
+        with pytest.raises(ArchiveError, match="expands past"):
+            read_whole(path)
+
+    def test_a_read_past_its_deadline_is_refused(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        clock = iter(range(0, 10_000, 100))
+        monkeypatch.setattr(mongo_archive.time, "monotonic", lambda: next(clock))
+        path = tmp_path / "slow.archive.gz"
+        path.write_bytes(gzip.compress(archive(("shop", "a")) + b"\x00" * (3 * 1024 * 1024)))
+
+        with pytest.raises(ArchiveError, match="longer than 150 seconds"):
+            read_whole(path, deadline=150)
+
+    def test_an_honest_archive_is_read_to_its_end(self, tmp_path: Path) -> None:
+        content = archive(("shop", "a")) + b"\x00" * (3 * 1024 * 1024)
+        path = tmp_path / "ok.archive.gz"
+        path.write_bytes(gzip.compress(content))
+
+        assert read_whole(path) == len(content)
+
+    def test_a_plain_archive_is_not_read_at_all(self, tmp_path: Path) -> None:
+        path = tmp_path / "plain.archive"
+        path.write_bytes(archive(("shop", "a")))
+
+        assert read_whole(path) == path.stat().st_size

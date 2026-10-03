@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import gzip
 import struct
+import time
 import zlib
 from dataclasses import dataclass
 from pathlib import Path
@@ -41,8 +42,34 @@ _GZIP_MAGIC = b"\x1f\x8b"
 #: BSON caps a document at 16 MiB; anything larger is not a prelude.
 _MAX_DOCUMENT = 16 * 1024 * 1024
 
-#: A prelude names one document per collection; a million is not a dump.
-_MAX_NAMESPACES = 1_000_000
+#: A prelude names one document per collection. A real server holds
+#: thousands at most; past this the file is something else posing as a dump,
+#: and every namespace becomes part of a restore's arguments.
+_MAX_NAMESPACES = 100_000
+
+#: Bytes the documents of a prelude may add up to. Each is capped at 16 MiB,
+#: but a prelude of a hundred thousand of those is gigabytes read for nothing.
+_MAX_PRELUDE = 64 * 1024 * 1024
+
+#: MongoDB refuses a database name of 64 bytes or more.
+MAX_DATABASE_NAME = 64
+
+#: MongoDB caps a collection name (and, before 4.4, a whole namespace) at 255 bytes.
+MAX_COLLECTION_NAME = 255
+
+#: How long reading a gzipped archive to its end may take. The read only
+#: decompresses and discards, so time is the bound that matters: a small gzip
+#: bomb expands for hours.
+READ_WHOLE_DEADLINE = 3600
+
+#: How many times its compressed size a gzipped archive may expand to. A
+#: dump of real data compresses a few times, and gzip itself cannot exceed
+#: about 1032:1; past this it is a bomb, not a database.
+_MAX_EXPANSION = 200
+
+#: Below this a gzipped archive is never refused for its expansion: a small
+#: dump of very repetitive documents can compress far better than a big one.
+_EXPANSION_FLOOR = 1024 * 1024 * 1024
 
 #: Fixed widths of the BSON element types a prelude can carry.
 _FIXED_WIDTH = {0x01: 8, 0x07: 12, 0x08: 1, 0x09: 8, 0x0A: 0, 0x10: 4, 0x11: 8, 0x12: 8, 0x13: 16}
@@ -218,6 +245,38 @@ def _document(stream: BinaryIO, first: bytes) -> bytes:
     return document
 
 
+def _namespace(fields: dict[str, str]) -> tuple[str, str]:
+    """
+    Take a collection's namespace from its prelude document, refusing impossible names.
+
+    The names go into a restore's ``--nsInclude``/``--nsFrom`` and into what
+    the operator is shown, so a name MongoDB itself would refuse is a forged
+    archive, not one to aim a restore with.
+
+    Args:
+        fields: The document's string fields.
+
+    Returns:
+        ``(database, collection)``.
+
+    Raises:
+        ArchiveError: When a name is longer than MongoDB allows.
+    """
+    database = fields.get("db", "")
+    collection = fields.get("collection", "")
+    if len(database.encode("utf-8")) >= MAX_DATABASE_NAME:
+        raise ArchiveError(
+            f"The prelude names a database of more than {MAX_DATABASE_NAME - 1} bytes, "
+            "which MongoDB does not allow: this is not an archive mongodump wrote."
+        )
+    if len(collection.encode("utf-8")) > MAX_COLLECTION_NAME:
+        raise ArchiveError(
+            f"The prelude names a collection of more than {MAX_COLLECTION_NAME} bytes, "
+            "which MongoDB does not allow: this is not an archive mongodump wrote."
+        )
+    return database, collection
+
+
 def read_prelude(path: Path) -> ArchivePrelude:
     """
     Read what a mongodump archive says it holds, before any of its data.
@@ -240,45 +299,74 @@ def read_prelude(path: Path) -> ArchivePrelude:
                     "The file does not start with the mongodump archive magic: "
                     "it is not an archive written by 'mongodump --archive'."
                 )
-            _document(stream, _read_exact(stream, 4))
+            read = len(_document(stream, _read_exact(stream, 4)))
             namespaces: list[tuple[str, str]] = []
             while True:
                 head = _read_exact(stream, 4)
                 if head == _TERMINATOR:
                     return ArchivePrelude(tuple(namespaces))
                 if len(namespaces) >= _MAX_NAMESPACES:
-                    raise ArchiveError("The prelude never ends: this is not an archive.")
+                    raise ArchiveError(
+                        f"The prelude names more than {_MAX_NAMESPACES} collections: "
+                        "this is not an archive Noust restores."
+                    )
                 try:
-                    fields = _strings(_document(stream, head))
+                    document = _document(stream, head)
+                    fields = _strings(document)
                 except struct.error as exc:
                     raise ArchiveError(f"A prelude document is malformed: {exc}") from exc
-                namespaces.append((fields.get("db", ""), fields.get("collection", "")))
+                read += len(document)
+                if read > _MAX_PRELUDE:
+                    raise ArchiveError(
+                        f"The prelude runs past {_MAX_PRELUDE // (1024 * 1024)} MiB: "
+                        "this is not an archive."
+                    )
+                namespaces.append(_namespace(fields))
     except (EOFError, gzip.BadGzipFile, zlib.error) as exc:
         raise ArchiveError(f"The gzip stream around the archive is damaged: {exc}") from exc
 
 
-def read_whole(path: Path) -> int:
+def read_whole(path: Path, *, deadline: float = READ_WHOLE_DEADLINE) -> int:
     """
     Read a gzipped archive to its end, so a truncated file shows.
 
-    A plain archive has no checksum to read; a gzipped one does, and gzip
-    refuses a stream that ends early or whose trailer does not match.
+    A plain archive has no checksum to read, so only its size is taken; a
+    gzipped one does, and gzip refuses a stream that ends early or whose
+    trailer does not match. The decompression is bounded twice, because the
+    file is untrusted input that a few kilobytes can make expand for hours:
+    by ``deadline``, and by how far past its compressed size it may grow.
 
     Args:
         path: The archive.
+        deadline: Seconds the read may take.
 
     Returns:
         The size of the plain archive in bytes.
 
     Raises:
-        ArchiveError: When the gzip stream is cut short or damaged.
+        ArchiveError: When the gzip stream is cut short or damaged, expands
+            past what a dump can, or takes longer than ``deadline``.
         OSError: When the file cannot be read.
     """
+    if not is_gzip(path):
+        return path.stat().st_size
+    limit = max(_EXPANSION_FLOOR, path.stat().st_size * _MAX_EXPANSION)
+    ends = time.monotonic() + deadline
     total = 0
     try:
         with _open(path) as stream:
             while chunk := stream.read(1024 * 1024):
                 total += len(chunk)
+                if total > limit:
+                    raise ArchiveError(
+                        f"The gzipped archive expands past {limit} bytes, "
+                        f"{_MAX_EXPANSION} times its own size: it is not a dump."
+                    )
+                if time.monotonic() > ends:
+                    raise ArchiveError(
+                        f"Reading the gzipped archive took longer than {int(deadline)} seconds; "
+                        "it was not checked to its end."
+                    )
     except (EOFError, gzip.BadGzipFile, zlib.error) as exc:
         raise ArchiveError(f"The gzip stream around the archive is damaged: {exc}") from exc
     return total
