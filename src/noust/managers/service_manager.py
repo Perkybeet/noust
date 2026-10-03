@@ -87,7 +87,7 @@ from noust.core.config import SYSTEMD_DIR
 from noust.core.exceptions import NoustError, ServiceError, TemplateError, ValidationError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem
 from noust.core.runner import DEFAULT_TIMEOUT, CommandResult, CommandRunner
-from noust.core.store import BLUE_GREEN_COLORS, App, Service, get_store
+from noust.core.store import BLUE_GREEN_COLORS, App, Service, get_store, runs_as_instances
 from noust.core.utils import domain_to_app_name
 from noust.managers.base_manager import BaseManager
 from noust.validators.environment import validate_environment, validate_unit_value
@@ -789,7 +789,7 @@ class ServiceManager(BaseManager):
         if not (self.SYSTEMD_DIR / f"{base}@.service").is_file():
             return None
         for app in self._stored_apps():
-            if app.zero_downtime and domain_to_app_name(app.domain) == base:
+            if runs_as_instances(app) and domain_to_app_name(app.domain) == base:
                 return f"{base}@{app.active_color or BLUE_GREEN_COLORS[0]}"
         return None
 
@@ -983,7 +983,7 @@ class ServiceManager(BaseManager):
 
         # Read defensively: the monitor and the health report hand this rows
         # of their own shape, which know nothing of the mode.
-        if getattr(app, "zero_downtime", False):
+        if runs_as_instances(app):
             # Both instances, the one serving first: the idle one is still
             # the application's (its journal holds why the last activation
             # failed, and it runs beside the other while one takes over).
@@ -1084,7 +1084,7 @@ class ServiceManager(BaseManager):
             Unit names without the ``.service`` suffix.
         """
         units = self.app_units(app)
-        return units[:1] if getattr(app, "zero_downtime", False) else units
+        return units[:1] if runs_as_instances(app) else units
 
     def _app_unit_owners(
         self,

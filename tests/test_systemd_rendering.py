@@ -95,9 +95,9 @@ def test_docker_compose_env_value_cannot_inject_directives(jinja: Environment) -
         environment={"EVIL": INJECTION_PAYLOAD},
     )
 
-    assert _directive_lines(unit, "ExecStartPre") == [
-        "ExecStartPre=/usr/bin/docker compose pull --ignore-pull-failures"
-    ]
+    # The only command lines are the template's own: no injected one, and no pull at start
+    # (owner item 66: a boot recreated the database with whatever its tag had become).
+    assert _directive_lines(unit, "ExecStartPre") == []
     assert _directive_lines(unit, "User") == ["User=root"]
 
 

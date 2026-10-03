@@ -589,8 +589,9 @@ def test_the_unit_template_passes_no_project_unless_given() -> None:
 
     assert "ExecStart=/usr/bin/docker compose up -d --remove-orphans" in plain
     assert " -p " not in plain
+    # Starting the unit never pulls (owner item 66): images change only through a deploy.
+    assert "pull" not in pinned
     for line in (
-        "ExecStartPre=/usr/bin/docker compose -p proggest pull --ignore-pull-failures",
         "ExecStart=/usr/bin/docker compose -p proggest up -d --remove-orphans",
         "ExecStop=/usr/bin/docker compose -p proggest down",
         "ExecReload=/usr/bin/docker compose -p proggest up -d --remove-orphans --build",

@@ -50,7 +50,14 @@ from urllib.error import HTTPError, URLError
 from noust.core.config import Config
 from noust.core.exceptions import NoustError
 from noust.core.runner import CommandRunner, get_runner
-from noust.core.store import BLUE_GREEN_COLORS, App, DeploymentStatus, NoustStore, get_store
+from noust.core.store import (
+    BLUE_GREEN_COLORS,
+    App,
+    DeploymentStatus,
+    NoustStore,
+    get_store,
+    runs_as_instances,
+)
 from noust.core.utils import domain_to_app_name
 from noust.deployers.bluegreen import (
     color_port,
@@ -1189,7 +1196,7 @@ def diagnose(
         # that serves; the idle one has a probe of its own.
         app_name=(
             instance_unit(app, app.active_color)
-            if app is not None and app.zero_downtime and app.active_color in BLUE_GREEN_COLORS
+            if app is not None and runs_as_instances(app) and app.active_color in BLUE_GREEN_COLORS
             else domain_to_app_name(domain)
         ),
         app=app,

@@ -10,7 +10,7 @@
 #
 
 Name:           noust
-Version:        3.2.0
+Version:        3.2.1
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -391,6 +391,9 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Sat Oct 03 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.2.1-1
+- A Compose stack with the zero-downtime relay is no longer read as blue/green units: it showed as Stopped and its start or restart named units that do not exist
+- The Compose unit never pulls images when it starts: a boot recreated the database with whatever its image tag had become
 * Fri Oct 02 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.2.0-1
 - Docker Compose deploys properly: pre/post-deploy hooks from noust.yaml, zero-downtime relay, adopting a running stack, stack database dumps before each update, operator sites respected, aliases and certificates
 - Schema-aware rollback: going back past a deployment that changed the database asks first, on every way back

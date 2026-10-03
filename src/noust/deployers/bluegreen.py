@@ -61,6 +61,7 @@ from noust.core.store import (
     NoustStore,
     WebServer,
     get_store,
+    runs_as_instances,
 )
 from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers.health import wait_until_healthy
@@ -183,7 +184,7 @@ def serving_port(app: App) -> int | None:
         return None
     # getattr: callers hand this rows of their own shape (the list and the
     # health report take any record with a domain and a port).
-    if getattr(app, "zero_downtime", False) and app.active_color in BLUE_GREEN_COLORS:
+    if runs_as_instances(app) and app.active_color in BLUE_GREEN_COLORS:
         return color_port(app, app.active_color)
     return app.port
 

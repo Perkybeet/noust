@@ -45,6 +45,7 @@ from typing import Any
 
 from noust.core.exceptions import DeploymentError, NoustError
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.store import runs_as_instances
 
 log = logging.getLogger(__name__)
 
@@ -478,7 +479,7 @@ class PlanBuilder:
         Returns:
             The plan, with a reason when no unit has a readable cgroup.
         """
-        if getattr(app, "zero_downtime", False):
+        if runs_as_instances(app):
             kind = KIND_BLUE_GREEN
         elif getattr(app, "app_type", None) == "monorepo":
             kind = KIND_MONOREPO

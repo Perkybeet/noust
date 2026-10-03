@@ -379,6 +379,28 @@ class App:
         return cls(**data)
 
 
+def runs_as_instances(app: object) -> bool:
+    """
+    Tell whether an application runs as the blue/green instances of a unit template.
+
+    Zero-downtime mode means two things: for an application with a unit of its
+    own, the two instances ``<name>@blue`` and ``<name>@green``; for a Docker
+    Compose stack, a relay container beside each web service while it is
+    recreated, under its one ordinary unit. Code that names units, ports or
+    upstreams asks this, never ``zero_downtime`` alone (a stack read as blue/green
+    showed as Stopped and its restart named a unit that does not exist).
+
+    Args:
+        app: An application record, or a row of the same shape.
+
+    Returns:
+        True only for a zero-downtime application that is not a Compose stack.
+    """
+    return bool(getattr(app, "zero_downtime", False)) and (
+        getattr(app, "app_type", None) != "docker-compose"
+    )
+
+
 def _utc_now() -> str:
     """
     Timestamp a domain row.

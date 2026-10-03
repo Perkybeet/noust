@@ -16,7 +16,7 @@ from pathlib import Path
 
 from noust.core.exceptions import NoustError
 from noust.core.runner import CommandRunner
-from noust.core.store import NoustStore, get_store
+from noust.core.store import NoustStore, get_store, runs_as_instances
 from noust.managers.source_manager import (
     GIT_AUTH_FAILURE_MESSAGE,
     git_auth_fix,
@@ -165,7 +165,7 @@ def port_owned_by_app(port: int, *, store: NoustStore) -> list[str]:
     for owner in store.list_apps():
         if port not in ports_of(owner):
             continue
-        idle = owner.zero_downtime and port == color_port(owner, GREEN) and port != owner.port
+        idle = runs_as_instances(owner) and port == color_port(owner, GREEN) and port != owner.port
         role = " (its green instance's, in zero-downtime mode)" if idle else ""
         return [
             f"Port {port} belongs to {owner.domain}{role}. Choose another port, or leave it "

@@ -1,3 +1,10 @@
+noust (3.2.1-1) unstable; urgency=medium
+
+  * A Compose stack with the zero-downtime relay is no longer read as blue/green units: it showed as Stopped and its start or restart named units that do not exist
+  * The Compose unit never pulls images when it starts: a boot recreated the database with whatever its image tag had become
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Sat, 03 Oct 2026 01:30:41 +0000
+
 noust (3.2.0-1) unstable; urgency=medium
 
   * Docker Compose deploys properly: pre/post-deploy hooks from noust.yaml, zero-downtime relay, adopting a running stack, stack database dumps before each update, operator sites respected, aliases and certificates

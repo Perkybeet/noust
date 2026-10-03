@@ -70,7 +70,7 @@ from noust.core.exceptions import (
 )
 from noust.core.fs import FileSystem, get_fs
 from noust.core.runner import CommandRunner
-from noust.core.store import DomainKind, NoustStore, Site, WebServer, get_store
+from noust.core.store import DomainKind, NoustStore, Site, WebServer, get_store, runs_as_instances
 from noust.core.utils import domain_to_app_name
 from noust.managers.base_manager import BaseManager, MappingRecord
 from noust.managers.cert_manager import CertManager
@@ -1161,7 +1161,8 @@ class WebServerManager(BaseManager):
         except (NoustError, sqlite3.Error) as exc:
             self.logger.debug(f"Could not read {domain} from the store: {exc}")
             return {}
-        if app is None or not app.zero_downtime:
+        # A Compose stack's relay writes per-service servers files of its own.
+        if app is None or not runs_as_instances(app):
             return {}
         return {
             "upstream_name": self.upstream_name(domain),

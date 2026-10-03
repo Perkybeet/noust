@@ -26,7 +26,6 @@ Environment="COMPOSE_FILE={{ esc.env_value(compose_file) }}"
 {# An adopted stack keeps the project it already ran under (-p); every
     other one leaves Compose to derive it, as it always has. #}
 {% set compose = "/usr/bin/docker compose" ~ ((" -p " ~ esc.line(compose_project)) if compose_project else "") %}
-ExecStartPre={{ compose }} pull --ignore-pull-failures
 ExecStart={{ compose }} up -d --remove-orphans
 ExecStop={{ compose }} down
 ExecReload={{ compose }} up -d --remove-orphans --build
