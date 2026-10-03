@@ -89,6 +89,7 @@ import { Route as ConsoleDatabasesEngineNameDataRouteImport } from "./routes/_co
 import { Route as ConsoleDatabasesEngineNameMetricsRouteImport } from "./routes/_console/databases/$engine/$name/metrics"
 import { Route as ConsoleDatabasesEngineNameQueryRouteImport } from "./routes/_console/databases/$engine/$name/query"
 import { Route as ConsoleDatabasesEngineNameUsersRouteImport } from "./routes/_console/databases/$engine/$name/users"
+import { Route as ConsoleDatabasesEnginesEngineSettingsRouteImport } from "./routes/_console/databases/engines_/$engine/settings"
 import { Route as ConsoleServerServicesNameIndexRouteImport } from "./routes/_console/server_/services/$name/index"
 import { Route as ConsoleServerServicesNameLogsRouteImport } from "./routes/_console/server_/services/$name/logs"
 import { Route as ConsoleServerServicesNameUnitRouteImport } from "./routes/_console/server_/services/$name_/unit"
@@ -526,6 +527,12 @@ const ConsoleDatabasesEngineNameUsersRoute =
     path: "/users",
     getParentRoute: () => ConsoleDatabasesEngineNameRoute,
   } as any)
+const ConsoleDatabasesEnginesEngineSettingsRoute =
+  ConsoleDatabasesEnginesEngineSettingsRouteImport.update({
+    id: "/databases/engines_/$engine/settings",
+    path: "/databases/engines/$engine/settings",
+    getParentRoute: () => ConsoleRoute,
+  } as any)
 const ConsoleServerServicesNameIndexRoute =
   ConsoleServerServicesNameIndexRouteImport.update({
     id: "/",
@@ -622,6 +629,7 @@ export interface FileRoutesByFullPath {
   "/databases/$engine/$name/metrics": typeof ConsoleDatabasesEngineNameMetricsRoute
   "/databases/$engine/$name/query": typeof ConsoleDatabasesEngineNameQueryRoute
   "/databases/$engine/$name/users": typeof ConsoleDatabasesEngineNameUsersRoute
+  "/databases/engines/$engine/settings": typeof ConsoleDatabasesEnginesEngineSettingsRoute
   "/server/services/$name/logs": typeof ConsoleServerServicesNameLogsRoute
   "/server/services/$name/unit": typeof ConsoleServerServicesNameUnitRoute
   "/apps/$domain/deployments/": typeof ConsoleAppsDomainDeploymentsIndexRoute
@@ -699,6 +707,7 @@ export interface FileRoutesByTo {
   "/databases/$engine/$name/metrics": typeof ConsoleDatabasesEngineNameMetricsRoute
   "/databases/$engine/$name/query": typeof ConsoleDatabasesEngineNameQueryRoute
   "/databases/$engine/$name/users": typeof ConsoleDatabasesEngineNameUsersRoute
+  "/databases/engines/$engine/settings": typeof ConsoleDatabasesEnginesEngineSettingsRoute
   "/server/services/$name/logs": typeof ConsoleServerServicesNameLogsRoute
   "/server/services/$name/unit": typeof ConsoleServerServicesNameUnitRoute
   "/apps/$domain/deployments": typeof ConsoleAppsDomainDeploymentsIndexRoute
@@ -785,6 +794,7 @@ export interface FileRoutesById {
   "/_console/databases/$engine/$name/metrics": typeof ConsoleDatabasesEngineNameMetricsRoute
   "/_console/databases/$engine/$name/query": typeof ConsoleDatabasesEngineNameQueryRoute
   "/_console/databases/$engine/$name/users": typeof ConsoleDatabasesEngineNameUsersRoute
+  "/_console/databases/engines_/$engine/settings": typeof ConsoleDatabasesEnginesEngineSettingsRoute
   "/_console/server_/services/$name/logs": typeof ConsoleServerServicesNameLogsRoute
   "/_console/server_/services/$name_/unit": typeof ConsoleServerServicesNameUnitRoute
   "/_console/apps/$domain/deployments/": typeof ConsoleAppsDomainDeploymentsIndexRoute
@@ -871,6 +881,7 @@ export interface FileRouteTypes {
     | "/databases/$engine/$name/metrics"
     | "/databases/$engine/$name/query"
     | "/databases/$engine/$name/users"
+    | "/databases/engines/$engine/settings"
     | "/server/services/$name/logs"
     | "/server/services/$name/unit"
     | "/apps/$domain/deployments/"
@@ -948,6 +959,7 @@ export interface FileRouteTypes {
     | "/databases/$engine/$name/metrics"
     | "/databases/$engine/$name/query"
     | "/databases/$engine/$name/users"
+    | "/databases/engines/$engine/settings"
     | "/server/services/$name/logs"
     | "/server/services/$name/unit"
     | "/apps/$domain/deployments"
@@ -1033,6 +1045,7 @@ export interface FileRouteTypes {
     | "/_console/databases/$engine/$name/metrics"
     | "/_console/databases/$engine/$name/query"
     | "/_console/databases/$engine/$name/users"
+    | "/_console/databases/engines_/$engine/settings"
     | "/_console/server_/services/$name/logs"
     | "/_console/server_/services/$name_/unit"
     | "/_console/apps/$domain/deployments/"
@@ -1611,6 +1624,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleDatabasesEngineNameUsersRouteImport
       parentRoute: typeof ConsoleDatabasesEngineNameRoute
     }
+    "/_console/databases/engines_/$engine/settings": {
+      id: "/_console/databases/engines_/$engine/settings"
+      path: "/databases/engines/$engine/settings"
+      fullPath: "/databases/engines/$engine/settings"
+      preLoaderRoute: typeof ConsoleDatabasesEnginesEngineSettingsRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
     "/_console/server_/services/$name/": {
       id: "/_console/server_/services/$name/"
       path: "/"
@@ -1850,6 +1870,7 @@ interface ConsoleRouteChildren {
   ConsoleIntegrationsGithubCallbackRoute: typeof ConsoleIntegrationsGithubCallbackRoute
   ConsoleServerServicesNameRoute: typeof ConsoleServerServicesNameRouteWithChildren
   ConsoleDomainsSitesIndexRoute: typeof ConsoleDomainsSitesIndexRoute
+  ConsoleDatabasesEnginesEngineSettingsRoute: typeof ConsoleDatabasesEnginesEngineSettingsRoute
   ConsoleServerServicesNameUnitRoute: typeof ConsoleServerServicesNameUnitRoute
 }
 
@@ -1878,6 +1899,8 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
     ConsoleIntegrationsGithubCallbackRoute,
   ConsoleServerServicesNameRoute: ConsoleServerServicesNameRouteWithChildren,
   ConsoleDomainsSitesIndexRoute: ConsoleDomainsSitesIndexRoute,
+  ConsoleDatabasesEnginesEngineSettingsRoute:
+    ConsoleDatabasesEnginesEngineSettingsRoute,
   ConsoleServerServicesNameUnitRoute: ConsoleServerServicesNameUnitRoute,
 }
 

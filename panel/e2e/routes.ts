@@ -47,6 +47,7 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "app-settings-previews", path: "/apps/portal.example.org/settings/previews" },
   { name: "databases", path: "/databases" },
   { name: "databases-engines", path: "/databases/engines" },
+  { name: "database-engine-settings", path: "/databases/engines/postgresql/settings" },
   { name: "database", path: "/databases/postgresql/example_production" },
   { name: "database-data", path: "/databases/postgresql/example_production/data?schema=public&table=orders" },
   { name: "database-query", path: "/databases/postgresql/example_production/query" },
