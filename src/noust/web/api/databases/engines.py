@@ -31,6 +31,8 @@ from noust.web.api.databases.common import (
 )
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated
 from noust.web.jobs import JobType, database_engine_job
+from noust.web.permissions import Permission
+from noust.web.permissions.enforce import check_permission
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -487,6 +489,12 @@ def get_engine_logs(
     """
     Read journal output for an engine's service, or a container's log.
 
+    A container's log also needs ``databases.manage``: it is masked, but it
+    is the image's own output, where an entrypoint may print a secret in a
+    form no mask knows, so it is not for every viewer. The route declares
+    ``databases.read``, what a host engine's journal needs, because only the
+    engine says which kind it is.
+
     Args:
         engine: Engine name or instance key.
         lines: How many lines to return.
@@ -494,10 +502,15 @@ def get_engine_logs(
 
     Returns:
         The log output.
+
+    Raises:
+        PermissionDenied: 403 ``permission_denied`` for a container's log
+            without ``databases.manage``.
     """
     manager = service(session).manager(engine)
     unit = manager.service_unit()
     if manager.instance is not None:
+        check_permission(session, Permission.DATABASES_MANAGE)
         logs = manager.container_logs(lines) or "No logs available"
     else:
         logs = ServiceManager(verbose=False).logs(unit, lines=lines) or "No logs available"

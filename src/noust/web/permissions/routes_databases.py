@@ -20,6 +20,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/databases/engines"): Permission.DATABASES_READ,
     ("GET", "/api/databases/engines/{engine}/status"): Permission.DATABASES_READ,
     ("GET", "/api/databases/engines/{engine}/privileges"): Permission.DATABASES_READ,
+    # A container's log also needs databases.manage, asked by the handler:
+    # only the engine says whether it names a container.
     ("GET", "/api/databases/engines/{engine}/logs"): Permission.DATABASES_READ,
     # 3.3 (item 71): what can be installed here, and each engine's settings.
     ("GET", "/api/databases/engines/catalog"): Permission.DATABASES_READ,

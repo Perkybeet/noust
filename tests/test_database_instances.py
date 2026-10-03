@@ -615,6 +615,131 @@ class TestMongoInAContainer:
         assert runner.envs[0] is None
 
 
+# ==================== The container's log ====================
+
+
+def scripted_log(fleet: FakeRunner, entry: dict[str, Any], log: str) -> None:
+    """Make Docker print a container's log and describe its environment."""
+    fleet.script(["docker", "logs"], stderr=log)
+    fleet.script(
+        ["docker", "inspect", "--format"], stdout=json.dumps(entry["Config"]["Env"]) + "\n"
+    )
+
+
+class TestTheContainerLog:
+    """A container's log never hands a viewer the password an entrypoint generated."""
+
+    GENERATED = "Ahg7quoo3eiPh0zi"
+
+    def test_a_generated_root_password_is_masked(self, fleet: FakeRunner, instances) -> None:
+        scripted_log(
+            fleet,
+            FLEET[3],
+            "2026-10-03 [Note] [Entrypoint]: Initializing database files\n"
+            f"2026-10-03 [Note] [Entrypoint]: GENERATED ROOT PASSWORD: {self.GENERATED}\n"
+            "2026-10-03 [Note] mysqld: ready for connections.",
+        )
+        manager = MySQLManager().bind(instances["mysql@zabbix.zabbix-db"])
+
+        log = manager.container_logs(50)
+
+        assert self.GENERATED not in log
+        assert "GENERATED ROOT PASSWORD: ********" in log
+        assert "ready for connections" in log
+
+    def test_every_secret_of_the_environment_and_every_statement_is_masked(
+        self, fleet: FakeRunner, instances
+    ) -> None:
+        scripted_log(
+            fleet,
+            FLEET[1],
+            f"connecting with {ROOT_PASSWORD} failed\n"
+            f"user tienda auth {APP_PASSWORD}\n"
+            "STATEMENT: ALTER USER 'x'@'%' IDENTIFIED BY 'otro-secreto'\n"
+            "ERROR: ALTER ROLE app WITH PASSWORD 'pg-otro'\n"
+            "url mysql://tienda:clave-url@db:3306/tienda",
+        )
+        manager = MySQLManager().bind(instances["mysql@tienda-arennalabs-com.mysql"])
+
+        log = manager.container_logs(50)
+
+        for secret in (ROOT_PASSWORD, APP_PASSWORD, "otro-secreto", "pg-otro", "clave-url"):
+            assert secret not in log, log
+        # The settings Noust reads openly stay readable.
+        assert "user tienda auth" in log
+
+    def test_a_redis_requirepass_is_masked(self, fleet: FakeRunner, instances) -> None:
+        scripted_log(fleet, FLEET[2], f"config: requirepass {REDIS_PASSWORD}\nReady to accept")
+        manager = RedisManager().bind(instances["redis@tienda-arennalabs-com.redis"])
+
+        log = manager.container_logs(50)
+
+        assert REDIS_PASSWORD not in log and "Ready to accept" in log
+
+    def test_a_container_docker_does_not_describe_shows_no_log(
+        self, fleet: FakeRunner, instances
+    ) -> None:
+        fleet.script(["docker", "logs"], stderr=f"GENERATED ROOT PASSWORD: {self.GENERATED}")
+        fleet.script(["docker", "inspect", "--format"], exit_code=1, stderr="No such object")
+        manager = MySQLManager().bind(instances["mysql@zabbix.zabbix-db"])
+
+        with pytest.raises(DatabaseQueryError):
+            manager.container_logs(50)
+
+    def test_over_http_a_viewer_reads_no_containers_log(
+        self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, runner: FakeRunner
+    ) -> None:
+        from fastapi.testclient import TestClient
+
+        import noust.managers.database.service as db_service
+        from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+        from noust.web.server import create_app, get_token_manager
+        from tests.test_web_databases_api import make_engine
+
+        fake = make_engine(tmp_path / "dumps", engine="mysql", display="MySQL")
+        instance = DatabaseInstance(
+            key="mysql@zabbix.zabbix-db",
+            engine="mysql",
+            flavour="mysql",
+            container="zabbix-zabbix-db-1",
+            container_id="z",
+            image="mysql:8.0",
+            project="zabbix",
+            service="zabbix-db",
+            state="running",
+        )
+        monkeypatch.setattr(
+            db_service,
+            "get_db_manager",
+            lambda engine, verbose=False: fake() if engine == "mysql" else None,
+        )
+        monkeypatch.setattr(db_service, "discover", lambda: [instance])
+        scripted_log(runner, FLEET[3], f"GENERATED ROOT PASSWORD: {self.GENERATED}")
+        app = create_app(SecurityConfig(state_dir=tmp_path / "state", rate_limit_requests=5000))
+        url = "/api/databases/engines/mysql@zabbix.zabbix-db/logs"
+
+        token = get_token_manager().create_api_token("viewer", scope="read")["token"]
+        viewer = TestClient(app, client=("testclient", 50000), follow_redirects=False)
+        viewer.headers["Authorization"] = f"Bearer {token}"
+        refused = viewer.get(url)
+
+        assert refused.status_code == 403, refused.text
+        assert refused.json()["error"] == "permission_denied"
+        assert self.GENERATED not in refused.text
+        assert not any(call[:2] == ("docker", "logs") for call in runner.calls)
+
+        admin = TestClient(app, client=("testclient", 50000), follow_redirects=False)
+        login = admin.post(
+            "/api/auth/login", json={"token": get_token_manager().generate_master_token()}
+        )
+        admin.headers[CSRF_HEADER_NAME] = login.json()["csrf_token"]
+        shown = admin.get(url)
+
+        assert shown.status_code == 200, shown.text
+        assert self.GENERATED not in shown.text
+        assert "GENERATED ROOT PASSWORD: ********" in shown.json()["logs"]
+
+
 # ==================== Backups ====================
 
 

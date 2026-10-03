@@ -60,7 +60,12 @@ from noust.deployers.helpers.permissions import hand_over_file
 from noust.managers.base_manager import BaseManager
 from noust.managers.database.eol import support_notice
 from noust.managers.database.flavours import FLAVOURS, InstallPlan, install_repository
-from noust.managers.database.instances import engine_of, storage_name
+from noust.managers.database.instances import (
+    container_secret_values,
+    engine_of,
+    mask_container_log,
+    storage_name,
+)
 from noust.managers.database.urls import connection_url
 
 if TYPE_CHECKING:
@@ -1296,15 +1301,23 @@ class BaseDatabaseManager(BaseManager):
         """
         Read the last lines a container's engine wrote.
 
+        A database container's log is not shown verbatim: MySQL and MariaDB
+        print the root password they generated into it, and a logged
+        statement may carry an account's. Every secret value of the
+        container's environment, every generated password and every password
+        in a statement is masked (:func:`mask_container_log`).
+
         Args:
             lines: How many lines.
 
         Returns:
-            What ``docker logs`` printed, both streams, verbatim.
+            What ``docker logs`` printed, both streams, secrets masked.
 
         Raises:
             DatabaseEngineError: For the host's engine, whose log is its
                 unit's journal, or when Docker refuses.
+            DatabaseQueryError: When the container's environment cannot be
+                read, so the log could not be masked.
         """
         if self.instance is None:
             raise DatabaseEngineError(
@@ -1321,8 +1334,12 @@ class BaseDatabaseManager(BaseManager):
                 details="Docker's own message follows.",
                 output=(result.stderr or result.stdout).strip(),
             )
+        known = container_secret_values(
+            self.instance.container, self.runner, extra=(self.instance.command_password,)
+        )
         # The engines log to stderr; docker logs keeps the two streams apart.
-        return "\n".join(part for part in (result.stdout.strip(), result.stderr.strip()) if part)
+        text = "\n".join(part for part in (result.stdout.strip(), result.stderr.strip()) if part)
+        return mask_container_log(text, known)
 
     def start(self) -> None:
         """

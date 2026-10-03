@@ -53,6 +53,7 @@ from typing import Any, Literal
 from noust.central import require_server_role
 from noust.core.exceptions import DatabaseQueryError, ValidationError
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.secret_detection import name_looks_secret, redact_url_credentials
 from noust.core.utils import domain_to_app_name
 
 __all__ = [
@@ -1115,3 +1116,99 @@ def assign_apps(
             domain = by_project.get(instance.project) or by_name.get(instance.project)
         owned.append(replace(instance, app=domain) if domain else instance)
     return owned
+
+
+# ==================== Logs ====================
+
+#: What replaces a secret in a container's log.
+LOG_MASK = "********"
+
+#: Secrets a database container's log prints by design or by accident:
+#: the password an entrypoint generated (MySQL and MariaDB print
+#: ``GENERATED ROOT PASSWORD: ...`` once, at first start, and it stays in
+#: the log for as long as the container exists), a password in a logged
+#: statement (``PASSWORD 'x'``, ``IDENTIFIED BY 'x'``, ``SET PASSWORD =
+#: 'x'``) and Redis's ``requirepass``. The prefix is kept so the operator
+#: still reads what happened; only the value goes.
+_LOG_SECRET_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"(?i)(generated\s+(?:\w+\s+)?password\s*[:=]?\s*)\S+"),
+    re.compile(
+        r"(?i)(\b(?:identified\s+(?:with\s+\S+\s+)?by|password)\s*(?:=\s*|\(\s*)?)"
+        r"('(?:[^'\\]|\\.|'')*'|\"(?:[^\"\\]|\\.)*\")"
+    ),
+    re.compile(r"(?i)(\brequirepass\b\s*[:=]?\s*)(\"[^\"]*\"|'[^']*'|\S+)"),
+)
+
+
+def container_secret_values(
+    container: str, runner: CommandRunner | None = None, *, extra: Iterable[str | None] = ()
+) -> list[str]:
+    """
+    Read the secret values of a container's environment, to mask them.
+
+    Discovery keeps only the names of a container's variables; masking its
+    log needs the values, so they are read here, used, and dropped. A
+    variable is secret when its name says so (``*_PASSWORD``, ``*_TOKEN``...)
+    and it is not one of the settings Noust reads openly
+    (``MYSQL_ALLOW_EMPTY_PASSWORD=yes`` would otherwise mask every "yes").
+
+    Args:
+        container: The container's name.
+        runner: The runner to ask through; the process-wide one when None.
+        extra: More values Noust knows for the instance (a ``--requirepass``).
+
+    Returns:
+        The non-empty values, longest first, so a value never hides part of
+        a longer one before that one is masked.
+
+    Raises:
+        DatabaseQueryError: When Docker does not describe the container:
+            the log is then not shown at all, since it could not be masked.
+    """
+    active = runner or get_runner()
+    result = active.run(
+        ["docker", "inspect", "--format", "{{json .Config.Env}}", container],
+        timeout=DOCKER_TIMEOUT,
+    )
+    if not result.success:
+        raise DatabaseQueryError(
+            f"Docker did not describe {container}, so its log cannot be masked and is not shown",
+            details=f"Check the container: docker inspect {container}",
+            output=(result.stderr or result.stdout).strip(),
+        )
+    try:
+        environment = json.loads(result.stdout or "null")
+    except json.JSONDecodeError as exc:
+        raise DatabaseQueryError(
+            f"Docker described {container} in a form Noust cannot read, so its log is not shown",
+            details=f"Run 'docker inspect {container}' to see what it prints.",
+            output=str(exc),
+        ) from exc
+    values = {value for value in extra if value}
+    for item in environment if isinstance(environment, list) else []:
+        name, separator, value = str(item).partition("=")
+        if not separator or not value or name in _SETTING_NAMES or name.endswith("_FILE"):
+            continue
+        if name_looks_secret(name):
+            values.add(value)
+    return sorted(values, key=len, reverse=True)
+
+
+def mask_container_log(text: str, secrets: Iterable[str] = ()) -> str:
+    """
+    Take the secrets out of a database container's log.
+
+    Args:
+        text: What ``docker logs`` printed.
+        secrets: Literal values to mask wherever they appear
+            (:func:`container_secret_values`).
+
+    Returns:
+        The log with every known value, every generated password, every
+        password in a statement and every credential in a URL masked.
+    """
+    for value in sorted({secret for secret in secrets if secret}, key=len, reverse=True):
+        text = text.replace(value, LOG_MASK)
+    for pattern in _LOG_SECRET_PATTERNS:
+        text = pattern.sub(lambda match: f"{match.group(1)}{LOG_MASK}", text)
+    return redact_url_credentials(text, LOG_MASK)
