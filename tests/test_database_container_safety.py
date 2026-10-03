@@ -590,3 +590,145 @@ def test_an_application_backup_dumps_a_container_linked_database(
     (dump,) = [call for call in docker.calls if inner(call)[:1] == ("pg_dump",)]
     assert dump[:3] == ("docker", "exec", "-i")
     assert (destination / "postgresql.empleo-arennalabs-com.db-empleo.dump.gz").is_file()
+
+
+# ==================== Findings 5 and 6: what cannot be reached, or asked ====================
+
+
+GONE_KEY = "postgresql@retired-project.db"
+
+
+@pytest.fixture
+def linked(docker: Docker, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Any:
+    """A service over a real store, an application, and a link to a container that is gone."""
+    from types import SimpleNamespace
+
+    from noust.core.secrets import SecretStore
+    from noust.core.store import App, Database, NoustStore
+    from noust.deployers.helpers import app_env as app_env_module
+    from noust.managers.database.records import DatabaseLink
+    from noust.managers.database.service import DatabaseService
+
+    NoustStore.reset_instance()
+    store = NoustStore(tmp_path / "noust.db")
+    app_path = tmp_path / "apps" / "shop-example-com"
+    app_path.mkdir(parents=True)
+    (app_path / ".env").write_text("DATABASE_URL=postgresql://shop@localhost:5434/shop\n")
+    monkeypatch.setattr(
+        app_env_module,
+        "Config",
+        lambda: SimpleNamespace(
+            apps_directory=tmp_path / "apps", service_user="www-data", service_group="www-data"
+        ),
+    )
+    app = store.create_app(App(domain="shop.example.com", app_path=str(app_path)))
+    store.create_database(Database(app_id=app.id, name="shop", engine=GONE_KEY))
+    service = DatabaseService(
+        store=store,
+        secrets=SecretStore(root=tmp_path / "secrets"),
+        resolve=lambda name: PostgresManager() if name == "postgresql" else None,
+    )
+    service.records.save_link(DatabaseLink(app_id=app.id or 0, engine=GONE_KEY, db_name="shop"))
+    try:
+        yield SimpleNamespace(service=service, store=store, app=app)
+    finally:
+        store.close()
+        NoustStore.reset_instance()
+
+
+class TestALinkToAContainerThatIsGone:
+    """The application's tab still opens, and the link can still be removed."""
+
+    def test_the_database_tab_reports_it_unavailable(self, linked: Any) -> None:
+        (view,) = linked.service.app_databases("shop.example.com")
+
+        assert (view.engine, view.database) == (GONE_KEY, "shop")
+        assert view.url is None and view.exists is False
+
+    def test_unlink_needs_only_the_store(self, linked: Any) -> None:
+        linked.service.unlink("shop.example.com", GONE_KEY, "shop", restart=False)
+
+        assert linked.service.records.links(engine=GONE_KEY) == []
+        assert linked.store.get_database("shop", GONE_KEY).app_id is None
+
+    def test_forget_removes_what_a_removed_container_held(self, linked: Any) -> None:
+        assert linked.service.forget(GONE_KEY, "shop") is True
+
+        assert linked.store.get_database("shop", GONE_KEY) is None
+        assert linked.service.records.links(engine=GONE_KEY) == []
+
+    def test_forget_refuses_while_docker_does_not_answer(self, docker: Docker, linked: Any) -> None:
+        from noust.core.exceptions import DatabaseQueryError
+
+        docker.script(["docker", "ps"], exit_code=1, stderr="Cannot connect to the Docker daemon")
+
+        with pytest.raises(DatabaseQueryError):
+            linked.service.forget(GONE_KEY, "shop")
+
+        assert linked.store.get_database("shop", GONE_KEY) is not None
+
+
+class TestAnEngineThatCannotBeAsked:
+    """ "I could not ask" is never "it does not exist"."""
+
+    @pytest.mark.parametrize(
+        ("stderr", "error"),
+        [
+            ('psql: error: FATAL:  password authentication failed for user "x"', "access"),
+            ("psql: error: connection to server failed: No such file or directory", "query"),
+        ],
+    )
+    def test_postgres_raises(self, docker: Docker, stderr: str, error: str) -> None:
+        from noust.core.exceptions import DatabaseAccessError, DatabaseQueryError
+
+        docker.script(["runuser"], stderr=stderr, exit_code=2)
+
+        expected = DatabaseAccessError if error == "access" else DatabaseQueryError
+        with pytest.raises(expected) as raised:
+            PostgresManager().database_exists("shop")
+        assert stderr in (raised.value.output or "")
+
+    def test_mysql_raises(self, docker: Docker, instances) -> None:
+        from noust.core.exceptions import DatabaseAccessError
+
+        docker.script(
+            ["docker", "exec"],
+            stderr="ERROR 1045 (28000): Access denied for user 'root'@'localhost'",
+            exit_code=1,
+        )
+
+        with pytest.raises(DatabaseAccessError):
+            MySQLManager().bind(instances[MYSQL_KEY]).database_exists("tienda")
+
+    def test_mongodb_raises(self, docker: Docker) -> None:
+        from noust.core.exceptions import DatabaseError
+
+        docker.script(["mongosh"], stderr="MongoServerError: Authentication failed.", exit_code=1)
+
+        with pytest.raises(DatabaseError):
+            MongoDBManager().database_exists("shop")
+
+    def test_forget_keeps_the_row(self, docker: Docker, linked: Any) -> None:
+        from noust.core.exceptions import DatabaseQueryError
+        from noust.core.store import Database
+
+        linked.store.create_database(Database(app_id=None, name="orders", engine="postgresql"))
+        docker.script(["systemctl", "is-active"], stdout="active\n")
+        docker.script(["runuser"], stderr="psql: error: server closed the connection", exit_code=2)
+
+        with pytest.raises(DatabaseQueryError):
+            linked.service.forget("postgresql", "orders")
+
+        assert linked.store.get_database("orders", "postgresql") is not None
+
+    def test_drop_refuses_rather_than_skip_its_last_dump(self, docker: Docker, linked: Any) -> None:
+        from noust.core.exceptions import DatabaseQueryError
+
+        docker.script(["systemctl", "is-active"], stdout="active\n")
+        docker.script(["runuser"], stderr="psql: error: server closed the connection", exit_code=2)
+
+        with pytest.raises(DatabaseQueryError):
+            linked.service.drop("postgresql", "orders")
+
+        assert drops(docker) == []
+        assert not any("pg_dump" in call for call in docker.calls)

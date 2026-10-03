@@ -461,14 +461,21 @@ def restore_test(manager: BaseDatabaseManager, path: Path) -> RestoreTest:
     Returns:
         What happened. A failed load is a result, not an exception.
     """
-    for _ in range(5):
-        name = temporary_name()
-        if not manager.database_exists(name):
-            break
-    else:
-        # Five collisions in a row on eight random hex digits is not luck: do not
-        # load into, or drop, a database Noust did not make.
-        return RestoreTest(False, name, f"Every temporary name tried ({name}) already exists.", 0.0)
+    name = temporary_name()
+    try:
+        for _ in range(5):
+            name = temporary_name()
+            if not manager.database_exists(name):
+                break
+        else:
+            # Five collisions in a row on eight random hex digits is not luck: do
+            # not load into, or drop, a database Noust did not make.
+            return RestoreTest(
+                False, name, f"Every temporary name tried ({name}) already exists.", 0.0
+            )
+    except DatabaseError as exc:
+        # An engine that cannot say whether the name is free is not loaded into.
+        return RestoreTest(False, name, exc.details or str(exc), 0.0)
     started = time.monotonic()
     loaded = False
     failure = ""
@@ -487,9 +494,10 @@ def restore_test(manager: BaseDatabaseManager, path: Path) -> RestoreTest:
     seconds = time.monotonic() - started
 
     leftover = ""
-    if _TEMP_NAME.fullmatch(name) and (loaded or manager.database_exists(name)):
+    if _TEMP_NAME.fullmatch(name):
         try:
-            manager.drop_database(name, force=True)
+            if loaded or manager.database_exists(name):
+                manager.drop_database(name, force=True)
         except DatabaseError as exc:
             leftover = (
                 f"\nThe temporary database {name} could not be dropped and is still there: "

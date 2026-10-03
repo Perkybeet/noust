@@ -769,12 +769,19 @@ class MySQLManager(BaseDatabaseManager):
 
         Returns:
             True when INFORMATION_SCHEMA holds the name.
+
+        Raises:
+            DatabaseAccessError: When the server does not let Noust in.
+            DatabaseQueryError: When it cannot be asked: "no" would let a
+                drop skip its last dump and a forget delete a live row.
         """
         success, output = self._execute_sql(
             "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA "  # noqa: S608 - quoted literal, not interpolated data
             f"WHERE SCHEMA_NAME = {self._escape_literal(name)};"
         )
-        return success and output.strip() == name
+        if not success:
+            self._listing_failed("databases", output)
+        return output.strip() == name
 
     def list_databases(self) -> list[DatabaseInfo]:
         """

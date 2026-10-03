@@ -731,23 +731,90 @@ class DatabaseService:
             DatabaseEngineError: When the key is malformed, its engine is
                 unknown, or no container answers to it.
         """
-        try:
-            parts = parse_instance_key(key)
-        except ValidationError as exc:
-            raise DatabaseEngineError(exc.message, details=exc.details) from exc
-        canonical = DatabaseRegistry.canonical(parts.engine) or parts.engine
-        wanted = instance_key(
-            canonical, project=parts.project, service=parts.service, container=parts.container
-        )
+        wanted, base = self._instance_key(key, resolve)
         found = next((item for item in self.instances() if item.key == wanted), None)
-        base = resolve(canonical) if found is not None else None
-        if found is None or base is None:
+        if found is None:
             known = ", ".join(item.key for item in self.instances()) or "none"
             raise DatabaseEngineError(
                 f"No database container answers to {key}",
                 details=f"Containers found: {known}. List them with: noust db engines",
             )
         return base.bind(found)
+
+    def _instance_key(
+        self, key: str, resolve: Callable[[str], BaseDatabaseManager | None]
+    ) -> tuple[str, BaseDatabaseManager]:
+        """
+        Spell an instance key the way the store files it, and find its engine.
+
+        Nothing asks Docker: this is what a store row is found by, whether
+        or not its container still exists.
+
+        Args:
+            key: ``engine@project.service`` or ``engine@container``; the
+                engine part may be an alias (``pg@...``).
+            resolve: Engine name to manager.
+
+        Returns:
+            The canonical key and an unbound manager of its engine.
+
+        Raises:
+            DatabaseEngineError: When the key is malformed or its engine unknown.
+        """
+        try:
+            parts = parse_instance_key(key)
+        except ValidationError as exc:
+            raise DatabaseEngineError(exc.message, details=exc.details) from exc
+        canonical = DatabaseRegistry.canonical(parts.engine) or parts.engine
+        base = resolve(canonical)
+        if base is None:
+            raise DatabaseEngineError(
+                f"Unknown database engine in {key}: {parts.engine}",
+                details=f"Available engines: {', '.join(DatabaseRegistry.list_engines())}.",
+            )
+        wanted = instance_key(
+            canonical, project=parts.project, service=parts.service, container=parts.container
+        )
+        return wanted, base
+
+    def _store_key(self, engine: str) -> tuple[str, BaseDatabaseManager]:
+        """
+        Name the key an engine's rows are filed under, without reaching a container.
+
+        Unlinking or forgetting only changes the store, so a container that
+        no longer exists must not stand in the way.
+
+        Args:
+            engine: An engine name, an alias or an instance key.
+
+        Returns:
+            The canonical key and a manager able to validate names; bound
+            only for the host's engines, which need no Docker.
+
+        Raises:
+            DatabaseEngineError: When no engine answers to the name.
+        """
+        if not is_instance_key(engine):
+            manager = self.manager(engine)
+            return manager.ENGINE_NAME, manager
+        resolve = self._resolve or (lambda name: get_db_manager(name, verbose=False))
+        return self._instance_key(engine, resolve)
+
+    def _container_gone(self, key: str) -> bool:
+        """
+        Say whether Docker answered and runs no container under a key.
+
+        Args:
+            key: A canonical instance key.
+
+        Returns:
+            True when the container is gone, so nothing can hold its databases.
+
+        Raises:
+            DatabaseQueryError: When Docker does not answer: then nothing
+                is proven.
+        """
+        return is_instance_key(key) and all(item.key != key for item in self.instances())
 
     def instance_managers(
         self, problems: list[ListingProblem] | None = None
@@ -1517,19 +1584,27 @@ class DatabaseService:
         Returns:
             Whether a row was removed.
 
+        A database is gone when its engine says so, or when Docker answers
+        and no longer runs the container it was in. Anything that cannot be
+        asked refuses: the row and its links are what an application's next
+        backup goes by.
+
         Raises:
-            DatabaseError: When the database still exists: drop it instead.
+            DatabaseError: When the database still exists (drop it instead),
+                or its engine cannot be asked whether it does.
         """
-        manager = self.running(engine)
-        name = manager.validate_database_name(name)
-        if manager.database_exists(name):
-            raise DatabaseError(
-                f"The database '{name}' still exists",
-                details="Drop it instead; forgetting is for a database that is gone.",
-            )
-        removed = self.store.delete_database(name, manager.ENGINE_NAME)
-        self.records.delete_links_to(manager.ENGINE_NAME, name)
-        self.audit("db.forget", f"{manager.ENGINE_NAME}/{name}")
+        key, base = self._store_key(engine)
+        name = base.validate_database_name(name)
+        if not self._container_gone(key):
+            manager = self.running(engine)
+            if manager.database_exists(name):
+                raise DatabaseError(
+                    f"The database '{name}' still exists",
+                    details="Drop it instead; forgetting is for a database that is gone.",
+                )
+        removed = self.store.delete_database(name, key)
+        self.records.delete_links_to(key, name)
+        self.audit("db.forget", f"{key}/{name}")
         return removed
 
     def fix_owner(
@@ -2228,16 +2303,18 @@ class DatabaseService:
             engine_details = details.get(link.engine)
             if engine_details is None:
                 engine_details = {"sizes": {}, "version": None, "up": False}
-                manager = self.manager(link.engine)
-                if manager.is_installed() and manager.is_running():
-                    engine_details["up"] = True
-                    engine_details["version"] = manager.get_version()
-                    try:
+                try:
+                    manager = self.manager(link.engine)
+                    if manager.is_installed() and manager.is_running():
+                        engine_details["up"] = True
+                        engine_details["version"] = manager.get_version()
                         engine_details["sizes"] = {
                             info.name: info.size for info in manager.list_databases()
                         }
-                    except DatabaseError as exc:
-                        self.logger.warning(f"Could not list {link.engine} databases: {exc}")
+                except DatabaseError as exc:
+                    # A container that was removed, or a Docker that does not
+                    # answer, is this link unavailable, not the whole tab.
+                    self.logger.warning(f"Could not reach {link.engine}: {exc}")
                 details[link.engine] = engine_details
             password = self._password(link.engine, link.username) if link.username else None
             url = self._url(link, password=password) if engine_details["up"] else None
@@ -2615,9 +2692,10 @@ class DatabaseService:
             DeploymentError: When the application did not come up.
         """
         app = self._app(domain)
-        manager = self.manager(engine)
-        engine_name = manager.ENGINE_NAME
-        database = manager.validate_database_name(database)
+        # The store and the application's environment are all an unlink
+        # changes: a container that is gone does not stand in its way.
+        engine_name, base = self._store_key(engine)
+        database = base.validate_database_name(database)
         link = self.records.link(app.id or 0, engine_name, database)
         row = self.store.get_database(database, engine_name)
         if link is None and (row is None or row.app_id != app.id):

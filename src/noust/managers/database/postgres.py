@@ -713,11 +713,18 @@ class PostgresManager(BaseDatabaseManager):
 
         Returns:
             True when pg_database holds the name.
+
+        Raises:
+            DatabaseAccessError: When the server does not let Noust in.
+            DatabaseQueryError: When it cannot be asked: "no" would let a
+                drop skip its last dump and a forget delete a live row.
         """
         success, output = self._execute_sql(
             f"SELECT 1 FROM pg_database WHERE datname = {self._escape_literal(name)};"  # noqa: S608 - quoted literal, not interpolated data
         )
-        return success and output.strip() == "1"
+        if not success:
+            self._listing_failed("databases", output)
+        return output.strip() == "1"
 
     def list_databases(self) -> list[DatabaseInfo]:
         """

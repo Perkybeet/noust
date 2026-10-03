@@ -585,12 +585,17 @@ class MongoDBManager(BaseDatabaseManager):
 
         Returns:
             True when the deployment lists the name.
+
+        Raises:
+            DatabaseAccessError: When the server does not let Noust in.
+            DatabaseQueryError: When it cannot be asked: "no" would let a
+                drop skip its last dump and a forget delete a live row.
         """
         success, data = self._execute_mongo_json(
             "db.adminCommand('listDatabases').databases.map(d => d.name)"
         )
         if not success:
-            return False
+            self._listing_failed("databases", str(data))
         if isinstance(data, list):
             return name in data
         return f'"{name}"' in str(data)
