@@ -48,6 +48,7 @@ from noust.core.fs import is_rehearsal
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, AppType, NoustStore, get_store
 from noust.deployers.compose_adopt import (
+    DOCKER_TIMEOUT,
     PROJECT_LABEL,
     WORKING_DIR_LABEL,
     StackContainer,
@@ -129,7 +130,10 @@ def stack_identity(app: Any) -> StackIdentity:
 
 
 def running_outside_units(
-    apps: Sequence[App], *, runner: CommandRunner | None = None
+    apps: Sequence[App],
+    *,
+    runner: CommandRunner | None = None,
+    timeout: int = DOCKER_TIMEOUT,
 ) -> dict[str, tuple[str, ...]]:
     """
     Find which of these stacks have containers running, with one ``docker ps``.
@@ -141,6 +145,7 @@ def running_outside_units(
     Args:
         apps: The applications to look at.
         runner: The runner docker is asked through.
+        timeout: Seconds Docker has to answer; a status probe gives it less.
 
     Returns:
         Domain to the names of its running containers, sorted, for each stack
@@ -153,7 +158,8 @@ def running_outside_units(
     if not stacks:
         return {}
     runner = runner if runner is not None else get_runner()
-    running = [c for c in list_stack_containers(runner=runner) if c.state == "running"]
+    listed = list_stack_containers(runner=runner, timeout=timeout)
+    running = [c for c in listed if c.state == "running"]
     found: dict[str, tuple[str, ...]] = {}
     for app in stacks:
         identity = stack_identity(app)

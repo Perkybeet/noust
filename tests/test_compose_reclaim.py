@@ -16,6 +16,7 @@ without recreating a container unless the operator accepts it.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -565,3 +566,132 @@ def test_handing_it_back_is_audited(
 
     assert [event for event, _ in recorded] == ["apps.reclaim"]
     assert recorded[0][1]["target"] == f"app:{DOMAIN}"
+
+
+# -- Asking Docker from the snapshot never holds it up --------------------------------
+
+
+class SlowDocker(FakeRunner):
+    """
+    A ``docker ps`` that takes ``seconds`` on the snapshot's clock, and may fail.
+
+    Attributes:
+        timeouts: The deadline each ``docker ps`` was given.
+    """
+
+    def __init__(self, clock: list[float], seconds: float, *, fails: bool) -> None:
+        super().__init__()
+        self.clock = clock
+        self.seconds = seconds
+        self.fails = fails
+        self.timeouts: list[int | None] = []
+        self.inside: Any = None
+
+    def run(self, argv, **kwargs):  # type: ignore[no-untyped-def]
+        if list(argv[:2]) == ["docker", "ps"]:
+            self.timeouts.append(kwargs.get("timeout"))
+            if self.inside is not None:
+                self.inside()
+            self.clock[0] += self.seconds
+        result = super().run(argv, **kwargs)
+        if self.fails and list(argv[:2]) == ["docker", "ps"]:
+            from dataclasses import replace
+
+            return replace(result, exit_code=124, stdout="", stderr="timed out")
+        return result
+
+
+@pytest.fixture
+def clock(monkeypatch: pytest.MonkeyPatch) -> Iterator[list[float]]:
+    from noust.web import machine
+
+    now = [1000.0]
+    monkeypatch.setattr(machine.time, "monotonic", lambda: now[0])
+    machine._outside_units_cache.clear()
+    yield now
+    machine._outside_units_cache.clear()
+
+
+def install(runner: FakeRunner) -> None:
+    from noust.core.runner import set_runner
+
+    set_runner(runner)
+
+
+def test_a_slow_docker_answer_is_reused_for_its_whole_ttl(clock: list[float]) -> None:
+    """The answer is stamped when it arrives, not when the question left."""
+    from noust.core.runner import set_runner
+    from noust.web import machine
+
+    docker = SlowDocker(clock, seconds=machine.OUTSIDE_UNITS_TTL, fails=False)
+    docker.script(["docker", "ps"], stdout=converter_ps())
+    install(docker)
+    try:
+        assert machine._running_outside([stack()]) == {CONVERTER: CONVERTER_CONTAINERS}
+        assert machine._running_outside([stack()]) == {CONVERTER: CONVERTER_CONTAINERS}
+    finally:
+        set_runner(None)
+
+    assert len(docker.timeouts) == 1
+    assert docker.timeouts == [machine.OUTSIDE_UNITS_PROBE_TIMEOUT]
+    assert machine.OUTSIDE_UNITS_PROBE_TIMEOUT <= 5
+
+
+def test_a_docker_that_does_not_answer_is_not_asked_on_every_tick(clock: list[float]) -> None:
+    from noust.core.runner import set_runner
+    from noust.web import machine
+
+    docker = SlowDocker(clock, seconds=5, fails=True)
+    install(docker)
+    try:
+        for _tick in range(10):
+            assert machine._running_outside([stack()]) == {}
+            clock[0] += 5
+    finally:
+        set_runner(None)
+
+    assert len(docker.timeouts) == 1
+    clock[0] += machine.OUTSIDE_UNITS_FAILURE_TTL
+    install(docker)
+    try:
+        machine._running_outside([stack()])
+    finally:
+        set_runner(None)
+    assert len(docker.timeouts) == 2
+
+
+def test_a_failure_keeps_the_last_good_answer(clock: list[float]) -> None:
+    from noust.core.runner import set_runner
+    from noust.web import machine
+
+    docker = SlowDocker(clock, seconds=0, fails=False)
+    docker.script(["docker", "ps"], stdout=converter_ps())
+    install(docker)
+    try:
+        machine._running_outside([stack()])
+        clock[0] += machine.OUTSIDE_UNITS_TTL
+        docker.fails = True
+        assert machine._running_outside([stack()]) == {CONVERTER: CONVERTER_CONTAINERS}
+    finally:
+        set_runner(None)
+
+
+def test_a_caller_does_not_start_a_second_docker_ps_behind_one_in_flight(
+    clock: list[float],
+) -> None:
+    """Concurrent snapshots reuse the last answer instead of queueing behind Docker."""
+    from noust.core.runner import set_runner
+    from noust.web import machine
+
+    docker = SlowDocker(clock, seconds=0, fails=False)
+    docker.script(["docker", "ps"], stdout=converter_ps())
+    seen: list[dict[str, tuple[str, ...]]] = []
+    docker.inside = lambda: seen.append(machine._running_outside([stack()]))
+    install(docker)
+    try:
+        assert machine._running_outside([stack()]) == {CONVERTER: CONVERTER_CONTAINERS}
+    finally:
+        set_runner(None)
+
+    assert seen == [{}], "the caller during the probe got the last answer (none yet)"
+    assert len(docker.timeouts) == 1

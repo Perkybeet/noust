@@ -305,7 +305,9 @@ def parse_containers(stdout: str) -> list[StackContainer]:
     return found
 
 
-def list_stack_containers(*, runner: CommandRunner) -> list[StackContainer]:
+def list_stack_containers(
+    *, runner: CommandRunner, timeout: int = DOCKER_TIMEOUT
+) -> list[StackContainer]:
     """
     List every container Compose made on this host, running or not, in one call.
 
@@ -315,6 +317,7 @@ def list_stack_containers(*, runner: CommandRunner) -> list[StackContainer]:
 
     Args:
         runner: The runner docker is asked through.
+        timeout: Seconds Docker has to answer; a status probe gives it less.
 
     Returns:
         One entry per container that carries a Compose project label.
@@ -333,7 +336,7 @@ def list_stack_containers(*, runner: CommandRunner) -> list[StackContainer]:
             "--format",
             _PS_FORMAT,
         ],
-        timeout=DOCKER_TIMEOUT,
+        timeout=timeout,
     )
     if not result.success:
         raise DeploymentError(

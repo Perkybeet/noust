@@ -28,6 +28,7 @@ from __future__ import annotations
 import logging
 import socket
 import sqlite3
+import threading
 import time
 from collections import deque
 from collections.abc import Mapping
@@ -232,7 +233,65 @@ APP_UNMANAGED = "running_unmanaged"
 #: asked at most this often, and only while some stack's unit is stopped.
 OUTSIDE_UNITS_TTL = 30.0
 
-_outside_units_cache: dict[str, Any] = {}
+#: Seconds a failed answer is reused. A Docker that did not answer is not
+#: asked again on the next tick: each try costs a whole probe deadline, and
+#: the snapshot waits for it.
+OUTSIDE_UNITS_FAILURE_TTL = 90.0
+
+#: Deadline for that question. It feeds a status snapshot read every few
+#: seconds, not an operation: an answer that takes longer is no answer.
+OUTSIDE_UNITS_PROBE_TIMEOUT = 5
+
+
+@dataclass(frozen=True)
+class _OutsideAnswer:
+    """
+    One answer about which stacks run outside their units.
+
+    Attributes:
+        key: The runner and the stacks it was asked about.
+        stamp: When the answer arrived (monotonic seconds).
+        found: Domain to its running containers.
+        failed: Docker could not be asked; ``found`` is the last good answer.
+    """
+
+    key: tuple[int, tuple[str, ...]]
+    stamp: float
+    found: dict[str, tuple[str, ...]]
+    failed: bool
+
+    def fresh(self, key: tuple[int, tuple[str, ...]], now: float) -> bool:
+        """
+        Say whether this answer may be reused.
+
+        Args:
+            key: What is asked now.
+            now: The monotonic clock.
+
+        Returns:
+            True when it is about the same stacks and young enough.
+        """
+        ttl = OUTSIDE_UNITS_FAILURE_TTL if self.failed else OUTSIDE_UNITS_TTL
+        return self.key == key and now - self.stamp < ttl
+
+    def about(self, domains: tuple[str, ...]) -> dict[str, tuple[str, ...]]:
+        """
+        Keep what this answer found for some stacks.
+
+        Args:
+            domains: The stacks asked about now.
+
+        Returns:
+            What it found for these domains only.
+        """
+        return {domain: names for domain, names in self.found.items() if domain in domains}
+
+
+_outside_units_cache: dict[str, _OutsideAnswer] = {}
+
+#: Held by the one caller asking Docker; the others reuse the last answer
+#: rather than start a second ``docker ps`` behind a hung one.
+_outside_units_lock = threading.Lock()
 
 
 def _running_outside(apps: list[Any]) -> dict[str, tuple[str, ...]]:
@@ -243,25 +302,39 @@ def _running_outside(apps: list[Any]) -> dict[str, tuple[str, ...]]:
         apps: Compose stacks whose units are stopped.
 
     Returns:
-        Domain to its running containers; empty when Docker cannot be asked,
-        which leaves every stack stopped.
+        Domain to its running containers. When Docker cannot be asked, or is
+        being asked by another caller, the last answer for these stacks
+        (none at first, which leaves every stack stopped).
     """
     from noust.core.runner import get_runner
     from noust.deployers.compose_reclaim import running_outside_units
 
+    domains = tuple(sorted(app.domain for app in apps))
     # The runner is part of the key: an answer is about the host it asked.
-    key = (id(get_runner()), tuple(sorted(app.domain for app in apps)))
-    now = time.monotonic()
+    key = (id(get_runner()), domains)
     cached = _outside_units_cache.get("entry")
-    if cached is not None and cached[0] == key and now - cached[1] < OUTSIDE_UNITS_TTL:
-        return dict(cached[2])
+    if cached is not None and cached.fresh(key, time.monotonic()):
+        return dict(cached.found)
+    if not _outside_units_lock.acquire(blocking=False):
+        return cached.about(domains) if cached is not None else {}
     try:
-        found = running_outside_units(apps)
-    except NoustError as exc:
-        log.debug("Could not ask Docker which stacks run outside their units: %s", exc)
-        found = {}
-    _outside_units_cache["entry"] = (key, now, found)
-    return found
+        # Another caller may have answered while this one waited for nothing.
+        cached = _outside_units_cache.get("entry")
+        if cached is not None and cached.fresh(key, time.monotonic()):
+            return dict(cached.found)
+        try:
+            found = running_outside_units(apps, timeout=OUTSIDE_UNITS_PROBE_TIMEOUT)
+            failed = False
+        except NoustError as exc:
+            log.debug("Could not ask Docker which stacks run outside their units: %s", exc)
+            found = cached.about(domains) if cached is not None else {}
+            failed = True
+        # Stamped once the answer is in: a probe that took its whole deadline
+        # must not leave an answer that is already stale.
+        _outside_units_cache["entry"] = _OutsideAnswer(key, time.monotonic(), found, failed)
+        return dict(found)
+    finally:
+        _outside_units_lock.release()
 
 
 def classify_apps(services: list[dict[str, Any]]) -> dict[str, str]:
