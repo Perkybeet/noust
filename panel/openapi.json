@@ -8551,7 +8551,7 @@
         "type": "object"
       },
       "EngineSettingResponse": {
-        "description": "One setting of an engine.\n\nAttributes:\n    key: The engine's own name for it; stable, the key the console\n        translates ``description`` by.\n    kind: ``addresses``, ``port``, ``integer``, ``size``,\n        ``duration_ms``, ``seconds``, ``gigabytes``, ``boolean``,\n        ``enum``, ``timezone`` or ``snapshots``.\n    current: What the running engine uses; null when it did not answer.\n    configured: What Noust's file sets; null when it sets nothing.\n    recommended: Noust's advice for this server's memory and cores;\n        null when it depends on the applications.\n    restart: Changing it restarts the engine.\n    listen: It decides where the engine listens; a non-loopback value\n        needs ``confirm_exposure``.\n    editable: Noust changes it; ``locked_reason`` says why not.\n    source: The file the engine read the current value from (PostgreSQL).",
+        "description": "One setting of an engine.\n\nAttributes:\n    key: The engine's own name for it; stable, the key the console\n        translates ``description`` by.\n    kind: ``addresses``, ``port``, ``integer``, ``size``,\n        ``duration_ms``, ``seconds``, ``gigabytes``, ``boolean``,\n        ``enum``, ``timezone`` or ``snapshots``.\n    current: What the running engine uses; null when it did not answer.\n    configured: What Noust's file sets; null when it sets nothing.\n    recommended: Noust's advice for this server's memory and cores;\n        null when it depends on the applications.\n    restart: Changing it restarts the engine.\n    listen: It decides where the engine listens; a non-loopback value\n        needs ``confirm``.\n    editable: Noust changes it; ``locked_reason`` says why not.\n    source: The file the engine read the current value from (PostgreSQL).",
         "properties": {
           "choices": {
             "items": {
@@ -8734,8 +8734,13 @@
         "type": "object"
       },
       "EngineSettingsRequest": {
-        "description": "Settings to change.\n\nAttributes:\n    values: New values by key, as text (``256MB``, ``on``, ``127.0.0.1``);\n        ``default`` removes a setting from Noust's file.\n    confirm_exposure: The operator accepts that the engine will listen\n        beyond loopback. Without it such a change is refused with the\n        exposure warning, on the ``confirm_exposure`` field.",
+        "description": "Settings to change.\n\nAttributes:\n    values: New values by key, as text (``256MB``, ``on``, ``127.0.0.1``);\n        ``default`` removes a setting from Noust's file.\n    confirm: The operator accepts what the change costs: listening beyond\n        loopback, a Redis that would refuse writes or drop keys,\n        persistence turned off. Without it such a change is refused with\n        ``error`` ``confirmation_required``, every warning in\n        ``warnings``, on the ``confirm`` field; nothing is changed.\n    confirm_exposure: The older name of ``confirm``, still honoured.",
         "properties": {
+          "confirm": {
+            "default": false,
+            "title": "Confirm",
+            "type": "boolean"
+          },
           "confirm_exposure": {
             "default": false,
             "title": "Confirm Exposure",
@@ -27527,20 +27532,13 @@
         "type": "object"
       },
       "noust__web__api__databases__databases__AdoptResponse": {
-        "description": "What adopting recorded.\n\nAttributes:\n    adopted: The databases now tracked, as ``engine/name``.\n    links: The uses found in applications' environments now recorded as\n        links, as ``domain -> engine/name``.",
+        "description": "What adopting recorded.\n\nAttributes:\n    adopted: The databases now tracked, as ``engine/name``.",
         "properties": {
           "adopted": {
             "items": {
               "type": "string"
             },
             "title": "Adopted",
-            "type": "array"
-          },
-          "links": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Links",
             "type": "array"
           }
         },
@@ -39261,7 +39259,7 @@
     },
     "/api/databases/engines/{engine}/install": {
       "post": {
-        "description": "Queue the installation of an engine, in a flavour and version of the catalog.\n\nInstallation drives the distribution package manager, so it runs as a\njob. What it will install is decided first, so a version this server\ncannot have, or MariaDB while MySQL is installed, is refused here rather\nthan in the job. Without a body it installs what 3.2 did.\n\nArgs:\n    engine: Engine name, or a flavour's (``mariadb``, ``valkey``).\n    session: The authenticated session.\n    request: The flavour and version, both optional.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 409 when the engine is already installed.",
+        "description": "Queue the installation of an engine, in a flavour and version of the catalog, with sudo mode.\n\nInstallation drives the distribution package manager, so it runs as a\njob. It can add an apt repository and trust its key as root, which is\nroot-equivalent, hence sudo mode, as for removing an engine. What it\nwill install is decided first, so a version this server cannot have,\nor MariaDB while MySQL is installed, is refused here rather than in the\njob. Without a body it installs what 3.2 did.\n\nArgs:\n    engine: Engine name, or a flavour's (``mariadb``, ``valkey``).\n    session: The authenticated, elevated session.\n    request: The flavour and version, both optional.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 409 when the engine is already installed.",
         "operationId": "install_engine_api_databases_engines__engine__install_post",
         "parameters": [
           {
@@ -39317,12 +39315,13 @@
         "tags": [
           "Databases"
         ],
-        "x-noust-permission": "databases.manage"
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/databases/engines/{engine}/logs": {
       "get": {
-        "description": "Read journal output for an engine's service, or a container's log.\n\nArgs:\n    engine: Engine name or instance key.\n    lines: How many lines to return.\n    session: The authenticated session.\n\nReturns:\n    The log output.",
+        "description": "Read journal output for an engine's service, or a container's log.\n\nA container's log also needs ``databases.manage``: it is masked, but it\nis the image's own output, where an entrypoint may print a secret in a\nform no mask knows, so it is not for every viewer. The route declares\n``databases.read``, what a host engine's journal needs, because only the\nengine says which kind it is.\n\nArgs:\n    engine: Engine name or instance key.\n    lines: How many lines to return.\n    session: The authenticated session.\n\nReturns:\n    The log output.\n\nRaises:\n    PermissionDenied: 403 ``permission_denied`` for a container's log\n        without ``databases.manage``.",
         "operationId": "get_engine_logs_api_databases_engines__engine__logs_get",
         "parameters": [
           {
@@ -39552,7 +39551,7 @@
         "x-noust-permission": "databases.read"
       },
       "put": {
-        "description": "Change an engine's settings, with sudo mode.\n\nThe file is written, checked by the engine's own tool, and the engine\nrestarted, reloaded or changed at runtime; when it does not answer, the\nprevious settings are put back and the error carries its journal.\n\nArgs:\n    engine: Engine name.\n    request: The new values and the exposure confirmation.\n    session: The authenticated, elevated session.\n\nReturns:\n    What changed and how it was applied.",
+        "description": "Change an engine's settings, with sudo mode.\n\nThe file is written, checked by the engine's own tool, and the engine\nrestarted, reloaded or changed at runtime; when it does not answer, the\nprevious settings are put back and the error carries its journal.\n\nArgs:\n    engine: Engine name.\n    request: The new values and the confirmation.\n    session: The authenticated, elevated session.\n\nReturns:\n    What changed and how it was applied.",
         "operationId": "put_engine_settings_api_databases_engines__engine__settings_put",
         "parameters": [
           {
