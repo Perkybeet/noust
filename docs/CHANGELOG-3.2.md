@@ -351,3 +351,17 @@ definition of it (no service publishes a TCP port on the host), and the deploy, 
 - The man page and the completions cover the new commands.
 - The package documentation adds [compose.md](compose.md) and
   [UPGRADING-3.2.md](UPGRADING-3.2.md).
+
+## 3.2.1
+
+- **A Compose stack with the zero-downtime relay is no longer read as blue/green.** Its list row
+  said Stopped while the stack served, and a start or restart from the console named
+  `@blue`/`@green` units that do not exist. The relay keeps working as before.
+- **The Compose unit never pulls at start.** `ExecStartPre=... pull` is gone from the unit: a boot
+  or a `systemctl restart` recreated the database container with whatever its image tag had
+  become. Images change only on a deploy.
+- **On/off labels are badges.** The informative enabled/disabled labels (notification channels,
+  integrations, services, cron jobs, tokens, accounts, firewall, automatic updates, approvals,
+  start at boot) are small status badges with their shape and text.
+- **Spinners keep turning under reduced motion**, slower: a frozen one read as a hang.
+- The hook flag reads "May change the database schema" instead of a bare verb.
