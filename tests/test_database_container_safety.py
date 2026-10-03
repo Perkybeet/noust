@@ -545,3 +545,48 @@ class TestTheSamplerKeepsToItsBudget:
         assert len(warnings) == 1 and "connection refused" in warnings[0].getMessage()
         recovered = [r for r in caplog.records if r.levelno == logging.INFO]
         assert len(recovered) == 1 and PG_KEY in recovered[0].getMessage()
+
+
+# ==================== Finding 4: an application's backup reaches its container's database ====================
+
+
+class StubStore:
+    """The two questions an application backup asks the store, and discovery's one."""
+
+    def __init__(self, engine: str) -> None:
+        from types import SimpleNamespace
+
+        self.app = SimpleNamespace(id=7, domain="empleo.arennalabs.com", compose_project=None)
+        self.rows = [SimpleNamespace(name="empleo", engine=engine, app_id=7)]
+
+    def get_app(self, domain: str) -> Any:
+        return self.app if domain == self.app.domain else None
+
+    def list_databases(self, app_id: int | None = None) -> list[Any]:
+        return self.rows
+
+    def list_apps(self) -> list[Any]:
+        return [self.app]
+
+
+def test_an_application_backup_dumps_a_container_linked_database(
+    docker: Docker, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from noust.managers.backup_manager import BackupManager
+
+    store = StubStore(PG_KEY)
+    monkeypatch.setattr("noust.managers.backup_manager.get_store", lambda: store)
+    monkeypatch.setattr("noust.managers.database.service.get_store", lambda: store)
+    Cluster(docker, "empleo")
+    destination = tmp_path / "payload" / "databases"
+
+    entries = BackupManager(verbose=False, runner=docker)._dump_databases(
+        "empleo.arennalabs.com", destination
+    )
+
+    (entry,) = entries
+    assert entry["engine"] == PG_KEY
+    assert entry["archive_path"].endswith("postgresql.empleo-arennalabs-com.db-empleo.dump.gz")
+    (dump,) = [call for call in docker.calls if inner(call)[:1] == ("pg_dump",)]
+    assert dump[:3] == ("docker", "exec", "-i")
+    assert (destination / "postgresql.empleo-arennalabs-com.db-empleo.dump.gz").is_file()

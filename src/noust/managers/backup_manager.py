@@ -3104,7 +3104,8 @@ class BackupManager:
         # The engine managers pull in optional client libraries; a machine
         # without them can still back up files.
         try:
-            from noust.managers.database.registry import DatabaseRegistry
+            from noust.managers.database.instances import engine_of, storage_name
+            from noust.managers.database.service import DatabaseService
         except ImportError as exc:
             raise BackupError(
                 "Database backup requested but the database managers are unavailable",
@@ -3132,14 +3133,21 @@ class BackupManager:
 
         self.logger.info(f"Backing up {len(databases)} database(s) for {domain}")
 
+        # One service for every dump: a container's key (postgresql@project.db)
+        # resolves through it, and Docker is asked once, not once per database.
+        service = DatabaseService(logger=self.logger)
         dumps: list[dict[str, Any]] = []
         for db in databases:
-            manager = DatabaseRegistry.get(db.engine, verbose=self.verbose)
-            if not manager:
+            try:
+                manager = service.manager(db.engine)
+            except DatabaseError as exc:
                 raise BackupError(
                     f"No manager available for database engine: {db.engine}",
-                    details=f"Database '{db.name}' is registered for {domain} but cannot be dumped.",
-                )
+                    details=(
+                        f"Database '{db.name}' is registered for {domain} but cannot be "
+                        f"dumped: {exc.message}. {exc.details or ''}"
+                    ).strip(),
+                ) from exc
 
             if not manager.is_installed():
                 raise BackupError(
@@ -3148,11 +3156,12 @@ class BackupManager:
                 )
 
             suffix = getattr(manager, "BACKUP_SUFFIX", ".dump")
-            filename = validate_filename(f"{db.engine}-{db.name}{suffix}.gz")
+            # A container's key holds an @, which no file name may.
+            filename = validate_filename(f"{storage_name(db.engine)}-{db.name}{suffix}.gz")
             target = destination / filename
 
             kwargs: dict[str, Any] = {}
-            if db.engine.lower() in {"redis", "valkey"}:
+            if engine_of(db.engine) in {"redis", "valkey"}:
                 kwargs["method"] = redis_method
 
             try:
@@ -3346,7 +3355,7 @@ class BackupManager:
             return
 
         try:
-            from noust.managers.database.registry import DatabaseRegistry
+            from noust.managers.database.service import DatabaseService
         except ImportError as exc:
             raise BackupError(
                 "This backup contains databases but the database managers are unavailable",
@@ -3355,17 +3364,19 @@ class BackupManager:
 
         self.logger.info(f"Restoring {len(entries)} database(s)")
 
+        service = DatabaseService(logger=self.logger)
         for entry in entries:
             engine = str(entry.get("engine", ""))
             name = str(entry.get("name", ""))
             dump_path = self._resolve_payload_file(extracted, entry, f"dump of '{name}'")
 
-            manager = DatabaseRegistry.get(engine, verbose=self.verbose)
-            if not manager:
+            try:
+                manager = service.manager(engine)
+            except DatabaseError as exc:
                 raise BackupError(
                     f"No manager available for database engine: {engine}",
-                    details=f"Cannot restore database '{name}'.",
-                )
+                    details=f"Cannot restore database '{name}': {exc.message}. {exc.details or ''}".strip(),
+                ) from exc
 
             try:
                 manager.restore(database=name, backup_path=dump_path)
