@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -509,6 +510,13 @@ def list_services(
         deprecated=True,
         description="The name noust_only had before 3.0; read when noust_only is absent",
     ),
+    state: Annotated[
+        Literal["failed", "running", "stopped"] | None,
+        Query(
+            description="Only the units in this state. 'failed' also keeps the ones "
+            "systemd keeps restarting; the console's Services page filters the same way"
+        ),
+    ] = None,
     session: dict = Depends(get_current_session),
 ):
     """
@@ -522,9 +530,13 @@ def list_services(
     which is how a diagnostics view tells a foreign unit's own crash loop from
     one of Noust's own. A foreign unit carries only its state: it is listed
     from systemd's own listing, never probed or acted on.
+
+    ``state`` narrows the list to the units in one state. ``noust_only=false&state=failed``
+    is what a degraded server's security check sends the operator to: every failed
+    unit on the host, Noust's or not.
     """
     only = noust_only if noust_only is not None else wasm_only
-    statuses = ServiceManager(verbose=False).list_statuses(all_services=only is False)
+    statuses = ServiceManager(verbose=False).list_statuses(all_services=only is False, state=state)
     commands = {service.name: service.command for service in get_store().list_services()}
     result = [
         _service_info(status["name"], commands.get(status["name"]), status) for status in statuses

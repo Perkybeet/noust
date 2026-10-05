@@ -294,7 +294,7 @@ def test_a_unit_systemd_does_not_know_is_unit_missing(mount: Path) -> None:
     reason = builder(mount, manager).build([app("shop.example.com")])["shop.example.com"].reason
 
     assert reason is not None and reason.code == "unit_missing"
-    assert "noust app update shop.example.com" in (reason.fix or "")
+    assert "noust update shop.example.com" in (reason.fix or "")
 
 
 def test_an_application_with_no_recorded_unit_is_unit_missing(mount: Path) -> None:

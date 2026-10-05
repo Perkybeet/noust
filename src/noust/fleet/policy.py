@@ -312,5 +312,5 @@ def _second_factor_of_its_own() -> bool:
     except (StoreError, sqlite3.Error) as exc:
         raise SecurityError(
             "The accounts could not be read from the store",
-            details=f"Check that the store is readable (noust store check). {exc}",
+            details=f"Check that the store is readable (noust store stats). {exc}",
         ) from exc

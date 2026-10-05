@@ -61,7 +61,7 @@ def test_a_value_starting_with_a_dollar_is_refused(value: str) -> None:
         pool_env_lines({"TOKEN": value})
 
     assert "$" in failure.value.details
-    assert "noust env set" in failure.value.details
+    assert "noust env configure" in failure.value.details
 
 
 def test_a_dollar_anywhere_else_is_carried_literally() -> None:

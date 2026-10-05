@@ -534,14 +534,15 @@ def pool_env_lines(env: Mapping[str, str]) -> list[tuple[str, str]]:
                 f"{key} cannot be passed to PHP-FPM",
                 details="PHP-FPM replaces a value that starts with '$' with its own "
                 "environment variable of that name, so PHP would never see this one. "
-                f"Change the value so it does not start with '$': noust env set <domain> {key}=...",
+                "Change the value so it does not start with '$' (noust env configure <domain>, "
+                "or the console's Environment tab).",
             )
         if "'" in value or "\n" in value or "\r" in value or "\0" in value:
             raise ValidationError(
                 f"{key} cannot be passed to PHP-FPM",
                 details="A PHP-FPM pool carries each variable as a single-quoted value, "
                 "which cannot contain a single quote or a line break. Change the value "
-                f"with: noust env set <domain> {key}=...",
+                "with 'noust env configure <domain>' or in the console's Environment tab.",
             )
         lines.append((key, value))
     return lines

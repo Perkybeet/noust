@@ -1395,7 +1395,8 @@ class BackupManager:
         if schemas:
             raise BackupError(
                 "Per-schema dumps cannot be placed inside a self-contained backup",
-                details="Back up the whole database, or use 'noust db backup --schema' separately.",
+                details="Back up the whole database, or dump the schema on its own with "
+                "pg_dump --schema.",
             )
 
         app_name = validate_app_name(domain_to_app_name(domain))

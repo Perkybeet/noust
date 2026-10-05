@@ -26,6 +26,7 @@ What is pinned here, all through the real manager on a fake runner:
 from __future__ import annotations
 
 import asyncio
+import json
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
@@ -35,12 +36,14 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.exceptions import ValidationError
 from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore, Service, get_store
 from noust.core.utils import domain_to_app_name
 from noust.managers.service_manager import (
     LIST_UNITS_ARGV,
     UNIT_MARKER,
+    UNIT_STATE_FILTERS,
     ServiceManager,
     readable_unit_name,
 )
@@ -504,6 +507,160 @@ def test_all_units_lists_systemd_escaped_names_without_probing_them(
     assert sum(call[1] == "list-units" for call in systemctl) == 1
     assert not any(ESCAPED + ".service" in call for call in systemctl if call[1] != "list-units")
     assert not any(call[1] in {"is-active", "is-enabled"} for call in systemctl)
+
+
+# ------------------------------------------------------- narrowing by state
+
+
+def host_with_failures(runner: FakeRunner, unit_dirs: dict[str, Path]) -> None:
+    """A host where one of ours failed, one of ours loops, and a distribution unit failed."""
+    marked(unit_dirs, "one-example-com")
+    marked(unit_dirs, "broken-example-com")
+    marked(unit_dirs, "flappy-example-com")
+    runner.script(
+        [*LIST_UNITS, "*"],
+        stdout=listing(
+            "one-example-com loaded active running",
+            "broken-example-com loaded failed failed",
+            "flappy-example-com loaded activating auto-restart",
+            "apt-daily loaded failed failed",
+            "ssh loaded active running",
+            "motd-news loaded inactive dead",
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("active", "sub", "group"),
+    [
+        ("active", "running", "running"),
+        ("active", "exited", "running"),
+        ("failed", "failed", "failed"),
+        # A crash loop has not settled into "failed" yet, and is not "stopped" either.
+        ("activating", "auto-restart", "failed"),
+        ("activating", "start", "failed"),
+        ("inactive", "dead", "stopped"),
+        ("deactivating", "stop-sigterm", "stopped"),
+        ("", "", "stopped"),
+        (" Failed ", "failed", "failed"),
+    ],
+)
+def test_a_unit_is_failed_running_or_stopped_by_one_rule(active: str, sub: str, group: str) -> None:
+    """The console's Services page decides the same way from the same two columns."""
+    assert ServiceManager.state_group(active, sub) == group
+
+
+def test_the_failed_filter_keeps_every_failed_unit_on_the_host(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
+) -> None:
+    """What the security check on a degraded system sends the operator to see."""
+    host_with_failures(runner, unit_dirs)
+
+    rows = ServiceManager().list_services(all_services=True, state="failed")
+
+    assert {row["name"]: row["managed"] for row in rows} == {
+        "apt-daily": False,
+        "broken-example-com": True,
+        "flappy-example-com": True,
+    }
+
+
+def test_the_other_filters_partition_what_failed_leaves(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
+) -> None:
+    host_with_failures(runner, unit_dirs)
+    manager = ServiceManager()
+
+    everything = {row["name"] for row in manager.list_services(all_services=True)}
+    by_state = {
+        state: {row["name"] for row in manager.list_services(all_services=True, state=state)}
+        for state in UNIT_STATE_FILTERS
+    }
+
+    assert by_state["running"] == {"one-example-com", "ssh"}
+    assert by_state["stopped"] == {"motd-news"}
+    assert set().union(*by_state.values()) == everything
+    assert sum(len(names) for names in by_state.values()) == len(everything)
+
+
+def test_without_all_the_state_filters_only_noust_units(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
+) -> None:
+    marked(unit_dirs, "broken-example-com")
+    runner.script(
+        LIST_UNITS,
+        stdout=listing("broken-example-com loaded failed failed", "apt-daily loaded failed failed"),
+    )
+
+    rows = ServiceManager().list_services(state="failed")
+
+    assert [row["name"] for row in rows] == ["broken-example-com"]
+
+
+def test_an_unknown_state_is_a_validation_error_not_an_empty_list(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
+) -> None:
+    with pytest.raises(ValidationError) as raised:
+        ServiceManager().list_services(state="broken")
+
+    assert "failed, running, stopped" in (raised.value.details or "")
+
+
+def test_the_api_filters_by_state_over_the_whole_host(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore, api: TestClient
+) -> None:
+    """The exact request the failed-units hint names."""
+    host_with_failures(runner, unit_dirs)
+    runner.script(
+        ["systemctl", "show"],
+        stdout="Id=broken-example-com.service\nActiveState=failed\nSubState=failed\n"
+        "Result=exit-code\n\nId=flappy-example-com.service\nActiveState=activating\n"
+        "SubState=auto-restart\nResult=exit-code\n",
+    )
+
+    response = api.get("/api/services", params={"noust_only": "false", "state": "failed"})
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert {row["name"] for row in body["services"]} == {
+        "apt-daily",
+        "broken-example-com",
+        "flappy-example-com",
+    }
+    assert body["total"] == 3
+
+
+def test_the_cli_filters_by_state_over_the_whole_host(
+    runner: FakeRunner, unit_dirs: dict[str, Path], store: NoustStore
+) -> None:
+    """The exact command the failed-units hint names, with --json to read it."""
+    from click.testing import CliRunner
+
+    from noust.cli.app import cli as root
+
+    host_with_failures(runner, unit_dirs)
+
+    result = CliRunner().invoke(
+        root, ["service", "list", "--all", "--state", "failed", "--json"], catch_exceptions=False
+    )
+
+    assert result.exit_code == 0, result.output
+    assert {row["name"] for row in json.loads(result.output)} == {
+        "apt-daily",
+        "broken-example-com",
+        "flappy-example-com",
+    }
+
+
+def test_the_cli_refuses_a_state_nobody_defined() -> None:
+    from click.testing import CliRunner
+
+    from noust.cli.app import cli as root
+
+    result = CliRunner().invoke(root, ["service", "list", "--state", "broken"])
+
+    assert result.exit_code == 2
+    assert "failed" in result.output
 
 
 def test_the_detail_of_an_escaped_foreign_unit_is_a_404_not_a_400(

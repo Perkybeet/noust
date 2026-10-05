@@ -25,7 +25,7 @@ import click
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
-from noust.managers.service_manager import ServiceManager
+from noust.managers.service_manager import UNIT_STATE_FILTERS, ServiceManager
 
 #: Alternative spellings for the subcommands of this group. They predate the
 #: migration, are in scripts and in the published documentation, and dropping
@@ -118,7 +118,13 @@ def _create(
     return 0
 
 
-def _list(all_services: bool, *, verbose: bool, json_output: bool = False) -> int:
+def _list(
+    all_services: bool,
+    *,
+    verbose: bool,
+    json_output: bool = False,
+    state: str | None = None,
+) -> int:
     """
     Print the services Noust manages.
 
@@ -129,6 +135,8 @@ def _list(all_services: bool, *, verbose: bool, json_output: bool = False) -> in
         all_services: Include units Noust does not manage, flagged as such.
         verbose: Show the detail of each step.
         json_output: Print the list as JSON instead of a table.
+        state: Only the units in this group (``failed``, ``running`` or
+            ``stopped``), the way the console's Services page filters them.
 
     Returns:
         Exit code.
@@ -136,7 +144,7 @@ def _list(all_services: bool, *, verbose: bool, json_output: bool = False) -> in
     logger = Logger(verbose=verbose)
     manager = ServiceManager(verbose=verbose)
 
-    services = manager.list_services(all_services=all_services)
+    services = manager.list_services(all_services=all_services, state=state)
 
     if json_output:
         click.echo(
@@ -160,7 +168,7 @@ def _list(all_services: bool, *, verbose: bool, json_output: bool = False) -> in
     logger.header("Managed Services")
 
     if not services:
-        logger.info("No services found")
+        logger.info(f"No {state} services found" if state else "No services found")
         return 0
 
     rows = [
@@ -405,11 +413,17 @@ def create_command(
 
 @cli.command(name="list")
 @click.option("--all", "-a", "all_services", is_flag=True, help="Include units Noust does not own.")
+@click.option(
+    "--state",
+    type=click.Choice(UNIT_STATE_FILTERS),
+    default=None,
+    help="Only the units in this state; failed also keeps the ones systemd keeps restarting.",
+)
 @json_option("Print the service list as JSON.")
 @pass_context
-def list_command(ctx: Context, all_services: bool) -> None:
+def list_command(ctx: Context, all_services: bool, state: str | None) -> None:
     """List services and whether they are running."""
-    _finish(_list(all_services, verbose=ctx.verbose, json_output=ctx.json_output))
+    _finish(_list(all_services, verbose=ctx.verbose, json_output=ctx.json_output, state=state))
 
 
 @cli.command(name="status")

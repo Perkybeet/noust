@@ -795,7 +795,7 @@ class RedisManager(BaseDatabaseManager):
         if not self.user_exists(username):
             raise DatabaseUserError(
                 f"User '{username}' does not exist",
-                details="Run 'noust db users --engine redis' to see the ACL users.",
+                details="Run 'noust db user-list --engine redis' to see the ACL users.",
             )
 
         success, output = self._execute_redis("ACL", "DELUSER", username)
@@ -910,7 +910,7 @@ class RedisManager(BaseDatabaseManager):
         if not self.user_exists(username):
             raise DatabaseUserError(
                 f"User '{username}' does not exist",
-                details="Run 'noust db users --engine redis' to see the ACL users.",
+                details="Run 'noust db user-list --engine redis' to see the ACL users.",
             )
 
         success, output = self._execute_redis("ACL", "SETUSER", username, "nocommands", "resetkeys")

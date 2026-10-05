@@ -940,7 +940,7 @@ class MySQLManager(BaseDatabaseManager):
         if not self.user_exists(username, host):
             raise DatabaseUserError(
                 f"User '{username}'@'{host}' does not exist",
-                details="Run 'noust db users --engine mysql' to see the users.",
+                details="Run 'noust db user-list --engine mysql' to see the users.",
             )
 
         success, output = self._execute_sql(
