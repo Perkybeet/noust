@@ -45892,7 +45892,7 @@
     },
     "/api/services": {
       "get": {
-        "description": "List services.\n\n``noust_only`` (the default; ``wasm_only`` before 3.0, still read) lists\nthe units Noust manages - the one\ndefinition in :meth:`~noust.managers.service_manager.ServiceManager.managed_units`\nthe console's top bar counts too, so the two always agree. Set it to false\nfor a full inventory of every unit on the host, each flagged ``managed``,\nwhich is how a diagnostics view tells a foreign unit's own crash loop from\none of Noust's own. A foreign unit carries only its state: it is listed\nfrom systemd's own listing, never probed or acted on.",
+        "description": "List services.\n\n``noust_only`` (the default; ``wasm_only`` before 3.0, still read) lists\nthe units Noust manages - the one\ndefinition in :meth:`~noust.managers.service_manager.ServiceManager.managed_units`\nthe console's top bar counts too, so the two always agree. Set it to false\nfor a full inventory of every unit on the host, each flagged ``managed``,\nwhich is how a diagnostics view tells a foreign unit's own crash loop from\none of Noust's own. A foreign unit carries only its state: it is listed\nfrom systemd's own listing, never probed or acted on.\n\n``state`` narrows the list to the units in one state. ``noust_only=false&state=failed``\nis what a degraded server's security check sends the operator to: every failed\nunit on the host, Noust's or not.",
         "operationId": "list_services_api_services_get",
         "parameters": [
           {
@@ -45931,6 +45931,29 @@
               "deprecated": true,
               "description": "The name noust_only had before 3.0; read when noust_only is absent",
               "title": "Wasm Only"
+            }
+          },
+          {
+            "description": "Only the units in this state. 'failed' also keeps the ones systemd keeps restarting; the console's Services page filters the same way",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "failed",
+                    "running",
+                    "stopped"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only the units in this state. 'failed' also keeps the ones systemd keeps restarting; the console's Services page filters the same way",
+              "title": "State"
             }
           }
         ],

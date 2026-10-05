@@ -11330,6 +11330,10 @@ export interface paths {
          *     which is how a diagnostics view tells a foreign unit's own crash loop from
          *     one of Noust's own. A foreign unit carries only its state: it is listed
          *     from systemd's own listing, never probed or acted on.
+         *
+         *     ``state`` narrows the list to the units in one state. ``noust_only=false&state=failed``
+         *     is what a degraded server's security check sends the operator to: every failed
+         *     unit on the host, Noust's or not.
          */
         get: operations["list_services_api_services_get"];
         put?: never;
@@ -38659,6 +38663,8 @@ export interface operations {
                  * @description The name noust_only had before 3.0; read when noust_only is absent
                  */
                 wasm_only?: boolean | null;
+                /** @description Only the units in this state. 'failed' also keeps the ones systemd keeps restarting; the console's Services page filters the same way */
+                state?: ("failed" | "running" | "stopped") | null;
             };
             header?: never;
             path?: never;
