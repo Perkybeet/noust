@@ -350,6 +350,10 @@ SESSION_RENEW_RATIO = 0.5
 #: a captured cookie is worthless by the time it is replayed.
 SESSION_ROTATION_GRACE = 30
 
+#: How many rotations :meth:`TokenManager._lineage` follows from a retired id. A session rotates
+#: at most every half of its lifetime, so a chain this long is a loop in the store, not a login.
+MAX_ROTATION_HOPS = 8
+
 #: Hard ceiling on a session's life, however active it is. Renewal resets the
 #: idle clock but never this one, so a stolen cookie that is kept warm still
 #: stops working within a day. The sign-in policy
@@ -3696,6 +3700,12 @@ class TokenManager:
         counted from (``auth.sudo.max_minutes``); :meth:`extend_elevation`
         keeps it open while elevated actions are performed.
 
+        A request that still carries the cookie a rotation retired confirms
+        the successor too, and its deadline is worked out from the successor:
+        the retired row ends within :data:`SESSION_ROTATION_GRACE` seconds and
+        the browser is already moving to the other one, so sudo mode written
+        only to the retired row would vanish with it.
+
         Args:
             sid: Session identifier being elevated.
 
@@ -3703,10 +3713,36 @@ class TokenManager:
             The elevation deadline, as a UNIX timestamp.
         """
         now = _now()
-        record = self.sessions.get(sid)
-        elevated_until = self._elevation_deadline(record, now=now, confirmed_at=now)
-        self.sessions.set_elevated(sid, elevated_until, now)
+        lineage = self._lineage(sid)
+        elevated_until = self._elevation_deadline(
+            lineage[-1] if lineage else None, now=now, confirmed_at=now
+        )
+        for row in lineage or [{"sid": sid}]:
+            self.sessions.set_elevated(str(row["sid"]), elevated_until, now)
         return elevated_until
+
+    def _lineage(self, sid: str) -> list[dict[str, Any]]:
+        """
+        Follow a session along its rotations to the one that is live now.
+
+        Args:
+            sid: The session a request presented.
+
+        Returns:
+            Its row, then the row of each successor that is still live, the
+            last one being the session the browser is moving to; just its own
+            row when it was not rotated (or its successor is gone), and empty
+            when it is not a live session at all.
+        """
+        chain: list[dict[str, Any]] = []
+        record = self.sessions.get(sid)
+        while record is not None and len(chain) < MAX_ROTATION_HOPS:
+            chain.append(record)
+            successor = record.get("rotated_to")
+            if not successor:
+                break
+            record = self.sessions.get(str(successor))
+        return chain
 
     def extend_elevation(self, payload: dict[str, Any]) -> float | None:
         """
@@ -3743,7 +3779,11 @@ class TokenManager:
         # elevated requests come right after the last one moved the window.
         if now + self._elevation_idle_seconds() - float(current) <= ELEVATION_SLIDE_THRESHOLD:
             return None
-        record = self.sessions.get(str(sid))
+        # The live session's row, not the retired one a request in flight still
+        # names: its end is cut to the rotation grace, and it is the successor
+        # that has to keep the window the operator is working in.
+        lineage = self._lineage(str(sid))
+        record = lineage[-1] if lineage else None
         if record is None or record.get("elevated_at") is None:
             return None
         deadline = self._elevation_deadline(
@@ -3751,7 +3791,8 @@ class TokenManager:
         )
         if deadline - float(current) <= ELEVATION_SLIDE_THRESHOLD:
             return None
-        self.sessions.slide_elevated(str(sid), deadline)
+        for row in lineage:
+            self.sessions.slide_elevated(str(row["sid"]), deadline)
         payload["elevated_until"] = deadline
         return deadline
 

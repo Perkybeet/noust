@@ -362,3 +362,96 @@ def test_logging_out_retires_the_whole_lineage(sandbox: Path) -> None:
     assert manager.verify_session_token(session.token, "10.0.0.1") is None
     assert manager.verify_session_token(renewed.token, "10.0.0.1") is None
     manager.sessions.close()
+
+
+# ------------------------------------------------- sudo mode across a rotation
+
+
+def rotated_pair(sandbox: Path) -> tuple[TokenManager, str, str, dict[str, object]]:
+    """
+    Make a session that has just rotated, and a payload that still names the old one.
+
+    Args:
+        sandbox: Per-test temporary directory.
+
+    Returns:
+        The manager, the retired sid, the successor's sid, and the verified payload of a
+        request that still carries the retired cookie.
+    """
+    manager = TokenManager(make_config(sandbox, token_expiration_hours=1))
+    session = manager.create_session("10.0.0.1")
+    age_sessions(sandbox, 3500)
+    payload = manager.verify_session_token(session.token, "10.0.0.1")
+    assert payload is not None
+    renewed = manager.renew_session(payload)
+    assert renewed is not None
+    return manager, session.session_id, renewed.session_id, payload
+
+
+def test_elevating_with_the_retired_cookie_confirms_the_successor(sandbox: Path) -> None:
+    """
+    A confirmation that lands on the retired row would vanish with it.
+
+    The retired row ends within the grace and the browser is already moving to
+    the successor, so the operator would be asked to confirm again a moment
+    after doing so. The window is also worked out from the live session, not
+    from a row whose end the grace has cut to seconds.
+    """
+    manager, retired, successor, _payload = rotated_pair(sandbox)
+
+    elevated_until = manager.elevate(retired)
+
+    live = manager.sessions.get(successor)
+    assert live is not None
+    assert live["elevated_until"] == pytest.approx(elevated_until)
+    assert live["elevated_at"] is not None
+    assert elevated_until > time.time() + 10 * 60, "the window is the policy's, not the grace's"
+    # Requests still carrying the retired cookie keep seeing it for the grace that is left.
+    old = manager.sessions.get(retired)
+    assert old is not None and old["elevated_until"] == pytest.approx(elevated_until)
+    manager.sessions.close()
+
+
+def test_elevating_with_the_new_cookie_is_unchanged(sandbox: Path) -> None:
+    manager, _retired, successor, _payload = rotated_pair(sandbox)
+
+    elevated_until = manager.elevate(successor)
+
+    live = manager.sessions.get(successor)
+    assert live is not None and live["elevated_until"] == pytest.approx(elevated_until)
+    manager.sessions.close()
+
+
+def test_the_window_slides_on_the_successor_when_the_retired_cookie_acts(
+    sandbox: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """An elevated action made with the retired cookie keeps the live session's window open."""
+    manager, retired, successor, payload = rotated_pair(sandbox)
+    opened = time.time()
+    monkeypatch.setattr(auth_module, "_now", lambda: opened)
+    first = manager.elevate(retired)
+    payload["elevated_until"] = first
+
+    later = opened + 5 * 60
+    monkeypatch.setattr(auth_module, "_now", lambda: later)
+    slid = manager.extend_elevation(payload)
+
+    assert slid is not None and slid > first
+    live = manager.sessions.get(successor)
+    assert live is not None and live["elevated_until"] == pytest.approx(slid)
+    assert payload["elevated_until"] == slid
+    manager.sessions.close()
+
+
+def test_elevating_a_session_that_never_rotated_touches_only_itself(sandbox: Path) -> None:
+    manager = TokenManager(make_config(sandbox))
+    one = manager.create_session("10.0.0.1")
+    other = manager.create_session("10.0.0.2")
+
+    manager.elevate(one.session_id)
+
+    elevated = manager.sessions.get(one.session_id)
+    untouched = manager.sessions.get(other.session_id)
+    assert elevated is not None and elevated["elevated_until"] is not None
+    assert untouched is not None and untouched["elevated_until"] is None
+    manager.sessions.close()
