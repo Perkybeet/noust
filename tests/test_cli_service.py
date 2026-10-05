@@ -281,7 +281,9 @@ def test_global_verbose_survives_the_subcommand(
     """``wasm -v service list`` must still be verbose once inside the command."""
     seen: list[bool] = []
 
-    def spy(self: ServiceManager, all_services: bool = False) -> list[dict]:
+    def spy(
+        self: ServiceManager, all_services: bool = False, state: str | None = None
+    ) -> list[dict]:
         seen.append(self.verbose)
         return []
 
