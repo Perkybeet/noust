@@ -285,6 +285,24 @@ class AccountManager:
         with self.store._transaction() as cursor:
             yield cursor
 
+    @contextmanager
+    def _write_exclusive(self) -> Iterator[sqlite3.Cursor]:
+        """
+        Yields:
+            A cursor inside a store transaction that already holds the write
+            lock, so what is read in it cannot change before it is written.
+
+        A secret that is spent (a backup code, a TOTP step) is read, found
+        unused and then marked: with the lock taken only at the write, two
+        requests with the same code both read it unused, and both are let in.
+        ``BEGIN IMMEDIATE`` makes the second wait for the first to commit
+        (the store's busy timeout) and read what it left.
+        """
+        with self._write() as cursor:
+            if not cursor.connection.in_transaction:
+                cursor.execute("BEGIN IMMEDIATE")
+            yield cursor
+
     def _row(self, where: str, params: tuple[Any, ...]) -> sqlite3.Row | None:
         """
         Args:
@@ -1432,15 +1450,18 @@ class AccountManager:
             account_id: The account.
             code: What was typed.
             purpose: What it is spent on; a TOTP step is not accepted twice
-                for the same purpose.
+                for the same purpose. Backup codes are single-use whatever
+                the purpose.
 
         Returns:
             True when it matched; False otherwise, including when the account
-            has no authenticator (this fails closed).
+            has no authenticator (this fails closed). The reading and the
+            spending are one locked step: the same code presented twice at
+            once is accepted once.
         """
         if not (code or "").strip():
             return False
-        with self._write() as cursor:
+        with self._write_exclusive() as cursor:
             row = cursor.execute(
                 "SELECT totp_secret, totp_last_steps, backup_codes FROM accounts WHERE id = ?",
                 (int(account_id),),

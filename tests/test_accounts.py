@@ -8,7 +8,8 @@ and a clock the tests move.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+import threading
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -64,6 +65,33 @@ def clock() -> Clock:
 @pytest.fixture
 def accounts(store: NoustStore, clock: Clock) -> AccountManager:
     return AccountManager(store, policy=AuthPolicy(), clock=clock)
+
+
+def _race(action: Callable[[], bool], *, count: int) -> list[bool]:
+    """
+    Run ``action`` on ``count`` threads that all start together.
+
+    Args:
+        action: What each thread does; its answer is collected.
+        count: How many threads.
+
+    Returns:
+        What every thread answered.
+    """
+    start = threading.Barrier(count)
+    answers: list[bool] = []
+
+    def run() -> None:
+        start.wait(timeout=10)
+        answers.append(action())
+
+    threads = [threading.Thread(target=run) for _ in range(count)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=30)
+    assert len(answers) == count
+    return answers
 
 
 def code_for(secret: str, clock: Clock) -> str:
@@ -331,6 +359,43 @@ class TestSignIn:
         with pytest.raises(AuthenticationFailed):
             accounts.authenticate("maria", PASSWORD, codes[0], client_ip="1.2.3.4")
         assert accounts.get(account.id).backup_codes_remaining == 7
+
+    def test_a_backup_code_spent_twice_in_a_row_is_accepted_once(self, accounts, clock):
+        account = accounts.create("maria", "admin", password=PASSWORD)
+        _, codes = enrol(accounts, account.id, clock)
+
+        assert accounts.verify_second_factor(account.id, codes[0], purpose="elevate") is True
+        assert accounts.verify_second_factor(account.id, codes[0], purpose="elevate") is False
+        # Whatever the purpose: a backup code is spent for all of them.
+        assert accounts.verify_second_factor(account.id, codes[0], purpose="login") is False
+        assert accounts.get(account.id).backup_codes_remaining == 7
+
+    def test_a_backup_code_presented_by_several_requests_at_once_is_accepted_once(
+        self, accounts, clock
+    ):
+        account = accounts.create("maria", "admin", password=PASSWORD)
+        _, codes = enrol(accounts, account.id, clock)
+
+        def spend() -> bool:
+            return accounts.verify_second_factor(account.id, codes[0], purpose="login")
+
+        results = _race(spend, count=8)
+
+        assert results.count(True) == 1, results
+        assert accounts.get(account.id).backup_codes_remaining == 7
+
+    def test_a_totp_step_presented_by_several_requests_at_once_is_accepted_once(
+        self, accounts, clock
+    ):
+        account = accounts.create("maria", "admin", password=PASSWORD)
+        secret, _ = enrol(accounts, account.id, clock)
+        code = code_for(secret, clock)
+
+        results = _race(
+            lambda: accounts.verify_second_factor(account.id, code, purpose="login"), count=8
+        )
+
+        assert results.count(True) == 1, results
 
     def test_five_failures_lock_the_account_for_fifteen_minutes(self, accounts, clock):
         account = accounts.create("maria", "viewer", password=PASSWORD)
