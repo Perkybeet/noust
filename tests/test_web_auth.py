@@ -11,10 +11,12 @@ ask for credentials.
 from __future__ import annotations
 
 import json
+import os
 import re
 import sqlite3
 import time
 from argparse import ArgumentParser, Namespace
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -29,9 +31,11 @@ from noust.web import auth as auth_module
 from noust.web.auth import (
     CSRF_HEADER_NAME,
     SESSION_COOKIE_NAME,
+    STATE_DIR_ENV,
     SecurityConfig,
     TokenManager,
     require_auth,
+    state_file_exists,
 )
 from noust.web.server import _uvicorn_kwargs, create_app, get_token_manager
 
@@ -1014,6 +1018,94 @@ def test_an_empty_secret_file_is_not_silently_replaced(sandbox: Path) -> None:
     assert excinfo.value.details
     # And the sessions the key protects are still there to be recovered.
     assert session.token
+
+
+def test_a_state_directory_the_user_cannot_search_is_an_actionable_error(
+    sandbox: Path, unsearchable: Callable[[Path], None]
+) -> None:
+    """
+    A user other than root in a root-owned directory got a bare PermissionError.
+
+    ``Path.exists`` raises it on Python 3.12 for a directory it cannot search,
+    so asking whether the key exists came before the handler that turns the
+    failure into the message saying to run as root or name a directory of one's
+    own.
+    """
+    config = make_config(sandbox)
+    config.resolved_state_dir.mkdir()
+    unsearchable(config.resolved_state_dir)
+
+    with pytest.raises(SecurityError) as excinfo:
+        TokenManager(config)
+
+    assert str(config.secret_file) in excinfo.value.message
+    assert STATE_DIR_ENV in excinfo.value.details
+    assert "Permission denied" in (excinfo.value.output or "")
+    assert isinstance(excinfo.value.__cause__, PermissionError)
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root searches every directory")
+def test_a_state_directory_with_no_search_permission_is_an_actionable_error(
+    sandbox: Path,
+) -> None:
+    """The same, against the kernel's own refusal instead of a simulated one."""
+    config = make_config(sandbox)
+    config.resolved_state_dir.mkdir()
+    config.resolved_state_dir.chmod(0o000)
+    try:
+        with pytest.raises(SecurityError) as excinfo:
+            TokenManager(config)
+    finally:
+        config.resolved_state_dir.chmod(0o700)
+
+    assert STATE_DIR_ENV in excinfo.value.details
+
+
+def test_a_missing_signing_key_is_created_not_refused(sandbox: Path) -> None:
+    """Not found is still absence: the first start has no key to read."""
+    config = make_config(sandbox)
+
+    manager = TokenManager(config)
+    manager.sessions.close()
+
+    assert config.secret_file.read_text().strip()
+    assert config.secret_file.stat().st_mode & 0o777 == 0o600
+
+
+def test_a_state_file_in_an_unsearchable_directory_is_not_reported_as_missing(
+    sandbox: Path, unsearchable: Callable[[Path], None]
+) -> None:
+    """``web token`` asked ``exists()`` too, and "no token yet" would be a false answer."""
+    config = make_config(sandbox)
+    config.resolved_state_dir.mkdir()
+    assert state_file_exists(config.token_file) is False
+    unsearchable(config.resolved_state_dir)
+
+    with pytest.raises(SecurityError) as excinfo:
+        state_file_exists(config.token_file)
+
+    assert STATE_DIR_ENV in excinfo.value.details
+
+
+def test_tls_material_in_a_directory_the_user_cannot_search_is_not_called_missing(
+    sandbox: Path, unsearchable: Callable[[Path], None]
+) -> None:
+    """A certificate under root's letsencrypt directory exists; the user just cannot see it."""
+    from noust.web.server import verify_tls_material
+
+    tls = sandbox / "tls"
+    tls.mkdir()
+    unsearchable(tls)
+    config = make_config(
+        sandbox, require_https=True, ssl_certfile=str(tls / "c.pem"), ssl_keyfile=str(tls / "k.pem")
+    )
+
+    with pytest.raises(SecurityError) as excinfo:
+        verify_tls_material(config)
+
+    assert "cannot be read" in excinfo.value.message
+    assert "does not exist" not in excinfo.value.message
+    assert "Permission denied" in (excinfo.value.output or "")
 
 
 def parse_start_args(argv: list[str]) -> Namespace:

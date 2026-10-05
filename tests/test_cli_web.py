@@ -143,6 +143,21 @@ def no_console_service(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ServiceManager, "SYSTEMD_DIR", managed)
 
 
+@pytest.fixture(autouse=True)
+def running_as_root(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Start every test as the user the console is meant to run as.
+
+    ``noust web start`` refuses a user who is not root and has no state
+    directory of their own, and the suite runs as whoever ran it. The tests
+    that are about that refusal take root away again.
+
+    Args:
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    monkeypatch.setattr(web, "check_root", lambda: True)
+
+
 @pytest.fixture
 def cli_runner() -> CliRunner:
     """
@@ -1856,3 +1871,166 @@ def test_status_does_not_swallow_a_bug_reading_process_detail(
 
     with pytest.raises(RuntimeError):
         cli_runner.invoke(web.cli, ["status"], catch_exceptions=False)
+
+
+# ---------------------------------------------------------------------------
+# A console started by a user who cannot keep its state
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def not_root(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Run as an ordinary user with no directory of their own for the console.
+
+    Args:
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    monkeypatch.setattr(web, "check_root", lambda: False)
+    monkeypatch.delenv("NOUST_WEB_STATE_DIR", raising=False)
+    monkeypatch.delenv("WASM_WEB_STATE_DIR", raising=False)
+    monkeypatch.setattr(web.paths, "DATA_DIR", None)
+
+
+def test_a_start_without_root_says_so_instead_of_failing_on_a_file(
+    cli_runner: CliRunner,
+    deps_present: None,
+    pid_file: Path,
+    started: dict[str, Any],
+    not_root: None,
+) -> None:
+    """
+    Issue 11: a normal user got an audit warning and then a traceback.
+
+    Nothing is read or bound first, and the refusal names the way out.
+    """
+    from noust.core.exceptions import PermissionError as NoustPermissionError
+
+    result = cli_runner.invoke(web.cli, ["start", "--port", "8081"])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, NoustPermissionError)
+    assert "needs root" in result.exception.message
+    assert "sudo" in result.exception.details
+    assert "NOUST_WEB_STATE_DIR" in result.exception.details
+    assert "config" not in started
+
+
+def test_a_start_without_root_but_with_a_state_directory_of_their_own_goes_on(
+    cli_runner: CliRunner,
+    deps_present: None,
+    pid_file: Path,
+    started: dict[str, Any],
+    not_root: None,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The unprivileged console that ``NOUST_WEB_STATE_DIR`` exists for keeps working."""
+    monkeypatch.setenv("NOUST_WEB_STATE_DIR", str(tmp_path / "state"))
+
+    result = cli_runner.invoke(web.cli, ["start"])
+
+    assert result.exit_code == 0, result.output
+    assert started["mode"] == "foreground"
+
+
+def test_a_start_without_root_but_under_a_data_directory_goes_on(
+    cli_runner: CliRunner,
+    deps_present: None,
+    pid_file: Path,
+    started: dict[str, Any],
+    not_root: None,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A whole installation the user named (a container's volume) is theirs."""
+    monkeypatch.setattr(web.paths, "DATA_DIR", tmp_path)
+
+    result = cli_runner.invoke(web.cli, ["start"])
+
+    assert result.exit_code == 0, result.output
+    assert started["mode"] == "foreground"
+
+
+def test_a_rehearsed_start_without_root_is_not_refused(
+    cli_runner: CliRunner,
+    deps_present: None,
+    pid_file: Path,
+    started: dict[str, Any],
+    not_root: None,
+    seams: None,
+) -> None:
+    """``--dry-run`` reads and writes nothing, so there is nothing to refuse."""
+    result = cli_runner.invoke(web.cli, ["--dry-run", "start"])
+
+    assert result.exit_code == 0, result.output
+    assert "would serve the panel" in result.output
+
+
+def test_the_error_boundary_ends_a_start_without_root_at_exit_1(
+    deps_present: None,
+    pid_file: Path,
+    not_root: None,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The whole command, through the boundary every command goes through."""
+    from noust.cli.app import main
+
+    code = main(["web", "start", "--port", "8081"])
+
+    out = capsys.readouterr().out
+    assert code == 1
+    assert "'noust web start' needs root" in out
+    assert "Traceback" not in out
+
+
+def test_a_start_on_a_state_directory_it_cannot_search_ends_at_exit_1(
+    deps_present: None,
+    pid_file: Path,
+    state_dir: Path,
+    unsearchable: Any,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """
+    Issue 11 itself: ``/etc/noust/web-secret`` could not be looked at.
+
+    ``Path.exists`` raised ``PermissionError`` out of the signing key's load,
+    past the handler that says to run as root or name a directory of one's own.
+    The command now ends at the boundary, with that message, and no traceback.
+
+    Args:
+        state_dir: The state directory the console is pointed at.
+        unsearchable: Makes what is inside a directory refuse to be looked at.
+        capsys: Captures what the command prints.
+    """
+    from noust.cli.app import main
+
+    unsearchable(state_dir)
+
+    code = main(["web", "start", "--port", "8081"])
+
+    out = capsys.readouterr().out
+    assert code == 1
+    assert "Cannot read the web signing key" in out
+    assert "NOUST_WEB_STATE_DIR" in out
+    assert "Permission denied" in out
+    assert "Traceback" not in out
+
+
+def test_the_token_status_does_not_call_an_unreachable_token_missing(
+    deps_present: None,
+    state_dir: Path,
+    unsearchable: Any,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """``noust web token`` said "no token has been issued yet" or crashed; neither is true."""
+    from noust.cli.app import main
+
+    unsearchable(state_dir)
+
+    code = main(["web", "token"])
+
+    out = capsys.readouterr().out
+    assert code == 1
+    assert "no token has been issued yet" not in out
+    assert "NOUST_WEB_STATE_DIR" in out

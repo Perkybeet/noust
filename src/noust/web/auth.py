@@ -649,6 +649,38 @@ def ensure_state_dir(path: Path) -> None:
         ) from exc
 
 
+def state_file_exists(path: Path) -> bool:
+    """
+    Report whether a file of the state directory exists.
+
+    ``Path.exists`` treats only "not found" as absence and raises
+    ``PermissionError`` when the directory cannot be searched, which is what a
+    user other than root meets in a root-owned ``/etc/noust``. That is not an
+    answer to "is there a token"; it is the same refusal every other state
+    file gives, so it ends the same way.
+
+    Args:
+        path: A file under the state directory.
+
+    Returns:
+        True when the file exists.
+
+    Raises:
+        SecurityError: When the directory cannot be searched.
+    """
+    try:
+        return path.exists()
+    except OSError as exc:
+        raise SecurityError(
+            f"Cannot look for {path}",
+            details=(
+                "The web panel keeps its credentials where only its owner can read. "
+                f"Run as root, or set {STATE_DIR_ENV} to a directory you own."
+            ),
+            output=str(exc),
+        ) from exc
+
+
 def write_private_file(path: Path, content: str) -> None:
     """
     Write a file that only its owner can read.
@@ -2294,35 +2326,45 @@ class TokenManager:
             SecurityError: When the key cannot be read or written.
         """
         secret_file = self.config.secret_file
-        if secret_file.exists():
-            try:
-                existing = secret_file.read_text().strip()
-            except OSError as exc:
-                raise SecurityError(
-                    f"Cannot read the web signing key {secret_file}",
-                    details=(
-                        "The web panel must run as the user that owns the key. "
-                        f"Run as root, or set {STATE_DIR_ENV} to a directory you own."
-                    ),
-                ) from exc
-            if existing:
-                return existing
-            # Overwriting a key file that exists but is empty would invalidate
-            # every session without anyone asking for it, and would hide the
-            # truncation (a full disk, an interrupted write, a bad restore).
+        # No exists() first: on Python 3.12 it answers False only for "not
+        # found", and raises PermissionError when the directory cannot be
+        # searched, which is exactly what an unprivileged user running against
+        # a root-owned /etc/noust hits. Reading is the one question, and every
+        # way it can fail except absence ends as the same actionable error.
+        try:
+            existing: str | None = secret_file.read_text().strip()
+        except (FileNotFoundError, NotADirectoryError):
+            # What exists() calls absent. A file in the way of the directory
+            # is reported by write_private_file, with the directory's name.
+            existing = None
+        except OSError as exc:
             raise SecurityError(
-                f"The web signing key {secret_file} exists but is empty",
+                f"Cannot read the web signing key {secret_file}",
                 details=(
-                    "Noust refuses to invent a new key silently, because that logs every "
-                    "operator out and hides whatever truncated the file. Restore the file "
-                    f"from backup, or delete it with 'rm {secret_file}' to start over, "
-                    "which revokes all existing sessions on purpose."
+                    "The web panel must run as the user that owns the key. "
+                    f"Run as root, or set {STATE_DIR_ENV} to a directory you own."
                 ),
-            )
+                output=str(exc),
+            ) from exc
 
-        secret = secrets.token_hex(SECRET_KEY_LENGTH)
-        write_private_file(secret_file, secret)
-        return secret
+        if existing is None:
+            secret = secrets.token_hex(SECRET_KEY_LENGTH)
+            write_private_file(secret_file, secret)
+            return secret
+        if existing:
+            return existing
+        # Overwriting a key file that exists but is empty would invalidate
+        # every session without anyone asking for it, and would hide the
+        # truncation (a full disk, an interrupted write, a bad restore).
+        raise SecurityError(
+            f"The web signing key {secret_file} exists but is empty",
+            details=(
+                "Noust refuses to invent a new key silently, because that logs every "
+                "operator out and hides whatever truncated the file. Restore the file "
+                f"from backup, or delete it with 'rm {secret_file}' to start over, "
+                "which revokes all existing sessions on purpose."
+            ),
+        )
 
     def generate_master_token(self) -> str:
         """

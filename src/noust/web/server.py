@@ -1090,7 +1090,8 @@ def verify_tls_material(config: SecurityConfig) -> tuple[str, str]:
         The certificate and key paths.
 
     Raises:
-        SecurityError: When TLS is required but the material is missing.
+        SecurityError: When TLS is required but the material is missing or
+            cannot be read by this user.
     """
     certfile = config.ssl_certfile
     keyfile = config.ssl_keyfile
@@ -1107,7 +1108,18 @@ def verify_tls_material(config: SecurityConfig) -> tuple[str, str]:
         raise SecurityError("HTTPS is required but no TLS certificate is configured", details=hint)
 
     for label, path in (("certificate", certfile), ("private key", keyfile)):
-        if not Path(path).is_file():
+        try:
+            present = Path(path).is_file()
+        except OSError as exc:
+            # Python 3.12 raises for a directory the user cannot search (a
+            # letsencrypt "live" directory is root's), where "does not exist"
+            # would send the operator to look for a file that is there.
+            raise SecurityError(
+                f"HTTPS is required but the TLS {label} {path} cannot be read",
+                details=hint,
+                output=str(exc),
+            ) from exc
+        if not present:
             raise SecurityError(
                 f"HTTPS is required but the TLS {label} {path} does not exist", details=hint
             )

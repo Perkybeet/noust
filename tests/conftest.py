@@ -18,7 +18,7 @@ import os
 import stat
 import subprocess
 import sys
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -366,6 +366,45 @@ def fresh_upstream_answers() -> Iterator[None]:
     forget()
     yield
     forget()
+
+
+@pytest.fixture
+def unsearchable(monkeypatch: pytest.MonkeyPatch) -> Callable[[Path], None]:
+    """
+    Make what is inside a directory fail the way a directory the user cannot search does.
+
+    ``chmod 000`` would do it, except that root searches anything, and the
+    suite also runs as root. The entries of the directory answer every question
+    about them with ``PermissionError`` (EACCES), which is what a user other
+    than root gets from a root-owned ``/etc/noust``. ``Path.exists`` raises it
+    on Python 3.12 and swallows it on later versions, so each way of asking is
+    covered, not just the one the code under test happens to use today.
+
+    Args:
+        monkeypatch: Patching helper, scoped to the test.
+
+    Returns:
+        A function taking the directory whose entries become unreachable. The
+        directory itself stays visible.
+    """
+
+    def deny(directory: Path) -> None:
+        denied = Path(directory)
+
+        def guard(name: str) -> None:
+            original = getattr(Path, name)
+
+            def wrapper(self: Path, *args: object, **kwargs: object) -> object:
+                if self.parent == denied:
+                    raise PermissionError(errno.EACCES, os.strerror(errno.EACCES), str(self))
+                return original(self, *args, **kwargs)
+
+            monkeypatch.setattr(Path, name, wrapper)
+
+        for method in ("stat", "exists", "is_file", "is_dir", "read_text", "open"):
+            guard(method)
+
+    return deny
 
 
 @pytest.fixture
