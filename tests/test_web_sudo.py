@@ -501,6 +501,29 @@ def test_the_windows_come_from_the_policy(
     assert browser.delete("/api/apps/example.com").status_code == 403
 
 
+def test_a_central_vouches_for_its_operator_by_the_same_window(clock: FakeClock) -> None:
+    """
+    The central's ``X-Noust-Elevated`` is read from the one rule the routes use.
+
+    Without a second implementation of the window, the extension a
+    destructive call makes on the central is what the next forwarded call
+    vouches for.
+    """
+    from noust.web.api.deps import elevation_satisfied
+    from noust.web.api.node_proxy import central_elevated
+
+    payload: dict[str, Any] = {
+        "type": "session",
+        "elevation_exempt": False,
+        "elevated_until": clock() + 60,
+    }
+    assert central_elevated(payload) is elevation_satisfied(payload) is True
+
+    clock.advance(61)
+
+    assert central_elevated(payload) is elevation_satisfied(payload) is False
+
+
 def test_a_wrong_factor_counts_towards_the_lockout(client: TestClient) -> None:
     """A wrong master token at /elevate is a credential guess, not a free try."""
     protection = get_brute_force()

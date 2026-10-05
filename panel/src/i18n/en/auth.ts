@@ -78,13 +78,17 @@ export const auth = {
   elevate: {
     title: "Confirm it's you",
     descriptionAccount:
-      "This action needs a recent confirmation. Enter your password and a code from your authenticator app, or one of your backup codes. It covers the next few minutes.",
+      "This action needs a recent confirmation. Enter your password and a code from your authenticator app, or one of your backup codes.",
     descriptionAccountPasskey:
-      "This action needs a recent confirmation. Use your passkey, or enter your password and a code from your authenticator app. It covers the next few minutes.",
-    descriptionTotp:
-      "This action needs a recent confirmation. Enter a code from your authenticator app or one of your backup codes. It covers the next 10 minutes.",
-    descriptionToken:
-      "This action needs a recent confirmation. Enter the access token of this server. It covers the next 10 minutes.",
+      "This action needs a recent confirmation. Use your passkey, or enter your password and a code from your authenticator app.",
+    descriptionCode:
+      "This action needs a recent confirmation. Enter a code from your authenticator app or one of your backup codes.",
+    descriptionCodePasskey:
+      "This action needs a recent confirmation. Use your passkey, or enter a code from your authenticator app or one of your backup codes.",
+    descriptionPasskeyOnly: "This action needs a recent confirmation. Use your passkey.",
+    descriptionToken: "This action needs a recent confirmation. Enter the access token of this server.",
+    keepsOpen:
+      "You won't be asked again while you keep working, for up to {max}. It closes after {idle} without a change.",
     authenticationCode: "Authentication code",
     withPasskey: "Confirm with a passkey",
     orBelow: "Or confirm with the form below.",
