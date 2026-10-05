@@ -41,6 +41,26 @@ export function isContainer(engine: { kind?: string | null | undefined } | undef
   return engine?.kind === "container";
 }
 
+/**
+ * The engine a listed engine is (`postgresql`, `redis`...): the server's own are named by it, and
+ * a container reports it beside its instance key. A server older than 3.3.1 does not, so a
+ * container of its has none the console can name rather than a key it would have to split.
+ */
+export function engineFamily(engine: Pick<Engine, "name" | "kind" | "engine_type">): string | null {
+  if (engine.engine_type) return engine.engine_type;
+  return isContainer(engine) ? null : engine.name;
+}
+
+/** How many of the listed engines run in a container, by the engine they are. */
+export function containerCounts(engines: readonly Engine[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const engine of engines) {
+    const family = isContainer(engine) ? engineFamily(engine) : null;
+    if (family !== null) counts.set(family, (counts.get(family) ?? 0) + 1);
+  }
+  return counts;
+}
+
 /** Where a container instance runs: its Compose project and service, else the container's name. */
 export function instancePlace(engine: Pick<Engine, "name" | "container" | "project" | "compose_service">): string {
   if (engine.project && engine.compose_service) return `${engine.project}/${engine.compose_service}`;

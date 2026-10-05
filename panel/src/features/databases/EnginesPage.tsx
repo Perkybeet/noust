@@ -32,7 +32,7 @@ import type { T } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { CreateDatabaseDialog } from "./CreateDatabaseDialog";
-import { can, engineName, engineState, instancePlace, isContainer, sortEngines, sortInstances, supportText, supportView } from "./engines";
+import { can, containerCounts, engineFamily, engineName, engineState, instancePlace, isContainer, sortEngines, sortInstances, supportText, supportView } from "./engines";
 import { InstallEngineDialog } from "./InstallEngineDialog";
 import { DatabaseJobProgress } from "./jobs";
 import { useDatabasesHeader } from "./listHeader";
@@ -170,6 +170,7 @@ export function EnginesPage() {
   const containers = sortInstances(all.filter(isContainer));
   const warnings = all.flatMap((engine) => (engine.warnings ?? []).map((warning) => ({ engine: nameOf(engine), warning })));
   const firewalled = exposure.data?.firewalled ?? [];
+  const inContainers = containerCounts(all);
 
   const stateColumn: Column<Engine> = {
     id: "state",
@@ -179,6 +180,21 @@ export function EnginesPage() {
     cell: (engine) => {
       const view = engineState(engine);
       return <StatusPill appearance="inline" size="sm" state={view.state} label={t(view.label)} />;
+    },
+  };
+  // A server's engine that is not installed may still run in a container: said beside its state,
+  // so "Redis, not installed" above "Redis, running" below does not read as a contradiction.
+  const hostStateColumn: Column<Engine> = {
+    ...stateColumn,
+    cell: (engine) => {
+      const family = engineFamily(engine);
+      const elsewhere = engine.installed || family === null ? 0 : (inContainers.get(family) ?? 0);
+      return (
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 whitespace-normal">
+          {stateColumn.cell(engine)}
+          {elsewhere > 0 ? <span className="text-12 text-fg-muted">{t("databases.instances.inContainers", { count: elsewhere })}</span> : null}
+        </span>
+      );
     },
   };
   const countColumn: Column<Engine> = {
@@ -197,7 +213,7 @@ export function EnginesPage() {
       card: "title",
       cell: (engine) => <span className="font-medium text-fg">{engine.display_name}</span>,
     },
-    stateColumn,
+    hostStateColumn,
     {
       id: "version",
       header: t("databases.engines.version"),
@@ -385,6 +401,29 @@ export function EnginesPage() {
   }
 
   const limited = containers.some((engine) => engine.access === "limited");
+  // Untitled while it is the only list; once there are containers it says which engines these are.
+  const hostEngines = (
+    <div className="flex min-w-0 flex-col gap-3">
+      <DataTable
+        columns={columns}
+        rows={hosts}
+        getRowId={(engine) => engine.name}
+        caption={t("databases.engines.caption")}
+        rowActions={rowActions}
+        loading={engines.isPending}
+        skeletonRows={4}
+        mobile="cards"
+      />
+      {firewalled.length > 0 ? (
+        <p className="max-w-measure text-12 text-fg-muted">
+          {t("databases.engines.firewalled", {
+            count: firewalled.length,
+            ports: firewalled.map((port) => `${port.container ?? engineName(port.engine, all)} ${port.address}:${String(port.port)}`).join(", "),
+          })}
+        </p>
+      ) : null}
+    </div>
+  );
   return (
     <ListPage
       header={{
@@ -403,26 +442,13 @@ export function EnginesPage() {
         <ErrorBlock error={engines.error} title={t("databases.engines.couldNotLoad")} onRetry={() => void engines.refetch()} retrying={engines.isRefetching} />
       ) : (
         <div className="flex min-w-0 flex-col gap-8">
-          <div className="flex min-w-0 flex-col gap-3">
-            <DataTable
-              columns={columns}
-              rows={hosts}
-              getRowId={(engine) => engine.name}
-              caption={t("databases.engines.caption")}
-              rowActions={rowActions}
-              loading={engines.isPending}
-              skeletonRows={4}
-              mobile="cards"
-            />
-            {firewalled.length > 0 ? (
-              <p className="max-w-measure text-12 text-fg-muted">
-                {t("databases.engines.firewalled", {
-                  count: firewalled.length,
-                  ports: firewalled.map((port) => `${port.container ?? engineName(port.engine, all)} ${port.address}:${String(port.port)}`).join(", "),
-                })}
-              </p>
-            ) : null}
-          </div>
+          {containers.length > 0 ? (
+            <Section title={t("databases.instances.hostTitle")} description={t("databases.instances.hostDescription")}>
+              {hostEngines}
+            </Section>
+          ) : (
+            hostEngines
+          )}
           {containers.length > 0 ? (
             <Section title={t("databases.instances.title")} description={t("databases.instances.description")}>
               <DataTable

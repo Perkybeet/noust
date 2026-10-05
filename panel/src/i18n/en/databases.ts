@@ -185,6 +185,9 @@ export const databases = {
   },
   instances: {
     choice: "{engine} in {place}",
+    hostTitle: "On this server",
+    hostDescription: "Engines installed with this server's own packages, which Noust installs, configures and updates.",
+    inContainers: { one: "{count} in a container", other: "{count} in containers" },
     title: "In containers",
     description: "Database engines running in Docker containers on this server. Their image decides the engine and its version, so Noust does not install or configure them; it reads, backs up and manages their databases like the others.",
     caption: "Engines in containers",
