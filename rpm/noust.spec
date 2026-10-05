@@ -10,7 +10,7 @@
 #
 
 Name:           noust
-Version:        3.3.0
+Version:        3.3.1
 Release:        1%{?dist}
 Summary:        Deploy and manage web applications on Linux servers
 License:        AGPL-3.0-or-later
@@ -392,6 +392,8 @@ if [ -f /etc/systemd/system/wasm-web.service ]; then
 fi
 
 %changelog
+* Mon Oct 05 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.3.1-1
+- Sudo mode lasts while you work and asks for one factor; pending SSH and firewall changes show their proof; sudoers read as sudo reads it; install hints for this distribution; every fix hint names a real command; loading states on every page
 * Sat Oct 03 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.3.0-1
 - Databases as they really are: containers, engines that refuse Noust, detected links, engine versions and settings, exposure without false alarms, Compose stacks running outside their unit
 * Sat Oct 03 2026 Yago Lopez Prado <yago.lopez.adeje@gmail.com> - 3.2.1-1

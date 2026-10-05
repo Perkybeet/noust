@@ -1,3 +1,9 @@
+noust (3.3.1-1) unstable; urgency=medium
+
+  * Sudo mode lasts while you work and asks for one factor; pending SSH and firewall changes show their proof; sudoers read as sudo reads it; install hints for this distribution; every fix hint names a real command; loading states on every page
+
+ -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Mon, 05 Oct 2026 13:08:48 +0000
+
 noust (3.3.0-1) unstable; urgency=medium
 
   * Databases as they really are: containers, engines that refuse Noust, detected links, engine versions and settings, exposure without false alarms, Compose stacks running outside their unit
