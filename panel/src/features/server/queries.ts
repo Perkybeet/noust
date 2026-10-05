@@ -287,8 +287,11 @@ export const fail2banQuery = () =>
     queryFn: ({ signal }) => request("get", "/api/server/security/fail2ban", { signal }),
   });
 
-/** How often the changes are read while one waits for confirmation: its timer may undo it. */
-const PENDING_POLL_MS = 5_000;
+/**
+ * How often the changes are read while one waits for confirmation: its timer may undo it, and
+ * the banner turns Keep on as soon as the login that proves the way in works is on record.
+ */
+export const PENDING_POLL_MS = 3_000;
 
 /** Changes to sshd and the firewall; a pending one is read again until it is settled. */
 export const changesQuery = () =>

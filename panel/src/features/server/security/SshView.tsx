@@ -129,6 +129,8 @@ function Fixes({ ssh, hostname }: { ssh: SshStatus; hostname: string }) {
   const jobs = useServerJob();
   const [applying, setApplying] = useState<{ fix: string; plan: FixPlan } | null>(null);
   const needed = Object.entries(ssh.fixes).filter(([, plan]) => plan.needed);
+  // The window comes in seconds; people think of it in minutes.
+  const minutes = Math.max(1, Math.round(ssh.confirm_window / 60));
   if (needed.length === 0) {
     return (
       <Card level={2} title={t("server.ssh.fixesTitle")} padding="sm">
@@ -137,7 +139,7 @@ function Fixes({ ssh, hostname }: { ssh: SshStatus; hostname: string }) {
     );
   }
   return (
-    <Card level={2} title={t("server.ssh.fixesTitle")} description={t("server.ssh.fixesDescription", { seconds: ssh.confirm_window })} padding="none">
+    <Card level={2} title={t("server.ssh.fixesTitle")} description={t("server.ssh.fixesDescription", { count: minutes })} padding="none">
       <ul aria-label={t("server.ssh.fixesLabel")} className="flex flex-col divide-y divide-border">
         {needed.map(([fix, plan]) => (
           <li key={fix} className="flex min-w-0 flex-col gap-2 px-5 py-3">
@@ -157,7 +159,7 @@ function Fixes({ ssh, hostname }: { ssh: SshStatus; hostname: string }) {
       {applying !== null ? (
         <ActionDialog
           title={fixLabel(t, applying.fix, applying.plan)}
-          description={t("server.ssh.applyDescription", { seconds: ssh.confirm_window })}
+          description={t("server.ssh.applyDescription", { count: minutes })}
           actionLabel={t("server.ssh.applyAction")}
           confirmText={TYPED_FIXES.has(applying.fix) ? hostname : undefined}
           onClose={() => setApplying(null)}

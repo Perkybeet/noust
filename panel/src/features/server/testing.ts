@@ -243,7 +243,7 @@ export const SSH: SshStatus = {
   },
   sessions: [{ peer: "203.0.113.7", port: 51234, user: "root", fingerprint: "SHA256:8Wm9" }],
   logins: { source: "journal", error: "", days: 30, recent: [{ at: 1_758_960_000, user: "root", method: "publickey", source: "203.0.113.7", fingerprint: "SHA256:8Wm9", line: "Accepted publickey for root" }] },
-  confirm_window: 120,
+  confirm_window: 300,
 };
 
 export const KEYS: AccountKeys[] = [
@@ -309,11 +309,14 @@ export const FAIL2BAN: Fail2ban = {
   error: "",
 };
 
-/** A change to sshd waiting for a new SSH login, with a minute and a half left. */
-export function pendingChange(now = Date.now()): PendingChange {
+/**
+ * A change to sshd waiting for a new SSH login, with a minute and a half left and no login seen
+ * yet. `overrides` makes it a firewall change, or one whose proof is on record.
+ */
+export function pendingChange(now = Date.now(), overrides: Partial<PendingChange> = {}): PendingChange {
   return {
     id: "c1a2b3",
-    kind: "ssh",
+    kind: "sshd",
     title: "Turn off password logins",
     actor: "yago",
     applied_at: now / 1000 - 30,
@@ -326,8 +329,13 @@ export function pendingChange(now = Date.now()): PendingChange {
     commit: [],
     before: { passwordauthentication: "yes" },
     after: { passwordauthentication: "no" },
-    proof: "",
+    proof: "operator",
     resolution: "",
+    proof_seen: false,
+    proof_login: null,
+    proof_readable: true,
+    proof_error: "",
+    ...overrides,
   };
 }
 
