@@ -7,12 +7,13 @@ needed for deploying various types of applications.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import ClassVar, TypedDict
 
 from noust.core.exceptions import DeploymentError, SecurityError
+from noust.core.package_family import PackageFamily, install_hint
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.utils import TRUSTED_INSTALLER_URLS, run_trusted_installer
 
@@ -129,6 +130,9 @@ class Dependency:
     install_script: str | None = None  # Custom install script/URL
     version_flag: str = "--version"
     min_version: str | None = None
+    #: What a package manager needs after the install, shown only on a machine
+    #: that uses it (:func:`dependency_install_hint`).
+    install_notes: dict[PackageFamily, str] = field(default_factory=dict)
 
 
 # Core system dependencies
@@ -285,6 +289,24 @@ PHP_FPM_DEPENDENCY = Dependency(
     install_apt="php-fpm php-mysql php-pgsql php-curl php-gd php-mbstring php-xml php-zip php-intl",
     install_dnf="php-fpm php-mysqlnd php-pgsql php-gd php-mbstring php-xml php-intl",
     install_zypper="php8-fpm php8-mysql php8-pgsql php8-gd php8-mbstring php8-intl php8-zip",
+    install_notes={
+        PackageFamily.ZYPPER: (
+            "On openSUSE, also copy /etc/php8/fpm/php-fpm.conf.default to php-fpm.conf."
+        )
+    },
+)
+
+#: Composer on its own, for the deployer that needs it and the message that says
+#: how to install it.
+COMPOSER_DEPENDENCY = Dependency(
+    name="composer",
+    command="composer",
+    description="PHP dependency manager, for applications with a composer.json",
+    required=False,
+    category="php",
+    install_apt="composer",
+    install_dnf="composer",
+    install_zypper="php-composer2",
 )
 
 PHP_DEPENDENCIES: list[Dependency] = [
@@ -298,46 +320,44 @@ PHP_DEPENDENCIES: list[Dependency] = [
         install_dnf="php-cli",
         install_zypper="php8-cli",
     ),
-    Dependency(
-        name="composer",
-        command="composer",
-        description="PHP dependency manager, for applications with a composer.json",
-        required=False,
-        category="php",
-        install_apt="composer",
-        install_dnf="composer",
-        install_zypper="php-composer2",
-    ),
+    COMPOSER_DEPENDENCY,
 ]
 
 
-def dependency_install_hint(dep: Dependency) -> str:
+def dependency_install_hint(
+    dep: Dependency,
+    *,
+    runner: CommandRunner | None = None,
+    family: PackageFamily | None = None,
+) -> str:
     """
-    Build an install hint covering every package manager a dependency names.
+    Say how to install a dependency on this machine.
 
-    One dependency, such as :data:`RCLONE_DEPENDENCY`, can be installed the
-    same way on Debian, Fedora/RHEL and openSUSE; this collects whichever of
-    ``install_apt``, ``install_dnf`` and ``install_zypper`` are set into one
-    message, so an error naming a missing dependency does not have to guess
-    which distribution it is running on.
+    One dependency, such as :data:`RCLONE_DEPENDENCY`, can be installed on Debian,
+    Fedora/RHEL and openSUSE; ``install_apt``, ``install_dnf`` and ``install_zypper``
+    carry the package of each. The operator is told the command of the package
+    manager the machine has, not the three of them
+    (:func:`noust.core.package_family.install_hint`).
 
     Args:
         dep: The dependency to describe.
+        runner: The command runner used to find the package manager.
+        family: The package manager, when the caller already knows it.
 
     Returns:
-        A semicolon-separated list of install commands, one per package
-        manager the dependency declares; the install script, or a generic
-        message, when it declares none.
+        The install command, with what the package manager needs after it when
+        the dependency says so. When the machine's package manager is unknown, or
+        the dependency has no package for it, every command it declares separated
+        by semicolons; its install script, or a generic message, when it declares
+        none.
     """
-    hints: list[str] = []
-    if dep.install_apt:
-        hints.append(f"apt install {dep.install_apt}")
-    if dep.install_dnf:
-        hints.append(f"dnf install {dep.install_dnf}")
-    if dep.install_zypper:
-        hints.append(f"zypper install {dep.install_zypper}")
-    if hints:
-        return "; ".join(hints)
+    packages = {
+        PackageFamily.APT: dep.install_apt or "",
+        PackageFamily.DNF: dep.install_dnf or "",
+        PackageFamily.ZYPPER: dep.install_zypper or "",
+    }
+    if any(packages.values()):
+        return install_hint(packages, notes=dep.install_notes, runner=runner, family=family)
     if dep.install_script:
         return dep.install_script
     return f"Install {dep.name} using your system's package manager."
@@ -639,12 +659,12 @@ class DependencyChecker:
             except DeploymentError:
                 missing.append(
                     "php-fpm: PHP-FPM is required for PHP applications. Install it: "
-                    + dependency_install_hint(PHP_FPM_DEPENDENCY)
+                    + dependency_install_hint(PHP_FPM_DEPENDENCY, runner=self.runner)
                 )
             if not self.check_command("composer"):
                 warnings.append(
                     "composer: needed for PHP applications with a composer.json. Install it: "
-                    + dependency_install_hint(PHP_DEPENDENCIES[1])
+                    + dependency_install_hint(COMPOSER_DEPENDENCY, runner=self.runner)
                 )
 
         elif app_type == "python":

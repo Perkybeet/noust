@@ -39,6 +39,7 @@ from typing import Any, ClassVar
 
 from noust.core.applock import app_lock
 from noust.core.config import Config
+from noust.core.dependencies import COMPOSER_DEPENDENCY, dependency_install_hint
 from noust.core.exceptions import DeploymentError, ValidationError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Icons, Logger
@@ -106,11 +107,6 @@ _FPM_UP = frozenset({"active", "reloading"})
 
 #: One path segment of a web root or a refused path.
 _SEGMENT = re.compile(r"^[A-Za-z0-9._-]+$")
-
-#: What composer is installed as, per package manager.
-COMPOSER_HINT = (
-    "Install Composer: apt install composer; dnf install composer; zypper install php-composer2"
-)
 
 
 def _relative(value: str, *, field_name: str, allow_dot: bool = False) -> str:
@@ -1132,7 +1128,11 @@ class PhpFpmDeployer(BaseDeployer):
             return True
         if not self.runner.exists("composer"):
             raise DeploymentError(
-                "composer.json needs Composer, which is not installed", details=COMPOSER_HINT
+                "composer.json needs Composer, which is not installed",
+                details=(
+                    "Install Composer: "
+                    f"{dependency_install_hint(COMPOSER_DEPENDENCY, runner=self.runner)}"
+                ),
             )
         self.logger.substep(f"Running: {' '.join(command)}")
         result = self._run(

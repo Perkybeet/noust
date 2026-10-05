@@ -203,6 +203,34 @@ def manager(runner: FakeRunner) -> SourceManager:
     return SourceManager()
 
 
+# Install hint -------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("programs", "expected"),
+    [
+        (("apt-get",), "Install it with: apt install git"),
+        (("dnf",), "Install it with: dnf install git"),
+        (("zypper",), "Install it with: zypper install git"),
+        ((), "Install it with: apt install git; dnf install git; zypper install git"),
+    ],
+)
+def test_a_missing_git_names_the_command_of_this_machines_package_manager(
+    manager: SourceManager,
+    runner: FakeRunner,
+    tmp_path: Path,
+    programs: tuple[str, ...],
+    expected: str,
+) -> None:
+    """Issue #12: no other distribution's command is listed beside the right one."""
+    runner.only_knows(*programs)
+
+    with pytest.raises(SourceError, match="Git is not installed") as failure:
+        manager.clone_git("https://example.com/repo.git", tmp_path / "dest")
+
+    assert failure.value.details == expected
+
+
 # Path traversal -----------------------------------------------------------
 
 

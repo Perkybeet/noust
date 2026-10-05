@@ -52,6 +52,8 @@ from noust.core.config import (
 from noust.core.exceptions import NoustError
 from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
+from noust.core.package_family import FAMILY_PROGRAMS, detect_family
+from noust.core.runner import get_runner
 from noust.core.utils import command_exists, run_command, run_trusted_installer
 
 if TYPE_CHECKING:
@@ -214,8 +216,17 @@ def detect_package_manager() -> PackageManager | None:
         The first supported package manager present, or None when Noust cannot
         install software here.
     """
+    runner = get_runner()
+    # Which of apt, dnf and zypper this is has one answer, the same one the
+    # messages that say how to install something use.
+    _, program = detect_family(runner)
+    families = {name for _, name in FAMILY_PROGRAMS}
     for manager in PACKAGE_MANAGERS:
-        if command_exists(manager.program):
+        if manager.program == program:
+            return manager
+        # pacman is not a family the rest of Noust drives, so only this wizard
+        # asks for it, and only when none of the three is there.
+        if not program and manager.program not in families and runner.exists(manager.program):
             return manager
     return None
 

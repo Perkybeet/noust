@@ -36,6 +36,7 @@ from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.cli.panel_links import open_in_panel
 from noust.core.exceptions import CertificateError, DomainError, NoustError
 from noust.core.logger import Logger
+from noust.core.package_family import install_hint
 from noust.managers.cert_manager import CertManager
 from noust.validators.domain import validate_domain
 
@@ -150,10 +151,7 @@ def _manager(verbose: bool) -> CertManager:
     if not manager.is_installed():
         raise CertificateError(
             "Certbot is not installed",
-            details=(
-                "Install it with 'apt install certbot' on Debian and Ubuntu, "
-                "or 'dnf install certbot' on Fedora and RHEL."
-            ),
+            details=f"Install it with: {install_hint('certbot', runner=manager.runner)}",
         )
     return manager
 

@@ -131,14 +131,69 @@ def test_opensuse_pools_live_under_the_versioned_php_directory(tmp_path: Path) -
     assert find_fpm(tmp_path).pool_dir == tmp_path / "etc/php8/fpm/php-fpm.d"
 
 
-def test_no_fpm_says_how_to_install_it(tmp_path: Path) -> None:
-    """Every distribution's package names are in the message."""
+def missing_fpm_details(tmp_path: Path) -> str:
+    """
+    Run ``find_fpm`` on a machine with no PHP-FPM and return what it tells the operator.
+
+    Args:
+        tmp_path: An empty filesystem root.
+
+    Returns:
+        The error's details.
+    """
     with pytest.raises(DeploymentError, match="PHP-FPM is not installed") as failure:
         find_fpm(tmp_path)
+    return failure.value.details
 
-    assert "apt install php-fpm" in failure.value.details
-    assert "dnf install php-fpm" in failure.value.details
-    assert "zypper install php8-fpm" in failure.value.details
+
+def test_no_fpm_on_an_apt_machine_names_apt_only(tmp_path: Path, runner: FakeRunner) -> None:
+    """Issue #12: an Ubuntu server was told about dnf and zypper as well."""
+    runner.only_knows("apt-get", "systemctl")
+
+    details = missing_fpm_details(tmp_path)
+
+    assert details.startswith("Install it: apt install php-fpm php-mysql")
+    assert "dnf" not in details
+    assert "zypper" not in details
+    assert "openSUSE" not in details
+
+
+def test_no_fpm_on_a_dnf_machine_names_dnf_only(tmp_path: Path, runner: FakeRunner) -> None:
+    runner.only_knows("dnf")
+
+    details = missing_fpm_details(tmp_path)
+
+    assert details == (
+        "Install it: dnf install php-fpm php-mysqlnd php-pgsql php-gd php-mbstring php-xml php-intl"
+    )
+
+
+def test_no_fpm_on_openSUSE_names_zypper_and_the_configuration_copy(
+    tmp_path: Path, runner: FakeRunner
+) -> None:
+    """The php-fpm.conf step only applies where zypper is the package manager."""
+    runner.only_knows("zypper")
+
+    details = missing_fpm_details(tmp_path)
+
+    assert "zypper install php8-fpm" in details
+    assert "apt" not in details
+    assert "dnf" not in details
+    assert details.endswith("copy /etc/php8/fpm/php-fpm.conf.default to php-fpm.conf.")
+
+
+def test_no_fpm_on_an_unknown_machine_lists_every_distribution(
+    tmp_path: Path, runner: FakeRunner
+) -> None:
+    """With no package manager recognised, the operator is shown all of them."""
+    runner.only_knows()
+
+    details = missing_fpm_details(tmp_path)
+
+    assert "apt install php-fpm" in details
+    assert "dnf install php-fpm" in details
+    assert "zypper install php8-fpm" in details
+    assert "On openSUSE, also copy /etc/php8/fpm/php-fpm.conf.default" in details
 
 
 @pytest.mark.parametrize(
@@ -778,14 +833,38 @@ def test_in_place_serves_the_tree_itself_and_detects_public(
 def test_composer_missing_is_an_error_with_the_install_hint(
     tmp_path: Path, machine: SimpleNamespace, store: NoustStore
 ) -> None:
-    """Only when the tree has a composer.json."""
-    machine.runner.only_knows("git", "systemctl")
+    """Only when the tree has a composer.json, and only this machine's command."""
+    machine.runner.only_knows("git", "systemctl", "apt-get")
     machine.git.publish(write_tree(tmp_path / "v1", {"composer.json": "{}", "index.php": ""}))
 
     with pytest.raises(DeploymentError, match="Composer, which is not installed") as failure:
         deploy(machine)
 
-    assert "apt install composer" in failure.value.details
+    assert failure.value.details == "Install Composer: apt install composer"
+
+
+@pytest.mark.parametrize(
+    ("package_manager", "expected"),
+    [
+        ("zypper", "Install Composer: zypper install php-composer2"),
+        (None, "apt install composer; dnf install composer; zypper install php-composer2"),
+    ],
+)
+def test_composer_hint_follows_the_package_manager(
+    tmp_path: Path,
+    machine: SimpleNamespace,
+    store: NoustStore,
+    package_manager: str | None,
+    expected: str,
+) -> None:
+    """openSUSE reads its own package name; an unrecognised machine reads all of them."""
+    machine.runner.only_knows("git", "systemctl", *([package_manager] if package_manager else []))
+    machine.git.publish(write_tree(tmp_path / "v1", {"composer.json": "{}", "index.php": ""}))
+
+    with pytest.raises(DeploymentError, match="Composer, which is not installed") as failure:
+        deploy(machine)
+
+    assert expected in failure.value.details
 
 
 def test_apache_is_refused_before_anything_changes(

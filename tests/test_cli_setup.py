@@ -226,13 +226,15 @@ class _FakeChecker:
 
 
 @pytest.fixture
-def prepared(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, Any]:
+def prepared(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, runner: FakeRunner) -> dict[str, Any]:
     """
     Point setup at a sandbox and make the machine look empty.
 
     Args:
         monkeypatch: Patching helper, scoped to the test.
         tmp_path: Per-test temporary directory.
+        runner: The fake process-wide runner, whose ``exists`` answers which
+            package manager the machine has.
 
     Returns:
         A dict holding the sandboxed paths and the set of installed programs,
@@ -240,6 +242,9 @@ def prepared(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> dict[str, Any]:
     """
     installed: set[str] = set()
     monkeypatch.setattr(setup_cmd, "command_exists", lambda name: name in installed)
+    # The package manager is asked of the runner, like everywhere else that
+    # needs to know which one this is.
+    monkeypatch.setattr(runner, "exists", lambda name: name in installed)
     monkeypatch.setattr(setup_cmd.os, "geteuid", lambda: 0)
     monkeypatch.setattr(setup_cmd, "DEFAULT_APPS_DIR", tmp_path / "var/www/apps")
     monkeypatch.setattr(setup_cmd, "DEFAULT_LOG_DIR", tmp_path / "var/log/wasm")
@@ -558,6 +563,34 @@ def test_init_says_so_when_no_package_manager_is_supported(
     assert "apt-get" in result.output
     assert "dnf" in result.output
     assert runner.calls == []
+
+
+@pytest.mark.parametrize(
+    ("installed", "program"),
+    [
+        ({"apt-get"}, "apt-get"),
+        ({"dnf"}, "dnf"),
+        ({"zypper"}, "zypper"),
+        ({"pacman"}, "pacman"),
+        # Both present: the order apt, dnf, zypper, pacman decides, as before.
+        ({"dnf", "apt-get"}, "apt-get"),
+        ({"pacman", "zypper"}, "zypper"),
+    ],
+)
+def test_the_package_manager_is_the_one_every_install_hint_uses(
+    prepared: dict[str, Any], installed: set[str], program: str
+) -> None:
+    """The wizard asks the one family detection, plus pacman which only it installs with."""
+    prepared["installed"].update(installed)
+
+    manager = setup_cmd.detect_package_manager()
+
+    assert manager is not None
+    assert manager.program == program
+
+
+def test_no_package_manager_is_none(prepared: dict[str, Any]) -> None:
+    assert setup_cmd.detect_package_manager() is None
 
 
 def test_init_installs_with_apt(wasm: Wasm, runner: FakeRunner, prepared: dict[str, Any]) -> None:

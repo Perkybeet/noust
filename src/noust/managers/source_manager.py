@@ -69,6 +69,7 @@ from urllib.request import (
 from noust.core.config import REDACTED
 from noust.core.exceptions import IntegrationError, SourceError
 from noust.core.fs import FileSystem, RealFileSystem, get_fs
+from noust.core.package_family import install_hint
 from noust.core.runner import CommandResult, CommandRunner
 from noust.managers.base_manager import BaseManager
 from noust.validators.source import (
@@ -3104,7 +3105,7 @@ class SourceManager(BaseManager):
         if not self.is_installed():
             raise SourceError(
                 "Git is not installed",
-                details="Install it with 'apt install git' or 'dnf install git'",
+                details=f"Install it with: {install_hint('git', runner=self.runner)}",
             )
 
         # Parse URL for branch if specified with #

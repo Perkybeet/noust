@@ -6,7 +6,8 @@ What machine this is: where its system files are, which distribution and which
 package manager it runs.
 
 Every manager of the server side asks here instead of spelling ``/etc/os-release``
-or guessing the package manager. Two reasons, both learnt the hard way in this
+or guessing the package manager (the family itself, shared with the messages that
+say how to install something, is :mod:`noust.core.package_family`). Two reasons, both learnt the hard way in this
 codebase: the package manager was detected in four places with four opinions,
 and a path spelled in the middle of a parser cannot be pointed at a temporary
 directory by a test, which is how parsers end up tested against the developer's
@@ -22,9 +23,9 @@ import os
 import re
 import shlex
 from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 
+from noust.core.package_family import PackageFamily, detect_family
 from noust.core.runner import CommandRunner, get_runner
 
 #: Deadline of a probe that only asks the machine a question.
@@ -180,15 +181,6 @@ class HostPaths:
         return self.at("/var/crash")
 
 
-class PackageFamily(str, Enum):
-    """The package managers whose updates Noust drives."""
-
-    APT = "apt"
-    DNF = "dnf"
-    ZYPPER = "zypper"
-    NONE = "none"
-
-
 @dataclass(frozen=True)
 class OsRelease:
     """
@@ -320,28 +312,6 @@ def reset_platform_cache() -> None:
     _cached = None
 
 
-def _detect_family(runner: CommandRunner) -> tuple[PackageFamily, str]:
-    """
-    Find the package manager by the executable that is there.
-
-    Args:
-        runner: Used only to ask whether a program exists.
-
-    Returns:
-        The family and its executable. apt is asked first, because a machine
-        that carries both apt and rpm tools (a Debian with ``alien``) updates
-        through apt.
-    """
-    for family, program in (
-        (PackageFamily.APT, "apt-get"),
-        (PackageFamily.DNF, "dnf"),
-        (PackageFamily.ZYPPER, "zypper"),
-    ):
-        if runner.exists(program):
-            return family, program
-    return PackageFamily.NONE, ""
-
-
 def detect_platform(
     runner: CommandRunner | None = None,
     host: HostPaths | None = None,
@@ -366,7 +336,7 @@ def detect_platform(
     run = runner or get_runner()
     paths = host or HostPaths()
     os_release = read_os_release(paths)
-    family, program = _detect_family(run)
+    family, program = detect_family(run)
 
     dnf5 = False
     if family is PackageFamily.DNF:
