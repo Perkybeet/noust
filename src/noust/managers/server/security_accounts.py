@@ -16,7 +16,8 @@ because a wrong "yes" is how an operator is locked out and a wrong "no" only
 turns an automatic fix into a guided one:
 
 - **Can this account become root?** A sudoers rule names it, one of its
-  groups or ``ALL``. Membership of ``sudo`` or ``wheel`` alone is not enough:
+  groups or ``ALL`` (read by :mod:`~noust.managers.server.security_sudoers`,
+  the one reader of those files). Membership of ``sudo`` or ``wheel`` alone is not enough:
   openSUSE ships the ``%wheel`` line commented out, and a group nobody granted
   anything is a group, not a way to root.
 - **Can it actually use sudo from an SSH key session?** Only when the rule is
@@ -29,11 +30,11 @@ turns an automatic fix into a guided one:
 from __future__ import annotations
 
 import fnmatch
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from noust.managers.server.host import HostPaths, read_text
+from noust.managers.server.security_sudoers import Identity, Sudoers, read_sudoers
 
 #: Groups the distributions use for administrators: ``sudo`` (Debian, Ubuntu),
 #: ``wheel`` (RHEL, Fedora, SUSE) and ``admin`` (Ubuntu before 12.04, still
@@ -103,8 +104,7 @@ class HostAccounts:
         default=None, init=False, repr=False
     )
     _shadow: dict[str, str] | None = field(default=None, init=False, repr=False)
-    _sudoers: list[tuple[str, str]] | None = field(default=None, init=False, repr=False)
-    _asks_root_password: bool = field(default=False, init=False, repr=False)
+    _sudoers: Sudoers | None = field(default=None, init=False, repr=False)
 
     # Files ------------------------------------------------------------------
 
@@ -305,94 +305,33 @@ class HostAccounts:
 
     # sudo -------------------------------------------------------------------
 
-    def _sudoers_lines(self) -> list[tuple[str, str]]:
+    def sudoers(self) -> Sudoers:
         """
-        Every rule line of sudoers and its drop-ins, joined across continuations.
+        What ``/etc/sudoers`` and its drop-ins say, read once.
 
         Returns:
-            ``(where, text)`` for each line, ``where`` being ``file:line``.
+            The parsed rules (see :mod:`~noust.managers.server.security_sudoers`).
         """
         if self._sudoers is None:
-            lines: list[tuple[str, str]] = []
-            main = self.host.at("/etc/sudoers")
-            files = [main, *self._sudoers_dropins(read_text(main) or "")]
-            for path in files:
-                lines.extend(self._rule_lines(path))
-            self._sudoers = lines
+            self._sudoers = read_sudoers(self.host)
         return self._sudoers
 
-    def _sudoers_dropins(self, main_text: str) -> list[Path]:
+    def identity(self, account: Account) -> Identity:
         """
-        The files an ``includedir`` in sudoers pulls in.
+        An account as sudoers rules see it: its name, uid and every group.
 
-        sudo skips names that end in ``~`` or contain a dot, so an editor's
-        backup or a ``.dpkg-old`` never grants anything; this does the same.
+        A rule for ``%sudo`` applies through the account's primary group (the
+        gid in ``passwd``) as well as through the groups that list it.
 
         Args:
-            main_text: ``/etc/sudoers``.
+            account: The account.
 
         Returns:
-            The drop-in files, in the lexical order sudo reads them.
+            Its name, uid, group names and group ids.
         """
-        found: list[Path] = []
-        for raw in main_text.splitlines():
-            words = raw.strip().split()
-            if len(words) == 2 and words[0] in ("#includedir", "@includedir"):
-                directory = self.host.at(words[1])
-                try:
-                    entries = sorted(directory.iterdir())
-                except OSError:
-                    continue
-                found.extend(
-                    entry
-                    for entry in entries
-                    if entry.is_file() and "." not in entry.name and not entry.name.endswith("~")
-                )
-        return found
-
-    def _rule_lines(self, path: Path) -> list[tuple[str, str]]:
-        """
-        Read one sudoers file into its rule lines.
-
-        Args:
-            path: The file.
-
-        Returns:
-            ``(file:line, text)`` for every line that could be a rule.
-        """
-        text = read_text(path)
-        if text is None:
-            return []
-        shown = "/" + str(path.relative_to(self.host.root)).lstrip("/")
-        out: list[tuple[str, str]] = []
-        pending = ""
-        start = 0
-        for number, raw in enumerate(text.splitlines(), start=1):
-            if not pending:
-                start = number
-            line = raw.rstrip()
-            if line.endswith("\\"):
-                pending += line[:-1] + " "
-                continue
-            line = (pending + line).strip()
-            pending = ""
-            # '#include' and '#includedir' are directives, not comments; every
-            # other '#' starts one (a '#123' uid is not used in the rules read here).
-            if not line or (line.startswith("#") and not line.startswith("#include")):
-                continue
-            if line.startswith("Defaults"):
-                # Under rootpw or targetpw sudo asks for root's password, not
-                # the account's: what makes sudo usable is then root's.
-                flags = {flag.strip() for flag in line.split(None, 1)[-1].split(",")}
-                if flags & {"rootpw", "targetpw"}:
-                    self._asks_root_password = True
-                continue
-            if line.startswith(("#include", "@include")):
-                continue
-            if re.match(r"(User|Runas|Host|Cmnd|Cmd)_Alias\b", line):
-                continue
-            out.append((f"{shown}:{start}", line))
-        return out
+        groups = self.groups_of(account)
+        gids = {account.gid} | {self.groups()[name][0] for name in groups}
+        return Identity(account.name, account.uid, frozenset(groups), frozenset(gids))
 
     def sudo_rule(self, account: Account) -> SudoRule:
         """
@@ -407,22 +346,8 @@ class HostAccounts:
         """
         if account.uid == 0:
             return SudoRule(granted=True, nopasswd=True, sources=("uid 0",))
-        groups = self.groups_of(account)
-        sources: list[str] = []
-        granted = False
-        nopasswd = False
-        for where, line in self._sudoers_lines():
-            subject, _, rest = line.partition(" ")
-            names = {name.strip() for name in subject.split(",")}
-            applies = account.name in names or "ALL" in names
-            applies = applies or any(f"%{group}" in names for group in groups)
-            if not applies or "=" not in rest:
-                continue
-            granted = True
-            sources.append(where)
-            if "NOPASSWD:" in rest:
-                nopasswd = True
-        return SudoRule(granted=granted, nopasswd=nopasswd, sources=tuple(dict.fromkeys(sources)))
+        grant = self.sudoers().grant(self.identity(account))
+        return SudoRule(grant.granted, grant.nopasswd, grant.sources)
 
     def sudo_usable(self, account: Account) -> bool:
         """
@@ -440,7 +365,11 @@ class HostAccounts:
             return False
         if rule.nopasswd:
             return True
-        asked = "root" if self._asks_root_password else account.name
+        # Under rootpw or targetpw sudo asks for root's password, not the
+        # account's: what makes sudo usable is then root's.
+        asked = (
+            "root" if self.sudoers().asks_root_password(self.identity(account)) else account.name
+        )
         return self.password_state(asked) == "usable"
 
     def admins(self) -> list[Account]:

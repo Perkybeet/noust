@@ -29,6 +29,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from noust.core.exceptions import SecurityError
+from noust.managers.server.security_accounts import SUDO_GROUPS, Account
 from noust.managers.server.security_logins import EVIDENCE_DAYS
 from noust.managers.server.security_probe import SecurityProbe
 from noust.managers.server.security_sshd import SshdUnavailableError
@@ -106,6 +107,31 @@ class AccessProof:
         return "No other way in is proven. " + " ".join(self.problems)
 
 
+def _no_rule_reason(probe: SecurityProbe, account: Account) -> str:
+    """
+    Say why no sudoers rule counts for an account.
+
+    An account in ``sudo`` or ``wheel`` that no rule reaches is the sign of a
+    sudoers line this reader does not understand, so the group is named: that
+    is where to look.
+
+    Args:
+        probe: This pass's look at the machine.
+        account: The account.
+
+    Returns:
+        The reason, to follow "cannot use sudo:".
+    """
+    admin_groups = sorted(probe.accounts.groups_of(account) & set(SUDO_GROUPS))
+    if not admin_groups:
+        return "no sudoers rule grants it root"
+    named = " and ".join(f"group {group}" for group in admin_groups)
+    return (
+        f"it is in {named}, but no sudoers rule Noust can read grants root "
+        "to it or to that group (see /etc/sudoers and /etc/sudoers.d)"
+    )
+
+
 def prove_key_access(
     probe: SecurityProbe,
     *,
@@ -154,7 +180,7 @@ def prove_key_access(
             continue
         if entry.account.uid != 0 and require_sudo and not entry.sudo_usable:
             reason = (
-                "no sudoers rule grants it root"
+                _no_rule_reason(probe, entry.account)
                 if not entry.sudo.granted
                 else "sudo would ask for a password it does not have"
             )

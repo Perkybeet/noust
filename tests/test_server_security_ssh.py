@@ -50,15 +50,20 @@ from tests.server_security_support import (
     ALICE_KEY,
     CENTRAL_FP,
     CENTRAL_LINE,
+    CLOUD_INIT_SUDOERS,
+    DEBIAN_12_SUDOERS,
     ECDSA_FP,
     ECDSA_KEY,
     ED_FP,
     ED_KEY,
     NOW,
+    OPENSUSE_SUDOERS,
+    RHEL_9_SUDOERS,
     RSA_1024,
     RSA_1024_FP,
     RSA_3072,
     RSA_3072_FP,
+    UBUNTU_2404_SUDOERS,
     FakeHost,
     FakeSshd,
     accepted,
@@ -283,6 +288,35 @@ class TestKeys:
         assert any("chmod go-w /home/me/.ssh" in problem for problem in problems)
 
 
+def _sudo_host(
+    host: FakeHost,
+    sudoers: str,
+    *,
+    group: str = "sudo",
+    members: str = "bob",
+    dropins: dict[str, str] | None = None,
+) -> HostAccounts:
+    """A host whose only sudoers rules are the ones given; ``members`` are in ``group``."""
+    host.paths.at("/etc/sudoers.d/90-alice").unlink()
+    host.write("/etc/sudoers", sudoers)
+    host.write("/etc/group", f"root:x:0:\n{group}:x:27:{members}\nalice:x:1000:\nbob:x:1001:\n")
+    for name, text in (dropins or {}).items():
+        host.write(f"/etc/sudoers.d/{name}", text)
+    return HostAccounts(host.paths)
+
+
+def _rule(accounts: HostAccounts, name: str):
+    account = accounts.account(name)
+    assert account is not None
+    return accounts.sudo_rule(account)
+
+
+def _usable(accounts: HostAccounts, name: str) -> bool:
+    account = accounts.account(name)
+    assert account is not None
+    return accounts.sudo_usable(account)
+
+
 # Accounts ---------------------------------------------------------------------
 
 
@@ -322,6 +356,249 @@ class TestAccounts:
 
         assert bob is not None and not accounts.sudo_rule(bob).granted
         assert "bob" in [entry.name for entry in accounts.admins()]
+
+    def test_the_primary_group_and_the_listed_ones_both_count(self, host):
+        host.write(
+            "/etc/passwd", host.read("/etc/passwd") + "carol:x:1002:27::/home/carol:/bin/bash\n"
+        )
+        host.write(
+            "/etc/group",
+            "root:x:0:\nsudo:x:27:\nops:x:50:bob\ncarol:x:1002:\nalice:x:1000:\nbob:x:1001:\n",
+        )
+        accounts = HostAccounts(host.paths)
+        carol, bob = accounts.account("carol"), accounts.account("bob")
+
+        assert carol is not None and bob is not None
+        assert accounts.groups_of(carol) == {"sudo"}
+        assert accounts.groups_of(bob) == {"bob", "ops"}
+        assert accounts.identity(carol).gids == {27}
+
+    def test_a_primary_group_alone_is_enough_for_a_group_rule(self, host):
+        host.write(
+            "/etc/passwd", host.read("/etc/passwd") + "carol:x:1002:27::/home/carol:/bin/bash\n"
+        )
+        accounts = _sudo_host(host, "%sudo\tALL=(ALL:ALL) ALL\n", members="")
+
+        assert _rule(accounts, "carol").granted
+
+    @pytest.mark.parametrize(
+        ("sudoers", "group"),
+        [
+            pytest.param(DEBIAN_12_SUDOERS, "sudo", id="debian-12"),
+            pytest.param(UBUNTU_2404_SUDOERS, "sudo", id="ubuntu-24.04-sudo"),
+            pytest.param(UBUNTU_2404_SUDOERS, "admin", id="ubuntu-24.04-admin"),
+            pytest.param(RHEL_9_SUDOERS, "wheel", id="rhel-9"),
+        ],
+    )
+    def test_the_stock_file_of_a_distribution_grants_its_admin_group(self, host, sudoers, group):
+        accounts = _sudo_host(host, sudoers, group=group)
+
+        rule = _rule(accounts, "bob")
+
+        assert rule.granted and not rule.nopasswd
+        assert rule.sources and rule.sources[0].startswith("/etc/sudoers:")
+        assert _usable(accounts, "bob")
+        assert not _rule(accounts, "alice").granted
+        assert [entry.name for entry in accounts.admins()] == ["root", "bob"]
+
+    def test_the_stock_rule_is_found_on_the_line_it_is_on(self, host):
+        accounts = _sudo_host(host, DEBIAN_12_SUDOERS)
+        line = DEBIAN_12_SUDOERS.splitlines().index("%sudo\tALL=(ALL:ALL) ALL") + 1
+
+        assert _rule(accounts, "bob").sources == (f"/etc/sudoers:{line}",)
+
+    def test_the_commented_nopasswd_line_of_red_hat_grants_nothing_more(self, host):
+        accounts = _sudo_host(host, RHEL_9_SUDOERS, group="wheel")
+
+        assert not _rule(accounts, "bob").nopasswd
+
+    def test_cloud_inits_rule_makes_the_default_account_usable_without_a_password(self, host):
+        host.write(
+            "/etc/passwd", host.read("/etc/passwd") + "ubuntu:x:1002:1002::/home/ubuntu:/bin/bash\n"
+        )
+        host.write("/etc/shadow", host.read("/etc/shadow") + "ubuntu:!:19000:0:99999:7:::\n")
+        accounts = _sudo_host(
+            host,
+            UBUNTU_2404_SUDOERS,
+            members="",
+            dropins={"90-cloud-init-users": CLOUD_INIT_SUDOERS},
+        )
+
+        rule = _rule(accounts, "ubuntu")
+
+        assert rule.granted and rule.nopasswd
+        assert rule.sources == ("/etc/sudoers.d/90-cloud-init-users:4",)
+        assert _usable(accounts, "ubuntu")
+
+    def test_opensuse_grants_everyone_and_asks_for_roots_password(self, host):
+        accounts = _sudo_host(host, OPENSUSE_SUDOERS, group="wheel", members="")
+
+        assert _rule(accounts, "bob").granted and _rule(accounts, "alice").granted
+        assert _usable(accounts, "bob")
+        # alice has a locked password; sudo asks for root's, which works.
+        assert _usable(accounts, "alice")
+        host.write("/etc/shadow", "root:!:1:0:99999:7:::\nbob:$6$salt$hash:1:0:99999:7:::\n")
+        assert not _usable(HostAccounts(host.paths), "bob")
+
+    @pytest.mark.parametrize(
+        "rule",
+        [
+            "%sudo ALL = (ALL) ALL",
+            "%sudo\tALL\t=\t(ALL:ALL)\tALL",
+            "bob ALL=(ALL) ALL",
+            "alice,  bob ALL=(ALL) ALL",
+            "alice , bob\tALL=(ALL) ALL",
+            "%#27 ALL=(ALL) ALL",
+            "%#1001 ALL=(ALL) ALL",
+            "#1001 ALL=(ALL) ALL",
+            "bob ALL=(root) ALL",
+            "bob ALL=(#0) ALL",
+            "bob ALL=ALL",
+            "bob ALL=(ALL) ALL # why",
+            "bob ALL=(ALL) \\\n    ALL",
+            "ALL ALL=(ALL) ALL",
+            "bob myhost = (ALL) ALL",
+            "bob myhost.example.com=(ALL) ALL",
+            "User_Alias ADMINS = alice, bob\nADMINS ALL=(ALL) ALL",
+            "User_Alias ADMINS = %sudo\nADMINS ALL=(ALL) ALL",
+            "Runas_Alias OP = root, daemon\nbob ALL=(OP) ALL",
+            "Host_Alias HERE = myhost\nbob HERE=(ALL) ALL",
+            "Cmnd_Alias EVERYTHING = ALL\nbob ALL=(ALL) EVERYTHING",
+            "bob ALL=(ALL) ALL, !/usr/bin/passwd",
+            "bob ALL=(ALL) ALL : otherhost = /bin/ls",
+            "ALL, !alice ALL=(ALL) ALL",
+            "bob ALL=(www-data) /bin/ls, (root) ALL",
+            "bob ALL=(ALL) CWD=/tmp ALL",
+        ],
+    )
+    def test_the_ways_sudoers_lets_you_write_a_rule_that_grant_root(self, host, rule):
+        host.write("/etc/hostname", "myhost.example.com\n")
+        accounts = _sudo_host(host, f"root ALL=(ALL:ALL) ALL\n{rule}\n")
+
+        assert _rule(accounts, "bob").granted
+
+    @pytest.mark.parametrize(
+        "rule",
+        [
+            "%wheel ALL=(ALL) ALL",
+            "%sudoers ALL=(ALL) ALL",
+            "%sudo ALL=(www-data) ALL",
+            "bob ALL=(ALL) /usr/bin/systemctl restart nginx",
+            "bob ALL=(www-data) NOPASSWD: ALL",
+            "bob ALL=(ALL, !root) ALL",
+            "bob ALL=(:wheel) ALL",
+            "bob ALL=() ALL",
+            "bob otherhost=(ALL) ALL",
+            "ALL, !bob ALL=(ALL) ALL",
+            "!bob ALL=(ALL) ALL",
+            "+admins ALL=(ALL) ALL",
+            "%:domain\\ admins ALL=(ALL) ALL",
+            "bob ALL=(ALL) ALL\nbob ALL=(ALL) !ALL",
+            "bob ALL=(ALL) NOTAFTER=20200101000000Z ALL",
+            "bob ALL (ALL) ALL",
+            "bob ALL=(ALL) ALL,",
+            "bob ALL=(",
+            "bob",
+            "=",
+            "User_Alias ADMINS = alice\nADMINS ALL=(ALL) ALL",
+            "User_Alias A = B\nUser_Alias B = A\nA ALL=(ALL) ALL",
+            "# bob ALL=(ALL) ALL",
+            "Defaults bob ALL=(ALL) ALL",
+        ],
+    )
+    def test_what_does_not_make_the_account_root_grants_nothing(self, host, rule):
+        host.write("/etc/hostname", "myhost\n")
+        accounts = _sudo_host(host, f"root ALL=(ALL:ALL) ALL\n{rule}\n", members="")
+
+        assert not _rule(accounts, "bob").granted
+
+    @pytest.mark.parametrize(
+        "rule",
+        [
+            "bob ALL=(ALL) NOPASSWD:ALL",
+            "bob ALL=(ALL) NOPASSWD: ALL",
+            "bob ALL=(ALL) NOPASSWD : ALL",
+            "bob ALL=(ALL) NOPASSWD: SETENV: ALL",
+            "bob ALL=(ALL) SETENV: NOPASSWD: ALL",
+            "bob ALL=(ALL:ALL)\tNOPASSWD:\tALL",
+            "bob ALL = (ALL) NOPASSWD: ALL",
+            "bob ALL=NOPASSWD: ALL",
+            "bob ALL=(ALL) NOPASSWD: /bin/ls, ALL",
+            "bob ALL=(ALL) NOPASSWD: ALL, PASSWD: /bin/ls",
+            "%sudo ALL=(ALL:ALL) ALL\nbob ALL=(ALL) NOPASSWD: ALL",
+            "Defaults:%sudo !authenticate\n%sudo ALL=(ALL:ALL) ALL",
+            "Defaults\t!authenticate\nbob ALL=(ALL) ALL",
+        ],
+    )
+    def test_nopasswd_is_found_however_it_is_written(self, host, rule):
+        accounts = _sudo_host(host, f"root ALL=(ALL:ALL) ALL\n{rule}\n")
+
+        assert _rule(accounts, "bob").nopasswd
+
+    @pytest.mark.parametrize(
+        "rule",
+        [
+            "bob ALL=(ALL) NOPASSWD: /bin/ls, PASSWD: ALL",
+            "bob ALL=(ALL) NOPASSWD: /bin/ls\nbob ALL=(ALL) ALL",
+            "bob ALL=(ALL) NOPASSWD: ALL\n%sudo ALL=(ALL:ALL) ALL",
+            "Defaults:alice !authenticate\nbob ALL=(ALL) ALL",
+            "Defaults:bob !authenticate\nDefaults:bob authenticate\nbob ALL=(ALL) ALL",
+        ],
+    )
+    def test_the_last_rule_that_matches_decides_whether_a_password_is_asked(self, host, rule):
+        accounts = _sudo_host(host, f"root ALL=(ALL:ALL) ALL\n{rule}\n")
+
+        assert _rule(accounts, "bob").granted
+        assert not _rule(accounts, "bob").nopasswd
+
+    @pytest.mark.parametrize(
+        ("defaults", "asks_root"),
+        [
+            ("Defaults\trootpw", True),
+            ("Defaults targetpw   # root's password", True),
+            ("Defaults runaspw", True),
+            ("Defaults:bob rootpw", True),
+            ("Defaults:%sudo rootpw", True),
+            ("Defaults:alice rootpw", False),
+            ("Defaults@othermachine rootpw", False),
+            ("Defaults rootpw\nDefaults !rootpw", False),
+            ("Defaults !visiblepw", False),
+            ("Defaults>root rootpw", True),
+        ],
+    )
+    def test_defaults_decide_whose_password_sudo_asks_for(self, host, defaults, asks_root):
+        host.write("/etc/hostname", "myhost\n")
+        _sudo_host(host, f"{defaults}\n%sudo\tALL=(ALL:ALL) ALL\n")
+        # bob has a password; root's is locked.
+        host.write("/etc/shadow", "root:!:1:0:99999:7:::\nbob:$6$salt$hash:1:0:99999:7:::\n")
+
+        assert _usable(HostAccounts(host.paths), "bob") is (not asks_root)
+
+    def test_includes_are_followed_where_they_stand(self, host):
+        _sudo_host(
+            host,
+            "root ALL=(ALL:ALL) ALL\n"
+            "#include /etc/sudoers.local\n"
+            "@include sudoers.more\n"
+            "#includedir /etc/sudoers.d\n"
+            "#include /etc/sudoers\n",
+            dropins={"10-ops": "%sudo ALL=(ALL) NOPASSWD: ALL\n"},
+        )
+        host.write("/etc/sudoers.local", "alice ALL=(ALL) ALL\n")
+        host.write("/etc/sudoers.more", "# nothing here\n")
+        accounts = HostAccounts(host.paths)
+
+        assert _rule(accounts, "alice").sources == ("/etc/sudoers.local:1",)
+        assert _rule(accounts, "bob").nopasswd
+
+    def test_a_drop_in_with_a_dot_or_a_tilde_is_skipped_in_any_include(self, host):
+        accounts = _sudo_host(
+            host,
+            "@includedir /etc/sudoers.d\n",
+            dropins={"10-ops~": "bob ALL=(ALL) ALL\n", "20-ops.bak": "bob ALL=(ALL) ALL\n"},
+        )
+
+        assert not _rule(accounts, "bob").granted
 
     def test_empty_passwords_and_a_second_uid_0_are_found(self, host):
         host.write(
@@ -482,6 +759,39 @@ class TestAccessProof:
         assert not proof.proved
         assert any("cannot use sudo" in problem for problem in proof.problems)
 
+    def test_a_member_of_sudo_with_a_password_is_a_way_in_on_a_stock_debian(self, sshd, host):
+        _sudo_host(host, DEBIAN_12_SUDOERS, members="alice")
+        host.write("/etc/shadow", "root:!:1:0:99999:7:::\nalice:$6$salt$hash:1:0:99999:7:::\n")
+        _journal(sshd, accepted("alice", ALICE_FP, at=NOW - 3600))
+
+        proof = prove_key_access(_probe(sshd, host), exclude_root=True)
+
+        assert proof.proved and proof.evidence[0].user == "alice"
+
+    def test_a_member_of_sudo_without_a_password_still_does_not_count(self, sshd, host):
+        _sudo_host(host, DEBIAN_12_SUDOERS, members="alice")
+        _journal(sshd, accepted("alice", ALICE_FP, at=NOW - 3600))
+
+        proof = prove_key_access(_probe(sshd, host), exclude_root=True)
+
+        assert not proof.proved
+        assert any(
+            "would ask for a password it does not have" in problem for problem in proof.problems
+        )
+
+    def test_a_group_no_rule_reaches_is_named_so_a_gap_in_the_reader_can_be_found(self, sshd, host):
+        _sudo_host(host, "root ALL=(ALL:ALL) ALL\n+admins ALL=(ALL) ALL\n", members="alice")
+        _journal(sshd, accepted("alice", ALICE_FP, at=NOW - 3600))
+
+        proof = prove_key_access(_probe(sshd, host), exclude_root=True)
+
+        assert not proof.proved
+        assert any(
+            "alice can log in but cannot use sudo: it is in group sudo, but no sudoers rule "
+            "Noust can read grants root to it or to that group" in problem
+            for problem in proof.problems
+        )
+
     def test_an_account_allowusers_refuses_does_not_count(self, sshd, host):
         sshd.per_user["alice"] = {"allowusers": "root"}
         _journal(sshd, accepted("alice", ALICE_FP, at=NOW - 3600))
@@ -607,6 +917,15 @@ class TestSafeApply:
         assert "migrate-tunnel" in caught.value.details
 
     def test_root_no_with_another_admin_proven_is_applied(self, sshd, host, ledger):
+        _journal(sshd, accepted("alice", ALICE_FP, at=NOW - 3600))
+
+        change = _security(sshd, host, ledger).apply("root-no")
+
+        assert change.after == {"permitrootlogin": "no"}
+
+    def test_root_no_is_applied_for_a_member_of_sudo_on_a_stock_ubuntu(self, sshd, host, ledger):
+        _sudo_host(host, UBUNTU_2404_SUDOERS, members="alice")
+        host.write("/etc/shadow", "root:!:1:0:99999:7:::\nalice:$6$salt$hash:1:0:99999:7:::\n")
         _journal(sshd, accepted("alice", ALICE_FP, at=NOW - 3600))
 
         change = _security(sshd, host, ledger).apply("root-no")

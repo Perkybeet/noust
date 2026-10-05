@@ -130,6 +130,150 @@ def accepted(
     )
 
 
+# The stock /etc/sudoers of the distributions, with the blanks the packages ship:
+# tabs between the fields of the Debian and Red Hat rules, spaces in Ubuntu's
+# %admin line. A reader that splits on one space reads none of the %sudo lines.
+
+DEBIAN_12_SUDOERS = (
+    "#\n"
+    "# This file MUST be edited with the 'visudo' command as root.\n"
+    "#\n"
+    "# Please consider adding local content in /etc/sudoers.d/ instead of\n"
+    "# directly modifying this file.\n"
+    "#\n"
+    "# See the man page for details on how to write a sudoers file.\n"
+    "#\n"
+    "Defaults\tenv_reset\n"
+    "Defaults\tmail_badpass\n"
+    'Defaults\tsecure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"\n'
+    "Defaults\tuse_pty\n"
+    "\n"
+    "# This preserves proxy settings from user environments of root\n"
+    '# equivalents under group "sudo"\n'
+    '#Defaults:%sudo env_keep += "http_proxy https_proxy ftp_proxy all_proxy no_proxy"\n'
+    "\n"
+    "# Per-user preferences; root won't have sensible values for them.\n"
+    '#Defaults:alice env_keep += "EDITOR"\n'
+    "\n"
+    "# Host alias specification\n"
+    "\n"
+    "# User alias specification\n"
+    "\n"
+    "# Cmnd alias specification\n"
+    "\n"
+    "# User privilege specification\n"
+    "root\tALL=(ALL:ALL) ALL\n"
+    "\n"
+    "# Allow members of group sudo to execute any command\n"
+    "%sudo\tALL=(ALL:ALL) ALL\n"
+    "\n"
+    '# See sudoers(5) for more information on "@include" directives:\n'
+    "\n"
+    "@includedir /etc/sudoers.d\n"
+)
+
+UBUNTU_2404_SUDOERS = (
+    "#\n"
+    "# This file MUST be edited with the 'visudo' command as root.\n"
+    "#\n"
+    "Defaults\tenv_reset\n"
+    "Defaults\tmail_badpass\n"
+    'Defaults\tsecure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"\n'
+    "Defaults\tuse_pty\n"
+    "\n"
+    "# Host alias specification\n"
+    "\n"
+    "# User alias specification\n"
+    "\n"
+    "# Cmnd alias specification\n"
+    "\n"
+    "# User privilege specification\n"
+    "root\tALL=(ALL:ALL) ALL\n"
+    "\n"
+    "# Members of the admin group may gain root privileges\n"
+    "%admin ALL=(ALL) ALL\n"
+    "\n"
+    "# Allow members of group sudo to execute any command\n"
+    "%sudo\tALL=(ALL:ALL) ALL\n"
+    "\n"
+    '# See sudoers(5) for more information on "@include" directives:\n'
+    "\n"
+    "@includedir /etc/sudoers.d\n"
+)
+
+#: What cloud-init writes for the image's default account.
+CLOUD_INIT_SUDOERS = (
+    "# Created by cloud-init v. 24.1.3-0ubuntu3 on Mon, 04 Mar 2024 10:00:00 +0000\n"
+    "\n"
+    "# User rules for ubuntu\n"
+    "ubuntu ALL=(ALL) NOPASSWD:ALL\n"
+)
+
+RHEL_9_SUDOERS = (
+    "## Sudoers allows particular users to run various commands as\n"
+    "## the root user, without needing the root password.\n"
+    "##\n"
+    "## Defaults specification\n"
+    "##\n"
+    "Defaults   !visiblepw\n"
+    "\n"
+    "Defaults    always_set_home\n"
+    "Defaults    match_group_by_gid\n"
+    "\n"
+    "Defaults    always_query_group_plugin\n"
+    "\n"
+    "Defaults    env_reset\n"
+    'Defaults    env_keep =  "COLORS DISPLAY HOSTNAME HISTSIZE KDEDIR LS_COLORS"\n'
+    'Defaults    env_keep += "MAIL PS1 PS2 QTDIR USERNAME LANG LC_ADDRESS LC_CTYPE"\n'
+    "\n"
+    "Defaults    secure_path = /sbin:/bin:/usr/sbin:/usr/bin\n"
+    "\n"
+    "## Allow root to run any commands anywhere\n"
+    "root\tALL=(ALL) \tALL\n"
+    "\n"
+    "## Allows members of the 'sys' group to run networking, software,\n"
+    "## service management apps and more.\n"
+    "# %sys ALL = NETWORKING, SOFTWARE, SERVICES, STORAGE, DELEGATING, PROCESSES, LOCATE, DRIVERS\n"
+    "\n"
+    "## Allows people in group wheel to run all commands\n"
+    "%wheel\tALL=(ALL)\tALL\n"
+    "\n"
+    "## Same thing without a password\n"
+    "# %wheel\tALL=(ALL)\tNOPASSWD: ALL\n"
+    "\n"
+    "## Read drop-in files from /etc/sudoers.d (the # here does not mean a comment)\n"
+    "#includedir /etc/sudoers.d\n"
+)
+
+#: openSUSE asks every account for root's password and lets every account use it.
+OPENSUSE_SUDOERS = (
+    "#\n"
+    "# This file MUST be edited with the 'visudo' command as root.\n"
+    "#\n"
+    "Defaults always_set_home\n"
+    'Defaults secure_path="/usr/sbin:/usr/bin:/sbin:/bin"\n'
+    "Defaults env_reset\n"
+    'Defaults env_keep = "LANG LC_ADDRESS LC_CTYPE LC_COLLATE LC_IDENTIFICATION"\n'
+    "\n"
+    "# In the default (unconfigured) configuration, sudo asks for the root password.\n"
+    "# This allows use of an ordinary user account for administration of a freshly\n"
+    "# installed system. When configuring sudo, delete the two\n"
+    "# following lines:\n"
+    "Defaults targetpw   # ask for the password of the target user i.e. root\n"
+    "ALL   ALL=(ALL) ALL   # WARNING! Only use this together with 'Defaults targetpw'!\n"
+    "\n"
+    "# User privilege specification\n"
+    "root ALL=(ALL:ALL) ALL\n"
+    "\n"
+    "# Uncomment to allow members of group wheel to execute any command\n"
+    "# %wheel ALL=(ALL:ALL) ALL\n"
+    "\n"
+    "# Read drop-in files from /etc/sudoers.d\n"
+    "# (the '#' here does not indicate a comment)\n"
+    "#includedir /etc/sudoers.d\n"
+)
+
+
 class FakeHost:
     """
     A server's account and SSH files, under a temporary root.
