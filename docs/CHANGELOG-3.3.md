@@ -136,3 +136,30 @@ recreate a container it refuses unless `--accept-recreate` is given.
   without following links, and at most 1 MiB of it is read.
 - Changing only the password of an engine's stored account is tested with the stored user, as it
   is saved.
+
+## 3.3.1
+
+- **Sudo mode lasts while you work.** Confirming it's you opens sudo mode for 15 minutes, and
+  every action that needs it extends that again, up to 2 hours from the confirmation and never
+  past the session. An account with a second factor confirms with one: a code from its
+  authenticator, a backup code or a passkey; the password is not asked again. The windows and the
+  password are settings (`auth.sudo.idle_minutes`, `auth.sudo.max_minutes`,
+  `auth.sudo.require_password`); the `ens-medium` profile keeps the password and at most 10 and 30
+  minutes. The confirmation dialog says how long it lasts.
+- **A pending SSH or firewall change says whether it is proven.** The banner watches for the new
+  SSH login that proves the way in still works, names it when it arrives (who, from where, when)
+  and only then offers Keep; before, Keep answered "No new SSH login since the change". Undoing no
+  longer shows that error left over from an earlier Keep. The window before a change undoes
+  itself is 5 minutes instead of 2. `noust server security pending` shows the same.
+- **Refusing root logins works for Ubuntu and Debian administrators** (issue #14). A sudoers rule
+  separated by a tab, which is how Debian and Ubuntu ship `%sudo`, was not read, so a member of
+  `sudo` was "an account that cannot use sudo" and the fix was refused. Sudoers is now read as
+  sudo reads it (aliases, host and runas lists, negation, `Defaults` scopes, includes); a rule
+  that does not run every command as root no longer counts as a way to root.
+- **Install hints name this server's package manager** (issue #12): `apt` on Debian and Ubuntu,
+  `dnf` on Fedora and RHEL, `zypper` on openSUSE, all three only when Noust cannot tell.
+- **Every "how to fix" names a command that exists** (issue #13). The failed-units finding pointed
+  at `noust server units --failed`; it now opens the services list filtered to the failed units
+  (`noust service list --all --state failed`, `GET /api/services?state=failed`). A test checks
+  every command and route Noust suggests; it found and fixed ten more.
+- **`noust web start` without root says so** (issue #11) instead of ending in a traceback.
