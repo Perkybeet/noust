@@ -11,6 +11,7 @@ import { useState } from "react";
 import { LinkTabs } from "../../app/LinkTabs";
 import type { LinkTab } from "../../app/LinkTabs";
 import { DetailPage } from "../../components/page/DetailPage";
+import { LoadingRegion } from "../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { Button, buttonClassName } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
@@ -78,7 +79,7 @@ export function ServiceLayout({ name }: { name: string }) {
     { label: "services.tabs.logs", to: "/server/services/$name/logs", params: { name } },
   ];
 
-  const banner =
+  const notice =
     record.app !== null ? (
       <Notice
         variant="banner"
@@ -111,6 +112,17 @@ export function ServiceLayout({ name }: { name: string }) {
     ) : record.error !== null ? (
       <ErrorBlock error={record.error} title={t("services.detail.loadFailed", { name })} onRetry={record.refetch} retrying={record.refetching} />
     ) : undefined;
+  // Until it is known whether the unit is an application's, the tabs and the tab are not drawn
+  // (below); their shapes stand in the banner's place, which whatever comes next takes over.
+  const banner =
+    notice === undefined && !settled ? (
+      <LoadingRegion label={t("services.detail.loading")} className="flex flex-col gap-8">
+        <Skeleton className="h-10 w-full max-w-xl" />
+        <Skeleton className="h-48 w-full rounded-card" />
+      </LoadingRegion>
+    ) : (
+      notice
+    );
 
   return (
     <>

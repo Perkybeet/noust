@@ -8,6 +8,7 @@ import { KeyValueList } from "../../components/page/KeyValueList";
 import { Card } from "../../components/ui/Card";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
+import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusPill } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { useServerList } from "../../nodes/servers";
@@ -25,7 +26,9 @@ export function CentralSettings() {
   useDocumentTitle(t("servers.central.documentTitle"), 1);
   const central = useCentral();
   const { data: session } = useQuery(sessionQuery());
-  const { nodes } = useServerList();
+  const { nodes, loaded, failed } = useServerList();
+  // The count of servers is the one fact of this card that waits for the network.
+  const reading = !loaded && !failed;
   const name = session?.hostname ?? "";
 
   const seal = central.locked
@@ -36,7 +39,7 @@ export function CentralSettings() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card title={t("servers.central.identity.title")} description={t("servers.central.identity.description")}>
+      <Card loading={reading} title={t("servers.central.identity.title")} description={t("servers.central.identity.description")}>
         <KeyValueList
           items={[
             { label: t("servers.central.identity.name"), value: <Mono>{name}</Mono>, copy: name === "" ? false : name, mono: true },
@@ -46,7 +49,12 @@ export function CentralSettings() {
               copy: false,
               mono: false,
             },
-            { label: t("servers.central.identity.servers"), value: t("servers.central.identity.serverCount", { count: nodes.length }), copy: false, mono: false },
+            {
+              label: t("servers.central.identity.servers"),
+              value: reading ? <Skeleton className="h-3.5 w-24" /> : t("servers.central.identity.serverCount", { count: nodes.length }),
+              copy: false,
+              mono: false,
+            },
           ]}
         />
         <CommandHint label={t("servers.central.fromTerminal")} command="noust central status" className="mt-4" />

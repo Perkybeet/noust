@@ -145,7 +145,10 @@ export function UnitFilePage({ name }: { name: string }) {
       {config.isError && config.data === undefined ? (
         <ErrorBlock error={config.error} title={t("services.unitEditor.loadFailed")} onRetry={() => void config.refetch()} retrying={config.isRefetching} />
       ) : value === null ? (
-        <Skeleton className="h-full w-full rounded-control" />
+        <div aria-busy="true" className="h-full">
+          <span className="sr-only">{t("services.unitEditor.loading")}</span>
+          <Skeleton className="h-full w-full rounded-control" />
+        </div>
       ) : (
         <ConfigEditor
           value={value}

@@ -47,7 +47,15 @@ function Summary() {
     if (wasChecking.current && !checking) void queryClient.invalidateQueries({ queryKey: serverKeys.checks, exact: true });
     wasChecking.current = checking;
   }, [checking, queryClient]);
-  if (overview.data === undefined) return overview.isError ? <span>{t("server.security.summaryFailed")}</span> : <Skeleton className="h-5 w-72" />;
+  if (overview.data === undefined) {
+    return overview.isError ? (
+      <span>{t("server.security.summaryFailed")}</span>
+    ) : (
+      <span aria-busy="true" className="block">
+        <Skeleton className="h-5 w-72" />
+      </span>
+    );
+  }
   const counts = overview.data.counts;
   const checkedAt = overview.data.checked_at;
   if (counts === null || counts === undefined || checkedAt == null) {

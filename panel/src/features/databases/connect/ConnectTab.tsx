@@ -135,6 +135,7 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
         <Section
           title={t("databases.connect.fromApp")}
           description={t("databases.connect.fromAppDescription")}
+          loading={data === undefined}
           actions={
             <Button size="sm" onClick={() => setLinking(true)}>
               {t("databases.overview.linkApp")}
@@ -175,7 +176,7 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
           )}
         </Section>
 
-        <Section title={t("databases.connect.fromComputer")} description={t("databases.connect.fromComputerDescription")}>
+        <Section title={t("databases.connect.fromComputer")} description={t("databases.connect.fromComputerDescription")} loading={tunnel === undefined}>
           <div className="flex min-w-0 flex-col gap-5">
             <div className="flex min-w-0 flex-wrap gap-4">
               <Field label={t("databases.connect.account")} nativeLabel={false} className="w-56">
@@ -244,7 +245,7 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
           </div>
         </Section>
 
-        <Section title={t("databases.connect.exposure")} description={t("databases.connect.exposureDescription")}>
+        <Section title={t("databases.connect.exposure")} description={t("databases.connect.exposureDescription")} loading={data === undefined}>
           {data === undefined ? (
             <Skeleton className="h-12 w-full rounded-card" />
           ) : (

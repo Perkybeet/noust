@@ -76,6 +76,7 @@ function PolicyCard({ engine, name, onEdit }: { engine: string; name: string; on
       title={t("databases.backups.policy.title")}
       level={2}
       padding="sm"
+      loading={data === undefined && !policy.isError}
       actions={
         data?.configured ? (
           <>

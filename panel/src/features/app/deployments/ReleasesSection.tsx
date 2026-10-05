@@ -29,7 +29,7 @@ import { releaseBadge, shortCommit } from "./words";
 function ListSkeleton() {
   return (
     <Card padding="none">
-      <div aria-hidden="true" className="flex flex-col divide-y divide-border">
+      <div aria-busy="true" className="flex flex-col divide-y divide-border">
         {[0, 1, 2].map((i) => (
           <div key={i} className="flex flex-col gap-2 px-4 py-3">
             <Skeleton className="h-3 w-44" />

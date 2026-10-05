@@ -110,6 +110,7 @@ export function AccessReviewSection({ canManage }: { canManage: boolean }) {
     <Section
       title={t("accounts.review.title")}
       description={t("accounts.review.description")}
+      loading={last === null && !query.isError}
       {...(canManage && query.data !== undefined
         ? {
             actions: (

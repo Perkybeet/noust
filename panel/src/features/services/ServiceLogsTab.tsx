@@ -21,7 +21,15 @@ export function ServiceLogsTab({ name }: { name: string }) {
       </div>
       {stream.error !== null ? <ErrorBlock compact error={{ detail: stream.error }} title={t("services.detail.logStreamFailed")} /> : null}
       <div className="flex h-editor min-h-0 min-w-0 flex-col">
-        <LogViewer lines={stream.lines} label={t("services.detail.logsLabel", { name })} filename={`${name}.log`} height="fill" pageSearch />
+        <LogViewer
+          lines={stream.lines}
+          label={t("services.detail.logsLabel", { name })}
+          filename={`${name}.log`}
+          height="fill"
+          pageSearch
+          loading={stream.status === "connecting"}
+          {...(stream.status === "connecting" ? { emptyMessage: t("services.detail.connecting") } : {})}
+        />
       </div>
       {stream.truncated ? <p className="text-12 text-fg-faint">{t("services.detail.truncated")}</p> : null}
       <CommandHint command={`noust server logs ${name} -f`} label={t("services.fromTerminal")} />

@@ -48,7 +48,7 @@ export function SwapCard() {
   if (swap.data === undefined) {
     return (
       // The header keeps the room of its action, so the card's body does not drop when it lands.
-      <Card level={2} title={t("server.swap.title")} padding="sm" actions={<Skeleton className="h-control-sm w-32 rounded-control" />}>
+      <Card loading level={2} title={t("server.swap.title")} padding="sm" actions={<Skeleton className="h-control-sm w-32 rounded-control" />}>
         <Skeleton className="h-32 w-full" />
       </Card>
     );

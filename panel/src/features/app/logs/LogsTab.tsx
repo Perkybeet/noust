@@ -138,6 +138,7 @@ function Journal({ domain, t }: { domain: string; t: T }) {
           lines={shown}
           height="fill"
           pageSearch
+          loading={stream.status === "connecting"}
           label={t("appPages.logs.journalLabel", { domain })}
           filename={`${domain}-journal.log`}
           emptyMessage={

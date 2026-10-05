@@ -26,6 +26,8 @@ export interface DatabasesTableProps {
   caption: string;
   rowActions: (database: Database) => ReactNode;
   empty: ReactNode;
+  /** The list is still being read: placeholder rows stand where the databases will be. */
+  loading?: boolean;
 }
 
 /** A size the list sorts by: the engine reports it as words ("46.0 MB"), read back to bytes. */
@@ -120,7 +122,7 @@ function EngineCell({ database, engines, t }: { database: Database; engines: rea
  * up, its engine, who uses it, its size and its newest dump with what checking it found. On a
  * phone each row is a card with its menu in view.
  */
-export function DatabasesTable({ databases, engines, policies, dumps, caption, rowActions, empty }: DatabasesTableProps) {
+export function DatabasesTable({ databases, engines, policies, dumps, caption, rowActions, empty, loading = false }: DatabasesTableProps) {
   const t = useT();
   const navigate = useNavigate();
   const wide = useMediaQuery(SM_UP);
@@ -246,6 +248,7 @@ export function DatabasesTable({ databases, engines, policies, dumps, caption, r
       onRowActivate={(database) => void navigate({ to: "/databases/$engine/$name", params: { engine: database.engine, name: database.name } })}
       rowActions={rowActions}
       empty={empty}
+      loading={loading}
       mobile="cards"
     />
   );

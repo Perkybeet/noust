@@ -91,7 +91,6 @@ export const databases = {
     captionFiltered: "Databases matching the filters",
     noMatch: "No database matches these filters.",
     couldNotLoad: "Could not load the databases",
-    loading: "Loading the databases",
     emptyTitle: "No databases yet",
     emptyDescription: "A database holds an application's data. Create one here, or from an application's Database tab to have its connection string written for it.",
     emptyNoEngine: "No database engine is running on this server. Install or start one in the Engines tab, then create a database on it.",
@@ -404,6 +403,7 @@ export const databases = {
     trackedNo: "No: created outside Noust",
   },
   data: {
+    loadingTables: "Loading the tables",
     tablesLabel: "Tables and views",
     findTable: "Find a table",
     chooseTable: "Choose a table",

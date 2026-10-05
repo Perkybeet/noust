@@ -22,7 +22,7 @@ import { reportActionError } from "../../apps/useAppActions";
 
 function ListSkeleton() {
   return (
-    <div aria-hidden="true" className="flex flex-col gap-2 pt-2">
+    <div aria-busy="true" className="flex flex-col gap-2 pt-2">
       {[0, 1, 2, 3].map((index) => (
         <Skeleton key={index} className="h-12 w-full" />
       ))}

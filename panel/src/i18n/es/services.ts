@@ -165,6 +165,7 @@ export const services: Catalog<typeof en> = {
   },
   unitEditor: {
     label: "Configuración de {name}",
+    loading: "Cargando la configuración",
     loadFailed: "No se pudo cargar la configuración",
     verifyFailed: "No se pudo comprobar la configuración",
     saveFailed: "No se guardó la configuración",

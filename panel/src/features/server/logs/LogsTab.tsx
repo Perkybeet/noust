@@ -120,6 +120,7 @@ function Logs({ search, onSearchChange }: LogsTabProps) {
           follow
           // The search above asks the journal itself, past the lines on screen: one search box.
           searchable={false}
+          loading={journal.isPending}
           label={t("server.logs.viewerLabel")}
           filename={`${search.unit ?? "journal"}.log`}
           emptyMessage={journal.isPending ? t("server.logs.loading") : t("server.logs.empty")}
