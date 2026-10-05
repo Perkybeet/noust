@@ -532,7 +532,7 @@ class TestMySQLReadOnlyAccount:
         ``IDENTIFIED BY`` carries the freshly generated password.
 
         It travels to the client on stdin, as every statement in this module
-        does; CLAUDE.md's rule one is that a secret never appears in argv,
+        does; CONTRIBUTING.md's rule one is that a secret never appears in argv,
         which is visible to every local user through ``ps``.
         """
         runner.script(["mysql"], stdout="shop\n")

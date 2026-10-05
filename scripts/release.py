@@ -3,7 +3,7 @@
 Propagate the project version from pyproject.toml to every packaging file.
 
 The version used to live as a hand-edited literal in six places, kept in step
-by a checklist in CLAUDE.md. Checklists fail, and this one already caused
+by a checklist in CONTRIBUTING.md. Checklists fail, and this one already caused
 corrective releases. Here ``[project].version`` in pyproject.toml is the single
 source of truth and everything else is derived from it: the noust packages,
 the transitional wasm/wasm-cli packages that carry users of the old name over,

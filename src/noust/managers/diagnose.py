@@ -22,7 +22,7 @@ Two things shape the design:
   actually raise - are caught there and turned into a ``skip`` check carrying
   the error as evidence. A probe that returns cleanly always reports on its
   own check; nothing here swallows one check's failure into another's.
-- **Evidence is verbatim.** CLAUDE.md's rule for the panel applies here too: a
+- **Evidence is verbatim.** CONTRIBUTING.md's rule for the panel applies here too: a
   system error is never paraphrased. ``journalctl``, ``ss`` and nginx's own
   error log reach the operator exactly as those programs printed them; only
   the summary line and the probable cause are Noust's own words.

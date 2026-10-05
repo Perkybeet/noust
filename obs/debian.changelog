@@ -444,7 +444,7 @@ wasm (0.15.1-1) unstable; urgency=medium
   * Enhancement: Web jobs use specific WASM exceptions instead of bare Exception
   * Enhancement: Web server uses logging module instead of print()
   * Enhancement: setup.py adds web/monitor/all extras and fixes entry point
-  * Enhancement: .gitignore updated for rpm/*.spec, .claude/, .ruff_cache/
+  * Enhancement: .gitignore updated for rpm/*.spec and .ruff_cache/
 
  -- Yago Lopez Prado <yago.lopez.adeje@gmail.com>  Mon, 09 Mar 2026 12:00:00 +0000
 
@@ -540,7 +540,7 @@ wasm (0.13.15-1) unstable; urgency=medium
   * Feature: New version.py module for version information display
   * Enhancement: Users can see changelog without visiting GitHub
   * Enhancement: Fallback to GitHub release notes if changelog unavailable
-  * docs: Document OBS build failure prevention in CLAUDE.md
+  * docs: Document OBS build failure prevention in the contributor guide
   * docs: Add comprehensive OBS Package Management section
 
  -- Yago López Prado <yago.lopez.adeje@gmail.com>  Wed, 15 Jan 2026 04:00:00 +0000

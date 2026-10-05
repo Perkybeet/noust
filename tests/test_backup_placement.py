@@ -9,7 +9,7 @@ written by the 1.x panel's settings form, which rendered the field empty (the
 section had no default) and saved the whole form. ``Path('')`` is the current
 working directory, so from then on every backup went to ``/root/<app>/`` when
 the operator ran wasm from ``/root``, and to ``/<app>/`` when a timer did. The
-console's storage page then listed ``/root/.ssh``, ``.docker`` and ``.claude``
+console's storage page then listed ``/root/.ssh``, ``.docker`` and ``.cache``
 as applications, and the backups in ``/var/backups/wasm`` were no longer seen.
 
 Pinned here:
@@ -182,7 +182,7 @@ def plant_home_clutter(root: Path) -> list[Path]:
     files = {
         ".ssh/id_ed25519": "private key",
         ".docker/config.json": '{"auths": {}}',
-        ".claude/settings.json": "{}",
+        ".cache/settings.json": "{}",
         # A tarball that is not a Noust backup, in a directory named like one.
         "shop-example-com/export.tar.gz": "not a backup",
         # Named like a backup but with no metadata to prove it.
@@ -514,7 +514,7 @@ class TestStorageUsage:
     """Only directories holding Noust backups are applications."""
 
     def test_unrelated_directories_are_not_listed(self, tmp_path: Path) -> None:
-        """What the console showed: /root/.ssh, .docker and .claude as applications."""
+        """What the console showed: /root/.ssh, .docker and .cache as applications."""
         root = tmp_path / "root"
         archive, _ = plant_backup(root, "shop.example.com")
         plant_home_clutter(root)

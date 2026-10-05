@@ -75,7 +75,7 @@
   --ansi-cyan: light-dark(#0e7285, #4fc7d6);
 
   /* Type. Mona Sans carries the interface; JetBrains Mono carries every system value. Build
-     and deploy logs are CLI output verbatim (CLAUDE.md: never paraphrased), and the CLI
+     and deploy logs are CLI output verbatim (CONTRIBUTING.md: never paraphrased), and the CLI
      writes emoji glyphs (📦, 🔨...) into its own progress lines; JetBrains Mono has no glyphs
      for them, so an emoji-capable fallback font is listed after it, only for the code points
      JetBrains Mono itself does not cover. Right after each real font come its metric-matched

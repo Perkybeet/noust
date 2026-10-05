@@ -145,7 +145,7 @@ def generate_ssh_key(
         # the mode here is what makes the guarantee independent of it. A
         # failure must not be reported as success: a private key left
         # world-readable while the caller is told "generated successfully" is
-        # exactly the silent failure CLAUDE.md rule 2 exists to remove.
+        # exactly the silent failure CONTRIBUTING.md rule 2 exists to remove.
         try:
             key_path.chmod(0o600)
         except OSError as exc:

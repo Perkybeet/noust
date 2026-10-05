@@ -142,7 +142,7 @@ def hand_over_file(
     can shrug off: a restore that goes on to report "restored" over a file
     still owned by root, or a database engine that reports success while its
     own account cannot read the snapshot it was just handed, is the silent
-    failure CLAUDE.md rule 2 exists to remove. So this returns whether it
+    failure CONTRIBUTING.md rule 2 exists to remove. So this returns whether it
     actually worked instead of only logging a warning.
 
     The change goes to the inode the path names when it is pinned, never to

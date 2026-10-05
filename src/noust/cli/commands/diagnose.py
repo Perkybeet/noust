@@ -8,7 +8,7 @@ The command is a thin presentation layer over :func:`noust.managers.diagnose.dia
 every correlation rule lives there, not here. What this module owns is turning
 a :class:`~noust.managers.diagnose.Diagnosis` into what an operator reads: the
 verdict first, the probable cause in bold, then each check with its status and
-its evidence printed verbatim underneath - CLAUDE.md's rule that a system
+its evidence printed verbatim underneath - CONTRIBUTING.md's rule that a system
 error is never paraphrased applies to the CLI exactly as it does to the panel.
 """
 

@@ -487,7 +487,7 @@ def test_test_email_endpoint_reports_the_smtp_error_verbatim_in_output(
 ) -> None:
     """
     A delivery failure must show the mail server's own words, not a
-    paraphrase - CLAUDE.md's "a system error is never paraphrased" applies to
+    paraphrase - CONTRIBUTING.md's "a system error is never paraphrased" applies to
     SMTP exactly as it does to nginx or systemd.
 
     Builds its own app, with the error boundary ``noust.web.server.create_app``

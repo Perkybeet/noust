@@ -11,7 +11,7 @@ and an app that never writes to its own directory runs fine regardless.
 single files a restore or a database engine hands to another account - a
 Redis snapshot, a staged database dump - where the caller cannot shrug off a
 failure: reporting "restored" over a file still owned by root is exactly the
-silent failure CLAUDE.md rule 2 exists to remove.
+silent failure CONTRIBUTING.md rule 2 exists to remove.
 """
 
 from __future__ import annotations

@@ -4500,7 +4500,7 @@ def run_upgrade_rehearsal(sc: Scenario, wheel: Path, transitional_wheel: Path) -
     sc.evidence.append(
         f"NOTE: `noust --version` after the upgrade: {version_after.strip()!r}. This working "
         f"tree's pyproject.toml is still at {UPGRADE_FROM_VERSION} (not yet bumped for the 3.0.0 "
-        "release - see scripts/release.py and the Releasing section of CLAUDE.md); "
+        "release - see scripts/release.py and the Releasing section of CONTRIBUTING.md); "
         "upgrade_to_noust's docstring explains how the upgrade step compensates for the two "
         "packages (the real wasm-cli and this tree's noust) sharing that version number."
     )

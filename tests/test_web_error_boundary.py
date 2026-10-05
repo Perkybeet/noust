@@ -13,7 +13,7 @@ An ``AttributeError`` is a bug in the endpoint, not something a manager or a
 system tool reported, and this project's position on those is that they stay
 loud: catching them to answer a polite JSON error is precisely the mechanism
 by which five calls to methods that did not exist shipped for entire
-releases (see CLAUDE.md rule 2).
+releases (see CONTRIBUTING.md rule 2).
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ def test_a_bug_in_an_endpoint_is_not_dressed_up_as_a_system_error(
     An AttributeError here is a bug in the endpoint, not something the
     machine did; it must propagate rather than come back as a tidy
     ``{"error": ...}`` body, or the boundary would be exactly the kind of
-    broad except CLAUDE.md rule 2 forbids.
+    broad except CONTRIBUTING.md rule 2 forbids.
     """
 
     def broken() -> None:

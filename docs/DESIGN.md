@@ -1127,7 +1127,7 @@ NOUST_E2E_STATIC=/tmp/noust-dev-build npx playwright test design-contract tab-sw
 - **G-5 Copy** changes in the catalogs, English and Spanish together, and a term of the glossary
   changes in `panel/src/i18n/README.md` first.
 - **G-6 Builds.** Every change under `panel/src` ships with `npm run build` and the committed
-  `src/noust/web/static` (the packaging rule of `CLAUDE.md`).
+  `src/noust/web/static` (the packaging rule of `CONTRIBUTING.md`).
 - **G-7 Visual review.** Screenshots of every route at 390, 1440 and 1920 in both themes and in
   Spanish are reviewed before a release with six questions: is there one primary action? Does
   the state read in greyscale? Is anything coloured that is neither a state, an action nor a

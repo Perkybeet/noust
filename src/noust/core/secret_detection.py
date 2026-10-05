@@ -167,7 +167,7 @@ _VALUE_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("google api key", re.compile(r"\bAIza[0-9A-Za-z\-_]{35}\b")),
     ("sendgrid api key", re.compile(r"\bSG\.[A-Za-z0-9_\-]{16,}\.[A-Za-z0-9_\-]{16,}\b")),
     ("twilio credential", re.compile(r"\b(?:SK|AC)[0-9a-fA-F]{32}\b")),
-    # OpenAI- and Anthropic-style keys: "sk-" followed by at least 32 more
+    # Provider API keys of the form "sk-" followed by at least 32 more
     # characters. Checked after Stripe, which uses "sk_" (underscore) rather
     # than "sk-" (hyphen), so the two shapes cannot collide.
     ("api key", re.compile(r"\bsk-[A-Za-z0-9_\-]{32,}\b")),

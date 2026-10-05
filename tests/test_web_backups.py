@@ -420,7 +420,7 @@ def test_storage_lists_only_backup_directories_and_points_at_misplaced_ones(
     client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
-    The console listed /root's .ssh, .docker and .claude as applications.
+    The console listed /root's .ssh, .docker and .cache as applications.
 
     ``backup.directory: ''`` sent every backup to the working directory, so the
     storage page walked /root. It now counts only directories holding Noust

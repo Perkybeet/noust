@@ -1,4 +1,4 @@
-# Noust - Context for AI Assistants
+# Contributing to Noust
 
 Noust (previously WASM, renamed in 3.0.0) is a Python 3.10+ CLI for deploying web apps on
 Linux servers. Automates Nginx/Apache, SSL, systemd, databases and backups; builds every
@@ -201,8 +201,7 @@ Rules:
 
 ## Compose, hooks and the web server (3.2)
 
-Design: `docs/superpowers/specs/2026-10-02-noust-3.2-design.md`; the execution log is in its
-plan. Operator documentation is `docs/compose.md`.
+Operator documentation is `docs/compose.md`.
 
 - **`noust.yaml` is untrusted input and the schema is closed.** `project_file.py` reads it
   (`hooks.pre_deploy`, `hooks.post_deploy`, `backup.databases`); an unknown key, `..`, a link or
@@ -321,13 +320,12 @@ See `docs/CENTRAL.md` for running a central, sealing its secrets and adding a se
   `wasm.branch`, the `wasm-previous` image tag and the remote folder `wasm-backups`. Do not
   rename them within 3.x; accept both names where a new one was added (`noust.nginx.yaml`
   and `wasm.nginx.yaml`, `noust_tok_` and `wasm_tok_`, `noust_only` and `wasm_only`).
-- Owner feedback is numbered: items 1-52 shipped in 3.1; 3.2 continues from 53 (53-64 are in the
-  spec's section 8). Specs, plans and commit bodies cite them as "item N".
+- Feedback items are numbered and commit bodies cite them as "item N".
 - Google-style docstrings on everything public, with Args/Returns/Raises.
 - Type hints everywhere, modern syntax (`X | None`, `list[str]`).
 - Actionable errors: `raise DeploymentError("what happened", details="how to fix it")`.
 - Comments explain **why**, never what.
-- No emojis in code, comments or commit messages. No AI assistant references in commits.
+- No emojis in code, comments or commit messages.
 - Absolute paths in systemd units; `shutil.which()` or `/usr/bin/`, never nvm paths.
 - Noust requires root. There is no `sudo` inside argv and no `run_command_sudo`.
 
@@ -470,8 +468,7 @@ violations).
 Colour only ever encodes state (running green, in progress amber, failed red, stopped grey),
 plus the violet accent for interactive elements; every state also has a shape and a text
 label. Navigation, surfaces and text are achromatic, so anything coloured on screen is
-telling the operator something. The design direction is D8 in
-`docs/superpowers/specs/2026-09-25-wasm-v2-design.md`. UI copy is English and Spanish, sentence
+telling the operator something. UI copy is English and Spanish, sentence
 case, and lives only in the typed catalogs of `panel/src/i18n` (rules and glossary in its
 README): whole sentences with placeholders, never fragments.
 

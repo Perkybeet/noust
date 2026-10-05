@@ -54,7 +54,7 @@ import socket
 # throwaway process that seals a sandbox's secrets before this one serves it, so this
 # process never learns the passphrase itself and starts up genuinely locked. Nothing
 # this script serves ever runs through it - noust.core.runner.CommandRunner still is,
-# via the fake installed below - and CLAUDE.md's rule 1 is about src/noust, not this
+# via the fake installed below - and CONTRIBUTING.md's rule 1 is about src/noust, not this
 # development and test-only script.
 import subprocess
 import sys
@@ -517,7 +517,7 @@ def forbid_real_processes() -> None:
     """
     Make any process spawn that bypasses the runner fail instead of running.
 
-    The runner is the only sanctioned way to start a process (CLAUDE.md rule
+    The runner is the only sanctioned way to start a process (CONTRIBUTING.md rule
     1), and here it is a fake. A code path that spawns through asyncio
     directly would otherwise reach the developer's real journal or systemd.
     """
@@ -6798,7 +6798,7 @@ def seed_showcase_backup_destination() -> None:
     none of the documentation screenshots open that page, so this only registers the
     destination itself, through the same :class:`~noust.managers.backup_destinations.
     BackupDestinationManager` a real ``noust backup destination add`` calls, for the
-    dataset's own sake (CLAUDE.md rule 4: even a demo goes through the real manager, never
+    dataset's own sake (CONTRIBUTING.md rule 4: even a demo goes through the real manager, never
     a hand-written store row).
     """
     from noust.managers.backup_destinations import BackupDestinationManager

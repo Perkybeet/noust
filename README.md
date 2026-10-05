@@ -966,7 +966,7 @@ mypy                            # types
 
 The console's source is in `panel/` (React, TypeScript, Vite; Node 22). Its build is
 committed to `src/noust/web/static/`, so packaging never runs Node. See
-[CLAUDE.md](CLAUDE.md) for the project's rules and the console workflow.
+[CONTRIBUTING.md](CONTRIBUTING.md) for the project's rules and the console workflow.
 
 ---
 

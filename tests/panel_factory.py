@@ -4,7 +4,7 @@ Shared seed data for the panel's browser check and its API/view tests.
 A now-deleted ``scripts/panel_browser_check.py`` used to build its own
 domains, applications, services and sites inline. ``scripts/console_server.py``
 seeds a populated console the same way now, through this module instead of
-repeating that setup with its own set of magic numbers, and CLAUDE.md rule 3
+repeating that setup with its own set of magic numbers, and CONTRIBUTING.md rule 3
 says there is one implementation of each thing. This module is that one
 implementation.
 

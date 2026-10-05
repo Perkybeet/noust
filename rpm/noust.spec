@@ -636,7 +636,7 @@ fi
 - Enhancement: Web jobs use specific WASM exceptions instead of bare Exception
 - Enhancement: Web server uses logging module instead of print()
 - Enhancement: setup.py adds web/monitor/all extras and fixes entry point
-- Enhancement: .gitignore updated for rpm/*.spec, .claude/, .ruff_cache/
+- Enhancement: .gitignore updated for rpm/*.spec and .ruff_cache/
 
 * Mon Mar 09 2026 Perkybeet <yago.lopez.adeje@gmail.com> - 0.15.0-1
 - Feature: Add Docker Compose deployer with full deployment lifecycle

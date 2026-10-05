@@ -3924,7 +3924,7 @@ class BackupManager:
         Only archives named like a Noust backup count, and only directories
         holding one are listed. Every subdirectory used to be an
         "application": with the backup directory resolved to ``/root``, the
-        console listed ``.ssh``, ``.docker`` and ``.claude``. An archive with
+        console listed ``.ssh``, ``.docker`` and ``.cache``. An archive with
         no metadata still counts, because it still takes the space and
         :meth:`restore_archive` can still restore it.
 

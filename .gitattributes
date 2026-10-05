@@ -17,7 +17,6 @@ docker/ export-ignore
 docker-compose*.yml export-ignore
 
 # Exclude documentation for developers (keep README.md and docs/)
-CLAUDE.md export-ignore
 build-and-upload-obs.sh export-ignore
 
 # Keep these for distribution builds
@@ -31,4 +30,3 @@ build-and-upload-obs.sh export-ignore
 # docs/ - user documentation
 
 # Design research, specs and plans are for contributors, not for packages
-docs/superpowers/ export-ignore
