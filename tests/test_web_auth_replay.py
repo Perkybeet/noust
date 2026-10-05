@@ -12,6 +12,7 @@ number of times it is supposed to be usable, and then once more.
 from __future__ import annotations
 
 import sqlite3
+import time
 from pathlib import Path
 
 import pytest
@@ -58,13 +59,13 @@ def test_an_elevation_code_cannot_be_replayed(sandbox: Path) -> None:
     assert replay.status_code == 401, replay.text
 
 
-def test_one_code_may_sign_in_and_then_confirm_once_each(sandbox: Path) -> None:
+def test_the_code_that_signed_in_cannot_elevate_but_the_next_one_can(sandbox: Path) -> None:
     """
-    Reuse is refused per purpose, not across them.
+    Sudo mode takes a code without the token, so a code seen at sign-in must not open it.
 
-    Signing in and immediately confirming a destructive action is the normal
-    path; making the operator wait up to thirty seconds between the two would
-    buy nothing, since each is still a one-time use of the code.
+    Anyone who read the code over the operator's shoulder while it was typed
+    at the login page could otherwise elevate the stolen session with it
+    inside the same window. The next step's code is the operator's own.
     """
     client = build_client(sandbox)
     token = get_token_manager().generate_master_token()
@@ -74,11 +75,15 @@ def test_one_code_may_sign_in_and_then_confirm_once_each(sandbox: Path) -> None:
 
     signed_in = client.post("/api/auth/login", json={"token": token, "totp_code": code})
     assert signed_in.status_code == 200, signed_in.text
-    csrf = signed_in.json()["csrf_token"]
+    headers = {CSRF_HEADER_NAME: signed_in.json()["csrf_token"]}
 
-    elevated = client.post(
-        "/api/auth/elevate", json={"code": code}, headers={CSRF_HEADER_NAME: csrf}
-    )
+    replayed = client.post("/api/auth/elevate", json={"code": code}, headers=headers)
+    assert replayed.status_code == 401, replayed.text
+    assert replayed.json()["error"] == "invalid_totp"
+
+    # The drift window accepts the next step's code, which is also newer than the login's.
+    following = totp.totp_now(secret, t=time.time() + totp.PERIOD)
+    elevated = client.post("/api/auth/elevate", json={"code": following}, headers=headers)
     assert elevated.status_code == 200, elevated.text
 
 
@@ -102,8 +107,60 @@ def test_an_older_code_is_refused_once_a_newer_one_was_accepted(
 
     assert manager.verify_second_factor(current, purpose="login") is True
     assert manager.verify_second_factor(previous, purpose="login") is False
-    # The previous step is still fresh for a purpose that has not used any.
-    assert manager.verify_second_factor(previous, purpose="elevate") is True
+    # A purpose that has spent nothing still takes the previous step.
+    assert manager.verify_second_factor(previous, purpose="disable") is True
+    manager.sessions.close()
+
+
+def test_an_elevation_code_has_to_be_newer_than_the_login_that_came_first(
+    sandbox: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Neither the login's own step nor an earlier one elevates; a later one does."""
+    manager = TokenManager(make_config(sandbox))
+    secret = manager.begin_totp_enrollment()
+    now = 1_900_000_000.0
+    monkeypatch.setattr(auth_module, "_now", lambda: now)
+    assert manager.confirm_totp_enrollment(totp.totp_now(secret, t=now)) is not None
+
+    previous = totp.totp_now(secret, t=now - totp.PERIOD)
+    current = totp.totp_now(secret, t=now)
+    following = totp.totp_now(secret, t=now + totp.PERIOD)
+
+    assert manager.verify_second_factor(current, purpose="login") is True
+    assert manager.verify_second_factor(current, purpose="elevate") is False
+    assert manager.verify_second_factor(previous, purpose="elevate") is False
+    assert manager.verify_second_factor(following, purpose="elevate") is True
+    # Elevating does not hold a later sign-in back: only elevation follows login.
+    assert manager.verify_second_factor(following, purpose="login") is True
+    manager.sessions.close()
+
+
+def test_an_elevation_without_a_login_before_it_takes_any_current_code(
+    sandbox: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The floor is the login's step: with none spent, the drift window is all there is."""
+    manager = TokenManager(make_config(sandbox))
+    secret = manager.begin_totp_enrollment()
+    now = 1_900_000_000.0
+    monkeypatch.setattr(auth_module, "_now", lambda: now)
+    assert manager.confirm_totp_enrollment(totp.totp_now(secret, t=now)) is not None
+    state = manager._read_totp_state()
+    assert state["last_steps"] == {}
+
+    assert manager.verify_second_factor(totp.totp_now(secret, t=now), purpose="elevate") is True
+    manager.sessions.close()
+
+
+def test_a_backup_code_still_elevates_after_a_login_and_only_once(sandbox: Path) -> None:
+    """The step floor is for TOTP steps; a backup code is single-use whatever it was for."""
+    manager = TokenManager(make_config(sandbox))
+    secret = manager.begin_totp_enrollment()
+    codes = manager.confirm_totp_enrollment(totp.totp_now(secret))
+    assert codes is not None
+    assert manager.verify_second_factor(totp.totp_now(secret), purpose="login") is True
+
+    assert manager.verify_second_factor(codes[0], purpose="elevate") is True
+    assert manager.verify_second_factor(codes[0], purpose="elevate") is False
     manager.sessions.close()
 
 

@@ -1450,8 +1450,10 @@ class AccountManager:
             account_id: The account.
             code: What was typed.
             purpose: What it is spent on; a TOTP step is not accepted twice
-                for the same purpose. Backup codes are single-use whatever
-                the purpose.
+                for the same purpose, and a code for ``elevate`` has to be
+                newer than the last one accepted for ``login``
+                (:data:`noust.core.totp.STEP_FLOORS`). Backup codes are
+                single-use whatever the purpose.
 
         Returns:
             True when it matched; False otherwise, including when the account
@@ -1479,7 +1481,7 @@ class AccountManager:
             step = totp.matched_step(secret, code, t=self.now()) if secret else None
             if step is not None:
                 spent = _decode_steps(row[1])
-                last = spent.get(purpose)
+                last = totp.newest_spent_step(spent, purpose)
                 if last is not None and step <= last:
                     return False
                 spent[purpose] = step

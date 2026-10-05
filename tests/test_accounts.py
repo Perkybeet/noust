@@ -349,7 +349,36 @@ class TestSignIn:
         accounts.authenticate("maria", PASSWORD, code, client_ip="198.51.100.1")
         with pytest.raises(AuthenticationFailed):
             accounts.authenticate("maria", PASSWORD, code, client_ip="198.51.100.1")
-        assert accounts.verify_second_factor(account.id, code, purpose="elevate")
+
+    def test_the_code_that_signed_in_cannot_elevate_but_the_next_one_can(self, accounts, clock):
+        # Sudo mode takes a code without the password, so a code read at sign-in must not open it.
+        account = accounts.create("maria", "admin", password=PASSWORD)
+        secret, _ = enrol(accounts, account.id, clock)
+        code = code_for(secret, clock)
+        accounts.authenticate("maria", PASSWORD, code, client_ip="198.51.100.1")
+
+        assert accounts.verify_second_factor(account.id, code, purpose="elevate") is False
+        earlier = totp.totp_now(secret, t=clock.now - totp.PERIOD)
+        assert accounts.verify_second_factor(account.id, earlier, purpose="elevate") is False
+        following = totp.totp_now(secret, t=clock.now + totp.PERIOD)
+        assert accounts.verify_second_factor(account.id, following, purpose="elevate") is True
+        # And that one is spent for elevating, like any other.
+        assert accounts.verify_second_factor(account.id, following, purpose="elevate") is False
+
+    def test_elevating_does_not_hold_a_later_sign_in_back(self, accounts, clock):
+        account = accounts.create("maria", "admin", password=PASSWORD)
+        secret, _ = enrol(accounts, account.id, clock)
+        assert accounts.verify_second_factor(account.id, code_for(secret, clock), purpose="elevate")
+
+        assert accounts.verify_second_factor(account.id, code_for(secret, clock), purpose="login")
+
+    def test_a_backup_code_elevates_after_a_sign_in_and_only_once(self, accounts, clock):
+        account = accounts.create("maria", "admin", password=PASSWORD)
+        secret, codes = enrol(accounts, account.id, clock)
+        accounts.authenticate("maria", PASSWORD, code_for(secret, clock), client_ip="1.2.3.4")
+
+        assert accounts.verify_second_factor(account.id, codes[0], purpose="elevate") is True
+        assert accounts.verify_second_factor(account.id, codes[0], purpose="elevate") is False
 
     def test_a_backup_code_works_once(self, accounts, clock):
         account = accounts.create("maria", "admin", password=PASSWORD)

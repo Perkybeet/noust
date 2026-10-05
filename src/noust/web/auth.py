@@ -2786,12 +2786,17 @@ class TokenManager:
         read over a shoulder stayed good for the rest of its window, up to
         ninety seconds with the drift allowance.
 
+        Sudo mode takes a code without the token, so a code for ``elevate``
+        also has to be newer than the last one that signed in
+        (:data:`noust.core.totp.STEP_FLOORS`): the code typed at sign-in
+        cannot be replayed to elevate a session.
+
         Args:
             code: What the client typed.
             purpose: What the code is being spent on - ``login``, ``elevate``
-                or ``disable``. Remembered separately so that signing in and
-                then confirming a destructive action with the same code, each
-                once, does not make the operator wait for the next one.
+                or ``disable``. Remembered per purpose, and ``elevate``
+                follows ``login``: the operator who signs in and then
+                confirms a destructive action waits for the next code.
 
         Returns:
             True when the code is a current, unused TOTP value or an unused
@@ -2807,10 +2812,14 @@ class TokenManager:
                 return False
             step = totp.matched_step(state["secret"], code, t=_now())
             if step is not None:
-                spent = state.get("last_steps")
-                spent = dict(spent) if isinstance(spent, dict) else {}
-                last = spent.get(purpose)
-                if isinstance(last, int) and step <= last:
+                stored = state.get("last_steps")
+                spent = (
+                    {str(name): value for name, value in stored.items() if isinstance(value, int)}
+                    if isinstance(stored, dict)
+                    else {}
+                )
+                last = totp.newest_spent_step(spent, purpose)
+                if last is not None and step <= last:
                     return False
                 spent[purpose] = step
                 state["last_steps"] = spent
