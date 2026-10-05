@@ -28,6 +28,7 @@ from noust.core.runner import DryRunRunner
 from noust.managers.server import host as host_module
 from noust.managers.server import security_checks
 from noust.managers.server.security import ServerSecurity
+from noust.managers.server.security_proof import NEGATIVE_TTL
 from noust.managers.server.security_sshd import DROPIN
 from tests.server_security_support import ED_FP, NOW, FakeHost, FakeSshd, accepted
 
@@ -49,7 +50,9 @@ def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     runner.only_knows("apt-get", "ufw", "systemctl", "sshd")
     runner.script(["ufw", "status", "verbose"], stdout="Status: inactive\n")
     runner.script(["ufw", "show", "added"], stdout="")
-    state: dict[str, Any] = {"runner": runner}
+    # Every command is its own process in real life; here they share the proof's memory, so the
+    # clock is what tells them apart.
+    state: dict[str, Any] = {"runner": runner, "now": NOW}
 
     def build(*, actor: str, on_output: Any = None) -> ServerSecurity:
         return ServerSecurity(
@@ -59,7 +62,7 @@ def machine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
             changes=tmp_path / "changes",
             on_output=on_output,
             console_port=8080,
-            clock=lambda: NOW,
+            clock=lambda: state["now"],
             python="/usr/bin/python3",
         )
 
@@ -112,6 +115,7 @@ class TestSsh:
             ["journalctl"],
             stdout=accepted("root", ED_FP, at=NOW + 30, source="203.0.113.5", port=60001) + "\n",
         )
+        machine.state["now"] += NEGATIVE_TTL
         seen = invoke("pending")
         as_json = json.loads(invoke("pending", "--json").output)
 

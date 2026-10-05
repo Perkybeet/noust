@@ -84,11 +84,12 @@ REQUEST_TIMEOUT = 60.0
 
 #: How long the operator's sudo mode, confirmed when the job was created,
 #: covers its steps: a job does not start an elevated step on a node after
-#: this, it skips it (``elevation_expired``). Not the session's sliding window
-#: (``auth.sudo.*``): the operator confirmed the plan, and a batch that outlasts
-#: their working session must not stop half way. The central checks sudo mode
-#: through ``ensure_elevated`` before queueing, which is also what keeps the
-#: session's own window open.
+#: this, it skips it (``elevation_expired``). It is a ceiling, never a grant
+#: beyond what the operator holds: the job ends where the queuing session's own
+#: sudo window ends when that is sooner (:func:`elevation_deadline`), because a
+#: batch must not act under a confirmation that has already lapsed. The central
+#: checks sudo mode through ``ensure_elevated`` before queueing, which is also
+#: what keeps the session's own window open.
 ELEVATION_WINDOW_SECONDS = 30 * 60
 
 #: Most of a node's words kept per server.
@@ -2079,8 +2080,33 @@ def fleet_action_job(
     return snapshot
 
 
+def elevation_deadline(window_end: float | None, *, now: float | None = None) -> float:
+    """
+    Work out until when a job queued under sudo mode may start elevated steps.
+
+    Args:
+        window_end: Where the queuing session's own sudo window ends, as a Unix
+            time; None for a credential that has no window (the master token
+            as a Bearer, an API token), which leaves only the job's ceiling.
+        now: The moment of queueing; the clock when omitted.
+
+    Returns:
+        The earlier of :data:`ELEVATION_WINDOW_SECONDS` from ``now`` and the end
+        of the session's window: a job never outlasts the confirmation that
+        started it.
+    """
+    moment = time.time() if now is None else now
+    ceiling = moment + ELEVATION_WINDOW_SECONDS
+    return ceiling if window_end is None else min(ceiling, float(window_end))
+
+
 def start_job(
-    the_plan: Plan, *, asker: Asker, actor: str | None, elevated: bool
+    the_plan: Plan,
+    *,
+    asker: Asker,
+    actor: str | None,
+    elevated: bool,
+    window_end: float | None = None,
 ) -> tuple[Job, dict[str, Any]]:
     """
     Queue a bulk action as a console job, and record it.
@@ -2090,7 +2116,10 @@ def start_job(
         asker: Who acts.
         actor: Who asked, as the job records it.
         elevated: Whether the operator's sudo mode was confirmed; it covers the
-            job's elevated steps for :data:`ELEVATION_WINDOW_SECONDS`.
+            job's elevated steps for :data:`ELEVATION_WINDOW_SECONDS` at most.
+        window_end: Where the queuing session's sudo window ends, which the
+            job's cover never goes past (:func:`elevation_deadline`); None for
+            a credential with no window.
 
     Returns:
         The job, and the plan as it was shown.
@@ -2106,7 +2135,7 @@ def start_job(
         kwargs={
             "request": the_plan.request.to_dict(),
             "asker": asdict(asker),
-            "elevated_until": time.time() + ELEVATION_WINDOW_SECONDS if elevated else None,
+            "elevated_until": elevation_deadline(window_end) if elevated else None,
             "created_by": actor,
         },
         metadata={"action": the_plan.spec.name, "nodes": targets},

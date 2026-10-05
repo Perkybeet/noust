@@ -533,7 +533,8 @@ class SshSecurity:
         change = self.ledger.load(change_id)
         if change.status != "pending":
             raise SecurityError(f"Change {change_id} is already {change.status}")
-        found = find_proof(self.probe, change)
+        # Fresh: a remembered "no new login yet" must never be what Keep refuses on.
+        found = find_proof(self.probe, change, fresh=True)
         deadline = datetime.fromtimestamp(change.expires_at, tz=timezone.utc).strftime(
             "%H:%M:%S UTC"
         )

@@ -311,6 +311,11 @@ NAS doméstico o el portátil de un administrador incumplen mp.if.1 a mp.if.7. R
 - Copia cifrada diaria o semanal (`noust central backup`) guardada fuera de sitio, con su
   passphrase custodiada aparte, y verificada mensualmente (`--verify`).
 - Una central de preproducción para probar cada actualización de Noust antes de la de producción.
+- El perfil `ens-medium` activo **en la propia central** cuando gestiona nodos que lo tienen. El
+  modo sudo se confirma en la central: esta pregunta a su operador y responde de ello al nodo
+  (`X-Noust-Elevated`), y el nodo lo acepta sin aplicar a esa llamada su propia política de modo
+  sudo, tampoco la del perfil (contraseña y código, 10 min tras la última acción, 30 como máximo).
+  La política que rige lo que se hace desde la central es, por tanto, la de la central.
 
 ### 5.3 Puesta en marcha (día 0)
 

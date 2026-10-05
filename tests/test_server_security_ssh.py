@@ -15,13 +15,15 @@ drop-in the code writes, so "the value changed" is observed, not assumed.
 
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 
 import pytest
 
 from noust.core.exceptions import SecurityError
-from noust.managers.server import security_pending
+from noust.managers.server import security_pending, security_proof
+from noust.managers.server.security import ServerSecurity
 from noust.managers.server.security_access import AccessGuardError, prove_key_access
 from noust.managers.server.security_accounts import HostAccounts
 from noust.managers.server.security_keys import (
@@ -35,7 +37,7 @@ from noust.managers.server.security_keys import (
 from noust.managers.server.security_logins import LoginReader, parse_short_unix, parse_syslog
 from noust.managers.server.security_pending import CONFIRM_WINDOW, ChangeLedger
 from noust.managers.server.security_probe import SecurityProbe
-from noust.managers.server.security_proof import find_proof
+from noust.managers.server.security_proof import NEGATIVE_TTL, find_proof
 from noust.managers.server.security_sockets import parse_established, parse_listeners
 from noust.managers.server.security_ssh import SshSecurity
 from noust.managers.server.security_sshd import (
@@ -1175,6 +1177,189 @@ class TestProofOnRecord:
             kept = False
 
         assert listed is kept
+
+
+class TestProofIsRemembered:
+    """The console reads a pending change every few seconds; journalctl is not run each time."""
+
+    @pytest.fixture
+    def moment(self) -> list[float]:
+        """The probe's clock, which a test moves by hand."""
+        return [NOW]
+
+    def _applied(self, sshd, host, ledger):
+        _journal(sshd, accepted("root", ED_FP, at=NOW - 3600))
+        return _security(sshd, host, ledger).apply("disable-passwords")
+
+    def _probe_at(self, sshd, host, moment) -> SecurityProbe:
+        return SecurityProbe(runner=sshd, host=host.paths, clock=lambda: moment[0])
+
+    def _reads(self, sshd) -> int:
+        return len(sshd.calls_to("journalctl"))
+
+    def test_a_login_that_was_seen_stays_seen_without_reading_again(
+        self, sshd, host, ledger, moment
+    ):
+        change = self._applied(sshd, host, ledger)
+        _journal(sshd, accepted("root", ED_FP, at=NOW + 20, source="203.0.113.5", port=50001))
+        first = find_proof(self._probe_at(sshd, host, moment), change)
+        reads = self._reads(sshd)
+
+        # Long after the short life of a "no", and with the journal now saying nothing.
+        moment[0] += 3600
+        _journal(sshd)
+        again = find_proof(self._probe_at(sshd, host, moment), change)
+
+        assert first.seen and again.seen
+        assert again.login == first.login
+        assert self._reads(sshd) == reads
+
+    def test_no_login_yet_is_kept_for_a_few_seconds_only(self, sshd, host, ledger, moment):
+        change = self._applied(sshd, host, ledger)
+        reads = self._reads(sshd)
+
+        first = find_proof(self._probe_at(sshd, host, moment), change)
+        moment[0] += NEGATIVE_TTL / 2
+        _journal(sshd, accepted("root", ED_FP, at=NOW + 1, source="203.0.113.5", port=50001))
+        within = find_proof(self._probe_at(sshd, host, moment), change)
+        assert self._reads(sshd) == reads + 1
+        assert not first.seen and not within.seen
+
+        moment[0] += NEGATIVE_TTL
+        after = find_proof(self._probe_at(sshd, host, moment), change)
+
+        assert self._reads(sshd) == reads + 2
+        assert after.seen
+
+    def test_an_unreadable_history_is_kept_for_a_few_seconds_only(self, sshd, host, ledger, moment):
+        change = self._applied(sshd, host, ledger)
+        sshd.script(["journalctl"], stderr="No journal files were found.", exit_code=1)
+        reads = self._reads(sshd)
+
+        first = find_proof(self._probe_at(sshd, host, moment), change)
+        second = find_proof(self._probe_at(sshd, host, moment), change)
+
+        assert not first.readable and second == first
+        assert self._reads(sshd) == reads + 1
+        moment[0] += NEGATIVE_TTL
+        find_proof(self._probe_at(sshd, host, moment), change)
+        assert self._reads(sshd) == reads + 2
+
+    def test_a_clock_that_went_back_does_not_keep_an_answer_alive(self, sshd, host, ledger, moment):
+        change = self._applied(sshd, host, ledger)
+        reads = self._reads(sshd)
+        find_proof(self._probe_at(sshd, host, moment), change)
+
+        moment[0] -= 5
+        find_proof(self._probe_at(sshd, host, moment), change)
+
+        assert self._reads(sshd) == reads + 2
+
+    def test_keep_does_not_refuse_on_a_remembered_no(self, sshd, host, ledger, moment):
+        change = self._applied(sshd, host, ledger)
+        probe = self._probe_at(sshd, host, moment)
+        assert not find_proof(probe, change).seen
+        _journal(sshd, accepted("root", ED_FP, at=NOW + 2, source="203.0.113.5", port=50001))
+
+        # Still inside the life of the "no": the listing may say so, Keep must not.
+        confirmed = SshSecurity(probe, ledger, actor="tester").confirm(change.id)
+
+        assert confirmed.status == "confirmed"
+
+    def test_keep_goes_by_a_login_that_was_already_found_without_reading(
+        self, sshd, host, ledger, moment
+    ):
+        change = self._applied(sshd, host, ledger)
+        _journal(sshd, accepted("root", ED_FP, at=NOW + 20, source="203.0.113.5", port=50001))
+        probe = self._probe_at(sshd, host, moment)
+        assert find_proof(probe, change).seen
+        reads = self._reads(sshd)
+
+        confirmed = SshSecurity(probe, ledger, actor="tester").confirm(change.id)
+
+        assert confirmed.status == "confirmed"
+        assert "203.0.113.5 port 50001" in confirmed.resolution
+        assert self._reads(sshd) == reads
+
+    def test_each_change_is_remembered_on_its_own(self, sshd, host, ledger, moment):
+        first = self._applied(sshd, host, ledger)
+        second = copy.copy(first)
+        second.id = "feed1234"
+        reads = self._reads(sshd)
+        probe = self._probe_at(sshd, host, moment)
+
+        find_proof(probe, first)
+        find_proof(probe, second)
+        find_proof(probe, first)
+
+        assert first.id != second.id
+        assert self._reads(sshd) == reads + 2
+
+    def test_a_change_that_is_not_pending_is_not_remembered(self, sshd, host, ledger, moment):
+        change = self._applied(sshd, host, ledger)
+        change.status = "reverted"
+        reads = self._reads(sshd)
+        probe = self._probe_at(sshd, host, moment)
+
+        find_proof(probe, change)
+        find_proof(probe, change)
+
+        assert self._reads(sshd) == reads + 2
+
+    def test_invalidating_the_probe_forgets_what_was_found(self, sshd, host, ledger, moment):
+        change = self._applied(sshd, host, ledger)
+        _journal(sshd, accepted("root", ED_FP, at=NOW + 20, source="203.0.113.5", port=50001))
+        probe = self._probe_at(sshd, host, moment)
+        find_proof(probe, change)
+        reads = self._reads(sshd)
+
+        probe.invalidate()
+        find_proof(probe, change)
+
+        assert self._reads(sshd) == reads + 1
+
+    def test_listing_the_changes_twice_reads_the_history_once(self, sshd, host, ledger, moment):
+        self._applied(sshd, host, ledger)
+        security = ServerSecurity(
+            actor="tester",
+            runner=sshd,
+            host=host.paths,
+            changes=ledger.directory,
+            console_port=8080,
+            clock=lambda: moment[0],
+            python="/usr/bin/python3",
+        )
+        reads = self._reads(sshd)
+
+        first = security.described_changes()
+        second = security.described_changes()
+
+        assert first[0]["status"] == second[0]["status"] == "pending"
+        assert first[0]["proof_seen"] is second[0]["proof_seen"] is False
+        assert self._reads(sshd) == reads + 1
+
+    def test_what_was_found_about_a_settled_change_is_dropped_when_the_changes_are_listed(
+        self, sshd, host, ledger, moment
+    ):
+        change = self._applied(sshd, host, ledger)
+        _journal(sshd, accepted("root", ED_FP, at=NOW + 20, source="203.0.113.5", port=50001))
+        security = ServerSecurity(
+            actor="tester",
+            runner=sshd,
+            host=host.paths,
+            changes=ledger.directory,
+            console_port=8080,
+            clock=lambda: moment[0],
+            python="/usr/bin/python3",
+        )
+        assert security.described_changes()[0]["proof_seen"] is True
+        ledger.revert(change.id, by="tester")
+        reads = self._reads(sshd)
+
+        assert security.described_changes()[0]["status"] == "reverted"
+
+        assert self._reads(sshd) == reads
+        assert not any(key[0] == change.id for key in security_proof._remembered)
 
 
 # Keys: add and remove ---------------------------------------------------------------

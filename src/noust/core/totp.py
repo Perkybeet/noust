@@ -23,6 +23,7 @@ import os
 import secrets
 import struct
 import time
+from collections.abc import Mapping
 from pathlib import Path
 from urllib.parse import quote
 
@@ -136,6 +137,29 @@ def matched_step(
         if hmac.compare_digest(_hotp(secret_b32, now + offset), candidate) and found is None:
             found = now + offset
     return found
+
+
+#: The purposes whose spent steps a code for a purpose has to be newer than, besides its own.
+#: Sudo mode takes a code without the password, so a code someone typed at sign-in (and that
+#: anyone looking over the shoulder read) would still be good for it inside its window; an
+#: elevation code therefore has to come after the one that signed in.
+STEP_FLOORS: dict[str, tuple[str, ...]] = {"elevate": ("login",)}
+
+
+def newest_spent_step(spent: Mapping[str, int], purpose: str) -> int | None:
+    """
+    The step a code for a purpose has to be newer than.
+
+    Args:
+        spent: The last step accepted per purpose.
+        purpose: What the code is being spent on.
+
+    Returns:
+        The highest step spent for the purpose or for any purpose it has to follow
+        (:data:`STEP_FLOORS`); None when none has been spent.
+    """
+    steps = [spent[name] for name in (purpose, *STEP_FLOORS.get(purpose, ())) if name in spent]
+    return max(steps) if steps else None
 
 
 def verify(secret_b32: str, code: str, *, window: int = 1, t: float | None = None) -> bool:

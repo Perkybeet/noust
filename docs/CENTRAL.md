@@ -247,6 +247,13 @@ approved it). The server cannot check the central's decision, only that one was 
 refuses the call when either header is missing or malformed, or when the approver named is the
 operator who asked, and its audit log records both people and the central's token.
 
+Sudo mode is confirmed on the central, not on the server. When a call needs it, the central asks
+its own operator and vouches for the answer with `X-Noust-Elevated`; the server accepts that and
+does not apply its own `auth.sudo.*` policy to the call, whatever profile the server runs
+(`ens-medium` included). The central's policy is therefore the one in force for what its
+operators do through it: a central that manages servers on the `ens-medium` profile has to run
+the `ens-medium` profile itself (see [ENS.md](ENS.md), section 5.2).
+
 ```bash
 noust fleet access                           # on the server: the ceiling in force
 noust fleet access --level read              # takes effect on the next request

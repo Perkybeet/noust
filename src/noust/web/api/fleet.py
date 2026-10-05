@@ -742,12 +742,20 @@ async def _plan_and_start(
             details="Every server was skipped; the plan says why for each one.",
             field="targets",
         )
+    # One copy for the check and the job: passing the check slides the session's
+    # window, and the job must be bounded by the window as it stands afterwards.
+    confirmed = dict(session)
     if the_plan.requires_elevation:
-        ensure_elevated(request, dict(session))
+        ensure_elevated(request, confirmed)
     actor = actor_label(session)
+    window_end = confirmed.get("elevated_until")
     job, described = await run_in_threadpool(
         lambda: start_job(
-            the_plan, asker=asker, actor=actor, elevated=central_elevated(dict(session))
+            the_plan,
+            asker=asker,
+            actor=actor,
+            elevated=central_elevated(confirmed),
+            window_end=float(window_end) if window_end is not None else None,
         )
     )
     return {

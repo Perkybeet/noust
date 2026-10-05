@@ -19,12 +19,23 @@ What counts depends on :attr:`PendingChange.proof`:
 - ``any`` (firewall changes): any login, the tunnel included, because the
   question is only whether port 22 is still open.
 
-The history is read uncached since the change: it is a short window, and the
-login that matters is the one that happened a moment ago.
+The history is read since the change: it is a short window, and the login that
+matters is the one that happened a moment ago. The console reads every pending
+change again every few seconds, and each reading runs ``journalctl``, so what
+has been found is remembered for this process, with different rules for what it
+found:
+
+- a login that counts stays on record until the change leaves ``pending``: the
+  history after a moment only grows, so a login that was seen is still there;
+- "no login yet" and "cannot be read" are kept for :data:`NEGATIVE_TTL` seconds
+  only, so a login that arrives is shown on the next reading after that;
+- Keep never goes by a remembered "no": :meth:`SshSecurity.confirm` asks with
+  ``fresh=True``, which reads the history now unless a login was already found.
 """
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass
 from typing import Any
 
@@ -76,7 +87,73 @@ class ChangeProof:
         }
 
 
-def find_proof(probe: SecurityProbe, change: PendingChange) -> ChangeProof:
+#: Seconds a "no new login yet" or "cannot be read" is remembered. Just under the
+#: console's three-second reading of a pending change, so a tab reading alone
+#: always sees a fresh answer while several readers at once share one.
+NEGATIVE_TTL = 2.5
+
+
+@dataclass(frozen=True)
+class _Remembered:
+    """
+    A proof found earlier in this process.
+
+    Attributes:
+        runner: The command runner it was read through: a test's fake machine
+            never answers another's.
+        proof: What was found.
+        at: When, on the probe's clock.
+    """
+
+    runner: object
+    proof: ChangeProof
+    at: float
+
+
+#: Per change (its id, what counts for it and when it started), guarded by
+#: :data:`_lock`, which is also held while the history is read so that readers
+#: arriving together wait for one reading instead of each making their own.
+_remembered: dict[tuple[str, str, float], _Remembered] = {}
+_lock = threading.Lock()
+
+
+def forget_proofs(keep: set[str] | None = None) -> None:
+    """
+    Drop what was found about changes.
+
+    Args:
+        keep: The ids of the changes still pending, whose proofs stay; every
+            other proof is dropped. None drops them all.
+    """
+    with _lock:
+        for key in [key for key in _remembered if keep is None or key[0] not in keep]:
+            del _remembered[key]
+
+
+def _recall(
+    key: tuple[str, str, float], probe: SecurityProbe, *, fresh: bool
+) -> ChangeProof | None:
+    """
+    Args:
+        key: The change.
+        probe: Gives the runner it must have been read through, and the time.
+        fresh: Whether a remembered "no" is not good enough.
+
+    Returns:
+        What was found before, or None when it has to be looked for again. The
+        caller holds :data:`_lock`.
+    """
+    found = _remembered.get(key)
+    if found is None or found.runner is not probe.runner:
+        return None
+    if found.proof.seen:
+        return found.proof
+    age = probe.now() - found.at
+    # A clock that went back is not a reading that is still young.
+    return found.proof if not fresh and 0 <= age < NEGATIVE_TTL else None
+
+
+def find_proof(probe: SecurityProbe, change: PendingChange, *, fresh: bool = False) -> ChangeProof:
     """
     Look for the login that proves a change kept a way in.
 
@@ -84,6 +161,50 @@ def find_proof(probe: SecurityProbe, change: PendingChange) -> ChangeProof:
         probe: What reads the login history and the central's keys.
         change: The change; its ``applied_at`` starts the window and its
             ``proof`` says which logins count.
+        fresh: Read the history now even when a "no new login yet" was found a
+            moment ago. A login already found is still returned: it cannot go
+            away. What Keep asks with, because it must never refuse on an old
+            answer.
+
+    Returns:
+        The proof: the newest counting login, or why none can be shown.
+    """
+    key = (change.id, change.proof, change.applied_at)
+    with _lock:
+        recalled = _recall(key, probe, fresh=fresh)
+        if recalled is not None:
+            return recalled
+        proof = _look(probe, change)
+        # A change that is not waiting any more has nothing to be remembered for.
+        if change.status == "pending":
+            _remembered[key] = _Remembered(probe.runner, proof, probe.now())
+            _drop_stale(probe)
+        return proof
+
+
+def _drop_stale(probe: SecurityProbe) -> None:
+    """
+    Forget the "no" answers that have aged out, so they do not pile up.
+
+    Args:
+        probe: Gives the time. The caller holds :data:`_lock`.
+    """
+    now = probe.now()
+    for key in [
+        key
+        for key, found in _remembered.items()
+        if not found.proof.seen and not 0 <= now - found.at < NEGATIVE_TTL
+    ]:
+        del _remembered[key]
+
+
+def _look(probe: SecurityProbe, change: PendingChange) -> ChangeProof:
+    """
+    Read the login history for a change.
+
+    Args:
+        probe: What reads the login history and the central's keys.
+        change: The change.
 
     Returns:
         The proof: the newest counting login, or why none can be shown.
