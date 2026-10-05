@@ -11,8 +11,8 @@ audit records, in the same words. This module parses arguments and prints.
 ``noust server`` (:mod:`noust.cli.commands.server`) loads this module by name
 and calls :func:`register`, so the group joins it without an edit there.
 
-A change to sshd or the firewall ends pending: it undoes itself after 120
-seconds unless ``noust server security confirm`` runs after a *new* SSH login
+A change to sshd or the firewall ends pending: it undoes itself after 5
+minutes unless ``noust server security confirm`` runs after a *new* SSH login
 (open a second terminal, log in, confirm from there or from here).
 """
 
@@ -157,6 +157,28 @@ def _print_change(ctx: Context, result: dict[str, Any]) -> None:
     logger.info(f"  noust server security confirm {change['id']}")
 
 
+def _proof_line(change: dict[str, Any]) -> str:
+    """
+    Whether the new login a pending change waits for is already on record.
+
+    The state is the console's, read from the same fields the API sends: it comes
+    from the code that ``confirm`` refuses on.
+
+    Args:
+        change: A pending change as :meth:`ServerSecurity.describe_change` returns it.
+
+    Returns:
+        One sentence: the login seen, why none can be seen, or that it is awaited.
+    """
+    if not change["proof_readable"]:
+        return f"Cannot see new logins: {change['proof_error']}"
+    login = change["proof_login"]
+    if login is None:
+        return "Waiting for a new SSH login: a session that was already open proves nothing"
+    when = datetime.fromtimestamp(login["at"]).strftime("%H:%M:%S")
+    return f"New login seen: {login['user']} from {login['source']} at {when}"
+
+
 def _print_checks(ctx: Context, report: CheckReport, *, show_all: bool) -> None:
     """
     Print the checks: the findings, and every check with ``--all``.
@@ -246,6 +268,7 @@ def status_command(ctx: Context) -> None:
             f"Waiting for confirmation: {change['title']} "
             f"(noust server security confirm {change['id']})"
         )
+        logger.info(f"  {_proof_line(change)}")
 
 
 @security.command("checks", read_only=True)
@@ -283,7 +306,7 @@ def fix_command(ctx: Context, check_id: str, epel: bool, yes: bool) -> None:
     Apply a check's automatic fix, with its guard.
 
     SSH and firewall fixes wait for confirmation and undo themselves after
-    120 seconds without it.
+    5 minutes without it.
     """
     _helpers()._confirm(ctx, f"Apply the fix of {check_id}?", yes=yes)
     _print_change(
@@ -296,24 +319,28 @@ def fix_command(ctx: Context, check_id: str, epel: bool, yes: bool) -> None:
 @pass_context
 def pending_command(ctx: Context) -> None:
     """List the SSH and firewall changes, the ones waiting for confirmation first."""
-    changes = _security(ctx, verbose_output=False).pending()
+    changes = _security(ctx, verbose_output=False).described_changes()
     if ctx.json_output:
-        _json([change.to_dict() for change in changes])
+        _json(changes)
         return
     if not changes:
         ctx.logger.info("No SSH or firewall change has been made with Noust.")
         return
+    ordered = sorted(changes, key=lambda item: item["status"] != "pending")
     rows = [
         [
-            change.id,
-            change.status,
-            change.title,
-            datetime.fromtimestamp(change.applied_at).strftime("%Y-%m-%d %H:%M"),
-            change.actor,
+            change["id"],
+            change["status"],
+            change["title"],
+            datetime.fromtimestamp(change["applied_at"]).strftime("%Y-%m-%d %H:%M"),
+            change["actor"],
         ]
-        for change in sorted(changes, key=lambda item: item.status != "pending")
+        for change in ordered
     ]
     ctx.logger.table(["Change", "Status", "What", "Applied", "By"], rows)
+    for change in ordered:
+        if change["status"] == "pending":
+            ctx.logger.info(f"{change['id']}: {_proof_line(change)}")
 
 
 def _only_pending(ctx: Context, change_id: str | None) -> str:
@@ -536,7 +563,7 @@ def ssh_harden_command(ctx: Context, fix: str, yes: bool) -> None:
     """
     Apply an sshd fix safely: proof of another way in, sshd -t, reload, verify.
 
-    It undoes itself after 120 seconds unless confirmed after a new login.
+    It undoes itself after 5 minutes unless confirmed after a new login.
     """
     _helpers()._confirm(ctx, f"Apply '{SSH_FIXES[fix].title}'?", yes=yes)
     _print_change(ctx, _run(ctx, "ssh.fix", {"fix": fix}, action="ssh harden"))

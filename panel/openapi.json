@@ -4618,7 +4618,7 @@
         "type": "object"
       },
       "ChangeOut": {
-        "description": "A change to sshd or the firewall.\n\n``pending`` until confirmed or undone; ``expires_at`` (epoch seconds) is\nwhen its timer undoes it.",
+        "description": "A change to sshd or the firewall.\n\n``pending`` until confirmed or undone; ``expires_at`` (epoch seconds) is\nwhen its timer undoes it.\n\nWhile it is pending, ``proof_seen`` says whether the new SSH login that\nkeeps it is already on record, and ``proof_login`` is that login: the\nsame check Keep makes, so Keep will not be refused for it. A session that\nwas already open does not count; for ``proof`` ``operator`` (sshd) neither\ndoes a central's tunnel. ``proof_readable`` is false when sshd's login\nhistory cannot be read, ``proof_error`` saying why verbatim. These four\nmean nothing once the change is confirmed, undone or expired.",
         "properties": {
           "actor": {
             "title": "Actor",
@@ -4678,6 +4678,31 @@
           "proof": {
             "title": "Proof",
             "type": "string"
+          },
+          "proof_error": {
+            "default": "",
+            "title": "Proof Error",
+            "type": "string"
+          },
+          "proof_login": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProofLoginOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "proof_readable": {
+            "default": true,
+            "title": "Proof Readable",
+            "type": "boolean"
+          },
+          "proof_seen": {
+            "default": false,
+            "title": "Proof Seen",
+            "type": "boolean"
           },
           "resolution": {
             "default": "",
@@ -16967,6 +16992,30 @@
           "total"
         ],
         "title": "ProcessesOut",
+        "type": "object"
+      },
+      "ProofLoginOut": {
+        "description": "The SSH login that proves a pending change kept a way in.",
+        "properties": {
+          "at": {
+            "title": "At",
+            "type": "number"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "user": {
+            "title": "User",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user",
+          "source",
+          "at"
+        ],
+        "title": "ProofLoginOut",
         "type": "object"
       },
       "ProposedEnvResponse": {
@@ -44136,7 +44185,7 @@
     },
     "/api/server/security/changes": {
       "get": {
-        "description": "Every change to sshd and the firewall, newest first; the pending ones wait for confirmation.\n\nReading undoes any change whose timer was lost (a reboot inside its window).\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The changes.",
+        "description": "Every change to sshd and the firewall, newest first; the pending ones wait for confirmation.\n\nReading undoes any change whose timer was lost (a reboot inside its window).\nEach pending one says whether the new login that keeps it is on record\n(``proof_seen``), so the console can enable Keep only when it will work.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The changes.",
         "operationId": "get_changes_api_server_security_changes_get",
         "responses": {
           "200": {

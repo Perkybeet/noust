@@ -159,15 +159,8 @@ describe("the Server area", () => {
 
   it("asks calmly to keep a change to SSH, with the time left and the new login it needs", async () => {
     const change = pendingChange();
-    const { user } = server("/server", {
+    server("/server", {
       "GET /api/server/security/changes": () => json(200, [change]),
-      "POST /api/server/security/changes/c1a2b3/confirm": () =>
-        problem(
-          400,
-          "accessguarderror",
-          "No SSH login since the change was applied",
-          { hint: "Log in over SSH from a new terminal, then confirm again." },
-        ),
     });
     expect(
       await screen.findByText(
@@ -175,15 +168,11 @@ describe("the Server area", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText("Turn off password logins")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Keep the change" }));
+    // Keep waits for the login that proves the way in works (PendingChanges.banner.test.tsx).
+    expect(screen.getByText("Waiting for a new SSH login")).toBeInTheDocument();
     expect(
-      await screen.findByText(
-        "Log in over SSH from a new terminal, then confirm again.",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("No SSH login since the change was applied"),
-    ).toBeInTheDocument();
+      screen.getByRole("button", { name: "Keep the change" }),
+    ).toBeDisabled();
   });
 
   it("says in Spanish what it says in English", async () => {

@@ -43,7 +43,6 @@ from noust.managers.server.security_access import (
     missing_proof_steps,
     prove_key_access,
 )
-from noust.managers.server.security_accounts import TUNNEL_ACCOUNT
 from noust.managers.server.security_keys import (
     AuthorizedKey,
     parse_file,
@@ -59,6 +58,7 @@ from noust.managers.server.security_pending import (
     new_change_id,
 )
 from noust.managers.server.security_probe import AccountKeys, SecurityProbe
+from noust.managers.server.security_proof import find_proof
 from noust.managers.server.security_sshd import (
     DIRECTIVES,
     DROPIN,
@@ -533,31 +533,24 @@ class SshSecurity:
         change = self.ledger.load(change_id)
         if change.status != "pending":
             raise SecurityError(f"Change {change_id} is already {change.status}")
-        history = self.probe.logins_since(change.applied_at)
+        found = find_proof(self.probe, change)
         deadline = datetime.fromtimestamp(change.expires_at, tz=timezone.utc).strftime(
             "%H:%M:%S UTC"
         )
-        if not history.readable:
+        if not found.readable:
             raise AccessGuardError(
                 "Noust cannot read sshd's login history, so it cannot see a new session",
-                details=f"{history.error}. The change undoes itself at {deadline}; to keep it, "
+                details=f"{found.error}. The change undoes itself at {deadline}; to keep it, "
                 "make it by hand while a second session stays open.",
             )
-        centrals = self.probe.central_fingerprints()
-        logins = [
-            event
-            for event in history.after(change.applied_at)
-            if change.proof == "any"
-            or (event.user != TUNNEL_ACCOUNT and event.fingerprint not in centrals)
-        ]
-        if not logins:
+        if found.login is None:
             raise AccessGuardError(
                 "No new SSH login since the change",
                 details="Keep this session open, open a NEW SSH session to this server and "
                 "confirm again once it has logged in. If it cannot log in, do nothing: the "
                 f"change undoes itself at {deadline}.",
             )
-        proof = f"New login after the change: {logins[-1].line}"
+        proof = f"New login after the change: {found.login.line}"
         return self.ledger.confirm(change_id, proof=proof, by=self.actor)
 
     def revert(self, change_id: str) -> PendingChange:

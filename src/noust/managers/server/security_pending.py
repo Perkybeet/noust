@@ -63,8 +63,10 @@ from noust.managers.server.security_sshd import DROPIN, read_no_follow
 
 log = logging.getLogger(__name__)
 
-#: Seconds a change stays applied without a confirmation.
-CONFIRM_WINDOW = 120
+#: Seconds a change stays applied without a confirmation. It has to cover
+#: opening a terminal, logging in from it and coming back to press Keep; two
+#: minutes was too short for operators who started from the console.
+CONFIRM_WINDOW = 300
 
 #: Seconds past the deadline after which a change still pending is overdue:
 #: its timer was lost (a reboot), and whoever reads the ledger reverts it.

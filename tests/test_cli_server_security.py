@@ -103,6 +103,45 @@ class TestSsh:
         assert later.exit_code == 0, later.output
         assert "port 60001" in later.output
 
+    def test_pending_says_whether_the_login_that_keeps_the_change_is_on_record(self, machine):
+        machine.runner.script(["journalctl"], stdout=accepted("root", ED_FP, at=NOW - 3600) + "\n")
+        invoke("ssh", "harden", "verbose-logging", "-y")
+
+        waiting = invoke("pending")
+        machine.runner.script(
+            ["journalctl"],
+            stdout=accepted("root", ED_FP, at=NOW + 30, source="203.0.113.5", port=60001) + "\n",
+        )
+        seen = invoke("pending")
+        as_json = json.loads(invoke("pending", "--json").output)
+
+        assert waiting.exit_code == 0, waiting.output
+        assert "Waiting for a new SSH login" in waiting.output
+        assert "already open proves nothing" in waiting.output
+        assert "New login seen: root from 203.0.113.5" in seen.output
+        assert "Waiting for a new SSH login" not in seen.output
+        assert as_json[0]["proof_seen"] is True
+        assert as_json[0]["proof_login"]["source"] == "203.0.113.5"
+
+    def test_pending_says_when_new_logins_cannot_be_seen(self, machine):
+        machine.runner.script(["journalctl"], stdout=accepted("root", ED_FP, at=NOW - 3600) + "\n")
+        invoke("ssh", "harden", "verbose-logging", "-y")
+        machine.runner.script(["journalctl"], stderr="No journal files were found.", exit_code=1)
+
+        result = invoke("pending")
+
+        assert "Cannot see new logins: No journal files were found." in result.output
+
+    def test_a_settled_change_has_no_proof_line(self, machine):
+        machine.runner.script(["journalctl"], stdout=accepted("root", ED_FP, at=NOW - 3600) + "\n")
+        invoke("ssh", "harden", "verbose-logging", "-y")
+        invoke("revert")
+
+        result = invoke("pending")
+
+        assert "reverted" in result.output
+        assert "Waiting for a new SSH login" not in result.output
+
     def test_the_plan_shows_before_and_after_as_json(self, machine):
         result = invoke("ssh", "plan", "sensible-defaults", "--json")
 

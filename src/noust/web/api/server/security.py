@@ -111,12 +111,28 @@ class ChecksOut(BaseModel):
     checks: list[CheckOut]
 
 
+class ProofLoginOut(BaseModel):
+    """The SSH login that proves a pending change kept a way in."""
+
+    user: str
+    source: str
+    at: float
+
+
 class ChangeOut(BaseModel):
     """
     A change to sshd or the firewall.
 
     ``pending`` until confirmed or undone; ``expires_at`` (epoch seconds) is
     when its timer undoes it.
+
+    While it is pending, ``proof_seen`` says whether the new SSH login that
+    keeps it is already on record, and ``proof_login`` is that login: the
+    same check Keep makes, so Keep will not be refused for it. A session that
+    was already open does not count; for ``proof`` ``operator`` (sshd) neither
+    does a central's tunnel. ``proof_readable`` is false when sshd's login
+    history cannot be read, ``proof_error`` saying why verbatim. These four
+    mean nothing once the change is confirmed, undone or expired.
     """
 
     id: str
@@ -137,6 +153,10 @@ class ChangeOut(BaseModel):
     resolved_at: float | None = None
     resolved_by: str | None = None
     resolution: str = ""
+    proof_seen: bool = False
+    proof_login: ProofLoginOut | None = None
+    proof_readable: bool = True
+    proof_error: str = ""
 
 
 class OverviewOut(BaseModel):
@@ -696,6 +716,8 @@ def get_changes(session: Annotated[dict, Depends(get_current_session)]) -> list[
     Every change to sshd and the firewall, newest first; the pending ones wait for confirmation.
 
     Reading undoes any change whose timer was lost (a reboot inside its window).
+    Each pending one says whether the new login that keeps it is on record
+    (``proof_seen``), so the console can enable Keep only when it will work.
 
     Args:
         session: The authenticated session.
@@ -703,7 +725,7 @@ def get_changes(session: Annotated[dict, Depends(get_current_session)]) -> list[
     Returns:
         The changes.
     """
-    return [_change(change.to_dict()) for change in _security(session).pending()]
+    return [_change(change) for change in _security(session).described_changes()]
 
 
 @router.get("/risks", response_model=list[AcceptedRiskOut])
