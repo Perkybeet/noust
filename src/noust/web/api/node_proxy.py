@@ -193,9 +193,14 @@ def central_elevated(session: dict[str, Any]) -> bool:
     """
     Report whether sudo mode on the central covers this credential right now.
 
-    The same rule :func:`noust.web.api.deps.ensure_elevated` applies here: a
-    master token or an API token is not asked, a session is asked once every
-    ten minutes.
+    The same rule :func:`noust.web.api.deps.ensure_elevated` applies here
+    (:func:`~noust.web.api.deps.elevation_satisfied`): a master token or an API
+    token is not asked, a session is asked when its sudo-mode window has
+    closed. This only reads the window. What keeps it open is
+    ``ensure_elevated``, which the proxy calls for every call the node's
+    schema marks as elevated, so an operator working on a node through this
+    central is not asked again, and the central's vouching for the node
+    (``X-Noust-Elevated``) is never a second implementation of the window.
 
     Args:
         session: The central's authenticated payload.

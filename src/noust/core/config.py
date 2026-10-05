@@ -55,6 +55,8 @@ import yaml  # type: ignore[import-untyped]
 
 from noust.core import paths
 from noust.core.config_text import CannotEditText, remove_keys
+from noust.core.ens.profile import STANDARD as STANDARD_PROFILE
+from noust.core.ens.profile import SUDO_IDLE_RANGE, SUDO_MAX_RANGE
 from noust.core.exceptions import ConfigError, SecurityError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
 from noust.validators.domain import is_valid_domain
@@ -270,6 +272,16 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "session": {"idle_minutes": 30, "absolute_hours": 12},
         "lockout": {"threshold": 5, "minutes": 15},
         "password": {"min_length": 12},
+        # Sudo mode ("Confirm it's you"), read by the same policy: it stays
+        # open idle_minutes after the last elevated action performed in it,
+        # never longer than max_minutes from the confirmation, and
+        # re-confirming asks one factor unless require_password is on.
+        # ens-medium caps both windows and turns the password on.
+        "sudo": {
+            "idle_minutes": STANDARD_PROFILE.sudo_idle_minutes,
+            "max_minutes": STANDARD_PROFILE.sudo_max_minutes,
+            "require_password": STANDARD_PROFILE.sudo_require_password,
+        },
         # Longest life of an API token under the ENS profile, and its default.
         "tokens": {"max_days": 90},
         # Rights and obligations shown after sign-in and accepted on record;
@@ -1099,8 +1111,62 @@ def _validate_central_role(value: Any) -> str:
     return role
 
 
+def _validate_flag(label: str) -> Callable[[Any], bool]:
+    """
+    Build a validator for a yes/no setting.
+
+    Args:
+        label: Name used in the error message.
+
+    Returns:
+        A function turning ``true``/``false`` (and what a form or a file
+        spells them as) into a boolean, and refusing anything else.
+    """
+
+    def validator(value: Any) -> bool:
+        if isinstance(value, bool):
+            return value
+        text = str(value).strip().lower()
+        if text in ("true", "yes", "on", "1"):
+            return True
+        if text in ("false", "no", "off", "0"):
+            return False
+        raise ConfigError(f"{label} must be true or false", details=f"Got {value!r}.")
+
+    return validator
+
+
+def _validate_sudo_section(section: dict[str, Any]) -> None:
+    """
+    Refuse a sudo mode whose ceiling is below its idle window.
+
+    Args:
+        section: The ``auth.sudo`` section as it will read after the write.
+            A key missing from it is left to the default.
+
+    Raises:
+        ConfigError: When ``max_minutes`` is below ``idle_minutes``.
+    """
+    try:
+        idle = int(section.get("idle_minutes", STANDARD_PROFILE.sudo_idle_minutes))
+        ceiling = int(section.get("max_minutes", STANDARD_PROFILE.sudo_max_minutes))
+    except (TypeError, ValueError):
+        # A garbage value in a hand-edited file is the key rule's to refuse
+        # when it is written, and the sign-in policy's to clamp when it is read.
+        return
+    if ceiling < idle:
+        raise ConfigError(
+            "auth.sudo.max_minutes must not be less than auth.sudo.idle_minutes",
+            details=f"Got max_minutes {ceiling} and idle_minutes {idle}: sudo mode would end "
+            "before its idle window did.",
+        )
+
+
 _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "webserver": _validate_webserver,
+    "auth.sudo.idle_minutes": _int_range_validator("auth.sudo.idle_minutes", *SUDO_IDLE_RANGE),
+    "auth.sudo.max_minutes": _int_range_validator("auth.sudo.max_minutes", *SUDO_MAX_RANGE),
+    "auth.sudo.require_password": _validate_flag("auth.sudo.require_password"),
     "central.role": _validate_central_role,
     "backup.max_per_app": _int_range_validator("backup.max_per_app", 1, 100),
     "web.port": _int_range_validator("web.port", 1, 65535),
@@ -1131,6 +1197,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
 # container's own dotted path.
 _SECTION_VALIDATORS: dict[str, Callable[[dict[str, Any]], None]] = {
     "monitor.smtp": _validate_smtp_section,
+    "auth.sudo": _validate_sudo_section,
 }
 
 
@@ -1438,7 +1505,11 @@ SECRET_KEY_MARKERS: frozenset[str] = frozenset(
 # list is explicit and short on purpose: everything not named here that looks
 # like a secret is treated as one. "node_host_key_changed" is the switch of the
 # event about a server's SSH host key, a boolean, not a key of any kind.
-NON_SECRET_KEYS: frozenset[str] = frozenset({"token_expiration_hours", "node_host_key_changed"})
+# "require_password" is auth.sudo's switch for asking the password again when
+# someone confirms it's them: a boolean, not a password.
+NON_SECRET_KEYS: frozenset[str] = frozenset(
+    {"token_expiration_hours", "node_host_key_changed", "require_password"}
+)
 
 REDACTED = "***"
 

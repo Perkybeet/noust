@@ -879,6 +879,13 @@ answer is not an error for the operator. The dialog says what is about to happen
 fleet, on which server. On a fleet the node decides what needs sudo mode
 (`x-noust-requires-elevation`); the central asks its own operator and vouches for the call.
 
+The dialog asks for exactly what the session says confirming takes (`elevation_factors` and
+`elevation_requires_password` of `GET /api/auth/session`): one code field and, when the account has
+a passkey, the passkey button; the password field only where the server asks for the password
+again. It states how long the confirmation lasts with the server's own numbers, and the console
+never decides on its own that the window closed: a cached `elevated_until` that has passed is
+checked against the server before asking, because the window moves while the operator works.
+
 ### 6.4 Jobs and progress
 
 A job has four states (queued, running with a step, succeeded, failed or cancelled) and shows

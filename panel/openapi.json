@@ -8081,7 +8081,7 @@
         "type": "object"
       },
       "ElevateRequest": {
-        "description": "Confirmation presented to enter sudo mode for the next ten minutes.\n\nAttributes:\n    code: A TOTP code or a backup code: the account's own, or the\n        console's for the master token when two-factor is enabled.\n    password: The account's password; an account confirms with both.\n    token: The master token, for a master token session without two-factor.",
+        "description": "Confirmation presented to enter sudo mode.\n\nAttributes:\n    code: A TOTP code or a backup code: the account's own, or the\n        console's for the master token when two-factor is enabled. For an\n        account this is the whole confirmation, unless the sign-in policy\n        asks for the password again (``auth.sudo.require_password``, always\n        under the ENS profile).\n    password: The account's password. Required with the code only when the\n        policy asks for it; ignored otherwise.\n    token: The master token, for a master token session without two-factor.",
         "properties": {
           "code": {
             "anyOf": [
@@ -8124,7 +8124,7 @@
         "type": "object"
       },
       "ElevateResponse": {
-        "description": "Result of a successful elevation.\n\nAttributes:\n    elevated_until: End of the confirmation window, ISO 8601.",
+        "description": "Result of a successful elevation.\n\nAttributes:\n    elevated_until: End of the confirmation window, ISO 8601. It moves\n        later while elevated actions are performed, up to the ceiling.",
         "properties": {
           "elevated_until": {
             "title": "Elevated Until",
@@ -20672,7 +20672,7 @@
         "type": "object"
       },
       "SessionInfo": {
-        "description": "Bootstrap information the console reads before it knows anything else.\n\nAnswered for an anonymous caller too, with ``authenticated=False``, so the\nconsole can decide between the sign-in screen and the shell from one\nrequest instead of treating a 401 as \"maybe not logged in yet\". An\nanonymous caller learns nothing about the server (ENS op.acc.6.7, G10):\nno hostname, no version, not whether a second factor is on - only the\nlabel the operator chose for the sign-in page.\n\nAttributes:\n    authenticated: Whether a usable credential was presented.\n    scope: The credential's 3.0 scope, or None when unauthenticated.\n    expires_at: Session expiry, ISO 8601, or None.\n    elevated_until: End of the sudo-mode confirmation window, ISO 8601,\n        or None when the session is not currently elevated.\n    totp_enabled: Whether this credential's sign-in asks for a second\n        factor: the account's own authenticator, or the console's for the\n        master token. False for an anonymous caller.\n    hostname: This machine's hostname, so an operator with several panels\n        open can tell them apart; the operator's sign-in label (empty by\n        default) for an anonymous caller.\n    version: The installed Noust version; empty for an anonymous caller.\n    csrf_header: Header name a mutation must echo the CSRF cookie in.\n    csrf_cookie: Name of the readable CSRF cookie.\n    renamed_from_wasm: Whether this server ran WASM before Noust, so the\n        console tells the operator once that the product was renamed.\n    central: This server's role and whether its sealed secrets are\n        locked, so the console hides what a hub does not do and offers\n        the unlock form; None for an anonymous caller.\n    login_label: What the operator chose to show on the sign-in page.\n    account: The account signed in, or None.\n    role: Its role, or the role a central forwarded.\n    grant: For the master token, how it holds the console.\n    permissions: Everything the credential may do.\n    mfa_required: The account must enrol an authenticator first.\n    notice: The usage notice to accept first, when one is pending.\n    accounts_exist: Whether this server has accounts; while it has none\n        the console offers to create the first.\n    security_profile: ``standard`` or ``ens-medium``.\n    idle_minutes: How long the session may go unused.",
+        "description": "Bootstrap information the console reads before it knows anything else.\n\nAnswered for an anonymous caller too, with ``authenticated=False``, so the\nconsole can decide between the sign-in screen and the shell from one\nrequest instead of treating a 401 as \"maybe not logged in yet\". An\nanonymous caller learns nothing about the server (ENS op.acc.6.7, G10):\nno hostname, no version, not whether a second factor is on - only the\nlabel the operator chose for the sign-in page.\n\nAttributes:\n    authenticated: Whether a usable credential was presented.\n    scope: The credential's 3.0 scope, or None when unauthenticated.\n    expires_at: Session expiry, ISO 8601, or None.\n    elevated_until: End of the sudo-mode confirmation window, ISO 8601,\n        or None when the session is not currently elevated.\n    totp_enabled: Whether this credential's sign-in asks for a second\n        factor: the account's own authenticator, or the console's for the\n        master token. False for an anonymous caller.\n    hostname: This machine's hostname, so an operator with several panels\n        open can tell them apart; the operator's sign-in label (empty by\n        default) for an anonymous caller.\n    version: The installed Noust version; empty for an anonymous caller.\n    csrf_header: Header name a mutation must echo the CSRF cookie in.\n    csrf_cookie: Name of the readable CSRF cookie.\n    renamed_from_wasm: Whether this server ran WASM before Noust, so the\n        console tells the operator once that the product was renamed.\n    central: This server's role and whether its sealed secrets are\n        locked, so the console hides what a hub does not do and offers\n        the unlock form; None for an anonymous caller.\n    login_label: What the operator chose to show on the sign-in page.\n    account: The account signed in, or None.\n    role: Its role, or the role a central forwarded.\n    grant: For the master token, how it holds the console.\n    permissions: Everything the credential may do.\n    mfa_required: The account must enrol an authenticator first.\n    notice: The usage notice to accept first, when one is pending.\n    accounts_exist: Whether this server has accounts; while it has none\n        the console offers to create the first.\n    security_profile: ``standard`` or ``ens-medium``.\n    idle_minutes: How long the session may go unused.\n    elevation_factors: What the credential can confirm sudo mode with:\n        ``totp``, ``passkey`` and ``backup_code`` for an account, those it\n        has; for the master token ``totp`` and ``passkey`` when it has them,\n        ``master_token`` while it has neither. Empty for an anonymous\n        caller and for an account with no second factor, which cannot\n        enter sudo mode.\n    elevation_requires_password: Whether confirming with a code also asks\n        for the account's password (``auth.sudo.require_password``, always\n        under ENS). A passkey confirms on its own either way.\n    elevation_idle_minutes: How long sudo mode stays open after the last\n        elevated action.\n    elevation_max_minutes: The longest it lasts from the confirmation.",
         "properties": {
           "account": {
             "anyOf": [
@@ -20729,6 +20729,40 @@
               }
             ],
             "title": "Elevated Until"
+          },
+          "elevation_factors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Elevation Factors",
+            "type": "array"
+          },
+          "elevation_idle_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation Idle Minutes"
+          },
+          "elevation_max_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation Max Minutes"
+          },
+          "elevation_requires_password": {
+            "default": false,
+            "title": "Elevation Requires Password",
+            "type": "boolean"
           },
           "expires_at": {
             "anyOf": [
@@ -32442,7 +32476,7 @@
     },
     "/api/auth/elevate": {
       "post": {
-        "description": "Confirm the caller's identity again, opening sudo mode for ten minutes.\n\nD5: deleting an application, a database, a service or a site, writing raw\nconfiguration or a unit file, running a write against a database console,\nrevealing a ``.env`` in clear, issuing an API token and turning\ntwo-factor authentication off all require a cookie session to have\ncalled this recently; see :func:`noust.web.api.deps.require_elevated`.\n\nAn account confirms with its password and a code from its authenticator;\nan account without one cannot enter sudo mode. The master token confirms\nas it signs in: the console's two-factor code when that is enabled, the\nmaster token otherwise. A wrong factor is counted by the same lockout a\nlogin failure is, through the same chokepoint.\n\nArgs:\n    request: The incoming request.\n    body: The factors.\n    session: The authenticated session being elevated.\n\nReturns:\n    The new elevation deadline.\n\nRaises:\n    HTTPException: 401 with ``error`` ``invalid_credentials`` for an\n        account, ``totp_required``, ``invalid_totp`` or ``invalid_token``\n        for the master token, when the factors do not verify; 403\n        ``notice_required`` before the usage notice is accepted.",
+        "description": "Confirm the caller's identity again, opening sudo mode.\n\nD5: deleting an application, a database, a service or a site, writing raw\nconfiguration or a unit file, running a write against a database console,\nrevealing a ``.env`` in clear, issuing an API token and turning\ntwo-factor authentication off all require a cookie session to have\ncalled this recently; see :func:`noust.web.api.deps.require_elevated`.\n\nThe window stays open while it is used: it ends ``auth.sudo.idle_minutes``\nafter the last elevated action, and never later than\n``auth.sudo.max_minutes`` after this confirmation\n(:meth:`noust.web.auth.TokenManager.extend_elevation`).\n\nA session already proved the account's password and second factor when it\nsigned in, so an account confirms with one factor: a code from its\nauthenticator or a backup code here, or a passkey at\n``/api/auth/passkeys/elevate``. The password is asked as well only when\nthe policy says so (``auth.sudo.require_password``, always under the ENS\nprofile). An account without a second factor cannot enter sudo mode. The\nmaster token confirms as it signs in: the console's two-factor code when\nthat is enabled, the master token otherwise. A wrong factor is counted by\nthe same lockout a login failure is, through the same chokepoint.\n\nArgs:\n    request: The incoming request.\n    body: The factors.\n    session: The authenticated session being elevated.\n\nReturns:\n    The new elevation deadline.\n\nRaises:\n    HTTPException: 401 with ``error`` ``invalid_totp`` (an account's\n        wrong code), ``totp_required`` (an account's missing one) or\n        ``invalid_credentials`` (an account that must give its password\n        too, whatever was wrong) for an account; ``totp_required``,\n        ``invalid_totp`` or ``invalid_token`` for the master token, when\n        the factors do not verify; 403 ``notice_required`` before the\n        usage notice is accepted.",
         "operationId": "elevate_api_auth_elevate_post",
         "requestBody": {
           "content": {
@@ -32951,7 +32985,7 @@
     },
     "/api/auth/passkeys/elevate": {
       "post": {
-        "description": "Confirm it's you with a passkey, opening sudo mode for ten minutes.\n\nArgs:\n    request: The request.\n    body: The assertion.\n    session: The authenticated payload.\n\nReturns:\n    The new elevation deadline.\n\nRaises:\n    HTTPException: 401 as for a passkey sign-in, and\n        ``passkey_wrong_owner`` for somebody else's passkey; 403\n        ``notice_required`` before the usage notice is accepted.",
+        "description": "Confirm it's you with a passkey, opening sudo mode.\n\nThe passkey is the whole confirmation: it is possession and, with user\nverification, the person's own presence, so it is not asked for the\npassword even where the policy asks the password with a code\n(``auth.sudo.require_password``). The window is the same one a code opens\n(:func:`noust.web.api.auth.elevate`).\n\nArgs:\n    request: The request.\n    body: The assertion.\n    session: The authenticated payload.\n\nReturns:\n    The new elevation deadline.\n\nRaises:\n    HTTPException: 401 as for a passkey sign-in, and\n        ``passkey_wrong_owner`` for somebody else's passkey; 403\n        ``notice_required`` before the usage notice is accepted.",
         "operationId": "elevate_with_passkey_api_auth_passkeys_elevate_post",
         "requestBody": {
           "content": {

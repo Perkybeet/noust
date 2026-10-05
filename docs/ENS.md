@@ -80,6 +80,7 @@ como `ens-medium` (falla hacia lo estricto). Cambiarlo queda en la auditoría.
 |---|---|---|---|
 | Inactividad de sesión (`auth.session.idle_minutes`) | 30 min | 15 min como máximo | mp.eq.2 |
 | Duración absoluta de sesión (`auth.session.absolute_hours`) | 12 h | 8 h como máximo | mp.eq.2 |
+| Modo sudo, «Confirma que eres tú» (`auth.sudo.*`) | abierto 15 min tras la última acción, 120 min como máximo, un factor | abierto 10 min tras la última acción, 30 min como máximo, contraseña y código (como máximo) | op.acc.6 |
 | Bloqueo de cuenta (`auth.lockout.*`) | 5 fallos / 15 min | 5 fallos / 15 min como mínimo | op.acc.6.8 |
 | Longitud mínima de contraseña (`auth.password.min_length`) | 12 | 14 como mínimo | op.acc.6.r1 |
 | Caducidad de tokens de API (`auth.tokens.max_days`) | opcional | obligatoria, 90 días como máximo | op.acc.1.3, op.acc.4 |

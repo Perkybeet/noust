@@ -23,8 +23,9 @@ from noust.core.accounts import (
     incompatible_roles,
     passwords,
 )
-from noust.core.accounts.policy import build_policy
-from noust.core.exceptions import ValidationError
+from noust.core.accounts.policy import build_policy, load_policy
+from noust.core.config import Config
+from noust.core.exceptions import ConfigError, ValidationError
 from noust.core.store import NoustStore
 
 PASSWORD = "correct horse battery staple"
@@ -134,6 +135,106 @@ class TestPolicy:
 
     def test_an_unknown_profile_is_the_strict_one(self):
         assert build_policy({"profile": "ens_typo"}).ens
+
+    def test_sudo_mode_stays_open_15_minutes_for_2_hours_asking_one_factor_by_default(self):
+        policy = build_policy({})
+
+        assert (policy.sudo_idle_minutes, policy.sudo_max_minutes) == (15, 120)
+        assert policy.sudo_require_password is False
+
+    def test_sudo_mode_settings_are_held_to_their_ranges(self):
+        policy = build_policy({"sudo_idle_minutes": 1, "sudo_max_minutes": 9999})
+
+        assert (policy.sudo_idle_minutes, policy.sudo_max_minutes) == (5, 480)
+        assert build_policy({"sudo_idle_minutes": 600}).sudo_idle_minutes == 60
+
+    def test_the_ceiling_is_never_below_the_idle_window(self):
+        policy = build_policy({"sudo_idle_minutes": 60, "sudo_max_minutes": 10})
+
+        assert policy.sudo_max_minutes == 60
+
+    def test_the_ens_profile_caps_sudo_mode_and_asks_the_password(self):
+        policy = build_policy(
+            {
+                "profile": "ens-medium",
+                "sudo_idle_minutes": 45,
+                "sudo_max_minutes": 400,
+                "sudo_require_password": False,
+            }
+        )
+
+        assert (policy.sudo_idle_minutes, policy.sudo_max_minutes) == (10, 30)
+        assert policy.sudo_require_password is True
+
+    def test_the_ens_profile_lets_an_operator_be_stricter(self):
+        policy = build_policy(
+            {"profile": "ens-medium", "sudo_idle_minutes": 5, "sudo_max_minutes": 8}
+        )
+
+        assert (policy.sudo_idle_minutes, policy.sudo_max_minutes) == (5, 8)
+
+    @pytest.mark.parametrize("value", ["yes", "true", True, "garbage"])
+    def test_a_flag_that_is_not_plainly_off_asks_for_the_password(self, value):
+        assert build_policy({"sudo_require_password": value}).sudo_require_password is True
+
+    @pytest.mark.parametrize("value", ["no", "false", False, "off", "0"])
+    def test_a_flag_that_is_plainly_off_does_not(self, value):
+        assert build_policy({"sudo_require_password": value}).sudo_require_password is False
+
+
+class TestSudoSettings:
+    """``auth.sudo.*`` as the configuration accepts and reads it."""
+
+    @pytest.fixture
+    def config(self, sandbox: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Config]:
+        monkeypatch.setattr(
+            "noust.core.config.DEFAULT_CONFIG_PATH", sandbox / "etc" / "config.yaml"
+        )
+        Config.reset_instance()
+        try:
+            yield Config()
+        finally:
+            Config.reset_instance()
+
+    def test_the_defaults_are_the_standard_profiles(self, config: Config):
+        assert config.get("auth.sudo.idle_minutes") == 15
+        assert config.get("auth.sudo.max_minutes") == 120
+        assert config.get("auth.sudo.require_password") is False
+
+    def test_the_policy_reads_what_is_set(self, config: Config):
+        config.set("auth.sudo.idle_minutes", 20)
+        config.set("auth.sudo.require_password", True)
+
+        policy = load_policy()
+
+        assert policy.sudo_idle_minutes == 20
+        assert policy.sudo_require_password is True
+
+    @pytest.mark.parametrize(
+        ("key", "value"),
+        [
+            ("auth.sudo.idle_minutes", 4),
+            ("auth.sudo.idle_minutes", 61),
+            ("auth.sudo.max_minutes", 481),
+            ("auth.sudo.idle_minutes", "soon"),
+            ("auth.sudo.require_password", "maybe"),
+        ],
+    )
+    def test_a_value_out_of_range_is_refused(self, config: Config, key: str, value: object):
+        with pytest.raises(ConfigError):
+            config.set(key, value)
+
+        assert config.get(key) != value
+
+    def test_the_ceiling_cannot_be_set_below_the_idle_window(self, config: Config):
+        config.set("auth.sudo.idle_minutes", 30)
+
+        with pytest.raises(ConfigError, match="max_minutes"):
+            config.set("auth.sudo.max_minutes", 20)
+
+    def test_a_whole_configuration_is_held_to_the_same_rules(self, config: Config):
+        with pytest.raises(ConfigError):
+            config.set("auth", {"sudo": {"idle_minutes": 90}})
 
     def test_the_notice_version_follows_its_text(self):
         assert build_policy({}).notice_version is None

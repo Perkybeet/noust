@@ -2915,7 +2915,7 @@ export interface paths {
         put?: never;
         /**
          * Elevate
-         * @description Confirm the caller's identity again, opening sudo mode for ten minutes.
+         * @description Confirm the caller's identity again, opening sudo mode.
          *
          *     D5: deleting an application, a database, a service or a site, writing raw
          *     configuration or a unit file, running a write against a database console,
@@ -2923,11 +2923,20 @@ export interface paths {
          *     two-factor authentication off all require a cookie session to have
          *     called this recently; see :func:`noust.web.api.deps.require_elevated`.
          *
-         *     An account confirms with its password and a code from its authenticator;
-         *     an account without one cannot enter sudo mode. The master token confirms
-         *     as it signs in: the console's two-factor code when that is enabled, the
-         *     master token otherwise. A wrong factor is counted by the same lockout a
-         *     login failure is, through the same chokepoint.
+         *     The window stays open while it is used: it ends ``auth.sudo.idle_minutes``
+         *     after the last elevated action, and never later than
+         *     ``auth.sudo.max_minutes`` after this confirmation
+         *     (:meth:`noust.web.auth.TokenManager.extend_elevation`).
+         *
+         *     A session already proved the account's password and second factor when it
+         *     signed in, so an account confirms with one factor: a code from its
+         *     authenticator or a backup code here, or a passkey at
+         *     ``/api/auth/passkeys/elevate``. The password is asked as well only when
+         *     the policy says so (``auth.sudo.require_password``, always under the ENS
+         *     profile). An account without a second factor cannot enter sudo mode. The
+         *     master token confirms as it signs in: the console's two-factor code when
+         *     that is enabled, the master token otherwise. A wrong factor is counted by
+         *     the same lockout a login failure is, through the same chokepoint.
          *
          *     Args:
          *         request: The incoming request.
@@ -2938,10 +2947,13 @@ export interface paths {
          *         The new elevation deadline.
          *
          *     Raises:
-         *         HTTPException: 401 with ``error`` ``invalid_credentials`` for an
-         *             account, ``totp_required``, ``invalid_totp`` or ``invalid_token``
-         *             for the master token, when the factors do not verify; 403
-         *             ``notice_required`` before the usage notice is accepted.
+         *         HTTPException: 401 with ``error`` ``invalid_totp`` (an account's
+         *             wrong code), ``totp_required`` (an account's missing one) or
+         *             ``invalid_credentials`` (an account that must give its password
+         *             too, whatever was wrong) for an account; ``totp_required``,
+         *             ``invalid_totp`` or ``invalid_token`` for the master token, when
+         *             the factors do not verify; 403 ``notice_required`` before the
+         *             usage notice is accepted.
          */
         post: operations["elevate_api_auth_elevate_post"];
         delete?: never;
@@ -3359,7 +3371,13 @@ export interface paths {
         put?: never;
         /**
          * Elevate With Passkey
-         * @description Confirm it's you with a passkey, opening sudo mode for ten minutes.
+         * @description Confirm it's you with a passkey, opening sudo mode.
+         *
+         *     The passkey is the whole confirmation: it is possession and, with user
+         *     verification, the person's own presence, so it is not asked for the
+         *     password even where the policy asks the password with a code
+         *     (``auth.sudo.require_password``). The window is the same one a code opens
+         *     (:func:`noust.web.api.auth.elevate`).
          *
          *     Args:
          *         request: The request.
@@ -16795,12 +16813,16 @@ export interface components {
         };
         /**
          * ElevateRequest
-         * @description Confirmation presented to enter sudo mode for the next ten minutes.
+         * @description Confirmation presented to enter sudo mode.
          *
          *     Attributes:
          *         code: A TOTP code or a backup code: the account's own, or the
-         *             console's for the master token when two-factor is enabled.
-         *         password: The account's password; an account confirms with both.
+         *             console's for the master token when two-factor is enabled. For an
+         *             account this is the whole confirmation, unless the sign-in policy
+         *             asks for the password again (``auth.sudo.require_password``, always
+         *             under the ENS profile).
+         *         password: The account's password. Required with the code only when the
+         *             policy asks for it; ignored otherwise.
          *         token: The master token, for a master token session without two-factor.
          */
         ElevateRequest: {
@@ -16816,7 +16838,8 @@ export interface components {
          * @description Result of a successful elevation.
          *
          *     Attributes:
-         *         elevated_until: End of the confirmation window, ISO 8601.
+         *         elevated_until: End of the confirmation window, ISO 8601. It moves
+         *             later while elevated actions are performed, up to the ceiling.
          */
         ElevateResponse: {
             /** Elevated Until */
@@ -23463,6 +23486,18 @@ export interface components {
          *             the console offers to create the first.
          *         security_profile: ``standard`` or ``ens-medium``.
          *         idle_minutes: How long the session may go unused.
+         *         elevation_factors: What the credential can confirm sudo mode with:
+         *             ``totp``, ``passkey`` and ``backup_code`` for an account, those it
+         *             has; for the master token ``totp`` and ``passkey`` when it has them,
+         *             ``master_token`` while it has neither. Empty for an anonymous
+         *             caller and for an account with no second factor, which cannot
+         *             enter sudo mode.
+         *         elevation_requires_password: Whether confirming with a code also asks
+         *             for the account's password (``auth.sudo.require_password``, always
+         *             under ENS). A passkey confirms on its own either way.
+         *         elevation_idle_minutes: How long sudo mode stays open after the last
+         *             elevated action.
+         *         elevation_max_minutes: The longest it lasts from the confirmation.
          */
         SessionInfo: {
             account?: components["schemas"]["AccountInfo"] | null;
@@ -23483,6 +23518,17 @@ export interface components {
             csrf_header: string;
             /** Elevated Until */
             elevated_until?: string | null;
+            /** Elevation Factors */
+            elevation_factors?: string[];
+            /** Elevation Idle Minutes */
+            elevation_idle_minutes?: number | null;
+            /** Elevation Max Minutes */
+            elevation_max_minutes?: number | null;
+            /**
+             * Elevation Requires Password
+             * @default false
+             */
+            elevation_requires_password: boolean;
             /** Expires At */
             expires_at?: string | null;
             /** Grant */

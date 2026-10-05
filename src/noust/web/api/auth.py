@@ -326,6 +326,18 @@ class SessionInfo(BaseModel):
             the console offers to create the first.
         security_profile: ``standard`` or ``ens-medium``.
         idle_minutes: How long the session may go unused.
+        elevation_factors: What the credential can confirm sudo mode with:
+            ``totp``, ``passkey`` and ``backup_code`` for an account, those it
+            has; for the master token ``totp`` and ``passkey`` when it has them,
+            ``master_token`` while it has neither. Empty for an anonymous
+            caller and for an account with no second factor, which cannot
+            enter sudo mode.
+        elevation_requires_password: Whether confirming with a code also asks
+            for the account's password (``auth.sudo.require_password``, always
+            under ENS). A passkey confirms on its own either way.
+        elevation_idle_minutes: How long sudo mode stays open after the last
+            elevated action.
+        elevation_max_minutes: The longest it lasts from the confirmation.
     """
 
     authenticated: bool
@@ -349,16 +361,24 @@ class SessionInfo(BaseModel):
     accounts_exist: bool | None = None
     security_profile: str | None = None
     idle_minutes: int | None = None
+    elevation_factors: list[str] = Field(default_factory=list)
+    elevation_requires_password: bool = False
+    elevation_idle_minutes: int | None = None
+    elevation_max_minutes: int | None = None
 
 
 class ElevateRequest(BaseModel):
     """
-    Confirmation presented to enter sudo mode for the next ten minutes.
+    Confirmation presented to enter sudo mode.
 
     Attributes:
         code: A TOTP code or a backup code: the account's own, or the
-            console's for the master token when two-factor is enabled.
-        password: The account's password; an account confirms with both.
+            console's for the master token when two-factor is enabled. For an
+            account this is the whole confirmation, unless the sign-in policy
+            asks for the password again (``auth.sudo.require_password``, always
+            under the ENS profile).
+        password: The account's password. Required with the code only when the
+            policy asks for it; ignored otherwise.
         token: The master token, for a master token session without two-factor.
     """
 
@@ -372,7 +392,8 @@ class ElevateResponse(BaseModel):
     Result of a successful elevation.
 
     Attributes:
-        elevated_until: End of the confirmation window, ISO 8601.
+        elevated_until: End of the confirmation window, ISO 8601. It moves
+            later while elevated actions are performed, up to the ceiling.
     """
 
     elevated_until: str
@@ -612,6 +633,32 @@ def second_factor_methods(account: Account) -> list[str]:
     if account.backup_codes_remaining > 0:
         methods.append("backup_code")
     return methods
+
+
+def elevation_factors(account: Account | None) -> list[str]:
+    """
+    Name what a credential can confirm sudo mode with.
+
+    The one answer the session endpoint gives the console, so its "Confirm
+    it's you" dialog asks for exactly what the endpoints behind it accept.
+
+    Args:
+        account: The account signed in, or None for the master token.
+
+    Returns:
+        For an account, :func:`second_factor_methods`; an account without a
+        second factor has none and cannot enter sudo mode. For the master
+        token, ``totp`` and ``passkey`` as it has them, ``master_token`` while
+        it has neither.
+    """
+    if account is not None:
+        return second_factor_methods(account)
+    methods = []
+    if get_token_manager().totp_enabled():
+        methods.append("totp")
+    if master_has_passkeys():
+        methods.append("passkey")
+    return methods or ["master_token"]
 
 
 def account_signed_in(
@@ -1048,6 +1095,10 @@ def get_session_info(request: Request) -> SessionInfo:
         accounts_exist=token_manager.accounts_exist(),
         security_profile=policy.profile,
         idle_minutes=policy.idle_minutes,
+        elevation_factors=(elevation_factors(account) if session.get("type") == "session" else []),
+        elevation_requires_password=account is not None and policy.sudo_require_password,
+        elevation_idle_minutes=policy.sudo_idle_minutes,
+        elevation_max_minutes=policy.sudo_max_minutes,
     )
 
 
@@ -1056,7 +1107,7 @@ def elevate(
     request: Request, body: ElevateRequest, session: dict[str, Any] = Depends(require_auth)
 ) -> ElevateResponse:
     """
-    Confirm the caller's identity again, opening sudo mode for ten minutes.
+    Confirm the caller's identity again, opening sudo mode.
 
     D5: deleting an application, a database, a service or a site, writing raw
     configuration or a unit file, running a write against a database console,
@@ -1064,11 +1115,20 @@ def elevate(
     two-factor authentication off all require a cookie session to have
     called this recently; see :func:`noust.web.api.deps.require_elevated`.
 
-    An account confirms with its password and a code from its authenticator;
-    an account without one cannot enter sudo mode. The master token confirms
-    as it signs in: the console's two-factor code when that is enabled, the
-    master token otherwise. A wrong factor is counted by the same lockout a
-    login failure is, through the same chokepoint.
+    The window stays open while it is used: it ends ``auth.sudo.idle_minutes``
+    after the last elevated action, and never later than
+    ``auth.sudo.max_minutes`` after this confirmation
+    (:meth:`noust.web.auth.TokenManager.extend_elevation`).
+
+    A session already proved the account's password and second factor when it
+    signed in, so an account confirms with one factor: a code from its
+    authenticator or a backup code here, or a passkey at
+    ``/api/auth/passkeys/elevate``. The password is asked as well only when
+    the policy says so (``auth.sudo.require_password``, always under the ENS
+    profile). An account without a second factor cannot enter sudo mode. The
+    master token confirms as it signs in: the console's two-factor code when
+    that is enabled, the master token otherwise. A wrong factor is counted by
+    the same lockout a login failure is, through the same chokepoint.
 
     Args:
         request: The incoming request.
@@ -1079,10 +1139,13 @@ def elevate(
         The new elevation deadline.
 
     Raises:
-        HTTPException: 401 with ``error`` ``invalid_credentials`` for an
-            account, ``totp_required``, ``invalid_totp`` or ``invalid_token``
-            for the master token, when the factors do not verify; 403
-            ``notice_required`` before the usage notice is accepted.
+        HTTPException: 401 with ``error`` ``invalid_totp`` (an account's
+            wrong code), ``totp_required`` (an account's missing one) or
+            ``invalid_credentials`` (an account that must give its password
+            too, whatever was wrong) for an account; ``totp_required``,
+            ``invalid_totp`` or ``invalid_token`` for the master token, when
+            the factors do not verify; 403 ``notice_required`` before the
+            usage notice is accepted.
     """
     # Sudo mode is standing power over everything destructive: not before
     # the usage notice is accepted, though elevating is one's own business.
@@ -1092,22 +1155,18 @@ def elevate(
 
     account_id = session.get("account_id")
     if account_id is not None:
-        accounts = token_manager.accounts
-        account = accounts.require_id(int(account_id))
+        account = token_manager.accounts.require_id(int(account_id))
         if not account.has_mfa:
             raise AccountError(
                 "Sudo mode needs a second factor, and this account has none",
                 details="Enrol an authenticator first: POST /api/auth/2fa/enroll.",
             )
-        password_ok = accounts.verify_password(account.id, body.password or "", client_ip=client_ip)
-        code_ok = password_ok and accounts.verify_second_factor(
-            account.id, body.code or "", purpose="elevate"
-        )
-        if not code_ok:
-            if password_ok:
-                accounts.record_failure(account.id, client_ip)
-            record_auth_failure(client_ip, "/api/auth/elevate", "password")
-            raise login_failure("invalid_credentials", INVALID_CREDENTIALS)
+        if token_manager.policy().sudo_require_password:
+            _confirm_with_password_and_code(account, body, session, client_ip)
+            factor = "the password and a code"
+        else:
+            _confirm_with_code(account, body, session, client_ip)
+            factor = "a code"
     elif token_manager.totp_enabled():
         code = (body.code or "").strip()
         if not code:
@@ -1117,6 +1176,7 @@ def elevate(
         if not token_manager.verify_second_factor(code, purpose="elevate"):
             record_auth_failure(client_ip, "/api/auth/elevate", "totp")
             raise login_failure("invalid_totp", "Invalid two-factor code.")
+        factor = "the console's two-factor code"
     elif master_has_passkeys():
         # The token is accepted only while no second factor exists, as with
         # TOTP: a passkey confirms at /api/auth/passkeys/elevate.
@@ -1124,13 +1184,110 @@ def elevate(
     elif not token_manager.verify_master_token(body.token or ""):
         record_auth_failure(client_ip, "/api/auth/elevate", "master_token")
         raise login_failure("invalid_token", "Invalid token.")
+    else:
+        factor = "the master token"
 
     elevated_until = token_manager.elevate(str(session.get("sid")))
 
     audit_event(
-        "auth.elevate", "success", client_ip=client_ip, session=session, target="/api/auth/elevate"
+        "auth.elevate",
+        "success",
+        client_ip=client_ip,
+        session=session,
+        target="/api/auth/elevate",
+        detail=f"confirmed with {factor}",
     )
     return ElevateResponse(elevated_until=_iso(elevated_until) or "")
+
+
+def _confirm_with_code(
+    account: Account, body: ElevateRequest, session: dict[str, Any], client_ip: str
+) -> None:
+    """
+    Confirm sudo mode for an account with its second factor alone.
+
+    The sign-in already proved the password, so asking it again was friction
+    without a second proof. The code goes through
+    :meth:`~noust.core.accounts.AccountManager.complete_second_factor`, the
+    chokepoint a sign-in's second step uses: a wrong code counts towards the
+    account's lockout exactly as a wrong password does, and an authenticator
+    code is not accepted twice for sudo mode.
+
+    Args:
+        account: The signed-in account, known to have a second factor.
+        body: The request; its ``code`` is what is checked.
+        session: The authenticated payload, for the audit record.
+        client_ip: Where the request came from.
+
+    Raises:
+        HTTPException: 401 ``totp_required`` when no code was sent (a client
+            that does not know what is asked is not a guess, so it is not
+            counted); ``invalid_totp`` for a wrong code; ``invalid_credentials``
+            when the account can no longer sign in.
+    """
+    code = (body.code or "").strip()
+    if not code:
+        raise login_failure(
+            "totp_required", "Enter a code from your authenticator, or a backup code."
+        )
+    try:
+        get_token_manager().accounts.complete_second_factor(
+            account.id, code, client_ip=client_ip, purpose="elevate"
+        )
+    except AuthenticationFailed as exc:
+        record_auth_failure(client_ip, "/api/auth/elevate", "totp")
+        audit_event(
+            "auth.elevate",
+            "failure",
+            client_ip=client_ip,
+            session=session,
+            target="/api/auth/elevate",
+            detail=f"confirmation refused: {exc.reason}",
+        )
+        _audit_lock(exc, client_ip, account.username)
+        if exc.reason == "bad_code":
+            raise login_failure("invalid_totp", "Invalid two-factor code.") from exc
+        raise login_failure("invalid_credentials", INVALID_CREDENTIALS) from exc
+
+
+def _confirm_with_password_and_code(
+    account: Account, body: ElevateRequest, session: dict[str, Any], client_ip: str
+) -> None:
+    """
+    Confirm sudo mode for an account with its password and a code.
+
+    What the policy asks for when ``auth.sudo.require_password`` is on, which
+    the ENS profile always does. Whatever was wrong is the one answer, so a
+    guesser learns nothing about which half was right.
+
+    Args:
+        account: The signed-in account, known to have a second factor.
+        body: The request; its ``password`` and ``code`` are checked.
+        session: The authenticated payload, for the audit record.
+        client_ip: Where the request came from.
+
+    Raises:
+        HTTPException: 401 ``invalid_credentials`` when either is wrong.
+    """
+    accounts = get_token_manager().accounts
+    password_ok = accounts.verify_password(account.id, body.password or "", client_ip=client_ip)
+    code_ok = password_ok and accounts.verify_second_factor(
+        account.id, body.code or "", purpose="elevate"
+    )
+    if code_ok:
+        return
+    if password_ok:
+        accounts.record_failure(account.id, client_ip)
+    record_auth_failure(client_ip, "/api/auth/elevate", "password")
+    audit_event(
+        "auth.elevate",
+        "failure",
+        client_ip=client_ip,
+        session=session,
+        target="/api/auth/elevate",
+        detail="confirmation refused: the password or the code did not match",
+    )
+    raise login_failure("invalid_credentials", INVALID_CREDENTIALS)
 
 
 @router.post("/logout", response_model=SuccessResponse)

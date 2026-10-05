@@ -992,7 +992,13 @@ def elevate_with_passkey(
     request: Request, body: CredentialBody, session: dict[str, Any] = Depends(require_auth)
 ) -> ElevateResponse:
     """
-    Confirm it's you with a passkey, opening sudo mode for ten minutes.
+    Confirm it's you with a passkey, opening sudo mode.
+
+    The passkey is the whole confirmation: it is possession and, with user
+    verification, the person's own presence, so it is not asked for the
+    password even where the policy asks the password with a code
+    (``auth.sudo.require_password``). The window is the same one a code opens
+    (:func:`noust.web.api.auth.elevate`).
 
     Args:
         request: The request.

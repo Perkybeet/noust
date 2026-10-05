@@ -580,9 +580,14 @@ Destructive and credential-changing actions (deleting anything, restoring a back
 or editing an `.env`, moving to instant rollback, changing limits, editing a unit or a site,
 writing an application's deploy hooks, adopting a Compose stack, SQL in write mode, server
 changes, managing accounts, changing settings, issuing a token) ask
-you to confirm it is you: a dialog titled "Confirm it's you" asks for your passkey, or your
-password and a code from your authenticator app (for the access token, its code, or the token
-itself when it has none). The confirmation covers the next 10 minutes, and the action you were
+you to confirm it is you: a dialog titled "Confirm it's you" asks for your passkey, or a code from
+your authenticator app or one of your backup codes (for the access token, its code, or the token
+itself when it has none). You already gave your password and a code when you signed in, so one
+factor is enough, unless the server asks for the password again (`auth.sudo.require_password`,
+always under the ENS profile), in which case the dialog also shows the password field. The
+confirmation stays open while you keep working: every destructive action extends it, for up to 2
+hours from when you confirmed (15 minutes without one, 2 hours at most, under `auth.sudo.*`; 10 and
+30 under the ENS profile), and the dialog says so with the server's numbers. The action you were
 taking is retried once confirmed. Flows that already know they need it, such as deleting an
 application, ask before their own confirmation dialog, so only one is ever on screen.
 

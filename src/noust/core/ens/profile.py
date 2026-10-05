@@ -42,6 +42,13 @@ PROFILES: tuple[str, ...] = (PROFILE_STANDARD, PROFILE_ENS_MEDIUM)
 #: Spellings of the ENS profile an operator may reasonably type.
 _ENS_SPELLINGS = frozenset({"ens-medium", "ens_medium", "ens", "ens-media", "medium"})
 
+#: The ranges, in minutes, ``auth.sudo.idle_minutes`` and ``auth.sudo.max_minutes``
+#: accept, and the sign-in policy clamps a hand-edited file to: shorter than the
+#: first and the confirmation is a nuisance operators route around; longer than
+#: the second and sudo mode is no longer "recently".
+SUDO_IDLE_RANGE: tuple[int, int] = (5, 60)
+SUDO_MAX_RANGE: tuple[int, int] = (5, 480)
+
 #: What the master token may do once accounts exist.
 MASTER_BREAK_GLASS = "break_glass"
 #: Under the profile: only getting a person back in (spec §2.2).
@@ -93,6 +100,14 @@ class ProfileDefaults:
             database engine on an address beyond loopback (mp.com.1): under
             the profile an engine is reached through an SSH tunnel, never
             directly.
+        sudo_idle_minutes: How long sudo mode ("Confirm it's you") stays open
+            without an elevated action being performed in it. Every elevated
+            action extends it by this much, up to ``sudo_max_minutes``.
+        sudo_max_minutes: The longest sudo mode lasts from the moment it was
+            confirmed, however busy the session is.
+        sudo_require_password: Whether re-confirming also asks for the
+            account's password. Outside the profile one factor is enough: the
+            session already proved the password and a second factor at sign-in.
     """
 
     name: str
@@ -117,6 +132,9 @@ class ProfileDefaults:
     audit_review_days: int
     stale_account_days: int
     database_remote_listen: bool = True
+    sudo_idle_minutes: int = 15
+    sudo_max_minutes: int = 120
+    sudo_require_password: bool = False
 
     @property
     def ens(self) -> bool:
@@ -148,6 +166,9 @@ STANDARD = ProfileDefaults(
     audit_review_days=7,
     stale_account_days=90,
     database_remote_listen=True,
+    sudo_idle_minutes=15,
+    sudo_max_minutes=120,
+    sudo_require_password=False,
 )
 
 #: ENS category MEDIUM (spec §2 and §12.7).
@@ -175,6 +196,13 @@ ENS_MEDIUM = ProfileDefaults(
     audit_review_days=7,
     stale_account_days=90,
     database_remote_listen=False,
+    # Tighter than the session's own 15 minutes of idleness (the old fixed
+    # window was 10), a short ceiling on standing destructive power, and the
+    # password again on top of the code: the extra friction ENS accepts that
+    # the standard profile does not.
+    sudo_idle_minutes=10,
+    sudo_max_minutes=30,
+    sudo_require_password=True,
 )
 
 
@@ -370,6 +398,17 @@ def baseline() -> list[BaselineItem]:
             f"{std.absolute_hours} h",
             f"{ens.absolute_hours} h (at most)",
             ("mp.eq.2",),
+        ),
+        BaselineItem(
+            "auth.sudo",
+            'Sudo mode ("Confirm it\'s you"): how long it stays open while it is used, the '
+            "longest it lasts, and whether the password is asked again.",
+            f"{std.sudo_idle_minutes} min idle, {std.sudo_max_minutes} min in all, one factor",
+            (
+                f"{ens.sudo_idle_minutes} min idle, {ens.sudo_max_minutes} min in all "
+                "(at most), password and code"
+            ),
+            ("op.acc.6",),
         ),
         BaselineItem(
             "auth.lockout",

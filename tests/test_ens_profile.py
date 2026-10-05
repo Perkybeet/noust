@@ -100,6 +100,15 @@ class TestTheBaseline:
             assert item.ens_value != "" and item.description
         keys = {item.key for item in items}
         assert {"auth.session.idle_minutes", "backup.encryption", "approval.enabled"} <= keys
+        assert "auth.sudo" in keys
+
+    def test_sudo_mode_is_tighter_under_the_profile(self) -> None:
+        assert (STANDARD.sudo_idle_minutes, STANDARD.sudo_max_minutes) == (15, 120)
+        assert STANDARD.sudo_require_password is False
+        assert (ENS_MEDIUM.sudo_idle_minutes, ENS_MEDIUM.sudo_max_minutes) == (10, 30)
+        assert ENS_MEDIUM.sudo_require_password is True
+        # Shorter than the session's own idle lock, as sudo mode is the more dangerous state.
+        assert ENS_MEDIUM.sudo_idle_minutes < ENS_MEDIUM.idle_minutes
 
 
 class TestEveryAreaReadsTheOneModule:

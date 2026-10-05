@@ -12,7 +12,9 @@ The ``ens-medium`` profile (ENS category MEDIUM, RD 311/2022) does not add
 settings; it tightens the ones there are. Each is capped at the profile's
 value, so an operator can be stricter than the profile but never looser while
 it is on: idle 15 minutes, 8 hours per session, 5 failures, 14-character
-passwords, 90-day tokens, the master token only for account recovery.
+passwords, 90-day tokens, the master token only for account recovery, and sudo
+mode that stays open 10 minutes while used, 30 at most, asking the password
+again.
 """
 
 from __future__ import annotations
@@ -30,6 +32,8 @@ from noust.core.ens.profile import (
     PROFILE_STANDARD,
     PROFILES,
     STANDARD,
+    SUDO_IDLE_RANGE,
+    SUDO_MAX_RANGE,
     normalise_profile,
 )
 
@@ -55,6 +59,10 @@ ENS_LOCKOUT_THRESHOLD = ENS_MEDIUM.lockout_threshold
 ENS_LOCKOUT_MINUTES = ENS_MEDIUM.lockout_minutes
 ENS_PASSWORD_MIN_LENGTH = ENS_MEDIUM.password_min_length
 ENS_TOKEN_MAX_DAYS: int = ENS_MEDIUM.token_max_days or 90
+STANDARD_SUDO_IDLE_MINUTES = STANDARD.sudo_idle_minutes
+STANDARD_SUDO_MAX_MINUTES = STANDARD.sudo_max_minutes
+ENS_SUDO_IDLE_MINUTES = ENS_MEDIUM.sudo_idle_minutes
+ENS_SUDO_MAX_MINUTES = ENS_MEDIUM.sudo_max_minutes
 
 
 @dataclass(frozen=True)
@@ -76,6 +84,13 @@ class AuthPolicy:
             or empty for none.
         login_label: What the sign-in page shows before anyone is signed in,
             chosen by the operator; empty shows nothing (no hostname).
+        sudo_idle_minutes: Sudo mode stays open this long after the last
+            elevated action performed in it.
+        sudo_max_minutes: The longest sudo mode lasts from the moment it was
+            confirmed, however busy the session is; never below the idle
+            window.
+        sudo_require_password: Re-confirming asks for the account's password
+            as well as one second factor. Always true under the ENS profile.
     """
 
     profile: str = PROFILE_STANDARD
@@ -87,6 +102,9 @@ class AuthPolicy:
     token_max_days: int | None = None
     notice_text: str = ""
     login_label: str = ""
+    sudo_idle_minutes: int = STANDARD_SUDO_IDLE_MINUTES
+    sudo_max_minutes: int = STANDARD_SUDO_MAX_MINUTES
+    sudo_require_password: bool = STANDARD.sudo_require_password
 
     @property
     def ens(self) -> bool:
@@ -118,6 +136,9 @@ class AuthPolicy:
             "password_min_length": self.password_min_length,
             "token_max_days": self.token_max_days,
             "notice_version": self.notice_version,
+            "sudo_idle_minutes": self.sudo_idle_minutes,
+            "sudo_max_minutes": self.sudo_max_minutes,
+            "sudo_require_password": self.sudo_require_password,
         }
 
 
@@ -137,6 +158,43 @@ def _positive_int(value: Any, default: int) -> int:
     return number if number > 0 else default
 
 
+def _clamped_int(value: Any, default: int, bounds: tuple[int, int]) -> int:
+    """
+    Args:
+        value: A configured number, possibly a string or garbage.
+        default: What to use when it is not a positive integer.
+        bounds: The least and the most accepted, inclusive.
+
+    Returns:
+        The number, or the default, held inside the bounds.
+    """
+    low, high = bounds
+    return min(max(_positive_int(value, default), low), high)
+
+
+def _flag(value: Any, default: bool) -> bool:
+    """
+    Read a yes/no setting, failing towards the stricter reading.
+
+    Args:
+        value: What the configuration holds: a boolean, or text typed into a
+            file by hand.
+        default: What an unset key means.
+
+    Returns:
+        The flag. Text that is neither plainly yes nor plainly no reads as
+        yes: the setting asks for more checking, so a typo must not turn it off.
+    """
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    text = str(value).strip().lower()
+    if text in ("", "0", "false", "no", "off"):
+        return False
+    return True
+
+
 def build_policy(settings: dict[str, Any]) -> AuthPolicy:
     """
     Turn configuration values into the policy, applying the profile's caps.
@@ -154,6 +212,13 @@ def build_policy(settings: dict[str, Any]) -> AuthPolicy:
     threshold = _positive_int(settings.get("lockout_threshold"), STANDARD_LOCKOUT_THRESHOLD)
     lock_minutes = _positive_int(settings.get("lockout_minutes"), STANDARD_LOCKOUT_MINUTES)
     min_length = _positive_int(settings.get("password_min_length"), STANDARD_PASSWORD_MIN_LENGTH)
+    sudo_idle = _clamped_int(
+        settings.get("sudo_idle_minutes"), STANDARD_SUDO_IDLE_MINUTES, SUDO_IDLE_RANGE
+    )
+    sudo_max = _clamped_int(
+        settings.get("sudo_max_minutes"), STANDARD_SUDO_MAX_MINUTES, SUDO_MAX_RANGE
+    )
+    sudo_password = _flag(settings.get("sudo_require_password"), STANDARD.sudo_require_password)
     token_days: int | None = None
     if profile == PROFILE_ENS_MEDIUM:
         idle = min(idle, ENS_IDLE_MINUTES)
@@ -164,6 +229,9 @@ def build_policy(settings: dict[str, Any]) -> AuthPolicy:
         token_days = min(
             _positive_int(settings.get("token_max_days"), ENS_TOKEN_MAX_DAYS), ENS_TOKEN_MAX_DAYS
         )
+        sudo_idle = min(sudo_idle, ENS_SUDO_IDLE_MINUTES)
+        sudo_max = min(sudo_max, ENS_SUDO_MAX_MINUTES)
+        sudo_password = ENS_MEDIUM.sudo_require_password
     return AuthPolicy(
         profile=profile,
         idle_minutes=idle,
@@ -174,6 +242,10 @@ def build_policy(settings: dict[str, Any]) -> AuthPolicy:
         token_max_days=token_days,
         notice_text=str(settings.get("notice_text") or ""),
         login_label=str(settings.get("login_label") or "").strip()[:64],
+        sudo_idle_minutes=sudo_idle,
+        # The confirmation can never be shorter than the window it is made of.
+        sudo_max_minutes=max(sudo_max, sudo_idle),
+        sudo_require_password=sudo_password,
     )
 
 
@@ -198,5 +270,8 @@ def load_policy() -> AuthPolicy:
             "token_max_days": config.get("auth.tokens.max_days"),
             "notice_text": config.get("auth.notice.text"),
             "login_label": config.get("auth.login_label"),
+            "sudo_idle_minutes": config.get("auth.sudo.idle_minutes"),
+            "sudo_max_minutes": config.get("auth.sudo.max_minutes"),
+            "sudo_require_password": config.get("auth.sudo.require_password"),
         }
     )
