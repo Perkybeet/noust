@@ -1,1 +1,0 @@
-import{p as e}from"./IconButton-Cslrhlns.js";import{t}from"./infiniteQueryOptions-Dfvzj6n2.js";var n={all:[`audit`],pages:e=>[`audit`,`pages`,e]},r=(r={})=>t({queryKey:n.pages(r),queryFn:({signal:t,pageParam:n})=>e(`get`,`/api/audit`,{query:n===null?r:{...r,before:n},signal:t}),initialPageParam:null,getNextPageParam:e=>e.next_before??null});export{r as t};
