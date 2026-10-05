@@ -31,6 +31,7 @@ from noust.managers.server import host as host_module
 from noust.managers.server import security_checks
 from noust.managers.server.security import ServerSecurity
 from noust.managers.server.security_pending import CONFIRM_WINDOW
+from noust.managers.server.security_proof import NEGATIVE_TTL
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import install_error_handlers, require_elevated
 from noust.web.api.server import security as security_api
@@ -99,6 +100,10 @@ def machine(tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch):
     runner.script(["fail2ban-client", "ping"], stdout="Server replied: pong\n")
     runner.script(["fail2ban-client", "status"], stdout="Status\n`- Jail list:\tsshd\n")
 
+    # The console reads a pending change again every few seconds and the proof is remembered
+    # for a few: a test that expects a new login to show moves this on.
+    moment = types.SimpleNamespace(now=NOW)
+
     def build(*, actor: str, on_output: Any = None) -> ServerSecurity:
         return ServerSecurity(
             actor=actor,
@@ -107,14 +112,14 @@ def machine(tmp_path: Path, store: NoustStore, monkeypatch: pytest.MonkeyPatch):
             changes=tmp_path / "changes",
             on_output=on_output,
             console_port=8080,
-            clock=lambda: NOW,
+            clock=lambda: moment.now,
             python="/usr/bin/python3",
         )
 
     monkeypatch.setattr(security_api, "ServerSecurity", build)
     jobs = InlineJobs()
     monkeypatch.setattr(security_api, "get_job_manager", lambda: jobs)
-    return types.SimpleNamespace(host=host, runner=runner, jobs=jobs)
+    return types.SimpleNamespace(host=host, runner=runner, jobs=jobs, moment=moment)
 
 
 @pytest.fixture
@@ -225,11 +230,13 @@ class TestChanges:
         machine.runner.script(
             ["journalctl"], stdout=accepted("noust-tunnel", ED_FP, at=NOW + 20) + "\n"
         )
+        machine.moment.now += NEGATIVE_TTL
         tunnel = client.get(f"{PREFIX}/changes").json()[0]
         machine.runner.script(
             ["journalctl"],
             stdout=accepted("root", ED_FP, at=NOW + 40, source="203.0.113.5", port=61000) + "\n",
         )
+        machine.moment.now += NEGATIVE_TTL
         after = client.get(f"{PREFIX}/changes").json()[0]
         overview = client.get(PREFIX).json()["pending"][0]
 
