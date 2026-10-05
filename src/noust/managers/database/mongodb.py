@@ -48,6 +48,7 @@ from noust.core.exceptions import (
 from noust.core.sealing import SealError
 from noust.core.secrets import SecretStore
 from noust.managers.database.base import (
+    ACCESS_REFUSED,
     PROFILES,
     QUERY_TIMEOUT,
     TRANSFER_TIMEOUT,
@@ -252,20 +253,46 @@ class MongoDBManager(BaseDatabaseManager):
 
     def _authorization_enabled(self) -> bool | None:
         """
-        Read whether mongod enforces authorization, from its configuration.
+        Read whether mongod enforces authorization.
+
+        On the host, from its configuration file. In a container the host's
+        file is not its, so the server itself is asked, as a client that has
+        signed in as nobody (:meth:`_container_enforces_authorization`).
 
         Returns:
-            True or False, or None when the file cannot be read, or the
-            server runs in a container (the host's file is not its).
+            True or False, or None when it cannot be told.
         """
         if self.instance is not None:
-            return None
+            return self._container_enforces_authorization()
         try:
             config = yaml.safe_load(MONGOD_CONF.read_text(encoding="utf-8")) or {}
         except (OSError, yaml.YAMLError):
             return None
         security = config.get("security") if isinstance(config, dict) else None
         return isinstance(security, dict) and security.get("authorization") == "enabled"
+
+    def _container_enforces_authorization(self) -> bool | None:
+        """
+        Ask a container's mongod whether it lets an anonymous client in.
+
+        The script carries no ``db.auth()``: what the image's entrypoint, a
+        ``--auth`` flag or a configuration file mounted into it decided is
+        all that answers, and it is the only thing that can say, because none
+        of them is visible from outside.
+
+        Returns:
+            True when the server demands authentication, False when it
+            answered ``listDatabases`` to nobody, None when it said something
+            else (not running, no shell in the image).
+        """
+        result = self._exec(
+            [self._shell(), "admin", "--quiet"],
+            input="db.adminCommand({listDatabases: 1, nameOnly: true})",
+            timeout=QUERY_TIMEOUT,
+        )
+        if result.success:
+            return False
+        return True if ACCESS_REFUSED.search(result.stderr or result.stdout) else None
 
     def _post_install(self) -> None:
         """
@@ -323,20 +350,43 @@ class MongoDBManager(BaseDatabaseManager):
         """
         Warn when mongod does not enforce authorization.
 
+        For a container the risk is who can reach it, which the instance
+        knows from what Docker publishes (:attr:`DatabaseInstance.reach`).
+        One that only the containers of its own Docker networks reach is not
+        warned about, and nothing else says it: a MongoDB without
+        authorization on a Compose network is the image's default and that
+        network is the boundary; the console has no lower-key place for a
+        note about an instance that is working as designed.
+
         Returns:
-            The warning and what to do, or nothing.
+            The warning and what to do, or nothing. A container's says where
+            it is published and who that lets in, and its fix is the
+            compose file's, not ``/etc/mongod.conf``.
         """
-        if self._authorization_enabled() is False:
-            return [
-                "MongoDB runs without authorization: the users Noust creates protect "
-                "nothing, and any process on this server can read and change every "
-                "database. To turn it on: create an administrator (db.createUser with the "
-                "root role in admin), give every application a user of its own, set "
-                "'security.authorization: enabled' in /etc/mongod.conf and restart mongod. "
-                "Applications that connect without credentials stop working until they "
-                "have one."
-            ]
-        return []
+        if self.instance is None:
+            if self._authorization_enabled() is False:
+                return [
+                    "MongoDB runs without authorization: the users Noust creates protect "
+                    "nothing, and any process on this server can read and change every "
+                    "database. To turn it on: create an administrator (db.createUser with the "
+                    "root role in admin), give every application a user of its own, set "
+                    "'security.authorization: enabled' in /etc/mongod.conf and restart mongod. "
+                    "Applications that connect without credentials stop working until they "
+                    "have one."
+                ]
+            return []
+        reached = self.instance.reach_words()
+        if reached is None or self._authorization_enabled() is not False:
+            return []
+        where, who = reached
+        return [
+            f"MongoDB in {self.instance.container} runs without authorization and {where}: "
+            f"{who} can read and change every database. Set MONGO_INITDB_ROOT_USERNAME and "
+            "MONGO_INITDB_ROOT_PASSWORD in the compose file and recreate the container. The "
+            "image creates that administrator only on an empty data volume: where the volume "
+            "already holds data, create the administrator inside it (db.createUser with the "
+            "root role in admin) and start mongod with --auth."
+        ]
 
     def access_hint(self) -> str:
         """

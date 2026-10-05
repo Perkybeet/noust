@@ -352,7 +352,7 @@ def validate_privileges(
 #: What each engine's client prints when it refuses to sign Noust in: MySQL's
 #: 1045, PostgreSQL's 28P01 and peer refusal, Redis's NOAUTH and WRONGPASS,
 #: MongoDB's authentication and authorization failures.
-_ACCESS_REFUSED = re.compile(
+ACCESS_REFUSED = re.compile(
     r"ERROR 1045|ERROR 1698|28P01|password authentication failed|Peer authentication failed"
     r"|no password supplied|NOAUTH|WRONGPASS|Authentication failed|requires authentication"
     r"|not authorized on admin",
@@ -1563,7 +1563,9 @@ class BaseDatabaseManager(BaseManager):
         Returns:
             A dictionary describing installation, version, service state,
             capabilities, upstream support and anything the operator must
-            know about the installation (``warnings``).
+            know about the installation (``warnings``). ``engine`` is the
+            instance key and ``engine_type`` the engine it is (the same for
+            the host's and for a container's), so a caller never splits a key.
         """
         installed = self.is_installed()
         running = self.is_running() if installed else False
@@ -1572,6 +1574,7 @@ class BaseDatabaseManager(BaseManager):
         version = self.get_version() if asked else None
         status: dict[str, Any] = {
             "engine": self.ENGINE_NAME,
+            "engine_type": self.engine_type,
             "display_name": self.DISPLAY_NAME,
             "installed": installed,
             "version": version,
@@ -1663,7 +1666,7 @@ class BaseDatabaseManager(BaseManager):
             DatabaseQueryError: For any other failure.
         """
         text = output.strip()
-        if _ACCESS_REFUSED.search(text):
+        if ACCESS_REFUSED.search(text):
             raise DatabaseAccessError(
                 f"{self.DISPLAY_NAME} does not let Noust sign in, so its {what} cannot be listed",
                 details=self.access_hint(),

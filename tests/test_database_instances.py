@@ -823,6 +823,9 @@ class TestTheService:
         empleo = next(e for e in described if e["engine"] == "postgresql@empleo-arennalabs-com.db")
         assert empleo["kind"] == "container" and empleo["stored_account"] is False
         assert next(e for e in described if e["engine"] == "postgresql")["kind"] == "host"
+        # The engine a key stands for, so nobody splits the key to ask.
+        assert empleo["engine_type"] == "postgresql"
+        assert next(e for e in described if e["engine"] == "mysql")["engine_type"] == "mysql"
 
     def test_the_listing_includes_a_containers_databases(self, service, fleet) -> None:
         fleet.script(["docker", "exec"], stdout="proggest|UTF8|8192|proggest\n")
@@ -931,6 +934,7 @@ def test_the_api_routes_a_key_with_at_and_dots(
         "proggest-postgres-1",
         "postgres",
     )
+    assert entry["engine_type"] == "postgresql"
 
 
 @pytest.mark.allow_subprocess

@@ -42,6 +42,7 @@ nothing else is kept, and nothing of it reaches the API.
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import re
 import shlex
@@ -68,6 +69,7 @@ __all__ = [
     "InstanceKey",
     "Launch",
     "PublishedPort",
+    "Reach",
     "assign_apps",
     "discover",
     "engine_of",
@@ -486,6 +488,27 @@ class PublishedPort:
     host_port: int
 
 
+#: Who can get to an instance's port, widest last (:attr:`DatabaseInstance.reach`).
+Reach = Literal["network", "host", "public"]
+
+
+def _loopback_address(address: str) -> bool:
+    """
+    Tell whether an address Docker binds a published port to is a loopback one.
+
+    Args:
+        address: ``HostIp`` of a port binding: always an IP literal.
+
+    Returns:
+        True for ``127.0.0.0/8`` and ``::1``. Anything that is not an address
+        is not loopback: the wider reading is the safe one for a warning.
+    """
+    try:
+        return ipaddress.ip_address(address.strip().strip("[]")).is_loopback
+    except ValueError:
+        return False
+
+
 @dataclass(frozen=True)
 class Launch:
     """
@@ -533,6 +556,9 @@ class DatabaseInstance:
         unit: The systemd unit of the Noust Compose application whose stack
             it is part of, once known: starting and stopping it goes through
             that unit, which owns the stack.
+        host_network: Whether it shares the server's network (``--network
+            host``) instead of having one of its own: nothing is published,
+            because the engine listens on the server's own interfaces.
     """
 
     key: str
@@ -553,6 +579,7 @@ class DatabaseInstance:
     command_password: str | None = field(default=None, repr=False)
     command_password_variable: str | None = None
     unit: str | None = None
+    host_network: bool = False
 
     # ---------------------------------------------------------------- state
 
@@ -569,18 +596,80 @@ class DatabaseInstance:
             return engine_port
         return self.exposed[0]
 
+    def _own_bindings(self) -> list[PublishedPort]:
+        """The publications of the engine's own port, in the order Docker lists them."""
+        return [port for port in self.published if port.container_port == self.default_port]
+
     @property
     def host_port(self) -> int | None:
         """The host port the engine's port is published on, if it is."""
-        for port in self.published:
-            if port.container_port == self.default_port:
-                return port.host_port
+        for port in self._own_bindings():
+            return port.host_port
         return None
 
     @property
     def port(self) -> int:
         """The port a client on the host reaches it on, else its own port."""
         return self.host_port or self.default_port
+
+    @property
+    def reach(self) -> Reach:
+        """
+        Who can get to the engine's port, from what Docker publishes of it.
+
+        - ``network``: nothing is published, so only the containers on the
+          Docker networks it joins reach it. The stack's network is the
+          boundary, which is what a Compose file's database is meant to have.
+        - ``host``: published only on a loopback address, so any process on
+          this server reaches it, and nothing else does.
+        - ``public``: published on any other address (or sharing the server's
+          network), so anything that can reach that port of this server does.
+          Whether a firewall closes it is a separate question, answered by
+          :func:`~noust.managers.database.exposure.find_exposed_database_ports`.
+        """
+        if self.host_network:
+            return "public"
+        bindings = self._own_bindings()
+        if not bindings:
+            return "network"
+        if all(_loopback_address(binding.host_ip) for binding in bindings):
+            return "host"
+        return "public"
+
+    def reach_words(self) -> tuple[str, str] | None:
+        """
+        Say how far the engine's port reaches, in the two halves of a sentence.
+
+        Both engines' "no password" warnings are built from these (rule 3: one
+        wording of who can get to a container), as ``"<engine> in <container>
+        <lacks something> and <where>: <who> can read and change ..."``.
+
+        Returns:
+            ``(where, who)``: ``where`` is ``is published on 127.0.0.1:6380``
+            (or ``shares the server's network``) and ``who`` is ``any process
+            on this server`` or ``anything that reaches port 6380 of this
+            server``. None when only the containers on its Docker networks
+            reach it: nothing to warn about.
+        """
+        reach = self.reach
+        if reach == "network":
+            return None
+        if self.host_network:
+            return "shares the server's network", (
+                f"anything that reaches port {self.default_port} of this server"
+            )
+        # The widest publication names it: a loopback one beside a public one
+        # is not what the operator needs to hear about.
+        bindings = self._own_bindings()
+        widest = next(
+            (binding for binding in bindings if not _loopback_address(binding.host_ip)),
+            bindings[0],
+        )
+        address = f"[{widest.host_ip}]" if ":" in widest.host_ip else widest.host_ip
+        where = f"is published on {address}:{widest.host_port}"
+        if reach == "host":
+            return where, "any process on this server"
+        return where, f"anything that reaches port {widest.host_port} of this server"
 
     # ------------------------------------------------------------ signing in
 
@@ -994,6 +1083,7 @@ def _instance(entry: Mapping[str, Any]) -> DatabaseInstance | None:
     if not published and isinstance(host_config, Mapping):
         published = _ports(host_config.get("PortBindings"))
     env_names, settings = _environment(config.get("Env"))
+    host_network = isinstance(host_config, Mapping) and host_config.get("NetworkMode") == "host"
     password, variable = (None, None)
     if match.engine == "redis":
         command = [*(config.get("Entrypoint") or []), *(config.get("Cmd") or [])]
@@ -1015,6 +1105,7 @@ def _instance(entry: Mapping[str, Any]) -> DatabaseInstance | None:
         official=match.official,
         command_password=password,
         command_password_variable=variable,
+        host_network=host_network,
     )
 
 

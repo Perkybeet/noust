@@ -845,18 +845,27 @@ class TestARedisContainersPassword:
 
         assert RedisManager().bind(bare).warnings() == []
 
-    def test_one_without_any_is_and_the_fix_is_its_compose_file(
+    def test_one_without_any_is_when_something_beyond_its_networks_reaches_it(
         self, docker: Docker, instances
     ) -> None:
         from dataclasses import replace
 
+        from noust.managers.database.instances import PublishedPort
         from noust.managers.database.redis import RedisManager
 
         docker.script(["docker", "exec"], stdout="default\n")
-        bare = replace(instances["redis@tienda-arennalabs-com.redis"], command_password=None)
+        bare = replace(
+            instances["redis@tienda-arennalabs-com.redis"],
+            command_password=None,
+            published=(PublishedPort(6379, "127.0.0.1", 6380),),
+        )
 
         (warning,) = RedisManager().bind(bare).warnings()
         assert "compose file" in warning
+        # Only on its Docker network it is the image's default, and no alarm
+        # (tests/test_database_container_reach.py covers every reach).
+        shut_in = replace(bare, published=())
+        assert RedisManager().bind(shut_in).warnings() == []
 
 
 def test_a_containers_metrics_have_their_charts() -> None:
