@@ -8,9 +8,10 @@ This is the ENS's ``op.exp.4.r2.1`` ("before applying configurations ... a
 mechanism to revert them") made literal, in the style of a router's
 ``commit confirmed``. Every sshd or firewall change Noust makes is recorded
 here before it takes effect, together with how to undo it, and a transient
-systemd timer is armed to undo it after :data:`CONFIRM_WINDOW` seconds:
+systemd timer is armed to undo it once its window closes, :data:`CONFIRM_WINDOW`
+seconds (300) after it was applied:
 
-    systemd-run --unit=noust-security-revert-<id> --on-active=120 ...
+    systemd-run --unit=noust-security-revert-<id> --on-active=<window in seconds> ...
         -- <python> -m noust.managers.server.security_pending revert <id> --directory <dir>
 
 The timer belongs to systemd, not to the console: if the change cut the
