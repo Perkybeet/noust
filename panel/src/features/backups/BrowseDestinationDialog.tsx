@@ -178,7 +178,7 @@ export interface BrowseDestinationDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-/** What a destination holds, browsed the way `noust backup destination browse` does it. */
+/** What a destination holds, browsed through the API (the CLI has no browser for it). */
 export function BrowseDestinationDialog({ destinations, initialDestination, open, onOpenChange }: BrowseDestinationDialogProps) {
   const t = useT();
   const [name, setName] = useState(initialDestination ?? destinations[0]?.name ?? "");

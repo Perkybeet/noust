@@ -132,3 +132,16 @@ export function sshFixOf(action: string | null | undefined): string | null {
 export function typedFriction(action: string | null | undefined): boolean {
   return action === "ssh:disable-passwords" || action === "ssh:root-no" || action === "firewall:enable";
 }
+
+/** Where an `action` fix is done, by the route the API names: the tab that does it. */
+export function actionTarget(
+  endpoint: string | null | undefined,
+): "/server/updates" | "/server/storage" | "/server/services" | "reboot" | null {
+  if (endpoint === null || endpoint === undefined) return null;
+  if (endpoint.includes("/power/reboot")) return "reboot";
+  // The failed units: the services list, every unit, filtered to the failed ones.
+  if (endpoint.startsWith("GET /api/services")) return "/server/services";
+  if (endpoint.includes("/updates")) return "/server/updates";
+  if (endpoint.includes("/swap") || endpoint.includes("/storage")) return "/server/storage";
+  return null;
+}

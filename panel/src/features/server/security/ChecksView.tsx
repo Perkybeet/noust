@@ -26,18 +26,9 @@ import { usePowerDialog } from "../PowerDialog";
 import { checksQuery, serverKeys } from "../queries";
 import type { SecurityCheck } from "../queries";
 import { AcceptRiskDialog, FixDialog, GuidedDrawer } from "./FixDialogs";
-import { checkState, checkTitle, isOpen, sortChecks } from "./data";
+import { actionTarget, checkState, checkTitle, isOpen, sortChecks } from "./data";
 
 type Opened = { kind: "fix" | "guided" | "accept"; check: SecurityCheck } | null;
-
-/** Where an `action` fix is done, by the route the API names: the tab that does it. */
-function actionTarget(endpoint: string | null | undefined): "/server/updates" | "/server/storage" | "reboot" | null {
-  if (endpoint === null || endpoint === undefined) return null;
-  if (endpoint.includes("/power/reboot")) return "reboot";
-  if (endpoint.includes("/updates")) return "/server/updates";
-  if (endpoint.includes("/swap") || endpoint.includes("/storage")) return "/server/storage";
-  return null;
-}
 
 function Evidence({ check }: { check: SecurityCheck }) {
   const t = useT();
@@ -81,6 +72,10 @@ function FindingActions({ check, open }: { check: SecurityCheck; open: (opened: 
           <Button size="sm" onClick={() => power.open("reboot")}>
             {t("server.checks.scheduleReboot")}
           </Button>
+        ) : target === "/server/services" ? (
+          <Link to={target} search={{ all: true, state: "failed" }} className={buttonClassName("secondary", "sm")}>
+            {t("server.checks.open")}
+          </Link>
         ) : target !== null ? (
           <Link to={target} className={buttonClassName("secondary", "sm")}>
             {t("server.checks.open")}

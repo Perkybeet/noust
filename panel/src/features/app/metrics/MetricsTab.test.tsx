@@ -185,7 +185,7 @@ describe("the metrics tab", () => {
   });
 
   it("finds the command in the backend's fix, wherever it is", () => {
-    expect(fixCommand({ code: "unit_missing", fix: "Redeploy it: noust app update shop.example.com", params: {} })).toBe("noust app update shop.example.com");
+    expect(fixCommand({ code: "unit_missing", fix: "Redeploy it: noust update shop.example.com", params: {} })).toBe("noust update shop.example.com");
     expect(fixCommand({ code: "failed", fix: "journalctl -u shop -n 50", params: {} })).toBe("journalctl -u shop -n 50");
     expect(fixCommand({ code: "php_fpm_missing", fix: "Install PHP-FPM, then redeploy the application.", params: {} })).toBeNull();
     expect(fixCommand({ code: "compose_cgroup_unreadable", fix: "Use 'docker stats' for their usage.", params: {} })).toBe("docker stats");

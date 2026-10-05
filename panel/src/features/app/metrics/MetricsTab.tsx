@@ -71,7 +71,7 @@ const COMMAND = /^(?:noust|systemctl|journalctl|docker)\s[^\s]/;
 
 /**
  * The command that fixes a reason, verbatim: the backend's fix when it is one, the command at
- * the end of its sentence ("Redeploy it: noust app update example.com"), or the one the reason
+ * the end of its sentence ("Redeploy it: noust update example.com"), or the one the reason
  * itself names (the service to edit, Docker's own view).
  */
 export function fixCommand(reason: Pick<MetricsReason, "code" | "fix" | "params">): string | null {
