@@ -241,7 +241,7 @@ async function signInWithCode(page: Page, server: ConsoleServer, secret: string)
 withoutTwoFactor("enrol two-factor end to end, sign in with it, turn it off", async ({ page, consoleServer, problems, browser }) => {
   // Starting the enrolment asks "Confirm it's you" by answering 403 first, by design; two-
   // factor is off going in, so it is confirmed with the access token. That confirmation
-  // elevates the session for the next 10 minutes, so turning it off at the end of this same
+  // keeps the session in sudo mode while it is used, so turning it off at the end of this same
   // session does not ask again.
   problems.expect(/status of 403 .* \/api\/auth\/2fa\/enroll$/);
   await signIn(page, consoleServer, "/settings/security");

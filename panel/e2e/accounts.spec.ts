@@ -108,11 +108,11 @@ async function signInAs(page: Page, who: Person, next = "/"): Promise<void> {
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
 }
 
-/** "Confirm it's you" for a person: their password and a backup code. */
+/** "Confirm it's you" for a person: one factor, a backup code (the session already proved the password). */
 async function confirmAsPerson(page: Page, who: Person): Promise<void> {
   const dialog = page.getByRole("dialog", { name: "Confirm it's you" });
   await expect(dialog).toBeVisible();
-  await dialog.getByLabel("Password").fill(who.password);
+  await expect(dialog.getByLabel("Password")).toHaveCount(0);
   await dialog.getByLabel("Authentication code").fill(spare(who));
   await dialog.getByRole("button", { name: "Confirm" }).click();
   await expect(dialog).toBeHidden();

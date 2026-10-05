@@ -247,8 +247,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
 
   // The notice above the list depends on the policies and the open ports: the list waits for
   // them, so a notice arriving late never pushes the rows down under the pointer. It waits
-  // behind placeholder rows in the table's own place, never behind a blank page, and the table
-  // stays the one element from the first frame to the rows. Never more than SETTLE_MS: the
+  // behind placeholder rows, never behind a blank page. Never more than SETTLE_MS: the
   // open-port check reads the firewall and can take seconds, and rows the operator can already
   // use are worth a notice that moves them once.
   const settling = (policies.isPending || exposure.isPending) && list.data !== undefined && !settleExpired;
@@ -292,12 +291,15 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
       header={header}
       tabs={tabs}
       {...(!loading && notice !== undefined ? { notice } : {})}
-      filters={filterBar(loading ? undefined : count)}
+      // The notice, the filters and the rows arrive together, as new elements: placeholders
+      // drawn under a notice not yet known would only be pushed down the page when it came.
+      {...(loading ? {} : { filters: filterBar(count) })}
       // Drawn with the rows, not before: under a list of unknown length it would only be pushed
       // down the page when they arrive.
       {...(loading ? {} : { footer: <CommandHint command="noust db list" label={t("databases.common.fromTerminal")} /> })}
     >
       <DatabasesTable
+        key={loading ? "placeholder" : "rows"}
         loading={loading}
         databases={loading ? [] : shown}
         engines={engines.data?.engines}

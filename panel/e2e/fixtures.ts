@@ -127,6 +127,9 @@ export async function startConsoleServer(
   }
 
   const unspent = [...(parsed.backup_codes ?? [])];
+  // A code that signed in cannot confirm "it's you" (its step is spent for both), so each code
+  // handed out is for a later step than the last one, as far as the server's one-step drift allows.
+  let lastStep = -1;
   return {
     url: parsed.url,
     token: parsed.token,
@@ -135,9 +138,11 @@ export async function startConsoleServer(
       const code = unspent.shift();
       if (code !== undefined) return code;
       // A server started without a pool of backup codes: fine for the one or two factors a
-      // single test spends, each purpose once per step.
+      // single test spends (a sign-in, then a confirmation on the next step).
       if (parsed.totp_secret === null) throw new Error("the console server has no second factor");
-      return totpCode(parsed.totp_secret);
+      const step = Math.max(Math.floor(Date.now() / 30_000), lastStep + 1);
+      lastStep = step;
+      return totpCode(parsed.totp_secret, step * 30_000);
     },
     stop: async () => {
       if (child.exitCode !== null) return;

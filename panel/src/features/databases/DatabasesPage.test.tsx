@@ -13,8 +13,15 @@ async function listAt(path = "/databases", extra: Record<string, RouteHandler> =
   const backend = fakeBackend(databaseRoutes(extra));
   const harness = renderConsole(path);
   await screen.findByRole("heading", { level: 1, name: "Databases" });
+  // The rows come in a table of their own, with the filters above it, once the list is known.
+  if (rows) await screen.findByRole("search", { name: "Filter databases" });
   const table = rows ? await screen.findByRole("region", { name: "Databases" }) : document.body;
   return { ...harness, backend, table };
+}
+
+/** The list's region as it is now: placeholders while the list is read, the rows after. */
+function listRegion(): HTMLElement {
+  return screen.getByRole("region", { name: "Databases" });
 }
 
 describe("the databases list", () => {
@@ -180,43 +187,51 @@ describe("the databases list", () => {
   it("draws placeholder rows, not a finished-looking page, while the list is read", async () => {
     // Opening the tab used to leave the header over a blank area: nothing said anything was coming.
     let answer: (response: Response) => void = () => undefined;
-    const { table } = await listAt("/databases", {
-      "GET /api/databases/databases": () => new Promise<Response>((resolve) => (answer = resolve)),
-    });
-    // The table is there from the first frame, busy, with the rows' shape and the filters above it.
-    expect(table.querySelector("table")).toHaveAttribute("aria-busy", "true");
-    expect(table.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
-    expect(screen.getByRole("search", { name: "Filter databases" })).toBeInTheDocument();
-    // Nothing is claimed about a list that is not known yet.
+    await listAt(
+      "/databases",
+      { "GET /api/databases/databases": () => new Promise<Response>((resolve) => (answer = resolve)) },
+      { rows: false },
+    );
+    // Placeholder rows from the first frame, busy, in the list's place.
+    const placeholder = await screen.findByRole("region", { name: "Databases" });
+    expect(placeholder.querySelector("table")).toHaveAttribute("aria-busy", "true");
+    expect(placeholder.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
+    // Nothing is claimed about a list that is not known yet, and nothing is drawn above the
+    // placeholders that the notice would push down when it came.
+    expect(screen.queryByRole("search", { name: "Filter databases" })).not.toBeInTheDocument();
     expect(screen.queryByText("No databases yet")).not.toBeInTheDocument();
     expect(screen.queryByText(/databases? have no backup schedule/)).not.toBeInTheDocument();
     expect(screen.queryByText("0 databases")).not.toBeInTheDocument();
 
     answer(json(200, { databases: DATABASES, total: DATABASES.length }));
-    // The rows arrive in the same table, which stays busy no longer.
-    expect(await within(table).findByText("example_production")).toBeInTheDocument();
-    expect(table.querySelector("table")).not.toHaveAttribute("aria-busy");
+    // The filters and the rows arrive together, and nothing is busy any more.
+    expect(await screen.findByRole("search", { name: "Filter databases" })).toBeInTheDocument();
+    expect(await within(listRegion()).findByText("example_production")).toBeInTheDocument();
+    expect(listRegion().querySelector("table")).not.toHaveAttribute("aria-busy");
   });
 
   it("holds the rows behind placeholders until the notice above them is known", async () => {
     let answer: (response: Response) => void = () => undefined;
-    const { table } = await listAt("/databases", {
-      "GET /api/databases/exposure": () => new Promise<Response>((resolve) => (answer = resolve)),
-    });
-    expect(table.querySelector("table")).toHaveAttribute("aria-busy", "true");
-    expect(within(table).queryByText("example_production")).not.toBeInTheDocument();
+    await listAt(
+      "/databases",
+      { "GET /api/databases/exposure": () => new Promise<Response>((resolve) => (answer = resolve)) },
+      { rows: false },
+    );
+    const placeholder = await screen.findByRole("region", { name: "Databases" });
+    expect(placeholder.querySelector("table")).toHaveAttribute("aria-busy", "true");
+    expect(within(placeholder).queryByText("example_production")).not.toBeInTheDocument();
     answer(json(200, { exposed: [], firewalled: [] }));
-    expect(await within(table).findByText("example_production")).toBeInTheDocument();
+    expect(await screen.findByText("example_production")).toBeInTheDocument();
+    expect(listRegion().querySelector("table")).not.toHaveAttribute("aria-busy");
   });
 
   it("shows the rows after a second even when the open-port check has not answered", async () => {
     // The check reads the firewall and can take seconds: the rows the operator came for do not wait for it.
-    const { table } = await listAt("/databases", {
-      "GET /api/databases/exposure": () => new Promise<Response>(() => undefined),
-    });
-    expect(within(table).queryByText("example_production")).not.toBeInTheDocument();
-    expect(await within(table).findByText("example_production", undefined, { timeout: 3000 })).toBeInTheDocument();
-    expect(table.querySelector("table")).not.toHaveAttribute("aria-busy");
+    await listAt("/databases", { "GET /api/databases/exposure": () => new Promise<Response>(() => undefined) }, { rows: false });
+    await screen.findByRole("region", { name: "Databases" });
+    expect(screen.queryByText("example_production")).not.toBeInTheDocument();
+    expect(await screen.findByText("example_production", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(listRegion().querySelector("table")).not.toHaveAttribute("aria-busy");
   });
 
   it("offers the first database when there is none, or the engines when none runs", async () => {
