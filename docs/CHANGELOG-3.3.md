@@ -180,7 +180,8 @@ recreate a container it refuses unless `--accept-recreate` is given.
 - **Every page of the console shows that it is loading.** The Databases list drew its header over
   a blank area until the list, the backup policies and the open ports had all answered; it now
   keeps its filters and a table of placeholder rows from the first frame, and says nothing about
-  the databases (no "No databases yet", no count) before it knows them. The same gap is closed on
+  the databases (no "No databases yet", no count) before it knows them. The rows wait at most a second
+  for the notice above them: the open-port check can take seconds and no longer holds them back. The same gap is closed on
   a service's page, the unit file, the table of tables, the connection tab, the logs (a pane still
   waiting for its first lines draws the shape of lines and is marked busy), the servers count of
   Settings > Central, and on the figures, cards and sections that were placeholders a screen

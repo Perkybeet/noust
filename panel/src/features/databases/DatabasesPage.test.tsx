@@ -209,6 +209,16 @@ describe("the databases list", () => {
     expect(await within(table).findByText("example_production")).toBeInTheDocument();
   });
 
+  it("shows the rows after a second even when the open-port check has not answered", async () => {
+    // The check reads the firewall and can take seconds: the rows the operator came for do not wait for it.
+    const { table } = await listAt("/databases", {
+      "GET /api/databases/exposure": () => new Promise<Response>(() => undefined),
+    });
+    expect(within(table).queryByText("example_production")).not.toBeInTheDocument();
+    expect(await within(table).findByText("example_production", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(table.querySelector("table")).not.toHaveAttribute("aria-busy");
+  });
+
   it("offers the first database when there is none, or the engines when none runs", async () => {
     await listAt("/databases", { "GET /api/databases/databases": () => json(200, { databases: [], total: 0 }) }, { rows: false });
     expect(await screen.findByRole("heading", { level: 2, name: "No databases yet" })).toBeInTheDocument();

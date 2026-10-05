@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Archive, Database as DatabaseIcon, Link2, PanelTop, Plug, SquareTerminal, X } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { request } from "../../api/client";
 import { databaseBackupsQuery, databaseKeys, databasesQuery, enginesQuery, exposureQuery, policiesQuery } from "../../api/queries/databases";
@@ -111,6 +111,9 @@ function RowActions({ database, engines, t }: { database: Database; engines: rea
   );
 }
 
+/** How long the rows wait for the notice above them once the list itself has answered. */
+const SETTLE_MS = 1_000;
+
 /**
  * Every database on the server, as a T1 list: the name first and whether it is backed up
  * beside it, the engine, who uses it, its size and its newest dump. Above it, the filters and
@@ -125,6 +128,13 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   const policies = useQuery(policiesQuery());
   const dumps = useQuery(databaseBackupsQuery());
   const exposure = useQuery(exposureQuery());
+  const listed = list.data !== undefined;
+  const [settleExpired, setSettleExpired] = useState(false);
+  useEffect(() => {
+    if (!listed) return undefined;
+    const timer = window.setTimeout(() => setSettleExpired(true), SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [listed]);
 
   const all = useMemo(() => list.data?.databases ?? [], [list.data]);
   const byPolicy = useMemo(() => policiesById(policies.data), [policies.data]);
@@ -238,8 +248,10 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   // The notice above the list depends on the policies and the open ports: the list waits for
   // them, so a notice arriving late never pushes the rows down under the pointer. It waits
   // behind placeholder rows in the table's own place, never behind a blank page, and the table
-  // stays the one element from the first frame to the rows.
-  const settling = (policies.isPending || exposure.isPending) && list.data !== undefined;
+  // stays the one element from the first frame to the rows. Never more than SETTLE_MS: the
+  // open-port check reads the firewall and can take seconds, and rows the operator can already
+  // use are worth a notice that moves them once.
+  const settling = (policies.isPending || exposure.isPending) && list.data !== undefined && !settleExpired;
   const loading = list.isPending || settling;
 
   if (!loading && all.length === 0 && problems.length > 0) {
