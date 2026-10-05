@@ -263,6 +263,24 @@ describe("LogViewer", () => {
     expect(screen.getByRole("button", { name: "Download output" })).toBeDisabled();
   });
 
+  it("draws the shape of the lines to come, and is busy, while the first ones are on their way", () => {
+    const { container, rerender } = render(<LogViewer lines={[]} loading emptyMessage="Reading the journal." />);
+    const region = screen.getByRole("region", { name: "Log output" });
+    expect(region).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByText("Reading the journal.")).toBeInTheDocument();
+    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
+    // The first lines end it: nothing is busy, nothing is a placeholder.
+    rerender(<LogViewer lines={lines(3)} loading emptyMessage="Reading the journal." />);
+    expect(screen.getByRole("region", { name: "Log output" })).not.toHaveAttribute("aria-busy");
+    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBe(0);
+  });
+
+  it("is not busy when it is simply empty", () => {
+    const { container } = render(<LogViewer lines={[]} emptyMessage="Nothing logged." />);
+    expect(screen.getByRole("region", { name: "Log output" })).not.toHaveAttribute("aria-busy");
+    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBe(0);
+  });
+
   it("tells Copy and Download apply to the whole log, not only the rendered rows", () => {
     render(<LogViewer lines={lines(5000)} />);
     const hint = "Copies or downloads the entire log, not only the lines currently shown.";

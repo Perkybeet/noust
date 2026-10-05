@@ -194,7 +194,7 @@ function PolicySection({ t, session }: { t: T; session: SessionInfo }) {
   ];
 
   return (
-    <Section title={t("auth.security.policyTitle")} description={t("auth.security.policyDescription")}>
+    <Section title={t("auth.security.policyTitle")} description={t("auth.security.policyDescription")} loading={profile.isPending && config.isPending}>
       <Card padding="sm">
         {profile.isPending && config.isPending ? <KeyValueListSkeleton rows={4} /> : <KeyValueList items={facts} />}
       </Card>

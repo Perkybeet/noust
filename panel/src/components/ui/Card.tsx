@@ -21,6 +21,12 @@ export interface CardProps {
   as?: "section" | "div" | "li" | "article";
   /** For a card that is itself a target (a whole-card link): its border answers the pointer. */
   interactive?: boolean;
+  /**
+   * What the card shows is still being read and its body (and perhaps an action) is a skeleton.
+   * The card is `aria-busy`, so a screen reader hears that it is not ready, whichever of its
+   * parts hold the placeholders.
+   */
+  loading?: boolean;
   className?: string;
 }
 
@@ -45,6 +51,7 @@ export function Card({
   padding = "md",
   as: Element = "section",
   interactive = false,
+  loading = false,
   className,
 }: CardProps) {
   const Heading = `h${level}` as const;
@@ -52,6 +59,7 @@ export function Card({
   const space = PADDING[padding];
   return (
     <Element
+      {...(loading ? { "aria-busy": true } : {})}
       className={cx(
         "flex min-w-0 flex-col rounded-card border border-border bg-surface shadow-raised",
         interactive && "transition-colors duration-(--duration-fast) ease-out hover:border-border-strong",

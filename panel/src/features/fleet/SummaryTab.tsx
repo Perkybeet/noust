@@ -396,31 +396,37 @@ export function SummaryTab() {
       <div data-slot="figures" className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
         <StatTile
           label={t("fleet.summary.figures.servers")}
+          loading={loading}
           value={tile(t("fleet.summary.figures.serversValue", { answering: nodes.length - down, total: nodes.length }))}
           detail={detail(down > 0 ? <Worst state="failed">{t("fleet.summary.figures.serversDown", { count: down })}</Worst> : t("fleet.summary.figures.serversAll"))}
         />
         <StatTile
           label={t("fleet.summary.figures.apps")}
+          loading={loading}
           value={tile(t("fleet.summary.figures.appsTotal", { count: allApps }))}
           detail={detail(failedApps > 0 ? <Worst state="failed">{t("fleet.summary.appsFailed", { count: failedApps })}</Worst> : t("fleet.summary.figures.appsRunningNoneFailed", { count: runningApps }))}
         />
         <StatTile
           label={t("fleet.summary.figures.services")}
+          loading={loading}
           value={tile(failedUnits > 0 ? t("fleet.summary.figures.servicesFailed", { count: failedUnits }) : t("fleet.summary.figures.noneFailed"))}
           detail={t("fleet.summary.figures.servicesDetail")}
         />
         <StatTile
           label={t("fleet.summary.figures.certificates")}
+          loading={loading}
           value={tile(expiring > 0 ? t("fleet.summary.figures.certificatesExpiring", { count: expiring }) : t("fleet.summary.figures.certificatesNone"))}
           detail={t("fleet.summary.figures.certificatesDetail")}
         />
         <StatTile
           label={t("fleet.summary.figures.updates")}
+          loading={loading}
           value={tile(updatable > 0 ? t("fleet.summary.figures.updatesAvailable", { count: updatable }) : t("fleet.summary.figures.updatesNone"))}
           detail={detail(reboots > 0 ? <Worst state="warning">{t("fleet.summary.figures.reboots", { count: reboots })}</Worst> : t("fleet.summary.figures.noReboots"))}
         />
         <StatTile
           label={t("fleet.summary.figures.attention")}
+          loading={loading}
           value={tile(t("fleet.summary.figures.attentionValue", { count: sum(rows, (row) => attentionOf(row)?.total ?? null) }))}
           detail={t("fleet.summary.figures.attentionDetail")}
         />

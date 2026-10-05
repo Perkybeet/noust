@@ -7,6 +7,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
+import type { ReactNode } from "react";
 
 import { machineQuery } from "../../../api/queries/system";
 import { CommandHint } from "../../../components/page/CommandHint";
@@ -269,6 +270,8 @@ function Readings({ summary, security }: { summary: ServerSummary | undefined; s
   const t = useT();
   const machine = useQuery(machineQuery());
   const pending = <Skeleton className="h-5 w-16" />;
+  // A tile whose reading is the skeleton says it is busy (StatTile `loading`).
+  const reading = (value: ReactNode) => ({ value, loading: value === pending });
   const updates = summary?.updates;
   const counts = security?.counts ?? null;
   const disk = summary?.disk;
@@ -279,7 +282,7 @@ function Readings({ summary, security }: { summary: ServerSummary | undefined; s
     <div className="grid min-w-0 grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
       <StatTile
         label={t("server.overview.updates")}
-        value={
+        {...reading(
           updates === undefined
             ? pending
             : !updates.supported
@@ -288,8 +291,8 @@ function Readings({ summary, security }: { summary: ServerSummary | undefined; s
                 ? pending
                 : updates.pending === 0
                   ? t("server.overview.upToDate")
-                  : t("server.overview.updatesPending", { count: updates.pending })
-        }
+                  : t("server.overview.updatesPending", { count: updates.pending }),
+        )}
         detail={
           !updates?.supported
             ? (updates?.reason ?? undefined)
@@ -302,12 +305,22 @@ function Readings({ summary, security }: { summary: ServerSummary | undefined; s
       />
       <StatTile
         label={t("server.overview.security")}
-        value={security === undefined ? pending : counts === null ? (security.checking ? t("server.overview.checking") : t("server.overview.notChecked")) : counts.critical + counts.warning === 0 ? t("server.overview.noFindings") : t("server.overview.findings", { count: counts.critical + counts.warning })}
+        {...reading(
+          security === undefined
+            ? pending
+            : counts === null
+              ? security.checking
+                ? t("server.overview.checking")
+                : t("server.overview.notChecked")
+              : counts.critical + counts.warning === 0
+                ? t("server.overview.noFindings")
+                : t("server.overview.findings", { count: counts.critical + counts.warning }),
+        )}
         detail={counts !== null ? t("server.overview.findingsDetail", { critical: counts.critical, warning: counts.warning, passed: counts.passed }) : undefined}
       />
       <StatTile
         label={t("server.overview.disk")}
-        value={disk === undefined ? pending : disk.worst_percent != null ? formatPercent(disk.worst_percent, t.locale) : t("server.overview.noReading")}
+        {...reading(disk === undefined ? pending : disk.worst_percent != null ? formatPercent(disk.worst_percent, t.locale) : t("server.overview.noReading"))}
         detail={
           disk?.worst_mount != null ? (
             <>
@@ -319,7 +332,7 @@ function Readings({ summary, security }: { summary: ServerSummary | undefined; s
       />
       <StatTile
         label={t("server.overview.memory")}
-        value={memory === undefined ? pending : formatPercent(memory.percent, t.locale)}
+        {...reading(memory === undefined ? pending : formatPercent(memory.percent, t.locale))}
         detail={
           memory !== undefined
             ? t("server.overview.memoryDetail", {
@@ -332,15 +345,15 @@ function Readings({ summary, security }: { summary: ServerSummary | undefined; s
       />
       <StatTile
         label={t("server.overview.clock")}
-        value={
+        {...reading(
           time === undefined || (time.synchronized == null && time.error == null)
             ? pending
             : time.synchronized === true
               ? t("server.overview.clockSynced")
               : time.synchronized === false
                 ? t("server.overview.clockUnsynced")
-                : t("server.overview.noReading")
-        }
+                : t("server.overview.noReading"),
+        )}
         detail={time?.timezone != null ? <Mono tone="faint">{time.timezone}</Mono> : undefined}
         className="max-sm:col-span-2"
       />

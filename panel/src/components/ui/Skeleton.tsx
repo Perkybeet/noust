@@ -7,12 +7,14 @@ export interface SkeletonProps {
 
 /**
  * A placeholder with the shape of content that is loading. It is decorative: the region that
- * contains it carries aria-busy and says what is loading.
+ * contains it carries aria-busy and says what is loading. `data-slot="skeleton"` is what the
+ * route tests (`routes/loading.test.tsx`) look for to know a page draws something while it waits.
  */
 export function Skeleton({ className }: SkeletonProps) {
   return (
     <span
       aria-hidden="true"
+      data-slot="skeleton"
       className={cx("block animate-breathe rounded-[4px] bg-surface-active", sizeDefaults(className), className)}
     />
   );

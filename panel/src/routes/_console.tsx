@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { PageError } from "../app/ErrorBoundary";
 import { nodeFromSearch } from "../app/nodeRoute";
+import { FramedRoutePending } from "../app/RoutePending";
 import { Shell } from "../app/Shell";
 import { SessionGate, requireSession } from "../features/auth/SessionGate";
 import { hubRedirect } from "../features/central/central";
@@ -19,6 +20,9 @@ export const Route = createFileRoute("/_console")({
     return session;
   },
   component: ConsoleLayout,
+  // Before the shell exists (the first load, the session being read) there is no page around
+  // the placeholder: it brings the page's margins.
+  pendingComponent: FramedRoutePending,
   errorComponent: ({ error }) => (
     <main className="mx-auto min-h-dvh max-w-3xl px-6 py-16">
       <PageError error={error} />

@@ -284,6 +284,7 @@ export function AppDomainsTab({ domain }: { domain: string }) {
       <Section
         title={t("domains.appTab.certificateSectionTitle")}
         description={t("domains.appTab.certificateSectionDescription")}
+        loading={lineage === undefined}
         actions={
           <TextLink to="/domains" size="ui">
             {t("domains.appTab.allCertificates")}

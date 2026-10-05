@@ -312,6 +312,7 @@ export function KeyFigures({ overview }: { overview: Overview | undefined }) {
           <StatTile
             key={label}
             label={label}
+            loading
             value={<Skeleton className="h-4.5 w-24" />}
             detailLines={2}
             // As tall as the line of text it stands for.

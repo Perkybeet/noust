@@ -14,6 +14,8 @@ export interface SectionProps {
   level?: 2 | 3;
   /** A count or state shown right after the title ("Needs attention 3"). */
   badge?: ReactNode;
+  /** The content (or an action) is a skeleton for now: the section is `aria-busy` meanwhile. */
+  loading?: boolean;
   className?: string;
 }
 
@@ -22,11 +24,11 @@ export interface SectionProps {
  * actions, then the content 16px below. A landmark region named by its heading, so a screen
  * reader can jump between sections.
  */
-export function Section({ title, description, actions, children, level = 2, badge, className }: SectionProps) {
+export function Section({ title, description, actions, children, level = 2, badge, loading = false, className }: SectionProps) {
   const headingId = useId();
   const Heading = `h${level}` as const;
   return (
-    <section aria-labelledby={headingId} className={cx("flex min-w-0 flex-col gap-4", className)}>
+    <section aria-labelledby={headingId} {...(loading ? { "aria-busy": true } : {})} className={cx("flex min-w-0 flex-col gap-4", className)}>
       <header className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2">

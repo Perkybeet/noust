@@ -89,7 +89,6 @@ export const databases: Catalog<typeof en> = {
     captionFiltered: "Bases de datos que cumplen los filtros",
     noMatch: "Ninguna base de datos cumple estos filtros.",
     couldNotLoad: "No se pudieron cargar las bases de datos",
-    loading: "Cargando las bases de datos",
     emptyTitle: "Todavía no hay bases de datos",
     emptyDescription: "Una base de datos guarda los datos de una aplicación. Créala aquí, o desde la pestaña Base de datos de una aplicación para que se le escriba su cadena de conexión.",
     emptyNoEngine: "No hay ningún motor de bases de datos en marcha en este servidor. Instala o arranca uno en la pestaña Motores y crea allí la base de datos.",
@@ -405,6 +404,7 @@ export const databases: Catalog<typeof en> = {
     trackedNo: "No: se creó fuera de Noust",
   },
   data: {
+    loadingTables: "Cargando las tablas",
     tablesLabel: "Tablas y vistas",
     findTable: "Buscar una tabla",
     chooseTable: "Elige una tabla",

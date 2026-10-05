@@ -177,6 +177,38 @@ describe("the databases list", () => {
     expect(screen.queryByText(/open to the network/)).not.toBeInTheDocument();
   });
 
+  it("draws placeholder rows, not a finished-looking page, while the list is read", async () => {
+    // Opening the tab used to leave the header over a blank area: nothing said anything was coming.
+    let answer: (response: Response) => void = () => undefined;
+    const { table } = await listAt("/databases", {
+      "GET /api/databases/databases": () => new Promise<Response>((resolve) => (answer = resolve)),
+    });
+    // The table is there from the first frame, busy, with the rows' shape and the filters above it.
+    expect(table.querySelector("table")).toHaveAttribute("aria-busy", "true");
+    expect(table.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
+    expect(screen.getByRole("search", { name: "Filter databases" })).toBeInTheDocument();
+    // Nothing is claimed about a list that is not known yet.
+    expect(screen.queryByText("No databases yet")).not.toBeInTheDocument();
+    expect(screen.queryByText(/databases? have no backup schedule/)).not.toBeInTheDocument();
+    expect(screen.queryByText("0 databases")).not.toBeInTheDocument();
+
+    answer(json(200, { databases: DATABASES, total: DATABASES.length }));
+    // The rows arrive in the same table, which stays busy no longer.
+    expect(await within(table).findByText("example_production")).toBeInTheDocument();
+    expect(table.querySelector("table")).not.toHaveAttribute("aria-busy");
+  });
+
+  it("holds the rows behind placeholders until the notice above them is known", async () => {
+    let answer: (response: Response) => void = () => undefined;
+    const { table } = await listAt("/databases", {
+      "GET /api/databases/exposure": () => new Promise<Response>((resolve) => (answer = resolve)),
+    });
+    expect(table.querySelector("table")).toHaveAttribute("aria-busy", "true");
+    expect(within(table).queryByText("example_production")).not.toBeInTheDocument();
+    answer(json(200, { exposed: [], firewalled: [] }));
+    expect(await within(table).findByText("example_production")).toBeInTheDocument();
+  });
+
   it("offers the first database when there is none, or the engines when none runs", async () => {
     await listAt("/databases", { "GET /api/databases/databases": () => json(200, { databases: [], total: 0 }) }, { rows: false });
     expect(await screen.findByRole("heading", { level: 2, name: "No databases yet" })).toBeInTheDocument();

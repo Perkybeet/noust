@@ -51,6 +51,21 @@ describe("Section", () => {
     expect(container.firstElementChild).toHaveClass("gap-8");
   });
 
+  it("says it is busy while its content is read, and not otherwise", () => {
+    const { rerender } = render(
+      <Section title="History" loading>
+        <p>placeholder</p>
+      </Section>,
+    );
+    expect(screen.getByRole("region", { name: "History" })).toHaveAttribute("aria-busy", "true");
+    rerender(
+      <Section title="History">
+        <p>rows</p>
+      </Section>,
+    );
+    expect(screen.getByRole("region", { name: "History" })).not.toHaveAttribute("aria-busy");
+  });
+
   it("has no accessibility violations", async () => {
     const { container } = render(
       <Sections>

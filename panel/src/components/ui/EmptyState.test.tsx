@@ -10,6 +10,17 @@ import { EmptyState } from "./EmptyState";
 const COMMAND = "noust create -d example.com -s git@github.com:you/app.git";
 
 describe("EmptyState", () => {
+  it("marks every variant, so the route tests can tell an answer of nothing from a wait", () => {
+    const { container } = render(
+      <>
+        <EmptyState title="Framed" />
+        <EmptyState variant="firstUse" title="First use" />
+        <EmptyState variant="inline" title="Inline" />
+      </>,
+    );
+    expect(container.querySelectorAll('[data-slot="empty-state"]')).toHaveLength(3);
+  });
+
   it("says what the place is for and offers the action and the command", () => {
     render(
       <EmptyState

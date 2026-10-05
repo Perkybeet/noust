@@ -3,9 +3,11 @@ import { Table2 } from "lucide-react";
 
 import { catalogQuery, databaseOverviewQuery, enginesQuery } from "../../../api/queries/databases";
 import { CommandHint } from "../../../components/page/CommandHint";
+import { LoadingRegion } from "../../../components/page/LoadingRegion";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Select } from "../../../components/ui/Select";
+import { Skeleton } from "../../../components/ui/Skeleton";
 import { LG_UP, useMediaQuery } from "../../../components/ui/useMediaQuery";
 import { useT } from "../../../i18n";
 import { can } from "../engines";
@@ -110,6 +112,11 @@ export function DataTab({ engine, name, search, onSearchChange }: DataTabProps) 
               search={search}
               onSearchChange={(next) => patch({ schema: selected.schema, table: selected.name, ...next })}
             />
+          ) : relations === undefined ? (
+            // The table that opens first is known only once the catalog is: its room is held.
+            <LoadingRegion label={t("databases.data.loadingTables")}>
+              <Skeleton className="h-64 w-full rounded-card" />
+            </LoadingRegion>
           ) : null}
         </div>
       </div>

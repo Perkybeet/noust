@@ -18,7 +18,7 @@ import {
   StatTile,
 } from "../components/page";
 import type { QueryLike } from "../components/page";
-import { Badge, Button, ConfirmDialog, StatusPill } from "../components/ui";
+import { Badge, Button, ConfirmDialog, Skeleton, StatusPill } from "../components/ui";
 import { formatBytes, formatBytesRate, formatCount, formatDuration, formatPercent } from "../lib/format";
 import { Item, Row, Section, Stage } from "./gallery";
 import { SAMPLE_APPS } from "./sample";
@@ -262,7 +262,7 @@ function Readings() {
     <Section
       id="resources"
       title="Stat tiles and resource meters"
-      description="Tiles answer 'how is this doing' before the details do: a label, a value, one line of context. A resource meter measures use against the unit's limit, amber then red as it nears; without a limit the reading stands alone and says so."
+      description="Tiles answer 'how is this doing' before the details do: a label, a value, one line of context; while the reading is on its way the tile says so (`loading`, `aria-busy`) and keeps its label. A resource meter measures use against the unit's limit, amber then red as it nears; without a limit the reading stands alone and says so."
     >
       <Stage plain>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -270,6 +270,12 @@ function Readings() {
           <StatTile label="State" value={<StatusPill state="running" />} detail="Up 5h 14m" />
           <StatTile label="Uptime" value="12d 4h" detail="Since 2026-09-13 09:12:40" />
           <StatTile label="Certificate" value="Expired" detail="Valid until 2026-09-22" />
+        </div>
+      </Stage>
+      <Stage plain>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatTile loading label="Current release" value={<Skeleton className="h-5 w-24" />} detail={<Skeleton className="h-3 w-28" />} />
+          <StatTile loading label="Uptime" value={<Skeleton className="h-5 w-24" />} detail={<Skeleton className="h-3 w-20" />} />
         </div>
       </Stage>
       <Stage plain>

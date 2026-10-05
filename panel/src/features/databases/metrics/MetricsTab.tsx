@@ -163,7 +163,9 @@ export function MetricsTab({ engine, name, range, onRangeChange }: MetricsTabPro
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {data === undefined ? (
           // Tiles of the real shape, so the charts below do not move when the readings arrive.
-          [0, 1, 2, 3].map((index) => <StatTile key={index} label=" " value={<Skeleton className="h-5 w-16" />} detail={<Skeleton className="h-3 w-24" />} />)
+          (["size", "connections", "cacheHit", "transactions"] as const).map((tile) => (
+            <StatTile key={tile} loading label={t(`databases.metrics.${tile}`)} value={<Skeleton className="h-5 w-16" />} detail={<Skeleton className="h-3 w-24" />} />
+          ))
         ) : (
           <>
             <StatTile label={t("databases.metrics.size")} value={data.size_bytes != null ? formatBytes(data.size_bytes, t.locale) : "–"} detail={t("databases.metrics.onDisk")} />
@@ -260,7 +262,7 @@ export function MetricsTab({ engine, name, range, onRangeChange }: MetricsTabPro
         </Section>
       ) : null}
 
-      <Section title={t("databases.metrics.slow.title")} description={t("databases.metrics.slow.description")}>
+      <Section title={t("databases.metrics.slow.title")} description={t("databases.metrics.slow.description")} loading={slow.data === undefined && !slow.isError}>
         {slow.isError ? (
           <ErrorBlock compact error={slow.error} title={t("databases.metrics.slow.failed")} onRetry={() => void slow.refetch()} retrying={slow.isRefetching} />
         ) : slow.data === undefined ? (

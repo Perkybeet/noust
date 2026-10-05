@@ -46,7 +46,7 @@ export function RelationList({ schemas, relations, selected, onSelect, className
         aria-label={t("databases.data.findTable")}
       />
       {relations === undefined ? (
-        <div aria-hidden="true" className="flex flex-col gap-2 pt-1">
+        <div aria-busy="true" className="flex flex-col gap-2 pt-1">
           {[0, 1, 2, 3, 4].map((index) => (
             <Skeleton key={index} className="h-7 w-full" />
           ))}

@@ -120,7 +120,12 @@ function ServerStrip({ className, showName }: { className?: string | undefined; 
   const name = machine?.hostname ?? node ?? hostname;
 
   return (
-    <div role="group" aria-label={t("shell.machine.landmark")} className={cx("@container min-w-0", className)}>
+    <div
+      role="group"
+      aria-label={t("shell.machine.landmark")}
+      {...(machine === undefined && !isError ? { "aria-busy": true } : {})}
+      className={cx("@container min-w-0", className)}
+    >
       <div className="flex items-center gap-2 @min-[26rem]:gap-4">
         {showName ? (
           // The name never gives way: which machine this is matters more than any reading.
@@ -214,7 +219,12 @@ function FleetStrip({ className }: { className?: string | undefined }) {
   const summary = view === undefined ? "" : t("shell.fleetStrip.summary", { total, answering, down, failed: failedApps });
 
   return (
-    <div role="group" aria-label={t("shell.fleetStrip.landmark")} className={cx("@container min-w-0 overflow-hidden", className)}>
+    <div
+      role="group"
+      aria-label={t("shell.fleetStrip.landmark")}
+      {...(view === undefined && !isError ? { "aria-busy": true } : {})}
+      className={cx("@container min-w-0 overflow-hidden", className)}
+    >
       {view !== undefined ? (
         <Tooltip content={summary}>
           <Link to="/fleet" aria-label={summary} className={cx("flex min-w-0 items-center gap-3", STRIP_LINK)}>

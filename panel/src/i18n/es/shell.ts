@@ -95,6 +95,9 @@ export const shell: Catalog<typeof en> = {
     tryAgain: "Reintentar",
     reload: "Recargar página",
   },
+  pending: {
+    label: "Cargando la página",
+  },
   notFound: {
     title: "Página no encontrada",
     body: "No hay nada en esta dirección. Comprueba el enlace o vuelve al {overview}.",

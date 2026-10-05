@@ -7,6 +7,7 @@ import { rememberServer } from "../nodes/lastServer";
 import { routeTree } from "../routeTree.gen";
 import { RouteError } from "./ErrorBoundary";
 import { nodeFromSearch, nodeRewrite, onNodeDropped } from "./nodeRoute";
+import { RoutePending } from "./RoutePending";
 
 /**
  * Builds the router. `history` is for tests; the browser's history is the default.
@@ -25,6 +26,10 @@ export function buildRouter(queryClient: QueryClient, history?: RouterHistory) {
     defaultPreloadStaleTime: 0,
     scrollRestoration: true,
     defaultErrorComponent: RouteError,
+    // A route that takes more than a second (the session, a page's code) is no longer a page
+    // that looks finished while it waits: a skeleton takes its place. Quicker, nothing blinks.
+    defaultPendingComponent: RoutePending,
+    defaultPendingMs: 1000,
     ...(history ? { history } : {}),
   });
   installNodeSource(() => nodeFromSearch(router.latestLocation.search));

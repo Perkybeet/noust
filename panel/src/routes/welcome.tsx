@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { sessionQuery } from "../api/queries/auth";
+import { FramedRoutePending } from "../app/RoutePending";
 import { GatePage } from "../features/auth/GatePage";
 import { safeNext } from "../features/auth/session";
 import { pendingChecks } from "../features/auth/SessionGate";
@@ -23,6 +24,8 @@ export const Route = createFileRoute("/welcome")({
     if (!pendingChecks(session)) throw redirect({ href: safeNext(search.next), replace: true });
   },
   component: WelcomeRoute,
+  // The session is read before the page: past a second, the page's frame and a skeleton say so.
+  pendingComponent: FramedRoutePending,
 });
 
 function WelcomeRoute() {

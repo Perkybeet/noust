@@ -190,21 +190,59 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
     );
   }
 
-  // The notice above the list depends on the policies and the open ports: the list waits for
-  // them, so a notice arriving late never pushes the rows down under the pointer.
-  const settling = (policies.isPending || exposure.isPending) && list.data !== undefined;
-  if (list.isPending || settling) {
-    return (
-      <ListPage header={header} tabs={tabs}>
-        <span aria-busy="true" className="sr-only">
-          {t("databases.list.loading")}
-        </span>
-        {dialogs}
-      </ListPage>
-    );
-  }
+  // The filters and the count above the table; the same bar while the rows are read, so
+  // nothing moves when they arrive.
+  const filterBar = (count?: string) => (
+    <FilterBar
+      label={t("databases.list.filterLabel")}
+      search={{
+        value: search.q ?? "",
+        onChange: (value) => set({ q: value }, true),
+        label: t("databases.list.searchLabel"),
+        placeholder: t("databases.list.searchPlaceholder"),
+      }}
+      filters={
+        <>
+          <Select
+            aria-label={t("databases.list.engineLabel")}
+            value={search.engine ?? ALL}
+            onValueChange={(value) => set({ engine: value === ALL ? undefined : value })}
+            options={[{ value: ALL, label: t("databases.list.everyEngine") }, ...engineOptions.map((engine) => ({ value: engine.name, label: instanceLabel(t, engine) }))]}
+            className="min-w-40"
+          />
+          <Select
+            aria-label={t("databases.list.backupsLabel")}
+            value={search.backups ?? ALL}
+            onValueChange={(value) => set({ backups: value === "attention" ? "attention" : undefined })}
+            options={[
+              { value: ALL, label: t("databases.list.everyBackupState") },
+              { value: "attention", label: t("databases.list.needsAttention") },
+            ]}
+            className="min-w-40"
+          />
+        </>
+      }
+      {...(count !== undefined ? { count } : {})}
+      {...(filtered
+        ? {
+            actions: (
+              <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={clear}>
+                {t("databases.list.clearFilters")}
+              </Button>
+            ),
+          }
+        : {})}
+    />
+  );
 
-  if (all.length === 0 && problems.length > 0) {
+  // The notice above the list depends on the policies and the open ports: the list waits for
+  // them, so a notice arriving late never pushes the rows down under the pointer. It waits
+  // behind placeholder rows in the table's own place, never behind a blank page, and the table
+  // stays the one element from the first frame to the rows.
+  const settling = (policies.isPending || exposure.isPending) && list.data !== undefined;
+  const loading = list.isPending || settling;
+
+  if (!loading && all.length === 0 && problems.length > 0) {
     return (
       <ListPage header={header} tabs={tabs} notice={notice} footer={<CommandHint command="noust db list" label={t("databases.common.fromTerminal")} />}>
         {dialogs}
@@ -212,7 +250,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
     );
   }
 
-  if (all.length === 0) {
+  if (!loading && all.length === 0) {
     return (
       <ListPage header={header} tabs={tabs} footer={<CommandHint command="noust db list" label={t("databases.common.fromTerminal")} />}>
         <EmptyState
@@ -241,53 +279,15 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
     <ListPage
       header={header}
       tabs={tabs}
-      {...(notice !== undefined ? { notice } : {})}
-      filters={
-          <FilterBar
-            label={t("databases.list.filterLabel")}
-            search={{
-              value: search.q ?? "",
-              onChange: (value) => set({ q: value }, true),
-              label: t("databases.list.searchLabel"),
-              placeholder: t("databases.list.searchPlaceholder"),
-            }}
-            filters={
-              <>
-                <Select
-                  aria-label={t("databases.list.engineLabel")}
-                  value={search.engine ?? ALL}
-                  onValueChange={(value) => set({ engine: value === ALL ? undefined : value })}
-                  options={[{ value: ALL, label: t("databases.list.everyEngine") }, ...engineOptions.map((engine) => ({ value: engine.name, label: instanceLabel(t, engine) }))]}
-                  className="min-w-40"
-                />
-                <Select
-                  aria-label={t("databases.list.backupsLabel")}
-                  value={search.backups ?? ALL}
-                  onValueChange={(value) => set({ backups: value === "attention" ? "attention" : undefined })}
-                  options={[
-                    { value: ALL, label: t("databases.list.everyBackupState") },
-                    { value: "attention", label: t("databases.list.needsAttention") },
-                  ]}
-                  className="min-w-40"
-                />
-              </>
-            }
-            count={count}
-            {...(filtered
-              ? {
-                  actions: (
-                    <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={clear}>
-                      {t("databases.list.clearFilters")}
-                    </Button>
-                  ),
-                }
-              : {})}
-          />
-      }
-      footer={<CommandHint command="noust db list" label={t("databases.common.fromTerminal")} />}
+      {...(!loading && notice !== undefined ? { notice } : {})}
+      filters={filterBar(loading ? undefined : count)}
+      // Drawn with the rows, not before: under a list of unknown length it would only be pushed
+      // down the page when they arrive.
+      {...(loading ? {} : { footer: <CommandHint command="noust db list" label={t("databases.common.fromTerminal")} /> })}
     >
       <DatabasesTable
-        databases={shown}
+        loading={loading}
+        databases={loading ? [] : shown}
         engines={engines.data?.engines}
         policies={byPolicy}
         dumps={newest}

@@ -177,3 +177,15 @@ recreate a container it refuses unless `--accept-recreate` is given.
   (`MONGO_INITDB_ROOT_USERNAME` and `MONGO_INITDB_ROOT_PASSWORD`, which take effect on an empty
   data volume) rather than `/etc/mongod.conf`. The servers' own Redis and MongoDB keep their
   warnings.
+- **Every page of the console shows that it is loading.** The Databases list drew its header over
+  a blank area until the list, the backup policies and the open ports had all answered; it now
+  keeps its filters and a table of placeholder rows from the first frame, and says nothing about
+  the databases (no "No databases yet", no count) before it knows them. The same gap is closed on
+  a service's page, the unit file, the table of tables, the connection tab, the logs (a pane still
+  waiting for its first lines draws the shape of lines and is marked busy), the servers count of
+  Settings > Central, and on the figures, cards and sections that were placeholders a screen
+  reader could not tell from content. A route that keeps the console waiting more than a second
+  (the session, a page's code) now shows a skeleton in the page's place instead of leaving the
+  previous page, or nothing, on screen. A test opens every route of the console against a server
+  that never answers and refuses a page that shows nothing, a placeholder a screen reader cannot
+  hear, or an empty state, so a new page cannot ship without its loading state.

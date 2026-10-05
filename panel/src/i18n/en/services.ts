@@ -161,6 +161,7 @@ export const services = {
   },
   unitEditor: {
     label: "Configuration of {name}",
+    loading: "Loading the configuration",
     loadFailed: "Could not load the configuration",
     verifyFailed: "The configuration could not be checked",
     saveFailed: "The configuration was not saved",

@@ -117,7 +117,7 @@ function UptimeTile({ app, t }: { app: App; t: T }) {
 function CertificateTile({ cert, error, t }: { cert: Cert | null | undefined; error: unknown; t: T }) {
   const label = t("appPages.overview.certificateLabel");
   if (cert === undefined && error) return <StatTile label={label} value={t("appPages.overview.certificateUnknown")} detail={t("appPages.overview.certificateCouldNotList")} />;
-  if (cert === undefined) return <StatTile label={label} value={<Skeleton className="h-5 w-24" />} />;
+  if (cert === undefined) return <StatTile loading label={label} value={<Skeleton className="h-5 w-24" />} />;
   if (cert === null) return <StatTile label={label} value={t("appPages.overview.certificateNone")} detail={t("appPages.overview.certificateNoneCovers")} />;
   const days = cert.days_remaining;
   if (days === null || days === undefined) return <StatTile label={label} value={t("appPages.overview.certificateIssued")} detail={cert.valid_until ?? undefined} />;
@@ -166,7 +166,7 @@ function Tiles({ app, t }: { app: App; t: T }) {
       />
     );
   } else if (deploys.isPending) {
-    current = <StatTile label={liveLabel} value={<Skeleton className="h-5 w-20" />} />;
+    current = <StatTile loading label={liveLabel} value={<Skeleton className="h-5 w-20" />} />;
   } else if (lastGood) {
     current = (
       <StatTile
@@ -189,6 +189,7 @@ function Tiles({ app, t }: { app: App; t: T }) {
       {current}
       <StatTile
         label={t("appPages.overview.recentDeploysLabel")}
+        loading={deploys.isPending}
         value={
           deploys.isPending ? (
             <Skeleton className="h-5 w-28" />
@@ -293,7 +294,7 @@ function Domains({ app, t }: { app: App; t: T }) {
           <ErrorBlock compact error={domains.error} title={t("appPages.overview.domainsLoadError")} className="m-3" />
         ) : domains.data === undefined ? (
           // One row: the app's own name, which every app has; aliases are the exception.
-          <div className="px-4">
+          <div aria-busy="true" className="px-4">
             <KeyValueListSkeleton rows={1} />
           </div>
         ) : (
@@ -389,7 +390,9 @@ function DeployOnPush({ app, t }: { app: App; t: T }) {
           <Webhook aria-hidden="true" className="mt-0.5 size-icon-md shrink-0 text-fg-muted" />
           <div className="flex min-w-0 flex-col gap-1 text-13">
             <StatusPill state={tone} label={state} size="sm" className="self-start" />
-            <div className="text-fg-muted">{detail}</div>
+            <div aria-busy={deliveries.isPending && app.webhook_enabled ? true : undefined} className="text-fg-muted">
+              {detail}
+            </div>
           </div>
         </div>
       </Card>
@@ -462,10 +465,10 @@ function OverviewSkeleton({ t }: { t: T }) {
     <div aria-busy="true" className="flex flex-col gap-8">
       <span className="sr-only">{t("appPages.overview.loadingApplication")}</span>
       <div aria-hidden="true" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <StatTile label={t("appPages.overview.liveVersionLabel")} value={value} detail={<Skeleton className="h-3 w-28" />} />
-        <StatTile label={t("appPages.overview.recentDeploysLabel")} value={value} detail={<Skeleton className="h-3 w-28" />} />
-        <StatTile label={t("appPages.overview.uptimeLabel")} value={value} detail={<Skeleton className="h-3 w-20" />} />
-        <StatTile label={t("appPages.overview.certificateLabel")} value={value} detail={<Skeleton className="h-3 w-28" />} />
+        <StatTile loading label={t("appPages.overview.liveVersionLabel")} value={value} detail={<Skeleton className="h-3 w-28" />} />
+        <StatTile loading label={t("appPages.overview.recentDeploysLabel")} value={value} detail={<Skeleton className="h-3 w-28" />} />
+        <StatTile loading label={t("appPages.overview.uptimeLabel")} value={value} detail={<Skeleton className="h-3 w-20" />} />
+        <StatTile loading label={t("appPages.overview.certificateLabel")} value={value} detail={<Skeleton className="h-3 w-28" />} />
       </div>
       <div aria-hidden="true" className="grid gap-8 lg:grid-cols-2">
         <Card padding="none">

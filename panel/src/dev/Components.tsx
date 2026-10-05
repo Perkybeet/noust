@@ -715,7 +715,7 @@ function Cards() {
     <Section
       id="card"
       title="Card and empty state"
-      description="A card groups one subject; it is not decoration. Empty states say what the place is for, offer the action, and give the terminal command for the same thing."
+      description="A card groups one subject; it is not decoration. Empty states say what the place is for, offer the action, and give the terminal command for the same thing; they are drawn once the answer is known, never while it is awaited."
     >
       <div className="grid gap-6 lg:grid-cols-2">
         <Card
@@ -749,6 +749,17 @@ function Cards() {
           </Field>
         </Card>
       </div>
+      <Card
+        loading
+        title="Resources"
+        description="While what it shows is read, the card is busy (`loading`): its skeletons, in the body or in an action, are announced as one"
+        actions={<Skeleton className="h-control-sm w-24 rounded-control" />}
+      >
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-3 w-3/4" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
+      </Card>
       <EmptyState
         icon={<Boxes />}
         title="No applications yet"
@@ -981,7 +992,7 @@ function Logs() {
     <Section
       id="logs"
       title="Log viewer"
-      description="Output stays text: select it, search it, copy it, download it. Program colours map onto state tokens. Following pauses as soon as you scroll up and offers the way back. Timestamped lines keep their time column in the copy and the download; below the sm breakpoint (639px) lines start wrapped. At most one viewer per page sets pageSearch, so the page's `/` shortcut lands here."
+      description="Output stays text: select it, search it, copy it, download it. Program colours map onto state tokens. Following pauses as soon as you scroll up and offers the way back. Timestamped lines keep their time column in the copy and the download; below the sm breakpoint (639px) lines start wrapped. While the first lines are on their way (`loading`) the pane is busy and draws the shape of lines under what it is waiting for, so a pane that is only waiting never reads as one with nothing to say. At most one viewer per page sets pageSearch, so the page's `/` shortcut lands here."
     >
       <LogViewer lines={SAMPLE_BUILD_LOG} height={420} label="Build log for shop.example.dev" filename="shop-a1b2c3d.log" />
       <div className="flex flex-col gap-3">
@@ -991,6 +1002,7 @@ function Logs() {
         <LogViewer lines={lines} height={300} label="Journal for shop.example.dev" filename="shop-journal.log" pageSearch />
       </div>
       <LogViewer lines={[]} height={140} label="Empty log" />
+      <LogViewer lines={[]} height={200} label="Journal, still being read" emptyMessage="Reading the journal" loading />
     </Section>
   );
 }
