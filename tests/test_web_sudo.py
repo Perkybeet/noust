@@ -15,6 +15,7 @@ guessing oracle.
 from __future__ import annotations
 
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -22,9 +23,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from noust.core.accounts import AuthPolicy
 from noust.core.store import App, NoustStore
 from noust.web import auth as auth_module
-from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
+from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig, SessionStore
 from noust.web.server import create_app, get_brute_force, get_token_manager
 
 
@@ -58,7 +60,13 @@ def app(tmp_path: Path, store: Any) -> FastAPI:
     Returns:
         The configured application.
     """
-    return create_app(SecurityConfig(state_dir=tmp_path / "state", rate_limit_requests=5000))
+    # The standard policy, fixed: what these tests pin is not whatever the
+    # machine running them has configured.
+    return create_app(
+        SecurityConfig(
+            state_dir=tmp_path / "state", rate_limit_requests=5000, auth_policy=AuthPolicy()
+        )
+    )
 
 
 @pytest.fixture
@@ -284,14 +292,14 @@ def test_a_fresh_session_must_confirm_before_deleting(
     assert not queued
 
 
-def test_elevation_lasts_ten_minutes(
+def test_an_idle_window_closes_fifteen_minutes_after_the_last_elevated_action(
     client: TestClient,
     seeded_app: None,
     queued: list[dict[str, Any]],
     clock: FakeClock,
     master_token: str,
 ) -> None:
-    """Elevating opens a ten minute window; the next request after it closes is refused again."""
+    """Confirming opens a 15 minute window; with nothing done in it, the next action is refused."""
     body = elevate(client, token=master_token)
     assert body["elevated_until"]
 
@@ -299,11 +307,221 @@ def test_elevation_lasts_ten_minutes(
     assert ok.status_code == 202, ok.text
     assert queued
 
-    clock.advance(601)
+    clock.advance(16 * 60)
 
     blocked = client.delete("/api/apps/other.com")
     assert blocked.status_code == 403, blocked.text
     assert blocked.json()["error"] == "elevation_required"
+
+
+def test_sudo_mode_stays_open_while_it_is_used(
+    client: TestClient,
+    seeded_app: None,
+    queued: list[dict[str, Any]],
+    clock: FakeClock,
+    master_token: str,
+) -> None:
+    """
+    Every elevated action pushes the end out, so an hour of work is asked for once.
+
+    The fixed ten minute window this replaces would have asked again at the
+    second action here.
+    """
+    elevate(client, token=master_token)
+
+    for _ in range(6):
+        clock.advance(10 * 60)
+        response = client.delete("/api/apps/example.com")
+        assert response.status_code == 202, response.text
+
+    assert len(queued) == 6
+    clock.advance(16 * 60)
+    assert client.delete("/api/apps/example.com").status_code == 403
+
+
+def test_reading_the_console_does_not_keep_sudo_mode_open(
+    client: TestClient,
+    seeded_app: None,
+    queued: list[dict[str, Any]],
+    clock: FakeClock,
+    master_token: str,
+) -> None:
+    """Only an elevated action extends the window: a tab left polling does not."""
+    elevate(client, token=master_token)
+
+    for _ in range(4):
+        clock.advance(5 * 60)
+        assert client.get("/api/auth/session").status_code == 200
+        assert client.get("/api/auth/sessions").status_code == 200
+
+    blocked = client.delete("/api/apps/example.com")
+    assert blocked.status_code == 403, blocked.text
+    assert not queued
+
+
+def test_sudo_mode_never_outlasts_its_ceiling_however_busy_the_session_is(
+    client: TestClient,
+    seeded_app: None,
+    queued: list[dict[str, Any]],
+    clock: FakeClock,
+    master_token: str,
+) -> None:
+    """Two hours from the confirmation, an operator who never stopped is asked again."""
+    confirmed_at = clock()
+    elevate(client, token=master_token)
+
+    for _ in range(11):
+        clock.advance(10 * 60)
+        response = client.delete("/api/apps/example.com")
+        assert response.status_code == 202, response.text
+    window = client.get("/api/auth/session").json()["elevated_until"]
+    assert datetime.fromisoformat(window).timestamp() <= confirmed_at + 120 * 60 + 1
+
+    clock.advance(10 * 60)
+    blocked = client.delete("/api/apps/example.com")
+    assert blocked.status_code == 403, blocked.text
+    assert blocked.json()["error"] == "elevation_required"
+
+
+def test_the_window_is_written_at_most_once_a_minute(
+    client: TestClient,
+    seeded_app: None,
+    queued: list[dict[str, Any]],
+    clock: FakeClock,
+    master_token: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A burst of elevated requests is one write to the store, like the idle clock."""
+    writes: list[float] = []
+    original = SessionStore.slide_elevated
+
+    def spy(self: SessionStore, sid: str, elevated_until: float) -> None:
+        writes.append(elevated_until)
+        original(self, sid, elevated_until)
+
+    monkeypatch.setattr(SessionStore, "slide_elevated", spy)
+    elevate(client, token=master_token)
+
+    for _ in range(5):
+        assert client.delete("/api/apps/example.com").status_code == 202
+    clock.advance(30)
+    assert client.delete("/api/apps/example.com").status_code == 202
+    assert writes == []
+
+    clock.advance(40)
+    assert client.delete("/api/apps/example.com").status_code == 202
+    assert len(writes) == 1
+    assert client.delete("/api/apps/example.com").status_code == 202
+    assert len(writes) == 1
+
+
+def test_sudo_mode_never_outlasts_the_session_itself(
+    client: TestClient, clock: FakeClock, master_token: str
+) -> None:
+    """A session that ends in two minutes does not confirm anything for fifteen."""
+    sid = client.get("/api/auth/sessions").json()["current_session"]
+    ends = time.time() + 120
+    get_token_manager().sessions.extend(sid, ends)
+
+    body = elevate(client, token=master_token)
+
+    assert datetime.fromisoformat(body["elevated_until"]).timestamp() <= ends + 0.001
+
+
+def test_a_renewed_session_keeps_when_sudo_mode_was_confirmed(
+    client: TestClient, master_token: str
+) -> None:
+    """Renewal carries the ceiling's starting point to the new session id, not a fresh one."""
+    elevate(client, token=master_token)
+    sessions = get_token_manager().sessions
+    sid = client.get("/api/auth/sessions").json()["current_session"]
+    before = sessions.get(sid)
+    assert before is not None and before["elevated_at"] is not None
+
+    sessions.rotate(sid, "renewed-sid", "csrf", time.time() + 3600)
+
+    after = sessions.get("renewed-sid")
+    assert after is not None
+    assert after["elevated_at"] == before["elevated_at"]
+    assert after["elevated_until"] == before["elevated_until"]
+
+
+def test_a_confirmation_from_before_the_upgrade_is_never_extended(
+    client: TestClient,
+    seeded_app: None,
+    queued: list[dict[str, Any]],
+    clock: FakeClock,
+    master_token: str,
+) -> None:
+    """
+    A session elevated while sessions did not record when ends where it was meant to.
+
+    Without that moment there is no ceiling to count from, so the window is
+    left alone instead of being extended without one.
+    """
+    sid = client.get("/api/auth/sessions").json()["current_session"]
+    get_token_manager().sessions.set_elevated(sid, clock() + 10 * 60)
+
+    clock.advance(5 * 60)
+    assert client.delete("/api/apps/example.com").status_code == 202
+    clock.advance(6 * 60)
+
+    assert client.delete("/api/apps/example.com").status_code == 403
+
+
+def test_the_windows_come_from_the_policy(
+    tmp_path: Path,
+    store: Any,
+    seeded_app: None,
+    queued: list[dict[str, Any]],
+    clock: FakeClock,
+) -> None:
+    """A 5 minute idle window and an 8 minute ceiling are what the operator gets."""
+    policy = AuthPolicy(sudo_idle_minutes=5, sudo_max_minutes=8)
+    short = create_app(
+        SecurityConfig(state_dir=tmp_path / "short", rate_limit_requests=5000, auth_policy=policy)
+    )
+    token = get_token_manager().generate_master_token()
+    browser = TestClient(short, client=("testclient", 50000))
+    login = browser.post("/api/auth/login", json={"token": token})
+    browser.headers[CSRF_HEADER_NAME] = login.json()["csrf_token"]
+    started = clock()
+
+    body = elevate(browser, token=token)
+    assert datetime.fromisoformat(body["elevated_until"]).timestamp() == pytest.approx(
+        started + 5 * 60, abs=1
+    )
+
+    clock.advance(4 * 60)
+    assert browser.delete("/api/apps/example.com").status_code == 202
+    clock.advance(3 * 60)
+    assert browser.delete("/api/apps/example.com").status_code == 202
+    clock.advance(2 * 60)
+    # Idle for two minutes, but nine have passed since the confirmation.
+    assert browser.delete("/api/apps/example.com").status_code == 403
+
+
+def test_a_central_vouches_for_its_operator_by_the_same_window(clock: FakeClock) -> None:
+    """
+    The central's ``X-Noust-Elevated`` is read from the one rule the routes use.
+
+    Without a second implementation of the window, the extension a
+    destructive call makes on the central is what the next forwarded call
+    vouches for.
+    """
+    from noust.web.api.deps import elevation_satisfied
+    from noust.web.api.node_proxy import central_elevated
+
+    payload: dict[str, Any] = {
+        "type": "session",
+        "elevation_exempt": False,
+        "elevated_until": clock() + 60,
+    }
+    assert central_elevated(payload) is elevation_satisfied(payload) is True
+
+    clock.advance(61)
+
+    assert central_elevated(payload) is elevation_satisfied(payload) is False
 
 
 def test_a_wrong_factor_counts_towards_the_lockout(client: TestClient) -> None:

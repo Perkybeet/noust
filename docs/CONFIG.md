@@ -119,6 +119,9 @@ used, with their default in the code, so a file that lacks them behaves as docum
 | `auth.lockout.threshold` | `5` | Consecutive failed sign-ins that lock an account. |
 | `auth.lockout.minutes` | `15` | How long the account stays locked. |
 | `auth.password.min_length` | `12` | The shortest password accepted. |
+| `auth.sudo.idle_minutes` | `15` | Sudo mode ("Confirm it's you") stays open this long after the last destructive action performed in it, 5 to 60. Under the ENS profile, 10 at most. |
+| `auth.sudo.max_minutes` | `120` | The longest sudo mode lasts from the moment it was confirmed, however busy the session is, 5 to 480 and never below `auth.sudo.idle_minutes`. Under the ENS profile, 30 at most. |
+| `auth.sudo.require_password` | `false` | Confirming asks for the account's password as well as a code. Off, one factor is enough (a passkey, or a code from the authenticator or a backup code), because the session already proved both at sign-in. Always on under the ENS profile. |
 | `auth.tokens.max_days` | `90` | Longest life of an API token under the ENS profile, and its default. |
 | `auth.notice.text` | empty | Rights and obligations shown after sign-in and accepted on record. Editing it asks everybody to accept it again. |
 | `auth.login_label` | empty | Shown on the sign-in page instead of the host name, which is not shown before sign-in. |

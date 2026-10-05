@@ -82,7 +82,6 @@ describe("the approvals inbox", () => {
     await user.type(within(drawer).getByLabelText(/^Comment/), "Checked with dani");
     await user.click(within(drawer).getByRole("button", { name: "Approve" }));
     const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
-    await user.type(within(confirm).getByLabelText("Password"), "pw");
     await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
     await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
     await waitFor(() => {

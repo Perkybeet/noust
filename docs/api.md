@@ -71,8 +71,12 @@ Every `POST`, `PUT`, `PATCH` and `DELETE` made with a session, in the cookie or 
 token, must echo the CSRF token in the `X-WASM-CSRF` header. `GET /api/auth/session` (no
 credential required) reports whether the caller is signed in, its account and role, its
 permissions, `expires_at`, `elevated_until`, whether a second factor is set up, and the CSRF
-header and cookie names. Before sign-in it does not reveal the host name, the version or
-whether 2FA is on. A credential presented to it that is wrong counts toward the lockout like
+header and cookie names. It also says what confirming sudo mode takes: `elevation_factors`
+(`totp`, `passkey`, `backup_code` for an account, those it has; `master_token` for the master
+token without a second factor), `elevation_requires_password`, and the window itself,
+`elevation_idle_minutes` and `elevation_max_minutes`. `elevated_until` moves later while
+destructive actions are performed, up to that ceiling. Before sign-in it does not reveal the host
+name, the version or whether 2FA is on. A credential presented to it that is wrong counts toward the lockout like
 anywhere else; one the console signed that has merely expired does not.
 
 A session ends after 30 minutes without activity and 12 hours in total (`auth.session.*`). An

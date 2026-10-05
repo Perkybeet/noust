@@ -79,6 +79,7 @@ from noust.web.auth import (
     actor_label,
     ensure_permission,
     ensure_scope,
+    extend_elevation,
     get_audit_logger,
     get_client_ip,
     is_elevated,
@@ -719,7 +720,11 @@ def ensure_elevated(request: Request, session: dict[str, Any]) -> None:
     Refuse a destructive action from a session that has not confirmed recently.
 
     This is the chokepoint D5's sudo mode runs at. A console session must have
-    called ``POST /api/auth/elevate`` within the last ten minutes. The master
+    confirmed through ``POST /api/auth/elevate`` (or a passkey) and be inside
+    its window: open for ``auth.sudo.idle_minutes`` after the last elevated
+    action, up to ``auth.sudo.max_minutes`` from the confirmation. Passing
+    here is what extends the window (:func:`noust.web.auth.extend_elevation`),
+    so an operator who keeps working is not asked again. The master
     token as a Bearer, and API tokens issued before 3.1 or issued with sudo
     allowed, are exempt, because issuing that credential at all already
     required an operator's confirmation once; see :func:`elevation_satisfied`.
@@ -757,6 +762,10 @@ def ensure_elevated(request: Request, session: dict[str, Any]) -> None:
         _refuse_elevation(request, session, _FLEET_ELEVATION_REQUIRED_DETAIL)
 
     if elevation_satisfied(session):
+        # An elevated action is being performed: this is the moment that
+        # keeps sudo mode open, and the only one. A credential that is exempt
+        # has no window to extend and the call does nothing for it.
+        extend_elevation(session)
         return
 
     _refuse_elevation(request, session, _ELEVATION_REQUIRED_DETAIL)

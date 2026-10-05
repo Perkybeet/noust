@@ -373,11 +373,17 @@ AUDIT_BACKUPS = 3
 FILE_MODE = 0o600
 DIR_MODE = 0o700
 
-#: How long POST /api/auth/elevate confirms a cookie session for, per D5:
-#: "marca la sesion como elevada 10 minutos". Destructive actions - deleting
-#: an app, a database, a service or a site, revealing a .env, writing raw
-#: config - all require it.
-ELEVATION_SECONDS = 600
+#: Sudo mode (D5) is a window, not a fixed ten minutes: ``POST /api/auth/elevate``
+#: opens it for the sign-in policy's idle time (``auth.sudo.idle_minutes``), every
+#: elevated action performed in it pushes the end out by that much again, and it
+#: never outlives ``auth.sudo.max_minutes`` from the confirmation or the session
+#: itself. Destructive actions - deleting an app, a database, a service or a
+#: site, revealing a .env, writing raw config - all require it.
+#:
+#: The end is pushed out only when that gains more than this many seconds, so a
+#: burst of elevated requests is one write to the session store, like
+#: :data:`SESSION_ACTIVITY_THROTTLE` does for the idle clock.
+ELEVATION_SLIDE_THRESHOLD = 60
 
 #: Indirection over time.time(), so a test can advance a fake clock to expire
 #: an elevation window without perturbing session expiry, which is computed
@@ -1304,6 +1310,12 @@ class SessionStore:
                 # NULL by default: a session predating sudo mode, like a
                 # freshly created one, has not confirmed anything yet.
                 self._conn.execute("ALTER TABLE sessions ADD COLUMN elevated_until REAL")
+            if "elevated_at" not in columns:
+                # When sudo mode was confirmed, which the sliding window's
+                # ceiling is counted from. NULL for a session elevated before
+                # this column existed: its window is never extended, so it ends
+                # at the deadline it was given.
+                self._conn.execute("ALTER TABLE sessions ADD COLUMN elevated_at REAL")
             if "family" not in columns:
                 # The login a session descends from. Renewal replaces the sid,
                 # so the sid alone cannot say "this is still the same sign-in"
@@ -1511,7 +1523,9 @@ class SessionStore:
                 "UPDATE sessions SET expires_at = ? WHERE sid = ?", (expires_at, sid)
             )
 
-    def set_elevated(self, sid: str, elevated_until: float | None) -> None:
+    def set_elevated(
+        self, sid: str, elevated_until: float | None, elevated_at: float | None = None
+    ) -> None:
         """
         Record or clear a session's sudo-mode confirmation.
 
@@ -1519,10 +1533,28 @@ class SessionStore:
             sid: Session identifier.
             elevated_until: Timestamp the elevation expires at, or None to
                 drop it, for example on logout.
+            elevated_at: When it was confirmed, the point its ceiling is
+                counted from. Cleared together with ``elevated_until``.
         """
         with self._lock, self._conn:
             self._conn.execute(
-                "UPDATE sessions SET elevated_until = ? WHERE sid = ?", (elevated_until, sid)
+                "UPDATE sessions SET elevated_until = ?, elevated_at = ? WHERE sid = ?",
+                (elevated_until, elevated_at if elevated_until is not None else None, sid),
+            )
+
+    def slide_elevated(self, sid: str, elevated_until: float) -> None:
+        """
+        Push a confirmed session's sudo-mode deadline out, keeping when it was confirmed.
+
+        Args:
+            sid: Session identifier.
+            elevated_until: The new deadline. Only a session that has been
+                confirmed (has ``elevated_at``) is touched.
+        """
+        with self._lock, self._conn:
+            self._conn.execute(
+                "UPDATE sessions SET elevated_until = ? WHERE sid = ? AND elevated_at IS NOT NULL",
+                (elevated_until, sid),
             )
 
     def rotate(self, old_sid: str, new_sid: str, csrf_token: str, expires_at: float) -> dict | None:
@@ -1554,8 +1586,9 @@ class SessionStore:
             self._conn.execute(
                 "INSERT OR REPLACE INTO sessions "
                 "(sid, csrf_token, client_ip, issued_at, created_at, expires_at, revoked, "
-                "elevated_until, family, kind, account_id, auth_method, last_activity) "
-                "VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)",
+                "elevated_until, elevated_at, family, kind, account_id, auth_method, "
+                "last_activity) "
+                "VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     new_sid,
                     csrf_token,
@@ -1563,9 +1596,11 @@ class SessionStore:
                     now,
                     row["created_at"],
                     expires_at,
-                    # Renewal must not reset the 10 minute window, only carry
-                    # whatever is left of it to the new session id.
+                    # Renewal must not reset the sudo-mode window, nor move its
+                    # ceiling: it carries what is left of both to the new
+                    # session id.
                     row["elevated_until"],
+                    row["elevated_at"],
                     row["family"] or old_sid,
                     row["kind"],
                     row["account_id"],
@@ -3643,21 +3678,109 @@ class TokenManager:
             max_age=max(0, int(expires_at - time.time())),
         )
 
-    def elevate(self, sid: str, seconds: int = ELEVATION_SECONDS) -> float:
+    def elevate(self, sid: str) -> float:
         """
         Confirm a session for sudo mode: the destructive actions D5 names.
 
+        Opens the window for the policy's idle time
+        (``auth.sudo.idle_minutes``) and starts the clock its ceiling is
+        counted from (``auth.sudo.max_minutes``); :meth:`extend_elevation`
+        keeps it open while elevated actions are performed.
+
         Args:
             sid: Session identifier being elevated.
-            seconds: How long the confirmation lasts. Defaults to the ten
-                minutes the design calls for.
 
         Returns:
             The elevation deadline, as a UNIX timestamp.
         """
-        elevated_until = _now() + seconds
-        self.sessions.set_elevated(sid, elevated_until)
+        now = _now()
+        record = self.sessions.get(sid)
+        elevated_until = self._elevation_deadline(record, now=now, confirmed_at=now)
+        self.sessions.set_elevated(sid, elevated_until, now)
         return elevated_until
+
+    def extend_elevation(self, payload: dict[str, Any]) -> float | None:
+        """
+        Keep sudo mode open for a session that just performed an elevated action.
+
+        Called where an elevated action is allowed to proceed
+        (:func:`noust.web.api.deps.ensure_elevated`), never for a request that
+        merely arrived: reading the console does not keep sudo mode alive. The
+        new deadline is the idle window from now, never past the ceiling
+        counted from the confirmation, and never past the session's own end.
+        It is written only when that gains more than
+        :data:`ELEVATION_SLIDE_THRESHOLD` seconds.
+
+        Args:
+            payload: The verified payload of the session that acted. Its
+                ``elevated_until`` is updated in place when the window moved,
+                so the rest of the request sees the same deadline the store
+                holds.
+
+        Returns:
+            The new deadline, or None when nothing changed: the session is
+            not inside sudo mode, was confirmed before sessions recorded when
+            (it ends where it was meant to), or the gain was too small to be
+            worth a write.
+        """
+        sid = payload.get("sid")
+        current = payload.get("elevated_until")
+        if not sid or current is None:
+            return None
+        now = _now()
+        if float(current) <= now:
+            return None
+        # Cheap refusal first, from what the request already carries: most
+        # elevated requests come right after the last one moved the window.
+        if now + self._elevation_idle_seconds() - float(current) <= ELEVATION_SLIDE_THRESHOLD:
+            return None
+        record = self.sessions.get(str(sid))
+        if record is None or record.get("elevated_at") is None:
+            return None
+        deadline = self._elevation_deadline(
+            record, now=now, confirmed_at=float(record["elevated_at"])
+        )
+        if deadline - float(current) <= ELEVATION_SLIDE_THRESHOLD:
+            return None
+        self.sessions.slide_elevated(str(sid), deadline)
+        payload["elevated_until"] = deadline
+        return deadline
+
+    def _elevation_idle_seconds(self) -> float:
+        """
+        Returns:
+            How long sudo mode stays open after the last elevated action.
+        """
+        return float(self.policy().sudo_idle_minutes) * 60.0
+
+    def _elevation_deadline(
+        self, record: Mapping[str, Any] | None, *, now: float, confirmed_at: float
+    ) -> float:
+        """
+        Work out where sudo mode ends, as of one elevated action.
+
+        Args:
+            record: The session row, or None when it is not in the store (an
+                API token's pseudo-session), which leaves only the policy.
+            now: The moment of the action.
+            confirmed_at: When sudo mode was confirmed.
+
+        Returns:
+            The earliest of: the idle window from ``now``, the policy's
+            ceiling from ``confirmed_at``, the session's expiry and the end
+            of the login it descends from.
+        """
+        policy = self.policy()
+        deadline = min(
+            now + float(policy.sudo_idle_minutes) * 60.0,
+            confirmed_at + float(policy.sudo_max_minutes) * 60.0,
+        )
+        if record is not None:
+            created = float(record.get("created_at") or record["issued_at"])
+            deadline = min(
+                deadline, float(record["expires_at"]), created + self._absolute_seconds()
+            )
+        return deadline
 
     def issue_ws_ticket(self, session_id: str, client_ip: str) -> tuple[str, int]:
         """
@@ -4395,6 +4518,23 @@ def record_auth_failure(
         )
 
 
+def extend_elevation(payload: dict[str, Any]) -> float | None:
+    """
+    Keep a session's sudo mode open after an elevated action; see :meth:`TokenManager.extend_elevation`.
+
+    Args:
+        payload: The payload of the session that just performed one.
+
+    Returns:
+        The new deadline, or None when nothing moved, including when the
+        server was never initialised.
+    """
+    manager = get_global_token_manager()
+    if manager is None:
+        return None
+    return manager.extend_elevation(payload)
+
+
 def is_elevated(payload: dict[str, Any]) -> bool:
     """
     Report whether a session payload is currently inside its sudo-mode window.
@@ -4406,8 +4546,10 @@ def is_elevated(payload: dict[str, Any]) -> bool:
             for who is asked at all.
 
     Returns:
-        True while ``POST /api/auth/elevate`` was called within the last
-        :data:`ELEVATION_SECONDS`.
+        True while the session is inside its sudo-mode window: confirmed
+        through ``POST /api/auth/elevate`` (or a passkey) and kept open by the
+        elevated actions since, per :meth:`TokenManager.extend_elevation`.
+        Reading this changes nothing.
     """
     elevated_until = payload.get("elevated_until")
     if elevated_until is None:

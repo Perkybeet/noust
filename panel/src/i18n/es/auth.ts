@@ -76,13 +76,17 @@ export const auth: Catalog<typeof en> = {
   elevate: {
     title: "Confirma que eres tú",
     descriptionAccount:
-      "Esta acción necesita una confirmación reciente. Escribe tu contraseña y un código de tu app de autenticación, o uno de tus códigos de respaldo. Vale para los próximos minutos.",
+      "Esta acción necesita una confirmación reciente. Escribe tu contraseña y un código de tu app de autenticación, o uno de tus códigos de respaldo.",
     descriptionAccountPasskey:
-      "Esta acción necesita una confirmación reciente. Usa tu llave de acceso, o escribe tu contraseña y un código de tu app de autenticación. Vale para los próximos minutos.",
-    descriptionTotp:
-      "Esta acción necesita una confirmación reciente. Introduce un código de tu app de autenticación o uno de tus códigos de respaldo. Vale para los próximos 10 minutos.",
-    descriptionToken:
-      "Esta acción necesita una confirmación reciente. Introduce el token de acceso de este servidor. Vale para los próximos 10 minutos.",
+      "Esta acción necesita una confirmación reciente. Usa tu llave de acceso, o escribe tu contraseña y un código de tu app de autenticación.",
+    descriptionCode:
+      "Esta acción necesita una confirmación reciente. Introduce un código de tu app de autenticación o uno de tus códigos de respaldo.",
+    descriptionCodePasskey:
+      "Esta acción necesita una confirmación reciente. Usa tu llave de acceso, o introduce un código de tu app de autenticación o uno de tus códigos de respaldo.",
+    descriptionPasskeyOnly: "Esta acción necesita una confirmación reciente. Usa tu llave de acceso.",
+    descriptionToken: "Esta acción necesita una confirmación reciente. Introduce el token de acceso de este servidor.",
+    keepsOpen:
+      "No te lo pediremos de nuevo mientras sigas trabajando, durante un máximo de {max}. Se cierra tras {idle} sin cambios.",
     authenticationCode: "Código de autenticación",
     withPasskey: "Confirmar con una llave de acceso",
     orBelow: "O confirma con el formulario de abajo.",

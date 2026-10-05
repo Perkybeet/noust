@@ -14,6 +14,7 @@ from __future__ import annotations
 import sqlite3
 import time
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,7 @@ from fastapi.testclient import TestClient
 
 from noust.core import totp
 from noust.core.accounts import AccountManager, AuthPolicy, passwords
+from noust.core.accounts.policy import build_policy
 from noust.core.store import NoustStore
 from noust.web import auth as auth_module
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
@@ -267,21 +269,6 @@ class TestAccountSignIn:
         assert response.status_code == 400
         assert accounts().find("maria").has_mfa
 
-    def test_sudo_mode_for_an_account_asks_for_password_and_code(self, sandbox: Path) -> None:
-        client = build(sandbox)
-        codes = make_account("maria", "admin")
-        csrf = sign_in(client, "maria", codes[0])["csrf_token"]
-        headers = {CSRF_HEADER_NAME: csrf}
-
-        only_code = client.post("/api/auth/elevate", json={"code": codes[1]}, headers=headers)
-        assert only_code.status_code == 401
-        assert only_code.json()["error"] == "invalid_credentials"
-
-        both = client.post(
-            "/api/auth/elevate", json={"password": PASSWORD, "code": codes[2]}, headers=headers
-        )
-        assert both.status_code == 200, both.text
-
     def test_disabling_an_account_ends_its_session_at_once(self, sandbox: Path) -> None:
         client = build(sandbox)
         codes = make_account("maria", "viewer")
@@ -313,6 +300,222 @@ class TestAccountSignIn:
 
         tickets = [e for e in read_audit(sandbox) if e["action"] == "auth.ws_ticket"]
         assert tickets[-1]["actor"] == "maria"
+
+
+def authenticator_account(username: str, role: str = "admin") -> tuple[str, list[str]]:
+    """
+    Create an account whose authenticator the test can read codes from.
+
+    Args:
+        username: Its name.
+        role: Its role.
+
+    Returns:
+        The authenticator's secret and the account's backup codes.
+    """
+    manager = accounts()
+    account = manager.create(username, role, password=PASSWORD)
+    secret = manager.begin_totp(account.id)
+    codes = manager.confirm_totp(account.id, totp.totp_now(secret))
+    assert codes is not None
+    return secret, codes
+
+
+class TestSudoMode:
+    """Confirming "it's you" again takes one factor, and the password too only when asked."""
+
+    def signed_in(
+        self, sandbox: Path, policy: AuthPolicy | None = None, username: str = "maria"
+    ) -> tuple[TestClient, dict[str, str], str, list[str]]:
+        """
+        Sign an account with an authenticator in.
+
+        Args:
+            sandbox: Per-test directory.
+            policy: The sign-in policy.
+            username: The account.
+
+        Returns:
+            The client, its CSRF header, the authenticator's secret and the
+            backup codes (the first of which signed the account in).
+        """
+        client = build(sandbox, policy)
+        secret, codes = authenticator_account(username)
+        csrf = sign_in(client, username, codes[0])["csrf_token"]
+        return client, {CSRF_HEADER_NAME: csrf}, secret, codes
+
+    def test_one_code_confirms_it(self, sandbox: Path) -> None:
+        client, headers, _, codes = self.signed_in(sandbox)
+
+        response = client.post("/api/auth/elevate", json={"code": codes[1]}, headers=headers)
+
+        assert response.status_code == 200, response.text
+        assert client.get("/api/auth/session").json()["elevated_until"] is not None
+
+    def test_a_code_from_the_authenticator_confirms_it_once(self, sandbox: Path) -> None:
+        client, headers, secret, _ = self.signed_in(sandbox)
+        # The step the authenticator was enrolled with is spent; the next one is not.
+        code = totp.totp_now(secret, t=time.time() + 30)
+
+        first = client.post("/api/auth/elevate", json={"code": code}, headers=headers)
+        again = client.post("/api/auth/elevate", json={"code": code}, headers=headers)
+
+        assert first.status_code == 200, first.text
+        # A step is spent for sudo mode as it is for a sign-in: a code seen
+        # over a shoulder is not a second confirmation.
+        assert again.status_code == 401
+        assert again.json()["error"] == "invalid_totp"
+
+    def test_the_password_is_not_asked_when_the_policy_does_not_ask_it(self, sandbox: Path) -> None:
+        client, headers, _, codes = self.signed_in(sandbox)
+
+        response = client.post(
+            "/api/auth/elevate", json={"password": "not it", "code": codes[1]}, headers=headers
+        )
+
+        assert response.status_code == 200, response.text
+
+    def test_a_password_alone_is_not_a_confirmation(self, sandbox: Path) -> None:
+        client, headers, _, _ = self.signed_in(sandbox)
+
+        response = client.post("/api/auth/elevate", json={"password": PASSWORD}, headers=headers)
+
+        assert response.status_code == 401
+        assert response.json()["error"] == "totp_required"
+        assert client.get("/api/auth/session").json()["elevated_until"] is None
+
+    def test_a_wrong_code_is_counted_by_the_accounts_lockout(self, sandbox: Path) -> None:
+        client, headers, _, codes = self.signed_in(sandbox)
+
+        for _ in range(4):
+            response = client.post("/api/auth/elevate", json={"code": "000000"}, headers=headers)
+            assert response.status_code == 401
+            assert response.json()["error"] == "invalid_totp"
+        assert accounts().find("maria").failures_since_login == 4
+        assert accounts().find("maria").status == "active"
+
+        client.post("/api/auth/elevate", json={"code": "000000"}, headers=headers)
+
+        # The fifth wrong code locks the account, as five wrong passwords do,
+        # and a locked account's session is over.
+        assert accounts().find("maria").status == "locked"
+        locked = client.post("/api/auth/elevate", json={"code": codes[1]}, headers=headers)
+        assert locked.status_code in (401, 429)
+        confirmed = [
+            e
+            for e in read_audit(sandbox)
+            if e["action"] == "auth.elevate" and e["result"] == "success"
+        ]
+        assert confirmed == []
+
+    def test_a_wrong_code_is_counted_by_the_addresss_lockout(self, sandbox: Path) -> None:
+        from noust.web.server import get_brute_force
+
+        client, headers, _, _ = self.signed_in(sandbox)
+        before = get_brute_force().get_attempts_remaining("testclient")
+
+        client.post("/api/auth/elevate", json={"code": "000000"}, headers=headers)
+
+        assert get_brute_force().get_attempts_remaining("testclient") < before
+
+    def test_the_policy_can_ask_for_the_password_as_well(self, sandbox: Path) -> None:
+        client, headers, _, codes = self.signed_in(sandbox, AuthPolicy(sudo_require_password=True))
+
+        only_code = client.post("/api/auth/elevate", json={"code": codes[1]}, headers=headers)
+        assert only_code.status_code == 401
+        assert only_code.json()["error"] == "invalid_credentials"
+        wrong_password = client.post(
+            "/api/auth/elevate", json={"password": "nope", "code": codes[2]}, headers=headers
+        )
+        assert wrong_password.status_code == 401
+
+        both = client.post(
+            "/api/auth/elevate", json={"password": PASSWORD, "code": codes[3]}, headers=headers
+        )
+        assert both.status_code == 200, both.text
+
+    def test_the_ens_profile_asks_for_the_password_whatever_is_configured(
+        self, sandbox: Path
+    ) -> None:
+        policy = build_policy(
+            {"profile": "ens-medium", "sudo_require_password": False, "sudo_idle_minutes": 60}
+        )
+        client, headers, _, codes = self.signed_in(sandbox, policy)
+
+        only_code = client.post("/api/auth/elevate", json={"code": codes[1]}, headers=headers)
+        assert only_code.status_code == 401
+
+        both = client.post(
+            "/api/auth/elevate", json={"password": PASSWORD, "code": codes[2]}, headers=headers
+        )
+        assert both.status_code == 200, both.text
+        until = datetime.fromisoformat(both.json()["elevated_until"]).timestamp()
+        # 10 minutes, the profile's idle window, not the 60 that was configured.
+        assert until - time.time() == pytest.approx(10 * 60, abs=5)
+
+    def test_an_account_without_a_second_factor_still_cannot_enter_sudo_mode(
+        self, sandbox: Path
+    ) -> None:
+        client = build(sandbox)
+        make_account("maria", "admin", mfa=False)
+        csrf = sign_in(client, "maria", None)["csrf_token"]
+
+        response = client.post(
+            "/api/auth/elevate",
+            json={"password": PASSWORD, "code": "123456"},
+            headers={CSRF_HEADER_NAME: csrf},
+        )
+
+        assert response.status_code >= 400
+        assert "second factor" in response.text
+        assert client.get("/api/auth/session").json()["elevated_until"] is None
+
+    def test_the_session_says_what_confirming_needs(self, sandbox: Path) -> None:
+        client, _, _, _ = self.signed_in(sandbox)
+
+        body = client.get("/api/auth/session").json()
+
+        assert body["elevation_factors"] == ["totp", "backup_code"]
+        assert body["elevation_requires_password"] is False
+        assert body["elevation_idle_minutes"] == 15
+        assert body["elevation_max_minutes"] == 120
+
+    def test_the_session_says_the_password_is_needed_under_the_profile(self, sandbox: Path) -> None:
+        client, _, _, _ = self.signed_in(sandbox, build_policy({"profile": "ens-medium"}))
+
+        body = client.get("/api/auth/session").json()
+
+        assert body["elevation_requires_password"] is True
+        assert body["elevation_idle_minutes"] == 10
+        assert body["elevation_max_minutes"] == 30
+
+    def test_the_master_token_session_names_its_own_factor(self, sandbox: Path) -> None:
+        client = build(sandbox)
+        master_sign_in(client)
+
+        body = client.get("/api/auth/session").json()
+
+        assert body["elevation_factors"] == ["master_token"]
+        assert body["elevation_requires_password"] is False
+
+    def test_an_anonymous_caller_is_told_nothing_about_it(self, sandbox: Path) -> None:
+        body = build(sandbox).get("/api/auth/session").json()
+
+        assert body["elevation_factors"] == []
+        assert body["elevation_idle_minutes"] is None
+
+    def test_the_audit_log_says_what_confirmed_it(self, sandbox: Path) -> None:
+        client, headers, _, codes = self.signed_in(sandbox)
+
+        client.post("/api/auth/elevate", json={"code": "000000"}, headers=headers)
+        client.post("/api/auth/elevate", json={"code": codes[1]}, headers=headers)
+
+        events = [e for e in read_audit(sandbox) if e["action"] == "auth.elevate"]
+        assert [(e["result"], e["actor"]) for e in events] == [
+            ("failure", "maria"),
+            ("success", "maria"),
+        ]
+        assert events[1]["detail"] == "confirmed with a code"
 
 
 class TestNoticeAndLeaks:
@@ -592,6 +795,9 @@ class TestUpgradeFrom30:
         session = client.get("/api/auth/session").json()
         assert session["authenticated"] is True
         assert session["grant"] == "compat"
+        # The session table gained the column sudo mode's ceiling is counted from.
+        columns = {row[1] for row in manager.sessions._conn.execute("PRAGMA table_info(sessions)")}
+        assert "elevated_at" in columns
         bearer = {"Authorization": f"Bearer {legacy['token']}"}
         assert client.post("/api/jobs/update", json={}, headers=bearer).status_code != 403
         assert client.post("/api/apps/x.example.com/restart", headers=bearer).status_code == 403

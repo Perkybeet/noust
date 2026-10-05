@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { request } from "../../api/client";
 import { appKeys } from "../../api/queries/apps";
-import { authKeys } from "../../api/queries/auth";
+import { authKeys, sessionQuery } from "../../api/queries/auth";
 import type { SessionInfo } from "../../api/queries/auth";
 import { jobKeys } from "../../api/queries/jobs";
 import { announce } from "../../app/Announcer";
@@ -33,11 +33,17 @@ export function isElevated(session: SessionInfo | undefined, now: number = Date.
  * would then open on top of the first; asking first keeps one dialog on screen at a time.
  * Resolves at once when the session is already elevated; rejects with
  * ElevationCancelledError when the operator declines.
+ *
+ * Sudo mode stays open while it is used, so a deadline that has passed in the cached session
+ * may be a stale one: the server moves it with every destructive action. Before asking, the
+ * session is read again, and only the server's answer says the window really closed.
  */
 export function useConfirmItsYou(): () => Promise<void> {
   const queryClient = useQueryClient();
   return async () => {
     if (isElevated(queryClient.getQueryData<SessionInfo>(authKeys.session))) return;
+    const fresh = await queryClient.query({ ...sessionQuery(), staleTime: 0 }).catch(() => undefined);
+    if (isElevated(fresh)) return;
     await elevate();
   };
 }

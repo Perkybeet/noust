@@ -128,6 +128,7 @@ const PERSON = {
   ...SESSION,
   grant: null,
   role: "admin",
+  elevation_factors: ["totp", "backup_code"],
   account: {
     id: 4,
     username: "dani",
@@ -142,16 +143,73 @@ const PERSON = {
   },
 };
 
+/** An action that is refused until the session confirms it's them. */
+const NEEDS_ELEVATION = {
+  "DELETE /api/apps/shop.example.com": () => problem(403, "elevation_required", "Confirm it's you"),
+};
+
+/** The server asks for the password again: `auth.sudo.require_password`, and always under ENS. */
+const PERSON_WITH_PASSWORD = { ...PERSON, elevation_requires_password: true };
+
 describe("Confirm it's you, for a person", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     Reflect.deleteProperty(navigator, "credentials");
   });
 
-  it("asks for the password and a code, and says the same thing whatever was wrong", async () => {
+  it("asks for a code alone, since the session already proved the password", async () => {
     let elevated = false;
     const backend = fakeBackend({
       ...signedInRoutes(PERSON),
+      "GET /api/auth/passkeys": () => json(200, { passkeys: [], availability: { supported: false, reason: "ip_address" }, allow_synced: true }),
+      "POST /api/auth/elevate": (call: RecordedCall) => {
+        const body = call.body as { password?: string; code?: string };
+        if (body.password !== undefined || body.code !== "123456") return problem(401, "invalid_totp", "Invalid two-factor code.");
+        elevated = true;
+        return json(200, { elevated_until: UNTIL });
+      },
+      "DELETE /api/apps/shop.example.com": () => (elevated ? json(202, { job_id: "j1" }) : problem(403, "elevation_required", "Confirm it's you")),
+    });
+    const { user } = renderConsole("/apps");
+    await screen.findByRole("heading", { level: 1, name: "Applications" });
+    const deletion = api("DELETE", "/api/apps/shop.example.com");
+    const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    expect(dialog).toHaveAccessibleDescription(/Enter a code from your authenticator app/);
+    expect(within(dialog).queryByLabelText("Password")).toBeNull();
+    const code = within(dialog).getByLabelText("Authentication code");
+    await waitFor(() => {
+      expect(code).toHaveFocus();
+    });
+    await user.type(code, "000000");
+    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    expect(await within(dialog).findByText("Invalid two-factor code.")).toBeInTheDocument();
+    // A wrong code does not lose the dialog.
+    await user.clear(within(dialog).getByLabelText("Authentication code"));
+    await user.type(within(dialog).getByLabelText("Authentication code"), "123 456");
+    await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
+    await expect(deletion).resolves.toMatchObject({ job_id: "j1" });
+    expect(backend.callsTo("POST /api/auth/elevate").at(-1)?.body).toEqual({ code: "123456" });
+  });
+
+  it("says how long the confirmation lasts, with the server's own numbers", async () => {
+    fakeBackend({
+      ...signedInRoutes(PERSON),
+      ...NEEDS_ELEVATION,
+      "GET /api/auth/passkeys": () => json(200, { passkeys: [], availability: { supported: false, reason: "ip_address" }, allow_synced: true }),
+    });
+    const { user } = renderConsole("/apps");
+    await screen.findByRole("heading", { level: 1, name: "Applications" });
+    const deletion = api("DELETE", "/api/apps/shop.example.com").catch((error: unknown) => error);
+    const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    expect(await within(dialog).findByText("You won't be asked again while you keep working, for up to 2 hours. It closes after 15 minutes without a change.")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await deletion;
+  });
+
+  it("asks for the password with the code when the server asks for it again, and has no accessibility violations", async () => {
+    let elevated = false;
+    const backend = fakeBackend({
+      ...signedInRoutes({ ...PERSON_WITH_PASSWORD, elevation_idle_minutes: 10, elevation_max_minutes: 30 }),
       "GET /api/auth/passkeys": () => json(200, { passkeys: [], availability: { supported: false, reason: "ip_address" }, allow_synced: true }),
       "POST /api/auth/elevate": (call: RecordedCall) => {
         const body = call.body as { password?: string; code?: string };
@@ -166,6 +224,8 @@ describe("Confirm it's you, for a person", () => {
     const deletion = api("DELETE", "/api/apps/shop.example.com");
     const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
     expect(dialog).toHaveAccessibleDescription(/your password and a code/);
+    expect(await within(dialog).findByText("You won't be asked again while you keep working, for up to 30 minutes. It closes after 10 minutes without a change.")).toBeInTheDocument();
+    await expectNoAxeViolations(dialog);
     await user.type(within(dialog).getByLabelText("Password"), "nope");
     await user.type(within(dialog).getByLabelText("Authentication code"), "123456");
     await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
@@ -176,6 +236,29 @@ describe("Confirm it's you, for a person", () => {
     await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
     await expect(deletion).resolves.toMatchObject({ job_id: "j1" });
     expect(backend.callsTo("POST /api/auth/elevate").at(-1)?.body).toEqual({ password: "pw", code: "123456" });
+  });
+
+  it("has no accessibility violations asking for a code alone, and speaks Spanish", async () => {
+    fakeBackend({
+      ...signedInRoutes(PERSON),
+      ...NEEDS_ELEVATION,
+      "GET /api/auth/passkeys": () => json(200, { passkeys: [], availability: { supported: false, reason: "ip_address" }, allow_synced: true }),
+    });
+    const { user } = renderConsole("/apps");
+    await screen.findByRole("heading", { level: 1, name: "Applications" });
+    const deletion = api("DELETE", "/api/apps/shop.example.com").catch((error: unknown) => error);
+    const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    await expectNoAxeViolations(dialog);
+    await act(async () => {
+      await setLocale("es");
+    });
+    const spanish = await screen.findByRole("dialog", { name: "Confirma que eres tú" });
+    expect(within(spanish).queryByLabelText("Contraseña")).toBeNull();
+    expect(within(spanish).getByLabelText("Código de autenticación")).toBeInTheDocument();
+    expect(await within(spanish).findByText("No te lo pediremos de nuevo mientras sigas trabajando, durante un máximo de 2 horas. Se cierra tras 15 minutos sin cambios.")).toBeInTheDocument();
+    await expectNoAxeViolations(spanish);
+    await user.click(within(spanish).getByRole("button", { name: "Cancelar" }));
+    await deletion;
   });
 
   it("offers the passkey first, and confirms with it", async () => {
@@ -214,5 +297,32 @@ describe("Confirm it's you, for a person", () => {
     expect(get).toHaveBeenCalledTimes(1);
     expect(backend.callsTo("POST /api/auth/passkeys/elevate")[0]?.body).toMatchObject({ credential: { id: "CQkJ", type: "public-key" } });
     await expectNoAxeViolations(document.body, { page: true });
+  });
+
+  it("offers only the passkey to an account that has nothing else to type", async () => {
+    fakeBackend({
+      ...signedInRoutes({ ...PERSON, elevation_factors: ["passkey"] }),
+      ...NEEDS_ELEVATION,
+      "GET /api/auth/passkeys": () =>
+        json(200, {
+          passkeys: [{ id: 1, name: "Laptop", owner: "dani", rp_id: "localhost", algorithm: "ES256", synced: false, transports: [], created_at: 1_790_000_000 }],
+          availability: { supported: true, rp_id: "localhost" },
+          allow_synced: true,
+        }),
+    });
+    vi.stubGlobal("isSecureContext", true);
+    vi.stubGlobal("PublicKeyCredential", vi.fn());
+    Object.defineProperty(navigator, "credentials", { value: { get: vi.fn(), create: vi.fn() }, configurable: true });
+    const { user } = renderConsole("/apps");
+    await screen.findByRole("heading", { level: 1, name: "Applications" });
+    const deletion = api("DELETE", "/api/apps/shop.example.com").catch((error: unknown) => error);
+    const dialog = await screen.findByRole("dialog", { name: "Confirm it's you" });
+    expect(await within(dialog).findByRole("button", { name: "Confirm with a passkey" })).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText("Authentication code")).toBeNull();
+    expect(within(dialog).queryByRole("button", { name: "Confirm" })).toBeNull();
+    expect(dialog).toHaveAccessibleDescription("This action needs a recent confirmation. Use your passkey.");
+    await expectNoAxeViolations(dialog);
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    await deletion;
   });
 });

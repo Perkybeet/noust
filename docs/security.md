@@ -444,10 +444,34 @@ replaced by `***`. This needs git 2.31 or later, which every supported distribut
 ## Sudo mode
 
 Destructive and credential-changing actions ask a console session to prove it is still its
-operator: `POST /api/auth/elevate` with the account's password and a current TOTP or backup
-code, a passkey (`/api/auth/passkeys/elevate`), or for the master token its second factor, or
-the token itself when it has none. The session is then elevated for 10 minutes. The console
+operator. The session already proved the account's password and second factor at sign-in, so
+confirming asks for **one factor**: `POST /api/auth/elevate` with a current TOTP or backup code,
+or a passkey (`/api/auth/passkeys/elevate`); for the master token its second factor, or the token
+itself when it has none. An account with no second factor cannot enter sudo mode. The console
 shows a "Confirm it's you" dialog and retries the action.
+
+Sudo mode is a window that stays open while it is used, as GitHub's does. It opens for
+`auth.sudo.idle_minutes` (15) and every destructive action performed in it pushes the end out by
+that much again, but never past `auth.sudo.max_minutes` (120) from the moment it was confirmed,
+nor past the session's own end. Only an action that needed sudo mode extends it: reading the
+console, or leaving a tab polling, does not. The end is written at most once a minute. A session
+that was confirmed before this behaviour existed ends at the deadline it was given.
+
+`auth.sudo.require_password: true` asks for the account's password together with the code,
+as 3.3 did; the passkey is still a confirmation on its own. A wrong code is counted by the
+account's lockout and the address's, exactly as at sign-in, and a TOTP step is accepted once for
+sudo mode. Each confirmation is audited as `auth.elevate`, with what it was made with (never the
+code), and a refusal as `auth.elevate` `failure`.
+
+Under the `ens-medium` profile the window is 10 minutes idle and 30 in all, the password is always
+asked with the code, and an operator may tighten these values but not loosen them (see
+[ENS.md](ENS.md)).
+
+A central vouches for its operator's sudo mode to a node with `X-Noust-Elevated`, and reads the
+window through the same `elevation_satisfied` the server uses for its own routes; a call the
+node's schema marks as elevated passes through `ensure_elevated` on the central first, so working
+on a node through a central keeps the central's window open. A bulk fleet job queued while
+elevated keeps its elevated steps for 30 minutes whether or not the operator is still working.
 
 Which routes need it is declared on each route and published in the OpenAPI schema as
 `x-noust-requires-elevation`, so the console, a script and a central all read the same list. It

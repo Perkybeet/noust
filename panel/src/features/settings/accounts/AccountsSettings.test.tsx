@@ -81,8 +81,7 @@ function accountsBackend(extra: Record<string, RouteHandler> = {}) {
 
 async function confirmItsYou(user: ReturnType<typeof renderConsole>["user"]): Promise<void> {
   const confirm = await screen.findByRole("dialog", { name: "Confirm it's you" });
-  // A person confirms with their password and a code.
-  await user.type(within(confirm).getByLabelText("Password"), "correct horse battery");
+  // A person confirms with a code: they gave the password and a code to sign in.
   await user.type(within(confirm).getByLabelText("Authentication code"), "123456");
   await user.click(within(confirm).getByRole("button", { name: "Confirm" }));
 }

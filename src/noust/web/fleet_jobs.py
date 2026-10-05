@@ -84,7 +84,11 @@ REQUEST_TIMEOUT = 60.0
 
 #: How long the operator's sudo mode, confirmed when the job was created,
 #: covers its steps: a job does not start an elevated step on a node after
-#: this, it skips it (``elevation_expired``).
+#: this, it skips it (``elevation_expired``). Not the session's sliding window
+#: (``auth.sudo.*``): the operator confirmed the plan, and a batch that outlasts
+#: their working session must not stop half way. The central checks sudo mode
+#: through ``ensure_elevated`` before queueing, which is also what keeps the
+#: session's own window open.
 ELEVATION_WINDOW_SECONDS = 30 * 60
 
 #: Most of a node's words kept per server.
