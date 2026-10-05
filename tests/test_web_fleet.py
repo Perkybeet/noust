@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import time
 from collections.abc import Iterator
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,7 @@ from noust.core.store import NoustStore
 from noust.fleet import aggregate
 from noust.fleet.aggregate import set_aggregator
 from noust.fleet.models import central_name
+from noust.web.fleet_jobs import ELEVATION_WINDOW_SECONDS, elevation_deadline
 from noust.web.jobs import JobManager
 from noust.web.server import create_app, get_token_manager
 from tests.fleet_views_support import Central, build_central
@@ -181,6 +183,66 @@ class TestActions:
         )
         assert posted.headers["X-Noust-Elevated"] == "1"
 
+    @pytest.fixture
+    def created_jobs(self, monkeypatch):
+        """The keyword arguments every job is created with, newest last."""
+        seen: list[dict[str, Any]] = []
+        original = JobManager.create_job
+
+        def spy(manager, *args, **kwargs):
+            seen.append(dict(kwargs.get("kwargs") or {}))
+            return original(manager, *args, **kwargs)
+
+        monkeypatch.setattr(JobManager, "create_job", spy)
+        return seen
+
+    def _update_noust(self, client, central, created):
+        """Queue a Noust update on web-2, wait for it, and return what its job was created with."""
+        for node in central.nodes.values():
+            node.responses["/api/system/version"] = (
+                200,
+                {"current_version": "3.1.0", "update_state": "update_available"},
+            )
+        central.nodes["web-2"].handlers[("POST", "/api/system/update")] = lambda request: (
+            central.nodes["web-2"].queue(status="failed", error="refused")
+        )
+        accepted = client.post(
+            "/api/fleet/actions",
+            json={"action": "noust_update", "targets": {"nodes": ["web-2"]}},
+        )
+        assert accepted.status_code == 200, accepted.text
+        _wait(client, accepted.json()["job"]["job_id"])
+        return created[-1]
+
+    def test_a_job_never_outlasts_the_sudo_window_that_queued_it(
+        self, client, central, created_jobs
+    ):
+        master = sign_in(client)
+        elevate(client, master)
+
+        kwargs = self._update_noust(client, central, created_jobs)
+
+        now = time.time()
+        covered_until = kwargs["elevated_until"]
+        # The session's window is 15 minutes by default; the job's cover is 30 at most.
+        assert now < covered_until <= now + 15 * 60 + 5
+        # It is where the session's own window stands once the job was queued.
+        window = datetime.fromisoformat(client.get("/api/auth/session").json()["elevated_until"])
+        assert covered_until == pytest.approx(window.timestamp(), abs=2)
+
+    def test_a_credential_without_a_window_covers_the_job_for_the_ceiling(
+        self, client, central, created_jobs
+    ):
+        master = get_token_manager().generate_master_token()
+        bearer = TestClient(client.app, client=("testclient", 50001))
+        bearer.headers["Authorization"] = f"Bearer {master}"
+
+        kwargs = self._update_noust(bearer, central, created_jobs)
+
+        assert kwargs["elevated_until"] == pytest.approx(
+            time.time() + ELEVATION_WINDOW_SECONDS, abs=30
+        )
+
     def test_run_record_and_retry(self, client, central):
         sign_in(client)
         for name, node in central.nodes.items():
@@ -255,6 +317,18 @@ class TestLabels:
 
         assert response.status_code == 400
         assert "labels" in (response.json().get("fields") or {})
+
+
+class TestElevationDeadline:
+    def test_the_ceiling_is_the_cover_when_the_credential_has_no_window(self):
+        assert elevation_deadline(None, now=1_000.0) == 1_000.0 + ELEVATION_WINDOW_SECONDS
+
+    def test_the_session_window_wins_when_it_ends_sooner(self):
+        assert elevation_deadline(1_000.0 + 120, now=1_000.0) == 1_120.0
+
+    def test_the_cover_never_goes_past_the_ceiling(self):
+        far = 1_000.0 + 10 * ELEVATION_WINDOW_SECONDS
+        assert elevation_deadline(far, now=1_000.0) == 1_000.0 + ELEVATION_WINDOW_SECONDS
 
 
 def test_every_fleet_route_is_mapped():
