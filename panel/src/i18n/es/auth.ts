@@ -74,6 +74,7 @@ export const auth: Catalog<typeof en> = {
     failuresHint: "Si no fuiste tú, avisa a un responsable de seguridad.",
   },
   elevate: {
+    codeAlreadyUsed: "Un código con el que acabas de iniciar sesión no sirve para confirmar: espera al siguiente.",
     title: "Confirma que eres tú",
     descriptionAccount:
       "Esta acción necesita una confirmación reciente. Escribe tu contraseña y un código de tu app de autenticación, o uno de tus códigos de respaldo.",

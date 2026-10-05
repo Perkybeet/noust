@@ -76,6 +76,7 @@ export const auth = {
     failuresHint: "If it was not you, tell a security officer.",
   },
   elevate: {
+    codeAlreadyUsed: "A code that just signed you in cannot confirm again: wait for the next one.",
     title: "Confirm it's you",
     descriptionAccount:
       "This action needs a recent confirmation. Enter your password and a code from your authenticator app, or one of your backup codes.",

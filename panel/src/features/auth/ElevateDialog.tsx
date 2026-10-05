@@ -218,7 +218,12 @@ export function ElevateDialog() {
                 />
               </Field>
             ) : null}
-            <Field label={factor === "token" ? t("auth.accessToken") : t("auth.elevate.authenticationCode")} error={fieldError}>
+            <Field
+              label={factor === "token" ? t("auth.accessToken") : t("auth.elevate.authenticationCode")}
+              error={fieldError}
+              // A code that just signed in is refused here: say so, or it reads as a wrong code.
+              {...(fieldError !== null && fieldError !== "" && factor !== "token" ? { description: t("auth.elevate.codeAlreadyUsed") } : {})}
+            >
               <Input
                 ref={askPassword ? codeRef : firstRef}
                 mono

@@ -183,6 +183,8 @@ describe("Confirm it's you, for a person", () => {
     await user.type(code, "000000");
     await user.click(within(dialog).getByRole("button", { name: "Confirm" }));
     expect(await within(dialog).findByText("Invalid two-factor code.")).toBeInTheDocument();
+    // The code that signed in is refused too: the field says to wait for the next one.
+    expect(within(dialog).getByLabelText("Authentication code")).toHaveAccessibleDescription(/wait for the next one/);
     // A wrong code does not lose the dialog.
     await user.clear(within(dialog).getByLabelText("Authentication code"));
     await user.type(within(dialog).getByLabelText("Authentication code"), "123 456");
