@@ -1019,8 +1019,8 @@ class HardeningChecks:
                     list(probe.services),
                     _action(
                         "Restart them",
-                        "noust server restart-services",
-                        "POST /api/server/updates/restart-services",
+                        "noust server updates restart-services",
+                        "POST /api/server/updates/restarts",
                     ),
                 )
             )
@@ -1044,7 +1044,7 @@ class HardeningChecks:
                         [auto.detail] if auto.detail else [],
                         _action(
                             "Turn on automatic security updates",
-                            "noust server updates auto enable --security-only",
+                            "noust server updates auto enable",
                             "PUT /api/server/updates/auto",
                         ),
                     )
@@ -1135,7 +1135,9 @@ class HardeningChecks:
                         for m in full
                     ],
                     _action(
-                        "Free space", "noust server disk clean", "POST /api/server/storage/cleanup"
+                        "Free space",
+                        "noust server cleanup journal",
+                        "POST /api/server/storage/cleanup",
                     ),
                     severity="critical" if any(m.status == "critical" for m in full) else None,
                 )
@@ -1164,8 +1166,8 @@ class HardeningChecks:
             units,
             _action(
                 "See the failed services",
-                "noust server units --failed",
-                "GET /api/server/units?state=failed",
+                "noust service list --all --state failed",
+                "GET /api/services?noust_only=false&state=failed",
             ),
         )
 

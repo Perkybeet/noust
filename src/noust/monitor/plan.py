@@ -495,7 +495,7 @@ class PlanBuilder:
                 reason=Reason(
                     code="unit_missing",
                     message=f"No systemd unit is recorded for {app.domain}.",
-                    fix=f"Redeploy it: noust app update {app.domain}",
+                    fix=f"Redeploy it: noust update {app.domain}",
                 ),
             )
 
@@ -583,7 +583,7 @@ class PlanBuilder:
             return Reason(
                 code="unit_missing",
                 message=f"systemd does not know the unit {unit}.service.",
-                fix=f"Redeploy the application to write it again: noust app update {app.domain}",
+                fix=f"Redeploy the application to write it again: noust update {app.domain}",
                 evidence=evidence,
                 params={"unit": unit},
             )

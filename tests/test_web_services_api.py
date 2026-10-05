@@ -116,17 +116,20 @@ class FakeServiceManager:
             },
         )
 
-    def list_statuses(self, all_services: bool = False) -> list[dict]:
+    def list_statuses(self, all_services: bool = False, state: str | None = None) -> list[dict]:
         """
         Return the scripted listing, each unit described like get_status.
 
         Args:
             all_services: Recorded for assertions.
+            state: Recorded for assertions; the real filter is exercised in
+                tests/test_service_manager.py.
 
         Returns:
             The scripted status of every unit in ``all_units``.
         """
         self.calls.append(("list_statuses", all_services))
+        self.calls.append(("list_statuses_state", state))
         return [
             FakeServiceManager.statuses.get(unit["name"], {"name": unit["name"]})
             for unit in FakeServiceManager.all_units
@@ -422,6 +425,43 @@ class TestListServices:
         assert response.status_code == 200, response.text
         manager = FakeServiceManager.instances[-1]
         assert ("list_statuses", every_unit) in manager.calls
+
+
+class TestListByState:
+    """GET /api/services?state=: what the failed-units hint of a degraded server points at."""
+
+    @pytest.mark.parametrize("state", ["failed", "running", "stopped"])
+    def test_the_state_reaches_the_manager(
+        self, client: TestClient, fake_manager, store, state: str
+    ) -> None:
+        """The route translates the query; the manager decides which units match."""
+        response = client.get("/api/services", params={"noust_only": "false", "state": state})
+
+        assert response.status_code == 200, response.text
+        manager = FakeServiceManager.instances[-1]
+        assert ("list_statuses", True) in manager.calls
+        assert ("list_statuses_state", state) in manager.calls
+
+    def test_no_state_is_no_filter(self, client: TestClient, fake_manager, store) -> None:
+        client.get("/api/services")
+
+        assert ("list_statuses_state", None) in FakeServiceManager.instances[-1].calls
+
+    def test_a_state_nobody_defined_is_refused(self, client: TestClient, fake_manager) -> None:
+        response = client.get("/api/services", params={"state": "broken"})
+
+        assert response.status_code == 422
+
+    def test_the_states_are_the_ones_the_manager_defines(self, client: TestClient) -> None:
+        """The route's Literal and the manager's tuple cannot drift apart."""
+        from noust.managers.service_manager import UNIT_STATE_FILTERS
+
+        operation = client.app.openapi()["paths"]["/api/services"]["get"]  # type: ignore[attr-defined]
+        parameter = next(p for p in operation["parameters"] if p["name"] == "state")
+        choices = parameter["schema"].get("enum") or next(
+            option["enum"] for option in parameter["schema"]["anyOf"] if "enum" in option
+        )
+        assert tuple(choices) == UNIT_STATE_FILTERS
 
 
 class TestVerifyUnit:

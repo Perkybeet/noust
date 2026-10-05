@@ -666,7 +666,7 @@ class SshSecurity:
         if key.kind == "central":
             blockers.append(
                 "It is a Noust central's tunnel key: removing it cuts the central off this "
-                "server. Use 'noust fleet deauthorize --central <name>' here, or 'noust node "
+                "server. Use 'noust fleet deauthorize --name <name>' here, or 'noust node "
                 "remove' on the central."
             )
         in_use = [

@@ -181,7 +181,8 @@ def unsafe_values(config: "NginxAdvancedConfig") -> list[str]:
             problems.append(
                 f"custom_directives[{index}]: {problem}. A repository may only add "
                 f"{', '.join(sorted(CUSTOM_DIRECTIVES))}; anything else belongs in your own "
-                "site, which an operator writes and saves (noust site edit, or the console)."
+                "site, which an operator writes and saves (in the console's site editor, or in "
+                "the site's own file)."
             )
     headers = config.security_headers
     if not isinstance(headers, dict):

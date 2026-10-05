@@ -199,6 +199,12 @@ LIST_UNITS_ARGV = (
     "--plain",
 )
 
+#: The states a services listing can be narrowed to. They are the three words the
+#: console's Services page filters by, defined once by :meth:`ServiceManager.state_group`
+#: so ``noust service list --state``, ``GET /api/services?state=`` and the page
+#: agree on which unit is "failed".
+UNIT_STATE_FILTERS = ("failed", "running", "stopped")
+
 #: What a unit is described with when the Services page lists it: the fields
 #: :meth:`ServiceManager.get_status` reports, read for every unit in one
 #: ``systemctl show``.
@@ -1425,6 +1431,30 @@ class ServiceManager(BaseManager):
         return raw_state.strip() == "active"
 
     @staticmethod
+    def state_group(active: str, sub: str) -> str:
+        """
+        Sort a unit into the group a services listing filters by.
+
+        ``failed`` is every unit that is not cleanly up or cleanly down: systemd's
+        own ``failed`` and a unit it is still restarting (``activating``, or
+        ``auto-restart`` between two attempts), which is the crash loop that has
+        not yet settled into ``failed``. The console's Services page decides the
+        same way from the same two columns, so a filter here and a filter there
+        keep the same units.
+
+        Args:
+            active: systemd's ACTIVE column (``ActiveState``).
+            sub: systemd's SUB column (``SubState``).
+
+        Returns:
+            One of :data:`UNIT_STATE_FILTERS`.
+        """
+        active = active.strip().lower()
+        if sub.strip().lower() == "auto-restart" or active in ("activating", "failed"):
+            return "failed"
+        return "running" if ServiceManager.state_is_running(active) else "stopped"
+
+    @staticmethod
     def _parse_list_units(stdout: str) -> dict[str, dict[str, str]]:
         """
         Read the rows of ``systemctl list-units --plain``.
@@ -1577,7 +1607,9 @@ class ServiceManager(BaseManager):
             )
         return units
 
-    def list_services(self, all_services: bool = False) -> list[dict[str, Any]]:
+    def list_services(
+        self, all_services: bool = False, state: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         List Noust-managed services, or every service on the machine.
 
@@ -1590,11 +1622,40 @@ class ServiceManager(BaseManager):
                 ``managed``. Opt-in, for diagnostics only. Foreign units are
                 described from the one listing, never validated or probed one
                 by one: a name systemd escaped (``\\x2d``) is still a unit.
+            state: Keep only the units in this group (one of
+                :data:`UNIT_STATE_FILTERS`, decided by :meth:`state_group`):
+                what the security check on a degraded system sends the operator
+                to look at with ``failed``.
 
         Returns:
             One dictionary per unit with ``name``, ``load``, ``active``,
             ``sub``, ``managed`` and ``app`` (the domain it serves, or None).
             Empty when systemd cannot be reached.
+
+        Raises:
+            ValidationError: When ``state`` is not one of the groups.
+        """
+        if state is not None and state not in UNIT_STATE_FILTERS:
+            raise ValidationError(
+                f"Unknown service state: {state}",
+                details=f"Use one of: {', '.join(UNIT_STATE_FILTERS)}.",
+            )
+        rows = self._service_rows(all_services)
+        if state is None:
+            return rows
+        return [
+            row for row in rows if self.state_group(str(row["active"]), str(row["sub"])) == state
+        ]
+
+    def _service_rows(self, all_services: bool) -> list[dict[str, Any]]:
+        """
+        Read the rows :meth:`list_services` filters.
+
+        Args:
+            all_services: See :meth:`list_services`.
+
+        Returns:
+            The rows, sorted by name; empty when systemd cannot be reached.
         """
         if not all_services:
             try:
@@ -1699,7 +1760,9 @@ class ServiceManager(BaseManager):
             "managed": managed,
         }
 
-    def list_statuses(self, all_services: bool = False) -> list[dict[str, Any]]:
+    def list_statuses(
+        self, all_services: bool = False, state: str | None = None
+    ) -> list[dict[str, Any]]:
         """
         Describe the units the Services page lists, each like :meth:`get_status`.
 
@@ -1710,11 +1773,15 @@ class ServiceManager(BaseManager):
 
         Args:
             all_services: Include every unit on the machine.
+            state: Keep only the units in this group; see :meth:`list_services`.
 
         Returns:
             One status mapping per unit, plus ``app``, sorted by name.
+
+        Raises:
+            ValidationError: When ``state`` is not one of the groups.
         """
-        rows = self.list_services(all_services=all_services)
+        rows = self.list_services(all_services=all_services, state=state)
         described = self.describe_units([str(row["name"]) for row in rows if row["managed"]])
 
         statuses: list[dict[str, Any]] = []

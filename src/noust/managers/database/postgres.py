@@ -912,7 +912,7 @@ class PostgresManager(BaseDatabaseManager):
         if not self.user_exists(username):
             raise DatabaseUserError(
                 f"User '{username}' does not exist",
-                details="Run 'noust db users --engine postgresql' to see the roles.",
+                details="Run 'noust db user-list --engine postgresql' to see the roles.",
             )
 
         success, output = self._execute_sql(f"DROP ROLE {self._escape_identifier(username)};")
