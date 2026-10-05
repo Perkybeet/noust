@@ -7,6 +7,8 @@ export interface TabToolbarProps {
   summary: ReactNode;
   /** The tab's actions, its primary last: the Server header has none of its own. */
   actions?: ReactNode;
+  /** The summary (and the room of an action) is a skeleton for now: the toolbar is `aria-busy`. */
+  loading?: boolean;
   className?: string;
 }
 
@@ -15,9 +17,9 @@ export interface TabToolbarProps {
  * header is the area's, the same on every tab; what one tab does lives here, above its content,
  * so the view still has its state and its one primary action in the first screen.
  */
-export function TabToolbar({ summary, actions, className }: TabToolbarProps) {
+export function TabToolbar({ summary, actions, loading = false, className }: TabToolbarProps) {
   return (
-    <div className={cx("flex min-h-control-md min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2", className)}>
+    <div {...(loading ? { "aria-busy": true } : {})} className={cx("flex min-h-control-md min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2", className)}>
       <div className="min-w-0 text-14 text-pretty text-fg-muted">{summary}</div>
       {/* Wraps rather than widening the page: a phone gets the buttons on two lines. */}
       {actions !== undefined ? <div className="flex min-w-0 flex-wrap items-center gap-2">{actions}</div> : null}

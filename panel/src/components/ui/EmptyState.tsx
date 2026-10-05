@@ -46,7 +46,7 @@ function Command({ command }: { command: string }) {
 export function EmptyState({ variant, icon, title, description, action, command, level, className }: EmptyStateProps) {
   if (variant === "inline") {
     return (
-      <div data-variant="inline" className={cx("flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 py-2 text-13", className)}>
+      <div data-slot="empty-state" data-variant="inline" className={cx("flex min-h-10 flex-wrap items-center gap-x-3 gap-y-1 py-2 text-13", className)}>
         <p className="text-fg-muted">{title}</p>
         {description !== undefined ? <p className="text-fg-faint">{description}</p> : null}
         {action !== undefined ? <div className="flex items-center gap-2">{action}</div> : null}
@@ -58,6 +58,7 @@ export function EmptyState({ variant, icon, title, description, action, command,
   const Heading = `h${level ?? (firstUse ? 2 : 3)}` as const;
   return (
     <div
+      data-slot="empty-state"
       {...(firstUse ? { "data-variant": "firstUse" } : {})}
       className={cx(
         "flex flex-col items-center text-center",

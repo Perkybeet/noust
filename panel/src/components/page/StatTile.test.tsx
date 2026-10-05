@@ -37,6 +37,14 @@ describe("StatTile", () => {
     expect(detail).not.toHaveClass("truncate");
   });
 
+  it("is busy, and keeps its label, while its reading is on its way", () => {
+    const { container, rerender } = render(<StatTile loading label="Disk" value={<span>placeholder</span>} />);
+    expect(container.firstElementChild).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByText("Disk")).toBeInTheDocument();
+    rerender(<StatTile label="Disk" value="61%" />);
+    expect(container.firstElementChild).not.toHaveAttribute("aria-busy");
+  });
+
   it("has no accessibility violations", async () => {
     const { container } = render(
       <div>

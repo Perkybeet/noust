@@ -734,8 +734,8 @@ settings below it or is the `action`.
 
 **`Badge`**. A short attribute: a type, a version, a count. Not a state.
 
-**`Card`** (`padding` `md | sm | none`, `as`, `interactive`, `title`, `description`, `actions`,
-`footer`, `level`). Every panel of the console. A feature MUST NOT write `rounded-card border
+**`Card`** (`padding` `md | sm | none`, `as`, `interactive`, `loading`, `title`, `description`,
+`actions`, `footer`, `level`). Every panel of the console. A feature MUST NOT write `rounded-card border
 bg-surface` by hand.
 
 **`Notice`** (`tone` `info | success | warning | error`, `variant` `inline | banner`, `title`,
@@ -755,8 +755,9 @@ list: a 288px box that `/` focuses, the filters, the count at the right. Filters
 **`EmptyState`** (`variant` `firstUse | inline`). See the shared patterns above. The variant-less
 framed block is kept only for pages not yet on a template.
 
-**`Section`**, **`Sections`**, **`Subsection`**. A page's subjects (`h2`, 32px apart) and their
-parts (`h3`, or `h4` inside a card). Headings are never written by hand in a feature.
+**`Section`** (`loading`), **`Sections`**, **`Subsection`**. A page's subjects (`h2`, 32px
+apart) and their parts (`h3`, or `h4` inside a card). Headings are never written by hand in a
+feature.
 
 **`PageHeader`** (`title`, `mono`, `status`, `meta`, `description`, `breadcrumbs`,
 `secondaryActions`, `primaryAction`, `overflow`, `server`, `flush`). The start of every page;
@@ -766,8 +767,10 @@ in `meta`; `actions` is the 3.0 form, kept for pages not yet migrated.
 **`KeyValueList`**. Facts about one thing, one per row; system values in mono and copyable. Not
 tabular data.
 
-**`StatTile`**. One key figure with a line of context, in a dashboard's figures band. On a
-phone, two to a row, its label, value and context wrap instead of being cut.
+**`StatTile`** (`loading`). One key figure with a line of context, in a dashboard's figures band.
+On a phone, two to a row, its label, value and context wrap instead of being cut. While the
+reading is on its way the tile keeps its label, shows skeletons for the value and the context,
+and is `aria-busy`.
 
 **`Meter`**, **`ResourceMeter`**, **`Progress`**. A level in a range (with a glyph and a word
 when it is a problem); use against a limit; progress of a task with a known end (amber).
@@ -777,7 +780,10 @@ with a link. Never a success that is visible anyway, never an error that has to 
 acted on in place.
 
 **`Skeleton`**, **`Spinner`**. Loading with the content's shape (the region `aria-busy`); a
-spinner only inside a control or a `JobProgress`.
+spinner only inside a control or a `JobProgress`. The region is whatever holds the skeleton: a
+`LoadingRegion`, a `DataTable` with `loading`, a `Card`, `Section`, `StatTile` or `TabToolbar`
+with `loading`, a `LogViewer` with `loading`. A skeleton with none of them around it is silent to
+a screen reader, and the route tests (section 9) refuse it.
 
 **`TextLink`** (`size` `inline | ui`, and the router's `to`, `params`, `search`) and
 `textLinkClassName`. A link to another page of the console inside a sentence, a card or a
@@ -812,7 +818,8 @@ locations, destinations, backends), never a free graph. Rules:
   not respond) and the same connections as a table behind a disclosure (A-7). Below 640px it is
   a list per column, each element saying where it leads.
 
-**`Chart`**. A time series (see 2.2). **`LogViewer`**, **`SystemOutput`**: the system's output,
+**`Chart`**. A time series (see 2.2). **`LogViewer`** (`loading`: busy, with the shape of lines
+under what it waits for, until the first arrive), **`SystemOutput`**: the system's output,
 verbatim, copyable. **`Mono`**: a system value. **`Kbd`**: a key. **`CommandHint`**: the CLI
 equivalent. **`RelativeTime`**: "3 min ago" with the exact moment in a tooltip.
 **`SegmentedControl`**: one of a few exclusive views (a chart range).
@@ -910,7 +917,14 @@ Everything loaded has four states: a skeleton shaped like the content (the regio
 does all four. Under a second, nothing blinks; 1 to 10 seconds, a skeleton; beyond, progress
 if the end is known, otherwise a background job with its `JobProgress`. A skeleton lives in a
 `LoadingRegion` (`QueryState` uses one): after two seconds it also says, visibly and with a
-spinner, what it is reading, so a view that reads the machine never looks stuck. A refresh that fails
+spinner, what it is reading, so a view that reads the machine never looks stuck. A page does not
+draw its header over a blank area while its first read is out: its body holds the skeleton from
+the first frame (a list keeps its filters and its table, the rows being placeholders), and an
+empty state is drawn only once the answer is known, never because the answer has not come. A
+page that waits on something it needs before it can show anything else (the rows behind a notice
+that must not push them down) shows the skeleton for that wait too. A route that keeps the router
+waiting past a second (the session, a page's code) is drawn as `RoutePending`, a skeleton in the
+page's place; before that, the previous page stays and nothing blinks. A refresh that fails
 keeps the last answer on screen with a compact error above it. When an optional dependency
 fails, only the affected block says so; controls are not disabled for it and "undefined" is
 never printed. An empty cell is `EmptyCell`.
@@ -1071,6 +1085,7 @@ lint`, the E2E suite).
 | Lint | `eslint.config.js`, `no-restricted-syntax` and `no-restricted-imports` | Outside the kit (`components/`, `app/`, `dev/`) and the legacy list: raw hex, arbitrary dimensions (`max-w-[...]`, `h-[...]`, `rounded-[...]`, `z-[...]`), colour functions, hand-written `h1`-`h4`, `<label>`, `style=`, and severity icons imported from lucide instead of `icons.ts` |
 | Ratchet | `styles/design-rules.test.ts`, rules in `styles/designRules.ts`, counts in `styles/design-baseline.json` | Per rule and per file, counts that may only go down (the rule ids below); ESLint's legacy list only shrinks; the `viz` colours stay inside `Chart`; no component of the system is left unused except those still waiting for their pages |
 | Browser | `e2e/design-contract.spec.ts` | On a sample of every template, at 1440 and 390, both themes, and the gallery: font sizes, families and weights, radii, border widths, every opaque colour grey or a token, one primary button per view |
+| Loading | `routes/loading.test.tsx` | Every route of the console, on the real router and a server that answers only the session: the body shows a skeleton inside an `aria-busy` region, no skeleton is outside one, and no empty state is drawn while the answer is awaited. A route with no entry in the table fails, so a page cannot ship without someone having looked at what it draws while it waits |
 | Layout | `e2e/layout-shift.spec.ts`, `e2e/tab-switch-layout.spec.ts` | Cumulative layout shift 0.05 or less on load; switching between a long and a short tab (with real scrollbars) does not move the content column |
 | Accessibility and CSP | `e2e/pages.spec.ts`, `e2e/fixtures.ts` | axe on every route and theme; any CSP violation or console error fails the test |
 

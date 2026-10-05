@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { expectNoAxeViolations } from "../../test/axe";
 import { Button } from "./Button";
 import { Card } from "./Card";
+import { Skeleton } from "./Skeleton";
 
 describe("Card", () => {
   it("titles its content with a heading at the requested level", () => {
@@ -64,6 +65,19 @@ describe("Card", () => {
   it("uses no alpha on a token for its footer", () => {
     render(<Card footer={<span>Foot</span>}>x</Card>);
     expect(screen.getByText("Foot").parentElement?.className).not.toMatch(/\/\d+/);
+  });
+
+  it("says it is busy while what it shows is read, in its body or in an action", () => {
+    const { container, rerender } = render(
+      <Card loading title="Resources" actions={<Skeleton className="h-6 w-20" />}>
+        <Skeleton className="h-4 w-32" />
+      </Card>,
+    );
+    expect(container.firstElementChild).toHaveAttribute("aria-busy", "true");
+    // The skeleton in the action sits inside the busy card too.
+    for (const node of container.querySelectorAll('[data-slot="skeleton"]')) expect(node.closest('[aria-busy="true"]')).not.toBeNull();
+    rerender(<Card title="Resources">Done</Card>);
+    expect(container.firstElementChild).not.toHaveAttribute("aria-busy");
   });
 
   it("has no accessibility violations", async () => {

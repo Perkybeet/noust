@@ -100,6 +100,9 @@ export const shell = {
     tryAgain: "Try again",
     reload: "Reload page",
   },
+  pending: {
+    label: "Loading the page",
+  },
   notFound: {
     title: "Page not found",
     body: "Nothing lives at this address. Check the link, or go back to the {overview}.",

@@ -15,6 +15,11 @@ describe("Skeleton", () => {
     for (const node of container.querySelectorAll("div > span")) expect(node).toHaveAttribute("aria-hidden", "true");
   });
 
+  it("is findable by the route tests that check every page shows its loading state", () => {
+    const { container } = render(<SkeletonText lines={2} />);
+    expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(2);
+  });
+
   it("uses the caller's size, not the line default next to it", () => {
     const { container } = render(<Skeleton className="h-3 w-24" />);
     const node = container.querySelector("span");

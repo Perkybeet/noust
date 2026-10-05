@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 import { sessionQuery } from "../api/queries/auth";
+import { FramedRoutePending } from "../app/RoutePending";
 import { LoginPage } from "../features/auth/LoginPage";
 import { safeNext } from "../features/auth/session";
 
@@ -26,6 +27,8 @@ export const Route = createFileRoute("/login")({
     }
   },
   component: LoginRoute,
+  // The session is read before the page: past a second, the page's frame and a skeleton say so.
+  pendingComponent: FramedRoutePending,
 });
 
 function LoginRoute() {

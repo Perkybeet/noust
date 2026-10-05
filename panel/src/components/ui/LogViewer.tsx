@@ -13,6 +13,7 @@ import { CopyButton } from "./CopyButton";
 import { IconButton } from "./IconButton";
 import { Input } from "./Input";
 import { Kbd } from "./Kbd";
+import { Skeleton } from "./Skeleton";
 
 export interface LogLine {
   id: number;
@@ -47,9 +48,20 @@ export interface LogViewerProps {
   label?: string;
   /** File name offered by the download button. */
   filename?: string;
+  /** Said where there are no lines: "No lines yet", or what the viewer is waiting for. */
   emptyMessage?: string;
+  /**
+   * The first lines are still on their way (the journal is being read, the stream is
+   * connecting). Until some arrive the output region is `aria-busy` and draws lines of the
+   * shapes it will hold under `emptyMessage`, so a pane that is only waiting never reads as one
+   * that has nothing to say.
+   */
+  loading?: boolean;
   className?: string;
 }
+
+/** Widths of the placeholder lines: a log is ragged, and a column of equal bars looks like a form. */
+const PLACEHOLDER_WIDTHS = ["w-3/4", "w-1/2", "w-5/6", "w-2/3", "w-3/5", "w-4/5"] as const;
 
 const ROW_HEIGHT = 20;
 const BOTTOM_SLACK = 4;
@@ -194,6 +206,7 @@ export function LogViewer({
   label,
   filename = "noust.log",
   emptyMessage,
+  loading = false,
   className,
 }: LogViewerProps) {
   const t = useT();
@@ -457,11 +470,19 @@ export function LogViewer({
           ref={scrollRef}
           role="region"
           aria-label={label ?? t("common.logViewer.label")}
+          {...(loading && lines.length === 0 ? { "aria-busy": true } : {})}
           tabIndex={0}
           onScroll={onScroll}
           className="mono h-full overflow-auto py-1.5 text-12 leading-5 text-fg scroll-thin focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus"
         >
-          {lines.length === 0 ? (
+          {lines.length === 0 && loading ? (
+            <div className="flex flex-col gap-2 px-4 py-3">
+              <p className="font-sans text-13 text-fg-faint">{emptyMessage ?? t("common.logViewer.empty")}</p>
+              {PLACEHOLDER_WIDTHS.map((width) => (
+                <Skeleton key={width} className={cx("h-3", width)} />
+              ))}
+            </div>
+          ) : lines.length === 0 ? (
             <p className="px-4 py-3 font-sans text-13 text-fg-faint">{emptyMessage ?? t("common.logViewer.empty")}</p>
           ) : (
             <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>

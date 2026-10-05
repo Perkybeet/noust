@@ -18,6 +18,11 @@ export interface StatTileProps {
   detailLines?: 1 | 2;
   /** Set the value as a system value (a commit, a port) in mono. */
   mono?: boolean;
+  /**
+   * The reading is still being read and `value` is a skeleton. The tile says so (`aria-busy`):
+   * a screen reader hears its label and that it is not ready, and the route tests find it.
+   */
+  loading?: boolean;
   className?: string;
 }
 
@@ -26,10 +31,13 @@ export interface StatTileProps {
  * is this doing" before the details below it do. The value uses proportional figures; mono
  * is for identifiers, not for quantities.
  */
-export function StatTile({ label, value, detail, detailLines = 1, mono = false, className }: StatTileProps) {
+export function StatTile({ label, value, detail, detailLines = 1, mono = false, loading = false, className }: StatTileProps) {
   const primitive = typeof value === "string" || typeof value === "number";
   return (
-    <div className={cx("flex min-w-0 flex-col gap-1.5 rounded-card border border-border bg-surface px-4 py-3.5 shadow-raised", className)}>
+    <div
+      {...(loading ? { "aria-busy": true } : {})}
+      className={cx("flex min-w-0 flex-col gap-1.5 rounded-card border border-border bg-surface px-4 py-3.5 shadow-raised", className)}
+    >
       <span className="break-words text-12 text-fg-muted sm:truncate">{label}</span>
       <div className="flex min-h-7 min-w-0 items-center">
         {primitive ? (
