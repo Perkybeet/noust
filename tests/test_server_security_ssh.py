@@ -35,6 +35,7 @@ from noust.managers.server.security_keys import (
 from noust.managers.server.security_logins import LoginReader, parse_short_unix, parse_syslog
 from noust.managers.server.security_pending import CONFIRM_WINDOW, ChangeLedger
 from noust.managers.server.security_probe import SecurityProbe
+from noust.managers.server.security_proof import find_proof
 from noust.managers.server.security_sockets import parse_established, parse_listeners
 from noust.managers.server.security_ssh import SshSecurity
 from noust.managers.server.security_sshd import (
@@ -680,7 +681,7 @@ class TestConfirmOrRevert:
         self, sshd, host, ledger, tmp_path, monkeypatch
     ):
         change = self._applied(sshd, host, ledger)
-        # What systemd runs after 120 s: the module's own entry point.
+        # What systemd runs when the window closes: the module's own entry point.
         monkeypatch.setattr(
             security_pending,
             "ChangeLedger",
@@ -744,6 +745,117 @@ class TestConfirmOrRevert:
 
         with pytest.raises(SecurityError, match="Refusing to run bash"):
             ledger.load(change.id)
+
+
+class TestProofOnRecord:
+    """What the console shows before Keep is what Keep will check (one function, both uses)."""
+
+    def _applied(self, sshd, host, ledger):
+        _journal(sshd, accepted("root", ED_FP, at=NOW - 3600))
+        return _security(sshd, host, ledger).apply("disable-passwords")
+
+    def test_before_any_new_login_it_is_not_on_record(self, sshd, host, ledger):
+        change = self._applied(sshd, host, ledger)
+
+        proof = find_proof(_probe(sshd, host), change)
+
+        assert proof.readable and not proof.seen and proof.login is None
+        assert proof.to_dict() == {
+            "proof_seen": False,
+            "proof_login": None,
+            "proof_readable": True,
+            "proof_error": "",
+        }
+
+    def test_the_session_that_applied_it_is_not_on_record(self, sshd, host, ledger):
+        change = self._applied(sshd, host, ledger)
+        _journal(sshd, accepted("root", ED_FP, at=NOW - 5))
+
+        assert not find_proof(_probe(sshd, host), change).seen
+
+    def test_a_new_login_is_on_record_and_is_the_one_confirm_keeps(self, sshd, host, ledger):
+        change = self._applied(sshd, host, ledger)
+        _journal(
+            sshd,
+            accepted("root", ED_FP, at=NOW + 20, source="203.0.113.5", port=50001),
+            accepted("root", ED_FP, at=NOW + 30, source="203.0.113.9", port=50002),
+        )
+
+        proof = find_proof(_probe(sshd, host), change)
+        confirmed = _security(sshd, host, ledger).confirm(change.id)
+
+        assert proof.seen
+        assert proof.to_dict()["proof_login"] == {
+            "user": "root",
+            "source": "203.0.113.9",
+            "at": NOW + 30,
+        }
+        # The newest counting login, which is what Keep records as its evidence.
+        assert "203.0.113.9 port 50002" in confirmed.resolution
+
+    def test_a_central_or_its_tunnel_is_not_on_record_for_an_sshd_change(self, sshd, host, ledger):
+        host.write("/root/.ssh/authorized_keys", ED_KEY + "\n" + CENTRAL_LINE + "\n")
+        change = self._applied(sshd, host, ledger)
+        _journal(
+            sshd,
+            accepted("root", CENTRAL_FP, at=NOW + 30),
+            accepted("noust-tunnel", ED_FP, at=NOW + 40),
+        )
+
+        assert not find_proof(_probe(sshd, host), change).seen
+        with pytest.raises(AccessGuardError, match="No new SSH login"):
+            _security(sshd, host, ledger).confirm(change.id)
+
+    def test_a_firewall_change_takes_any_login_the_tunnel_included(self, sshd, host, ledger):
+        change = self._applied(sshd, host, ledger)
+        change.proof = "any"
+        _journal(sshd, accepted("noust-tunnel", CENTRAL_FP, at=NOW + 40))
+
+        proof = find_proof(_probe(sshd, host), change)
+
+        assert proof.seen
+        assert proof.to_dict()["proof_login"]["user"] == "noust-tunnel"
+
+    def test_an_unreadable_history_says_why_verbatim_and_keep_refuses_for_the_same_reason(
+        self, sshd, host, ledger
+    ):
+        change = self._applied(sshd, host, ledger)
+        sshd.script(["journalctl"], stderr="No journal files were found.", exit_code=1)
+
+        proof = find_proof(_probe(sshd, host), change)
+
+        assert not proof.readable and not proof.seen
+        assert "No journal files were found." in proof.error
+        assert proof.to_dict()["proof_readable"] is False
+        with pytest.raises(AccessGuardError, match="cannot read sshd's login history"):
+            _security(sshd, host, ledger).confirm(change.id)
+
+    @pytest.mark.parametrize(
+        "lines",
+        [
+            [],
+            [(("root", ED_FP), {"at": NOW - 1})],
+            [(("root", ED_FP), {"at": NOW + 1})],
+            [(("noust-tunnel", CENTRAL_FP), {"at": NOW + 1})],
+            [
+                (("alice", ALICE_FP), {"at": NOW + 1}),
+                (("noust-tunnel", CENTRAL_FP), {"at": NOW + 2}),
+            ],
+        ],
+        ids=["no logins", "before", "after", "tunnel only", "operator then tunnel"],
+    )
+    def test_what_is_listed_and_what_keep_does_never_disagree(self, sshd, host, ledger, lines):
+        change = self._applied(sshd, host, ledger)
+        _journal(sshd, *(accepted(*args, **kwargs) for args, kwargs in lines))
+        listed = find_proof(_probe(sshd, host), change).seen
+
+        try:
+            _security(sshd, host, ledger).confirm(change.id)
+            kept = True
+        except AccessGuardError:
+            kept = False
+
+        assert listed is kept
 
 
 # Keys: add and remove ---------------------------------------------------------------

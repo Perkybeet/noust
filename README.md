@@ -681,7 +681,7 @@ writes the evidence for an auditor. See [docs/security.md](docs/security.md) and
 noust server status                         # updates pending, reboot due, disks, clock, swap
 noust server updates apply --security-only  # in its own systemd unit; never reboots by itself
 noust server security checks                # hardening checks, each with its fix or exact steps
-noust server security ssh harden disable-passwords   # reverts after 120 s unless confirmed from a new login
+noust server security ssh harden disable-passwords   # reverts after 5 min unless confirmed from a new login
 noust server security firewall status       # the rules against the ports that really answer
 noust server reboot --at 04:00
 ```

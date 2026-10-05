@@ -10051,6 +10051,8 @@ export interface paths {
          * @description Every change to sshd and the firewall, newest first; the pending ones wait for confirmation.
          *
          *     Reading undoes any change whose timer was lost (a reboot inside its window).
+         *     Each pending one says whether the new login that keeps it is on record
+         *     (``proof_seen``), so the console can enable Keep only when it will work.
          *
          *     Args:
          *         session: The authenticated session.
@@ -14946,6 +14948,14 @@ export interface components {
          *
          *     ``pending`` until confirmed or undone; ``expires_at`` (epoch seconds) is
          *     when its timer undoes it.
+         *
+         *     While it is pending, ``proof_seen`` says whether the new SSH login that
+         *     keeps it is already on record, and ``proof_login`` is that login: the
+         *     same check Keep makes, so Keep will not be refused for it. A session that
+         *     was already open does not count; for ``proof`` ``operator`` (sshd) neither
+         *     does a central's tunnel. ``proof_readable`` is false when sshd's login
+         *     history cannot be read, ``proof_error`` saying why verbatim. These four
+         *     mean nothing once the change is confirmed, undone or expired.
          */
         ChangeOut: {
             /** Actor */
@@ -14984,6 +14994,22 @@ export interface components {
             kind: string;
             /** Proof */
             proof: string;
+            /**
+             * Proof Error
+             * @default
+             */
+            proof_error: string;
+            proof_login?: components["schemas"]["ProofLoginOut"] | null;
+            /**
+             * Proof Readable
+             * @default true
+             */
+            proof_readable: boolean;
+            /**
+             * Proof Seen
+             * @default false
+             */
+            proof_seen: boolean;
             /**
              * Resolution
              * @default
@@ -21358,6 +21384,18 @@ export interface components {
             total: number;
             /** Units */
             units: components["schemas"]["UnitProcessesOut"][];
+        };
+        /**
+         * ProofLoginOut
+         * @description The SSH login that proves a pending change kept a way in.
+         */
+        ProofLoginOut: {
+            /** At */
+            at: number;
+            /** Source */
+            source: string;
+            /** User */
+            user: string;
         };
         /**
          * ProposedEnvResponse

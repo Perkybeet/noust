@@ -30,6 +30,7 @@ from noust.core.store import NoustStore
 from noust.managers.server import host as host_module
 from noust.managers.server import security_checks
 from noust.managers.server.security import ServerSecurity
+from noust.managers.server.security_pending import CONFIRM_WINDOW
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import install_error_handlers, require_elevated
 from noust.web.api.server import security as security_api
@@ -136,7 +137,7 @@ class TestReads:
         assert body["effective"]["PasswordAuthentication"] == "yes"
         assert body["unit"]["service"] == "ssh.service"
         assert body["fixes"]["disable-passwords"]["allowed"] is False
-        assert body["confirm_window"] == 120
+        assert body["confirm_window"] == CONFIRM_WINDOW == 300
 
     def test_the_keys_view_lists_root_first(self, client):
         body = client.get(f"{PREFIX}/ssh/keys").json()
@@ -192,7 +193,7 @@ class TestChanges:
         job = machine.jobs.jobs[0]
         assert job.type == JobType.SERVER_SECURITY and job.status == JobStatus.COMPLETED
         change = job.result["change"]
-        assert change["status"] == "pending" and change["expires_at"] == NOW + 120
+        assert change["status"] == "pending" and change["expires_at"] == NOW + CONFIRM_WINDOW
         assert any("undoes itself" in entry.message for entry in job.logs)
         assert any(entry.message == "$ sshd -t" for entry in job.logs)
 
@@ -211,6 +212,59 @@ class TestChanges:
         assert later.status_code == 200 and later.json()["status"] == "confirmed"
         listed = client.get(f"{PREFIX}/changes").json()
         assert [item["status"] for item in listed] == ["confirmed"]
+
+    def test_the_listing_says_whether_the_login_that_keeps_a_change_is_on_record(
+        self, client, machine
+    ):
+        machine.runner.script(["journalctl"], stdout=accepted("root", ED_FP, at=NOW - 3600) + "\n")
+        client.post(f"{PREFIX}/ssh/fixes/disable-passwords")
+        change_id = machine.jobs.jobs[0].result["change"]["id"]
+
+        before = client.get(f"{PREFIX}/changes").json()[0]
+        # The central's own tunnel reconnecting is not an operator getting in.
+        machine.runner.script(
+            ["journalctl"], stdout=accepted("noust-tunnel", ED_FP, at=NOW + 20) + "\n"
+        )
+        tunnel = client.get(f"{PREFIX}/changes").json()[0]
+        machine.runner.script(
+            ["journalctl"],
+            stdout=accepted("root", ED_FP, at=NOW + 40, source="203.0.113.5", port=61000) + "\n",
+        )
+        after = client.get(f"{PREFIX}/changes").json()[0]
+        overview = client.get(PREFIX).json()["pending"][0]
+
+        assert before["id"] == change_id and before["status"] == "pending"
+        assert (before["proof_seen"], before["proof_login"]) == (False, None)
+        assert before["proof_readable"] is True and before["proof_error"] == ""
+        assert tunnel["proof_seen"] is False
+        assert after["proof_seen"] is True
+        assert after["proof_login"] == {"user": "root", "source": "203.0.113.5", "at": NOW + 40}
+        # The summary the console's tabs read says the same, from the same code.
+        assert overview["proof_seen"] is True
+        # And Keep, which checks the same thing, then works.
+        assert client.post(f"{PREFIX}/changes/{change_id}/confirm").status_code == 200
+
+    def test_the_listing_says_when_the_login_history_cannot_be_read(self, client, machine):
+        machine.runner.script(["journalctl"], stdout=accepted("root", ED_FP, at=NOW - 3600) + "\n")
+        client.post(f"{PREFIX}/ssh/fixes/disable-passwords")
+        machine.runner.script(["journalctl"], stderr="No journal files were found.", exit_code=1)
+
+        change = client.get(f"{PREFIX}/changes").json()[0]
+
+        assert change["proof_seen"] is False and change["proof_readable"] is False
+        assert "No journal files were found." in change["proof_error"]
+
+    def test_a_settled_change_is_not_looked_up_in_the_journal(self, client, machine):
+        machine.runner.script(["journalctl"], stdout=accepted("root", ED_FP, at=NOW - 3600) + "\n")
+        client.post(f"{PREFIX}/ssh/fixes/disable-passwords")
+        change_id = machine.jobs.jobs[0].result["change"]["id"]
+        client.post(f"{PREFIX}/changes/{change_id}/revert")
+        reads = len(machine.runner.calls_to("journalctl"))
+
+        listed = client.get(f"{PREFIX}/changes").json()[0]
+
+        assert listed["status"] == "reverted" and listed["proof_seen"] is False
+        assert len(machine.runner.calls_to("journalctl")) == reads
 
     def test_a_pending_change_blocks_the_next_one_at_once(self, client, machine):
         client.post(f"{PREFIX}/ssh/fixes/verbose-logging")

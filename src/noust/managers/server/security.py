@@ -16,6 +16,7 @@ The pieces behind it, each the only code that does its job:
 - :mod:`.security_firewall` - ufw and firewalld, guarded.
 - :mod:`.security_fail2ban` - status, unban, install.
 - :mod:`.security_pending` - confirm or revert, with a systemd timer.
+- :mod:`.security_proof` - which new login proves a pending change kept a way in.
 - :mod:`.security_risks` - accepted risks.
 """
 
@@ -51,6 +52,7 @@ from noust.managers.server.security_keys import parse_new_key
 from noust.managers.server.security_logins import EVIDENCE_DAYS
 from noust.managers.server.security_pending import CONFIRM_WINDOW, ChangeLedger, PendingChange
 from noust.managers.server.security_probe import SecurityProbe
+from noust.managers.server.security_proof import ChangeProof, find_proof
 from noust.managers.server.security_risks import AcceptedRisk, AcceptedRisks
 from noust.managers.server.security_ssh import SSH_FIXES, FixPlan, SshSecurity
 from noust.managers.server.security_sshd import (
@@ -639,6 +641,35 @@ class ServerSecurity:
         self.ledger.revert_overdue(self.on_output)
         return self.ledger.changes()
 
+    def describe_change(self, change: PendingChange) -> dict[str, Any]:
+        """
+        A change as the console and ``--json`` show it, with the proof it waits for.
+
+        A pending change carries whether the new login that keeps it is already on
+        record, found by the same code :meth:`confirm` refuses on, so what the
+        operator is told before pressing Keep is what Keep will check. The login
+        history is read now, not from this pass's memory: it is a short window.
+
+        Args:
+            change: A recorded change.
+
+        Returns:
+            ``change.to_dict()`` plus ``proof_seen``, ``proof_login``,
+            ``proof_readable`` and ``proof_error`` (the proof is only looked
+            for while the change is ``pending``).
+        """
+        proof = find_proof(self.probe, change) if change.status == "pending" else ChangeProof()
+        return {**change.to_dict(), **proof.to_dict()}
+
+    def described_changes(self) -> list[dict[str, Any]]:
+        """
+        Every recorded change, newest first, each as :meth:`describe_change` shows it.
+
+        Returns:
+            The changes, after undoing any whose timer was lost.
+        """
+        return [self.describe_change(change) for change in self.pending()]
+
     def confirm(self, change_id: str) -> PendingChange:
         """
         Keep a change, once a new SSH login shows nobody was locked out.
@@ -860,7 +891,9 @@ class ServerSecurity:
             checking = refresh_in_background(self._run_complete)
         if report is not None:
             report = reapply_risks(report, self.risks)
-        pending = [change.to_dict() for change in self.pending() if change.status == "pending"]
+        pending = [
+            self.describe_change(change) for change in self.pending() if change.status == "pending"
+        ]
         if report is None:
             return {
                 "checked_at": None,
