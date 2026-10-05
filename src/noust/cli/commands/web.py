@@ -70,6 +70,7 @@ from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_c
 from noust.core import paths
 from noust.core.config import Config
 from noust.core.exceptions import NoustError, SecurityError, ServiceError
+from noust.core.exceptions import PermissionError as NoustPermissionError
 from noust.core.fs import get_fs
 from noust.core.logger import Logger
 from noust.core.net import (
@@ -81,7 +82,7 @@ from noust.core.net import (
     strip_brackets,
 )
 from noust.core.runner import CommandRunner, get_runner
-from noust.core.utils import find_noust_executable
+from noust.core.utils import check_root, find_noust_executable
 
 if TYPE_CHECKING:
     from noust.web.auth import SecurityConfig
@@ -1321,6 +1322,39 @@ def _issue_token(config: SecurityConfig) -> str:
         manager.sessions.close()
 
 
+def _require_root_or_own_state(*, dry_run: bool) -> None:
+    """
+    Refuse to start a console that cannot read the state it is made of.
+
+    The signing key, the token hash, the sessions and the audit log live in the
+    configuration directory, which belongs to root. Anyone else used to get
+    there by way of an audit warning and then a traceback out of whichever
+    file was touched first, with nothing saying that the console needs root.
+    A directory the operator names, with ``NOUST_WEB_STATE_DIR`` or by putting
+    the whole installation under ``NOUST_DATA_DIR``, is theirs to use, so an
+    unprivileged console (a development one, a test) still starts.
+
+    Args:
+        dry_run: A rehearsal reads and writes nothing, so it is not refused.
+
+    Raises:
+        PermissionError: Not root, and no directory of the user's own.
+    """
+    if dry_run or check_root() or paths.getenv("WEB_STATE_DIR") or paths.DATA_DIR is not None:
+        return
+    from noust.web.auth import STATE_DIR_ENV
+
+    raise NoustPermissionError(
+        "'noust web start' needs root",
+        details=(
+            "The console keeps its signing key, sessions and audit log in "
+            f"{paths.config_dir()}, which only root can read. Run it with sudo. "
+            "To run a console of your own that does not manage this server, set "
+            f"{STATE_DIR_ENV} to a directory you own."
+        ),
+    )
+
+
 def _start(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> int:
     """
     Start the panel, refusing an unsafe exposure first.
@@ -1336,11 +1370,17 @@ def _start(options: StartOptions, verbose: bool, *, dry_run: bool = False) -> in
     Raises:
         SecurityError: When the requested exposure is not protected.
         ServiceError: When the console already runs as ``noust-web.service``.
+        PermissionError: When not root and no state directory of the user's own
+            was named.
     """
     logger = Logger(verbose=verbose)
 
     if not _dependencies_ready(logger, verbose, dry_run=dry_run):
         return 1
+
+    # Before the configuration is read: for a user who cannot search the
+    # configuration directory, reading it is the first thing that fails.
+    _require_root_or_own_state(dry_run=dry_run)
 
     # Refuses an unsafe exposure before a stale PID file is removed or a socket
     # is bound. Everything this call does is a read, so a rehearsal reaches it
@@ -2487,7 +2527,11 @@ def _confirm_token_change(config: SecurityConfig, regenerate: bool) -> None:
     Raises:
         click.Abort: When the operator declines.
     """
-    in_use = config.token_file.exists() or (regenerate and config.secret_file.exists())
+    from noust.web.auth import state_file_exists
+
+    in_use = state_file_exists(config.token_file) or (
+        regenerate and state_file_exists(config.secret_file)
+    )
     if not in_use:
         return
 
@@ -2518,9 +2562,11 @@ def _token_status(config: SecurityConfig, logger: Logger) -> int:
     Returns:
         Exit code.
     """
+    from noust.web.auth import state_file_exists
+
     logger.header("Noust Web Access Token")
 
-    if not config.token_file.exists():
+    if not state_file_exists(config.token_file):
         logger.key_value("Status", "no token has been issued yet")
         logger.blank()
         logger.info("Issue the first one with: noust web token --new")
