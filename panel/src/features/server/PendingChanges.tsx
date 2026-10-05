@@ -42,16 +42,32 @@ export function countdown(expiresAt: number, now: number): string {
   return `${String(minutes)}:${String(seconds).padStart(2, "0")}`;
 }
 
-/** Where the proof stands: the login that keeps the change, none yet, or no way to tell. */
+/**
+ * Where the proof stands: the login that keeps the change, none yet, no way to tell, or the
+ * server not reporting it at all (`unknown`).
+ */
 type Proof =
   | { kind: "seen"; user: string; source: string; at: number }
   | { kind: "waiting" }
-  | { kind: "unreadable"; error: string };
+  | { kind: "unreadable"; error: string }
+  | { kind: "unknown" };
 
-function proofOf(change: PendingChange): Proof {
-  const login = change.proof_login ?? null;
-  if (change.proof_seen && login !== null) return { kind: "seen", ...login };
-  if (!change.proof_readable) return { kind: "unreadable", error: change.proof_error };
+/**
+ * The proof of a change, as its server reported it.
+ *
+ * The schema types the proof fields as always present, but a node older than this console
+ * (3.3.0 and before) leaves them out, and a newer central proxies it as it is. Absent is
+ * "unknown", not "unreadable": Keep stays on, because the server's own confirm is authoritative
+ * and answers with its own refusal, rather than the console shutting a button off for a reason
+ * it never checked. Only a server that says the history cannot be read
+ * (`proof_readable === false`) turns Keep off for that.
+ */
+export function proofOf(change: PendingChange): Proof {
+  const reported: Partial<Pick<PendingChange, "proof_seen" | "proof_readable" | "proof_error" | "proof_login">> = change;
+  const login = reported.proof_login ?? null;
+  if (reported.proof_seen === true && login !== null) return { kind: "seen", ...login };
+  if (reported.proof_readable === false) return { kind: "unreadable", error: reported.proof_error ?? "" };
+  if (reported.proof_seen === undefined && reported.proof_readable === undefined) return { kind: "unknown" };
   return { kind: "waiting" };
 }
 
@@ -62,6 +78,8 @@ function proofOf(change: PendingChange): Proof {
  */
 function ProofStep({ id, proof }: { id: string; proof: Proof }) {
   const t = useT();
+  // Nothing to say about a proof the server did not report.
+  if (proof.kind === "unknown") return null;
   const state: Status = proof.kind === "seen" ? "running" : proof.kind === "waiting" ? "queued" : "warning";
   return (
     <div id={id} role="status" className="flex min-w-0 items-start gap-2.5">
@@ -129,7 +147,8 @@ function PendingChangeBanner({ change }: { change: PendingChange }) {
   };
   const expired = now / 1000 >= change.expires_at;
   const firewall = change.kind.startsWith("firewall");
-  const canKeep = proof.kind === "seen";
+  // Only a proof known to be missing turns Keep off; when the server does not say, its confirm decides.
+  const canKeep = proof.kind === "seen" || proof.kind === "unknown";
   return (
     <Notice
       variant="banner"
@@ -171,7 +190,9 @@ function PendingChangeBanner({ change }: { change: PendingChange }) {
         {/* The change's own name, as Noust recorded it. */}
         <p>{t.rich("server.pending.what", { change: <span className="font-medium">{change.title}</span> })}</p>
         {/* What to do comes before where it stands, and is gone once it is done. */}
-        {proof.kind === "waiting" ? <p>{firewall ? t("server.pending.howFirewall") : t("server.pending.howSsh")}</p> : null}
+        {proof.kind === "waiting" || proof.kind === "unknown" ? (
+          <p>{firewall ? t("server.pending.howFirewall") : t("server.pending.howSsh")}</p>
+        ) : null}
         <ProofStep id={proofId} proof={proof} />
         <CommandHint command={`noust server security confirm ${change.id}`} label={t("server.pending.fromTerminal")} />
         {confirm.isError ? <ServerErrorBlock live compact error={confirm.error} title={t("server.pending.confirmFailed")} /> : null}

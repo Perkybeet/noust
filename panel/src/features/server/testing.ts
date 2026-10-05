@@ -339,6 +339,19 @@ export function pendingChange(now = Date.now(), overrides: Partial<PendingChange
   };
 }
 
+/**
+ * The same change as a node on 3.3.0 and before reports it: the four proof fields are not there
+ * at all. The schema types them as present, so they are removed from a copy instead of overridden.
+ */
+export function pendingChangeFromOlderNode(now = Date.now(), overrides: Partial<PendingChange> = {}): PendingChange {
+  const bare: Partial<PendingChange> = { ...pendingChange(now, overrides) };
+  delete bare.proof_seen;
+  delete bare.proof_login;
+  delete bare.proof_readable;
+  delete bare.proof_error;
+  return bare as PendingChange;
+}
+
 /** Every `/api/server` read of the fake VPS, for `fakeBackend`. */
 export function serverRoutes(overrides: Partial<{ summary: ServerSummary; security: SecurityOverview; changes: PendingChange[] }> = {}): Record<string, RouteHandler> {
   return {

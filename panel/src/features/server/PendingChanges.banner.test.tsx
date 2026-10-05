@@ -9,7 +9,7 @@ import { fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { PENDING_POLL_MS, changesQuery, serverKeys } from "./queries";
 import type { PendingChange } from "./queries";
-import { onDesktop, pendingChange, serverRoutes } from "./testing";
+import { onDesktop, pendingChange, pendingChangeFromOlderNode, serverRoutes } from "./testing";
 
 beforeEach(onDesktop);
 
@@ -119,6 +119,46 @@ describe("the pending change banner, before a new login", () => {
     expect(within(notice).getByRole("button", { name: "Keep the change" })).toHaveAccessibleDescription(/cannot see new SSH logins/);
     expect(within(notice).getByText("noust server security confirm c1a2b3")).toBeInTheDocument();
     await expectNoAxeViolations(notice);
+  });
+});
+
+describe("a pending change from a server that does not report the proof", () => {
+  it("shows the instruction, no proof step and no error block, and leaves Keep on", async () => {
+    banner(() => pendingChangeFromOlderNode());
+    const notice = await pendingBanner();
+
+    expect(within(notice).getByText(/Open a new SSH session to this server from another terminal/)).toBeInTheDocument();
+    expect(within(notice).queryByText("Waiting for a new SSH login")).not.toBeInTheDocument();
+    expect(within(notice).queryByText("Noust cannot see new SSH logins from the console")).not.toBeInTheDocument();
+    expect(within(notice).queryByText("Why the logins cannot be read")).not.toBeInTheDocument();
+    const keep = within(notice).getByRole("button", { name: "Keep the change" });
+    expect(keep).toBeEnabled();
+    expect(keep).not.toHaveAttribute("aria-describedby");
+    expect(within(notice).getByText("noust server security confirm c1a2b3")).toBeInTheDocument();
+    await expectNoAxeViolations(notice);
+  });
+
+  it("says that any login counts for a firewall change, and lets the server's confirm answer", async () => {
+    const { user, backend } = banner(
+      () => pendingChangeFromOlderNode(Date.now(), { kind: "firewall", title: "Turn the firewall on", proof: "any" }),
+      { "POST /api/server/security/changes/c1a2b3/confirm": () => keepRefused() },
+    );
+    const notice = await pendingBanner();
+
+    expect(within(notice).getByText(/Any new login counts/)).toBeInTheDocument();
+    await user.click(within(notice).getByRole("button", { name: "Keep the change" }));
+    // The refusal is the server's own, not a guess the console made before asking.
+    expect(await screen.findByText("No new SSH login since the change")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/server/security/changes/c1a2b3/confirm")).toHaveLength(1);
+  });
+
+  it("does not call a readable history unreadable when only the error text is missing", async () => {
+    banner(() => pendingChange(Date.now(), { proof_readable: false, proof_error: undefined as unknown as string }));
+    const notice = await pendingBanner();
+
+    expect(within(notice).getByText("Noust cannot see new SSH logins from the console")).toBeInTheDocument();
+    expect(within(notice).queryByText("Why the logins cannot be read")).not.toBeInTheDocument();
+    expect(within(notice).getByRole("button", { name: "Keep the change" })).toBeDisabled();
   });
 });
 
