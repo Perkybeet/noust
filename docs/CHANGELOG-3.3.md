@@ -163,3 +163,17 @@ recreate a container it refuses unless `--accept-recreate` is given.
   (`noust service list --all --state failed`, `GET /api/services?state=failed`). A test checks
   every command and route Noust suggests; it found and fixed ten more.
 - **`noust web start` without root says so** (issue #11) instead of ending in a traceback.
+- **The engines page no longer contradicts itself.** The server's own engines are now listed under
+  "On this server" when engines in containers are listed below them, and a server engine that is
+  not installed but runs in a container says so beside its state ("Not installed", "1 in a
+  container"). `GET /api/databases/engines` reports each engine's `engine_type`, so a client
+  never splits an instance key.
+- **A container's missing password or authorization is only a warning when something can reach
+  it.** A Redis or MongoDB in a container is judged by what Docker publishes of its port: on its
+  Docker networks only it is the image's default and is not reported; published on the server's
+  loopback it names the address and says any process on the server can reach it; published on any
+  other address it says anything that reaches that port can. MongoDB containers are now asked
+  whether they enforce authorization, and their fix is the compose file's
+  (`MONGO_INITDB_ROOT_USERNAME` and `MONGO_INITDB_ROOT_PASSWORD`, which take effect on an empty
+  data volume) rather than `/etc/mongod.conf`. The servers' own Redis and MongoDB keep their
+  warnings.

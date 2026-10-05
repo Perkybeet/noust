@@ -16929,6 +16929,10 @@ export interface components {
          * @description A database engine and whether it is usable on this host.
          *
          *     Attributes:
+         *         engine_type: The engine it is (``postgresql``, ``mysql``, ``redis``,
+         *             ``mongodb``): ``name`` for the server's own, and for a container
+         *             the part of its instance key before the ``@``. Absent from a
+         *             server older than 3.3.1.
          *         port: The port the server listens on when it runs, its default
          *             otherwise.
          *         service: The systemd unit it runs as on this server.
@@ -16964,6 +16968,8 @@ export interface components {
             container?: string | null;
             /** Display Name */
             display_name: string;
+            /** Engine Type */
+            engine_type?: string | null;
             /** Image */
             image?: string | null;
             /** Installed */

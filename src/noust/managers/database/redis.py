@@ -1346,27 +1346,40 @@ class RedisManager(BaseDatabaseManager):
         """
         Warn when the instance takes commands from anyone without a password.
 
+        For a container the risk is who can reach it, which the instance
+        knows from what Docker publishes (:attr:`DatabaseInstance.reach`).
+        One that only the containers of its own Docker networks reach is not
+        warned about, and nothing else says it: a Redis without a password on
+        a Compose network is the image's default and that network is the
+        boundary; the console has no lower-key place for a note about an
+        instance that is working as designed.
+
         Returns:
-            One sentence when no password is known and the server answered.
-            A container started with one (``--requirepass``, or the variable
-            its image reads) has one, though Noust never sees it: the client
+            One sentence when no password is known, the server answered and
+            something beyond its own networks can get to it. A container
+            started with a password (``--requirepass``, or the variable its
+            image reads) has one, though Noust never sees it: the client
             reads it inside the container, where ``ACL WHOAMI`` then answers
             ``default`` for a signed-in client as well.
         """
+        reached = None
         if self.instance is not None:
             if self.instance.requires_password:
+                return []
+            reached = self.instance.reach_words()
+            if reached is None:
                 return []
         elif self._known_password():
             return []
         success, output = self._execute_redis("ACL", "WHOAMI")
         if not success or output.strip() != "default":
             return []
-        if self.instance is not None:
+        if self.instance is not None and reached is not None:
+            where, who = reached
             return [
-                f"Redis in {self.instance.container} accepts every command without a "
-                "password: anything that reaches it can read and change every key. Start "
-                "it with --requirepass or REDIS_PASSWORD in the compose file and recreate "
-                "the container."
+                f"Redis in {self.instance.container} has no password and {where}: {who} "
+                "can read and change every key. Start it with --requirepass or "
+                "REDIS_PASSWORD in the compose file and recreate the container."
             ]
         return [
             "Redis accepts every command without a password: any process on this "

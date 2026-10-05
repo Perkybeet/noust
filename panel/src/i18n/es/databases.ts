@@ -183,6 +183,9 @@ export const databases: Catalog<typeof en> = {
   },
   instances: {
     choice: "{engine} en {place}",
+    hostTitle: "En este servidor",
+    hostDescription: "Motores instalados con los paquetes del propio servidor, que Noust instala, configura y actualiza.",
+    inContainers: { one: "{count} en un contenedor", other: "{count} en contenedores" },
     title: "En contenedores",
     description: "Motores de bases de datos que corren en contenedores Docker de este servidor. Su imagen decide el motor y su versión, así que Noust no los instala ni los configura; lee, copia y gestiona sus bases de datos como las demás.",
     caption: "Motores en contenedores",

@@ -42,6 +42,10 @@ class EngineInfo(BaseModel):
     A database engine and whether it is usable on this host.
 
     Attributes:
+        engine_type: The engine it is (``postgresql``, ``mysql``, ``redis``,
+            ``mongodb``): ``name`` for the server's own, and for a container
+            the part of its instance key before the ``@``. Absent from a
+            server older than 3.3.1.
         port: The port the server listens on when it runs, its default
             otherwise.
         service: The systemd unit it runs as on this server.
@@ -66,6 +70,7 @@ class EngineInfo(BaseModel):
     """
 
     name: str
+    engine_type: str | None = None
     display_name: str
     installed: bool
     version: str | None = None
@@ -343,6 +348,7 @@ def list_engines(session: Annotated[dict, Depends(get_current_session)]) -> Engi
         engines=[
             EngineInfo(
                 name=status["engine"],
+                engine_type=status.get("engine_type"),
                 display_name=status["display_name"],
                 installed=status["installed"],
                 version=status.get("version"),

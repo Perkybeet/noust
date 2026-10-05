@@ -1,12 +1,29 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import type { Engine } from "../../api/queries/databases";
+import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { screenWidth } from "../app/testRoutes";
 import { CONTAINER_ENGINE, ENGINES, databaseRoutes } from "./testFixtures";
+
+/** A MongoDB in a Compose service: the server's own MongoDB is not installed (see ENGINES). */
+const MONGO_CONTAINER: Engine = {
+  ...CONTAINER_ENGINE,
+  name: "mongodb@shop.mongo",
+  engine_type: "mongodb",
+  display_name: "MongoDB",
+  capabilities: ["documents", "dump"],
+  container: "shop-mongo-1",
+  project: "shop",
+  compose_service: "mongo",
+  image: "mongo:7",
+  app: "shop.example.com",
+  access: "full",
+};
 
 const JOB = { id: "install-1", type: "database", name: "Install PostgreSQL", description: "", status: "pending", progress: 0, total_steps: 100, current_step: "", created_at: "2026-10-03T10:00:00", logs: [], metadata: { engine: "postgresql" } };
 
@@ -20,8 +37,10 @@ async function enginesAt(extra: Record<string, RouteHandler> = {}) {
   );
   const harness = renderConsole("/databases/engines");
   await screen.findByRole("heading", { level: 1, name: "Databases" });
-  const hosts = await screen.findByRole("region", { name: "Database engines" });
-  await within(hosts).findByText("PostgreSQL");
+  // The list is titled (wrapped in a section) once engines in containers are known, which is after
+  // the first render: look for it again once the rows are there.
+  await screen.findAllByText("PostgreSQL");
+  const hosts = screen.getByRole("region", { name: "Database engines" });
   return { ...harness, backend, hosts };
 }
 
@@ -38,6 +57,72 @@ describe("the engines tab", () => {
     expect(within(row).getByRole("link", { name: "proggest.es" })).toHaveAttribute("href", "/apps/proggest.es");
     expect(within(row).getByText("Application's account only")).toBeInTheDocument();
     expect(within(section).getByText(/Noust found only the application's own account/)).toBeInTheDocument();
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("titles the server's own engines once there are engines in containers", async () => {
+    const { hosts } = await enginesAt();
+    const own = screen.getByRole("region", { name: "On this server" });
+    expect(within(own).getByText(/installed with this server's own packages, which Noust installs, configures and updates/)).toBeInTheDocument();
+    expect(within(own).getByRole("region", { name: "Database engines" })).toBe(hosts);
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("is only the one list of engines while none runs in a container", async () => {
+    screenWidth(1440);
+    fakeBackend(databaseRoutes());
+    renderConsole("/databases/engines");
+    await screen.findAllByText("PostgreSQL");
+    const hosts = screen.getByRole("region", { name: "Database engines" });
+    expect(screen.queryByRole("region", { name: "On this server" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "In containers" })).not.toBeInTheDocument();
+    expect(within(hosts).queryByText(/in a container|in containers/)).not.toBeInTheDocument();
+  });
+
+  it("says beside a server engine that is not installed that it runs in a container, so the lists do not contradict each other", async () => {
+    const { hosts } = await enginesAt({
+      "GET /api/databases/engines": () => json(200, { engines: [...ENGINES, CONTAINER_ENGINE, MONGO_CONTAINER] }),
+    });
+    const mongo = within(hosts).getByText("MongoDB").closest("tr");
+    if (!mongo) throw new Error("no row");
+    expect(within(mongo).getByText("Not installed", { selector: "td span span" })).toBeInTheDocument();
+    expect(within(mongo).getByText("1 in a container")).toBeInTheDocument();
+    // An installed engine says nothing of the kind, whatever runs beside it.
+    const postgres = within(hosts).getByText("PostgreSQL").closest("tr");
+    if (!postgres) throw new Error("no row");
+    expect(within(postgres).queryByText(/in a container|in containers/)).not.toBeInTheDocument();
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+
+  it("counts every container of the engine", async () => {
+    const second: Engine = { ...MONGO_CONTAINER, name: "mongodb@shop.mongo-replica", container: "shop-mongo-replica-1", compose_service: "mongo-replica" };
+    const { hosts } = await enginesAt({
+      "GET /api/databases/engines": () => json(200, { engines: [...ENGINES, MONGO_CONTAINER, second] }),
+    });
+    expect(within(hosts).getByText("2 in containers")).toBeInTheDocument();
+  });
+
+  it("says nothing of a container whose engine the server does not report", async () => {
+    const older: Engine = { ...MONGO_CONTAINER };
+    delete older.engine_type;
+    const { hosts } = await enginesAt({
+      "GET /api/databases/engines": () => json(200, { engines: [...ENGINES, older] }),
+    });
+    expect(within(hosts).queryByText(/in a container|in containers/)).not.toBeInTheDocument();
+  });
+
+  it("says it in Spanish too", async () => {
+    await act(() => setLocale("es"));
+    screenWidth(1440);
+    fakeBackend(databaseRoutes({ "GET /api/databases/engines": () => json(200, { engines: [...ENGINES, MONGO_CONTAINER] }) }));
+    renderConsole("/databases/engines");
+    const own = await screen.findByRole("region", { name: "En este servidor" });
+    expect(within(own).getByText(/Motores instalados con los paquetes del propio servidor/)).toBeInTheDocument();
+    const mongo = within(own).getByText("MongoDB").closest("tr");
+    if (!mongo) throw new Error("no row");
+    expect(within(mongo).getByText("No instalado", { selector: "td span span" })).toBeInTheDocument();
+    expect(within(mongo).getByText("1 en un contenedor")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "En contenedores" })).toBeInTheDocument();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
