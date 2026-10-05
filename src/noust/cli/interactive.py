@@ -10,6 +10,7 @@ run.
 from noust.cli import prompts
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
+from noust.core.package_family import PackageFamily, for_this_machine
 from noust.validators.domain import check_domain
 from noust.validators.port import check_port
 from noust.validators.source import is_valid_source
@@ -31,13 +32,20 @@ class InteractiveMode:
         self.logger = Logger(verbose=verbose)
 
         if not prompts.AVAILABLE:
+            # openSUSE has no package (the empty entry), so there only pip is offered.
+            packaged = for_this_machine(
+                {
+                    PackageFamily.APT: "apt install python3-questionary        Debian 13, Ubuntu 24.04+",
+                    PackageFamily.DNF: "dnf install python3-questionary        Fedora 42+",
+                    PackageFamily.ZYPPER: "",
+                }
+            )
             raise NoustError(
                 "Interactive mode needs questionary, which is missing",
                 details=(
                     "Every other command works without it. To get it:\n"
-                    "  apt install python3-questionary        Debian 13, Ubuntu 24.04+\n"
-                    "  dnf install python3-questionary        Fedora 42+\n"
-                    "  pip install questionary                anywhere else\n"
+                    + "".join(f"  {line}\n" for line in packaged)
+                    + "  pip install questionary                anywhere else\n"
                     "It is not packaged for Debian 12, Ubuntu 22.04 or Leap 15."
                 ),
             )

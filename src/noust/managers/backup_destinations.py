@@ -568,13 +568,13 @@ def _require_rclone(runner: CommandRunner) -> None:
 
     Raises:
         DependencyError: When ``rclone`` is not on PATH, naming how to
-            install it on every distribution Noust supports.
+            install it on this machine.
     """
     if runner.exists("rclone"):
         return
     raise DependencyError(
         "rclone is required for backup destinations",
-        details=dependency_install_hint(RCLONE_DEPENDENCY),
+        details=dependency_install_hint(RCLONE_DEPENDENCY, runner=runner),
     )
 
 

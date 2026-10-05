@@ -473,3 +473,36 @@ class TestFirewalld:
     def test_turning_firewalld_on_is_guided(self, firewalld, host, ledger):
         with pytest.raises(SecurityError, match="ufw only"):
             _firewall(firewalld, host, ledger).enable()
+
+
+class TestNoFirewallToChange:
+    """Issue #12: the install hint is the command of this machine's package manager."""
+
+    @pytest.mark.parametrize(
+        ("manager", "expected"),
+        [
+            ("apt-get", "apt install ufw"),
+            ("dnf", "dnf install firewalld"),
+            ("zypper", "zypper install firewalld"),
+        ],
+    )
+    def test_the_hint_names_this_machines_package_manager_only(
+        self, runner, host, ledger, manager, expected
+    ):
+        runner.only_knows("sshd", "systemctl", "ss", "journalctl", "systemd-run", manager)
+
+        with pytest.raises(SecurityError, match="neither is in use") as caught:
+            _firewall(runner, host, ledger).add_rule(RuleRequest("allow", 8443))
+
+        assert expected in caught.value.details
+        assert caught.value.details.count(" install ") == 1
+
+    def test_an_unknown_package_manager_lists_every_one(self, runner, host, ledger):
+        runner.only_knows("sshd", "systemctl", "ss", "journalctl", "systemd-run")
+
+        with pytest.raises(SecurityError) as caught:
+            _firewall(runner, host, ledger).add_rule(RuleRequest("allow", 8443))
+
+        assert "apt install ufw; dnf install firewalld; zypper install firewalld" in (
+            caught.value.details
+        )

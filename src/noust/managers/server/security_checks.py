@@ -55,6 +55,7 @@ from typing import Any
 from noust.core import paths
 from noust.core.exceptions import NoustError
 from noust.core.fs import get_fs
+from noust.core.package_family import PackageFamily, for_this_machine
 from noust.fleet.authorize import key_removal_command
 from noust.managers.server.host import PROBE_TIMEOUT, read_os_release, read_text
 from noust.managers.server.security_catalog import CATALOG, SEVERITIES
@@ -705,11 +706,21 @@ class HardeningChecks:
                     reverts=True,
                 )
             else:
+                rpm_steps = (
+                    "RHEL, Fedora and SUSE: firewall-offline-cmd --add-service=ssh; "
+                    "systemctl enable --now firewalld"
+                )
                 fix = _guided(
                     "Install a firewall and turn it on, allowing SSH first",
-                    "Debian and Ubuntu: apt-get install ufw, then noust server security firewall enable",
-                    "RHEL, Fedora and SUSE: firewall-offline-cmd --add-service=ssh; "
-                    "systemctl enable --now firewalld",
+                    *for_this_machine(
+                        {
+                            PackageFamily.APT: "Debian and Ubuntu: apt-get install ufw, "
+                            "then noust server security firewall enable",
+                            PackageFamily.DNF: rpm_steps,
+                            PackageFamily.ZYPPER: rpm_steps,
+                        },
+                        runner=self.probe.runner,
+                    ),
                 )
             results.append(
                 _result(

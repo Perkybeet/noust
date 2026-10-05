@@ -732,3 +732,37 @@ class TestHealth:
         assert check.name == "Security hardening"
         assert all(line.startswith("Security") for line in warnings)
         assert health._check_hardening("off", warnings) is None
+
+
+class TestFirewallInstallSteps:
+    """Issue #12: the guided steps are the ones of this machine's package manager."""
+
+    def _steps(self, runner, host, risks, *programs: str) -> tuple[str, ...]:
+        runner.only_knows("systemctl", "sshd", *programs)
+        report = _run(runner, host, risks, host_checks=False)
+        fix = report.get("fw.inactive").fix
+        assert fix is not None and fix.kind == "guided"
+        return fix.steps
+
+    def test_an_apt_machine_reads_the_ufw_step_only(self, runner, host, risks):
+        steps = self._steps(runner, host, risks, "apt-get")
+
+        assert steps == (
+            "Debian and Ubuntu: apt-get install ufw, then noust server security firewall enable",
+        )
+
+    @pytest.mark.parametrize("manager", ["dnf", "zypper"])
+    def test_an_rpm_machine_reads_the_firewalld_step_only(self, runner, host, risks, manager):
+        steps = self._steps(runner, host, risks, manager)
+
+        assert steps == (
+            "RHEL, Fedora and SUSE: firewall-offline-cmd --add-service=ssh; "
+            "systemctl enable --now firewalld",
+        )
+
+    def test_an_unknown_machine_reads_both(self, runner, host, risks):
+        steps = self._steps(runner, host, risks)
+
+        assert len(steps) == 2
+        assert steps[0].startswith("Debian and Ubuntu: apt-get install ufw")
+        assert steps[1].startswith("RHEL, Fedora and SUSE: firewall-offline-cmd")

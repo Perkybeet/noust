@@ -45,6 +45,7 @@ from jinja2 import Environment, PackageLoader, StrictUndefined
 from jinja2 import TemplateError as JinjaTemplateError
 
 from noust.core import paths
+from noust.core.dependencies import PHP_FPM_DEPENDENCY, dependency_install_hint
 from noust.core.exceptions import DeploymentError, TemplateError, ValidationError
 from noust.core.fs import FileSystem
 from noust.core.logger import Logger
@@ -117,16 +118,6 @@ PHP_TMP_MODE = 0o700
 #: Read-only system code a pool may include besides its own tree: the
 #: ``include_path`` of the distributions' PHP (PEAR and packaged libraries).
 SYSTEM_PHP_DIRS = ("/usr/share/php",)
-
-#: How to install PHP-FPM, per package manager, for every message that says
-#: it is missing.
-FPM_INSTALL_HINT = (
-    "Install it: apt install php-fpm php-mysql php-pgsql php-curl php-gd php-mbstring "
-    "php-xml php-zip php-intl; dnf install php-fpm php-mysqlnd php-pgsql php-gd php-mbstring "
-    "php-xml php-intl; zypper install php8-fpm php8-mysql php8-pgsql php8-gd php8-mbstring "
-    "php8-intl php8-zip. On openSUSE, also copy /etc/php8/fpm/php-fpm.conf.default to "
-    "php-fpm.conf."
-)
 
 _DEBIAN_VERSION = re.compile(r"^\d+\.\d+$")
 
@@ -265,6 +256,19 @@ def _version_key(version: str) -> tuple[int, ...]:
     return tuple(int(part) for part in version.split("."))
 
 
+def fpm_install_hint() -> str:
+    """
+    Say how to install PHP-FPM on this machine, for every message that says it is missing.
+
+    The packages are :data:`~noust.core.dependencies.PHP_FPM_DEPENDENCY`'s, the one
+    place that names them; the command is the one of this machine's package manager.
+
+    Returns:
+        The install command and, on openSUSE, the configuration file it also needs.
+    """
+    return f"Install it: {dependency_install_hint(PHP_FPM_DEPENDENCY)}"
+
+
 def find_fpm(root: Path = Path("/")) -> FpmInstallation:
     """
     Find the PHP-FPM pools are written for.
@@ -321,7 +325,7 @@ def find_fpm(root: Path = Path("/")) -> FpmInstallation:
             socket_dir=Path("/run/php-fpm"),
         )
 
-    raise DeploymentError("PHP-FPM is not installed", details=FPM_INSTALL_HINT)
+    raise DeploymentError("PHP-FPM is not installed", details=fpm_install_hint())
 
 
 def nginx_worker_group(default: str, root: Path = Path("/")) -> str:

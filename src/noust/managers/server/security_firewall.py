@@ -46,6 +46,7 @@ from typing import Any
 
 from noust.core import paths
 from noust.core.exceptions import SecurityError, ValidationError
+from noust.core.package_family import PackageFamily, install_hint
 from noust.core.runner import EXIT_NOT_FOUND, CommandResult
 from noust.managers.server.host import PROBE_TIMEOUT, read_text
 from noust.managers.server.security_access import AccessGuardError
@@ -1236,8 +1237,16 @@ class Firewall:
         if state.backend not in ("ufw", "firewalld") or not state.installed:
             raise SecurityError(
                 "Noust changes ufw and firewalld rules, and neither is in use here",
-                details="Install ufw (apt-get install ufw) or firewalld (dnf install firewalld); "
-                "nftables and iptables rules are only read.",
+                details="Install a firewall Noust can change: "
+                + install_hint(
+                    {
+                        PackageFamily.APT: "ufw",
+                        PackageFamily.DNF: "firewalld",
+                        PackageFamily.ZYPPER: "firewalld",
+                    },
+                    runner=self.probe.runner,
+                )
+                + "; nftables and iptables rules are only read.",
             )
         if state.error:
             raise SecurityError("The firewall's state could not be read", output=state.error)

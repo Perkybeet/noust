@@ -369,14 +369,28 @@ def test_certbot_missing_is_reported_with_the_command_that_installs_it(
     runner: FakeRunner,
 ) -> None:
     """A tool that is not installed is the most common first-run failure."""
-    runner.only_knows("nginx")
+    runner.only_knows("nginx", "apt-get")
 
     result = _invoke(["cert", "list"])
 
     assert result.exit_code != 0
     assert runner.calls == []
     assert isinstance(result.exception, CertificateError)
-    assert "apt install certbot" in str(result.exception.details)
+    assert result.exception.details == "Install it with: apt install certbot"
+
+
+def test_certbot_missing_on_an_unrecognised_machine_lists_every_package_manager(
+    runner: FakeRunner,
+) -> None:
+    """Only when the machine's own package manager cannot be told."""
+    runner.only_knows("nginx")
+
+    result = _invoke(["cert", "list"])
+
+    assert isinstance(result.exception, CertificateError)
+    assert result.exception.details == (
+        "Install it with: apt install certbot; dnf install certbot; zypper install certbot"
+    )
 
 
 # -- What each command actually runs -----------------------------------------
