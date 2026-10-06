@@ -42,6 +42,7 @@ import { Route as ConsoleServerSecurityRouteImport } from "./routes/_console/ser
 import { Route as ConsoleServerServicesRouteImport } from "./routes/_console/server/services"
 import { Route as ConsoleServerStorageRouteImport } from "./routes/_console/server/storage"
 import { Route as ConsoleServerSystemRouteImport } from "./routes/_console/server/system"
+import { Route as ConsoleServerTerminalRouteImport } from "./routes/_console/server/terminal"
 import { Route as ConsoleServerUpdatesRouteImport } from "./routes/_console/server/updates"
 import { Route as ConsoleServicesIndexRouteImport } from "./routes/_console/services/index"
 import { Route as ConsoleServicesNameRouteImport } from "./routes/_console/services/$name"
@@ -65,6 +66,7 @@ import { Route as ConsoleAppsDomainEnvironmentRouteImport } from "./routes/_cons
 import { Route as ConsoleAppsDomainLogsRouteImport } from "./routes/_console/apps/$domain/logs"
 import { Route as ConsoleAppsDomainMetricsRouteImport } from "./routes/_console/apps/$domain/metrics"
 import { Route as ConsoleAppsDomainSettingsRouteImport } from "./routes/_console/apps/$domain/settings"
+import { Route as ConsoleAppsDomainTerminalRouteImport } from "./routes/_console/apps/$domain/terminal"
 import { Route as ConsoleDatabasesEngineNameRouteImport } from "./routes/_console/databases/$engine/$name"
 import { Route as ConsoleDomainsSitesIndexRouteImport } from "./routes/_console/domains/sites/index"
 import { Route as ConsoleDomainsSitesSiteRouteImport } from "./routes/_console/domains/sites/$site"
@@ -260,6 +262,11 @@ const ConsoleServerSystemRoute = ConsoleServerSystemRouteImport.update({
   path: "/system",
   getParentRoute: () => ConsoleServerRoute,
 } as any)
+const ConsoleServerTerminalRoute = ConsoleServerTerminalRouteImport.update({
+  id: "/terminal",
+  path: "/terminal",
+  getParentRoute: () => ConsoleServerRoute,
+} as any)
 const ConsoleServerUpdatesRoute = ConsoleServerUpdatesRouteImport.update({
   id: "/updates",
   path: "/updates",
@@ -383,6 +390,12 @@ const ConsoleAppsDomainSettingsRoute =
   ConsoleAppsDomainSettingsRouteImport.update({
     id: "/settings",
     path: "/settings",
+    getParentRoute: () => ConsoleAppsDomainRoute,
+  } as any)
+const ConsoleAppsDomainTerminalRoute =
+  ConsoleAppsDomainTerminalRouteImport.update({
+    id: "/terminal",
+    path: "/terminal",
     getParentRoute: () => ConsoleAppsDomainRoute,
   } as any)
 const ConsoleDatabasesEngineNameRoute =
@@ -579,6 +592,7 @@ export interface FileRoutesByFullPath {
   "/server/services": typeof ConsoleServerServicesRoute
   "/server/storage": typeof ConsoleServerStorageRoute
   "/server/system": typeof ConsoleServerSystemRoute
+  "/server/terminal": typeof ConsoleServerTerminalRoute
   "/server/updates": typeof ConsoleServerUpdatesRoute
   "/services/$name": typeof ConsoleServicesNameRoute
   "/settings/about": typeof ConsoleSettingsAboutRoute
@@ -607,6 +621,7 @@ export interface FileRoutesByFullPath {
   "/apps/$domain/logs": typeof ConsoleAppsDomainLogsRoute
   "/apps/$domain/metrics": typeof ConsoleAppsDomainMetricsRoute
   "/apps/$domain/settings": typeof ConsoleAppsDomainSettingsRouteWithChildren
+  "/apps/$domain/terminal": typeof ConsoleAppsDomainTerminalRoute
   "/databases/$engine/$name": typeof ConsoleDatabasesEngineNameRouteWithChildren
   "/domains/sites/$site": typeof ConsoleDomainsSitesSiteRoute
   "/fleet/jobs/$id": typeof ConsoleFleetJobsIdRoute
@@ -660,6 +675,7 @@ export interface FileRoutesByTo {
   "/server/services": typeof ConsoleServerServicesRoute
   "/server/storage": typeof ConsoleServerStorageRoute
   "/server/system": typeof ConsoleServerSystemRoute
+  "/server/terminal": typeof ConsoleServerTerminalRoute
   "/server/updates": typeof ConsoleServerUpdatesRoute
   "/services/$name": typeof ConsoleServicesNameRoute
   "/settings/about": typeof ConsoleSettingsAboutRoute
@@ -687,6 +703,7 @@ export interface FileRoutesByTo {
   "/apps/$domain/environment": typeof ConsoleAppsDomainEnvironmentRoute
   "/apps/$domain/logs": typeof ConsoleAppsDomainLogsRoute
   "/apps/$domain/metrics": typeof ConsoleAppsDomainMetricsRoute
+  "/apps/$domain/terminal": typeof ConsoleAppsDomainTerminalRoute
   "/domains/sites/$site": typeof ConsoleDomainsSitesSiteRoute
   "/fleet/jobs/$id": typeof ConsoleFleetJobsIdRoute
   "/integrations/github/callback": typeof ConsoleIntegrationsGithubCallbackRoute
@@ -744,6 +761,7 @@ export interface FileRoutesById {
   "/_console/server/services": typeof ConsoleServerServicesRoute
   "/_console/server/storage": typeof ConsoleServerStorageRoute
   "/_console/server/system": typeof ConsoleServerSystemRoute
+  "/_console/server/terminal": typeof ConsoleServerTerminalRoute
   "/_console/server/updates": typeof ConsoleServerUpdatesRoute
   "/_console/services/$name": typeof ConsoleServicesNameRoute
   "/_console/settings/about": typeof ConsoleSettingsAboutRoute
@@ -772,6 +790,7 @@ export interface FileRoutesById {
   "/_console/apps/$domain/logs": typeof ConsoleAppsDomainLogsRoute
   "/_console/apps/$domain/metrics": typeof ConsoleAppsDomainMetricsRoute
   "/_console/apps/$domain/settings": typeof ConsoleAppsDomainSettingsRouteWithChildren
+  "/_console/apps/$domain/terminal": typeof ConsoleAppsDomainTerminalRoute
   "/_console/databases/$engine/$name": typeof ConsoleDatabasesEngineNameRouteWithChildren
   "/_console/domains/sites/$site": typeof ConsoleDomainsSitesSiteRoute
   "/_console/fleet_/jobs/$id": typeof ConsoleFleetJobsIdRoute
@@ -831,6 +850,7 @@ export interface FileRouteTypes {
     | "/server/services"
     | "/server/storage"
     | "/server/system"
+    | "/server/terminal"
     | "/server/updates"
     | "/services/$name"
     | "/settings/about"
@@ -859,6 +879,7 @@ export interface FileRouteTypes {
     | "/apps/$domain/logs"
     | "/apps/$domain/metrics"
     | "/apps/$domain/settings"
+    | "/apps/$domain/terminal"
     | "/databases/$engine/$name"
     | "/domains/sites/$site"
     | "/fleet/jobs/$id"
@@ -912,6 +933,7 @@ export interface FileRouteTypes {
     | "/server/services"
     | "/server/storage"
     | "/server/system"
+    | "/server/terminal"
     | "/server/updates"
     | "/services/$name"
     | "/settings/about"
@@ -939,6 +961,7 @@ export interface FileRouteTypes {
     | "/apps/$domain/environment"
     | "/apps/$domain/logs"
     | "/apps/$domain/metrics"
+    | "/apps/$domain/terminal"
     | "/domains/sites/$site"
     | "/fleet/jobs/$id"
     | "/integrations/github/callback"
@@ -995,6 +1018,7 @@ export interface FileRouteTypes {
     | "/_console/server/services"
     | "/_console/server/storage"
     | "/_console/server/system"
+    | "/_console/server/terminal"
     | "/_console/server/updates"
     | "/_console/services/$name"
     | "/_console/settings/about"
@@ -1023,6 +1047,7 @@ export interface FileRouteTypes {
     | "/_console/apps/$domain/logs"
     | "/_console/apps/$domain/metrics"
     | "/_console/apps/$domain/settings"
+    | "/_console/apps/$domain/terminal"
     | "/_console/databases/$engine/$name"
     | "/_console/domains/sites/$site"
     | "/_console/fleet_/jobs/$id"
@@ -1295,6 +1320,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleServerSystemRouteImport
       parentRoute: typeof ConsoleServerRoute
     }
+    "/_console/server/terminal": {
+      id: "/_console/server/terminal"
+      path: "/terminal"
+      fullPath: "/server/terminal"
+      preLoaderRoute: typeof ConsoleServerTerminalRouteImport
+      parentRoute: typeof ConsoleServerRoute
+    }
     "/_console/server/updates": {
       id: "/_console/server/updates"
       path: "/updates"
@@ -1454,6 +1486,13 @@ declare module "@tanstack/react-router" {
       path: "/settings"
       fullPath: "/apps/$domain/settings"
       preLoaderRoute: typeof ConsoleAppsDomainSettingsRouteImport
+      parentRoute: typeof ConsoleAppsDomainRoute
+    }
+    "/_console/apps/$domain/terminal": {
+      id: "/_console/apps/$domain/terminal"
+      path: "/terminal"
+      fullPath: "/apps/$domain/terminal"
+      preLoaderRoute: typeof ConsoleAppsDomainTerminalRouteImport
       parentRoute: typeof ConsoleAppsDomainRoute
     }
     "/_console/databases/$engine/$name": {
@@ -1685,6 +1724,7 @@ interface ConsoleServerRouteChildren {
   ConsoleServerServicesRoute: typeof ConsoleServerServicesRoute
   ConsoleServerStorageRoute: typeof ConsoleServerStorageRoute
   ConsoleServerSystemRoute: typeof ConsoleServerSystemRoute
+  ConsoleServerTerminalRoute: typeof ConsoleServerTerminalRoute
   ConsoleServerUpdatesRoute: typeof ConsoleServerUpdatesRoute
   ConsoleServerIndexRoute: typeof ConsoleServerIndexRoute
 }
@@ -1695,6 +1735,7 @@ const ConsoleServerRouteChildren: ConsoleServerRouteChildren = {
   ConsoleServerServicesRoute: ConsoleServerServicesRoute,
   ConsoleServerStorageRoute: ConsoleServerStorageRoute,
   ConsoleServerSystemRoute: ConsoleServerSystemRoute,
+  ConsoleServerTerminalRoute: ConsoleServerTerminalRoute,
   ConsoleServerUpdatesRoute: ConsoleServerUpdatesRoute,
   ConsoleServerIndexRoute: ConsoleServerIndexRoute,
 }
@@ -1779,6 +1820,7 @@ interface ConsoleAppsDomainRouteChildren {
   ConsoleAppsDomainLogsRoute: typeof ConsoleAppsDomainLogsRoute
   ConsoleAppsDomainMetricsRoute: typeof ConsoleAppsDomainMetricsRoute
   ConsoleAppsDomainSettingsRoute: typeof ConsoleAppsDomainSettingsRouteWithChildren
+  ConsoleAppsDomainTerminalRoute: typeof ConsoleAppsDomainTerminalRoute
   ConsoleAppsDomainIndexRoute: typeof ConsoleAppsDomainIndexRoute
   ConsoleAppsDomainDeploymentsIdRoute: typeof ConsoleAppsDomainDeploymentsIdRoute
   ConsoleAppsDomainDeploymentsIndexRoute: typeof ConsoleAppsDomainDeploymentsIndexRoute
@@ -1792,6 +1834,7 @@ const ConsoleAppsDomainRouteChildren: ConsoleAppsDomainRouteChildren = {
   ConsoleAppsDomainLogsRoute: ConsoleAppsDomainLogsRoute,
   ConsoleAppsDomainMetricsRoute: ConsoleAppsDomainMetricsRoute,
   ConsoleAppsDomainSettingsRoute: ConsoleAppsDomainSettingsRouteWithChildren,
+  ConsoleAppsDomainTerminalRoute: ConsoleAppsDomainTerminalRoute,
   ConsoleAppsDomainIndexRoute: ConsoleAppsDomainIndexRoute,
   ConsoleAppsDomainDeploymentsIdRoute: ConsoleAppsDomainDeploymentsIdRoute,
   ConsoleAppsDomainDeploymentsIndexRoute:

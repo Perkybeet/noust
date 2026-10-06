@@ -9,8 +9,8 @@
  */
 
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Outlet } from "@tanstack/react-router";
-import { ListChecks, Power, RefreshCw, RotateCw } from "lucide-react";
+import { Outlet, useNavigate } from "@tanstack/react-router";
+import { ListChecks, Power, RefreshCw, RotateCw, SquareTerminal } from "lucide-react";
 
 import { request } from "../../api/client";
 import { LinkTabs } from "../../app/LinkTabs";
@@ -27,6 +27,7 @@ import { formatDuration } from "../../lib/format";
 import { useNodeCapability } from "../../nodes/capability";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
+import { useHasPermission } from "../terminal/queries";
 import { attentionItems, verdictOf } from "./attention";
 import type { Verdict } from "./attention";
 import { explainServerError } from "./errors";
@@ -65,6 +66,9 @@ function Layout() {
   const power = usePowerDialog();
   const jobs = useServerJob();
   const hasJob = useHasServerJob();
+  const navigate = useNavigate();
+  // A root shell is offered to whoever holds its permission; whether it is on is the page's to say.
+  const canOpenTerminal = useHasPermission("server.terminal") === true;
   const capability = useNodeCapability(SERVER_CAPABILITY);
   const available = capability.status === "available" || capability.status === "unknown";
   const summary = useQuery({ ...summaryQuery(), enabled: available });
@@ -133,6 +137,11 @@ function Layout() {
                   <MenuItem icon={<ListChecks />} disabled={runChecks.isPending} onClick={() => runChecks.mutate()}>
                     {t("server.header.runChecks")}
                   </MenuItem>
+                  {canOpenTerminal ? (
+                    <MenuItem icon={<SquareTerminal />} onClick={() => void navigate({ to: "/server/terminal" })}>
+                      {t("server.header.terminal")}
+                    </MenuItem>
+                  ) : null}
                   <MenuSeparator />
                   <MenuItem icon={<Power />} destructive onClick={() => power.open("shutdown")}>
                     {t("server.header.shutdown")}

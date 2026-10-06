@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { CircleArrowUp, History, Play, RotateCw, Square, Stethoscope } from "lucide-react";
+import { CircleArrowUp, History, Play, RotateCw, Square, SquareTerminal, Stethoscope } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -20,6 +20,7 @@ import { NothingNewDialog } from "../apps/NothingNewDialog";
 import { reportActionError, useAppActions } from "../apps/useAppActions";
 import { DeleteAppDialog } from "./DeleteAppDialog";
 import { RollbackDialog } from "./RollbackDialog";
+import { useHasPermission } from "../terminal/queries";
 import { useConfirmItsYou } from "./useDeleteApp";
 
 export interface AppHeaderActions {
@@ -27,7 +28,7 @@ export interface AppHeaderActions {
   secondaryActions?: ReactNode;
   /** Update: the one primary action of every tab of the app. */
   primaryAction?: ReactNode;
-  /** What is rare, behind "More actions": Diagnose, and Delete last after a separator. */
+  /** What is rare, behind "More actions": Diagnose, Terminal, and Delete last after a separator. */
   overflow?: ReactNode;
   /** The dialogs those actions open, rendered by the layout beside the page. */
   dialogs?: ReactNode;
@@ -80,6 +81,8 @@ export function useAppHeaderActions(
   const [confirmStop, setConfirmStop] = useState(false);
   const [rollbackOpen, setRollbackOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  // The terminal is offered to whoever may open it; the server decides again when it is asked.
+  const canOpenTerminal = useHasPermission("apps.terminal") === true;
 
   // Nothing to act on until the app is read: the header keeps its place meanwhile.
   if (app === undefined) return {};
@@ -113,6 +116,11 @@ export function useAppHeaderActions(
       <MenuItem icon={<Stethoscope />} onClick={() => void navigate({ to: "/apps/$domain/diagnose", params: { domain } })}>
         {t("appPages.actions.diagnose")}
       </MenuItem>
+      {canOpenTerminal ? (
+        <MenuItem icon={<SquareTerminal />} onClick={() => void navigate({ to: "/apps/$domain/terminal", params: { domain } })}>
+          {t("appPages.actions.terminal")}
+        </MenuItem>
+      ) : null}
       <MenuSeparator />
       <MenuItem
         icon={<Delete />}
