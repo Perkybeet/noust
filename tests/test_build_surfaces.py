@@ -400,3 +400,43 @@ class TestTheApi:
         build_client(elevated=True).put(f"/api/apps/{DOMAIN}/build", json={"start": "node a.js"})
 
         assert [event for event, _ in recorded] == ["apps.build"]
+
+
+class TestCreateWithABuildFile:
+    def test_a_file_that_is_not_a_valid_block_stops_the_command_before_anything_is_fetched(
+        self, tmp_path: Path, cli_config: Any
+    ) -> None:
+        bad = tmp_path / "bad.yaml"
+        bad.write_text("build:\n  base_directory: ../x\n")
+
+        result = invoke(
+            "create",
+            "-d",
+            "new.example.com",
+            "-s",
+            "https://example.com/r.git",
+            "--build-file",
+            str(bad),
+        )
+
+        assert result.exit_code != 0
+        assert result.exception.field == "build.base_directory"
+
+    def test_it_is_not_for_a_recipe_which_pins_its_own(
+        self, tmp_path: Path, cli_config: Any
+    ) -> None:
+        good = tmp_path / "good.yaml"
+        good.write_text("build:\n  start: ./x\n")
+
+        result = invoke(
+            "create", "-d", "new.example.com", "--recipe", "ghost", "--build-file", str(good)
+        )
+
+        assert result.exit_code != 0
+        assert "recipe pins its own" in result.output
+
+    def test_it_is_offered_by_the_command(self) -> None:
+        result = invoke("create", "--help")
+
+        assert "--build-file" in result.output
+        assert "several applications" in result.output or "one repository" in result.output
