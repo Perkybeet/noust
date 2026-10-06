@@ -888,6 +888,9 @@ def test_start_and_stop_wire_and_clear_the_singleton(
     )
     monkeypatch.setattr(collector_module, "_stored_apps", lambda: [])
     monkeypatch.setattr("noust.monitor.collector.PlanBuilder", lambda: FakePlanner(tmp_path))
+    # The singleton builds its own database sampler, which discovers the Docker
+    # instances in a thread of its own: without this the test asks a real docker.
+    monkeypatch.setattr("noust.managers.database.metrics.DatabaseSampler", _NoDatabases)
 
     started = metrics_collector.start_metrics_collector()
     try:
