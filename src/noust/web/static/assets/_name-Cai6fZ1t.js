@@ -1,0 +1,1 @@
+import{It as e}from"./Button-BHxfyH_C.js";import{t}from"./_name-d5dzDH8V.js";import{t as n}from"./ServiceLayout-BqBp51RN.js";var r=e();function i(){let{name:e}=t.useParams();return(0,r.jsx)(n,{name:e},e)}export{i as component};

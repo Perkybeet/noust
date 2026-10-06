@@ -1,0 +1,1 @@
+import{t as e}from"./SecuritySettings-WFhyaWIk.js";var t=e;export{t as component};
