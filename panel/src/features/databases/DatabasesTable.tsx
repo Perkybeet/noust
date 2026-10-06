@@ -14,7 +14,7 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatBytes } from "../../lib/format";
 import { engineName, instancePlace, isContainer } from "./engines";
-import { PROTECTION_RANK, databaseId, databaseProtection } from "./protection";
+import { PROTECTION_RANK, coveringPolicy, databaseId, databaseProtection } from "./protection";
 import { TEXT_LINK } from "./ui";
 import { VerifiedMark } from "./VerifiedMark";
 
@@ -145,9 +145,9 @@ export function DatabasesTable({ databases, engines, policies, dumps, caption, r
       header: t("databases.table.backups"),
       width: "w-44",
       card: "status",
-      sortValue: (database) => PROTECTION_RANK[databaseProtection(database, policies.get(databaseId(database.engine, database.name))).protection],
+      sortValue: (database) => PROTECTION_RANK[databaseProtection(database, coveringPolicy(policies, database.engine, database.name)).protection],
       cell: (database) => {
-        const view = databaseProtection(database, policies.get(databaseId(database.engine, database.name)));
+        const view = databaseProtection(database, coveringPolicy(policies, database.engine, database.name));
         return <StatusPill appearance="inline" size="sm" state={view.state} label={t(view.label)} />;
       },
     },

@@ -47,6 +47,30 @@ export function policiesById(list: PolicyList | undefined): ReadonlyMap<string, 
   return new Map((list?.policies ?? []).map((policy) => [databaseId(policy.engine, policy.database), policy]));
 }
 
+/** The database name an all-databases policy is stored under: not a name any engine accepts. */
+export const ALL_DATABASES = "*";
+
+/** What an all-databases policy leaves out, whole databases. */
+function leftOut(policy: BackupPolicy): readonly string[] {
+  return policy.exclusions?.["databases"] ?? [];
+}
+
+/**
+ * The policy that backs a database up: its own when it has one, else the engine's policy for
+ * every database, unless that leaves this one out. The server judges the same way (an
+ * all-databases policy covers each database that has no policy of its own and is not excluded).
+ */
+export function effectivePolicy(own: BackupPolicy | undefined, all: BackupPolicy | undefined, database: string): BackupPolicy | undefined {
+  if (own?.configured) return own;
+  if (all?.configured && !leftOut(all).includes(database)) return all;
+  return own;
+}
+
+/** `effectivePolicy` over the list of every policy. */
+export function coveringPolicy(policies: ReadonlyMap<string, BackupPolicy>, engine: string, database: string): BackupPolicy | undefined {
+  return effectivePolicy(policies.get(databaseId(engine, database)), policies.get(databaseId(engine, ALL_DATABASES)), database);
+}
+
 /** Each database's newest dump, by `engine/name`. */
 export function newestDumps(dumps: readonly DatabaseBackup[] | undefined): ReadonlyMap<string, DatabaseBackup> {
   const newest = new Map<string, DatabaseBackup>();

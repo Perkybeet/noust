@@ -3,9 +3,10 @@ import { useState } from "react";
 import type { SyntheticEvent } from "react";
 
 import { request } from "../../../api/client";
-import { databaseKeys, enginesQuery, provisioningPlanQuery } from "../../../api/queries/databases";
+import { databaseKeys } from "../../../api/queries/databases";
 import type { Engine } from "../../../api/queries/databases";
 import { jobKeys } from "../../../api/queries/jobs";
+import { provisioningChoicesQuery, provisioningPlanFor } from "../../../api/queries/provisioning";
 import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
@@ -15,11 +16,13 @@ import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
-import { Select } from "../../../components/ui/Select";
+import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { can, isContainer, sortEngines } from "../../databases/engines";
 import type { Accepted } from "../../databases/jobs";
-import { defaultEnvVar } from "../../databases/LinkDialog";
+import { NO_PICK, choiceFor, initialFlavour, isPickable, isSlotFlavour, needsInstall, requestedVersion, shownVersion } from "../../databases/provisioning/choices";
+import type { ProvisionPick } from "../../databases/provisioning/choices";
+import { EngineVersionFields } from "../../databases/provisioning/EngineVersionFields";
 
 const NAME = /^[A-Za-z_][A-Za-z0-9_]{0,62}$/;
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -41,35 +44,50 @@ export interface CreateLinkDialogProps {
 }
 
 /**
- * "Create database" on an application: an engine, and what Noust will write, said before it is
- * done (the database, its account, the variables, the connection string with its password
- * masked). The database is owned by the account the application signs in as, and the
- * application restarts on it behind its startup check.
+ * "Create database" on an application: the engine and the version it is created on (from what
+ * the server says it can do: the one that runs, or one it can install first), and what Noust
+ * will write, said before it is done (the database, its account, the variables, the connection
+ * string with its password masked). The database is owned by the account the application signs
+ * in as, and the application restarts on it behind its startup check.
  */
 export function CreateLinkDialog({ domain, open, onOpenChange, onQueued }: CreateLinkDialogProps) {
   const t = useT();
   const queryClient = useQueryClient();
-  const engines = useQuery({ ...enginesQuery(), enabled: open });
-  const choices = provisionableEngines(engines.data?.engines ?? []);
-  const [engine, setEngine] = useState<string | null>(null);
-  const chosen = choices.find((item) => item.name === engine) ?? choices[0];
-  const plan = useQuery({ ...provisioningPlanQuery(domain, chosen?.name ?? ""), enabled: open && chosen !== undefined });
+  const choices = useQuery({ ...provisioningChoicesQuery(), enabled: open });
+  const list = choices.data?.choices ?? [];
+  const [picked, setPicked] = useState<ProvisionPick>(NO_PICK);
+  // Until the operator chooses, the first engine that is there is the one on offer.
+  const pick: ProvisionPick = { ...picked, flavour: picked.flavour ?? initialFlavour(list) };
+  const chosen = choiceFor(list, pick.flavour);
+  const usable = chosen !== undefined && isPickable(chosen);
+  const version = requestedVersion(pick);
+  const plan = useQuery({ ...provisioningPlanFor(domain, pick.flavour ?? "", version), enabled: open && usable });
   const [name, setName] = useState("");
   const [envVar, setEnvVar] = useState("");
   const [extra, setExtra] = useState(false);
-  const [errors, setErrors] = useState<Partial<Record<"name" | "envVar", string>>>({});
-  const slot = chosen !== undefined && can(chosen, "keys") && !can(chosen, "tables");
+  const [errors, setErrors] = useState<Partial<Record<"name" | "envVar" | "install", string | undefined>>>({});
+  const slot = isSlotFlavour(chosen);
+  const installing = needsInstall(chosen);
 
   const create = useMutation({
     mutationFn: () =>
       request("post", "/api/apps/{domain}/databases", {
         params: { domain },
-        body: { engine: chosen?.name ?? "", name: name.trim() === "" ? null : name.trim(), env_var: envVar.trim() === "" ? null : envVar.trim(), extra_vars: extra, restart: true, install: false },
+        body: {
+          engine: pick.flavour ?? "",
+          version,
+          install: installing && pick.install,
+          name: name.trim() === "" ? null : name.trim(),
+          env_var: envVar.trim() === "" ? null : envVar.trim(),
+          extra_vars: extra,
+          restart: true,
+        },
       }),
     onSuccess: (accepted) => {
       void queryClient.invalidateQueries({ queryKey: jobKeys.active });
       void queryClient.invalidateQueries({ queryKey: databaseKeys.app(domain) });
-      onQueued(accepted, chosen?.name ?? "");
+      void queryClient.invalidateQueries({ queryKey: databaseKeys.engines });
+      onQueued(accepted, chosen?.engine ?? pick.flavour ?? "");
       onOpenChange(false);
     },
   });
@@ -80,12 +98,14 @@ export function CreateLinkDialog({ domain, open, onOpenChange, onQueued }: Creat
     if (!slot && name.trim() !== "" && !NAME.test(name.trim())) found.name = t("databases.create.nameInvalid");
     if (slot && name.trim() !== "" && !/^\d{1,2}$/.test(name.trim())) found.name = t("databases.appTab.slotInvalid");
     if (envVar.trim() !== "" && !ENV_NAME.test(envVar.trim())) found.envVar = t("databases.link.envVarInvalid");
+    if (installing && !pick.install) found.install = t("provisioning.install.required", { engine: chosen?.display_name ?? "" });
     setErrors(found);
-    if (Object.keys(found).length === 0 && chosen !== undefined) create.mutate();
+    if (Object.keys(found).length === 0 && usable) create.mutate();
   };
 
-  const fallbackVar = defaultEnvVar(chosen?.name ?? null, engines.data?.engines);
+  const fallbackVar = slot ? "REDIS_URL" : "DATABASE_URL";
   const formId = "create-link-form";
+  const shown = shownVersion(chosen, pick);
   return (
     <Dialog
       open={open}
@@ -99,29 +119,32 @@ export function CreateLinkDialog({ domain, open, onOpenChange, onQueued }: Creat
       footer={
         <>
           <Button onClick={() => onOpenChange(false)}>{t("databases.common.cancel")}</Button>
-          <Button type="submit" form={formId} variant="primary" loading={create.isPending} disabled={chosen === undefined}>
+          <Button type="submit" form={formId} variant="primary" loading={create.isPending} disabled={!usable}>
             {t("databases.appTab.createAction")}
           </Button>
         </>
       }
     >
       <form id={formId} noValidate onSubmit={submit} className="flex flex-col gap-5">
-        {engines.data !== undefined && choices.length === 0 ? (
-          <Notice tone="warning" title={t("databases.create.noEngineTitle")}>
-            {t("databases.create.noEngineBody")}
-          </Notice>
-        ) : null}
-        <Field label={t("databases.fields.engine")} nativeLabel={false}>
-          <Select
-            value={chosen?.name ?? null}
-            placeholder={t("databases.create.enginePlaceholder")}
-            onValueChange={(value) => {
-              setEngine(value);
+        {choices.isError && choices.data === undefined ? (
+          <ErrorBlock compact error={choices.error} title={t("databases.wizard.enginesFailed")} onRetry={() => void choices.refetch()} />
+        ) : choices.data === undefined ? (
+          <div aria-busy="true">
+            <span className="sr-only">{t("databases.wizard.loading")}</span>
+            <Skeleton className="h-control-md w-full rounded-control" />
+          </div>
+        ) : (
+          <EngineVersionFields
+            choices={list}
+            pick={pick}
+            onPick={(next) => {
+              setPicked(next);
               setName("");
+              if (errors.install !== undefined) setErrors((previous) => ({ ...previous, install: undefined }));
             }}
-            options={choices.map((item) => ({ value: item.name, label: item.version ? `${item.display_name} ${item.version}` : item.display_name }))}
+            installError={errors.install}
           />
-        </Field>
+        )}
         <Field
           label={slot ? t("databases.appTab.slot") : t("databases.fields.name")}
           optional
@@ -145,11 +168,13 @@ export function CreateLinkDialog({ domain, open, onOpenChange, onQueued }: Creat
               items={[
                 { label: slot ? t("databases.appTab.slot") : t("databases.fields.database"), value: name.trim() || plan.data.database, copy: false },
                 ...(slot ? [] : [{ label: t("databases.appTab.account"), value: plan.data.username, copy: false as const }]),
+                ...(shown !== null ? [{ label: t("provisioning.plan.version"), value: shown, copy: false as const }] : []),
                 { label: t("databases.appTab.variables"), value: [envVar.trim() || fallbackVar, ...(extra ? ["DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD"] : [])].join(", "), copy: false },
                 { label: t("databases.connect.connectionString"), value: plan.data.url, copy: false },
               ]}
             />
           )}
+          {plan.data?.will_install ? <p className="text-13 text-fg-muted">{t("provisioning.plan.willInstall", { engine: plan.data.display_name })}</p> : null}
         </div>
         <Notice title={t("databases.link.restartTitle")}>{t("databases.link.restartBody")}</Notice>
         {create.isError ? <ErrorBlock live compact error={create.error} title={t("databases.appTab.createFailed")} /> : null}

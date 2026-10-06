@@ -15,10 +15,16 @@ import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { Mono } from "../../../components/ui/Mono";
 import { Select } from "../../../components/ui/Select";
+import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
+import type { T } from "../../../i18n";
 import { calendarWords } from "../../cron/data";
+import { engineName } from "../engines";
+import { engineFamilyOf } from "../engineKey";
 import { WEEKDAYS, scheduleExpression, scheduleForm, validTime, weekdayLabel } from "./schedule";
 import type { Frequency, ScheduleForm, Weekday } from "./schedule";
+import { MAX_EXCLUSIONS, exclusionKinds, exclusionText, parseNames } from "./scope";
+import type { ExclusionKind, PolicyScope } from "./scope";
 
 interface DestinationDraft {
   name: string;
@@ -43,9 +49,21 @@ function validLimit(text: string, max: number): boolean {
   return Number.isInteger(value) && value >= 1 && value <= max;
 }
 
+/** What a kind of exclusion is called and explained as, on this engine (MongoDB's tables are collections). */
+export function exclusionWords(t: T, kind: ExclusionKind, engine: string): { label: string; help: string } {
+  if (kind === "databases") return { label: t("policyScope.drawer.databases"), help: t("policyScope.drawer.databasesHelp") };
+  if (kind === "schemas") return { label: t("policyScope.drawer.schemas"), help: t("policyScope.drawer.schemasHelp") };
+  return engineFamilyOf(engine) === "mongodb"
+    ? { label: t("policyScope.drawer.collections"), help: t("policyScope.drawer.collectionsHelp") }
+    : { label: t("policyScope.drawer.tables"), help: t("policyScope.drawer.tablesHelp") };
+}
+
 export interface PolicyDrawerProps {
   engine: string;
+  /** The database, or `*` for the policy over every database of the engine. */
   name: string;
+  /** `all` edits the policy that covers every database of the engine (stored under `*`). */
+  scope?: PolicyScope;
   policy: BackupPolicy | undefined;
   /** PostgreSQL chooses its dump format. */
   formats: boolean;
@@ -58,11 +76,15 @@ export interface PolicyDrawerProps {
 /**
  * A database's backup policy, as one form in a drawer: when (said back in plain words), how
  * many dumps and for how long to keep them here, where else each one goes (with that place's
- * own retention), and whether each dump is proven by loading it into a throwaway database.
- * Saving it installs its timer, in sudo mode.
+ * own retention), what it leaves out (whole databases, schemas, tables or collections, for the
+ * engines that can) and whether each dump is proven by loading it into a throwaway database.
+ * Over every database of an engine (`scope="all"`) it is one policy for the ones that exist and
+ * the ones created later. Saving it installs its timer, in sudo mode.
  */
-export function PolicyDrawer({ engine, name, policy, formats, testRestore, open, onOpenChange }: PolicyDrawerProps) {
+export function PolicyDrawer({ engine, name, scope = "database", policy, formats, testRestore, open, onOpenChange }: PolicyDrawerProps) {
   const t = useT();
+  const kinds = exclusionKinds(engine, scope);
+  const display = engineName(engine);
   const queryClient = useQueryClient();
   const destinations = useQuery({ ...backupDestinationsQuery(), enabled: open });
   const configured = policy?.configured === true;
@@ -75,7 +97,13 @@ export function PolicyDrawer({ engine, name, policy, formats, testRestore, open,
   const [format, setFormat] = useState(policy?.dump_format ?? "custom");
   const [verify, setVerify] = useState(policy?.verify_restore ?? false);
   const [enabled, setEnabled] = useState(configured ? policy.enabled : true);
-  const [errors, setErrors] = useState<Partial<Record<"schedule" | "time" | "count" | "days" | "destinations", string>>>({});
+  const [errors, setErrors] = useState<Partial<Record<"schedule" | "time" | "count" | "days" | "destinations" | ExclusionKind, string>>>({});
+  const [left, setLeft] = useState<Record<ExclusionKind, string>>(() => ({
+    databases: exclusionText(policy, "databases"),
+    schemas: exclusionText(policy, "schemas"),
+    tables: exclusionText(policy, "tables"),
+  }));
+  const namesOf = (kind: ExclusionKind): string[] => (kinds.includes(kind) ? parseNames(left[kind], kind).names : []);
 
   const save = useMutation({
     mutationFn: () => {
@@ -87,6 +115,9 @@ export function PolicyDrawer({ engine, name, policy, formats, testRestore, open,
         dump_format: formats ? format : null,
         verify_restore: testRestore && verify,
         enabled,
+        exclude_databases: namesOf("databases"),
+        exclude_schemas: namesOf("schemas"),
+        exclude_tables: namesOf("tables"),
       };
       return request("put", "/api/databases/backup-policies/{engine}/{database}", { params: { engine, database: name }, body });
     },
@@ -96,7 +127,14 @@ export function PolicyDrawer({ engine, name, policy, formats, testRestore, open,
       onOpenChange(false);
     },
     onError: (error) => {
-      if (isApiError(error) && error.fields?.["schedule"]) setErrors({ schedule: error.fields["schedule"] });
+      if (!isApiError(error) || error.fields === null) return;
+      const found: typeof errors = {};
+      if (error.fields["schedule"] !== undefined) found.schedule = error.fields["schedule"];
+      // The server names the lists as it does in the request, the form as the operator reads them.
+      if (error.fields["exclude_databases"] !== undefined) found.databases = error.fields["exclude_databases"];
+      if (error.fields["exclude_schemas"] !== undefined) found.schemas = error.fields["exclude_schemas"];
+      if (error.fields["exclude_tables"] !== undefined) found.tables = error.fields["exclude_tables"];
+      if (Object.keys(found).length > 0) setErrors(found);
     },
   });
 
@@ -108,6 +146,11 @@ export function PolicyDrawer({ engine, name, policy, formats, testRestore, open,
     if (!validLimit(count, 365)) found.count = t("databases.policy.countInvalid");
     if (!validLimit(days, 3650)) found.days = t("databases.policy.daysInvalid");
     if (sends.some((item) => !validLimit(item.count, 365) || !validLimit(item.days, 3650))) found.destinations = t("databases.policy.destinationLimitInvalid");
+    for (const kind of kinds) {
+      const parsed = parseNames(left[kind], kind);
+      if (parsed.invalid.length > 0) found[kind] = t("policyScope.drawer.invalid", { entries: parsed.invalid.join(", ") });
+      else if (parsed.tooMany) found[kind] = t("policyScope.drawer.tooMany", { max: MAX_EXCLUSIONS });
+    }
     setErrors(found);
     if (Object.keys(found).length === 0) save.mutate();
   };
@@ -123,8 +166,8 @@ export function PolicyDrawer({ engine, name, policy, formats, testRestore, open,
       open={open}
       onOpenChange={onOpenChange}
       size="md"
-      title={configured ? t("databases.policy.editTitle") : t("databases.policy.newTitle")}
-      description={t("databases.policy.description", { name })}
+      title={scope === "all" ? t("policyScope.drawer.titleAll", { engine: display }) : configured ? t("databases.policy.editTitle") : t("databases.policy.newTitle")}
+      description={scope === "all" ? t("policyScope.drawer.descriptionAll", { engine: display }) : t("databases.policy.description", { name })}
       footer={
         <>
           <Button onClick={() => onOpenChange(false)}>{t("databases.common.cancel")}</Button>
@@ -240,6 +283,28 @@ export function PolicyDrawer({ engine, name, policy, formats, testRestore, open,
           )}
           {errors.destinations !== undefined ? <p className="text-12 text-fail">{errors.destinations}</p> : null}
         </fieldset>
+
+        {kinds.length > 0 ? (
+          <fieldset className="flex min-w-0 flex-col gap-5">
+            <legend className="mb-3 text-13 font-medium text-fg">{t("policyScope.drawer.leaveOut")}</legend>
+            {kinds.map((kind) => {
+              const words = exclusionWords(t, kind, engine);
+              return (
+                <Field key={kind} label={words.label} optional description={`${words.help} ${t("policyScope.drawer.names")}`} error={errors[kind]}>
+                  <Textarea
+                    mono
+                    rows={2}
+                    value={left[kind]}
+                    onChange={(event) => setLeft((previous) => ({ ...previous, [kind]: event.target.value }))}
+                    autoComplete="off"
+                    spellCheck={false}
+                  />
+                </Field>
+              );
+            })}
+            <p className="text-12 text-fg-faint">{t("policyScope.drawer.leaveOutHelp")}</p>
+          </fieldset>
+        ) : null}
 
         <fieldset className="flex min-w-0 flex-col gap-4">
           <legend className="mb-3 text-13 font-medium text-fg">{t("databases.policy.proof")}</legend>

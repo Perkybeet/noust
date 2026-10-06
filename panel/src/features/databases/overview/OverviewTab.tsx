@@ -29,7 +29,8 @@ import { sizeBytes, sizeWords } from "../DatabasesTable";
 import { can, supportText, supportView } from "../engines";
 import { useDatabaseJob } from "../jobs";
 import { LinkDialog } from "../LinkDialog";
-import { newestDumps, policyProtection, protectionView } from "../protection";
+import { coversEveryDatabase } from "../backups/scope";
+import { ALL_DATABASES, effectivePolicy, newestDumps, policyProtection, protectionView } from "../protection";
 import { TEXT_LINK } from "../ui";
 import { profileLabel } from "../users/profiles";
 import { VerifiedMark } from "../VerifiedMark";
@@ -82,6 +83,8 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
   const overview = useQuery(databaseOverviewQuery(engine, name));
   const metrics = useQuery({ ...databaseMetricsQuery(engine, name), retry: false });
   const policy = useQuery(policyQuery(engine, name));
+  // The policy for every database of the engine backs this one up when it has none of its own.
+  const everything = useQuery({ ...policyQuery(engine, ALL_DATABASES), enabled: coversEveryDatabase(engine) });
   const dumps = useQuery(databaseBackupsQuery(engine, name));
   const data = overview.data;
   const capabilities = data?.capabilities ?? [];
@@ -110,7 +113,7 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
   const newest = newestDumps(dumps.data?.backups).values().next().value;
   const support = supportView(data.support);
   const supportWords = supportText(t, data.support);
-  const protection = protectionView(policyProtection(policy.data));
+  const protection = protectionView(policyProtection(effectivePolicy(policy.data, everything.data, name)));
   const accounts = data.access.filter((entry) => !entry.internal);
   const size = metrics.data?.size_bytes ?? sizeBytes(database.size);
 

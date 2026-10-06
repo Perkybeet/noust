@@ -1,0 +1,46 @@
+/**
+ * Strings of the picker of a new database for an application: the engine, the version it is
+ * created on (from `GET /api/databases/provisioning/choices`) and installing the engine first.
+ */
+export const provisioning = {
+  engineLabel: "Engine",
+  enginePlaceholder: "Choose an engine",
+  versionLabel: "Version",
+  engineState: {
+    installed: "Installed, version {version}",
+    installedUnknown: "Installed",
+    installable: "Not installed: Noust installs it first",
+  },
+  version: {
+    defaultRunning: "The version that runs ({version})",
+    defaultRunningUnknown: "The version that runs",
+    defaultInstall: "Default ({version})",
+    defaultInstallUnknown: "Default",
+    state: {
+      installed: "Runs here",
+      installable: "Can be installed",
+      unavailable: "Not available here",
+    },
+    helpInstalled: "One {engine} runs on a server, so the database is created on the version that runs.",
+    helpInstallable: "{engine} is not installed here, so you choose which version Noust installs.",
+  },
+  unavailable: {
+    title: "Not available on this server",
+    line: "{engine}: {reason}",
+    noReason: "it cannot be installed here",
+  },
+  none: {
+    title: "No engine can hold a database here",
+    body: "Install a database engine first, from Databases > Engines.",
+  },
+  install: {
+    label: "Install {engine} first",
+    description: "{engine} {version} is installed from the project's own repository, with its signing key pinned, before the database is created. It asks you to confirm it's you.",
+    descriptionUnknown: "{engine} is installed from the project's own repository, with its signing key pinned, before the database is created. It asks you to confirm it's you.",
+    required: "Tick it to install {engine}, or choose an engine that is installed.",
+  },
+  plan: {
+    willInstall: "{engine} is installed first.",
+    version: "Version",
+  },
+} as const;
