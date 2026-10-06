@@ -20,9 +20,75 @@ from collections.abc import Callable
 #: The schema version this module defines.
 VERSION = 14
 
-# Owned by the teams lane: teams, their members, projects and environments.
-TEAMS_SQL = ""
-TEAMS_COLUMNS: list[tuple[str, str, str]] = []
+# Owned by the teams lane: teams, their members, projects and environments, and
+# the project and environment every application, site, database and backup
+# schedule belongs to (noust.core.teams).
+#
+# Ownership is nullable in SQL on purpose: SQLite cannot add a NOT NULL column
+# without a constant default, and a constant would name a project that may not
+# exist. The store fills it for every new row and noust.core.teams.backfill
+# fills it for every old one, so a NULL is a row nobody has seen yet, which a
+# team-scoped reader does not see either (it fails closed).
+#
+# The columns reference with RESTRICT: a project or an environment that still
+# holds something cannot be deleted by any writer, whatever the manager above
+# it checked. The triggers that say the same about an environment and its
+# project (a row cannot sit in an environment of another project) are
+# noust.core.teams.guards, installed by the data step: a trigger body holds
+# semicolons, which a fragment is not allowed to (it is run statement by statement).
+TEAMS_SQL = """
+CREATE TABLE IF NOT EXISTS teams (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    created_by TEXT
+);
+
+CREATE TABLE IF NOT EXISTS team_members (
+    team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'operator', 'viewer')),
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    PRIMARY KEY (team_id, account_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_team_members_account ON team_members(account_id);
+
+CREATE TABLE IF NOT EXISTS projects (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    slug TEXT NOT NULL,
+    name TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    UNIQUE (team_id, slug)
+);
+
+CREATE TABLE IF NOT EXISTS environments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+    slug TEXT NOT NULL,
+    name TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    UNIQUE (project_id, slug)
+);
+
+CREATE TABLE IF NOT EXISTS account_active_team (
+    account_id INTEGER PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+    team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE
+);
+"""
+TEAMS_COLUMNS: list[tuple[str, str, str]] = [
+    (table, column, definition)
+    for table in ("apps", "sites", "databases", "backup_schedules")
+    for column, definition in (
+        ("project_id", "INTEGER REFERENCES projects(id) ON DELETE RESTRICT"),
+        ("environment_id", "INTEGER REFERENCES environments(id) ON DELETE RESTRICT"),
+    )
+]
 
 # Owned by the build lane: the native build block of an application
 # (noust.core.app_build_store is its only reader and writer). One row per

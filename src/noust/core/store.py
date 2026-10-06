@@ -46,6 +46,8 @@ from noust.core.fs import (
     get_fs,
     is_rehearsal,
 )
+from noust.core.teams import backfill as teams_backfill
+from noust.core.teams import ownership as teams_ownership
 
 logger = logging.getLogger(__name__)
 
@@ -259,7 +261,16 @@ _OWN_SETTER_COLUMNS = (
     "follow_tags",
     "backup_before_update",
     "identity",
+    "project_id",
+    "environment_id",
 )
+
+#: The columns that say which project and environment a row belongs to. Written
+#: when a row is inserted (:mod:`noust.core.teams.ownership` decides where it
+#: goes) and by a move (:meth:`noust.core.teams.repository.TeamStore.move_app`),
+#: never by the full-row write of a deploy, which would put back where the row
+#: was when it read it.
+_OWNERSHIP_COLUMNS = ("project_id", "environment_id")
 
 #: A Compose project name as Compose itself accepts it.
 _COMPOSE_PROJECT = re.compile(r"^[a-z0-9][a-z0-9_-]{0,62}$")
@@ -366,6 +377,11 @@ class App:
     backup_before_update: bool = True
     # The system account the app runs as when it has its own (3.2).
     identity: str | None = None
+    # Schema v14: the project and environment it belongs to, set by the store
+    # on insert and changed only by a move. None only on a row read from a
+    # store that predates teams, which a migration fills.
+    project_id: int | None = None
+    environment_id: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -501,6 +517,9 @@ class Site:
     ssl_key: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
+    # Schema v14: where it lives; see App.project_id.
+    project_id: int | None = None
+    environment_id: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -564,6 +583,9 @@ class Database:
     encoding: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
+    # Schema v14: where it lives; see App.project_id.
+    project_id: int | None = None
+    environment_id: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
@@ -925,6 +947,8 @@ class BackupScheduleRecord:
             age limit.
         destinations: Remote copies: ``{"name", "retention_count",
             "retention_days"}`` per destination.
+        project_id: The project it belongs to (schema v14), the application's.
+        environment_id: The environment it belongs to, the application's.
     """
 
     app_domain: str
@@ -935,6 +959,8 @@ class BackupScheduleRecord:
     destinations: list[dict[str, Any]] = field(default_factory=list)
     created_at: str | None = None
     updated_at: str | None = None
+    project_id: int | None = None
+    environment_id: int | None = None
 
     @classmethod
     def from_row(cls, row: sqlite3.Row) -> "BackupScheduleRecord":
@@ -2023,6 +2049,7 @@ class NoustStore:
         logger.warning("The store is at v14 without all of v14's tables; adding them")
         with self._ddl_transaction() as ddl:
             schema_v14.apply_v14(ddl, _run_script)
+            teams_backfill.run(ddl)
 
     def _create_fresh_schema(self) -> bool:
         """
@@ -2048,6 +2075,7 @@ class NoustStore:
             schema_v12.apply_v12(cursor, _run_script)
             schema_v13.apply_v13(cursor, _run_script)
             schema_v14.apply_v14(cursor, _run_script)
+            teams_backfill.run(cursor)
             cursor.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
         return True
 
@@ -2316,6 +2344,10 @@ class NoustStore:
             cursor: Cursor the migration runs on.
         """
         schema_v14.apply_v14(cursor, _run_script)
+        # The data half of the same step: the default team, and an owner for
+        # every row that exists. Idempotent, and run here rather than in the
+        # schema module, which only declares tables and columns.
+        teams_backfill.run(cursor)
 
     # =========================================================================
     # Application CRUD
@@ -2349,6 +2381,11 @@ class NoustStore:
             raise self.conflict(app.domain, owner)
 
         with self._transaction() as cursor:
+            if app.project_id is None or app.environment_id is None:
+                # A preview lives where the application it previews does.
+                app.project_id, app.environment_id = teams_ownership.new_row_owner(
+                    cursor, app_domain=app.preview_parent
+                )
             data = app.to_dict()
             del data["id"]  # Let SQLite auto-generate
 
@@ -3171,6 +3208,10 @@ class NoustStore:
         site.updated_at = now
 
         with self._transaction() as cursor:
+            if site.project_id is None or site.environment_id is None:
+                site.project_id, site.environment_id = teams_ownership.new_row_owner(
+                    cursor, app_id=site.app_id
+                )
             data = site.to_dict()
             del data["id"]
 
@@ -3228,12 +3269,15 @@ class NoustStore:
             data = site.to_dict()
             site_id = data.pop("id")
             data.pop("created_at")
+            for column in _OWNERSHIP_COLUMNS:
+                data.pop(column, None)
 
             set_clause = ", ".join([f"{k} = ?" for k in data.keys()])
 
             cursor.execute(
                 f"UPDATE sites SET {set_clause} WHERE id = ?", [*list(data.values()), site_id]
             )
+            self._follow_application(cursor, "sites", site_id)
 
         return site
 
@@ -3414,6 +3458,10 @@ class NoustStore:
         database.updated_at = now
 
         with self._transaction() as cursor:
+            if database.project_id is None or database.environment_id is None:
+                database.project_id, database.environment_id = teams_ownership.new_row_owner(
+                    cursor, app_id=database.app_id
+                )
             data = database.to_dict()
             del data["id"]
 
@@ -3464,14 +3512,43 @@ class NoustStore:
             data = database.to_dict()
             db_id = data.pop("id")
             data.pop("created_at")
+            for column in _OWNERSHIP_COLUMNS:
+                data.pop(column, None)
 
             set_clause = ", ".join([f"{k} = ?" for k in data.keys()])
 
             cursor.execute(
                 f"UPDATE databases SET {set_clause} WHERE id = ?", [*list(data.values()), db_id]
             )
+            self._follow_application(cursor, "databases", db_id)
 
         return database
+
+    @staticmethod
+    def _follow_application(cursor: sqlite3.Cursor, table: str, row_id: int | None) -> None:
+        """
+        Put a row where its application lives.
+
+        A site or a database linked to an application belongs to the project and
+        environment of that application, whatever wrote the row first or linked
+        it after: the full-row writes never touch the owner themselves, so this
+        is how a row that gains an application (a preview's site, a database
+        linked by hand) comes home. A row with no application keeps its owner.
+
+        Args:
+            cursor: A cursor inside the write's transaction.
+            table: ``sites`` or ``databases``.
+            row_id: The row.
+        """
+        cursor.execute(
+            f"UPDATE {table} SET "
+            f"project_id = COALESCE((SELECT project_id FROM apps WHERE apps.id = {table}.app_id), "
+            "project_id), "
+            f"environment_id = COALESCE((SELECT environment_id FROM apps "
+            f"WHERE apps.id = {table}.app_id), environment_id) "
+            "WHERE id = ? AND app_id IS NOT NULL",
+            (row_id,),
+        )
 
     def delete_database(self, name: str, engine: str) -> bool:
         """Delete a database record."""
@@ -3487,9 +3564,20 @@ class NoustStore:
             if not app_row:
                 return False
 
+            # A database lives with the application it is linked to.
             cursor.execute(
-                "UPDATE databases SET app_id = ?, updated_at = ? WHERE name = ? AND engine = ?",
-                (app_row["id"], datetime.now().isoformat(), db_name, engine),
+                "UPDATE databases SET app_id = ?, updated_at = ?, "
+                "project_id = COALESCE((SELECT project_id FROM apps WHERE id = ?), project_id), "
+                "environment_id = COALESCE((SELECT environment_id FROM apps WHERE id = ?), "
+                "environment_id) WHERE name = ? AND engine = ?",
+                (
+                    app_row["id"],
+                    datetime.now().isoformat(),
+                    app_row["id"],
+                    app_row["id"],
+                    db_name,
+                    engine,
+                ),
             )
             return cursor.rowcount > 0
 
@@ -4929,10 +5017,18 @@ class NoustStore:
         """
         now = _utc_now()
         with self._transaction() as cursor:
+            # Only an insert uses these; a schedule that exists keeps its owner
+            # (the application's, which a move changes together).
+            project_id, environment_id = (
+                (schedule.project_id, schedule.environment_id)
+                if schedule.project_id is not None and schedule.environment_id is not None
+                else teams_ownership.new_row_owner(cursor, app_domain=schedule.app_domain)
+            )
             cursor.execute(
                 "INSERT INTO backup_schedules (app_domain, schedule, include_databases, "
-                "retention_count, retention_days, destinations, created_at, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
+                "retention_count, retention_days, destinations, created_at, updated_at, "
+                "project_id, environment_id) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(app_domain) DO UPDATE SET schedule = excluded.schedule, "
                 "include_databases = excluded.include_databases, "
                 "retention_count = excluded.retention_count, "
@@ -4947,6 +5043,8 @@ class NoustStore:
                     json.dumps(schedule.destinations, sort_keys=True),
                     now,
                     now,
+                    project_id,
+                    environment_id,
                 ),
             )
         stored = self.get_backup_schedule(schedule.app_domain)

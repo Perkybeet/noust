@@ -3255,6 +3255,9 @@ class DatabaseService:
                     host="localhost",
                     port=manager.server_port(),
                     username=original.username if original else None,
+                    # A copy of a database lives where the original does.
+                    project_id=original.project_id if original else None,
+                    environment_id=original.environment_id if original else None,
                 )
             )
         self.audit(

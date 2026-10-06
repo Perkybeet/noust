@@ -51,6 +51,7 @@ from noust.core.accounts.model import (
 )
 from noust.core.accounts.policy import AuthPolicy, load_policy
 from noust.core.exceptions import ValidationError
+from noust.core.teams.enrol import enrol_in_default, follow_instance_role
 
 logger = logging.getLogger(__name__)
 
@@ -434,6 +435,7 @@ class AccountManager:
         display_name: str | None = None,
         person_ref: str | None = None,
         created_by: str | None = None,
+        join_default_team: bool = True,
     ) -> Account:
         """
         Create an active account with a password.
@@ -448,6 +450,9 @@ class AccountManager:
             display_name: How the console greets them.
             person_ref: Who the account belongs to, for separation of duties.
             created_by: Who is creating it, for the record.
+            join_default_team: Make the account a member of the default team
+                (what every account was before teams existed). A caller that
+                puts the account in a team of its own passes False.
 
         Returns:
             The account.
@@ -475,6 +480,7 @@ class AccountManager:
             display_name=clean_display_name(display_name),
             person_ref=clean_person_ref(person_ref),
             created_by=created_by,
+            join_default_team=join_default_team,
         )
 
     def _insert(
@@ -487,6 +493,7 @@ class AccountManager:
         display_name: str,
         person_ref: str | None,
         created_by: str | None,
+        join_default_team: bool = True,
     ) -> Account:
         """
         Write a new account row after the separation-of-duties check.
@@ -499,6 +506,8 @@ class AccountManager:
             display_name: Cleaned display name.
             person_ref: Cleaned person reference.
             created_by: Who is creating it.
+            join_default_team: Whether the account joins the default team,
+                in the same transaction that creates it.
 
         Returns:
             The account.
@@ -528,6 +537,8 @@ class AccountManager:
                     ),
                 )
                 account_id = int(cursor.lastrowid or 0)
+                if join_default_team:
+                    enrol_in_default(cursor, account_id, role)
         except sqlite3.IntegrityError as exc:
             raise AccountError(
                 f"An account named {username!r} already exists",
@@ -575,6 +586,7 @@ class AccountManager:
         person_ref: str | None = None,
         created_by: str | None = None,
         expires_hours: float = DEFAULT_INVITATION_HOURS,
+        join_default_team: bool = True,
     ) -> tuple[Account, str]:
         """
         Issue a single-use invitation: the person sets their own password.
@@ -593,6 +605,8 @@ class AccountManager:
             person_ref: Person reference of a new account.
             created_by: Who is inviting, for the record.
             expires_hours: Life of the invitation, at most two weeks.
+            join_default_team: Whether a new account joins the default team;
+                an invitation to a team passes False and adds the team itself.
 
         Returns:
             The account and the invitation code, in clear, exactly once.
@@ -623,6 +637,7 @@ class AccountManager:
                 display_name=clean_display_name(display_name),
                 person_ref=clean_person_ref(person_ref),
                 created_by=created_by,
+                join_default_team=join_default_team,
             )
         elif existing.status == STATUS_DISABLED:
             raise AccountError(
@@ -800,7 +815,14 @@ class AccountManager:
         row = self._require(username)
         new_role = validate_role(role)
         self._check_separation(row["person_ref"], new_role, exclude_id=int(row["id"]))
-        self._update(int(row["id"]), role=new_role)
+        with self._write() as cursor:
+            cursor.execute(
+                "UPDATE accounts SET role = ?, updated_at = ? WHERE id = ?",
+                (new_role, self.now(), int(row["id"])),
+            )
+            # A security officer or an auditor belongs to no team; an account
+            # that stops being one joins the default, as a new account does.
+            follow_instance_role(cursor, int(row["id"]), new_role)
         return self.require(username)
 
     def update_profile(
