@@ -67,6 +67,7 @@ from noust.core.exceptions import (
 from noust.core.forge_events import Forge, PullRequestAction, PullRequestEvent
 from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
+from noust.core.repositories import repository_key
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, DeploymentTrigger, PreviewRecord, PreviewSettings, get_store
 from noust.core.utils import domain_to_app_name, find_noust_executable
@@ -161,49 +162,10 @@ _SYSTEMCTL_TIMEOUT = 60
 _TTL_PATTERN = re.compile(r"^\s*(\d{1,6})\s*([hdw]?)\s*$", re.IGNORECASE)
 _TTL_UNITS = {"": 1, "h": 1, "d": 24, "w": 24 * 7}
 
-# Git sources, reduced to the host and the repository path they name.
-_GITHUB_SHORTHAND = re.compile(r"^github:(?P<path>[\w.-]+/[\w.-]+?)(?:\.git)?/?$", re.IGNORECASE)
-_SCP_LIKE = re.compile(r"^[\w.-]+@(?P<host>[\w.-]+):(?!//)(?P<path>[\w./-]+?)(?:\.git)?/?$")
-_URL_LIKE = re.compile(
-    r"^(?:https?|ssh|git)://(?:[^@/]+@)?(?P<host>[\w.-]+)(?::\d+)?/(?P<path>[\w./-]+?)(?:\.git)?/?$",
-    re.IGNORECASE,
-)
-
 
 # ---------------------------------------------------------------------------
 # Pure helpers
 # ---------------------------------------------------------------------------
-
-
-def repository_key(source: str | None) -> tuple[str, str] | None:
-    """
-    Reduce a git source to the repository it names.
-
-    ``https://github.com/Owner/Repo.git``, ``git@github.com:owner/repo``,
-    ``ssh://git@github.com/owner/repo`` and ``github:owner/repo`` all name the
-    same repository, and a webhook names it as ``owner/repo``; comparing the
-    sources as typed would miss every one of those.
-
-    Args:
-        source: A source as the store records it.
-
-    Returns:
-        ``(host, path)``, both lowercased, the path without ``.git``; None
-        when the source is not a git repository (a local path, an archive).
-    """
-    if not source:
-        return None
-    text = source.strip().split("#", 1)[0]
-    shorthand = _GITHUB_SHORTHAND.match(text)
-    if shorthand:
-        return ("github.com", shorthand.group("path").lower())
-    match = _URL_LIKE.match(text) or _SCP_LIKE.match(text)
-    if not match:
-        return None
-    path = match.group("path").strip("/")
-    if "/" not in path:
-        return None
-    return (match.group("host").lower(), path.lower())
 
 
 def parse_ttl(value: str | int) -> int:

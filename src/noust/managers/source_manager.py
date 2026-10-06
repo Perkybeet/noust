@@ -53,7 +53,7 @@ import zipfile
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
-from typing import IO, Any
+from typing import IO, TYPE_CHECKING, Any
 from urllib.error import URLError
 from urllib.parse import unquote, urlparse, urlsplit, urlunsplit
 from urllib.request import (
@@ -70,6 +70,7 @@ from noust.core.config import REDACTED
 from noust.core.exceptions import IntegrationError, SourceError
 from noust.core.fs import FileSystem, RealFileSystem, get_fs
 from noust.core.package_family import install_hint
+from noust.core.repositories import repository_key
 from noust.core.runner import CommandResult, CommandRunner
 from noust.managers.base_manager import BaseManager
 from noust.validators.source import (
@@ -80,6 +81,9 @@ from noust.validators.ssh import (
     ensure_ssh_setup,
     is_ssh_url,
 )
+
+if TYPE_CHECKING:
+    from noust.managers.source_keys import KeyUse
 
 #: Members allowed in a single archive. A source tree is thousands of files;
 #: millions of them is an inode exhaustion attack.
@@ -616,6 +620,58 @@ def _classify_source(source: str) -> tuple[str, str]:
     return source_type, stripped
 
 
+#: What ssh says when the host key it was shown is not the one pinned for the
+#: host, or cannot be checked: a changed key is never accepted silently.
+_HOST_KEY_MARKERS = (
+    "remote host identification has changed",
+    "host key verification failed",
+)
+
+#: The ssh-based git commands a deploy key signs in for. ``submodule`` is not
+#: one: a submodule is another repository, and the key of this one is not its own.
+_DEPLOY_KEY_VERBS = frozenset({"clone", "fetch", "ls-remote", "pull", "checkout"})
+
+
+def is_host_key_failure(output: str) -> bool:
+    """
+    Tell whether ssh refused because a pinned host key did not match.
+
+    Args:
+        output: git's stderr, or stderr and stdout together.
+
+    Returns:
+        True when ssh says the host's key changed or could not be verified.
+    """
+    lowered = output.lower()
+    return any(marker in lowered for marker in _HOST_KEY_MARKERS)
+
+
+def host_key_error(url: str | None, result: CommandResult) -> SourceError:
+    """
+    Build the error for ssh refusing a host whose key is not the one pinned.
+
+    Args:
+        url: The repository URL, or None when it is not known.
+        result: The failed git command.
+
+    Returns:
+        The error to raise, carrying ssh's own output verbatim.
+    """
+    key = repository_key(url) if url else None
+    host = key[0] if key else "the host"
+    return SourceError(
+        f"The host key of {host} is not the one Noust pinned",
+        details=(
+            "Noust records a host's key the first time it connects and refuses a different one "
+            "afterwards, so a machine answering in the host's place is not trusted. If the code "
+            "host really changed its key, compare the fingerprint ssh printed with the ones it "
+            f"publishes, then forget the old one with: noust app deploy-key forget-host {host}. "
+            f"(For the server-wide key, 'ssh-keygen -R {host}' does it in root's known_hosts.)"
+        ),
+        output=redact_git_text(result.stderr or result.stdout),
+    )
+
+
 def is_git_auth_failure(output: str) -> bool:
     """
     Tell whether git failed because the repository wanted credentials.
@@ -662,7 +718,9 @@ def git_auth_fix(url: str | None) -> str:
         return (
             "Add this server's public key as a deploy key of the repository: "
             "`noust setup ssh --show` prints it (`noust setup ssh --generate` creates it "
-            "if there is none), then retry. If the repository does not exist, check the URL."
+            "if there is none), then retry. Or give the application a key of its own, "
+            "which reaches this repository and no other: `noust app deploy-key generate "
+            "<domain>`. If the repository does not exist, check the URL."
         )
     ssh_url = _ssh_equivalent(url) or "git@<host>:<owner>/<repo>.git"
     github_app = (
@@ -674,7 +732,8 @@ def git_auth_fix(url: str | None) -> str:
     return (
         f"Deploy from the SSH URL instead ({ssh_url}) after adding this server's key "
         "as a deploy key of the repository: `noust setup ssh --show` prints it "
-        "(`noust setup ssh --generate` creates it if there is none). Or keep the https URL "
+        "(`noust setup ssh --generate` creates it if there is none), or `noust app deploy-key "
+        "generate <domain>` for a key of the application's own. Or keep the https URL "
         "and store an access token for the host with a git credential helper "
         "(`git config --global credential.helper store`, then a line "
         "https://<user>:<token>@<host> in /root/.git-credentials, mode 0600). "
@@ -2112,10 +2171,118 @@ class SourceManager(BaseManager):
             # github.com repository is reached with this server's GitHub App.
             env.update(self._github_auth(args, cwd))
         self.logger.debug(redact_git_text(f"Running: {' '.join(argv)}"))
-        result = self.runner.run(argv, cwd=cwd, env=env, timeout=timeout)
+        result = self._run_network_git(argv, args, cwd, env, timeout)
         stderr = redact_git_text(result.stderr)
         self.logger.command_output(redact_git_text(result.stdout), stderr)
         return replace(result, stderr=stderr) if stderr != result.stderr else result
+
+    def _ensure_ssh(self, url: str) -> None:
+        """
+        Check the server-wide SSH setup before cloning an ssh URL.
+
+        A repository with a deploy key of its own is signed in to with that key
+        (:mod:`noust.managers.source_keys`), so the server-wide key, which is
+        what this checks and would generate, is not its business.
+
+        Args:
+            url: The repository URL.
+
+        Raises:
+            SSHError: When the server-wide SSH setup is not usable and the
+                repository has no key of its own.
+        """
+        if not is_ssh_url(url):
+            return
+        # Imported here: the manager reads the store, and the deployers import
+        # this module.
+        from noust.managers.source_keys import DeployKeyManager
+
+        if DeployKeyManager(runner=self.runner).has_key_for(url):
+            return
+        self.logger.debug("Validating SSH configuration...")
+        ensure_ssh_setup(url, auto_generate=True, verbose=self.verbose)
+
+    def _run_network_git(
+        self,
+        argv: Sequence[str],
+        args: Sequence[str],
+        cwd: Path | None,
+        env: Mapping[str, str],
+        timeout: int,
+    ) -> CommandResult:
+        """
+        Run git, signing in with the repository's own deploy key when it has one.
+
+        A repository with a deploy key (:mod:`noust.managers.source_keys`) is
+        reached with that key and no other. While a rotation waits, the new key
+        is tried first and the old one when the code host does not accept it
+        yet, and the first command the host answers with the new one makes it
+        the key. Anything else runs exactly once, as it always did.
+
+        Args:
+            argv: The whole command.
+            args: The arguments after the safe configuration.
+            cwd: Where it runs.
+            env: The environment, with the credentials of the URL or the GitHub
+                App already in it.
+            timeout: Deadline in seconds, for each attempt.
+
+        Returns:
+            The outcome of the attempt that worked, else of the last one.
+        """
+        use = self._deploy_key_use(args, cwd)
+        if use is None:
+            return self.runner.run(argv, cwd=cwd, env=env, timeout=timeout)
+        try:
+            *earlier, last = use.identities
+            for identity in earlier:
+                attempt = {**env, "GIT_SSH_COMMAND": identity.command}
+                result = self.runner.run(argv, cwd=cwd, env=attempt, timeout=timeout)
+                if result.success:
+                    use.succeeded(identity)
+                    return result
+                if not is_git_auth_failure(f"{result.stderr}\n{result.stdout}"):
+                    return result
+            result = self.runner.run(
+                argv, cwd=cwd, env={**env, "GIT_SSH_COMMAND": last.command}, timeout=timeout
+            )
+            if result.success:
+                use.succeeded(last)
+            return result
+        finally:
+            use.close()
+
+    def _deploy_key_use(self, args: Sequence[str], cwd: Path | None) -> KeyUse | None:
+        """
+        Find the deploy key of the repository a git command is about to reach.
+
+        Args:
+            args: The git arguments after the safe configuration.
+            cwd: The repository the command runs in, if any.
+
+        Returns:
+            The identities to sign in with, or None for a command that is not
+            ssh, names a repository without a key, or touches no network.
+        """
+        verb = args[0] if args else ""
+        if verb not in _DEPLOY_KEY_VERBS:
+            return None
+        # Imported here: the manager reads the store and runs ssh-keygen, and
+        # this module is imported by the deployers.
+        from noust.managers.source_keys import DeployKeyManager
+
+        keys = DeployKeyManager(runner=self.runner)
+        if not keys.keystore.any_assigned():
+            return None
+        url = next((argument for argument in args if is_ssh_url(argument)), None)
+        if url is None and cwd is not None:
+            url = self._remote_urls.get(os.path.abspath(cwd))
+        if url is None and cwd is not None and verb in ("fetch", "pull", "checkout"):
+            origin = self._git(["remote", "get-url", "origin"], cwd=cwd)
+            url = origin.stdout.strip() if origin.success else None
+        if not url or not is_ssh_url(url):
+            return None
+        return keys.identities_for(url)
 
     def _github_auth(self, args: Sequence[str], cwd: Path | None) -> dict[str, str]:
         """
@@ -2194,6 +2361,8 @@ class SourceManager(BaseManager):
         Returns:
             The error to raise.
         """
+        if is_host_key_failure(f"{result.stderr}\n{result.stdout}"):
+            return host_key_error(url, result)
         if not is_git_auth_failure(f"{result.stderr}\n{result.stdout}"):
             return SourceError(redact_git_text(message), details=redact_git_text(result.stderr))
         if url is None and repository is not None:
@@ -3119,9 +3288,7 @@ class SourceManager(BaseManager):
         safe_branch = validate_git_ref(branch) if branch else None
 
         # Validate SSH setup for SSH URLs
-        if is_ssh_url(safe_url):
-            self.logger.debug("Validating SSH configuration...")
-            ensure_ssh_setup(safe_url, auto_generate=True, verbose=self.verbose)
+        self._ensure_ssh(safe_url)
 
         # Build clone command
         cmd = ["clone"]
@@ -3203,8 +3370,7 @@ class SourceManager(BaseManager):
             if not pattern.startswith("/") or "\n" in pattern:
                 raise SourceError(f"Not an anchored sparse-checkout pattern: {pattern!r}")
 
-        if is_ssh_url(url):
-            ensure_ssh_setup(url, auto_generate=True, verbose=self.verbose)
+        self._ensure_ssh(url)
 
         result = self._git(
             [

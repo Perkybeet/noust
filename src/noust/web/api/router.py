@@ -32,6 +32,8 @@ from noust.web.api.config import router as config_router
 from noust.web.api.cron import router as cron_router
 from noust.web.api.databases import apps_router as databases_apps_router
 from noust.web.api.databases import router as databases_router
+from noust.web.api.deploy_keys import keys_router as deploy_keys_router
+from noust.web.api.deploy_keys import router as app_deploy_key_router
 from noust.web.api.deployments import app_router as deployment_actions_router
 from noust.web.api.deployments import router as deployments_router
 from noust.web.api.deps import NoustErrorRoute, install_error_handlers
@@ -162,6 +164,10 @@ router.include_router(identity_router, prefix="/apps", tags=["Applications"])
 router.include_router(app_stack_router, prefix="/apps", tags=["Applications"])
 # app_hooks.py owns only paths under "/{domain}/hooks".
 router.include_router(app_hooks_router, prefix="/apps", tags=["Applications"])
+# deploy_keys.py owns only paths under "/{domain}/deploy-key", and its second
+# router the whole of "/deploy-keys".
+router.include_router(app_deploy_key_router, prefix="/apps", tags=["Applications"])
+router.include_router(deploy_keys_router, prefix="/deploy-keys", tags=["Deploy keys"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.
 router.include_router(app_adopt_router, prefix="/apps", tags=["Applications"])
 router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])
