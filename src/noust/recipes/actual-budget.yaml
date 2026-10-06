@@ -1,0 +1,48 @@
+# Actual Budget's sync server from the image the project publishes on Docker Hub, as the
+# docker-compose.yml of packages/sync-server (v26.10.0 tag) has it: the server on 5006,
+# everything it keeps (the server's account database and the budget files clients sync)
+# under /data, and /health as its health check (the project's scripts/health-check.js asks
+# it). The image runs as root. The application itself runs in the browser and the apps;
+# the server only stores and syncs the encrypted-or-not budget files.
+#
+# Actual asks for a server password on its first visit and has no way to set it from the
+# environment: whoever opens it first chooses it, which the first note says. Pinned to the
+# release tag and the digest Docker Hub serves for it.
+schema: 2
+name: actual-budget
+kind: compose
+title: Actual Budget
+slogan: A local-first personal finance app with a sync server you host.
+description: "Envelope budgeting that runs in your browser, with optional end-to-end encrypted sync between devices through this server, bank imports and reports. Single container with its data in a volume. The first person to open it chooses the server password, so do it right after installing."
+category: business
+tags: [budget, finance, accounting, personal]
+logo: logo.svg
+version: "26.10.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://actualbudget.org
+docs: https://actualbudget.org/docs/
+repository: https://github.com/actualbudget/actual
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 5006
+health:
+  path: /health
+  expect: "200"
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    actual:
+      image: actualbudget/actual-server:26.10.0@sha256:24645e971da6bb1a1f953d6859e307a0b29be1e8b4130a35b3220c209b5b860c
+      restart: unless-stopped
+      volumes:
+        - actual-data:/data
+      ports:
+        - "127.0.0.1:${PORT}:5006"
+  volumes:
+    actual-data:
+notes:
+  - "Open {{ url }} now and choose the server password: until someone does, the first visitor to the page sets it."
+  - "Your budgets and the server's account database are in the Docker volume actual-data of this application: back it up before updating. Turn on end-to-end encryption in the budget's settings if the files should not be readable on this server."

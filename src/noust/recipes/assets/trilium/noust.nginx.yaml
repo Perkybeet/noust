@@ -1,0 +1,5 @@
+# How nginx proxies this application. Attachments and imports are uploaded, and the client syncs through long requests.
+max_body_size: 250m
+routes:
+  - path: /
+    read_timeout: 300

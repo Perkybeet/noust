@@ -1,0 +1,56 @@
+# Trilium Notes (the TriliumNext line) from the image the project publishes on ghcr.io and
+# Docker Hub, as the docker-compose.yml at its v0.106.0 tag has it: the server on 8080 and
+# the data directory, TRILIUM_DATA_DIR=/home/node/trilium-data (the note database, the
+# documents and the backups), as a volume. TRILIUM_NETWORK_TRUSTEDREVERSEPROXY is the
+# environment form of config.ini's [Network] trustedReverseProxy (src/services/config.ts and
+# www.ts), which is handed to Express's "trust proxy". A plain true is not accepted as a
+# string (the server stops), so it names the ranges nginx can come from, the loopback and
+# the private networks Docker uses, and the server takes the client address and scheme from
+# nginx. /api/health-check is the probe the image's own health check makes. The image starts
+# as root and drops to user node.
+#
+# Trilium asks the first visitor to choose a password and has no way to set it from the
+# environment, which the first note says. Pinned to the release tag and the digest ghcr.io
+# serves for it (the same Docker Hub serves for triliumnext/trilium).
+schema: 2
+name: trilium
+kind: compose
+title: Trilium Notes
+slogan: A hierarchical note-taking application with a focus on building large personal knowledge bases.
+description: "Notes in a tree with attributes, relations, scripting, a web clipper and sync with desktop and mobile apps. Single container with its data in a volume. The first person to open it chooses the password, so do it right after installing."
+category: productivity
+tags: [notes, knowledge-base, wiki, markdown]
+logo: logo.svg
+version: "0.106.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://triliumnotes.org
+docs: https://docs.triliumnotes.org
+repository: https://github.com/TriliumNext/Trilium
+license: AGPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8080
+health:
+  path: /api/health-check
+  expect: "200"
+  timeout: 90
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    trilium:
+      image: ghcr.io/triliumnext/trilium:v0.106.0@sha256:be93e82699b12950ac4e2e7b565ce092fe215b8dd6ddfc47921e37b49e6a0e8b
+      restart: unless-stopped
+      environment:
+        TRILIUM_DATA_DIR: /home/node/trilium-data
+        TRILIUM_NETWORK_TRUSTEDREVERSEPROXY: "loopback, linklocal, uniquelocal"
+      volumes:
+        - trilium-data:/home/node/trilium-data
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+  volumes:
+    trilium-data:
+notes:
+  - "Open {{ url }} now and set the password: until someone does, the first visitor to the page chooses it."
+  - "Your notes, attachments and the automatic backups Trilium makes are in the Docker volume trilium-data of this application: back it up before updating."

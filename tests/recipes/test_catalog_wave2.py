@@ -55,7 +55,18 @@ STACKS = {
     "wikijs",
 }
 #: The recipes this wave added that are a single container or keep data in a file.
-SINGLES = {"gotify", "healthchecks", "searxng"}
+SINGLES = {
+    "actual-budget",
+    "audiobookshelf",
+    "gotify",
+    "healthchecks",
+    "searxng",
+    "trilium",
+    "vikunja",
+}
+#: Applications whose first password is chosen by whoever opens them first and cannot be set
+#: from the environment: they generate no secret, and the first note says to open them now.
+FIRST_VISIT = {"actual-budget", "audiobookshelf", "trilium"}
 #: Static applications that keep nothing on the server: no volume, no copy to make.
 STATELESS = {"cyberchef"}
 WAVE_TWO = STACKS | SINGLES | STATELESS
@@ -250,7 +261,16 @@ def test_no_credential_is_written_in_a_document(recipe: Recipe) -> None:
             assert "${" in value, (recipe.name, service_name, key)
 
 
-@pytest.mark.parametrize("name", sorted(WAVE_TWO - STATELESS))
+@pytest.mark.parametrize("name", sorted(FIRST_VISIT))
+def test_an_application_that_asks_its_first_visitor_for_a_password_says_so_first(name: str) -> None:
+    """No default account: the note that comes first tells the operator to open it and choose."""
+    recipe = get_recipe(name)
+
+    assert recipe.notes[0].startswith("Open {{ url }} now")
+    assert "first" in recipe.notes[0]
+
+
+@pytest.mark.parametrize("name", sorted(WAVE_TWO - STATELESS - FIRST_VISIT))
 def test_the_secrets_of_a_recipe_are_generated_and_marked_secret(name: str) -> None:
     """A generated password, hex or base64 is a secret, so it is masked wherever it is shown."""
     recipe = get_recipe(name)
