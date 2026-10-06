@@ -29,7 +29,9 @@ from noust.recipes.model import Recipe
 
 #: The recipes this wave added, which run an application with databases of its own.
 STACKS = {
+    "activepieces",
     "authentik",
+    "baserow",
     "directus",
     "docmost",
     "forgejo",
@@ -37,7 +39,9 @@ STACKS = {
     "gitea",
     "immich",
     "keycloak",
+    "langflow",
     "listmonk",
+    "litellm",
     "matomo",
     "mattermost",
     "metabase",
@@ -48,6 +52,7 @@ STACKS = {
     "plausible",
     "rocketchat",
     "twenty",
+    "wikijs",
 }
 #: The recipes this wave added that are a single container or keep data in a file.
 SINGLES = {"gotify", "healthchecks", "searxng"}
@@ -165,11 +170,16 @@ def test_a_database_of_a_stack_is_one_noust_dumps_before_an_update(name: str) ->
     recipe = get_recipe(name)
     services = services_of(recipe)
     databases = 0
+    declared_services = {declared.service for declared in declared_dumps(recipe)}
     for service_name, service in services.items():
         engine = image_engine(service["image"])
         if engine is None or engine.flavour not in DATA_DIRECTORIES:
             continue
         databases += 1
+        if service_name in declared_services:
+            # An image Noust recognises as an engine but not as the official one (pgvector's):
+            # the recipe's noust.yaml names it, which is what makes the dump happen.
+            continue
         assert engine.official and dumpable_engine(service["image"]) is not None, service_name
         environment = environment_of(service)
         if engine.flavour == "postgres":

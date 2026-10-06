@@ -1,0 +1,80 @@
+# Wiki.js 2 from the image the project publishes on ghcr.io, with the PostgreSQL of the
+# Docker Compose example in its installation guide (docs.requarks.io/install/docker):
+# DB_TYPE, DB_HOST, DB_PORT, DB_USER, DB_PASS and DB_NAME (the image's config.yml reads
+# them), `init: true`, and the application on port 3000. The image runs as user node. The
+# project's 3.0 line is in beta (tags 3.0.0-beta.*): the recipe ships the stable 2.5 line,
+# whose newest release is v2.5.315. /healthz answers without a login.
+#
+# Wiki.js has no way to create its administrator from the environment: whoever finishes
+# the setup page first becomes it, which the first note says. Pinned to the release tag
+# and the digest ghcr.io serves for it.
+schema: 2
+name: wikijs
+kind: compose
+title: Wiki.js
+slogan: A modern, lightweight and powerful wiki software.
+description: "A wiki with a visual and a Markdown editor, page history, permissions, search and many storage and sign-in modules. Runs the stable 2.x line with its own PostgreSQL. The first person to open it finishes the setup and becomes the administrator, so do it right after installing."
+category: productivity
+tags: [wiki, documentation, markdown, knowledge-base]
+logo: logo.svg
+version: "2.5.315"
+revision: 1
+updated: 2026-10-06
+homepage: https://js.wiki
+docs: https://docs.requarks.io
+repository: https://github.com/requarks/wiki
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  DB_PASS:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /healthz
+  expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    wiki:
+      image: ghcr.io/requarks/wiki:2.5.315@sha256:af71a17dc27ccc4c768591b1c504631ed820d9d13d4e8c325be4232c0035638c
+      restart: unless-stopped
+      init: true
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        DB_TYPE: postgres
+        DB_HOST: db
+        DB_PORT: "5432"
+        DB_USER: wikijs
+        DB_PASS: "${DB_PASS}"
+        DB_NAME: wiki
+      volumes:
+        - wikijs-content:/wiki/data/content
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: wikijs
+        POSTGRES_DB: wiki
+        POSTGRES_PASSWORD: "${DB_PASS}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U wikijs -d wiki"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - wikijs-db:/var/lib/postgresql/data
+  volumes:
+    wikijs-content:
+    wikijs-db:
+notes:
+  - "Open {{ url }} now and finish the setup: whoever completes it first becomes the administrator. Use {{ url }} as the site URL."
+  - "Every page, user and setting is in the PostgreSQL of this stack (Docker volume wikijs-db, dumped by Noust before every update): back it up before updating. The volume wikijs-content only holds what a storage module (Git, for example) writes."
