@@ -432,16 +432,22 @@ on a domain of its own, so GitHub can reach a console that listens on loopback.
 ## Recipes
 
 ```bash
-noust recipe list
-noust recipe show wordpress                         # what it needs, what it creates
-noust create --recipe wordpress -d blog.example.com
+noust recipe list -q "password manager"             # search; --category, --tag, --kind filter
+noust recipe show vaultwarden                       # what it runs, what it opens, what to give it
+noust recipe install vaultwarden -d vault.example.com
+noust recipe outdated                               # installed recipes the catalogue has a newer version of
+noust recipe update vault.example.com               # through the one update: backup, health gate, way back
 ```
 
-WordPress (PHP-FPM and MariaDB), Uptime Kuma, Umami (PostgreSQL) and n8n, each with its
-source pinned or checked against a published checksum, generated secrets, its database,
-persistent paths, a health check and the next steps. Also "From a recipe" in the console's
-new-application wizard. Noust installs nothing on its own: `noust recipe show` lists the
-packages a recipe needs.
+Twenty applications: WordPress (PHP-FPM and MariaDB), Uptime Kuma, Umami (PostgreSQL) and n8n
+run natively from a source pinned to a tag or checked against a published checksum; sixteen more
+(Vaultwarden, Memos, Syncthing, Stirling PDF, Grafana, Meilisearch, code-server, Jellyfin, Mailpit,
+Open WebUI, Ollama, ntfy, Navidrome, linkding, FreshRSS and Homepage) run in Docker, as a Compose
+stack behind nginx whose images are pinned by tag and by digest. Each has generated secrets, its
+variables (kept across updates and editable afterwards), a health check and the next steps. Also
+"From a recipe" in the console's new-application wizard. Noust installs nothing on its own:
+`noust recipe show` lists what a recipe needs. The format, the pinning policy and how to contribute
+one are in [docs/recipes.md](docs/recipes.md).
 
 ---
 
@@ -796,7 +802,7 @@ See [docs/security.md](docs/security.md), which also says how to report a vulner
 | `noust app` | Migrate to releases; limits, health check, blue/green and the Compose relay, branch and tags, hooks, adopt a running stack, workers, database copy, build sandbox, account, deploy webhook; export and import |
 | `noust domain` | Add, list and remove aliases and redirects |
 | `noust preview` | Pull request previews |
-| `noust recipe` | List and show the ready-made applications |
+| `noust recipe` | Browse the catalogue of ready-made applications, install one, see which are outdated and update them |
 | `noust import` | Read another platform's configuration and propose Noust's |
 | `noust diagnose` | Explain why an application is down |
 | `noust rollback` | Restore an application's latest backup |
