@@ -863,6 +863,17 @@ verbatim, copyable. **`Mono`**: a system value. **`Kbd`**: a key. **`CommandHint
 equivalent. **`RelativeTime`**: "3 min ago" with the exact moment in a tooltip.
 **`SegmentedControl`**: one of a few exclusive views (a chart range).
 
+**`TerminalScreen`**. A shell drawn on a canvas, from an emulator that is the console's own
+(`lib/terminal`): a library that injects a `<style>` element cannot run under the content security
+policy, and nothing here writes HTML. Its colours are tokens, read where it is drawn (the chart's
+reader) and again when the theme changes: a program's red is the failure colour. The keyboard
+lands on a text area, so an input method and a virtual keyboard work; Ctrl+C is an interrupt,
+copy and paste are Ctrl+Shift+C and V, and Escape then Tab leaves it, because Tab belongs to the
+shell and a terminal that keeps the keyboard for good fails WCAG 2.1.2. `textView` puts the same
+screen where a screen reader can read it and `announce` reads new lines aloud (off by default: a
+program that redraws the screen would be read again each time). What a shell prints is the
+system's own and is never translated.
+
 **`ErrorBlock`** (`onRetry`, `action`), **`QueryState`**. A failure the way the console always
 shows one, and the four states of anything loaded (see 6.5 and 6.6). `action` is one follow-up
 beside Try again, after the system's words ("View output"); `JobProgress` passes its own
