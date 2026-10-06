@@ -58,6 +58,7 @@ from pathlib import Path
 from typing import Any
 
 from noust.central import require_server_role
+from noust.core import cancellation
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import (
@@ -275,6 +276,9 @@ def update_app(
     try:
         with (
             app_lock(domain, "update"),
+            # What an operator can cancel: until the release starts to be
+            # activated, the whole update, however long its build takes.
+            cancellation.operation_window(domain, "update"),
             # The recorder the deployer builds inside announces this as an
             # update (or, rebuilding an earlier deployment's commit, a
             # rollback), so its notification is named for what it is.
@@ -733,8 +737,8 @@ def _update_release(
                 deployment_id=activation.deployment_id,
             )
         phase(2, RELEASE_PHASES, f"Building {built_from} as a new release")
-        deployer.adopt_release(
-            stage_release(
+        with cancellation.interruptible("fetching the source"):
+            staged = stage_release(
                 fetch_from,
                 follow,
                 releases=deployer.releases,
@@ -742,7 +746,7 @@ def _update_release(
                 logger=log,
                 commit=full,
             )
-        )
+        deployer.adopt_release(staged)
     else:
         phase(2, RELEASE_PHASES, "Building and activating a new release")
     log.substep(

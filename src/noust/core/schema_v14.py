@@ -37,8 +37,32 @@ RECIPES_SQL = ""
 RECIPES_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the delivery lane: the deploy queue, cancellation and zero downtime.
-DELIVERY_SQL = ""
-DELIVERY_COLUMNS: list[tuple[str, str, str]] = []
+#
+# A request to cancel what runs on an application. The operation that holds the
+# application's lock is the one it is addressed to, by the lock holder's pid and
+# start time: a request outlives neither that operation nor its process, so it
+# can never cancel the next deployment. It is a table of its own, not a column,
+# because the process that asks (the CLI, the console) is not the one that runs
+# the deployment, and ``outcome`` is how the second tells the first what came
+# of it (``cancelled``, ``too_late``, ``finished`` or ``unsupported``).
+DELIVERY_SQL = """
+CREATE TABLE IF NOT EXISTS delivery_cancel_requests (
+    domain TEXT PRIMARY KEY,
+    holder_pid INTEGER NOT NULL,
+    holder_started_at TEXT NOT NULL,
+    requested_by TEXT,
+    requested_at TEXT NOT NULL,
+    outcome TEXT,
+    decided_at TEXT
+);
+"""
+# The deployments status column has a CHECK SQLite cannot alter (see
+# schema_v13), so a cancelled deployment is a failed row that says when and by
+# whom it was cancelled, not a new status.
+DELIVERY_COLUMNS: list[tuple[str, str, str]] = [
+    ("deployments", "cancelled_at", "TEXT"),
+    ("deployments", "cancelled_by", "TEXT"),
+]
 
 # Owned by the sources lane: per-application deploy keys and previews.
 SOURCES_SQL = ""

@@ -38,7 +38,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol, TextIO
 
-from noust.core.exceptions import NoustError, RolledBackError
+from noust.core import cancellation, delivery_store
+from noust.core.exceptions import DeploymentCancelled, NoustError, RolledBackError
 from noust.core.fs import DryRunFileSystem, FileSystem, get_fs
 from noust.core.logger import Icons, Logger
 from noust.core.redact import Scrubber, app_secret_values, scrubber_for, secret_env_values
@@ -278,6 +279,8 @@ class DeploymentRecorder:
         self._domain = domain
         self._trigger = trigger
         self._rolled_back = False
+        self._cancelled = False
+        self._cancelled_by: str | None = None
         self._logger = logger
         self._fs = fs if fs is not None else get_fs()
         self._git_info = git_info
@@ -399,11 +402,42 @@ class DeploymentRecorder:
         # A fresh deploy wrote its .env during the run; read it again so a
         # value generated there is known before the error is stored.
         self._scrubber.add(app_secret_values(self._domain))
+        if isinstance(error, BaseException) and cancellation.is_cancellation(error):
+            self._finish_cancelled(error)
+            return
         # The row says failed either way; the announcement says whether the
         # application is still up on what served before.
         self._rolled_back = isinstance(error, RolledBackError)
         self._failure_parts = self._split_failure(error)
         self._finish(DeploymentStatus.FAILED.value, self._scrub(str(error)))
+
+    def _finish_cancelled(self, error: BaseException) -> None:
+        """
+        Close the recording of a deployment an operator cancelled.
+
+        The row ends ``failed`` (its status column cannot say anything else
+        on a store older than 3.4) and carries when and by whom it was
+        cancelled; the error is the cancellation's own sentence, not the
+        runner's "command cancelled".
+
+        Args:
+            error: The cancellation, or the failure that followed one.
+        """
+        who = cancellation.cancelled_by(error)
+        cancelled = (
+            error
+            if isinstance(error, DeploymentCancelled)
+            else DeploymentCancelled(
+                f"The {self._operation} of {self._domain} was cancelled"
+                + (f" by {who}" if who else ""),
+                "Nothing that was serving was touched; the release that was being built "
+                "was removed.",
+            )
+        )
+        self._cancelled_by = who
+        self._cancelled = True
+        self._failure_parts = self._split_failure(cancelled)
+        self._finish(DeploymentStatus.FAILED.value, self._scrub(str(cancelled)))
 
     def _split_failure(self, error: BaseException | str) -> tuple[str, str]:
         """
@@ -519,6 +553,10 @@ class DeploymentRecorder:
                     release_id=release_id,
                 )
             self._store.finish_deployment(self._deployment_id, status, error=error)
+            if self._cancelled:
+                delivery_store.mark_deployment_cancelled(
+                    self._deployment_id, self._cancelled_by, store=self._store
+                )
             self._rotate()
         except _RECORDING_ERRORS as exc:
             self._warn(exc)
@@ -585,6 +623,7 @@ class DeploymentRecorder:
                 release_id=release_id,
                 error_message=error_message,
                 error_output=error_output,
+                cancelled=self._cancelled,
             )
         )
 

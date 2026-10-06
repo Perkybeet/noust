@@ -79,6 +79,10 @@ def on_deploy_event(event: DeployEvent) -> None:
         # added there with no corresponding notification here.
         logger.warning("No notification for deploy event %r; not sent", event.kind)
         return
+    if getattr(event, "cancelled", False):
+        # An operator stopped it on purpose, and nothing that served was
+        # touched: there is nothing to be told, and "failed" would be false.
+        return
     NOTIFICATION_QUEUE.submit(lambda: _send(event))
 
 

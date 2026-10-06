@@ -601,6 +601,16 @@ class DeploymentRecord:
     #: Schema v13: why a successful deployment carries warnings (a
     #: post-deploy hook that failed after the new version was serving).
     warnings: str | None = None
+    #: Schema v14: when an operator cancelled the deployment while it was
+    #: building, and who. The status stays ``failed``: the column has a CHECK
+    #: SQLite cannot alter, so cancelled is a failed row that says so.
+    cancelled_at: str | None = None
+    cancelled_by: str | None = None
+
+    @property
+    def cancelled(self) -> bool:
+        """Whether an operator cancelled this deployment (its status is ``failed``)."""
+        return self.cancelled_at is not None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""

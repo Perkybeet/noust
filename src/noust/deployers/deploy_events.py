@@ -71,6 +71,10 @@ class DeployEvent:
         error_output: The rest of the failure - the tool's own output or the
             health gate's evidence - scrubbed, apart from the message so a
             notification can show one without the other.
+        cancelled: An operator cancelled it while it was being built, so it
+            ended ``failed`` without anything having gone wrong: nothing that
+            served was touched. Whoever cancelled it knows, so it is not
+            notified as a failure; the code host is told it never ran.
     """
 
     kind: DeployEventKind
@@ -88,6 +92,7 @@ class DeployEvent:
     release_id: str | None = None
     error_message: str | None = None
     error_output: str | None = None
+    cancelled: bool = False
 
 
 Subscriber = Callable[[DeployEvent], None]
