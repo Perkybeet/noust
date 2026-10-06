@@ -17,6 +17,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
+from noust.core.teams import scoped_store
 from noust.recipes import (
     RecipeNotFoundError,
     categories,
@@ -456,8 +457,10 @@ def get_installed_recipes(
         One entry per application, with the version it runs, the catalogue's
         and what changed in between.
     """
+    # A team member is shown the applications of its own teams.
+    statuses = scoped_store().filter_domains(installed_statuses(), lambda status: status.domain)
     return InstalledRecipeListOut(
-        items=[InstalledRecipeOut(**status.to_dict()) for status in installed_statuses()]
+        items=[InstalledRecipeOut(**status.to_dict()) for status in statuses]
     )
 
 

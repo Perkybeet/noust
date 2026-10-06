@@ -15,9 +15,12 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 
+from noust.core.exceptions import ValidationError
+from noust.core.teams import ownership_target, scoped_store
+from noust.managers.database.registry import DatabaseRegistry
 from noust.web.api.auth import get_current_session
 from noust.web.api.databases import jobs
 from noust.web.api.databases.common import (
@@ -30,7 +33,9 @@ from noust.web.api.databases.common import (
     service,
 )
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated
+from noust.web.api.scope import resolve_target_for
 from noust.web.jobs import JobType
+from noust.web.permissions import Permission
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -77,7 +82,12 @@ class CreateDatabaseRequest(BaseModel):
     Request to create a database.
 
     Attributes:
-        app: The application it belongs to, so its backups include it.
+        app: The application it belongs to, so its backups include it. It then
+            lives where the application does.
+        team: The team it belongs to when it has no application; omitted: the
+            one the caller works in.
+        project: Its project; omitted: the team's default.
+        environment: Its environment; omitted: production.
     """
 
     name: str = Field(..., description="Database name")
@@ -85,6 +95,9 @@ class CreateDatabaseRequest(BaseModel):
     owner: str | None = Field(default=None, description="Database owner")
     encoding: str | None = Field(default=None, description="Character encoding")
     app: str | None = Field(default=None, description="Application the database belongs to")
+    team: str | None = Field(default=None, description="Team, for a database with no application")
+    project: str | None = Field(default=None, description="Project it belongs to")
+    environment: str | None = Field(default=None, description="Environment it belongs to")
 
 
 class AdoptRequest(BaseModel):
@@ -221,6 +234,11 @@ class ProvisioningPlanResponse(BaseModel):
 def list_databases(
     session: Annotated[dict, Depends(get_current_session)],
     engine: Annotated[str | None, Query(description="Restrict to one engine")] = None,
+    team: Annotated[str | None, Query(description="Only this team's databases")] = None,
+    project: Annotated[str | None, Query(description="Only this project's databases")] = None,
+    environment: Annotated[
+        str | None, Query(description="Only this environment's databases")
+    ] = None,
 ) -> DatabaseListResponse:
     """
     List databases across the running engines, joined with the store.
@@ -228,29 +246,53 @@ def list_databases(
     Args:
         engine: Engine to restrict the listing to.
         session: The authenticated session.
+        team: Only this team's databases.
+        project: Only the projects with this slug.
+        environment: Only the environments with this slug.
 
     Returns:
         Every database the running engines report, the tracked ones they
         no longer have (``missing``), and the engines that could not be read
-        (``problems``).
+        (``problems``). A team member sees the databases its teams own: one an
+        engine holds that Noust never recorded belongs to nobody.
     """
     listing = service(session).listing(engine)
+    scoped = scoped_store()
+    views = listing.databases
+    # The store says whose a database is; an engine's own listing does not.
+    if scoped.scope.restricted or team or project or environment:
+        owned = {
+            (record.name, record.engine)
+            for record in scoped.list_databases(
+                engine=DatabaseRegistry.canonical(engine) or engine if engine else None,
+                project=project,
+                environment=environment,
+                team=team,
+            )
+        }
+        views = [view for view in views if (view.name, view.engine) in owned]
     return DatabaseListResponse(
-        databases=[database_response(view) for view in listing.databases],
-        total=len(listing.databases),
+        databases=[database_response(view) for view in views],
+        total=len(views),
         problems=[ListingProblemResponse(**problem.to_dict()) for problem in listing.problems],
     )
 
 
 @router.post("/databases", response_model=DatabaseInfoResponse)
 def create_database(
-    request: CreateDatabaseRequest, session: Annotated[dict, Depends(get_current_session)]
+    request: CreateDatabaseRequest,
+    http_request: Request,
+    session: Annotated[dict, Depends(get_current_session)],
 ) -> DatabaseInfoResponse:
     """
     Create a database and record it in the store.
 
+    It belongs to the application it is created for, and to the project the
+    request names when it has none.
+
     Args:
         request: The create request.
+        http_request: The incoming request, for the audit record of a refusal.
         session: The authenticated session.
 
     Returns:
@@ -258,14 +300,30 @@ def create_database(
 
     Raises:
         DatabaseExistsError: When the database already exists.
+        ValidationError: 400 when the application is not one the caller sees.
     """
-    view = service(session).create(
-        request.engine,
-        request.name,
-        owner=request.owner,
-        encoding=request.encoding,
-        domain=request.app,
+    if request.app is not None and scoped_store().get_app(request.app.strip().lower()) is None:
+        raise ValidationError(
+            f"Application not found: {request.app}",
+            details="Name an application you can see (GET /api/apps), or leave app out.",
+            field="app",
+        )
+    target = resolve_target_for(
+        http_request,
+        session,
+        team=request.team,
+        project=request.project,
+        environment=request.environment,
+        permission=Permission.DATABASES_WRITE,
     )
+    with ownership_target(target.project_id, target.environment_id):
+        view = service(session).create(
+            request.engine,
+            request.name,
+            owner=request.owner,
+            encoding=request.encoding,
+            domain=request.app,
+        )
     return database_response(view)
 
 

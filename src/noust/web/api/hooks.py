@@ -68,6 +68,7 @@ from noust.core.exceptions import DeploymentError, DomainError, QueueFullError
 from noust.core.forge_events import TagEvent, parse_pull_request, parse_tag_event
 from noust.core.store import App, DeploymentRecord, DeploymentTrigger, StoreError, get_store
 from noust.core.tags import tag_from_ref
+from noust.core.teams import scoped_store
 from noust.core.webhook_deliveries import WebhookDelivery
 from noust.deployers.lifecycle import branch_to_build, why_tag_is_ignored
 from noust.integrations import webhook as webhook_service
@@ -1036,7 +1037,7 @@ def _known_app_domain(domain: str) -> str:
         DomainError: When the value is not a domain.
     """
     validated = strict_domain(domain)
-    if get_store().get_app(validated) is None:
+    if scoped_store().get_app(validated) is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
     return validated
 
@@ -1199,7 +1200,7 @@ def webhook_deliveries(
         HTTPException: 404 when the application is unknown.
     """
     validated = _known_app_domain(domain)
-    records = get_store().list_deployments(domain=validated, limit=_DELIVERY_FETCH_LIMIT)
+    records = scoped_store().list_deployments(domain=validated, limit=_DELIVERY_FETCH_LIMIT)
     items = [
         _to_delivery(record)
         for record in records
@@ -1439,7 +1440,7 @@ def webhook_state(
         HTTPException: 404 when the application is unknown.
     """
     validated = _known_app_domain(domain)
-    app = get_store().get_app(validated)
+    app = scoped_store().get_app(validated)
     if app is None:  # deleted between the check and the read
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
     fallback = f"{str(request.base_url).rstrip('/')}/hooks"
@@ -1491,7 +1492,7 @@ def webhook_received(
         HTTPException: 404 when the application is unknown.
     """
     validated = _known_app_domain(domain)
-    app = get_store().get_app(validated)
+    app = scoped_store().get_app(validated)
     if app is None or app.id is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
     items = [_received_out(row) for row in deliveries_log.list_deliveries(app.id, limit=limit)]

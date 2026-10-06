@@ -22,6 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from noust.core.store import get_store
+from noust.core.teams import scoped_store
 from noust.deployers.helpers import sandbox as build_sandbox
 from noust.deployers.recorder import CapturingLogger
 from noust.web.api.auth import get_current_session
@@ -114,7 +115,7 @@ def _response(domain: str) -> SandboxResponse:
         The model.
     """
     store = get_store()
-    app = store.get_app(domain)
+    app = scoped_store().get_app(domain)
     state = build_sandbox.get_state(domain, store=store)
     exception = build_sandbox.get_compose_exception(domain, store=store)
     return SandboxResponse(
@@ -159,7 +160,7 @@ def _known(domain: str) -> str:
         HTTPException: 404.
     """
     validated = strict_domain(domain)
-    if get_store().get_app(validated) is None:
+    if scoped_store().get_app(validated) is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
     return validated
 
@@ -243,7 +244,7 @@ def post_sandbox_test(
         ValidationError: A compose stack (400).
     """
     validated = _known(domain)
-    app = get_store().get_app(validated)
+    app = scoped_store().get_app(validated)
     if app is not None:
         build_sandbox.refuse_unsupported(app)
     job = get_job_manager().create_job(

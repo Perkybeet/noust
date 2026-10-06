@@ -29,7 +29,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import CancelRefused, NoustError, ValidationError
-from noust.core.store import JobRecord, get_store
+from noust.core.store import JobRecord
+from noust.core.teams import scoped_store
 from noust.deployers.lifecycle import (
     NOTHING_NEW_HINT,
     check_upstream,
@@ -372,12 +373,16 @@ def list_jobs(
                 details=f"Use one of: {', '.join(s.value for s in JobStatus)}.",
             ) from exc
 
-    records = get_store().list_jobs(limit=limit, status=status, domain=domain)
+    records = scoped_store().list_jobs(limit=limit, status=status, domain=domain)
 
     return JobListResponse(
         jobs=[_from_record(record) for record in records],
         total=len(records),
-        active=len(get_job_manager().get_active_jobs()),
+        active=len(
+            scoped_store().filter_domains(
+                get_job_manager().get_active_jobs(), lambda job: job.metadata.get("domain")
+            )
+        ),
     )
 
 
@@ -392,7 +397,11 @@ def list_active_jobs(session: Annotated[dict, Depends(get_current_session)]) -> 
     Returns:
         The active jobs.
     """
-    jobs = get_job_manager().get_active_jobs()
+    # What the caller may see of what is running: a job that acts on no
+    # application (an update of the server itself) is the instance's.
+    jobs = scoped_store().filter_domains(
+        get_job_manager().get_active_jobs(), lambda job: job.metadata.get("domain")
+    )
     return JobListResponse(
         jobs=[_to_response(job) for job in jobs], total=len(jobs), active=len(jobs)
     )
@@ -416,13 +425,23 @@ def get_queue(session: Annotated[dict, Depends(get_current_session)]) -> QueueRe
         The running jobs, the waiting ones in the order they start, and the limits.
     """
     snapshot = get_job_manager().queue()
+    scoped = scoped_store()
+
+    def domain_of(job: Job) -> str | None:
+        domain = job.metadata.get("domain")
+        return domain if isinstance(domain, str) else None
+
+    # What is building for another team is not the caller's to see, and neither is
+    # how much of it there is: a team member counts its own builds.
+    running = scoped.filter_domains(snapshot.running, domain_of)
+    queued = scoped.filter_domains(snapshot.queued, domain_of)
     return QueueResponse(
-        running=[_to_response(job) for job in snapshot.running],
-        queued=[_to_response(job) for job in snapshot.queued],
-        builds_running=snapshot.builds_running,
+        running=[_to_response(job) for job in running],
+        queued=[_to_response(job) for job in queued],
+        builds_running=len(running) if scoped.scope.restricted else snapshot.builds_running,
         max_concurrent_builds=snapshot.max_concurrent_builds,
         queue_limit=snapshot.queue_limit,
-        builds_queued=snapshot.builds_queued,
+        builds_queued=len(queued) if scoped.scope.restricted else snapshot.builds_queued,
     )
 
 
@@ -692,7 +711,7 @@ def get_job(job_id: str, session: Annotated[dict, Depends(get_current_session)])
     Raises:
         HTTPException: 404 when the job is unknown.
     """
-    record = get_store().get_job(_validated_job_id(job_id))
+    record = scoped_store().get_job(_validated_job_id(job_id))
     if record is None:
         raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
     return _from_record(record)
@@ -725,7 +744,7 @@ def get_job_log(
     Raises:
         HTTPException: 404 when the job is unknown.
     """
-    record = get_store().get_job(_validated_job_id(job_id))
+    record = scoped_store().get_job(_validated_job_id(job_id))
     if record is None:
         raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
 

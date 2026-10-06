@@ -22,6 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from noust.core.store import get_store
+from noust.core.teams import scoped_store
 from noust.deployers.app_export import (
     CreateSpec,
     ImportPlan,
@@ -227,7 +228,7 @@ def get_app_export(
     if with_secrets:
         ensure_elevated(request, session)
     validated = strict_domain(domain)
-    if get_store().get_app(validated) is None:
+    if scoped_store().get_app(validated) is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
     document = export_app(validated, with_secrets=with_secrets)
     if with_secrets:

@@ -19,7 +19,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from noust.core.store import get_store
+from noust.core.teams import scoped_store
 from noust.deployers.recorder import CapturingLogger
 from noust.managers import app_identity
 from noust.web.api.auth import get_current_session
@@ -65,7 +65,7 @@ def _known(domain: str) -> str:
         HTTPException: 404.
     """
     validated = strict_domain(domain)
-    if get_store().get_app(validated) is None:
+    if scoped_store().get_app(validated) is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
     return validated
 
@@ -144,7 +144,7 @@ def post_identity_migrate(
             is queued.
     """
     validated = _known(domain)
-    app = get_store().get_app(validated)
+    app = scoped_store().get_app(validated)
     if app is not None:
         app_identity.refuse_migration(app)
     actor = actor_label(session)

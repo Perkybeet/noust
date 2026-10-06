@@ -39,7 +39,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import BackupError
-from noust.core.store import get_store
+from noust.core.teams import scoped_store
 from noust.core.utils import domain_to_app_name
 from noust.managers.backup_manager import BackupManager
 from noust.managers.backup_scheduler import (
@@ -198,7 +198,7 @@ def _to_info(entry: dict[str, str]) -> BackupScheduleInfo:
     retention_days = entry.get("retention_days") or ""
     include_databases = entry.get("include_databases", "true") != "false"
 
-    record = get_store().get_backup_schedule(domain)
+    record = scoped_store().get_backup_schedule(domain)
     destinations = (
         [ScheduleDestination(**dest) for dest in record.destinations if "name" in dest]
         if record is not None
@@ -234,9 +234,13 @@ def list_schedules(
         session: The authenticated session.
 
     Returns:
-        The schedules, merging what systemd reports with each one's store row.
+        The schedules, merging what systemd reports with each one's store row;
+        a team member sees those of its teams' applications.
     """
-    entries = BackupScheduler(verbose=False).list_schedules()
+    entries = scoped_store().filter_domains(
+        BackupScheduler(verbose=False).list_schedules(),
+        lambda entry: entry.get("domain") or entry.get("app_name"),
+    )
     return ScheduleListResponse(
         schedules=[_to_info(entry) for entry in entries],
         total=len(entries),

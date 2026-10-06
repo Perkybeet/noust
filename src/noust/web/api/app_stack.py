@@ -35,7 +35,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from noust.core.store import get_store
+from noust.core.teams import scoped_store
 from noust.deployers.compose_adopt import AdoptionRefusedError
 from noust.deployers.compose_reclaim import plan_reclaim, reclaim
 from noust.deployers.docker_compose import headless_check, make_headless
@@ -67,7 +67,7 @@ def _known(domain: str) -> str:
         HTTPException: 404 when nothing is deployed at it.
     """
     validated = strict_domain(domain)
-    if get_store().get_app(validated) is None:
+    if scoped_store().get_app(validated) is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
     return validated
 

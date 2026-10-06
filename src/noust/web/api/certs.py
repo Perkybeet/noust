@@ -28,6 +28,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
+from noust.core.teams import scoped_store
 from noust.managers.cert_manager import CertificateInfo, CertManager
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated, strict_domain
@@ -172,9 +173,12 @@ def list_certificates(session: Annotated[dict, Depends(get_current_session)]) ->
     Returns:
         The certificates, with days remaining computed for each.
     """
-    certificates = [
-        _to_cert_info(entry) for entry in CertManager(verbose=False).list_certificates()
-    ]
+    # A certificate is named by its first domain; a team member sees those of
+    # its own applications and sites.
+    entries = scoped_store().filter_domains(
+        CertManager(verbose=False).list_certificates(), lambda entry: entry.get("name")
+    )
+    certificates = [_to_cert_info(entry) for entry in entries]
     return CertListResponse(certificates=certificates, total=len(certificates))
 
 

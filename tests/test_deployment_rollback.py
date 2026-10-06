@@ -37,6 +37,7 @@ from fastapi.testclient import TestClient
 
 from noust.core.exceptions import DeploymentError, NoustError
 from noust.core.store import App, DeploymentStatus, NoustStore
+from noust.core.teams import ScopedStore
 from noust.deployers import lifecycle
 from noust.managers import backup_manager as backup_module
 from noust.managers.backup_manager import BackupMetadata, RollbackManager
@@ -370,7 +371,8 @@ def jobs(monkeypatch: pytest.MonkeyPatch) -> Jobs:
 @pytest.fixture
 def client(store: NoustStore, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     """The deployments, deployment actions and jobs routers, authenticated."""
-    monkeypatch.setattr(deployments_api, "get_store", lambda: store)
+    monkeypatch.setattr(deployments_api, "scoped_store", lambda: ScopedStore(store=store))
+    monkeypatch.setattr(jobs_api, "scoped_store", lambda: ScopedStore(store=store))
     app = FastAPI()
     install_error_handlers(app)
     app.include_router(deployments_api.router, prefix="/api/deployments")

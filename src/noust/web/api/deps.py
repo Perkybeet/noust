@@ -76,6 +76,12 @@ from noust.core.exceptions import (
     PermissionError as NoustPermissionError,
 )
 from noust.core.sealing import SealError, SecretsLockedError, WrongPassphraseError
+from noust.core.teams import (
+    ResourceNotFoundError,
+    TeamConflictError,
+    TeamError,
+    TeamNotFoundError,
+)
 from noust.validators.domain import validate_domain
 from noust.web.auth import (
     SCOPE_RANK,
@@ -124,6 +130,11 @@ DEFAULT_ERROR_STATUS = 500
 #: base class.
 _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (DatabaseNotFoundError, 404),
+    # A resource outside the caller's teams reads as one that does not exist.
+    (ResourceNotFoundError, 404),
+    (TeamNotFoundError, 404),
+    (TeamConflictError, 409),
+    (TeamError, 400),
     # Before SecurityError, whose subclasses they are: an unknown account is
     # a missing resource, and a refused credential is a 401 whatever its
     # reason, which the error does not carry to the client.
@@ -182,6 +193,10 @@ _CONTRACT_BY_ERROR: tuple[tuple[type[NoustError], str, str], ...] = (
 #: still their own ``details``: the console branches on the code (the unlock
 #: form, a hidden page on a hub) and shows the sentence as it is.
 _CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
+    # The same code as the bare 404 of every handler, so a hidden resource and a
+    # missing one are answered alike.
+    (ResourceNotFoundError, "not_found"),
+    (TeamNotFoundError, "not_found"),
     (IncidentLockdownError, "incident_lockdown"),
     (AuthenticationFailed, "invalid_credentials"),
     (WrongPassphraseError, "wrong_passphrase"),

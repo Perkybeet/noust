@@ -28,11 +28,12 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal, cast
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
 from noust.core.store import get_store
+from noust.core.teams import ownership_target, scoped_store
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.site_topology import TopologyProbe, default_probe, include_reader
@@ -56,6 +57,8 @@ from noust.managers.webserver import (
 )
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.scope import resolve_target_for
+from noust.web.permissions import Permission
 from noust.web.pydantic_compat import PYDANTIC_V2, dump_model
 
 #: Cache of managers already built by :func:`_manager_for`, keyed by resolved
@@ -157,9 +160,15 @@ class CreateSiteRequest(BaseModel):
         port: Upstream port for the proxy template.
         ssl: Render the template with TLS directives.
         enable: Enable the site once written.
+        team: The team it belongs to; omitted: the one the caller works in.
+        project: Its project; omitted: the team's default.
+        environment: Its environment; omitted: production.
     """
 
     domain: str
+    team: str | None = None
+    project: str | None = None
+    environment: str | None = None
     webserver: str | None = None
     template: str = "proxy"
     port: int = Field(default=3000, ge=1, le=65535)
@@ -721,7 +730,10 @@ def _site_rows(cache: _ManagerCache) -> list[SiteRow]:
         The rows of :func:`~noust.managers.webserver.list_all_sites`.
     """
     managers = [_manager_cached(cache, name) for name in MANAGERS]
-    return list_all_sites(managers=managers, store=get_store())
+    rows = list_all_sites(managers=managers, store=get_store())
+    # A file the store never recorded has no team, so only a principal that sees
+    # every team is shown it: a team member sees the sites of its own projects.
+    return scoped_store().filter_domains(rows, lambda row: row.domain)
 
 
 @router.get("", response_model=SiteListResponse)
@@ -772,7 +784,9 @@ def list_site_templates(
 
 @router.post("", response_model=SiteActionResponse)
 def create_site(
-    data: CreateSiteRequest, session: Annotated[dict, Depends(get_current_session)]
+    data: CreateSiteRequest,
+    request: Request,
+    session: Annotated[dict, Depends(get_current_session)],
 ) -> SiteActionResponse:
     """
     Create a virtual host from one of the manager's templates.
@@ -782,6 +796,7 @@ def create_site(
 
     Args:
         data: The create request.
+        request: The incoming request, for the audit record of a refusal.
         session: The authenticated session.
 
     Returns:
@@ -795,6 +810,14 @@ def create_site(
     """
     domain = strict_domain(data.domain)
     webserver, manager = _manager_for(data.webserver)
+    target = resolve_target_for(
+        request,
+        session,
+        team=data.team,
+        project=data.project,
+        environment=data.environment,
+        permission=Permission.APPS_MANAGE,
+    )
 
     templates = manager.list_templates()
     if data.template not in templates:
@@ -811,15 +834,16 @@ def create_site(
     # This endpoint used to set the ssl flag and render once, which is why an
     # SSL site created from the panel failed nginx's own config test: the
     # certificate files it pointed at had never been requested.
-    outcome = create_secured_site(
-        domain,
-        manager=manager,
-        webserver=webserver,
-        template=data.template,
-        port=data.port,
-        ssl=data.ssl,
-        enable=data.enable,
-    )
+    with ownership_target(target.project_id, target.environment_id):
+        outcome = create_secured_site(
+            domain,
+            manager=manager,
+            webserver=webserver,
+            template=data.template,
+            port=data.port,
+            ssl=data.ssl,
+            enable=data.enable,
+        )
 
     if outcome.ssl_requested and not outcome.ssl_enabled:
         message = (

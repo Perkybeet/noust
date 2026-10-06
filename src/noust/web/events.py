@@ -53,10 +53,12 @@ from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
 from noust.core.exceptions import NoustError
+from noust.core.teams import ScopedStore
 from noust.web import metrics_collector
 from noust.web.auth import SAFE_METHODS, credential_is_current, require_auth
 from noust.web.jobs import Job
 from noust.web.machine import read_machine
+from noust.web.permissions.principal import scope_of
 from noust.web.pydantic_compat import dump_model
 
 log = logging.getLogger(__name__)
@@ -603,6 +605,28 @@ def announce_app_mutation(method: str, path: str, status_code: int) -> None:
         _in_thread(domain)
 
 
+def _frame_domain(frame: str) -> str | None:
+    """
+    Read the domain an ``app`` frame of the hub is about.
+
+    Args:
+        frame: A rendered frame, ``event: <name>`` and ``data: <json>``.
+
+    Returns:
+        The domain, or None for a frame that names none, which a team member's
+        stream does not carry.
+    """
+    name, _, rest = frame.partition("\n")
+    if name != "event: app":
+        return None
+    try:
+        payload = json.loads(rest.removeprefix("data: ").strip())
+    except ValueError:
+        return None
+    domain = payload.get("domain") if isinstance(payload, dict) else None
+    return domain if isinstance(domain, str) else None
+
+
 async def _stream(request: Request, session: dict[str, Any] | None = None) -> AsyncIterator[str]:
     """
     Yield events until the client goes away or its credential does.
@@ -622,6 +646,11 @@ async def _stream(request: Request, session: dict[str, Any] | None = None) -> As
 
     loop = asyncio.get_running_loop()
     queue: asyncio.Queue[str] = asyncio.Queue(maxsize=QUEUE_SIZE)
+    # A team member's stream carries what happens to its own applications and
+    # nothing about the machine or about anybody else's: the scope is the one
+    # the credential was admitted with, not whatever the client asks for.
+    scoped = ScopedStore(scope_of(session)) if session is not None else None
+    restricted = scoped is not None and scoped.scope.restricted
 
     def deliver(frames: list[str]) -> None:
         """
@@ -651,6 +680,8 @@ async def _stream(request: Request, session: dict[str, Any] | None = None) -> As
         Args:
             job: The job that changed.
         """
+        if restricted and scoped is not None and not scoped.sees_domain(job.metadata.get("domain")):
+            return
         try:
             frames = [format_event(name, payload) for name, payload in job_events(job)]
         except AttributeError:
@@ -665,6 +696,9 @@ async def _stream(request: Request, session: dict[str, Any] | None = None) -> As
         Args:
             frame: The rendered frame.
         """
+        if restricted and scoped is not None:
+            if frame != WAKE_FRAME and not scoped.sees_domain(_frame_domain(frame)):
+                return
         deliver([frame])
 
     manager = get_job_manager()
@@ -696,7 +730,7 @@ async def _stream(request: Request, session: dict[str, Any] | None = None) -> As
                     return
                 recheck_at = loop.time() + CREDENTIAL_RECHECK_SECONDS
             if now >= metrics_at:
-                frame = metrics_frame()
+                frame = None if restricted else metrics_frame()
                 if frame is not None:
                     yield frame
                     heartbeat_at = now + HEARTBEAT_SECONDS
@@ -704,7 +738,7 @@ async def _stream(request: Request, session: dict[str, Any] | None = None) -> As
             if now >= machine_at:
                 # In a worker thread: the render tallies systemd units, and a
                 # blocking call here stalls every stream on the event loop.
-                frame = await run_in_threadpool(machine_frame)
+                frame = None if restricted else await run_in_threadpool(machine_frame)
                 if frame is not None:
                     yield frame
                     heartbeat_at = loop.time() + HEARTBEAT_SECONDS

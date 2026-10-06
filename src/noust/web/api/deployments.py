@@ -39,8 +39,8 @@ from noust.core.store import (
     DeploymentStatus,
     DeploymentTrigger,
     StoreError,
-    get_store,
 )
+from noust.core.teams import scoped_store
 from noust.deployers.lifecycle import (
     rollback_availability,
     schema_changed_between,
@@ -274,7 +274,7 @@ def _filtered_page(
         cursor is applied); and whether rows beyond ``before_id`` exist beyond
         this page.
     """
-    records = get_store().list_deployments(domain=domain, limit=_FETCH_LIMIT)
+    records = scoped_store().list_deployments(domain=domain, limit=_FETCH_LIMIT)
     matching = [
         record
         for record in records
@@ -351,7 +351,7 @@ def get_deployment(
     Raises:
         HTTPException: 404 when no deployment has this id.
     """
-    record = get_store().get_deployment(deployment_id)
+    record = scoped_store().get_deployment(deployment_id)
     if record is None:
         raise HTTPException(status_code=404, detail=f"Deployment not found: {deployment_id}")
     return _to_out(record, rollback_availability([record]), schema_changed_between([record]))
@@ -380,7 +380,7 @@ def get_deployment_log(
     Raises:
         HTTPException: 404 when no deployment has this id.
     """
-    record = get_store().get_deployment(deployment_id)
+    record = scoped_store().get_deployment(deployment_id)
     if record is None:
         raise HTTPException(status_code=404, detail=f"Deployment not found: {deployment_id}")
 
@@ -413,7 +413,7 @@ def _deployment_of(domain: str, deployment_id: int) -> DeploymentRecord:
     Raises:
         HTTPException: 404 when there is no such deployment of that application.
     """
-    record = get_store().get_deployment(deployment_id)
+    record = scoped_store().get_deployment(deployment_id)
     if record is None or record.domain != domain:
         raise HTTPException(
             status_code=404, detail=f"Deployment {deployment_id} of {domain} not found"
@@ -451,7 +451,7 @@ def rebuild_deployment(
     """
     domain = strict_domain(domain)
     record = _deployment_of(domain, deployment_id)
-    if get_store().get_app(domain) is None:
+    if scoped_store().get_app(domain) is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {domain}")
     commit = record.git_commit
     if not commit:
