@@ -204,6 +204,23 @@ class FpmInstallation:
         """
         return self.socket_dir / f"{self.prefix(app_name)}{app_name}.sock"
 
+    def holds(self, app_name: str) -> bool:
+        """
+        Say whether this FPM runs, or has stopped, an application's pool.
+
+        Args:
+            app_name: The application name.
+
+        Returns:
+            True when its pool file, enabled or moved aside, is in this
+            installation's pool directory.
+        """
+        for prefix in (POOL_PREFIX, LEGACY_POOL_PREFIX):
+            pool = self.pool_dir / f"{prefix}{app_name}.conf"
+            if pool.is_file() or _disabled(pool).is_file():
+                return True
+        return False
+
 
 def is_php_fpm(app: object) -> bool:
     """
@@ -269,43 +286,73 @@ def fpm_install_hint() -> str:
     return f"Install it: {dependency_install_hint(PHP_FPM_DEPENDENCY)}"
 
 
-def find_fpm(root: Path = Path("/")) -> FpmInstallation:
+def fpm_versions(root: Path = Path("/")) -> list[str]:
     """
-    Find the PHP-FPM pools are written for.
+    List the PHP versions whose FPM is installed, newest first.
 
-    On Debian and Ubuntu the newest PHP version whose FPM binary is installed
-    wins; an older one kept beside it serves nothing Noust writes.
+    Only Debian and Ubuntu (and the Sury and Ondrej builds of them) install one
+    FPM per version; elsewhere there is one unversioned FPM and this is empty.
 
     Args:
         root: The filesystem root, for tests.
 
     Returns:
+        ``major.minor`` strings, newest first.
+    """
+    etc_php = root / "etc" / "php"
+    if not etc_php.is_dir():
+        return []
+    versions = sorted(
+        (
+            entry.name
+            for entry in etc_php.iterdir()
+            if _DEBIAN_VERSION.match(entry.name)
+            and (entry / "fpm" / "pool.d").is_dir()
+            and (root / "usr" / "sbin" / f"php-fpm{entry.name}").exists()
+        ),
+        key=_version_key,
+        reverse=True,
+    )
+    return versions
+
+
+def find_fpm(root: Path = Path("/"), version: str | None = None) -> FpmInstallation:
+    """
+    Find the PHP-FPM pools are written for.
+
+    On Debian and Ubuntu the newest PHP version whose FPM binary is installed
+    wins, unless the application pins one (``build: {runtime: php@8.2}``); an
+    older one kept beside it serves nothing Noust writes for another version.
+
+    Args:
+        root: The filesystem root, for tests.
+        version: The ``major.minor`` the application is pinned to, or None for
+            the newest. Where there is one unversioned FPM (Fedora, openSUSE)
+            it cannot be told apart, and the one that is there is used.
+
+    Returns:
         The installation.
 
     Raises:
-        DeploymentError: When no PHP-FPM is installed.
+        DeploymentError: When no PHP-FPM is installed, or none of the version
+            asked for.
     """
-    etc_php = root / "etc" / "php"
-    if etc_php.is_dir():
-        versions = sorted(
-            (
-                entry.name
-                for entry in etc_php.iterdir()
-                if _DEBIAN_VERSION.match(entry.name) and (entry / "fpm" / "pool.d").is_dir()
-            ),
-            key=_version_key,
-            reverse=True,
+    installed = fpm_versions(root)
+    if version is not None and installed and version not in installed:
+        raise DeploymentError(
+            f"PHP {version} is not installed here (PHP-FPM {', '.join(installed)} is)",
+            details=f"Install it: noust runtime install php@{version}",
         )
-        for version in versions:
-            binary = root / "usr" / "sbin" / f"php-fpm{version}"
-            if binary.exists():
-                return FpmInstallation(
-                    pool_dir=etc_php / version / "fpm" / "pool.d",
-                    service=f"php{version}-fpm",
-                    binary=f"/usr/sbin/php-fpm{version}",
-                    socket_dir=Path("/run/php"),
-                    version=version,
-                )
+    etc_php = root / "etc" / "php"
+    for candidate in installed if version is None else [version]:
+        if candidate in installed:
+            return FpmInstallation(
+                pool_dir=etc_php / candidate / "fpm" / "pool.d",
+                service=f"php{candidate}-fpm",
+                binary=f"/usr/sbin/php-fpm{candidate}",
+                socket_dir=Path("/run/php"),
+                version=candidate,
+            )
 
     fedora = root / "etc" / "php-fpm.d"
     if fedora.is_dir() and (root / "usr" / "sbin" / "php-fpm").exists():
@@ -326,6 +373,36 @@ def find_fpm(root: Path = Path("/")) -> FpmInstallation:
         )
 
     raise DeploymentError("PHP-FPM is not installed", details=fpm_install_hint())
+
+
+def find_fpm_for(
+    app_name: str, root: Path = Path("/"), version: str | None = None
+) -> FpmInstallation:
+    """
+    Find the PHP-FPM an application's pool is in.
+
+    Applications may be pinned to different PHP versions, so there is not one
+    FPM for them all: the one that holds the application's pool (running, or
+    moved aside by a stop) is the one its pool is controlled in, whatever is
+    newest. An application with no pool yet gets the one it would be written in.
+
+    Args:
+        app_name: The application name, which names the pool.
+        root: The filesystem root, for tests.
+        version: The ``major.minor`` the application is pinned to, for one
+            that has no pool yet.
+
+    Returns:
+        The installation.
+
+    Raises:
+        DeploymentError: When no PHP-FPM is installed.
+    """
+    for candidate in fpm_versions(root):
+        installation = find_fpm(root, candidate)
+        if installation.holds(app_name):
+            return installation
+    return find_fpm(root, version)
 
 
 def nginx_worker_group(default: str, root: Path = Path("/")) -> str:

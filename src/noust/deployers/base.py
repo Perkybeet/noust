@@ -30,6 +30,8 @@ exactly as it was.
 from __future__ import annotations
 
 import contextlib
+import os
+import shlex
 import sqlite3
 from abc import abstractmethod
 from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -39,7 +41,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Literal
 
 from noust.central import require_server_role
-from noust.core import cancellation, delivery
+from noust.core import app_build_store, cancellation, delivery
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import (
@@ -54,7 +56,7 @@ from noust.core.exceptions import (
 )
 from noust.core.fs import SECRET_MODE, DryRunFileSystem, FileSystem
 from noust.core.logger import Icons
-from noust.core.runner import CommandResult, CommandRunner, SandboxSpec, get_runner
+from noust.core.runner import SANDBOX_PATH, CommandResult, CommandRunner, SandboxSpec, get_runner
 from noust.core.store import (
     DEFAULT_KEEP_RELEASES,
     App,
@@ -66,6 +68,7 @@ from noust.core.store import (
     get_store,
 )
 from noust.core.utils import domain_to_app_name
+from noust.core.versions import RuntimeRequest
 from noust.deployers.bluegreen import BlueGreen, adopt_for_new_app
 from noust.deployers.helpers import (
     EnvManager,
@@ -76,6 +79,13 @@ from noust.deployers.helpers import (
     preflight,
 )
 from noust.deployers.helpers import sandbox as build_sandbox
+from noust.deployers.helpers.build_config import (
+    BuildConfig,
+    project_dir,
+    refuse_unsupported,
+    resolve_build,
+    set_operator_build,
+)
 from noust.deployers.helpers.health import failure_output, wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
 from noust.deployers.helpers.hooks import (
@@ -87,6 +97,7 @@ from noust.deployers.helpers.hooks import (
 from noust.deployers.helpers.layout import RELEASES, choose_layout, env_file_in
 from noust.deployers.helpers.nginx_config import NginxAdvancedConfig
 from noust.deployers.helpers.permissions import hand_over_file, hand_over_tree
+from noust.deployers.helpers.project_file import parse_build_document
 from noust.deployers.helpers.registration import StoreRegistrar
 from noust.deployers.helpers.release_build import (
     REPO_CACHE_DIR,
@@ -96,6 +107,7 @@ from noust.deployers.helpers.release_build import (
     stage_release,
     stamp_installed_dependencies,
 )
+from noust.deployers.helpers.runtime_request import detect_request
 from noust.deployers.helpers.sandbox import BuildPhase, SandboxState
 from noust.deployers.helpers.site import (
     WriteOutcome,
@@ -107,6 +119,7 @@ from noust.deployers.helpers.site import (
 from noust.deployers.helpers.site import obtain_certificate as obtain_app_certificate
 from noust.deployers.helpers.summary import print_deployment_summary
 from noust.deployers.helpers.target import claim_deploy_target, fetch_into_target
+from noust.deployers.helpers.unit_launch import systemd_command, with_launch
 from noust.deployers.interface import AppDeployer, StepReporter, UpdateResult
 from noust.deployers.pipeline import DeployStep, run_pipeline
 from noust.deployers.recorder import (
@@ -121,6 +134,7 @@ from noust.managers import app_identity
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
+from noust.managers.runtimes import InstalledRuntime, RuntimeChoice, RuntimeManager
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.managers.source_manager import SourceManager, git_tree_owner
 from noust.validators.environment import validate_environment, validate_unit_value
@@ -173,6 +187,21 @@ class BaseDeployer(AppDeployer):
     #: layout choice reads as False.
     SUPPORTS_RELEASES: ClassVar[bool] = True
 
+    #: The keys of the ``build:`` block this type honours (see
+    #: :mod:`noust.deployers.helpers.build_config`); a block that sets another
+    #: is refused naming it, never half applied. A type that runs a process
+    #: takes the commands and the base directory; one that serves files adds
+    #: ``publish_directory``.
+    BUILD_KEYS: ClassVar[frozenset[str]] = frozenset(
+        {"base_directory", "install", "build", "start", "runtime"}
+    )
+
+    #: The runtimes ``build.runtime`` may pin for this type, and the one its
+    #: version files are read for (``.nvmrc`` for Node, ``composer.json`` for
+    #: PHP); None for a type that has none.
+    RUNTIME_LANGUAGES: ClassVar[frozenset[str]] = frozenset()
+    PRIMARY_RUNTIME: ClassVar[str | None] = None
+
     #: Class-level defaults for the layout state, so an instance assembled
     #: without ``__init__`` (as some tests do) still behaves in place.
     _layout: str | None = None
@@ -191,6 +220,17 @@ class BaseDeployer(AppDeployer):
     #: until asked (see deploy_hooks), for the instances tests assemble
     #: without __init__.
     _deploy_hooks_state: DeploymentHooks | None = None
+    #: The build block (3.4) that applies to the tree being deployed, the tree
+    #: it was read from, and the runtime chosen for it. None until asked (see
+    #: build_config), for the same instances.
+    _build_block: BuildConfig | None = None
+    _build_block_tree: Path | None = None
+    #: The operator's block given at creation (``noust create --build-file``):
+    #: what the first deployment builds with, and what is then stored.
+    _initial_build: BuildConfig | None = None
+    _runtime_state: RuntimeChoice | None = None
+    _runtime_tree: Path | None = None
+    _runtime_manager: RuntimeManager | None = None
 
     def __init__(
         self,
@@ -488,6 +528,11 @@ class BaseDeployer(AppDeployer):
         self._layout = None
         self._releases = None
         self._staged = None
+        self._build_block = None
+        self._build_block_tree = None
+        self._runtime_state = None
+        self._runtime_tree = None
+        self._initial_build = self._read_initial_build(options.get("build_document"))
         # Deploying over a directory that already holds files is refused
         # unless asked for (noust create --force); see claim_deploy_target.
         self._replace_existing = bool(options.get("replace_existing", False))
@@ -546,18 +591,281 @@ class BaseDeployer(AppDeployer):
         return self._releases
 
     @property
-    def build_path(self) -> Path:
-        """Where the code being deployed is built: the new release, or the app itself."""
+    def tree_root(self) -> Path:
+        """
+        The tree being deployed: the new release, or the application directory.
+
+        The project may live in a subdirectory of it (:attr:`build_path`); what
+        belongs to the whole tree - handing it over to the build account, the
+        ``.env`` links, the dependencies of a workspace - uses this.
+        """
         if self._staged is not None:
             return self._staged.path
         return self.app_path
 
     @property
+    def build_path(self) -> Path:
+        """
+        Where the project being deployed is built.
+
+        The new release, or the application itself, or the ``base_directory``
+        of the build block inside either. In place and without a base
+        directory it is :attr:`tree_root`, which is what keeps that layout
+        exactly as it was.
+        """
+        base = self.build_config().base_directory
+        return self.tree_root / base if base else self.tree_root
+
+    @property
     def runtime_path(self) -> Path:
         """What the unit and the web server point at: ``current``, or the app itself."""
-        if self.uses_releases:
-            return self.app_path / CURRENT_LINK
-        return self.app_path
+        root = self.app_path / CURRENT_LINK if self.uses_releases else self.app_path
+        base = self.build_config().base_directory
+        return root / base if base else root
+
+    # The build block and the runtime ----------------------------------------
+
+    def build_config(self) -> BuildConfig:
+        """
+        Name the build block that applies to the tree being deployed.
+
+        Read once per tree, from the operator's document in the store or the
+        repository's ``noust.yaml`` (:func:`resolve_build`), and checked
+        against what this type honours. A tree that is not on disk yet (before
+        the fetch, or under ``--dry-run``) has none, and that is not
+        remembered: the fetch steps read it again once the code is there.
+
+        Returns:
+            The block; an empty one when nothing declares it.
+
+        Raises:
+            ValidationError: The block is not valid, or sets what this type
+                cannot do; ``field`` names the key.
+        """
+        tree = self.tree_root
+        if self._build_block is not None and self._build_block_tree == tree:
+            return self._build_block
+        if not tree.is_dir():
+            return BuildConfig()
+        block = (
+            self._initial_build
+            if self._initial_build is not None
+            else resolve_build(self._app_row(), tree, self.store)
+        )
+        refuse_unsupported(block, self.APP_TYPE, self.BUILD_KEYS, self.RUNTIME_LANGUAGES)
+        self._build_block = block
+        self._build_block_tree = tree
+        return block
+
+    def _read_initial_build(self, document: object) -> BuildConfig | None:
+        """
+        Read the build block an application is created with.
+
+        Args:
+            document: The YAML document ``noust create --build-file`` read, or
+                None.
+
+        Returns:
+            The operator's block, checked against what this type honours; None
+            when there is none.
+
+        Raises:
+            ValidationError: Not valid, or sets what the type cannot do.
+        """
+        if not document:
+            return None
+        block = parse_build_document(str(document), source="operator")
+        refuse_unsupported(block, self.APP_TYPE, self.BUILD_KEYS, self.RUNTIME_LANGUAGES)
+        return block
+
+    def _persist_initial_build(self) -> None:
+        """
+        Store the build block the application was created with as the operator's.
+
+        Written once the application's row exists, so every later update builds
+        with it; audited like any change of the block.
+        """
+        if self._initial_build is None or isinstance(self.fs, DryRunFileSystem):
+            return
+        set_operator_build(
+            self.domain,
+            self._initial_build.to_document(),
+            actor=f"create ({self.trigger})",
+            store=self.store,
+        )
+
+    def _prime_build(self) -> None:
+        """
+        Read the build block of the code that was just put in the tree.
+
+        Forgets what was read before the fetch, checks that the base
+        directory is a directory of the tree and not a link, and says what
+        the block changes, so the log of a deployment shows it.
+
+        Raises:
+            ValidationError: The block is not valid, or its base directory is
+                a link or missing.
+        """
+        self._build_block = None
+        self._build_block_tree = None
+        self._runtime_state = None
+        self._runtime_tree = None
+        block = self.build_config()
+        if block.base_directory:
+            project_dir(self.tree_root, block.base_directory)
+        if block.declared:
+            where = "the operator's settings" if block.source == "operator" else "noust.yaml"
+            self.logger.substep(f"Build block from {where}: {', '.join(block.declared_keys)}")
+
+    def _reconcile_registration(self) -> None:
+        """
+        Correct what the application's row says about serving, once the code that decides it is there.
+
+        The row is written before anything is fetched, from what the type can
+        say without its source: a framework that is a server or static files
+        depending on its configuration is registered as the server it most
+        likely is, and learns here which it is (and so whether it has a port).
+        A type whose answer never depends on its source finds nothing to correct.
+        """
+        record = self._app_record
+        if record is None or isinstance(self.fs, DryRunFileSystem):
+            return
+        static = not bool(self.start_command())
+        if bool(record.is_static) == static:
+            return
+        record.is_static = static
+        record.port = None if static else self.port
+        self.store.update_app(record)
+
+    @property
+    def runtimes(self) -> RuntimeManager:
+        """The manager of the language runtimes applications are pinned to."""
+        if self._runtime_manager is None:
+            manager = RuntimeManager(verbose=self.verbose, runner=self._runner, fs=self._fs)
+            # The deployment's own log, so "Installing Node 22.11.0" is in it.
+            manager.logger = self.logger
+            self._runtime_manager = manager
+        return self._runtime_manager
+
+    def runtime_choice(self) -> RuntimeChoice | None:
+        """
+        Decide which runtime this deployment builds and runs on, once per tree.
+
+        What the build block pins (``runtime: node@22``) is an order; what the
+        project's version files say (``.nvmrc``, ``engines.node``,
+        ``.python-version``, ``composer.json``) is met by the server's own
+        runtime when that satisfies it. See
+        :meth:`noust.managers.runtimes.RuntimeManager.choose`.
+
+        Returns:
+            The choice; None for a type that runs on no pinned runtime, or a
+            project that asks for none.
+
+        Raises:
+            DeploymentError: A runtime the build block pins cannot be had.
+        """
+        tree = self.tree_root
+        if self._runtime_tree == tree:
+            return self._runtime_state
+        if not tree.is_dir():
+            return None
+        build = self.build_config()
+        request: RuntimeRequest | None = build.runtime
+        if request is None and self.PRIMARY_RUNTIME is not None:
+            request, notes = detect_request(self.PRIMARY_RUNTIME, self.build_path, tree)
+            for note in notes:
+                self.logger.warning(note)
+        choice: RuntimeChoice | None = None
+        if request is not None:
+            choice = self.runtimes.choose(request)
+            self.logger.substep(choice.reason)
+            if choice.warning:
+                self.logger.warning(choice.warning)
+        self._runtime_state = choice
+        self._runtime_tree = tree
+        return choice
+
+    def _pinned_runtime(self) -> InstalledRuntime | None:
+        """
+        Return the runtime this deployment puts first on ``PATH``, if any.
+
+        Returns:
+            None when it runs on the server's own, as every deployment did
+            before 3.4.
+        """
+        choice = self.runtime_choice()
+        runtime = choice.runtime if choice is not None else None
+        if runtime is None or not (runtime.managed or runtime.language == "php"):
+            return None
+        return runtime
+
+    def _tool_dirs(self) -> list[Path]:
+        """
+        List the directories of the project's own tools, which a custom command may name.
+
+        The Node deployers return ``node_modules/.bin`` of the project and of
+        the workspace root above it, the Python one the virtual environment's
+        ``bin``: where ``next``, ``tsc`` or ``gunicorn`` are once installed.
+
+        Returns:
+            Directories in the build tree; none for a type without any.
+        """
+        return []
+
+    def _runtime_environment(self, *, sandboxed: bool, tools: bool = False) -> dict[str, str]:
+        """
+        Compose the ``PATH`` a command of this deployment runs with.
+
+        Args:
+            sandboxed: The command runs in the sandbox, whose ``PATH`` is the
+                system's fixed one, not this process's.
+            tools: Put the project's own tool directories after the runtime
+                (the build's custom commands, which have no ``npm run`` to do
+                it for them).
+
+        Returns:
+            ``{"PATH": ...}``, or nothing when neither a runtime nor a tool
+            directory changes it.
+        """
+        runtime = self._pinned_runtime()
+        front = [str(runtime.bin_dir)] if runtime is not None else []
+        if tools:
+            front += [str(path) for path in self._tool_dirs() if path.is_dir()]
+        if not front:
+            return {}
+        rest = SANDBOX_PATH if sandboxed else os.environ.get("PATH") or SANDBOX_PATH
+        return {"PATH": ":".join([*front, rest])}
+
+    def _pinned_program(self, program: str) -> str:
+        """
+        Name a program in the runtime this deployment is pinned to, when it has it.
+
+        A sandboxed command is found through the system's ``PATH`` before its
+        own is applied, and would be the distribution's ``npm``: the pinned
+        runtime's is named by its absolute path instead.
+
+        Args:
+            program: The first word of a command.
+
+        Returns:
+            The runtime's own program as an absolute path; the word unchanged
+            when it is a path already or the runtime has none by that name.
+        """
+        runtime = self._pinned_runtime()
+        if runtime is None or "/" in program:
+            return program
+        found = runtime.program(program)
+        return str(found) if found is not None else program
+
+    def _runtime_unit_environment(self) -> dict[str, str]:
+        """
+        Say what a unit sets for the runtime it runs on.
+
+        Returns:
+            ``PATH`` with the pinned runtime first, since a start command such
+            as ``npm run start`` runs ``node`` through it; nothing without one.
+        """
+        return self._runtime_environment(sandboxed=True)
 
     def _at_runtime(self, path: Path) -> Path:
         """
@@ -601,6 +909,7 @@ class BaseDeployer(AppDeployer):
         *,
         stream: bool = False,
         phase: BuildPhase | None = None,
+        tools: bool = False,
     ) -> CommandResult:
         """
         Execute a command in the application directory, where its phase says it runs.
@@ -620,6 +929,9 @@ class BaseDeployer(AppDeployer):
                 installs and builds, which otherwise look frozen for minutes.
             phase: What the command does. Defaults to the phase the caller is
                 in (:meth:`_in_phase`), and to ``build`` outside one.
+            tools: Put the project's own tool directories on ``PATH``: for the
+                build command a build block wrote, which has no ``npm run`` to
+                do it. The commands of a type keep the ``PATH`` they always had.
 
         Returns:
             The command outcome.
@@ -628,14 +940,28 @@ class BaseDeployer(AppDeployer):
             BuildError: The application builds in the sandbox and the sandbox
                 does not hold on this server; it never falls back to root.
         """
-        self.logger.debug(f"Running: {' '.join(command)}")
         effective = phase or (self._phases[-1] if self._phases else BuildPhase.BUILD)
+        sandbox = self._execution(effective)
+
+        # A runtime the project is pinned to comes first on the command's PATH
+        # and is named by its absolute path: the sandbox finds programs through
+        # its own fixed PATH before this one applies. The tool directories of
+        # the project (node_modules/.bin, the virtual environment) follow it
+        # for a build command of the build block, once an install has put
+        # something in them.
+        pinned = self._runtime_environment(
+            sandboxed=sandbox is not None, tools=tools and effective is BuildPhase.BUILD
+        )
+        if pinned:
+            env = {**pinned, **(env or {})}
+        if command and self._pinned_runtime() is not None:
+            command = [self._pinned_program(command[0]), *command[1:]]
+        self.logger.debug(f"Running: {' '.join(command)}")
 
         run_env = dict(self.env_vars)
         if env:
             run_env.update(env)
 
-        sandbox = self._execution(effective)
         if sandbox is not None and effective is BuildPhase.RELEASE and cwd is not None:
             # A deploy hook's workdir: the release spec names the tree's root,
             # and a spec's working directory wins over the call's.
@@ -836,19 +1162,21 @@ class BaseDeployer(AppDeployer):
             self._sandbox_cache = build_sandbox.ensure_cache_dir(
                 self.app_name, user=user, group=group, runner=self.runner, fs=self.fs
             )
-        if self._sandbox_tree != self.build_path:
+        if self._sandbox_tree != self.tree_root:
+            # The whole tree, not the project inside it: a workspace installs
+            # and builds at its root.
             hand_over_tree(
-                self.build_path,
+                self.tree_root,
                 user=user,
                 group=group,
                 runner=self.runner,
                 fs=self.fs,
                 logger=self.logger,
-                env_files=_dotenv_files(self.build_path)
+                env_files=_dotenv_files(self.tree_root)
                 if self.uses_releases
                 else self._env_files(),
             )
-            self._sandbox_tree = self.build_path
+            self._sandbox_tree = self.tree_root
         if phase is BuildPhase.RELEASE:
             user, group = self._service_account()
             return build_sandbox.release_spec(
@@ -867,7 +1195,8 @@ class BaseDeployer(AppDeployer):
             state=state,
             user=user,
             group=group,
-            build_path=self.build_path,
+            build_path=self.tree_root,
+            work_dir=self.build_path,
             apps_dir=self.config.apps_directory,
             cache=self._sandbox_cache,
             env_file=self._existing_env_file(),
@@ -938,7 +1267,7 @@ class BaseDeployer(AppDeployer):
         Returns:
             Detected package manager name.
         """
-        return self._pm_helper.detect(self.build_path, self._package_manager)
+        return self._pm_helper.detect_up(self.build_path, self.tree_root, self._package_manager)
 
     def _verify_package_manager(self) -> None:
         """
@@ -966,7 +1295,8 @@ class BaseDeployer(AppDeployer):
         Returns:
             Install command as list.
         """
-        return self._pm_helper.get_install_command(self.package_manager, self.build_path)
+        lock_dir = self._pm_helper.lockfile_dir(self.build_path, self.tree_root)
+        return self._pm_helper.get_install_command(self.package_manager, lock_dir)
 
     def _get_pm_run_command(self, script: str) -> list[str]:
         """
@@ -1007,7 +1337,9 @@ class BaseDeployer(AppDeployer):
         Returns:
             Command with absolute path (e.g., "/usr/bin/npm run start")
         """
-        return self._path_resolver.resolve_command(command)
+        runtime = self._pinned_runtime()
+        prefer = [runtime.bin_dir] if runtime is not None else []
+        return self._path_resolver.resolve_command(command, prefer=prefer)
 
     def _ensure_prisma_helper(self) -> PrismaHelper:
         """
@@ -1129,6 +1461,113 @@ class BaseDeployer(AppDeployer):
             Start command string.
         """
         pass
+
+    # What a deployment runs: the type's own commands, or the build block's -----
+
+    def install_command(self) -> list[str]:
+        """
+        Name the command that installs the dependencies of this deployment.
+
+        Returns:
+            The build block's ``install`` when it sets one, which replaces the
+            type's; :meth:`get_install_command` otherwise.
+        """
+        custom = self.build_config().install
+        return list(custom) if custom else self.get_install_command()
+
+    def build_command(self) -> list[str]:
+        """
+        Name the command that builds this deployment.
+
+        Returns:
+            The build block's ``build`` when it sets one, which replaces the
+            type's; :meth:`get_build_command` otherwise.
+        """
+        custom = self.build_config().build
+        return list(custom) if custom else self.get_build_command()
+
+    def start_command(self) -> str:
+        """
+        Name the command the unit runs.
+
+        Returns:
+            The build block's ``start`` when it sets one, as the text of an
+            ``ExecStart=`` whose program is an absolute path; the type's
+            :meth:`get_start_command` otherwise (an empty string for a site
+            the web server serves).
+        """
+        custom = self.build_config().start
+        if not custom:
+            return self.get_start_command()
+        program = self._resolve_program(custom[0])
+        return systemd_command([*self._interpret(program), *custom[1:]])
+
+    def _interpret(self, path: str) -> list[str]:
+        """
+        Say how a program of a start command is launched.
+
+        Args:
+            path: The program, absolute.
+
+        Returns:
+            The words that start it; the program itself unless the type has to
+            run it through an interpreter (see the Python deployer).
+        """
+        return [path]
+
+    def _resolve_program(self, program: str) -> str:
+        """
+        Make the program of a start command an absolute path, as a unit needs.
+
+        A path with a slash (``./bin/server``) is inside the project, as the
+        application will see it through ``current``. A name without one is
+        looked for in the project's own tools (``venv/bin``,
+        ``node_modules/.bin``), then in the runtime the application is pinned
+        to, then in the system's directories: never nvm's.
+
+        Args:
+            program: The first word of the command.
+
+        Returns:
+            The absolute path; the name itself, with a warning in the log,
+            when nothing has it (systemd then fails with a clear message).
+        """
+        if program.startswith("/"):
+            return program
+        if "/" in program:
+            return os.path.normpath(self.runtime_path / program)
+        for directory in self._tool_dirs():
+            if (directory / program).is_file():
+                return str(self._runtime_equivalent(directory / program))
+        runtime = self._pinned_runtime()
+        if runtime is not None and runtime.program(program) is not None:
+            return str(runtime.bin_dir / program)
+        return self._path_resolver.resolve_command(program)
+
+    def _runtime_root(self) -> Path:
+        """
+        Return where the tree is seen once it is running: ``current``, or the application.
+
+        Returns:
+            The directory the unit's paths are relative to.
+        """
+        return self.app_path / CURRENT_LINK if self.uses_releases else self.app_path
+
+    def _runtime_equivalent(self, path: Path) -> Path:
+        """
+        Translate a path in the tree being deployed to the path the service sees.
+
+        Args:
+            path: A path at or below :attr:`tree_root`.
+
+        Returns:
+            The same path below :meth:`_runtime_root`; a path outside the tree
+            comes back unchanged.
+        """
+        try:
+            return self._runtime_root() / path.relative_to(self.tree_root)
+        except ValueError:
+            return path
 
     def get_health_check(self) -> str:
         """
@@ -1521,7 +1960,7 @@ class BaseDeployer(AppDeployer):
             True when this type serves files (no start command) and a unit
             file for the application is in the managed directory.
         """
-        if not self.app_name or self.get_start_command():
+        if not self.app_name or self.start_command():
             return False
         return self.service_manager.service_exists(self.app_name)
 
@@ -1692,19 +2131,24 @@ class BaseDeployer(AppDeployer):
         """
         self.pre_install()
 
-        command = self.get_install_command()
+        command = self.install_command()
         if not command:
             return True
 
-        self.logger.substep(f"Running: {' '.join(command)}")
+        self.logger.substep(f"Running: {shlex.join(command)}")
 
         result = self._run(command, timeout=INSTALL_TIMEOUT, stream=True)
         if not result.success:
-            # Try fallback install methods
+            # Try fallback install methods, for the type's own command only:
+            # what the project wrote is what it wants run, and a retry of
+            # something else would hide that it failed.
             fallback_command = None
+            custom = self.build_config().install is not None
 
             # Check if it's a frozen lockfile issue (pnpm/yarn/bun)
-            if "--frozen-lockfile" in command:
+            if custom:
+                pass
+            elif "--frozen-lockfile" in command:
                 self.logger.warning("Strict lockfile install failed, trying regular install...")
                 fallback_command = [c for c in command if c != "--frozen-lockfile"]
 
@@ -1753,13 +2197,18 @@ class BaseDeployer(AppDeployer):
         """
         self.pre_build()
 
-        command = self.get_build_command()
+        command = self.build_command()
         if not command:
             return True
 
-        self.logger.substep(f"Running: {' '.join(command)}")
+        self.logger.substep(f"Running: {shlex.join(command)}")
 
-        result = self._run(command, timeout=BUILD_TIMEOUT, stream=True)
+        result = self._run(
+            command,
+            timeout=BUILD_TIMEOUT,
+            stream=True,
+            tools=self.build_config().build is not None,
+        )
         if not result.success:
             error_output = failure_output(result)
 
@@ -1972,10 +2421,7 @@ class BaseDeployer(AppDeployer):
                 details="Call configure(domain=..., source=...) before deploy().",
             )
 
-        start_command = self.get_start_command()
-
-        # Resolve to absolute path for systemd compatibility
-        start_command = self._resolve_absolute_path(start_command)
+        start_command = self._unit_command()
 
         self.logger.substep(f"Service: {self.app_name}")
         self.logger.substep(f"Command: {start_command}")
@@ -1984,7 +2430,7 @@ class BaseDeployer(AppDeployer):
         # given at create time are in the env file _prepare_env wrote, which the
         # unit loads. Everything interpolated into a unit is still validated:
         # a newline there starts a new directive.
-        env = validate_environment(self._unit_environment())
+        env = self._unit_environment_inline()
         env_file = self._settle_env_file()
         start_command = validate_unit_value(start_command, field="ExecStart")
         working_directory = validate_unit_value(str(self.runtime_path), field="WorkingDirectory")
@@ -1994,6 +2440,7 @@ class BaseDeployer(AppDeployer):
 
         zero_downtime = self._zero_downtime_app()
         if zero_downtime is not None:
+            self._refuse_blue_green_in_subdirectory()
             # Two instances run from a template; the application's own unit
             # is retired while the mode is on. The row still describes how it
             # runs, which is what turning the mode off writes the unit from.
@@ -2009,6 +2456,7 @@ class BaseDeployer(AppDeployer):
                 user=self._service_account()[0],
                 group=self._service_account()[1],
             )
+            self._record_applied()
             return True
 
         self.service_manager.create_service(
@@ -2036,8 +2484,187 @@ class BaseDeployer(AppDeployer):
             user=self._service_account()[0],
             group=self._service_account()[1],
         )
+        self._record_applied()
 
         return True
+
+    def _unit_command(self) -> str:
+        """
+        Name the ``ExecStart=`` of this application's unit.
+
+        Returns:
+            The command with an absolute program: the build block's ``start``
+            already has one (:meth:`_resolve_program`); the type's is resolved
+            to the system's directories, or to the pinned runtime's, which
+            come first.
+        """
+        command = self.start_command()
+        if not command:
+            return command
+        if not self.build_config().start:
+            return self._resolve_absolute_path(command)
+        program = command.split(" ", 1)[0].strip('"')
+        if not program.startswith("/"):
+            raise DeploymentError(
+                f"build.start names {program}, which is in none of the project's tools, "
+                "the pinned runtime or the system's directories",
+                details="Install it where the service can run it, or name the program by its "
+                "path in the project (./bin/server).",
+            )
+        return command
+
+    def _unit_environment_inline(self) -> dict[str, str]:
+        """
+        Name the variables the unit sets itself, validated.
+
+        Returns:
+            What :meth:`_unit_environment` says, and the ``PATH`` of the
+            runtime the application is pinned to.
+
+        Raises:
+            EnvironmentValidationError: A value that cannot be written into a unit.
+        """
+        return validate_environment(
+            {**self._unit_environment(), **self._runtime_unit_environment()}
+        )
+
+    def _refuse_blue_green_in_subdirectory(self) -> None:
+        """
+        Refuse blue/green for a project that lives in a subdirectory.
+
+        Both instances run from a template whose working directory is the
+        instance's release; there is no room in it for a base directory.
+
+        Raises:
+            DeploymentError: The build block sets a base directory.
+        """
+        base = self.build_config().base_directory
+        if base:
+            raise DeploymentError(
+                f"{self.domain} runs blue/green, which cannot serve a project from the "
+                f"subdirectory {base}",
+                details="Both instances run from the root of their release. Turn the mode off "
+                f"(noust app zero-downtime {self.domain} off), or move the project to the root "
+                "of the repository.",
+            )
+
+    def _launch_record(self) -> dict[str, Any] | None:
+        """
+        Describe what the unit is written from, when the build block or a pinned runtime shaped it.
+
+        Returns:
+            The command, the working directory, the ``PATH`` and the runtime;
+            None for an application the build block does not touch, which is
+            every application from before 3.4 until its operator says
+            otherwise.
+        """
+        runtime = self._pinned_runtime()
+        build = self.build_config()
+        if not (build.start or build.base_directory or runtime):
+            return None
+        return {
+            "start": self._unit_command(),
+            "working_directory": str(self.runtime_path),
+            "path": self._runtime_unit_environment().get("PATH"),
+            "runtime": (
+                {"language": runtime.language, "version": runtime.version}
+                if runtime is not None
+                else None
+            ),
+        }
+
+    def _record_applied(self) -> None:
+        """Remember what the unit was just written from, so an update can tell when it is stale."""
+        if not self.domain or isinstance(self.fs, DryRunFileSystem):
+            return
+        try:
+            app_build_store.set_applied(self.domain, self._launch_record(), store=self.store)
+        except _RECORDING_ERRORS as exc:
+            self.logger.warning(f"Could not record what the unit runs: {exc}")
+
+    def _refresh_unit(self) -> Callable[[], None] | None:
+        """
+        Rewrite the unit when the build block or the runtime changed what it launches.
+
+        An update does not write the unit again, so a start command, a base
+        directory or a runtime the operator (or the repository) changed would
+        never reach the process. What the unit was last written from
+        (:meth:`_record_applied`) is compared with what this deployment would
+        write; when they differ the unit's ``ExecStart``, ``WorkingDirectory``
+        and ``PATH`` are edited, and nothing else of it.
+
+        Returns:
+            What puts the previous unit back, for the caller to run when the
+            release does not pass its health check; None when the unit was
+            already as it should be (nearly always), or this application has
+            no unit Noust may rewrite.
+        """
+        if not self.domain or isinstance(self.fs, DryRunFileSystem) or not self.start_command():
+            return None
+        record = self._launch_record()
+        previous_record = app_build_store.get_applied(self.domain, store=self.store)
+        if record == previous_record:
+            return None
+        env = self._unit_environment_inline()
+        command = self._unit_command()
+        zero_downtime = self._zero_downtime_app()
+        self.logger.substep("The unit is written again: its command, directory or runtime changed")
+        if zero_downtime is not None:
+            self._refuse_blue_green_in_subdirectory()
+            blue_green = self._blue_green(zero_downtime)
+            previous_template = blue_green.write_template(command=command, environment=env)
+
+            def put_template_back() -> None:
+                self.service_manager.restore_template(blue_green.base, previous_template)
+                app_build_store.set_applied(self.domain, previous_record, store=self.store)
+
+            self._register_launch(command, env)
+            app_build_store.set_applied(self.domain, record, store=self.store)
+            return put_template_back
+
+        try:
+            text = self.service_manager.get_service_config(self.app_name)
+        except ServiceError as exc:
+            self.logger.warning(
+                f"The unit is not Noust's to rewrite, so it is left as it is: {exc}"
+            )
+            return None
+        if text is None:
+            return None
+        edited = with_launch(
+            text,
+            command=command,
+            working_directory=validate_unit_value(str(self.runtime_path), field="WorkingDirectory"),
+            path=env.get("PATH"),
+        )
+        previous_text = self.service_manager.update_config(self.app_name, edited)
+
+        def put_unit_back() -> None:
+            self.service_manager.update_config(self.app_name, previous_text)
+            app_build_store.set_applied(self.domain, previous_record, store=self.store)
+
+        self._register_launch(command, env)
+        app_build_store.set_applied(self.domain, record, store=self.store)
+        return put_unit_back
+
+    def _register_launch(self, command: str, env: dict[str, str]) -> None:
+        """
+        Record the unit's command and directory in the store, as a deploy does.
+
+        Args:
+            command: The ``ExecStart=``.
+            env: The variables the unit sets inline.
+        """
+        self.registrar.register_service(
+            domain=self.domain,
+            name=self.app_name,
+            command=command,
+            working_directory=self.runtime_path,
+            environment=env,
+            port=self.port,
+            user=self._service_account()[0],
+            group=self._service_account()[1],
+        )
 
     def obtain_certificate(self) -> bool:
         """
@@ -2341,7 +2968,9 @@ class BaseDeployer(AppDeployer):
         staged = self._staged
         self._record_release_row(staged)
 
-        # Both describe the code that was just fetched.
+        # All three describe the code that was just fetched.
+        self._prime_build()
+        self._reconcile_registration()
         self._detect_nginx_config()
         self._prepare_env()
 
@@ -2358,19 +2987,38 @@ class BaseDeployer(AppDeployer):
         existing directory would nest inside it.
         """
         staged = self._require_staged()
+        active = staged.manager.current()
+        base = self.build_config().base_directory
+        if active is not None and base:
+            # The project's own dependencies: the same subdirectory of the
+            # release that serves. A workspace's, at the root, are installed.
+            active = replace(active, path=active.path / base)
+        # The versions the stamps carry are those of the runtime the install
+        # runs with, which a pinned runtime changes.
+        runtime_env = self._runtime_environment(sandboxed=False)
+        # A different install command is a different install.
+        install = self.build_config().install
+        extra = {"install": shlex.join(install)} if install else None
         self.dependencies_reused_from = reuse_dependencies(
-            staged.path,
-            staged.manager.current(),
+            self.build_path,
+            active,
             runner=self.runner,
             fs=self.fs,
             logger=self.logger,
+            env=runtime_env or None,
+            extra=extra,
         )
         if self.dependencies_reused_from is None:
             self.install_dependencies()
             # So the next deploy can tell whether reusing this install would
             # still match the runtime it was built with.
             stamp_installed_dependencies(
-                staged.path, runner=self.runner, fs=self.fs, logger=self.logger
+                self.build_path,
+                runner=self.runner,
+                fs=self.fs,
+                logger=self.logger,
+                env=runtime_env or None,
+                extra=extra,
             )
             return
 
@@ -2426,6 +3074,7 @@ class BaseDeployer(AppDeployer):
         cancellation.commit(f"activating release {staged.id}")
         zero_downtime = self._zero_downtime_app()
         if zero_downtime is not None:
+            self._refuse_blue_green_in_subdirectory()
             try:
                 self._blue_green(zero_downtime).activate(staged.path, staged.manager)
             except NoustError:
@@ -2531,7 +3180,7 @@ class BaseDeployer(AppDeployer):
         Returns:
             The gate, the same one an operator's rollback goes through.
         """
-        serves = bool(self.get_start_command())
+        serves = bool(self.start_command())
         check = self._health_check_settings()
         return HealthGate(
             unit=self.app_name if serves and self.app_name else None,
@@ -2719,8 +3368,10 @@ class BaseDeployer(AppDeployer):
         """Fetch the source, then read the configuration that ships with it."""
         self.fetch_source()
 
-        # Both of these describe the code that was just fetched, so they cannot
-        # run any earlier.
+        # All three of these describe the code that was just fetched, so they
+        # cannot run any earlier.
+        self._prime_build()
+        self._reconcile_registration()
         self._detect_nginx_config()
         self._prepare_env()
 
@@ -2795,7 +3446,7 @@ class BaseDeployer(AppDeployer):
             return
 
         shared = self.releases.shared_dir
-        trees = [self.build_path] + ([shared] if shared.is_dir() else [])
+        trees = [self.tree_root] + ([shared] if shared.is_dir() else [])
         for tree in trees:
             hand_over_tree(
                 tree,
@@ -2973,6 +3624,7 @@ class BaseDeployer(AppDeployer):
             What was done.
         """
         self._sandbox_by_default(report)
+        self._prime_build()
 
         report("Inspecting the project")
         with self._in_phase(BuildPhase.INSTALL):
@@ -3000,6 +3652,7 @@ class BaseDeployer(AppDeployer):
         # post_deploy hooks run once the new build passed its gate, so an
         # application that has them restarts behind it here, not later.
         gated = self._gate_in_place or bool(self._hook_set().post_deploy)
+        put_unit_back = self._refresh_unit()
         if not (gated and result.start_command):
             return result
         # Inside the recording: a build that does not answer is a failed row
@@ -3007,6 +3660,9 @@ class BaseDeployer(AppDeployer):
         report("Restarting behind the health check")
         healthy, evidence = self._restart_and_probe()
         if not healthy:
+            if put_unit_back is not None:
+                put_unit_back()
+                self._restart_and_probe()
             raise DeploymentError(f"{self.domain} did not pass its health check", details=evidence)
         return replace(result, restarted=(self.app_name,) if self.app_name else ())
 
@@ -3053,7 +3709,16 @@ class BaseDeployer(AppDeployer):
         self._run_pre_deploy_hooks(report)
 
         report(f"Activating release {self._require_staged().id}")
-        self._activate_release()
+        put_unit_back = self._refresh_unit()
+        activated = False
+        try:
+            self._activate_release()
+            activated = True
+        finally:
+            if put_unit_back is not None and not activated:
+                # What served before is put back, the unit with it.
+                put_unit_back()
+                self._restart_and_probe()
 
         return self._update_result(prisma_updated)
 
@@ -3111,10 +3776,10 @@ class BaseDeployer(AppDeployer):
         """
         return self.deploy_hooks.resolve(
             self._app_row(),
-            self.build_path,
+            self.tree_root,
             self.store,
             app_type=self.APP_TYPE,
-            serves=bool(self.get_start_command()),
+            serves=bool(self.start_command()),
         )
 
     def _hook_executor(self) -> CommandHookExecutor:
@@ -3232,7 +3897,7 @@ class BaseDeployer(AppDeployer):
         Returns:
             The result for the caller.
         """
-        start_command = self.get_start_command()
+        start_command = self.start_command()
         return UpdateResult(
             package_manager=self.package_manager,
             prisma_updated=prisma_updated,
@@ -3312,6 +3977,7 @@ class BaseDeployer(AppDeployer):
         self.pre_flight_check()
 
         self._app_record = self._register_app_in_store(AppStatus.DEPLOYING.value)
+        self._persist_initial_build()
         if is_new_deployment:
             # Created from 3.1: it builds in the sandbox from its first build;
             # a preview with the network but without production's secrets,
@@ -3326,7 +3992,7 @@ class BaseDeployer(AppDeployer):
             self.domain,
             app_name=self.app_name,
             app_type=self.APP_TYPE,
-            is_static=not bool(self.get_start_command()),
+            is_static=not bool(self.start_command()),
             runner=self.runner,
             store=self.store,
             new=is_new_deployment,
@@ -3436,7 +4102,7 @@ class BaseDeployer(AppDeployer):
             webserver=self.webserver,
             ssl_enabled=self.ssl,
             status=status,
-            is_static=not bool(self.get_start_command()),
+            is_static=not bool(self.start_command()),
             env_vars=self.env_vars,
             layout=self._layout,
             persistent_paths=self._persistent_request,

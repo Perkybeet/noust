@@ -11,6 +11,8 @@ handling for systemd services that require global system paths.
 import os
 import shlex
 import shutil
+from collections.abc import Sequence
+from pathlib import Path
 from typing import ClassVar
 
 from noust.core.logger import Logger
@@ -104,7 +106,7 @@ class PathResolver:
 
         return None
 
-    def resolve_command(self, command: str) -> str:
+    def resolve_command(self, command: str, prefer: Sequence[Path] = ()) -> str:
         """
         Resolve command to use absolute paths for executables.
 
@@ -115,6 +117,9 @@ class PathResolver:
 
         Args:
             command: Command string (e.g., "npm run start")
+            prefer: Directories looked in before the system's: the ``bin`` of
+                the runtime an application is pinned to, so ``npm`` is that
+                runtime's and not the distribution's.
 
         Returns:
             Command with absolute path (e.g., "/usr/bin/npm run start")
@@ -150,6 +155,13 @@ class PathResolver:
                         f"The service may fail with 'Permission denied'."
                     )
             return command
+
+        # A pinned runtime's own programs come first.
+        for directory in prefer:
+            candidate = os.path.join(directory, executable)
+            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+                parts[0] = candidate
+                return " ".join(parts)
 
         # First, try to find in global system paths
         global_path = self.find_global_executable(executable)

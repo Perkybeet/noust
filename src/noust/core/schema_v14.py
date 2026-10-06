@@ -24,8 +24,24 @@ VERSION = 14
 TEAMS_SQL = ""
 TEAMS_COLUMNS: list[tuple[str, str, str]] = []
 
-# Owned by the build lane: the native build block of an application.
-BUILD_SQL = ""
+# Owned by the build lane: the native build block of an application
+# (noust.core.app_build_store is its only reader and writer). One row per
+# application: ``document`` is the operator's ``build:`` block, as the
+# validated YAML Noust wrote (no row, or none, means the repository's own
+# applies); ``applied`` is what the application's unit was last written from
+# (its start command, base directory and runtime), which is how an update
+# knows the unit is stale. A table of its own, not columns of ``apps``, so a
+# deploy's full-row write of ``apps`` cannot put back what an operator changed
+# while it ran.
+BUILD_SQL = """
+CREATE TABLE IF NOT EXISTS app_build (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    document TEXT,
+    applied TEXT,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+"""
 BUILD_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the container lane: what a container application is built from and

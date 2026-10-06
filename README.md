@@ -403,6 +403,35 @@ for a few seconds. A Docker Compose stack uses the same command and gets
 
 ---
 
+## Build, start and runtime
+
+```bash
+noust app build set shop.example.com --base-directory apps/web --build 'pnpm --filter web build'
+noust app build set shop.example.com --start 'node dist/server.js --port ${PORT}' --runtime node@22
+noust app build show shop.example.com        # which block applies, and where it comes from
+noust create -d api.example.com -s https://github.com/you/shop.git --build-file api.yaml   # one repository, several apps
+noust runtime install python@3.12            # Node and Python are installed under /opt/noust/runtimes
+```
+
+A `build:` block in the repository's `noust.yaml` (or the operator's, which replaces it whole)
+changes how an application is installed, built and started: `base_directory` for a project in a
+subdirectory of a monorepo, `install`, `build` and `start` commands (an argument vector, never a
+shell), `publish_directory` for static output, and `runtime` to pin `node@22`, `python@3.12` or
+`php@8.3`. The project's `.nvmrc`, `engines.node`, `.python-version`, `runtime.txt` and
+`composer.json` are read too. Pinned Node comes from nodejs.org verified against its published
+SHA-256, Python from uv, PHP from the distribution's packages; builds run in the sandbox with the
+runtime first on `PATH`, and the unit names its interpreter by absolute path. An update that
+changes the block rewrites the unit's command, directory and `PATH`, and puts the previous unit
+back when the release does not answer.
+
+Nuxt, SvelteKit, Astro, Remix and React Router, and Angular are detected and deployed as a
+server or as static files depending on how they are configured. Python binds `127.0.0.1`, takes
+its workers from `WEB_CONCURRENCY`, and starts with whatever server you name.
+
+See [docs/build.md](docs/build.md).
+
+---
+
 ## Docker Compose
 
 A project with a `docker-compose.prod.yml` (or any compose file) deploys as a stack under a
@@ -838,7 +867,8 @@ See [docs/security.md](docs/security.md), which also says how to report a vulner
 | `noust logs` | Show or follow an application's log (`-f`, `--json`) |
 | `noust env` | Show, configure, mark or export an application's environment |
 | `noust releases` | List releases, set their retention and roll back to one instantly |
-| `noust app` | Migrate to releases; limits, health check, blue/green and the Compose relay, branch and tags, hooks, adopt a running stack, workers, database copy, build sandbox, account, deploy webhook; export and import |
+| `noust app` | Migrate to releases; limits, health check, blue/green and the Compose relay, branch and tags, hooks, build commands and runtime (`app build`), adopt a running stack, workers, database copy, build sandbox, account, deploy webhook; export and import |
+| `noust runtime` | List, install and remove the Node and Python versions applications are pinned to; the PHP versions the server has |
 | `noust domain` | Add, list and remove aliases and redirects |
 | `noust preview` | Pull request previews |
 | `noust recipe` | List and show the ready-made applications |
@@ -896,19 +926,27 @@ completions`. `wasm` runs the same program throughout 3.x.
 | Type | Detected by | Built and run with | Releases |
 |---|---|---|---|
 | `nextjs` | `next.config.{js,mjs,ts}`, or `next` in `package.json` | Install, `build`, then `start` or the standalone server | Yes |
+| `nuxt` | `nuxt` in `package.json`, or a `nuxt.config` | Install, `build`; Nitro's server (`.output/server/index.mjs`), or the generated files | Yes |
+| `sveltekit` | `@sveltejs/kit` in `package.json` | Install, `build`; `node build` with `adapter-node`, the files with `adapter-static` | Yes |
+| `astro` | `astro` in `package.json`, or an `astro.config` | Install, `build`; the files, or `dist/server/entry.mjs` with `@astrojs/node` | Yes |
+| `remix` | `@remix-run/*` or `@react-router/*`, or a `react-router.config` | Install, `build`; the `start` script or `remix-serve`; the client bundle in SPA mode | Yes |
+| `angular` | `angular.json` with `@angular/core` | Install, `build`; the client bundle, or the SSR server | Yes |
 | `vite` | `vite.config.{js,ts,mjs}`, or `vite` in `package.json` | Install, `build`, served as static files; `preview` when it uses SSR | Yes |
 | `nodejs` | `package.json` with Express, Fastify or Koa, a `main` or a `start` script | Install, `build` if present, then `start:prod`, `start:production` or `start` | Yes |
-| `python` | `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` | A virtual environment (Poetry or Pipenv when locked); Gunicorn, with Uvicorn workers for FastAPI and Starlette; Django's `collectstatic` | Yes |
+| `python` | `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` | A virtual environment (Poetry or Pipenv when locked); Gunicorn (Hypercorn when the project depends on it) on `127.0.0.1`, with Uvicorn workers for FastAPI and Starlette; Django's `collectstatic` when it has a `STATIC_ROOT` | Yes |
 | `php-fpm` | `composer.json` with a front controller, or a root `index.php` | A PHP-FPM pool per application on its own socket, `composer` when there is a `composer.json`, a fastcgi site (nginx only); `public/` detected | Yes |
 | `static` | `index.html`, and no project manifest | Served by the web server from `public`, `dist`, `build`, `www`, `html` or the root | Yes |
 | `monorepo` | `turbo.json`, pnpm workspaces and at least two apps under `apps/` | pnpm; one unit and one subdomain per workspace | In place |
 | `docker-compose` | A compose file (`docker-compose.prod.yml` first) | `docker compose` v2 under a systemd unit, nginx in front of published ports; hooks, relay, database copy | In place |
 | `container` | A `Dockerfile` or `Containerfile` with no compose file; `--image` for a registry; `--builder railpack` for any other language | A compose file Noust writes, one container on 127.0.0.1 under a systemd unit, nginx in front; one image per release | Images |
 
-Detection tries the most specific type first: monorepo, Docker Compose, Next.js, PHP, Vite,
-Python, Node.js, static. When nothing matches, Noust falls back to Node.js and says so; pass
-`--type` to choose. Node package managers (npm, pnpm, Yarn, Bun) are detected from the
-lockfile; `--pm npm|pnpm|bun` forces one.
+Detection tries the most specific type first: monorepo, Docker Compose, Angular, Astro, Nuxt,
+Remix, SvelteKit, Next.js, PHP, Vite, Python, Node.js, static. When nothing matches, Noust falls
+back to Node.js and says so; pass `--type` to choose. Node package managers (npm, pnpm, Yarn,
+Bun) are detected from the lockfile (`pnpm-lock.yaml`, `bun.lockb` or `bun.lock`, `yarn.lock`,
+`package-lock.json`, then `packageManager`), the nearest one above the project in a monorepo;
+`--pm npm|pnpm|bun` forces one. Any of them can be built and started with commands of your
+own: [docs/build.md](docs/build.md).
 
 ---
 
@@ -970,6 +1008,7 @@ is.
 
 - [docs/CHANGELOG-3.3.md](docs/CHANGELOG-3.3.md): what changed in 3.3
 - [docs/UPGRADING-3.3.md](docs/UPGRADING-3.3.md): upgrading a 3.2 server or fleet to 3.3
+- [docs/build.md](docs/build.md): the `build:` block (commands, base directory, publish directory), pinned runtimes, the Node frameworks and Python servers
 - [docs/databases.md](docs/databases.md): databases on the host and in containers, credentials, detected links, versions and settings
 - [docs/CHANGELOG-3.2.md](docs/CHANGELOG-3.2.md): what changed in 3.2
 - [docs/UPGRADING-3.2.md](docs/UPGRADING-3.2.md): upgrading a 3.1 server or fleet to 3.2, and rolling back

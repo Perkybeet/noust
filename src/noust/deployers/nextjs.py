@@ -36,6 +36,9 @@ class NextJSDeployer(BaseDeployer):
 
     SYSTEM_DEPS: ClassVar[list[str]] = ["node", "npm"]
 
+    RUNTIME_LANGUAGES: ClassVar[frozenset[str]] = frozenset({"node"})
+    PRIMARY_RUNTIME: ClassVar[str | None] = "node"
+
     def __init__(
         self,
         verbose: bool = False,
@@ -93,6 +96,18 @@ class NextJSDeployer(BaseDeployer):
                     )
 
         return False
+
+    def _tool_dirs(self) -> list[Path]:
+        """
+        List the ``node_modules/.bin`` directories of the project and its workspace.
+
+        Returns:
+            The project's first, then each ancestor's up to the tree's root.
+        """
+        return [
+            directory / "node_modules" / ".bin"
+            for directory in self._pm_helper.directories_up(self.build_path, self.tree_root)
+        ]
 
     def get_install_command(self) -> list[str]:
         """Get dependency installation command."""

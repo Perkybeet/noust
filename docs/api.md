@@ -518,6 +518,31 @@ and the change takes effect with the next update. The releases of a container ap
 images: `GET .../releases` lists them (`on_disk` says whether the image is still on the server)
 and `POST .../releases/{id}/activate` recreates the container from one, with no build.
 `GET .../logs` answers with what the container printed, secrets masked.
+### Build block
+
+```bash
+# Which commands, base directory, publish directory and runtime the next deployment uses
+curl -s -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/apps/shop.example.com/build
+# {"domain", "source": "repo" | "operator" | "none", "base_directory", "install", "build", "start",
+#  "publish_directory", "runtime", "document": null, "repository_error": null,
+#  "applied": {"start", "working_directory", "path", "runtime"} | null}
+
+# Set the operator's own, which replaces the repository's noust.yaml whole (sudo mode)
+curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"base_directory": "apps/web", "build": "pnpm --filter web build", "runtime": "node@22"}' \
+  https://panel.example.com/api/apps/shop.example.com/build
+# 200 the same shape, "source": "operator". An invalid block answers 400 and names the field:
+# {"error": "validationerror", "fields": {"build.base_directory": "..."}}
+
+curl -s -X DELETE -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/apps/shop.example.com/build
+```
+
+The keys are `base_directory`, `install`, `build`, `start`, `publish_directory` and `runtime`; a
+key left out is not set, and an empty body is refused (delete the block to give the repository
+its say back). Writing it is root-equivalent: its commands run in the build sandbox and, for
+`start`, as the application with its secrets. It applies from the next deployment or update,
+which also writes the unit again when the command, the directory or the runtime changed. See
+[build.md](build.md).
 
 Going back to a deployment that would pass one that changed the schema is refused until it is
 confirmed:

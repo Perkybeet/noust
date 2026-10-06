@@ -45,7 +45,23 @@ from noust.managers.service_manager import ServiceManager
 #: What a unit keeps inline: not secret, and Noust's to decide (the port, the
 #: mode, which Compose file a stack runs). systemd lets ``EnvironmentFile=``
 #: override ``Environment=``, so they stay out of the file.
-INLINE = frozenset({"PORT", "NODE_ENV", "COMPOSE_FILE", "COMPOSE_PROJECT_NAME"})
+INLINE = frozenset(
+    {
+        "PORT",
+        "NODE_ENV",
+        "COMPOSE_FILE",
+        "COMPOSE_PROJECT_NAME",
+        # 3.4: the runtime an application is pinned to is first on its PATH,
+        # a Python application's workers are WEB_CONCURRENCY, and a Node
+        # framework's server is told where it listens and behind whom.
+        "PATH",
+        "WEB_CONCURRENCY",
+        "HOST",
+        "PROTOCOL_HEADER",
+        "HOST_HEADER",
+        "PORT_HEADER",
+    }
+)
 
 #: Variables a framework copies into the code when it builds. For them the
 #: value that was in use is the ``.env``'s, which every build read, not the

@@ -42,7 +42,8 @@ changed](#other-things-that-changed-for-compose).
 ## noust.yaml
 
 A repository can tell Noust how to deploy it with a `noust.yaml` (or `.noust.yaml`) at its
-root, versioned with the code. It has two keys, both optional:
+root, versioned with the code. For a Compose stack it has two keys, both optional (a third, `build`,
+changes how Node, Python and static applications are built and started: [build.md](build.md)):
 
 ```yaml
 hooks:
