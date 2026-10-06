@@ -2359,6 +2359,7 @@ def rollback_availability(records: Sequence[DeploymentRecord]) -> dict[int, str 
     apps: dict[str, App | None] = {}
     releases: dict[str, tuple[set[str], str | None, set[str]]] = {}
     images: dict[str, tuple[set[str], str | None, set[str]]] = {}
+    unanswered: dict[str, str] = {}
     live: dict[str, int | None] = {}
     backups: dict[str, bool] = {}
     backup_manager: BackupManager | None = None
@@ -2381,9 +2382,19 @@ def rollback_availability(records: Sequence[DeploymentRecord]) -> dict[int, str 
 
         if app.app_type == AppType.CONTAINER.value:
             if record.domain not in images:
-                images[record.domain] = _container_images(app)
+                try:
+                    images[record.domain] = _container_images(app)
+                except NoustError as exc:
+                    # Docker cannot say which images are on the host: a listing
+                    # of deployments must still answer.
+                    images[record.domain] = (set(), None, set())
+                    unanswered[record.domain] = exc.message
             present, active_release, failed_releases = images[record.domain]
-            if record.release_id is None:
+            if record.domain in unanswered:
+                answers[record.id] = (
+                    f"Docker could not list the images: {unanswered[record.domain]}"
+                )
+            elif record.release_id is None:
                 answers[record.id] = f"Deployment {record.id} built no release"
             elif record.release_id == active_release:
                 answers[record.id] = f"Release {record.release_id} is already live"
@@ -3503,6 +3514,12 @@ def set_release_retention(
     # current, must not race the list this prune decides from.
     with app_lock(app.domain, "release retention change"):
         store.set_keep_releases(app.domain, keep)
+        if app.app_type == AppType.CONTAINER.value:
+            # Its releases are images: they go with their records.
+            forgotten = _container_deployer(app, log=log).prune_releases()
+            for release_id in forgotten:
+                log.substep(f"Pruned release {release_id}")
+            return RetentionChange(domain=app.domain, keep_releases=keep, pruned=tuple(forgotten))
         releases = ReleaseManager(app_root(app), logger=log)
         removed = releases.prune(keep)
         for release in removed:

@@ -340,6 +340,18 @@ class TestTheReleases:
         assert old.id is not None
         assert "pruned" in (availability[old.id] or "")
 
+    def test_a_docker_that_cannot_list_does_not_break_the_listing_of_deployments(
+        self, two, docker, store
+    ):
+        docker.fail.add("images")
+
+        availability = lifecycle.rollback_availability(store.list_deployments(DOMAIN))
+
+        assert availability
+        assert all(
+            "Docker could not list the images" in (why or "") for why in availability.values()
+        )
+
     def test_the_deployment_that_is_live_cannot_be_gone_back_to(self, two, docker, store):
         _, second = two
         live = next(r for r in store.list_deployments(DOMAIN) if r.release_id == second)
@@ -348,6 +360,37 @@ class TestTheReleases:
 
         assert live.id is not None
         assert "already live" in (availability[live.id] or "")
+
+
+class TestTheRetention:
+    def test_keeping_fewer_removes_the_images_and_the_records_beyond_it(
+        self, deploy, machine, docker, store, tmp_path
+    ):
+        deploy()
+        for _ in range(3):
+            docker.serving = running(tmp_path)
+            lifecycle.update_app(DOMAIN)
+        newest = release_ids(store)[:2]
+
+        change = lifecycle.set_release_retention(DOMAIN, 2)
+
+        assert change.keep_releases == 2
+        assert len(change.pruned) == 2
+        assert release_ids(store) == newest
+        left = {i for i in docker.images if i.startswith(f"noust-{APP}:")}
+        assert left == {image_tag(APP, release) for release in newest}
+
+    def test_the_active_release_and_the_one_to_go_back_to_stay_whatever_the_number(
+        self, deploy, machine, docker, store, tmp_path
+    ):
+        deploy()
+        docker.serving = running(tmp_path)
+        lifecycle.update_app(DOMAIN)
+
+        change = lifecycle.set_release_retention(DOMAIN, 1)
+
+        assert change.pruned == ()
+        assert len(release_ids(store)) == 2
 
 
 class TestTheLimits:

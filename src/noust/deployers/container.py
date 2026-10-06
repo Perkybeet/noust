@@ -91,6 +91,7 @@ from noust.deployers.releases import ReleaseManager, release_order_key
 from noust.managers import railpack
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.validators.container import METHOD_DOCKERFILE, METHOD_IMAGE, METHOD_RAILPACK
+from noust.validators.port import find_available_port
 
 #: Root files of the stacks Noust has no deployer of its own for, and what each
 #: is called. Railpack builds all of them, so when it is installed a repository
@@ -173,6 +174,9 @@ class ContainerDeployer(DockerComposeDeployer):
     # nothing that knows its framework claimed it first.
     DETECTION_PRIORITY = 5
     DEFAULT_PORT = 8080
+
+    #: Where the search for a free port on 127.0.0.1 starts, as for every type.
+    DEFAULT_PORT_START = 3000
 
     DETECTION_FILES: ClassVar[list[str]] = [*DOCKERFILE_NAMES]
 
@@ -489,14 +493,26 @@ class ContainerDeployer(DockerComposeDeployer):
                 the secrets it was given.
             AppBusyError: Another operation is running on the application.
         """
+        if not self.port:
+            # The port on 127.0.0.1 is Noust's to give: a container publishes
+            # the one the web server is told, there is no compose file to read it from.
+            self.port = find_available_port(
+                preferred=self.DEFAULT_PORT_START, exclude=self.store.ports_owned_by_apps()
+            )
+            if not self.port:
+                raise DeploymentError(
+                    "No available port found",
+                    details="Free a port in the range Noust allocates from, or pass --port.",
+                )
+        deployed = False
         try:
-            return super().deploy()
-        except BaseException:
+            deployed = super().deploy()
+            return deployed
+        finally:
             # What was given for an application that never came to exist is
             # not kept: a password nobody can see is a password to forget.
-            if self.store.get_app(self.domain) is None:
+            if not deployed and self.store.get_app(self.domain) is None:
                 forget_secrets(self.app_name, self._secrets())
-            raise
 
     def _fetch_source(self) -> None:
         """Fetch the repository; an image from a registry has nothing to fetch."""
@@ -554,11 +570,17 @@ class ContainerDeployer(DockerComposeDeployer):
 
     def _configure_environment(self) -> None:
         """Write the environment, and make sure the file the container reads exists."""
-        super()._configure_environment()
-        env_file = self.app_path / ".env"
-        if not env_file.exists():
-            from noust.core.fs import SECRET_MODE
+        from noust.core.fs import SECRET_MODE
 
+        env_file = self.app_path / ".env"
+        if env_file.is_symlink():
+            # A repository is untrusted input and Compose reads this file as
+            # root: a link in it would put any file of this server into the
+            # container's environment. What Noust writes is a file of its own.
+            self.logger.warning(f"{env_file} is a link in the repository: it is not followed")
+            self.fs.remove(env_file)
+        super()._configure_environment()
+        if not env_file.exists():
             self.fs.write_text(env_file, "", mode=SECRET_MODE)
 
     def _build_images(self, no_cache: bool = False) -> None:
@@ -635,7 +657,9 @@ class ContainerDeployer(DockerComposeDeployer):
                 env_secret_marks=self._initial_marks,
                 initial_health=self._initial_health,
             )
-            self._keep_state(row)
+            # The release is the one that serves only once the gate said so.
+            if status == AppStatus.RUNNING.value:
+                self._keep_state(row)
         except (NoustError, sqlite3.Error) as exc:
             self.logger.warning(f"Could not register app in store: {exc}")
 
@@ -699,7 +723,24 @@ class ContainerDeployer(DockerComposeDeployer):
             )
         )
 
-    def _prune(self, app: App) -> None:
+    def prune_releases(self) -> list[str]:
+        """
+        Remove the images and the records of the releases past the retention.
+
+        What ``noust releases keep`` does after it sets the number.
+
+        Returns:
+            The ids of the releases forgotten.
+
+        Raises:
+            DeploymentError: The application is not deployed.
+        """
+        app = self.store.get_app(self.domain)
+        if app is None:
+            raise DeploymentError(f"{self.domain} is not deployed")
+        return self._prune(app)
+
+    def _prune(self, app: App) -> list[str]:
         """
         Remove the images (and the records) of releases past the retention.
 
@@ -708,9 +749,12 @@ class ContainerDeployer(DockerComposeDeployer):
 
         Args:
             app: The application's row.
+
+        Returns:
+            The ids of the releases whose record was forgotten.
         """
         if app.id is None:
-            return
+            return []
         rows = sorted(
             self.store.list_releases(app.id),
             key=lambda row: release_order_key(row.id),
@@ -737,10 +781,13 @@ class ContainerDeployer(DockerComposeDeployer):
             present = images.present_releases()
         except NoustError as exc:
             self.logger.warning(f"Old images were not pruned: {exc.message}")
-            return
+            return []
         for failure in images.remove_images(sorted(present - keep)):
             self.logger.warning(f"An old image was not removed: {failure}")
-        self.store.delete_releases(app.id, [row.id for row in rows if row.id not in keep])
+        forgotten = [row.id for row in rows if row.id not in keep]
+        if not self._rehearsing():
+            self.store.delete_releases(app.id, forgotten)
+        return forgotten
 
     # -- Updating ------------------------------------------------------------
 

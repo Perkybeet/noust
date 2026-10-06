@@ -247,6 +247,30 @@ class TestDeployingARegistryImage:
         runs = [c for c in docker.compose_calls() if c[:2] == ("run", "--rm")]
         assert runs and runs[-1][-1] == "./migrate.sh" and "app" in runs[-1]
 
+    def test_without_a_port_one_on_loopback_is_found_and_the_site_proxies_to_it(
+        self, make, docker, store, tmp_path, web
+    ):
+        make(IMAGE, port=None).deploy()
+
+        row = store.get_app(DOMAIN)
+        assert row is not None and row.port is not None
+        service = compose_text(tmp_path)["services"]["app"]
+        assert service["ports"] == [f"127.0.0.1:{row.port}:8080"]
+        assert f"127.0.0.1:{row.port}" in web.config_path(DOMAIN).read_text()
+
+    def test_a_port_another_application_owns_is_not_given_again(
+        self, make, docker, store, tmp_path
+    ):
+        from noust.core.store import App
+
+        taken = store.create_app(App(domain="other.example.com", app_type="nodejs", port=3000))
+
+        make(IMAGE, port=None).deploy()
+
+        row = store.get_app(DOMAIN)
+        assert taken.port == 3000
+        assert row is not None and row.port != 3000
+
     def test_the_apache_web_server_is_refused_plainly(self, make):
         with pytest.raises(DeploymentError):
             make(IMAGE, webserver="apache")
@@ -292,6 +316,20 @@ class TestADockerfile:
         assert compose_text(tmp_path)["services"]["app"]["ports"] == ["127.0.0.1:3001:9000"]
         kept = ContainerStore(store).get(DOMAIN)
         assert kept is not None and kept.container_port == 9000
+
+    def test_an_env_file_that_is_a_link_in_the_repository_is_not_followed(
+        self, make, docker, tmp_path, tree
+    ):
+        outside = tmp_path / "host-secret"
+        outside.write_text("ROOT_ONLY=1\n")
+        (tree / ".env").symlink_to(outside)
+
+        self.deployer(make).deploy()
+
+        env = tree / ".env"
+        assert not env.is_symlink()
+        assert env.read_text() == ""
+        assert outside.read_text() == "ROOT_ONLY=1\n"
 
     def test_a_port_the_operator_gave_is_not_overridden(self, make, docker, tmp_path, tree):
         deployer = make(

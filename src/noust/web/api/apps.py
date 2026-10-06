@@ -1943,7 +1943,7 @@ def _release_app_or_error(domain: str) -> App:
             place: it has no releases until it is migrated.
     """
     app = _env_app(domain)
-    if app.layout != RELEASES:
+    if app.layout != RELEASES and app.app_type != "container":
         raise HTTPException(
             status_code=409,
             detail=f"{app.domain} is deployed in place and has no releases. Migrate it to "

@@ -413,6 +413,36 @@ runs with the application's identity and secrets. `repository_error` says why th
 own `noust.yaml` is not valid, when it is not: the next deployment fails with it. See
 [compose.md](compose.md#noustyaml) and [compose.md](compose.md#operator-hooks).
 
+### Container applications
+
+A container application (a Dockerfile, an image from a registry, or Railpack; see
+[containers.md](containers.md)) is created through the same `POST /api/apps`, with its settings
+in `container`. An image needs no `source`:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"domain": "shop.example.com", "container": {"image": "ghcr.io/owner/app:1.4",
+       "container_port": 8080, "registry_username": "ci", "registry_password": "..."}}' \
+  https://panel.example.com/api/apps
+# 202 {"job_id": "...", ...}   the registry password is in the secret store by now
+
+curl -s -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/apps/shop.example.com/container
+# {"domain", "method", "image", "dockerfile", "context", "target", "build_args", "build_secrets",
+#  "container_port", "volumes", "restart_policy", "registry_server", "registry_username",
+#  "registry_password_set", "digest", "release"}   never the password, nor a secret's value
+
+curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"target": "runtime", "build_secrets": {"npmrc": "<value>"}, "clear": ["container_port"]}' \
+  https://panel.example.com/api/apps/shop.example.com/container
+```
+
+`PUT` changes what it names (`clear` resets `dockerfile`, `target`, `container_port` or
+`registry_server`; a build secret set to `null` is removed; `clear_registry` removes the account)
+and the change takes effect with the next update. The releases of a container application are its
+images: `GET .../releases` lists them (`on_disk` says whether the image is still on the server)
+and `POST .../releases/{id}/activate` recreates the container from one, with no build.
+`GET .../logs` answers with what the container printed, secrets masked.
+
 Going back to a deployment that would pass one that changed the schema is refused until it is
 confirmed:
 
