@@ -22,6 +22,7 @@ from functools import lru_cache
 from types import MappingProxyType
 
 from noust.web.permissions import ALL_PERMISSIONS, PUBLIC
+from noust.web.versioning import canonical_api_path
 
 #: The proxy to a node: whatever follows ``/api`` there is the node's own
 #: path, judged by the node's own map, and by this one before it is forwarded.
@@ -121,6 +122,7 @@ def match_path(method: str, path: str) -> tuple[str, str] | None:
 
     Only for a path no router matched here, such as what follows a node in
     the proxy; a request this server routes itself is judged by its template.
+    ``/api/v1/...`` is the same route as ``/api/...``, so it needs the same.
 
     Args:
         method: The HTTP method.
@@ -130,6 +132,7 @@ def match_path(method: str, path: str) -> tuple[str, str] | None:
         ``(template, permission)``, or None when no mapped route matches.
     """
     verb = method.upper()
+    path = canonical_api_path(path)
     for candidate_verb in (verb, "GET") if verb == "HEAD" else (verb,):
         for entry_method, template, pattern, _count in _compiled():
             if entry_method == candidate_verb and pattern.match(path):
@@ -143,8 +146,9 @@ def proxied_path(path: str) -> str | None:
         path: A request path.
 
     Returns:
-        The node's own path when this is a request through the node proxy
-        (``/api/nodes/{node}/api/...``), otherwise None.
+        The node's own path, in its canonical ``/api/...`` form, when this is
+        a request through the node proxy (``/api/nodes/{node}/api/...`` or
+        ``.../api/v1/...``), otherwise None.
     """
     matched = _NODE_PROXY_PATH.match(path)
-    return matched.group(1) if matched else None
+    return canonical_api_path(matched.group(1)) if matched else None

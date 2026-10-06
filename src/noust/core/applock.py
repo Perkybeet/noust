@@ -119,6 +119,7 @@ class _Held:
 
     fd: int
     operation: str
+    holder: LockHolder | None = None
     depth: int = 1
 
 
@@ -197,6 +198,26 @@ def is_held_here(domain: str) -> bool:
         True inside :func:`app_lock` for it, in this thread.
     """
     return _key(domain) in _held()
+
+
+def held_record(domain: str) -> LockHolder | None:
+    """
+    Return what the calling thread recorded when it took an application's lock.
+
+    The identity an operation is addressed by: a request to cancel it names
+    the holder's pid and start time (:mod:`noust.core.cancellation`), so it
+    cannot reach the operation that runs after this one.
+
+    Args:
+        domain: The application's domain.
+
+    Returns:
+        The record of the outermost operation holding the lock in this thread,
+        or None when this thread holds none (or the lock was never taken, as
+        under ``--dry-run``).
+    """
+    entry = _held().get(_key(domain))
+    return entry.holder if entry is not None else None
 
 
 def holder_of(domain: str) -> LockHolder | None:
@@ -287,8 +308,8 @@ def app_lock(domain: str, operation: str) -> Iterator[None]:
         yield
         return
 
-    fd = _acquire(key, operation)
-    held[key] = _Held(fd=fd, operation=operation)
+    fd, record = _take(key, operation)
+    held[key] = _Held(fd=fd, operation=operation, holder=record)
     try:
         yield
     finally:
@@ -311,6 +332,24 @@ def _acquire(key: str, operation: str) -> int:
         AppBusyError: Something else holds it.
         OSError: The lock file could not be opened.
     """
+    return _take(key, operation)[0]
+
+
+def _take(key: str, operation: str) -> tuple[int, LockHolder]:
+    """
+    Take the lock, or fail at once naming what holds it.
+
+    Args:
+        key: The lock's name.
+        operation: What is about to run.
+
+    Returns:
+        The descriptor holding the lock, and the record written into it.
+
+    Raises:
+        AppBusyError: Something else holds it.
+        OSError: The lock file could not be opened.
+    """
     path = locks_directory() / f"{key}.lock"
     get_fs().make_dir(path.parent, mode=_LOCKS_DIR_MODE)
     # O_NOFOLLOW: the directory is root's, but a link planted in it must not
@@ -326,12 +365,13 @@ def _acquire(key: str, operation: str) -> int:
         os.close(fd)
         raise AppBusyError(key, operation, holder) from None
 
+    holder = LockHolder(
+        operation=operation,
+        pid=os.getpid(),
+        started_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
+    )
     record = json.dumps(
-        {
-            "operation": operation,
-            "pid": os.getpid(),
-            "started_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        }
+        {"operation": holder.operation, "pid": holder.pid, "started_at": holder.started_at}
     ).encode("utf-8")
     try:
         os.ftruncate(fd, 0)
@@ -340,7 +380,7 @@ def _acquire(key: str, operation: str) -> int:
         # The record is only for the message a refused caller shows; the lock
         # itself is held either way.
         pass
-    return fd
+    return fd, holder
 
 
 def _release(fd: int) -> None:

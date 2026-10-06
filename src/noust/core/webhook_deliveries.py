@@ -57,6 +57,9 @@ DUPLICATE = "duplicate"
 BAD_SIGNATURE = "bad_signature"
 #: A delivery refused because of too many wrong signatures.
 LOCKED = "locked"
+#: A push or a tag that would have been queued, but the deploy queue had no
+#: room (``deploy.queue_limit``). The forge is answered 429 and retries.
+QUEUE_FULL = "queue_full"
 
 #: Every outcome there is.
 OUTCOMES = (
@@ -70,6 +73,7 @@ OUTCOMES = (
     DUPLICATE,
     BAD_SIGNATURE,
     LOCKED,
+    QUEUE_FULL,
 )
 
 #: Outcomes of a delivery that did not verify: not from the forge, or the forge

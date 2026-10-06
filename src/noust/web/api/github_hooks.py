@@ -39,18 +39,16 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
-from noust.core.exceptions import NoustError
+from noust.core.exceptions import NoustError, QueueFullError
 from noust.core.forge_events import PushEvent, TagEvent, parse_pull_request, parse_tag_event
 from noust.core.secrets import SecretStore
-from noust.core.store import DeploymentTrigger, get_store
-from noust.core.webhook_deliveries import DEPLOY_STARTED, record_delivery
+from noust.core.store import get_store
 from noust.integrations.github import webhooks
 from noust.integrations.github.app import WEBHOOK_SECRET, read_meta, write_meta
 from noust.integrations.github.service import github_hooks_url
-from noust.web.api.deps import NoustErrorRoute
-from noust.web.api.hooks import DeliveryCache, queue_tag_update, webhook_update_job
+from noust.web.api.deps import NoustErrorRoute, error_response
+from noust.web.api.hooks import DeliveryCache, queue_push_update, queue_tag_update
 from noust.web.auth import get_audit_logger, get_client_ip
-from noust.web.jobs import JobType, get_job_manager
 from noust.web.server import get_webhook_failures
 
 logger = logging.getLogger(__name__)
@@ -117,51 +115,43 @@ def _note_webhook_works() -> None:
 
 def _queue_updates(
     push: PushEvent, default_branch: str | None, delivery: str | None
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], list[QueueFullError]]:
     """
     Queue the update of every application that follows a push.
+
+    The one way a push is queued, the application's own webhook's
+    (:func:`noust.web.api.hooks.queue_push_update`): behind a build that is
+    running, merged into an update that already waits, or refused when the
+    queue has no room.
 
     Args:
         push: The push.
         default_branch: The repository's default branch.
-        delivery: GitHub's delivery id, for the job's metadata.
+        delivery: The repository's default branch, and GitHub's delivery id,
+            for the job's metadata.
 
     Returns:
-        ``domain`` and ``job_id`` of each job queued.
+        ``domain`` and ``job_id`` of each job queued (or joined), and why the
+        queue had no room for each that it had not.
     """
-    queued = []
+    queued: list[dict[str, Any]] = []
+    refused: list[QueueFullError] = []
     for app in webhooks.apps_following(push, default_branch):
-        job = get_job_manager().create_job(
-            job_type=JobType.UPDATE,
-            name=f"Update {app.domain}",
+        pushed = queue_push_update(
+            app,
+            app.domain,
+            provider="github-app",
+            branch=push.branch,
+            delivery=delivery,
             description=f"GitHub push to {push.repository}@{push.branch}",
-            func=webhook_update_job,
-            kwargs={"domain": app.domain},
-            metadata={
-                "domain": app.domain,
-                "trigger": DeploymentTrigger.WEBHOOK.value,
-                "provider": "github-app",
-                "branch": push.branch,
-                "commit": push.head_sha,
-                "delivery": delivery,
-            },
-            actor="webhook",
+            started=f"push to {push.repository}@{push.branch} through the GitHub App",
+            commit=push.head_sha,
         )
-        queued.append({"domain": app.domain, "job_id": job.id})
-        if app.id is not None:
-            # In the application's own delivery log, next to what its own
-            # webhook received, so its setup page shows the App deploying it.
-            record_delivery(
-                app.id,
-                DEPLOY_STARTED,
-                provider="github-app",
-                event="push",
-                branch=push.branch,
-                detail=f"push to {push.repository}@{push.branch} through the GitHub App",
-                job_id=job.id,
-                delivery_id=delivery,
-            )
-    return queued
+        if pushed.refusal is not None:
+            refused.append(pushed.refusal)
+        elif pushed.job_id is not None:
+            queued.append({"domain": app.domain, "job_id": pushed.job_id, "merged": pushed.merged})
+    return queued, refused
 
 
 def _queue_tag_updates(
@@ -293,7 +283,14 @@ async def deliver(request: Request) -> JSONResponse:
             )
         repository = payload.get("repository")
         default = repository.get("default_branch") if isinstance(repository, dict) else None
-        jobs = await run_in_threadpool(_queue_updates, push, default, delivery)
+        jobs, refused = await run_in_threadpool(_queue_updates, push, default, delivery)
+        if not jobs and refused:
+            _record(
+                request,
+                "refused",
+                f"push to {push.repository}@{push.branch}: the deploy queue is full",
+            )
+            return error_response(refused[0])
         if not jobs:
             _record(request, "ignored", f"push to {push.repository}@{push.branch}: no application")
             return JSONResponse(
@@ -301,7 +298,14 @@ async def deliver(request: Request) -> JSONResponse:
             )
         domains = ", ".join(job["domain"] for job in jobs)
         _record(request, "accepted", f"push to {push.repository}@{push.branch}: {domains}")
-        return JSONResponse(status_code=202, content={"status": "queued", "jobs": jobs})
+        return JSONResponse(
+            status_code=202,
+            content={
+                "status": "queued",
+                "jobs": jobs,
+                **({"refused": len(refused)} if refused else {}),
+            },
+        )
 
     if event == "pull_request":
         pull = parse_pull_request("github", payload)

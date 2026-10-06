@@ -509,6 +509,7 @@ jobs:
         run: |
           pip install build
           python -m build --wheel --outdir packaging/container/dist
+          cp packaging/install.sh packaging/container/dist/install.sh
 
       - name: Build the image
         run: docker build -t noust-central:gate packaging/container
@@ -608,6 +609,14 @@ jobs:
 
             ## Installation
 
+            ### One line, on a server (Debian, Ubuntu, Fedora, openSUSE; amd64 and arm64)
+            ```bash
+            curl -fsSLO https://github.com/Perkybeet/noust/releases/download/v${{ steps.get_version.outputs.version }}/install.sh
+            curl -fsSLO https://github.com/Perkybeet/noust/releases/download/v${{ steps.get_version.outputs.version }}/SHA256SUMS
+            sha256sum -c --ignore-missing SHA256SUMS && sh install.sh
+            ```
+            `SHA256SUMS` is signed (`SHA256SUMS.sig`, `SHA256SUMS.pem`, keyless, by this workflow): see [docs/PLATFORMS.md](https://github.com/Perkybeet/noust/blob/main/docs/PLATFORMS.md#verifying-the-installer). The platforms it supports are listed there too.
+
             Noust was called WASM until 3.0.0. `wasm` remains a command alias for the whole 3.x series, and existing installations upgrade in place: see [docs/RENAME.md](https://github.com/Perkybeet/noust/blob/main/docs/RENAME.md).
 
             ### Ubuntu/Debian
@@ -667,6 +676,70 @@ jobs:
           files: |
             dist/*.tar.gz
             dist/*.whl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # The installer, published beside its checksum and the checksum's signature,
+  # so that what an operator runs is what this tag released (docs/PLATFORMS.md).
+  # Keyless signing: the certificate names this workflow and this tag, which is
+  # what `cosign verify-blob` checks. The script is the file in the tag, byte
+  # for byte; nothing is generated here but the sums.
+  installer:
+    name: Publish the installer and its checksum
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    needs: release
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release.outputs.tag || github.ref }}
+
+      - name: Check it parses and lints as POSIX sh
+        run: |
+          sh -n packaging/install.sh
+          shellcheck -s sh packaging/install.sh
+
+      - name: Write the checksums
+        run: |
+          mkdir -p dist-installer
+          cp packaging/install.sh dist-installer/install.sh
+          cd dist-installer
+          sha256sum install.sh > SHA256SUMS
+          sha256sum -c SHA256SUMS
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign the checksums
+        working-directory: dist-installer
+        run: |
+          cosign sign-blob --yes \
+            --output-signature SHA256SUMS.sig \
+            --output-certificate SHA256SUMS.pem \
+            SHA256SUMS
+
+      - name: Check the signature as a user would
+        working-directory: dist-installer
+        run: |
+          cosign verify-blob \
+            --certificate SHA256SUMS.pem \
+            --signature SHA256SUMS.sig \
+            --certificate-identity-regexp '^https://github.com/Perkybeet/noust/\.github/workflows/release\.yml@refs/' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            SHA256SUMS
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ needs.release.outputs.version }}
+          files: |
+            dist-installer/install.sh
+            dist-installer/SHA256SUMS
+            dist-installer/SHA256SUMS.sig
+            dist-installer/SHA256SUMS.pem
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -790,6 +863,7 @@ jobs:
         run: |
           pip install build
           python -m build --wheel --outdir packaging/container/dist
+          cp packaging/install.sh packaging/container/dist/install.sh
 
       - uses: docker/setup-qemu-action@v3
 

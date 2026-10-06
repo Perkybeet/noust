@@ -8,6 +8,69 @@ Examples use `https://panel.example.com` for the console's address and `$TOKEN` 
 credential. On a console bound to loopback, run them on the server against
 `http://127.0.0.1:8080`, or through an SSH tunnel (see [console.md](console.md)).
 
+## Versions and compatibility
+
+The API has one version, **1**, and two addresses for it. `/api/v1/apps` and `/api/apps` are the
+same route: not a copy, one route that answers to both names, so they have the same permission,
+the same audit entry and the same rate limit. A script that wants a promise should use
+`/api/v1`; the console and every client written before 3.4 use `/api` and keep working. If a
+version 2 ever exists it appears at `/api/v2` beside this one, and `/api` stays version 1 until
+version 1 is retired under the policy below. The event stream (`/events`), the WebSockets
+(`/ws`) and the webhooks (`/hooks`) have no versioned address.
+
+- **`X-Noust-API-Version: 1`** is on every response under `/api`, refusals included (a wrong
+  credential, a blocked address, a rate limit), so a client can tell which API answered
+  without reading a body.
+- **The schema says which API it describes.** `GET /api/openapi.json` has `info.version: "1"`,
+  the running release in `info.x-noust-version` and the versioned address in
+  `info.x-noust-api-prefix`. The document lists each path once, as `/api/...`; the versioned
+  address is the same path with `/api/v1` in place of `/api`.
+- **A central talks to its nodes at `/api`**, which every node answers whatever its release, and
+  forwards `/api/v1/...` calls to a node as `/api/...` for the same reason.
+
+### The promise
+
+Within a version, a client written against what a release shipped keeps working. That means a
+release may **add**: a new operation, a new optional parameter or request field, a new field in a
+response, a new response code. Clients must ignore response fields they do not know. A release
+does not, without a deprecation period:
+
+- remove an operation or answer it to another method;
+- remove a documented response code, a response field, a parameter or a request field;
+- add a required parameter or request field, make an optional one required, or ask for a body
+  where there was none.
+
+Everything else - wording of `detail` and `hint`, the order of keys or of list items, the
+extensions - is not part of the promise; match on `error` codes, not on sentences.
+`panel/openapi.baseline.json` is the API as a release shipped it, and a test
+(`tests/test_api_compat.py`, also `python scripts/api_compat.py`) fails when the API stops keeping
+it. The baseline is refreshed after each release, so what a release adds is promised from then
+on.
+
+### Deprecation
+
+An operation that is going away is announced first, in the code, with
+`noust.web.versioning.deprecated(since=..., sunset=..., successor=...)`:
+
+- the schema marks it `deprecated: true` and carries `x-noust-deprecation`
+  (`{since, sunset, successor}`);
+- **every response of the route** carries `Deprecation: @<seconds>` (RFC 9745: when it was
+  announced), `Sunset: <HTTP date>` (RFC 8594: the earliest day it may stop answering) and
+  `Link: </api/v1/...>; rel="successor-version"`, so a client that never reads the schema still
+  hears of it;
+- the notice is **at least 180 days**, and the helper refuses a shorter one when the route is
+  declared;
+- it is listed in [API-CHANGELOG.md](API-CHANGELOG.md) in the release that announces it, and
+  again in the one that removes it, which is never before its `Sunset`.
+
+A client should log, or alert on, a `Deprecation` header in its own traffic. The exception is a
+security fix: an operation that cannot be kept safe is changed at once, in a patch release, and
+the change is in the changelog and in the security advisory (see [SECURITY.md](../SECURITY.md)).
+
+An intentional break is accepted in the open: `python scripts/api_compat.py --update
+--accept-breaking` rewrites the baseline in the same change as the code, and the entry goes to
+the changelog under "Breaking changes".
+
 ## Authentication
 
 Two ways in, for two kinds of client: tokens for scripts, sessions for browsers. Whoever comes
@@ -235,7 +298,20 @@ restore the database from the backup taken before the first of them. See
   upgrades is what restarts the console. A central's fleet job waits for the node to come back
   and reads the reconciled result rather than counting a failure. Each reconciliation is
   audited. A job with no recorded unit is still marked interrupted.
-  Only a job that has not started can be cancelled (`POST /api/jobs/{id}/cancel`).
+  A deploy or an update that is **building** can be cancelled too (`POST /api/jobs/{id}/cancel`):
+  its build is stopped, the release it was making is removed, the deployment is recorded
+  as cancelled (`cancelled: true` on `GET /api/deployments/{id}`; its status stays `failed`)
+  and what served before is never touched. The answer is `{message, job_id, state}` with
+  `state` `cancelled` for a job that waited and `cancelling` for one that was building; from
+  the moment its release is being activated it is `409 cancel_refused`, as it is for a job
+  that ended or that cannot be interrupted (a restore, an in-place build).
+- **The deploy queue.** A push or a request that arrives while an application builds waits
+  its turn (`409 app_busy` is for an operation of another kind): `GET /api/jobs/queue` lists
+  what runs and what waits, with the limits, and every job carries `state` (`queued`,
+  `running`, `succeeded`, `failed` or `cancelled`), `queue_position`, `waiting_for` and
+  `cancellable`. Builds of different applications overlap up to `deploy.max_concurrent_builds`;
+  requests for the same update merge, and `POST /api/jobs/update` says so in its `message`.
+  When `deploy.queue_limit` builds wait, the next is `429 queue_full` with `Retry-After`.
 - **Lists** answer an object with the items and a count: `{apps, total}`,
   `{backups, total}`, `{items, total}`, and so on. The one exception is
   `GET /api/system/disks`, a bare array.
@@ -412,6 +488,36 @@ curl -s -X DELETE -H "Authorization: Bearer $TOKEN" https://panel.example.com/ap
 runs with the application's identity and secrets. `repository_error` says why the running code's
 own `noust.yaml` is not valid, when it is not: the next deployment fails with it. See
 [compose.md](compose.md#noustyaml) and [compose.md](compose.md#operator-hooks).
+
+### Container applications
+
+A container application (a Dockerfile, an image from a registry, or Railpack; see
+[containers.md](containers.md)) is created through the same `POST /api/apps`, with its settings
+in `container`. An image needs no `source`:
+
+```bash
+curl -s -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"domain": "shop.example.com", "container": {"image": "ghcr.io/owner/app:1.4",
+       "container_port": 8080, "registry_username": "ci", "registry_password": "..."}}' \
+  https://panel.example.com/api/apps
+# 202 {"job_id": "...", ...}   the registry password is in the secret store by now
+
+curl -s -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/apps/shop.example.com/container
+# {"domain", "method", "image", "dockerfile", "context", "target", "build_args", "build_secrets",
+#  "container_port", "volumes", "restart_policy", "registry_server", "registry_username",
+#  "registry_password_set", "digest", "release"}   never the password, nor a secret's value
+
+curl -s -X PUT -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"target": "runtime", "build_secrets": {"npmrc": "<value>"}, "clear": ["container_port"]}' \
+  https://panel.example.com/api/apps/shop.example.com/container
+```
+
+`PUT` changes what it names (`clear` resets `dockerfile`, `target`, `container_port` or
+`registry_server`; a build secret set to `null` is removed; `clear_registry` removes the account)
+and the change takes effect with the next update. The releases of a container application are its
+images: `GET .../releases` lists them (`on_disk` says whether the image is still on the server)
+and `POST .../releases/{id}/activate` recreates the container from one, with no build.
+`GET .../logs` answers with what the container printed, secrets masked.
 
 Going back to a deployment that would pass one that changed the schema is refused until it is
 confirmed:
@@ -739,11 +845,12 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/jobs/backup` | POST `backups.run` |  |
 | `/api/jobs/cert` | POST `apps.manage` |  |
 | `/api/jobs/cleanup` | DELETE `audit.manage` | Forget finished jobs in memory; the history stays |
+| `/api/jobs/queue` | GET `apps.read` | What runs, what waits and the limits: `{running, queued, builds_running, max_concurrent_builds, queue_limit, builds_queued}` |
 | `/api/jobs/delete` | POST `apps.manage`, sudo | `{domain, remove_files, remove_ssl, remove_adopted_directory}` |
 | `/api/jobs/rollback` | POST `apps.deploy` | `{domain, backup_id, schema_changed_ok}`: restore a backup. `409 schema_changed` unless confirmed |
 | `/api/jobs/update` | POST `apps.deploy` | `{domain, force}` |
 | `/api/jobs/{job_id}` | GET `apps.read` |  |
-| `/api/jobs/{job_id}/cancel` | POST `apps.operate` |  |
+| `/api/jobs/{job_id}/cancel` | POST `apps.operate` | A job that waits, or a deploy or an update that is building. `409 cancel_refused` once its release is being activated |
 | `/api/jobs/{job_id}/log` | GET `apps.read` |  |
 
 ### Sites, certificates and domains
@@ -878,6 +985,8 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 
 | Endpoint | Method, permission | |
 |---|---|---|
+| `/api/console/exposure` | GET `server.read`; POST `server.host_access`, sudo, four-eyes; DELETE `server.host_access`, sudo | Whether the console is published on a name of its own over TLS; publish it, or take it off (each a job: the nginx site, the certificate, the console's trusted proxy and its restart, undone exactly). Refused for want of a second factor on every account, and under the ENS profile unless forced |
+| `/api/console/exposure/preview` | POST `server.host_access` | The same checks, and the steps it would take, changing nothing |
 | `/api/metrics` | GET `server.read` |  |
 | `/api/metrics/query` | GET `server.read` | Several series in one request, at the resolution the window needs |
 | `/api/metrics/{metric}` | GET `server.read` |  |
@@ -970,6 +1079,8 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/fleet/apps` | GET `fleet.read` |  |
 | `/api/fleet/backups` | GET `fleet.read` |  |
 | `/api/fleet/certificates` | GET `fleet.read` |  |
+| `/api/fleet/enroll` | POST `fleet.manage`, sudo, four-eyes | Enroll a server with an address and a credential used once and never kept: a job that installs Noust there if it is missing, authorizes this central and joins it. The credential is left out of the approval's fingerprint |
+| `/api/fleet/enroll/host-key` | POST `fleet.manage` | Ask an address which ed25519 host key answers, for the operator to confirm before anything is sent |
 | `/api/fleet/jobs` | GET `fleet.read` |  |
 | `/api/fleet/jobs/{job_id}` | GET `fleet.read` |  |
 | `/api/fleet/jobs/{job_id}/retry` | POST `fleet.manage` |  |

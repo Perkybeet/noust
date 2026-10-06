@@ -74,7 +74,7 @@ def branch_jobs(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
             captured.append(kwargs)
             return SimpleNamespace(id=f"branch-{len(captured)}")
 
-    monkeypatch.setattr("noust.web.api.github_hooks.get_job_manager", lambda: Branch())
+    monkeypatch.setattr(hooks_module, "get_job_manager", lambda: Branch())
     return captured
 
 

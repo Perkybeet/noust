@@ -148,6 +148,9 @@ and no `noust central run`.
   or keep the console on loopback behind your own reverse proxy (`noust web enable` and
   `--trusted-proxy`). A central reachable from the internet is the one thing to avoid: prefer
   a VPN or an SSH tunnel to it (`ssh -L 8443:127.0.0.1:8443 root@central`).
+  A hub has no nginx sites of its own, so `noust console expose` (a name, a certificate and an
+  allow-list through Noust's nginx, [docs/console.md](console.md#reaching-it)) is for a central
+  that also deploys, `central.role = server`; a hub serves its own TLS, as above.
 
 `noust central run` works on a VPS too (as root, or with `NOUST_DATA_DIR` pointing at a
 directory its user owns), but `noust web enable` is the supported way to run a console as a
@@ -176,8 +179,10 @@ servers there are and whether two-factor is on.
 
 ## Adding a server
 
-The central never logs in to a server with your credentials. You authorize it **on the
-server**, where you are already root:
+The central never keeps a credential of yours and never gets a shell on a server. You authorize
+it **on the server**, where you are already root (below); or, when you only have an address and a
+way in, the central does the same three steps once, from [a guided enrollment](#enrolling-a-server-with-an-address-and-a-credential).
+Manually:
 
 1. On the central: `docker exec -it noust noust node key vps1` (or **Settings > Servers >
    Add** in the console). It prints the central's key for `vps1` and a command.
@@ -210,6 +215,49 @@ server**, where you are already root:
    The account comes from the code. The central pins `vps1`'s host key from it, opens the
    tunnel, checks the token and reads the server's ceiling. From then on a changed host key
    cuts the tunnel instead of being accepted.
+
+### Enrolling a server with an address and a credential
+
+```bash
+noust fleet enroll vps1 --host 203.0.113.9                      # asks for the password, without echo
+noust fleet enroll vps1 --host 203.0.113.9 --key-file ~/.ssh/id_ed25519 --ask-passphrase
+noust fleet enroll vps1 --host vps1.example.com --port 2222 --access deploy \
+    --host-key-fingerprint SHA256:...                          # for a script (password on stdin)
+```
+
+Over the API it is `POST /api/fleet/enroll/host-key` (asks the address which host key
+answers) and `POST /api/fleet/enroll` (a job whose log streams what happens on the server, the
+installer's output included; it asks for sudo mode and `fleet.manage`); the console has no
+dialog for it yet. What it does, in order, and what makes it the manual join:
+
+1. **The host key is confirmed first.** The central shows the ed25519 fingerprint that answers
+   and you compare it with the server's own (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`,
+   or your provider's console). It connects with that key and no other (`StrictHostKeyChecking=yes`
+   against a file holding only it), and the join code the server prints later must carry the same
+   one, or nothing is registered.
+2. **Noust is installed if it is missing.** The central sends *its own copy* of `install.sh`
+   (the deb and rpm packages and the container carry it in `/usr/share/noust/`) over the
+   connection and runs it as root with `--yes --no-console`; the server downloads no script.
+   A central installed with pip has none: install Noust on the server by hand, then enroll it.
+   `--no-install` refuses instead of installing. A Noust older than 3.1 is not touched.
+3. **`noust fleet authorize` runs on the server**, with this central's key for it and the ceiling
+   you chose (`--access read|deploy|admin`, `--allow-host-access`): the `noust-tunnel` account, the
+   restricted key, the sshd block, the token. The console on that server becomes a service on
+   loopback if it was not; its own access token, when authorize had to issue one, is **not**
+   kept (`noust web token --new` on the server issues another).
+4. **The central joins it** as `noust node add` does: it pins the host key, stores the token,
+   opens the tunnel and asks the server who it is. When any step after authorize fails, the
+   authorization is withdrawn (`noust fleet deauthorize`), so nothing is left half-done.
+
+The credential is a password or a private key (with its passphrase, if it has one), used for these
+few connections and kept nowhere: not in an argument list, a log line, a job's result, the audit
+trail, an approval's record or a file that outlives the call. A password or a passphrase reaches ssh
+through its environment and a helper script that holds no secret; a key is written to a file in a
+private, memory-backed directory (`$XDG_RUNTIME_DIR`, `/run/noust` or `/dev/shm`) that is removed on
+every way out. The account may be `root`, or one with passwordless `sudo` (`sudo -n`). When a
+second person must approve adding servers, the approval is for everything but the credential: its
+fingerprint is the call without it. Needs two-factor sign-in on this central, as `noust node add`
+does; `--replace-token` lets a server that already holds a token for this central issue a new one.
 
 **Settings > Servers** lists every server the same way, with its reachability, version and
 when it was last seen, and starts the same add flow (step 1 above) without the CLI:

@@ -41,7 +41,7 @@ import builtins
 import dataclasses
 import os
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Collection, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
@@ -400,7 +400,7 @@ class ReleaseManager:
     # Changing it
     # ------------------------------------------------------------------
 
-    def next_release_id(self, commit: str | None) -> str:
+    def next_release_id(self, commit: str | None, taken: Collection[str] = ()) -> str:
         """
         Name the release :meth:`new_release_dir` would create now, without creating it.
 
@@ -409,6 +409,9 @@ class ReleaseManager:
 
         Args:
             commit: Commit the release would be built from, or None.
+            taken: Ids that exist somewhere other than a directory under
+                ``releases/``: a container application's releases are images,
+                and its ids are kept in the store.
 
         Returns:
             The release id.
@@ -416,7 +419,7 @@ class ReleaseManager:
         Raises:
             DeploymentError: The commit is not a commit id.
         """
-        stamp, short, sequence = self._next_name(commit)
+        stamp, short, sequence = self._next_name(commit, taken)
         return f"{stamp}-{short}" if sequence == 1 else f"{stamp}-{short}-{sequence}"
 
     def new_release_dir(self, commit: str | None) -> Path:
@@ -818,12 +821,13 @@ class ReleaseManager:
     # Internals
     # ------------------------------------------------------------------
 
-    def _next_name(self, commit: str | None) -> tuple[str, str, int]:
+    def _next_name(self, commit: str | None, taken: Collection[str] = ()) -> tuple[str, str, int]:
         """
         Work out the parts of the next release id.
 
         Args:
             commit: Commit the release is built from, or None.
+            taken: Ids to treat as existing besides those on disk.
 
         Returns:
             (stamp, short commit, sequence within the second).
@@ -832,7 +836,7 @@ class ReleaseManager:
             DeploymentError: The commit is not a commit id.
         """
         short = _short_commit(commit)
-        known = self._known_ids()
+        known = self._known_ids() | set(taken)
         stamp = self._now_stamp()
         # A clock that moved backwards (NTP, a VM restored from a snapshot)
         # would stamp the new release older than the active one, and rollback

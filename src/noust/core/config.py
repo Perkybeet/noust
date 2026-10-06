@@ -122,6 +122,22 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # 1.x layout. Applications that already exist keep the layout they
         # have until they are migrated explicitly.
         "layout": "releases",
+        # Whether a new application on the releases layout that runs a process
+        # behind nginx starts as two instances (blue and green), so every update
+        # starts the new release beside the old one and switches only once it
+        # answers. Applications that already exist keep how they update until
+        # `noust app zero-downtime DOMAIN on` says otherwise.
+        "zero_downtime": True,
+        # Seconds the old instance keeps running after traffic moved, for the
+        # applications that start in zero-downtime mode (0 to 300).
+        "drain_seconds": 10,
+        # How many applications build at the same time on this server. A
+        # build is heavy on the processor and the memory; the others wait
+        # their turn in the queue.
+        "max_concurrent_builds": 2,
+        # How many deployments and updates may wait in the queue before the
+        # next one is refused (429 from the API and the webhooks).
+        "queue_limit": 25,
     },
     "updates": {
         # Whether noust asks GitHub for the latest release: the CLI's
@@ -218,7 +234,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
             # when set; the receiver verifies it with the same value.
             "webhook": {"webhook_url": "", "secret": ""},
             "slack": {"webhook_url": ""},
-            "discord": {"webhook_url": ""},
+            # "mention_role_id" and "mention_user_id" name whom Discord pings
+            # when a critical event (a failure) arrives; empty pings nobody.
+            # Ids, not secrets: they are shown in the settings.
+            "discord": {"webhook_url": "", "mention_role_id": "", "mention_user_id": ""},
             "telegram": {"bot_token": "", "chat_id": ""},
             # Email reuses the monitor's SMTP account (monitor.smtp.*).
             "email": {"enabled": False},
@@ -904,6 +923,33 @@ def _validate_telegram_chat_id(value: Any) -> str:
         ) from exc
 
 
+def _validate_discord_id(key: str, what: str) -> Callable[[Any], str]:
+    """
+    Build the rule for a key that holds a Discord role or user id.
+
+    Args:
+        key: The dotted key, for the message.
+        what: What the id names (``role``, ``user``).
+
+    Returns:
+        A validator accepting an id (stripped) or nothing, which turns the
+        mention off.
+    """
+
+    def validate(value: Any) -> str:
+        from noust.validators.discord import validate_discord_id
+
+        text = "" if value is None else str(value).strip()
+        if not text:
+            return ""
+        try:
+            return validate_discord_id(text, f"a Discord {what} id")
+        except ValueError as exc:
+            raise ConfigError(f"{key} is not a Discord {what} id", details=str(exc)) from exc
+
+    return validate
+
+
 def _validate_notification_language(value: Any) -> str:
     """
     Accept the language Noust's own notification texts are rendered in.
@@ -1168,6 +1214,12 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "auth.sudo.max_minutes": _int_range_validator("auth.sudo.max_minutes", *SUDO_MAX_RANGE),
     "auth.sudo.require_password": _validate_flag("auth.sudo.require_password"),
     "central.role": _validate_central_role,
+    "deploy.zero_downtime": _validate_flag("deploy.zero_downtime"),
+    # The largest drain an application may ask for is store.MAX_DRAIN_SECONDS;
+    # this module cannot import the store, and a test holds the two together.
+    "deploy.drain_seconds": _int_range_validator("deploy.drain_seconds", 0, 300),
+    "deploy.max_concurrent_builds": _int_range_validator("deploy.max_concurrent_builds", 1, 16),
+    "deploy.queue_limit": _int_range_validator("deploy.queue_limit", 1, 1000),
     "backup.max_per_app": _int_range_validator("backup.max_per_app", 1, 100),
     "web.port": _int_range_validator("web.port", 1, 65535),
     "web.session_timeout": _int_range_validator("web.session_timeout", 300, 86400),
@@ -1187,6 +1239,12 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "monitor.smtp.from_address": _validate_optional_email("monitor.smtp.from_address"),
     "monitor.email_recipients": _validate_email_list("monitor.email_recipients"),
     "notifications.channels.telegram.chat_id": _validate_telegram_chat_id,
+    "notifications.channels.discord.mention_role_id": _validate_discord_id(
+        "notifications.channels.discord.mention_role_id", "role"
+    ),
+    "notifications.channels.discord.mention_user_id": _validate_discord_id(
+        "notifications.channels.discord.mention_user_id", "user"
+    ),
     "notifications.language": _validate_notification_language,
     "server.name": _validate_server_name,
 }

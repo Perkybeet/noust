@@ -66,7 +66,7 @@ from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from noust.core import webhook_deliveries as deliveries_log
-from noust.core.exceptions import DeploymentError, DomainError
+from noust.core.exceptions import DeploymentError, DomainError, QueueFullError
 from noust.core.forge_events import (
     TagEvent,
     bitbucket_pushed_branches,
@@ -81,7 +81,7 @@ from noust.integrations import webhook as webhook_service
 from noust.integrations.webhook import mint_secret as mint_webhook_secret
 from noust.managers.previews import handle_pull_request
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, error_response, require_elevated, strict_domain
 from noust.web.auth import actor_label, get_audit_logger, get_client_ip
 from noust.web.jobs import JobContext, JobType, get_job_manager, run_update
 from noust.web.pydantic_compat import iso_offset_validator
@@ -242,14 +242,128 @@ class TagDelivery:
 
     Attributes:
         outcome: One of :data:`noust.core.webhook_deliveries.OUTCOMES`:
-            ``deploy_started`` or ``ignored_tag``.
+            ``deploy_started``, ``ignored_tag`` or ``queue_full``.
         detail: One sentence saying which, naming the tag.
-        job_id: The update job queued; None when the tag was ignored.
+        job_id: The update queued, or the waiting one that now deploys the
+            tag; None when the tag was ignored or the queue had no room.
+        refusal: Why the queue had no room, when it had not.
     """
 
     outcome: str
     detail: str
     job_id: str | None = None
+    refusal: QueueFullError | None = None
+
+
+@dataclass(frozen=True)
+class PushDelivery:
+    """
+    What a push came to for one application.
+
+    Attributes:
+        outcome: ``deploy_started`` or ``queue_full``
+            (:mod:`noust.core.webhook_deliveries`).
+        detail: One sentence saying which.
+        job_id: The update queued, or the one this push joined.
+        merged: The update that waits already covered it: the last push wins,
+            and nothing is queued twice.
+        refusal: Why the queue had no room, when it had not.
+    """
+
+    outcome: str
+    detail: str
+    job_id: str | None = None
+    merged: bool = False
+    refusal: QueueFullError | None = None
+
+
+def queue_push_update(
+    app: App | None,
+    domain: str,
+    *,
+    provider: str,
+    branch: str | None,
+    delivery: str | None,
+    description: str,
+    started: str,
+    commit: str | None = None,
+) -> PushDelivery:
+    """
+    Queue the update a push asks for, the one way both endpoints do.
+
+    A push that arrives while the application builds does not fail and is not
+    lost: it waits its turn, and several pushes that wait are one update (the
+    update builds the branch as it is when its turn comes, so the last push
+    wins). A queue with no room refuses it, which the forge answers by
+    retrying. Either way it is written to the application's delivery log.
+
+    Args:
+        app: The application, for its delivery log.
+        domain: The application's domain.
+        provider: The forge, as the delivery log names it.
+        branch: The branch the push named.
+        delivery: The forge's id for the delivery.
+        description: What the job says it is.
+        started: What the delivery log says when the update is queued.
+        commit: The commit the push announced, when it said.
+
+    Returns:
+        What came of it.
+    """
+    metadata = {
+        "domain": domain,
+        "trigger": DeploymentTrigger.WEBHOOK.value,
+        "provider": provider,
+        "branch": branch,
+        "delivery": delivery,
+        **({"commit": commit} if commit else {}),
+    }
+    joined: list[str] = []
+    try:
+        job = get_job_manager().create_job(
+            job_type=JobType.UPDATE,
+            name=f"Update {domain}",
+            description=description,
+            func=webhook_update_job,
+            kwargs={"domain": domain},
+            metadata=metadata,
+            actor="webhook",
+            coalesce_key=f"update:{domain}",
+            note=(
+                f"Another push arrived ({provider}, {branch or 'no branch named'}): merged, "
+                "the update builds the branch as it is when its turn comes"
+            ),
+            on_merge=lambda waiting: joined.append(waiting.id),
+        )
+    except QueueFullError as exc:
+        detail = f"the deploy queue is full ({exc.limit} waiting); the forge retries"
+        _log(
+            app,
+            deliveries_log.QUEUE_FULL,
+            provider=provider,
+            event=PUSH,
+            branch=branch,
+            detail=detail,
+            delivery=delivery,
+        )
+        return PushDelivery(deliveries_log.QUEUE_FULL, detail, refusal=exc)
+    merged = bool(joined)
+    detail = (
+        f"joined the update already waiting (job {job.id}): the last push wins"
+        if merged
+        else started
+    )
+    _log(
+        app,
+        deliveries_log.DEPLOY_STARTED,
+        provider=provider,
+        event=PUSH,
+        branch=branch,
+        detail=detail,
+        job_id=job.id,
+        delivery=delivery,
+    )
+    return PushDelivery(deliveries_log.DEPLOY_STARTED, detail, job.id, merged)
 
 
 def _tag_in_flight(domain: str, tag: str) -> str | None:
@@ -313,24 +427,46 @@ def queue_tag_update(
         )
         return TagDelivery(deliveries_log.IGNORED_TAG, reason)
 
-    job = get_job_manager().create_job(
-        job_type=JobType.UPDATE,
-        name=f"Update {app.domain}",
-        description=f"Webhook-triggered update of {app.domain} to {tag}",
-        func=webhook_update_job,
-        kwargs={"domain": app.domain, "tag": tag},
-        metadata={
-            "domain": app.domain,
-            "trigger": DeploymentTrigger.WEBHOOK.value,
-            "provider": provider,
-            "tag": tag,
-            "event": event.source,
-            "commit": event.sha,
-            "delivery": delivery,
-        },
-        actor="webhook",
+    joined = []
+    try:
+        job = get_job_manager().create_job(
+            job_type=JobType.UPDATE,
+            name=f"Update {app.domain}",
+            description=f"Webhook-triggered update of {app.domain} to {tag}",
+            func=webhook_update_job,
+            kwargs={"domain": app.domain, "tag": tag},
+            metadata={
+                "domain": app.domain,
+                "trigger": DeploymentTrigger.WEBHOOK.value,
+                "provider": provider,
+                "tag": tag,
+                "event": event.source,
+                "commit": event.sha,
+                "delivery": delivery,
+            },
+            actor="webhook",
+            coalesce_key=f"update:{app.domain}",
+            # The newest tag the queue is told of is the one it deploys.
+            merge={"tag": tag},
+            note=f"{tag} was announced while this update waited: it deploys {tag} instead",
+            on_merge=lambda waiting: joined.append(waiting.id),
+        )
+    except QueueFullError as exc:
+        detail = f"the deploy queue is full ({exc.limit} waiting); {tag} was not queued"
+        _log(
+            app,
+            deliveries_log.QUEUE_FULL,
+            provider=provider,
+            event=event.source,
+            detail=detail,
+            delivery=delivery,
+        )
+        return TagDelivery(deliveries_log.QUEUE_FULL, detail, refusal=exc)
+    detail = (
+        f"the update that waits now deploys {tag} ({event.source})"
+        if joined
+        else f"queued the update to {tag} ({event.source})"
     )
-    detail = f"queued the update to {tag} ({event.source})"
     _log(
         app,
         deliveries_log.DEPLOY_STARTED,
@@ -766,39 +902,32 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
         )
         return JSONResponse(status_code=200, content={"status": "ignored", "reason": "branch"})
 
-    job = get_job_manager().create_job(
-        job_type=JobType.UPDATE,
-        name=f"Update {validated}",
-        description=f"Webhook-triggered update of {validated}",
-        func=webhook_update_job,
-        kwargs={"domain": validated},
-        metadata={
-            "domain": validated,
-            "trigger": DeploymentTrigger.WEBHOOK.value,
-            "provider": provider,
-            "branch": branch,
-            "delivery": delivery,
-        },
-        actor="webhook",
+    queued_push = await run_in_threadpool(
+        lambda: queue_push_update(
+            app,
+            validated,
+            provider=provider,
+            branch=branch,
+            delivery=delivery,
+            description=f"Webhook-triggered update of {validated}",
+            started=f"queued the update ({branch or 'no branch named'})",
+        )
     )
-
+    if queued_push.refusal is not None:
+        _record(request, validated, "refused", f"{queued_push.detail} ({provider})")
+        return error_response(queued_push.refusal)
     _record(
         request,
         validated,
         "accepted",
-        f"queued job {job.id} ({provider}, branch {branch or 'any'})",
+        f"{'merged into' if queued_push.merged else 'queued'} job {queued_push.job_id} "
+        f"({provider}, branch {branch or 'any'})",
     )
-    _log(
-        app,
-        deliveries_log.DEPLOY_STARTED,
-        provider=provider,
-        event=PUSH,
-        branch=branch,
-        detail=f"queued the update ({branch or 'no branch named'})",
-        job_id=job.id,
-        delivery=delivery,
+    return JSONResponse(
+        status_code=202,
+        # Whatever it joined, it has not started: it waits its turn.
+        content={"job_id": queued_push.job_id, "status": "pending", "merged": queued_push.merged},
     )
-    return JSONResponse(status_code=202, content={"job_id": job.id, "status": job.status.value})
 
 
 async def _deliver_tag(
@@ -845,6 +974,9 @@ async def _deliver_tag(
     result = await run_in_threadpool(
         queue_tag_update, app, event, provider=provider, delivery=delivery
     )
+    if result.refusal is not None:
+        _record(request, domain, "refused", f"{result.detail} ({provider})")
+        return error_response(result.refusal)
     if result.job_id is None:
         _record(request, domain, "ignored", f"{result.detail} ({provider})")
         return JSONResponse(

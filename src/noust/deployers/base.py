@@ -39,6 +39,7 @@ from pathlib import Path
 from typing import Any, ClassVar, Literal
 
 from noust.central import require_server_role
+from noust.core import cancellation, delivery
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import (
@@ -65,7 +66,7 @@ from noust.core.store import (
     get_store,
 )
 from noust.core.utils import domain_to_app_name
-from noust.deployers.bluegreen import BlueGreen
+from noust.deployers.bluegreen import BlueGreen, adopt_for_new_app
 from noust.deployers.helpers import (
     EnvManager,
     NginxConfigBuilder,
@@ -276,6 +277,9 @@ class BaseDeployer(AppDeployer):
         # Deployment progress, shared between pipeline steps
         self._ssl_obtained: bool = False
         self._app_record: App | None = None
+        # What an application's row said before a redeployment marked it
+        # "deploying": what it says again when the attempt is cancelled.
+        self._status_before_deploy: str | None = None
         self._is_new_deployment: bool = True
 
         # Layout. The request is what configure() was told; the layout is
@@ -655,24 +659,33 @@ class BaseDeployer(AppDeployer):
         # before 3.1: a build relying on a variable of it must not break on
         # upgrade. The sandbox starts clean by construction (sandbox_environment).
 
-        if stream:
-            result = self.runner.stream(
-                command,
-                on_line=self.logger.debug,
-                cwd=cwd or self.build_path,
-                env=run_env or None,
-                timeout=timeout,
-                **options,
-            )
-        else:
-            result = self.runner.run(
-                command,
-                cwd=cwd or self.build_path,
-                env=run_env or None,
-                timeout=timeout,
-                **options,
-            )
-            self.logger.command_output(result.stdout, result.stderr)
+        # What a repository's code runs (install, build) is what an operator
+        # cancels a deployment to stop; a migration (RELEASE) is never killed
+        # halfway, and root's own commands are not the build.
+        interrupt: contextlib.AbstractContextManager[None] = (
+            cancellation.interruptible(f"running the {effective.value}")
+            if effective in (BuildPhase.INSTALL, BuildPhase.BUILD)
+            else contextlib.nullcontext()
+        )
+        with interrupt:
+            if stream:
+                result = self.runner.stream(
+                    command,
+                    on_line=self.logger.debug,
+                    cwd=cwd or self.build_path,
+                    env=run_env or None,
+                    timeout=timeout,
+                    **options,
+                )
+            else:
+                result = self.runner.run(
+                    command,
+                    cwd=cwd or self.build_path,
+                    env=run_env or None,
+                    timeout=timeout,
+                    **options,
+                )
+                self.logger.command_output(result.stdout, result.stderr)
         return result
 
     @contextlib.contextmanager
@@ -2260,7 +2273,50 @@ class BaseDeployer(AppDeployer):
                 run=self._step_activate,
             )
         )
+        if with_service and new_app and self._starts_without_downtime():
+            # Last, once the first release answers: the application is the
+            # single unit it was created as until this converts it, and
+            # converting is undone whole when a step fails.
+            steps.append(
+                DeployStep(
+                    title="Enabling updates without downtime",
+                    icon=Icons.ROCKET,
+                    run=self._step_zero_downtime,
+                )
+            )
         return steps
+
+    def _starts_without_downtime(self) -> bool:
+        """
+        Tell whether a new application of this deployer starts in zero-downtime mode.
+
+        Returns:
+            True when the server's configuration asks for it
+            (``deploy.zero_downtime``), nginx serves the application and it is
+            not a pull request's preview, which is thrown away.
+        """
+        return (
+            delivery.current().zero_downtime
+            and self.webserver == "nginx"
+            and not self._preview_parent
+        )
+
+    def _step_zero_downtime(self) -> None:
+        """
+        Start the application as two instances, so its next update never cuts it.
+
+        Never fails the deployment: an application that cannot run twice (its
+        site has routes of its own, the next port is taken) keeps running as
+        the one unit it has, and the log says why.
+        """
+        # The old unit is not left running to drain: nothing but the health
+        # gate's own probes has used it yet.
+        adopt_for_new_app(
+            self.domain,
+            logger=self.logger,
+            store=self.store,
+            engine=lambda app, _logger: self._blue_green(app, drain=False),
+        )
 
     def _step_fetch_release(self) -> None:
         """
@@ -2272,13 +2328,16 @@ class BaseDeployer(AppDeployer):
         """
         if self._staged is None:
             self.logger.substep(f"Source: {self.source}")
-            self._staged = stage_release(
-                self.source,
-                self.branch,
-                releases=self.releases,
-                source_manager=self.source_manager,
-                logger=self.logger,
-            )
+            # A clone of a large repository is the first thing an operator
+            # cancels: the release it was filling is discarded by the staging.
+            with cancellation.interruptible("fetching the source"):
+                self._staged = stage_release(
+                    self.source,
+                    self.branch,
+                    releases=self.releases,
+                    source_manager=self.source_manager,
+                    logger=self.logger,
+                )
         staged = self._staged
         self._record_release_row(staged)
 
@@ -2361,6 +2420,10 @@ class BaseDeployer(AppDeployer):
                 whether or not there was a release to go back to.
         """
         staged = self._require_staged()
+        # The point of no return of a cancellation: from here the release is
+        # switched in behind the health gate, which finishes or puts back what
+        # served, and is never interrupted halfway.
+        cancellation.commit(f"activating release {staged.id}")
         zero_downtime = self._zero_downtime_app()
         if zero_downtime is not None:
             try:
@@ -2421,12 +2484,14 @@ class BaseDeployer(AppDeployer):
         app = self.store.get_app(self.domain)
         return app if app is not None and app.zero_downtime else None
 
-    def _blue_green(self, app: App) -> BlueGreen:
+    def _blue_green(self, app: App, *, drain: bool = True) -> BlueGreen:
         """
         Build the blue/green engine over this deployer's managers.
 
         Args:
             app: The application's row.
+            drain: Whether the instance that stops waits for its drain time.
+                False for an application nobody has used yet.
 
         Returns:
             The engine, probing with the probe this module holds.
@@ -2439,6 +2504,7 @@ class BaseDeployer(AppDeployer):
             web=self._webserver_manager(),
             # Looked up here, at call time, so it is the one this module holds.
             probe=wait_until_healthy,
+            sleep=None if drain else (lambda _seconds: None),
         )
 
     def _restart_and_probe(self) -> tuple[bool, str]:
@@ -2962,20 +3028,28 @@ class BaseDeployer(AppDeployer):
         self._step_fetch_release()
         self._sandbox_by_default(report)
 
+        # A cancellation is honoured between the steps as well as inside the
+        # commands of the install and the build: a step that cannot be
+        # interrupted finishes, and the next one never starts.
+        cancellation.checkpoint()
         report("Installing dependencies")
         with self._in_phase(BuildPhase.INSTALL):
             self._install_release_dependencies()
 
+        cancellation.checkpoint()
         with self._in_phase(BuildPhase.INSTALL):
             prisma_updated = self._update_prisma(report)
 
+        cancellation.checkpoint()
         report("Building")
         with self._in_phase(BuildPhase.BUILD):
             self.build()
 
+        cancellation.checkpoint()
         self._set_permissions()
         # Last before anything serves it: a failing hook leaves current where
         # it is, and the release is abandoned like a failed build.
+        cancellation.checkpoint()
         self._run_pre_deploy_hooks(report)
 
         report(f"Activating release {self._require_staged().id}")
@@ -3199,8 +3273,9 @@ class BaseDeployer(AppDeployer):
 
         # Held from the first look at the directory to the last step: an
         # update, a migration or a second deploy of the same application
-        # must not interleave with this one.
-        with app_lock(self.domain, "deploy"):
+        # must not interleave with this one. The same span is what an
+        # operator can cancel, until the release starts to be activated.
+        with app_lock(self.domain, "deploy"), cancellation.operation_window(self.domain, "deploy"):
             return self._deploy()
 
     def _deploy(self) -> bool:
@@ -3220,6 +3295,7 @@ class BaseDeployer(AppDeployer):
         existing = self.store.get_app(self.domain)
         is_new_deployment = existing is None
         self._is_new_deployment = is_new_deployment
+        self._status_before_deploy = existing.status if existing is not None else None
         self.resolve_layout(existing)
         if self.deploy_target is None:
             # Before anything is fetched: a directory that holds an
@@ -3303,6 +3379,14 @@ class BaseDeployer(AppDeployer):
         Args:
             error: What the failing step raised.
         """
+        if cancellation.is_cancellation(error):
+            if not self._is_new_deployment and self._app_record is not None:
+                # Nothing that served was touched: the row says what it said
+                # before the attempt marked it "deploying".
+                self._app_record.status = self._status_before_deploy or AppStatus.RUNNING.value
+                self.store.update_app(self._app_record)
+            self.logger.warning(f"Deployment cancelled: {getattr(error, 'message', error)}")
+            return
         if not self._is_new_deployment and self._app_record is not None:
             # The rows survive a failed redeployment; mark them honestly.
             self._app_record.status = AppStatus.FAILED.value

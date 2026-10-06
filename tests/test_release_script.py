@@ -26,6 +26,24 @@ sys.modules["release_script"] = release
 SPEC.loader.exec_module(release)
 
 
+SECURITY = """# Security policy
+
+## Supported versions
+
+| Version | Security fixes |
+|---|---|
+{rows}
+
+Fixes are released as a patch version of each supported line.
+
+## Reporting a vulnerability
+"""
+
+#: The table of a repository whose current line is 0.15 (the fixture's version).
+SUPPORTED_ROWS = """| 0.15.x | Yes |
+| 0.14.x | Yes, until 0.16.0 is released |
+| 0.13.x and earlier, WASM 2.x included | No: upgrade to a supported line |"""
+
 DEBIAN_ENTRY = (
     "{package} (0.15.8-1) unstable; urgency=medium\n\n  * Something\n\n"
     " -- A B <a@b>  Fri, 20 Mar 2026 14:00:00 +0000\n"
@@ -86,6 +104,8 @@ def repo(tmp_path, monkeypatch):
     (tmp_path / "packaging/container/compose.yaml").write_text(
         "services:\n  noust:\n    image: ghcr.io/perkybeet/noust:0.15.8\n"
     )
+
+    (tmp_path / "SECURITY.md").write_text(SECURITY.format(rows=SUPPORTED_ROWS))
 
     monkeypatch.setattr(release, "ROOT", tmp_path)
     monkeypatch.setattr(release, "_current_tag", lambda: None)
@@ -219,3 +239,164 @@ def test_a_version_that_is_not_semver_is_refused(repo):
     """A tag like 'v1.0' would produce packages nobody can order."""
     assert release.bump("1.0", ["Released"]) == 1
     assert 'version = "0.15.8"' in (repo / "pyproject.toml").read_text()
+
+
+# ---------------------------------------------------------------------------
+# SECURITY.md lists the version being released as supported (checklist L-40)
+# ---------------------------------------------------------------------------
+
+
+def table(repo):
+    """The three kinds of rows of the fixture's SECURITY.md, as written now."""
+    return [
+        line
+        for line in (repo / "SECURITY.md").read_text().splitlines()
+        if line.startswith("| ") and not line.startswith("| Version")
+    ]
+
+
+def test_a_patch_release_leaves_the_table_alone(repo):
+    before = (repo / "SECURITY.md").read_text()
+
+    assert release.bump("0.15.9", ["A fix"]) == 0
+
+    assert (repo / "SECURITY.md").read_text() == before
+
+
+def test_a_minor_release_adds_its_line_and_moves_the_two_before_it(repo):
+    assert release.bump("0.16.0", ["A feature"]) == 0
+
+    assert table(repo) == [
+        "| 0.16.x | Yes |",
+        "| 0.15.x | Yes, until 0.17.0 is released |",
+        "| 0.14.x and earlier, WASM 2.x included | No: upgrade to a supported line |",
+    ]
+
+
+def test_a_major_release_does_the_same(repo):
+    assert release.bump("1.0.0", ["A new major"]) == 0
+
+    assert table(repo) == [
+        "| 1.0.x | Yes |",
+        "| 0.15.x | Yes, until 1.1.0 is released |",
+        "| 0.14.x and earlier, WASM 2.x included | No: upgrade to a supported line |",
+    ]
+
+
+def test_the_text_around_the_table_is_untouched(repo):
+    release.bump("0.16.0", ["A feature"])
+
+    text = (repo / "SECURITY.md").read_text()
+    assert text.startswith("# Security policy\n\n## Supported versions\n\n| Version |")
+    assert "Fixes are released as a patch version of each supported line." in text
+    assert text.endswith("## Reporting a vulnerability\n")
+
+
+def test_two_minor_releases_in_a_row_keep_two_lines(repo):
+    release.bump("0.16.0", ["A feature"])
+    release.bump("0.17.0", ["Another"])
+
+    assert table(repo) == [
+        "| 0.17.x | Yes |",
+        "| 0.16.x | Yes, until 0.18.0 is released |",
+        "| 0.15.x and earlier, WASM 2.x included | No: upgrade to a supported line |",
+    ]
+
+
+def test_a_release_with_no_table_row_to_retire_is_fine(repo):
+    (repo / "SECURITY.md").write_text(SECURITY.format(rows="| 0.15.x | Yes |"))
+
+    assert release.bump("0.16.0", ["A feature"]) == 0
+
+    assert table(repo) == ["| 0.16.x | Yes |", "| 0.15.x | Yes, until 0.17.0 is released |"]
+
+
+def released(repo):
+    """
+    Make the fixture a consistent release, so what a check reports is SECURITY.md's.
+
+    Args:
+        repo: The fixture's root.
+    """
+    assert release.bump("0.15.8", ["Released"]) == 0
+    assert release.check() == 0
+
+
+def test_the_check_passes_on_a_table_that_lists_the_version(repo):
+    released(repo)
+
+    assert release.check() == 0
+
+
+def test_the_check_fails_when_the_table_does_not_list_the_version(repo, capsys):
+    released(repo)
+    (repo / "SECURITY.md").write_text(
+        SECURITY.format(rows="| 0.14.x | Yes |\n| 0.13.x | Yes, until 0.15.0 is released |")
+    )
+
+    assert release.check() == 1
+
+    output = capsys.readouterr().out
+    assert "SECURITY.md" in output
+    assert "0.15.x" in output
+    assert "supported" in output
+
+
+def test_the_check_fails_when_the_line_is_listed_as_unsupported(repo, capsys):
+    released(repo)
+    (repo / "SECURITY.md").write_text(
+        SECURITY.format(rows="| 0.16.x | Yes |\n| 0.15.x | No: upgrade |")
+    )
+
+    assert release.check() == 1
+
+    assert "0.15.x" in capsys.readouterr().out
+
+
+def test_the_check_fails_when_an_until_has_passed(repo, capsys):
+    """'Yes, until 0.15.0 is released' is not true of 0.15.1."""
+    released(repo)
+    (repo / "SECURITY.md").write_text(
+        SECURITY.format(rows="| 0.16.x | Yes |\n| 0.15.x | Yes, until 0.15.0 is released |")
+    )
+
+    assert release.check() == 1
+
+    assert "until 0.15.0" in capsys.readouterr().out
+
+
+def test_the_check_fails_without_the_file(repo, capsys):
+    released(repo)
+    (repo / "SECURITY.md").unlink()
+
+    assert release.check() == 1
+
+    assert "SECURITY.md" in capsys.readouterr().out
+
+
+def test_the_check_accepts_a_line_that_is_supported_until_a_later_release(repo):
+    released(repo)
+    (repo / "SECURITY.md").write_text(
+        SECURITY.format(rows="| 0.16.x | Yes |\n| 0.15.x | Yes, until 0.17.0 is released |")
+    )
+
+    assert release.check() == 0
+
+
+def test_a_bump_then_the_check_agree_for_a_run_of_releases(repo):
+    for version in ("0.15.9", "0.16.0", "0.16.1", "0.17.0", "1.0.0", "1.0.1", "1.1.0"):
+        assert release.bump(version, ["x"]) == 0, version
+        assert release.check() == 0, version
+
+
+def test_the_real_security_policy_lists_the_current_line():
+    """The repository's own SECURITY.md, read as the gate reads it."""
+    assert release.security_problem(release.source_of_truth()) is None
+
+
+def test_the_check_names_a_version_it_cannot_place_instead_of_crashing(repo, capsys):
+    (repo / "pyproject.toml").write_text('[project]\nname = "noust"\nversion = "one"\n')
+
+    assert release.check() == 1
+
+    assert "SECURITY.md: cannot tell which line 'one' belongs to" in capsys.readouterr().out

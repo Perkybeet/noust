@@ -56,11 +56,13 @@ from noust.core.store import (
     DeploymentStatus,
     NoustStore,
     get_store,
+    is_compose_backed,
     runs_as_instances,
 )
 from noust.core.utils import domain_to_app_name
 from noust.deployers.bluegreen import (
     color_port,
+    could_update_without_downtime,
     instance_unit,
     leftover_advice,
     leftover_unit,
@@ -522,7 +524,7 @@ def _check_unit(ctx: _Context) -> ProbeResult:
     # A Compose unit runs `docker compose up -d` once and stays active:
     # "exited" is its running state; the containers are checked on their own.
     compose_up = (
-        ctx.app is not None and ctx.app.app_type == "docker-compose" and sub_state == "exited"
+        ctx.app is not None and is_compose_backed(ctx.app.app_type) and sub_state == "exited"
     )
     if active_state == "active" and (sub_state == "running" or compose_up):
         status: CheckStatus = "ok"
@@ -936,6 +938,18 @@ def _check_last_deployment(ctx: _Context) -> ProbeResult:
         evidence_lines.append(f"error={record.error}")
     evidence = "\n".join(evidence_lines)
 
+    if record.cancelled:
+        who = f" by {record.cancelled_by}" if record.cancelled_by else ""
+        return (
+            Check(
+                "last_deployment",
+                "ok",
+                f"The last deployment was cancelled{who}; what served before still serves",
+                evidence,
+            ),
+            {"failed": False},
+        )
+
     if record.status == DeploymentStatus.FAILED.value:
         summary = "The last deployment failed"
         if record.error:
@@ -1232,6 +1246,18 @@ def diagnose(
             probe_facts = {}
         checks.append(check)
         facts[name] = probe_facts
+
+    if app is not None and could_update_without_downtime(app, store=resolved_store):
+        # Not a cause of anything: what an operator who just watched an update
+        # take the application down for a moment can do about it.
+        checks.append(
+            Check(
+                "zero_downtime",
+                "skip",
+                "Its updates restart it in place; it could update without a cut",
+                f"Turn it on: noust app zero-downtime {domain} on",
+            )
+        )
 
     verdict, cause = _decide(ctx, tuple(checks), facts)
     return Diagnosis(domain=domain, verdict=verdict, probable_cause=cause, checks=tuple(checks))

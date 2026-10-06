@@ -32,9 +32,11 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.cli.commands.app_container import changes_from_options, container_options
 from noust.cli.panel_links import open_in_panel
 from noust.core.app_state import RUNNING, RUNNING_UNMANAGED, STATIC, resolve_states
 from noust.core.config import Config
+from noust.core.container_store import forget_secrets
 from noust.core.dependencies import check_deployment_ready
 from noust.core.exceptions import DeploymentError, NoustError, ServiceError, SourceError
 from noust.core.logger import Logger, state, styled
@@ -42,7 +44,7 @@ from noust.core.runner import (
     CommandResult,
     get_runner,
 )
-from noust.core.store import DeploymentTrigger, get_store, validate_tag_pattern
+from noust.core.store import DeploymentTrigger, get_store, is_compose_backed, validate_tag_pattern
 from noust.core.tags import newest_tag
 from noust.core.utils import domain_to_app_name
 from noust.deployers import get_deployer
@@ -213,6 +215,7 @@ def _create_app(
     database: tuple[str, str | None] | None = None,
     database_version: str | None = None,
     install_database: bool = False,
+    container: dict[str, Any] | None = None,
 ) -> int:
     """
     Deploy an application.
@@ -257,6 +260,10 @@ def _create_app(
             (``--database-version``); None for the installed one.
         install_database: Install the engine, in that version, when it is
             missing (``--install-database``).
+        container: What a container application is made from and how it runs,
+            as :func:`~noust.cli.commands.app_container.changes_from_options`
+            gives it (``--image``, ``--builder``, ``--build-arg``...); None for
+            a repository with a Dockerfile as it is.
 
     Returns:
         Exit code.
@@ -270,7 +277,7 @@ def _create_app(
             f"--database cannot be used with a {app_type} application: it provisions its own."
         )
 
-    if app_type in ("monorepo", "docker-compose"):
+    if app_type in ("monorepo", "docker-compose", "container"):
         # Refuses an explicit --layout releases for the types that have no
         # release pipeline yet, with the same words the deployers use.
         choose_layout(None, layout, app_type=app_type, supports_releases=False)
@@ -373,29 +380,40 @@ def _create_app(
         )
         options.update(new_database.configure_options(options.get("env_secret_marks")))
 
-    deployer = get_deployer(app_type, verbose=logger.verbose)
-    deployer.configure(
-        domain=domain,
-        source=source,
-        port=port,
-        webserver=webserver,
-        ssl=ssl,
-        branch=branch,
-        env_vars=env_vars,
-        package_manager=package_manager,
-        include_www=www,
-        # CONFIGURED rather than the configured value itself: an application
-        # that already exists keeps its layout unless one was asked for.
-        layout=layout or CONFIGURED,
-        persistent_paths=list(persist) if persist else None,
-        replace_existing=replace_existing,
-        **options,
+    container_settings = _container_settings(domain, app_type, container, source)
+    # Passed only when given, so a plain create configures the deployer exactly
+    # as it always has.
+    container_options: dict[str, Any] = (
+        {} if container_settings is None else {"container": container_settings}
     )
+    deployer = get_deployer(app_type, verbose=logger.verbose)
     try:
+        deployer.configure(
+            domain=domain,
+            source=source,
+            port=port,
+            webserver=webserver,
+            ssl=ssl,
+            branch=branch,
+            env_vars=env_vars,
+            package_manager=package_manager,
+            include_www=www,
+            # CONFIGURED rather than the configured value itself: an application
+            # that already exists keeps its layout unless one was asked for.
+            layout=layout or CONFIGURED,
+            persistent_paths=list(persist) if persist else None,
+            replace_existing=replace_existing,
+            **container_options,
+            **options,
+        )
         deployer.deploy()
     except NoustError as exc:
         if databases is not None and new_database is not None:
             databases.keep_after_failed_deploy(new_database, exc)
+        if container is not None and get_store().get_app(domain) is None:
+            # The registry password and the build secrets it was given were
+            # kept for an application that did not come to exist.
+            forget_secrets(domain_to_app_name(domain))
         raise
     if databases is not None and new_database is not None:
         outcome = databases.link_new_app(new_database)
@@ -406,6 +424,43 @@ def _create_app(
             )
 
     return 0
+
+
+def _container_settings(
+    domain: str, app_type: str, container: dict[str, Any] | None, source: str
+) -> dict[str, Any] | None:
+    """
+    Turn the container options of ``noust create`` into the settings a deployer takes.
+
+    Their secrets (the registry password, the build secrets) are written to the
+    secret store here, once nothing is refused.
+
+    Args:
+        domain: The new application's domain.
+        app_type: The application type asked for.
+        container: What :func:`changes_from_options` gave, or None.
+        source: The source: the repository, or the image for ``--image``.
+
+    Returns:
+        The settings as a mapping, or None when there is nothing to say
+        (the deployer's defaults are what is wanted).
+
+    Raises:
+        click.UsageError: Container options were given for another type.
+        ValidationError: The settings are not valid.
+    """
+    if container is None:
+        return None
+    from dataclasses import asdict
+
+    from noust.deployers.helpers.container_settings import settings_for_new_app
+
+    if app_type != "container":
+        raise click.UsageError("Container options only apply to --type container.")
+    changes = {**container, "method": container.get("method") or "dockerfile"}
+    if changes["method"] == "image":
+        changes["image"] = changes.get("image") or source
+    return asdict(settings_for_new_app(domain, changes))
 
 
 def _newest_followed_tag(source: str, pattern: str) -> str:
@@ -1429,7 +1484,7 @@ def _show_logs(
     store = get_store()
     app = store.get_app(domain)
 
-    if app and app.app_type == "docker-compose":
+    if app and is_compose_backed(app.app_type):
         # Built by the deployer, like every other compose command: the file
         # the unit names and the project the store pins (an adopted stack's
         # need not be its directory's name, and a guess shows no logs).
@@ -1862,6 +1917,7 @@ def cli() -> None:
     "is brought up to date, keeping what git does not track (.env, data), and anything "
     "else is refused, never emptied; on releases a release is added beside them.",
 )
+@container_options
 @global_flags
 @pass_context
 def create(
@@ -1890,15 +1946,30 @@ def create(
     layout: str | None,
     persist: tuple[str, ...],
     force: bool,
+    **container_given: Any,
 ) -> None:
     """
     Deploy a web application and put it online.
 
     Fetches the source, builds it, runs it under systemd, publishes it on the
     domain and obtains a certificate for it. With --recipe, the source, the
-    type, the database and the settings come from the recipe.
+    type, the database and the settings come from the recipe. With --image, a
+    container from a registry is deployed instead, and needs no source.
     """
     env_vars = _parse_env_pairs(env_pairs)
+    container = changes_from_options(**container_given)
+    if container:
+        if recipe is not None:
+            raise click.UsageError("Container options cannot be used with --recipe.")
+        if app_type not in ("auto", "container"):
+            raise click.UsageError(
+                f"Container options do not apply to --type {app_type}: use --type container."
+            )
+        app_type = "container"
+        if "image" in container:
+            if source:
+                raise click.UsageError("--image is the source of a container: leave -s out.")
+            source = container["image"]
     database = _parse_database(database_spec) if database_spec is not None else None
     if recipe is not None and database is not None:
         raise click.UsageError("--database cannot be used with --recipe: the recipe has its own.")
@@ -1937,7 +2008,9 @@ def create(
         )
         return
     if not source:
-        raise click.UsageError("Missing option '-s' / '--source' (or deploy a --recipe).")
+        raise click.UsageError(
+            "Missing option '-s' / '--source' (or deploy a --recipe, or an --image)."
+        )
     _exit(
         _create_app(
             logger=ctx.logger,
@@ -1963,6 +2036,7 @@ def create(
             database=database,
             database_version=database_version,
             install_database=install_database,
+            container=container or None,
         ),
     )
     # Reached only when the deploy succeeded: _exit leaves on a failure code.

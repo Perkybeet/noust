@@ -33,6 +33,7 @@ import click
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
 from noust.cli.commands.app_adopt import adopt_command
 from noust.cli.commands.app_backup import backup_before_update_command
+from noust.cli.commands.app_container import container as container_group
 from noust.cli.commands.app_deploy_key import deploy_key as deploy_key_group
 from noust.cli.commands.app_git_credential import git_credential as git_credential_group
 from noust.cli.commands.app_headless import headless_command
@@ -118,6 +119,7 @@ cli.add_command(git_credential_group)
 cli.add_command(sandbox_group)
 cli.add_command(identity_group)
 cli.add_command(hooks_group)
+cli.add_command(container_group)
 cli.add_command(backup_before_update_command)
 cli.add_command(headless_command)
 cli.add_command(adopt_command)

@@ -2866,6 +2866,7 @@ def create_secured_site(
     www: bool = False,
     ssl: bool = True,
     enable: bool = True,
+    context: Mapping[str, Any] | None = None,
 ) -> SecuredSite:
     """
     Create or update a virtual host and, unless told not to, secure it with TLS.
@@ -2893,6 +2894,9 @@ def create_secured_site(
         ssl: Secure the site with a certificate. False writes a plain HTTP
             vhost and does nothing else.
         enable: Enable the site once written, when it did not already exist.
+        context: Further template variables, merged over the defaults on both
+            writes (a site that is not an application's, such as the console's,
+            has variables of its own).
 
     Returns:
         What was written and whether TLS ended up enabled.
@@ -2907,13 +2911,14 @@ def create_secured_site(
     """
     include_www = www and should_include_www(domain)
     server_names = f"{domain} www.{domain}" if include_www else domain
-    context: dict[str, Any] = {"port": port, "ssl": False, "server_names": server_names}
+    site_context: dict[str, Any] = {"port": port, "ssl": False, "server_names": server_names}
+    site_context.update(context or {})
 
     site_existed = manager.site_exists(domain)
     if site_existed:
-        manager.update_site(domain, template=template, context=context)
+        manager.update_site(domain, template=template, context=site_context)
     else:
-        manager.create_site(domain, template=template, context=context)
+        manager.create_site(domain, template=template, context=site_context)
         if enable:
             manager.enable_site(domain)
     manager.reload()
@@ -2967,10 +2972,10 @@ def create_secured_site(
         )
 
     cert_paths = cert_manager.get_cert_path(domain)
-    context["ssl"] = True
-    context["ssl_certificate"] = str(cert_paths["fullchain"])
-    context["ssl_certificate_key"] = str(cert_paths["privkey"])
-    manager.update_site(domain, template=template, context=context)
+    site_context["ssl"] = True
+    site_context["ssl_certificate"] = str(cert_paths["fullchain"])
+    site_context["ssl_certificate_key"] = str(cert_paths["privkey"])
+    manager.update_site(domain, template=template, context=site_context)
     manager.reload()
 
     return SecuredSite(
