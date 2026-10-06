@@ -31,7 +31,7 @@ from noust.recipes.variables import DeploymentContext, resolve_variables
 #: The recipes of the 2.3 catalogue, now in the 3.4 format.
 MIGRATED = {"wordpress", "uptime-kuma", "umami", "n8n"}
 #: Listed, not deployable, with the reason.
-UNAVAILABLE = {"ghost", "plausible", "pocketbase", "excalidraw", "vault"}
+UNAVAILABLE = {"pocketbase", "excalidraw", "vault"}
 #: Wave one (checklist D-29) that ship as Docker recipes.
 WAVE_ONE = {
     "vaultwarden",
@@ -106,10 +106,18 @@ def test_the_recipes_left_out_say_why(name: str) -> None:
     assert recipe.logo is not None
 
 
-def test_ghost_names_mysql_8_and_plausible_names_clickhouse() -> None:
-    """The reasons are the real ones."""
-    assert "MySQL 8" in (get_recipe("ghost").unavailable_reason or "")
-    assert "ClickHouse" in (get_recipe("plausible").unavailable_reason or "")
+def test_ghost_and_plausible_carry_the_databases_they_needed() -> None:
+    """Listed as unavailable until 3.4, they now run with MySQL 8 and with PostgreSQL and ClickHouse."""
+    ghost, plausible = get_recipe("ghost"), get_recipe("plausible")
+
+    assert ghost.available and plausible.available
+    assert {image.repository for image in ghost.images} == {"ghost", "mysql"}
+    assert any(image.tag.startswith("8.") for image in ghost.images if image.repository == "mysql")
+    assert {image.repository for image in plausible.images} == {
+        "ghcr.io/plausible/community-edition",
+        "postgres",
+        "clickhouse/clickhouse-server",
+    }
 
 
 def test_the_file_names_are_the_recipe_names() -> None:

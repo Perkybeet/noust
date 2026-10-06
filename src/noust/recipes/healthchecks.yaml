@@ -1,0 +1,97 @@
+# Healthchecks from the image the project builds and publishes on Docker Hub,
+# configured from its docker/README.md and hc/settings.py at the v4.4 tag:
+# SECRET_KEY, SITE_ROOT (the public address), ALLOWED_HOSTS, DEBUG (True unless
+# told otherwise: the recipe turns it off) and REGISTRATION_OPEN (True unless told
+# otherwise: the recipe closes it, so the first visitor cannot make an account).
+# The image runs as user hc under uWSGI on port 8000, which it reads the protocol
+# of from X-Forwarded-Proto, runs migrations when it starts, and keeps /data
+# for its SQLite file (DB_NAME). Its own HEALTHCHECK asks /api/v3/status/, which
+# tests the database; ALLOWED_HOSTS includes 127.0.0.1 so the gate's probe, which
+# goes to the loopback port, is not refused as an unknown host.
+#
+# The project's example uses PostgreSQL; its settings and image support SQLite
+# too, which is what a monitor of this size needs. The administrator is created
+# by the project's own command (the notes give it), as its README says.
+#
+# Pinned to the release tag and the digest Docker Hub serves for it.
+schema: 2
+name: healthchecks
+kind: compose
+title: Healthchecks
+slogan: Monitor cron jobs and background tasks that must check in.
+description: Get an alert when a scheduled job does not ping on time. Checks, grace periods, integrations with e-mail, chat and pagers, a public status badge and an API. Registration is closed; the administrator is created from the command line. Its data is a SQLite file.
+category: monitoring
+tags: [cron, monitoring, alerts, heartbeat]
+logo: logo.svg
+version: "4.4"
+revision: 1
+updated: 2026-10-06
+homepage: https://healthchecks.io
+docs: https://healthchecks.io/docs/
+repository: https://github.com/healthchecks/healthchecks
+license: BSD-3-Clause
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - An SMTP server, to send alerts and sign-in links by e-mail (optional)
+port: 8000
+variables:
+  SITE_ROOT:
+    from: url
+    description: The address people use; Healthchecks builds its ping URLs and links from it.
+  SITE_DOMAIN:
+    from: fqdn
+    description: The domain of that address, the one host Healthchecks answers to besides 127.0.0.1.
+  ALLOWED_HOSTS:
+    value: "${SITE_DOMAIN},127.0.0.1"
+    description: The host names Healthchecks answers to; 127.0.0.1 is how Noust checks that it started.
+  SECRET_KEY:
+    generate: password64
+    description: Secures sessions. Changing it signs everybody out.
+  DEFAULT_FROM_EMAIL:
+    value: "healthchecks@${SITE_DOMAIN}"
+    description: The From address of the e-mail it sends.
+  EMAIL_HOST:
+    default: ""
+    description: The SMTP server. Without it Healthchecks sends no e-mail.
+  EMAIL_PORT:
+    default: "587"
+    description: The SMTP server's port.
+  EMAIL_HOST_USER:
+    default: ""
+    description: The SMTP user name.
+  EMAIL_HOST_PASSWORD:
+    default: ""
+    secret: true
+    description: The SMTP password.
+health:
+  path: /api/v3/status/
+  expect: "200"
+  timeout: 90
+compose: |
+  services:
+    healthchecks:
+      image: healthchecks/healthchecks:v4.4@sha256:aa08a61b0dcfd83f1332eab195d5cec1b595ae076eb8388cadf8a3d597114f9b
+      restart: unless-stopped
+      environment:
+        DEBUG: "False"
+        REGISTRATION_OPEN: "False"
+        SECRET_KEY: "${SECRET_KEY}"
+        SITE_ROOT: "${SITE_ROOT}"
+        ALLOWED_HOSTS: "${ALLOWED_HOSTS}"
+        DB_NAME: /data/hc.sqlite
+        DEFAULT_FROM_EMAIL: "${DEFAULT_FROM_EMAIL}"
+        EMAIL_HOST: "${EMAIL_HOST}"
+        EMAIL_PORT: "${EMAIL_PORT}"
+        EMAIL_HOST_USER: "${EMAIL_HOST_USER}"
+        EMAIL_HOST_PASSWORD: "${EMAIL_HOST_PASSWORD}"
+      volumes:
+        - healthchecks-data:/data
+      ports:
+        - "127.0.0.1:${PORT}:8000"
+  volumes:
+    healthchecks-data:
+notes:
+  - "Nobody can sign in yet, and nobody can register. Create the administrator: cd {{ app_path }} && docker compose run --rm healthchecks /opt/healthchecks/manage.py createsuperuser"
+  - "Then sign in at {{ url }} with that e-mail address and password. Sign-in links by e-mail need EMAIL_HOST and the rest of the SMTP settings in the application's environment (then noust restart {{ domain }}); the password works without them."
+  - "Your checks and their history are in the SQLite file in the Docker volume healthchecks-data of this application: back it up before updating."

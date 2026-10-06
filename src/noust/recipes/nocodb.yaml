@@ -1,0 +1,132 @@
+# NocoDB from the image the project publishes, with the stack of its own
+# docker-compose/examples/quickstart-demo at the 2026.09.1 tag: the application, a
+# worker container (the same image with NC_WORKER_CONTAINER, which runs the jobs),
+# PostgreSQL (NC_DB in the project's "pg://host:port?u=&p=&d=" form) and a
+# Redis-compatible store for the job queue (NC_REDIS_URL; Valkey, the BSD-licensed
+# fork, answers it), NC_DISABLE_MUX as the example sets it, and NC_SITE_URL, which
+# the links in invitation and password-reset e-mails are built from. NC_ADMIN_EMAIL
+# and NC_ADMIN_PASSWORD create the super administrator at the first start, so the
+# first-visit sign-up is not left to a stranger; the password must have eight or
+# more characters with an upper-case letter, a number and a special character
+# (environment-variables page), which a generated alphanumeric password may not, so
+# a fixed suffix guarantees it. The image runs as root, listens on 8080, keeps its
+# data under /usr/app/data and answers /api/v1/health without a login.
+#
+# The project's licence is the Sustainable Use License: use for your own internal
+# business purposes or non-commercial and personal use. Pinned to the release tag and
+# the digest Docker Hub serves for it.
+schema: 2
+name: nocodb
+kind: compose
+title: NocoDB
+slogan: A spreadsheet interface on top of your database, an Airtable alternative.
+description: "Build databases as spreadsheets, kanban boards, galleries and forms, with an API and automations. Runs with its own PostgreSQL, a worker and a job queue. Source-available (Sustainable Use License): for your own business or personal use, not for resale."
+category: productivity
+tags: [database, spreadsheet, airtable, no-code]
+logo: logo.svg
+version: "2026.09.1"
+revision: 1
+updated: 2026-10-06
+homepage: https://www.nocodb.com
+docs: https://nocodb.com/docs/self-hosting
+repository: https://github.com/nocodb/nocodb
+license: LicenseRef-NocoDB-Sustainable-Use
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8280
+variables:
+  NC_SITE_URL:
+    from: url
+    description: The address people use; invitation and password-reset e-mails link to it.
+  NC_ADMIN_EMAIL:
+    required: true
+    description: The super administrator's e-mail address, and the user name they sign in with.
+  NC_ADMIN_PASSWORD_BASE:
+    generate: password32
+    description: The random part of the super administrator's password.
+  NC_ADMIN_PASSWORD:
+    value: "${NC_ADMIN_PASSWORD_BASE}Aa1!"
+    description: The super administrator's password; NocoDB asks for an upper-case letter, a number and a special one. Read only when it creates the account.
+  NC_AUTH_JWT_SECRET:
+    generate: password64
+    description: Signs the sign-in tokens. Changing it signs everybody out.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /api/v1/health
+  expect: "200"
+  timeout: 180
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    nocodb:
+      image: nocodb/nocodb:2026.09.1@sha256:27d2fd14670db892ac721849d4f071edce47e386a1e74c921a0162644b9c213d
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      environment:
+        NC_DB: "pg://db:5432?u=nocodb&p=${DB_PASSWORD}&d=nocodb"
+        NC_REDIS_URL: "redis://redis:6379"
+        NC_SITE_URL: "${NC_SITE_URL}"
+        NC_DISABLE_MUX: "true"
+        NC_ADMIN_EMAIL: "${NC_ADMIN_EMAIL}"
+        NC_ADMIN_PASSWORD: "${NC_ADMIN_PASSWORD}"
+        NC_AUTH_JWT_SECRET: "${NC_AUTH_JWT_SECRET}"
+      volumes:
+        - nocodb-data:/usr/app/data
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+    worker:
+      image: nocodb/nocodb:2026.09.1@sha256:27d2fd14670db892ac721849d4f071edce47e386a1e74c921a0162644b9c213d
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      environment:
+        NC_DB: "pg://db:5432?u=nocodb&p=${DB_PASSWORD}&d=nocodb"
+        NC_REDIS_URL: "redis://redis:6379"
+        NC_SITE_URL: "${NC_SITE_URL}"
+        NC_WORKER_CONTAINER: "true"
+        NC_AUTH_JWT_SECRET: "${NC_AUTH_JWT_SECRET}"
+      volumes:
+        - nocodb-data:/usr/app/data
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: nocodb
+        POSTGRES_DB: nocodb
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U nocodb -d nocodb"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - nocodb-db:/var/lib/postgresql/data
+    redis:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      restart: unless-stopped
+      healthcheck:
+        test: ["CMD", "valkey-cli", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      volumes:
+        - nocodb-redis:/data
+  volumes:
+    nocodb-data:
+    nocodb-db:
+    nocodb-redis:
+notes:
+  - "Sign in at {{ url }} with {{ vars.NC_ADMIN_EMAIL }}; the password is NC_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The account is created once, at the first start: change the password in NocoDB, not in the environment."
+  - "Your bases are in the PostgreSQL of this stack (Docker volume nocodb-db, dumped by Noust before every update); attachments and the application's files are in the volume nocodb-data. Back up both before updating."
+  - "NocoDB's Sustainable Use License allows use for your own internal business purposes or non-commercial and personal use; do not offer it to others as a service."

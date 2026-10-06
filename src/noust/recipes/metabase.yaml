@@ -1,0 +1,91 @@
+# Metabase Open Source from the image the project publishes on Docker Hub, with
+# the PostgreSQL that holds its application data in the same stack, as its page
+# "Running Metabase on Docker" documents (MB_DB_TYPE, MB_DB_DBNAME, MB_DB_PORT,
+# MB_DB_USER, MB_DB_PASS, MB_DB_HOST, and a health check on /api/health). The
+# default database is an H2 file; the project's page "Migrating to a production
+# application database" is why this one starts on PostgreSQL.
+# MB_SITE_URL is the public address, MB_ENCRYPTION_SECRET_KEY encrypts the
+# credentials of the databases that people connect (set from the first start, so
+# none is ever stored in clear) and MB_ANON_TRACKING_ENABLED turns usage
+# reporting off. The image runs as root, listens on 3000 and is a JVM:
+# give it at least 2 GB of memory.
+#
+# The v0.* tags are the open source edition (AGPL-3.0); the repository also holds
+# a commercial "enterprise" directory the open source image does not unlock.
+# Pinned to the release tag and the digest Docker Hub serves for it.
+schema: 2
+name: metabase
+kind: compose
+title: Metabase
+slogan: Business intelligence and dashboards for everyone on the team.
+description: Ask questions about your data without SQL, build dashboards, and share them. Connects to PostgreSQL, MySQL, MongoDB and many more. The open source edition (AGPL-3.0), with its own PostgreSQL for application data.
+category: analytics
+tags: [bi, dashboards, sql, reporting]
+logo: logo.svg
+version: "0.63.19"
+revision: 1
+updated: 2026-10-06
+homepage: https://www.metabase.com
+docs: https://www.metabase.com/docs/latest/
+repository: https://github.com/metabase/metabase
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 2 GB of memory for the application
+port: 3000
+variables:
+  MB_SITE_URL:
+    from: url
+    description: The address people use; Metabase builds links in e-mails and embeds from it.
+  MB_ENCRYPTION_SECRET_KEY:
+    generate: password32
+    description: Encrypts the credentials of the databases people connect. Losing it makes them unreadable.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /api/health
+  expect: "200"
+  timeout: 180
+compose: |
+  services:
+    metabase:
+      image: metabase/metabase:v0.63.19@sha256:7324f83713df9851c6c7b6c8247098de14c0924fc3b868202f886df4877cd4ff
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        MB_DB_TYPE: postgres
+        MB_DB_DBNAME: metabase
+        MB_DB_PORT: "5432"
+        MB_DB_USER: metabase
+        MB_DB_PASS: "${DB_PASSWORD}"
+        MB_DB_HOST: db
+        MB_SITE_URL: "${MB_SITE_URL}"
+        MB_ENCRYPTION_SECRET_KEY: "${MB_ENCRYPTION_SECRET_KEY}"
+        MB_ANON_TRACKING_ENABLED: "false"
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: metabase
+        POSTGRES_DB: metabase
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U metabase -d metabase"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - metabase-db:/var/lib/postgresql/data
+  volumes:
+    metabase-db:
+notes:
+  - "Open {{ url }} now and finish the setup: whoever completes it first becomes the administrator."
+  - "Your questions, dashboards and users are in the PostgreSQL of this stack (Docker volume metabase-db). Noust dumps it before every update; back it up as well. Keep MB_ENCRYPTION_SECRET_KEY (noust env show {{ domain }} --unmask): without it the saved credentials of your data sources cannot be read from a restore."
+  - "Metabase is a Java application and needs about 2 GB of memory; the first start takes a minute or two while it prepares its database."

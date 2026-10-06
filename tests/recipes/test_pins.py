@@ -171,3 +171,18 @@ def test_only_https_archives_are_read(pins: ModuleType) -> None:
         pins.archive_digest("http://example.com/a.tar.gz")
     with pytest.raises(ValueError, match="https"):
         pins.published_checksum("file:///etc/passwd")
+
+
+def test_a_registry_this_script_does_not_know_is_asked_where_its_tokens_come_from(
+    pins: ModuleType,
+) -> None:
+    """Codeberg's registry (Forgejo) answers 401 with a Bearer challenge; only https realms are followed."""
+    header = 'Bearer realm="https://codeberg.org/v2/token",service="container_registry",scope="*"'
+
+    assert pins.parse_challenge(header, "forgejo/forgejo") == (
+        "https://codeberg.org/v2/token?scope=repository%3Aforgejo%2Fforgejo%3Apull"
+        "&service=container_registry"
+    )
+    assert pins.parse_challenge('Basic realm="registry"', "a/b") is None
+    assert pins.parse_challenge('Bearer realm="http://insecure.example/token"', "a/b") is None
+    assert pins.parse_challenge("", "a/b") is None

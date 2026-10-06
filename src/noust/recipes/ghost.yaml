@@ -1,12 +1,124 @@
+# Ghost from the Docker official image, with the MySQL 8 it supports (not MariaDB)
+# in the same stack, as the image's own documentation and compose.yaml describe it
+# (docker-library/docs, ghost/): the url setting, the database__* settings that
+# Ghost reads from the environment (a nested key is written with __), and the
+# content volume /var/lib/ghost/content. The image defaults to production mode,
+# which requires MySQL (the SQLite file is a development-only setting). The MySQL
+# is the 8.4 release Ghost's own development stack pins (compose.dev.yaml at the
+# v6.67.0 tag). Ghost runs as the node user on 2368; in production mode it
+# redirects a plain-HTTP request to the https address in url, which is why the
+# health check accepts a redirect: Noust asks the loopback port directly.
+#
+# Ghost has no way to create its owner from the environment: whoever opens
+# /ghost first makes the account, which the first note says. Staff sign-ins from a
+# new device are confirmed by e-mail, so the notes ask for an SMTP server.
+#
+# This recipe replaces a listing that waited for a MySQL engine distinct from
+# MariaDB on the server: the stack carries its own. Pinned to the release tag and
+# the digest Docker Hub serves for it.
 schema: 2
 name: ghost
-kind: native
+kind: compose
 title: Ghost
 slogan: A publishing platform for blogs, newsletters and paid memberships.
-description: A publishing platform for blogs, newsletters and paid memberships.
+description: "A modern publishing platform with an editor, themes, newsletters and paid memberships through Stripe. Runs with its own MySQL 8. The first person to open the admin creates the owner account, so do it right after installing."
 category: cms
-tags: [blog, newsletter, publishing]
+tags: [blog, newsletter, publishing, memberships]
 logo: logo.svg
+version: "6.67.0"
+revision: 1
+updated: 2026-10-06
 homepage: https://ghost.org
-available: false
-unavailable_reason: "Ghost supports only MySQL 8 in production, not MariaDB, which is what most distributions install as MySQL; its supported install is ghost-cli on Ubuntu. Not available in this release: it waits for a MySQL engine distinct from MariaDB."
+docs: https://ghost.org/docs/
+repository: https://github.com/TryGhost/Ghost
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - An SMTP server, for staff sign-in verification and newsletters
+port: 2368
+variables:
+  url:
+    from: url
+    description: The address people use; Ghost builds every link from it and redirects plain HTTP to it.
+  MAIL_TRANSPORT:
+    default: Direct
+    description: How Ghost sends e-mail, Direct or SMTP. Direct is not reliable; use SMTP.
+  GHOST_DOMAIN:
+    from: fqdn
+    description: The domain of that address, for the default From address of the e-mail.
+  MAIL_FROM:
+    value: "noreply@${GHOST_DOMAIN}"
+    description: The From address of the e-mail Ghost sends.
+  MAIL_HOST:
+    default: ""
+    description: The SMTP server, when MAIL_TRANSPORT is SMTP.
+  MAIL_PORT:
+    default: "587"
+    description: The SMTP server's port.
+  MAIL_USER:
+    default: ""
+    description: The SMTP user name.
+  MAIL_PASSWORD:
+    default: ""
+    secret: true
+    description: The SMTP password.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's MySQL account.
+  MYSQL_ROOT_PASSWORD:
+    generate: password32
+    description: The password of the stack's MySQL root account.
+health:
+  path: /ghost/api/admin/site/
+  expect: 200-399
+  timeout: 180
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    ghost:
+      image: ghost:6.67.0@sha256:9482099b1c8700764dc3d38c293e09c16d70f8bacc14af589c47d90b4bebd017
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        url: "${url}"
+        database__client: mysql
+        database__connection__host: db
+        database__connection__user: ghost
+        database__connection__password: "${DB_PASSWORD}"
+        database__connection__database: ghost
+        mail__transport: "${MAIL_TRANSPORT}"
+        mail__from: "${MAIL_FROM}"
+        mail__options__host: "${MAIL_HOST}"
+        mail__options__port: "${MAIL_PORT}"
+        mail__options__auth__user: "${MAIL_USER}"
+        mail__options__auth__pass: "${MAIL_PASSWORD}"
+      volumes:
+        - ghost-content:/var/lib/ghost/content
+      ports:
+        - "127.0.0.1:${PORT}:2368"
+    db:
+      image: mysql:8.4.11@sha256:6ea90827b1100f8f2ae306a539f86d2c264a26ed435a2a9f75551dd5c3aeb242
+      restart: unless-stopped
+      environment:
+        MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+        MYSQL_DATABASE: ghost
+        MYSQL_USER: ghost
+        MYSQL_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$${MYSQL_ROOT_PASSWORD}\" --silent"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 30s
+      volumes:
+        - ghost-db:/var/lib/mysql
+  volumes:
+    ghost-content:
+    ghost-db:
+notes:
+  - "Open {{ url }}/ghost now and create the owner account: until someone does, the first visitor to that page becomes the owner."
+  - "Add an SMTP server (MAIL_TRANSPORT=SMTP, MAIL_HOST, MAIL_PORT, MAIL_USER, MAIL_PASSWORD and MAIL_FROM in the application's environment, then noust restart {{ domain }}): Ghost confirms staff sign-ins from a new device by e-mail and sends newsletters through it."
+  - "Your posts and members are in the MySQL of this stack (Docker volume ghost-db, dumped by Noust before every update); images, themes and files are in the volume ghost-content. Back up both before updating: Ghost asks you to be on the latest minor of the current major before it upgrades to the next."

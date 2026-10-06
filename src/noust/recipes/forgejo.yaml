@@ -1,0 +1,101 @@
+# Forgejo from the rootless image, with the PostgreSQL its documentation uses in
+# the same stack, configured as "Installation with Docker" and "Using rootless
+# image" describe it (forgejo.org/docs/latest): one volume for /var/lib/gitea
+# (repositories, data and app.ini), the FORGEJO__<section>__<key> settings that
+# environment-to-ini writes to app.ini on every start, the built-in SSH server on
+# 2222 (the rootless image only has that one) and the web UI on 3000. Setting FORGEJO__security__INSTALL_LOCK skips the
+# web installer, which would let the first visitor choose the database and the
+# administrator; DISABLE_REGISTRATION keeps sign-up closed, so the administrator
+# is created from the command line (see the notes). The image runs as 1000:1000.
+#
+# Pinned to the release tag and to the digest codeberg.org serves for it. The
+# project is hosted on Codeberg, not GitHub, and so is its container registry.
+schema: 2
+name: forgejo
+kind: compose
+title: Forgejo
+slogan: A self-hosted lightweight software forge, a community fork of Gitea.
+description: A community-governed Git forge with code hosting, code review, issues, packages and Actions. Runs rootless with its own PostgreSQL. Opens 2222 for Git over SSH. Registration is closed; the administrator is created from the command line.
+category: development
+tags: [git, forge, code-review, ci]
+logo: logo.svg
+version: "16.0.5"
+revision: 1
+updated: 2026-10-06
+homepage: https://forgejo.org
+docs: https://forgejo.org/docs/latest/
+repository: https://codeberg.org/forgejo/forgejo
+license: GPL-3.0-or-later
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3400
+public_ports:
+  - {port: 2222, protocol: tcp, purpose: "Git over SSH, served by Forgejo's built-in SSH server."}
+variables:
+  FORGEJO_URL:
+    from: url
+    description: The address people use; Forgejo builds clone URLs and links from it.
+  FORGEJO_DOMAIN:
+    from: fqdn
+    description: The domain of that address, for the clone URLs of Git over SSH.
+  FORGEJO_SECRET_KEY:
+    generate: hex64
+    description: Encrypts what Forgejo stores (two-factor secrets, tokens). Changing it loses them.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /api/healthz
+  expect: "200"
+  timeout: 90
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    forgejo:
+      image: codeberg.org/forgejo/forgejo:16.0.5-rootless@sha256:5effb7305584aca479b29fde6f9631a6dbe86ae798ae02eeea33a3666f0c0bf8
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        FORGEJO__server__DOMAIN: "${FORGEJO_DOMAIN}"
+        FORGEJO__server__SSH_DOMAIN: "${FORGEJO_DOMAIN}"
+        FORGEJO__server__ROOT_URL: "${FORGEJO_URL}/"
+        FORGEJO__server__SSH_PORT: "2222"
+        FORGEJO__server__SSH_LISTEN_PORT: "2222"
+        FORGEJO__database__DB_TYPE: postgres
+        FORGEJO__database__HOST: "db:5432"
+        FORGEJO__database__NAME: forgejo
+        FORGEJO__database__USER: forgejo
+        FORGEJO__database__PASSWD: "${DB_PASSWORD}"
+        FORGEJO__security__INSTALL_LOCK: "true"
+        FORGEJO__security__SECRET_KEY: "${FORGEJO_SECRET_KEY}"
+        FORGEJO__service__DISABLE_REGISTRATION: "true"
+      volumes:
+        - forgejo-data:/var/lib/gitea
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+        - "2222:2222"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: forgejo
+        POSTGRES_DB: forgejo
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U forgejo -d forgejo"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - forgejo-db:/var/lib/postgresql/data
+  volumes:
+    forgejo-data:
+    forgejo-db:
+notes:
+  - "Nobody can sign in yet, and nobody can register. Create the administrator: cd {{ app_path }} && docker compose exec forgejo forgejo admin user create --admin --username siteadmin --email you@example.com --random-password"
+  - "It prints the password once. Sign in at {{ url }} and change it. Git over SSH is on port 2222 of this server ({{ domain }}:2222): open it in the firewall if you use it, or clone over HTTPS."
+  - "Repositories, data and configuration are in the Docker volume forgejo-data and the database in forgejo-db (PostgreSQL, dumped by Noust before every update): back them up before updating."

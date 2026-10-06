@@ -100,12 +100,7 @@ def test_every_shipped_recipe_loads() -> None:
     recipes = {recipe.name: recipe for recipe in list_recipes()}
 
     assert SHIPPED <= set(recipes)
-    assert {name for name in SHIPPED if recipes[name].available} == {
-        "n8n",
-        "umami",
-        "uptime-kuma",
-        "wordpress",
-    }
+    assert {name for name in SHIPPED if recipes[name].available} == SHIPPED
     flags = [recipe.available for recipe in list_recipes()]
     assert flags == sorted(flags, reverse=True)
 
@@ -369,9 +364,9 @@ def test_a_recipe_does_not_redeploy_an_existing_application(
 def test_an_unavailable_recipe_is_refused_with_its_reason(store: NoustStore) -> None:
     """Before anything happens."""
     with pytest.raises(RecipeError, match="not available") as failure:
-        plan_recipe("ghost", DOMAIN, port=None, ssl=True, logger=Logger(verbose=False))
+        plan_recipe("vault", DOMAIN, port=None, ssl=True, logger=Logger(verbose=False))
 
-    assert "MySQL 8" in failure.value.details
+    assert "sealed" in failure.value.details
 
 
 def test_finishing_links_the_database(store: NoustStore, provisioned: list[dict[str, Any]]) -> None:
@@ -454,7 +449,7 @@ def test_recipe_list_json_lists_every_recipe_with_its_availability() -> None:
     assert result.exit_code == 0, result.output
     items = {item["name"]: item for item in json.loads(result.output)["items"]}
     assert SHIPPED <= set(items)
-    assert items["ghost"]["available"] is False
+    assert items["vault"]["available"] is False
     assert items["wordpress"]["app_type"] == "php-fpm"
 
 
@@ -605,7 +600,7 @@ def test_post_apps_with_a_recipe_queues_it_with_the_recipe_type(
     [
         {"recipe": "wordpress", "source": "https://github.com/o/r.git"},
         {"recipe": "wordpress", "app_type": "nextjs"},
-        {"recipe": "ghost"},
+        {"recipe": "vault"},
         {"recipe": "drupal"},
         {},
     ],
