@@ -181,6 +181,15 @@ class NodeManager:
             )
         return record
 
+    def registration_blockers(self) -> builtins.list[str]:
+        """
+        List what stops this central from registering a node, without trying.
+
+        Returns:
+            One actionable sentence per blocker; empty when a node may be added.
+        """
+        return self._blockers()
+
     def central_public_key(self, name: str) -> str:
         """
         Return this central's public key for a node, generating the pair once.

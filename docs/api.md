@@ -913,6 +913,8 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 
 | Endpoint | Method, permission | |
 |---|---|---|
+| `/api/console/exposure` | GET `server.read`; POST `server.host_access`, sudo, four-eyes; DELETE `server.host_access`, sudo | Whether the console is published on a name of its own over TLS; publish it, or take it off (each a job: the nginx site, the certificate, the console's trusted proxy and its restart, undone exactly). Refused for want of a second factor on every account, and under the ENS profile unless forced |
+| `/api/console/exposure/preview` | POST `server.host_access` | The same checks, and the steps it would take, changing nothing |
 | `/api/metrics` | GET `server.read` |  |
 | `/api/metrics/query` | GET `server.read` | Several series in one request, at the resolution the window needs |
 | `/api/metrics/{metric}` | GET `server.read` |  |
@@ -1005,6 +1007,8 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/fleet/apps` | GET `fleet.read` |  |
 | `/api/fleet/backups` | GET `fleet.read` |  |
 | `/api/fleet/certificates` | GET `fleet.read` |  |
+| `/api/fleet/enroll` | POST `fleet.manage`, sudo, four-eyes | Enroll a server with an address and a credential used once and never kept: a job that installs Noust there if it is missing, authorizes this central and joins it. The credential is left out of the approval's fingerprint |
+| `/api/fleet/enroll/host-key` | POST `fleet.manage` | Ask an address which ed25519 host key answers, for the operator to confirm before anything is sent |
 | `/api/fleet/jobs` | GET `fleet.read` |  |
 | `/api/fleet/jobs/{job_id}` | GET `fleet.read` |  |
 | `/api/fleet/jobs/{job_id}/retry` | POST `fleet.manage` |  |

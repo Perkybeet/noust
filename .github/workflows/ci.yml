@@ -390,6 +390,19 @@ jobs:
       - name: Check the completion scripts are current
         run: python scripts/generate_completions.py --check
 
+      # packaging/install.sh cannot import Noust, so it carries a generated copy
+      # of the platform table (noust.managers.server.platforms) and docs/PLATFORMS.md
+      # shows the same rows: this is the gate that keeps the three equal.
+      - name: Check the installer's platform table is current
+        run: python scripts/sync_install_targets.py --check
+
+      # The installer is the first thing a new server runs, as root, on whatever
+      # shell it has: it must parse in POSIX sh and pass shellcheck as sh.
+      - name: Lint the installer
+        run: |
+          sh -n packaging/install.sh
+          shellcheck -s sh packaging/install.sh
+
       # The product and the transitional wasm-cli that carries pip users of the
       # old name over to it.
       - name: Build distributions

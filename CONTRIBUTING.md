@@ -87,6 +87,11 @@ src/noust/
     stack_databases.py  a Compose stack's databases: detect, dump, restore
     app_identity.py the one answer to "which account does this app run as"
     site_topology.py, timeline.py   what a site reaches, live; one timeline over a stretch
+    console_exposure.py  the console on a public name over TLS (`noust console expose`): nginx
+                    site, certificate, trusted proxy, and a record of exactly what it made so
+                    `unexpose` removes that and no more
+    server/platforms.py  the one table of releases and processors Noust installs on; the
+                    installer and docs/PLATFORMS.md carry generated copies of it
   deployers/        strategies over a declarative pipeline (base.py), one per app type
     releases.py     ReleaseManager: the only code that knows releases/, current, shared/
     lifecycle.py    the one "update an app"; release activation; resource limits
@@ -104,7 +109,8 @@ src/noust/
   fleet/            node enrollment: authorize.py installs the restricted key and prints the
                     join code; keys.py the per-node keypair; tunnels.py the SSH tunnels
                     (through CommandRunner); client.py a node's API over its own tunnel;
-                    nodes.py the store-backed registry a central keeps of them
+                    nodes.py the store-backed registry a central keeps of them; enroll.py the
+                    guided enrollment from the central (a credential used once, never kept)
   central/          what a central is: role() (hub or server), setup.py (data directory, TLS,
                     the allow-list), unlock.py the socket a sealed central takes a passphrase on
   web/
@@ -125,6 +131,9 @@ panel/              Noust console source: React 19, TypeScript, Vite, TanStack R
   e2e/              Playwright + axe + CSP gate against the real backend
 scripts/console_server.py   the real API on a seeded, sandboxed store (development and E2E)
 tests/integration/run.py    real deploys in a systemd container (Docker); not part of pytest
+tests/integration/install_matrix.py   the installer on one container per release; not part of pytest
+packaging/install.sh        the one-line installer (POSIX sh, shellcheck-clean), published with a
+                            signed SHA256SUMS; its platform table is generated, never edited
 ```
 
 ### Adding a deployer
@@ -297,7 +306,21 @@ stream and the log and job WebSockets over that tunnel; nothing runs twice.
   own `known_hosts` the first time it is added; a change closes the tunnel and says why instead
   of trusting whatever key answers next.
 
-See `docs/CENTRAL.md` for running a central, sealing its secrets and adding a server.
+- **A guided enrollment keeps no credential.** `noust fleet enroll` and `POST /api/fleet/enroll`
+  connect once with a password or a key, to the host key the operator confirmed, and do what the
+  manual join does (`NodeEnroller` calls `NodeManager.add`). The credential reaches ssh through its
+  environment or a file in a private, memory-backed directory removed on every way out, never an
+  argument, a log line, a job result, an audit event or an approval (`ONE_TIME_FIELDS` leaves it
+  out of the call's fingerprint). Noust is installed with the central's own copy of `install.sh`,
+  sent over the connection: the server downloads no script.
+- **The console is published, never left open.** `noust console expose` refuses while any account
+  can sign in without a second factor, under the ENS profile unless forced and given an
+  allow-list, and on a name that is an application's or a site Noust did not write; there is no
+  plain-HTTP form. `web._install_and_start` keeps the trusted proxy it recorded whenever the unit
+  is written again.
+
+See `docs/CENTRAL.md` for running a central, sealing its secrets and adding a server, and
+`docs/PLATFORMS.md` for the platforms and the installer.
 
 ---
 

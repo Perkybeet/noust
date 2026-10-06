@@ -220,6 +220,10 @@ ln -sf noust.1 %{buildroot}%{_mandir}/man1/wasm.1
 # `noust setup` or `noust config` first needs it.
 install -Dm644 obs/noust.default.yaml %{buildroot}%{_datadir}/noust/config.example.yaml
 
+# The installer, for a central that enrolls a server with no Noust on it
+# (noust fleet enroll): it sends this copy over the connection.
+install -Dm644 packaging/install.sh %{buildroot}%{_datadir}/noust/install.sh
+
 # noust-specific directories only (not /var/www or /var/backups)
 install -d %{buildroot}/var/log/noust
 

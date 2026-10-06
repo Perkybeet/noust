@@ -60,6 +60,7 @@ COMMAND_MODULES: dict[str, str] = {
     "central": "noust.cli.commands.central",
     "cert": "noust.cli.commands.cert",
     "config": "noust.cli.commands.config",
+    "console": "noust.cli.commands.console",
     "cron": "noust.cli.commands.cron",
     "db": "noust.cli.commands.db",
     "diagnose": "noust.cli.commands.diagnose",

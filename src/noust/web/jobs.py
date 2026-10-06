@@ -141,6 +141,9 @@ class JobType(str, Enum):
     DATABASE = "database"
     # A central's bulk action over several nodes (noust.web.fleet_jobs).
     FLEET = "fleet"
+    # A server enrolled from the console: Noust installed on it, this central
+    # authorized there and the join completed (noust.fleet.enroll).
+    NODE_ENROLL = "node_enroll"
     # Noust updating itself (noust.managers.self_update).
     SELF_UPDATE = "self_update"
     CUSTOM = "custom"
