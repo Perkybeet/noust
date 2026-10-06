@@ -32,6 +32,22 @@ export const auth: Catalog<typeof en> = {
     unknownHint:
       "Esta llave de acceso no está registrada en este servidor. Puede ser de otro servidor que abres en la misma dirección, como localhost.",
   },
+  sso: {
+    signInWith: "Iniciar sesión con {provider}",
+    finishing: "Terminando de iniciar sesión",
+    accepted: "Sesión iniciada con {provider}.",
+    codeAnnounce: "Sesión iniciada con {provider}. Introduce tu código de verificación en dos pasos.",
+    passkeyAnnounce: "Sesión iniciada con {provider}. Confirma que eres tú con tu llave de acceso.",
+    failedTitle: "No se pudo iniciar sesión con tu proveedor",
+    errors: {
+      unavailable: "El proveedor no respondió. Vuelve a intentarlo en un momento, o usa tu cuenta.",
+      expired: "Ese inicio de sesión caducó o ya se usó. Empieza de nuevo.",
+      denied: "El proveedor no te dejó entrar. Empieza de nuevo, o usa tu cuenta.",
+      failed: "No se pudo comprobar la respuesta del proveedor. Empieza de nuevo, y si sigue fallando avisa a un responsable de seguridad.",
+      refused: "El proveedor te conoce, pero este servidor no tiene una cuenta para ti. Pide a un responsable de seguridad que te invite o que vincule tu cuenta.",
+      locked: "El inicio de sesión está bloqueado para esta dirección. Vuelve a intentarlo más tarde.",
+    },
+  },
   emergency: {
     link: "Acceso de emergencia",
     title: "Acceso de emergencia",

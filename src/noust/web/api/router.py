@@ -55,6 +55,7 @@ from noust.web.api.metrics import router as metrics_router
 from noust.web.api.monitor import router as monitor_router
 from noust.web.api.node_enroll import router as node_enroll_router
 from noust.web.api.nodes import router as nodes_router
+from noust.web.api.oidc import router as oidc_router
 from noust.web.api.openapi import router as openapi_router
 from noust.web.api.overview import router as overview_router
 from noust.web.api.passkeys import router as passkeys_router
@@ -208,6 +209,8 @@ router.include_router(central_router, prefix="/central", tags=["Central"])
 router.include_router(fleet_self_router, prefix="/auth/fleet", tags=["Fleet"])
 # Under /auth like the rest of one's own credentials, so no fleet token reaches it.
 router.include_router(passkeys_router, prefix="/auth/passkeys", tags=["Passkeys"])
+# Single sign-in through an identity provider (3.4): the same place, for the same reason.
+router.include_router(oidc_router, prefix="/auth/oidc", tags=["Single sign-on"])
 router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])
 router.include_router(fleet_router, prefix="/fleet", tags=["Fleet"])
 # Guided enrollment of a server: its host key, then the job that installs and joins it.

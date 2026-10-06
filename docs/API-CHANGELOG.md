@@ -44,6 +44,12 @@ API version 1.
 - `POST /api/apps/{domain}/databases` and `POST /api/apps` (`database`): `instance`, the name of
   an instance to make the database on. A `version` the host does not run is answered by the
   instance that runs it, when exactly one does.
+- Single sign-on through an OpenID Connect provider ([sso.md](sso.md)): `GET /api/auth/oidc/providers`,
+  `GET /api/auth/oidc/start`, `GET /api/auth/oidc/callback` and `POST /api/auth/oidc/complete` (public,
+  counted by the sign-in lockout), and the security officer's `/api/auth/oidc/config`,
+  `/api/auth/oidc/config/{provider}` (`PUT`, `DELETE`), `/api/auth/oidc/config/{provider}/test` and
+  `/api/auth/oidc/identities`. `POST /api/auth/login/second-factor` also finishes the step a provider's
+  answer opens, and `auth_method` of a session may now be `oidc`.
 
 ### Deprecated
 

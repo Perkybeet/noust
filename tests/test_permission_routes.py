@@ -50,6 +50,11 @@ EXPECTED_PUBLIC = {
     ("POST", "/api/auth/invitations/accept"),
     ("POST", "/api/auth/passkeys/login/options"),
     ("POST", "/api/auth/passkeys/login"),
+    # Single sign-in: the provider's answer is the credential, counted by the lockout.
+    ("GET", "/api/auth/oidc/providers"),
+    ("GET", "/api/auth/oidc/start"),
+    ("GET", "/api/auth/oidc/callback"),
+    ("POST", "/api/auth/oidc/complete"),
     ("POST", "/hooks/deploy/{domain}"),
     ("POST", "/hooks/github"),
     ("GET", "/health"),

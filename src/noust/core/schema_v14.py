@@ -382,6 +382,102 @@ ACCESS_COLUMNS: list[tuple[str, str, str]] = []
 NOTIFY_SQL = ""
 NOTIFY_COLUMNS: list[tuple[str, str, str]] = []
 
+# Owned by the single sign-on lane (noust.core.accounts.oidc_store).
+#
+# oidc_providers: one row per identity provider the operator configured. The
+#   client secret is never a column: it lives in the secret store under
+#   ``oidc/<name>``. ``issuer`` is kept exactly as typed, because a token's
+#   ``iss`` is compared to it byte for byte (some providers end it in a slash).
+#   provisioning says what a first sign-in may do: ``off`` (only an account that
+#   exists), ``invite`` (activate the invited account of that e-mail) or ``auto``
+#   (create one with default_role, in default_team when one is named).
+#   default_role cannot be security or auditor: those are given by a person.
+#   group_mappings is a JSON list of {group, role} or {group, team, team_role}.
+# account_identities: who an account is at an outside provider, by the pair the
+#   provider guarantees (issuer, subject) and never by e-mail alone. ``protocol``
+#   is there so a SAML or SCIM identity is a row of the same table. mapped_role is
+#   the instance role the provider's group mapping last gave, so removing the
+#   group can take it back without touching a role an administrator set by hand.
+# oidc_flows: a sign-in between the redirect to the provider and its answer. Only
+#   the hashes of the state and of the browser binding are kept, the nonce and
+#   the PKCE verifier are what the answer is checked against. Spent by the answer.
+# oidc_tickets: the answer, verified, waiting for the console to collect it: a
+#   single-use handle on a sign-in that already passed the provider and still
+#   owes the account's own second factor.
+SSO_SQL = """
+CREATE TABLE IF NOT EXISTS oidc_providers (
+    name TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    issuer TEXT NOT NULL,
+    client_id TEXT NOT NULL,
+    scopes TEXT NOT NULL DEFAULT 'openid email profile',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    require_email_verified INTEGER NOT NULL DEFAULT 1,
+    assume_email_verified INTEGER NOT NULL DEFAULT 0,
+    clock_skew_seconds INTEGER NOT NULL DEFAULT 60,
+    provisioning TEXT NOT NULL DEFAULT 'off'
+        CHECK (provisioning IN ('off', 'invite', 'auto')),
+    default_role TEXT NOT NULL DEFAULT 'viewer'
+        CHECK (default_role IN ('viewer', 'operator', 'admin')),
+    default_team TEXT,
+    default_team_role TEXT,
+    link_by_email INTEGER NOT NULL DEFAULT 0,
+    allowed_domains TEXT NOT NULL DEFAULT '[]',
+    require_amr TEXT NOT NULL DEFAULT '[]',
+    groups_claim TEXT NOT NULL DEFAULT 'groups',
+    group_sync INTEGER NOT NULL DEFAULT 0,
+    group_mappings TEXT NOT NULL DEFAULT '[]',
+    redirect_uri TEXT,
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    updated_at REAL NOT NULL,
+    updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS account_identities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    protocol TEXT NOT NULL DEFAULT 'oidc',
+    provider TEXT NOT NULL,
+    issuer TEXT NOT NULL,
+    subject TEXT NOT NULL,
+    email TEXT,
+    mapped_role TEXT,
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    last_login_at REAL,
+    last_login_ip TEXT,
+    UNIQUE (protocol, issuer, subject)
+);
+CREATE INDEX IF NOT EXISTS idx_account_identities_account ON account_identities(account_id);
+CREATE TABLE IF NOT EXISTS oidc_flows (
+    state_hash TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    nonce TEXT NOT NULL,
+    code_verifier TEXT NOT NULL,
+    binding_hash TEXT NOT NULL,
+    redirect_uri TEXT NOT NULL,
+    next_path TEXT NOT NULL DEFAULT '/',
+    client_ip TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    expires_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_oidc_flows_expires ON oidc_flows(expires_at);
+CREATE TABLE IF NOT EXISTS oidc_tickets (
+    ticket_hash TEXT PRIMARY KEY,
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL,
+    binding_hash TEXT NOT NULL,
+    client_ip TEXT NOT NULL,
+    next_path TEXT NOT NULL DEFAULT '/',
+    amr TEXT NOT NULL DEFAULT '[]',
+    detail TEXT NOT NULL DEFAULT '',
+    created_at REAL NOT NULL,
+    expires_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_oidc_tickets_expires ON oidc_tickets(expires_at);
+"""
+SSO_COLUMNS: list[tuple[str, str, str]] = []
+
 
 def _fragments() -> list[str]:
     return [
@@ -396,6 +492,7 @@ def _fragments() -> list[str]:
         BACKUPS_SQL,
         ACCESS_SQL,
         NOTIFY_SQL,
+        SSO_SQL,
     ]
 
 
@@ -412,6 +509,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *BACKUPS_COLUMNS,
         *ACCESS_COLUMNS,
         *NOTIFY_COLUMNS,
+        *SSO_COLUMNS,
     ]
 
 

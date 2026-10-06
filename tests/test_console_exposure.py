@@ -742,8 +742,12 @@ def test_an_allow_list_has_a_ceiling() -> None:
 # ---------------------------------------------------------------------------
 
 
-def account(name: str, *, mfa: bool, signs_in: bool = True) -> SimpleNamespace:
-    return SimpleNamespace(username=name, has_mfa=mfa, can_sign_in=lambda: signs_in)
+def account(
+    name: str, *, mfa: bool, signs_in: bool = True, password: bool = True
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        username=name, has_mfa=mfa, has_password=password, can_sign_in=lambda: signs_in
+    )
 
 
 def test_every_account_that_can_sign_in_must_hold_a_second_factor(
@@ -767,6 +771,22 @@ def test_every_account_that_can_sign_in_must_hold_a_second_factor(
     assert [b.split()[2] for b in blockers] == ["bob", "zoe"]
     assert all("password alone" in b for b in blockers)
     assert not any("old" in b for b in blockers)
+
+
+def test_an_account_that_signs_in_through_its_provider_alone_is_named_as_such(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from noust.core import accounts
+
+    monkeypatch.setattr(
+        accounts.AccountManager,
+        "list_all",
+        lambda self: [account("sso", mfa=False, password=False)],
+    )
+
+    (blocker,) = second_factor_blockers()
+
+    assert "its identity provider alone" in blocker and "password" not in blocker
 
 
 def test_accounts_all_with_a_second_factor_leave_nothing_in_the_way(
