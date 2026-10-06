@@ -35,6 +35,7 @@ from noust.core.exceptions import ConfigError, ValidationError
 from noust.core.repositories import repository_identity
 from noust.core.secrets import SecretStore
 from noust.core.store import App, NoustStore, get_store
+from noust.core.teams import ScopedStore
 
 #: Where a credential is kept, under the secrets: ``git-credentials/<host>/<owner>/<repo>``.
 NAMESPACE = "git-credentials"
@@ -163,7 +164,7 @@ class GitCredentialManager:
         Raises:
             ValidationError: When nothing is deployed there.
         """
-        app = self.store.get_app(domain)
+        app = ScopedStore(store=self.store).get_app(domain)
         if app is None:
             raise ValidationError(
                 f"Application not found: {domain}",

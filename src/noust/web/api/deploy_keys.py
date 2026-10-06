@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 
 from noust.core.audit import Actor
 from noust.core.deploy_keys import DeployKey
-from noust.core.store import get_store
+from noust.core.teams import scoped_store
 from noust.managers.source_keys import MAX_PRIVATE_KEY, DeployKeyManager, DeployKeyView
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
@@ -300,7 +300,7 @@ def _known(domain: str) -> str:
         HTTPException: 404 when nothing is deployed there.
     """
     validated = strict_domain(domain)
-    if get_store().get_app(validated) is None:
+    if scoped_store().get_app(validated) is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
     return validated
 

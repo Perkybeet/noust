@@ -33,7 +33,14 @@ from typing import Any
 from fastapi import Depends, HTTPException, Request
 
 from noust.core.exceptions import ValidationError
-from noust.core.teams import Scope, ScopedStore, Target, TeamStore, bind_for_request
+from noust.core.teams import (
+    Scope,
+    ScopedStore,
+    Target,
+    TeamStore,
+    bind_for_request,
+    current_scope,
+)
 from noust.managers.database.registry import DatabaseRegistry
 from noust.web.auth import ensure_permission, require_auth
 from noust.web.permissions import PUBLIC
@@ -188,6 +195,27 @@ def _refuse_instance(permission: str) -> PermissionDenied:
         "This is about the whole server, and your account belongs to some of its teams only",
         "Ask an administrator of this server, or work inside your team's applications.",
     )
+
+
+def require_instance_scope(permission: str) -> None:
+    """
+    Refuse, inside a handler, a part of a route that is about the whole server.
+
+    For a route whose body can ask for something the server owns (a flag that
+    installs a package as root, say) while the rest of it is a team's own: the
+    route's rule cannot be "instance" for every call, so the handler says it for
+    the one that is. Rule 4 still holds: it is the same refusal
+    :func:`enforce_scope` gives an instance route, from the same scope.
+
+    Args:
+        permission: What the route needs, for the refusal's record.
+
+    Raises:
+        PermissionDenied: 403 ``instance_scope_required`` when the caller does
+            not see every team.
+    """
+    if current_scope().restricted:
+        raise _refuse_instance(permission)
 
 
 async def enforce_scope(request: Request, session: dict[str, Any] = Depends(require_auth)) -> None:
@@ -359,5 +387,6 @@ __all__ = [
     "ensure_permission_in_team",
     "not_found",
     "replace_permissions",
+    "require_instance_scope",
     "resolve_target_for",
 ]

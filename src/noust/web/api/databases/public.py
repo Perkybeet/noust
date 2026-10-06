@@ -22,7 +22,9 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from noust.core.database_exposures import Exposure
+from noust.core.teams import scoped_store
 from noust.managers.database.public_access import PublicAccess, PublicPlan
+from noust.managers.database.registry import DatabaseRegistry
 from noust.web.api.auth import get_current_session
 from noust.web.api.databases.common import service
 from noust.web.api.deps import NoustErrorRoute, require_elevated
@@ -302,11 +304,22 @@ def list_public(
         session: The authenticated session.
 
     Returns:
-        Every exposure, with whether its port listens now.
+        Every exposure, with whether its port listens now. A team member sees
+        those of the databases its teams own: a port is a fact about the host,
+        but whose database it forwards to is not for another team to read.
     """
     manager = _manager(session)
     listening = manager.listening()
-    items = [_exposure(record, listening) for record in manager.listing()]
+    visible = scoped_store().visible_database_keys()
+    records = manager.listing()
+    if visible is not None:
+        records = [
+            record
+            for record in records
+            if (record.db_name, DatabaseRegistry.canonical(record.engine) or record.engine)
+            in visible
+        ]
+    items = [_exposure(record, listening) for record in records]
     return PublicListResponse(exposures=items, total=len(items))
 
 

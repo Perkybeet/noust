@@ -122,6 +122,8 @@ _APP = Ref(APP)
 _DOMAIN = Ref(DOMAIN)
 _DATABASE = Ref(DATABASE, PATH, ("engine", "name"))
 _BODY_DATABASE = Ref(DATABASE, BODY, ("engine", "database"))
+#: ``/api/databases/public/{engine}/{database}``: the same resource, whose path names it so.
+_PUBLIC_DATABASE = Ref(DATABASE, PATH, ("engine", "database"))
 _BODY_DOMAIN = Ref(APP, BODY, ("domain",))
 
 #: The table, most specific first.
@@ -155,6 +157,8 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/databases/databases/adopt", INSTANCE),
     _rule("/api/databases/databases/{engine}/{name}/**", RESOURCE, _DATABASE),
     _rule("/api/databases/provisioning/plan", RESOURCE, Ref(APP, QUERY, ("domain",))),
+    # The engines and versions this server can offer: a catalogue, like the engines'.
+    _rule("/api/databases/provisioning/choices", OPEN),
     _rule("/api/databases/query", RESOURCE, _BODY_DATABASE),
     _rule("/api/databases/query/explain", RESOURCE, _BODY_DATABASE),
     _rule("/api/databases/query/export", RESOURCE, _BODY_DATABASE),
@@ -167,6 +171,13 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/databases/engines/{engine}/status", OPEN, methods=("GET",)),
     _rule("/api/databases/engines/**", INSTANCE),
     _rule("/api/databases/exposure", INSTANCE),
+    # Making a database reachable from the network opens a port, an account on the engine and
+    # a firewall rule: the host's, whoever's database it is. A team member sees which of its
+    # databases are open, can read how to connect and closes one; opening is the server's.
+    _rule("/api/databases/public", SCOPED, methods=("GET",)),
+    _rule("/api/databases/public", INSTANCE, methods=("POST",)),
+    _rule("/api/databases/public/plan", INSTANCE),
+    _rule("/api/databases/public/{engine}/{database}/**", RESOURCE, _PUBLIC_DATABASE),
     _rule("/api/databases/users/**", INSTANCE),
     _rule("/api/databases/backups/**", INSTANCE),
     # Loading a dump into an engine creates databases and may replace one: the server's.
@@ -181,6 +192,12 @@ RULES: tuple[Rule, ...] = (
     # Volumes, and Noust's own backup, are copies of the machine's disks and of its state.
     _rule("/api/volume-backups/**", INSTANCE),
     _rule("/api/self-backup/**", INSTANCE),
+    # --- deploy keys -----------------------------------------------------------
+    # A key is found by repository, so one may reach the applications of several teams: the
+    # list shows each team the keys of the repositories its applications are built from.
+    _rule("/api/deploy-keys", SCOPED),
+    # What the server's known_hosts has pinned is the server's own trust in the network.
+    _rule("/api/deploy-keys/hosts/**", INSTANCE),
     # --- history of an application -------------------------------------------
     _rule("/api/deployments", SCOPED),
     _rule(
