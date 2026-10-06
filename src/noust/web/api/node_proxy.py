@@ -74,6 +74,7 @@ from noust.web.auth import (
 from noust.web.events import CREDENTIAL_RECHECK_SECONDS, HEARTBEAT_SECONDS, shutting_down
 from noust.web.permissions.principal import permissions_of
 from noust.web.permissions.roles import ROLE_PERMISSIONS, role_within
+from noust.web.versioning import API_PREFIX, canonical_api_path
 
 if TYPE_CHECKING:
     import httpx
@@ -627,6 +628,11 @@ def node_path(prefix: str, path: str) -> str:
     """
     Build the path on the node, refusing one that could climb out of it.
 
+    ``/api/v1/...`` is the node's API under its versioned address; it is
+    forwarded as ``/api/...``, which every node answers whatever its release,
+    and which is the spelling the node's schema (and so the elevation check
+    and the permission map) names the operation by.
+
     Args:
         prefix: ``/api/`` or ``/ws/``.
         path: The rest, as the route captured it (percent-decoded).
@@ -637,6 +643,8 @@ def node_path(prefix: str, path: str) -> str:
     Raises:
         HTTPException: 400 on an empty, ``.`` or ``..`` segment.
     """
+    if prefix == API_PREFIX + "/":
+        path = canonical_api_path(prefix + path)[len(prefix) :]
     segments = path.split("/")
     if not path or any(segment in ("", ".", "..") for segment in segments):
         raise _error(

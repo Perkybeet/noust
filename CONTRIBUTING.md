@@ -108,6 +108,8 @@ src/noust/
                     node_proxy.py forwards every node call, event and WebSocket over its
                     tunnel (rule 3: a central re-implements nothing a node does)
     server.py       security middleware, CSP, serves the console
+    versioning.py   /api/v1 as /api, X-Noust-API-Version, deprecated(); the compatibility
+                    promise is docs/api.md and scripts/api_compat.py (panel/openapi.baseline.json)
     events.py       the /events SSE stream the console listens to
     jobs.py         background jobs, persisted with their logs
     job_reconcile.py  a job in a transient systemd unit is followed again after a restart

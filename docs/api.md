@@ -8,6 +8,69 @@ Examples use `https://panel.example.com` for the console's address and `$TOKEN` 
 credential. On a console bound to loopback, run them on the server against
 `http://127.0.0.1:8080`, or through an SSH tunnel (see [console.md](console.md)).
 
+## Versions and compatibility
+
+The API has one version, **1**, and two addresses for it. `/api/v1/apps` and `/api/apps` are the
+same route: not a copy, one route that answers to both names, so they have the same permission,
+the same audit entry and the same rate limit. A script that wants a promise should use
+`/api/v1`; the console and every client written before 3.4 use `/api` and keep working. If a
+version 2 ever exists it appears at `/api/v2` beside this one, and `/api` stays version 1 until
+version 1 is retired under the policy below. The event stream (`/events`), the WebSockets
+(`/ws`) and the webhooks (`/hooks`) have no versioned address.
+
+- **`X-Noust-API-Version: 1`** is on every response under `/api`, refusals included (a wrong
+  credential, a blocked address, a rate limit), so a client can tell which API answered
+  without reading a body.
+- **The schema says which API it describes.** `GET /api/openapi.json` has `info.version: "1"`,
+  the running release in `info.x-noust-version` and the versioned address in
+  `info.x-noust-api-prefix`. The document lists each path once, as `/api/...`; the versioned
+  address is the same path with `/api/v1` in place of `/api`.
+- **A central talks to its nodes at `/api`**, which every node answers whatever its release, and
+  forwards `/api/v1/...` calls to a node as `/api/...` for the same reason.
+
+### The promise
+
+Within a version, a client written against what a release shipped keeps working. That means a
+release may **add**: a new operation, a new optional parameter or request field, a new field in a
+response, a new response code. Clients must ignore response fields they do not know. A release
+does not, without a deprecation period:
+
+- remove an operation or answer it to another method;
+- remove a documented response code, a response field, a parameter or a request field;
+- add a required parameter or request field, make an optional one required, or ask for a body
+  where there was none.
+
+Everything else - wording of `detail` and `hint`, the order of keys or of list items, the
+extensions - is not part of the promise; match on `error` codes, not on sentences.
+`panel/openapi.baseline.json` is the API as a release shipped it, and a test
+(`tests/test_api_compat.py`, also `python scripts/api_compat.py`) fails when the API stops keeping
+it. The baseline is refreshed after each release, so what a release adds is promised from then
+on.
+
+### Deprecation
+
+An operation that is going away is announced first, in the code, with
+`noust.web.versioning.deprecated(since=..., sunset=..., successor=...)`:
+
+- the schema marks it `deprecated: true` and carries `x-noust-deprecation`
+  (`{since, sunset, successor}`);
+- **every response of the route** carries `Deprecation: @<seconds>` (RFC 9745: when it was
+  announced), `Sunset: <HTTP date>` (RFC 8594: the earliest day it may stop answering) and
+  `Link: </api/v1/...>; rel="successor-version"`, so a client that never reads the schema still
+  hears of it;
+- the notice is **at least 180 days**, and the helper refuses a shorter one when the route is
+  declared;
+- it is listed in [API-CHANGELOG.md](API-CHANGELOG.md) in the release that announces it, and
+  again in the one that removes it, which is never before its `Sunset`.
+
+A client should log, or alert on, a `Deprecation` header in its own traffic. The exception is a
+security fix: an operation that cannot be kept safe is changed at once, in a patch release, and
+the change is in the changelog and in the security advisory (see [SECURITY.md](../SECURITY.md)).
+
+An intentional break is accepted in the open: `python scripts/api_compat.py --update
+--accept-breaking` rewrites the baseline in the same change as the code, and the entry goes to
+the changelog under "Breaking changes".
+
 ## Authentication
 
 Two ways in, for two kinds of client: tokens for scripts, sessions for browsers. Whoever comes
