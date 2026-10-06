@@ -37,9 +37,11 @@ from typing import Any
 import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
+from noust.cli.commands.team_common import owner_options
 from noust.cli.panel_links import open_in_panel
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
+from noust.core.teams import scoped_store
 from noust.managers.backup_manager import BackupManager, BackupMetadata, RollbackManager
 from noust.managers.stack_databases import StackDatabase
 
@@ -1434,12 +1436,21 @@ def _create_schedule(
     return 0
 
 
-def _list_schedules(*, logger: Logger) -> int:
+def _list_schedules(
+    *,
+    logger: Logger,
+    team: str | None = None,
+    project: str | None = None,
+    environment: str | None = None,
+) -> int:
     """
     List the applications that back themselves up on a timer.
 
     Args:
         logger: Logger to report through.
+        team: Only this team's schedules.
+        project: Only the projects with this slug.
+        environment: Only the environments with this slug.
 
     Returns:
         0 on success, 1 if the schedules could not be read.
@@ -1452,6 +1463,14 @@ def _list_schedules(*, logger: Logger) -> int:
     except NoustError as exc:
         logger.error(f"Failed to list schedules: {exc}")
         return 1
+    if team or project or environment:
+        owned = {
+            record.app_domain
+            for record in scoped_store().list_backup_schedules(
+                project=project, environment=environment, team=team
+            )
+        }
+        schedules = [s for s in schedules if (s.get("domain") or s.get("app_name")) in owned]
 
     if not schedules:
         logger.info("No backup schedules found")
@@ -2239,12 +2258,13 @@ def schedule_update(
 
 
 @backup_schedule.command("list")
+@owner_options
 @pass_context
-def schedule_list(state: Context) -> None:
+def schedule_list(state: Context, team: str | None, project: str | None, env: str | None) -> None:
     """
     Show which applications back themselves up, and when they last did.
     """
-    _finish(_list_schedules(logger=state.logger))
+    _finish(_list_schedules(logger=state.logger, team=team, project=project, environment=env))
 
 
 @backup_schedule.command("delete")

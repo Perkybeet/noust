@@ -31,6 +31,8 @@ from noust.core.accounts import ROLES, Account, AccountManager
 from noust.core.accounts.manager import DEFAULT_INVITATION_HOURS
 from noust.core.accounts.model import ROLE_ADMIN
 from noust.core.exceptions import DependencyError, ValidationError
+from noust.core.teams.model import TEAM_ROLES
+from noust.core.teams.onboarding import create_in_team, invite_to_team
 
 
 def _fmt(timestamp: float | None) -> str:
@@ -227,6 +229,17 @@ def list_command(ctx: Context) -> None:
     help="Who the account belongs to (an e-mail), for separation of duties.",
 )
 @click.option("--stdin", "from_stdin", is_flag=True, help="Read the password from standard input.")
+@click.option(
+    "--team",
+    default=None,
+    help="Put the account in this team instead of the default one.",
+)
+@click.option(
+    "--team-role",
+    type=click.Choice(TEAM_ROLES),
+    default=None,
+    help="Its role in --team (viewer when omitted).",
+)
 @pass_context
 def create_command(
     ctx: Context,
@@ -235,6 +248,8 @@ def create_command(
     display_name: str | None,
     person_ref: str | None,
     from_stdin: bool,
+    team: str | None,
+    team_role: str | None,
 ) -> None:
     """
     Create an account with a password, typed at a hidden prompt.
@@ -244,14 +259,32 @@ def create_command(
     'noust user invite' instead.
     """
     password = _read_password(username, from_stdin)
-    account = _manager().create(
-        username,
-        role,
-        password=password,
-        display_name=display_name,
-        person_ref=person_ref,
-        created_by="cli",
-    )
+    if team is not None:
+        account, membership = create_in_team(
+            _manager(),
+            username,
+            role,
+            password=password,
+            team=team,
+            team_role=team_role,
+            display_name=display_name,
+            person_ref=person_ref,
+            created_by="cli",
+        )
+        _record(
+            "team.member.add",
+            f"team:{membership.team}",
+            {"account": account.username, "role": membership.role},
+        )
+    else:
+        account = _manager().create(
+            username,
+            role,
+            password=password,
+            display_name=display_name,
+            person_ref=person_ref,
+            created_by="cli",
+        )
     _record("user.create", f"account:{account.username}", {"role": account.role})
     adopted = _adopt_tokens(account)
     _show(ctx, account, f"Account created: {account.username} ({account.role}).{adopted}")
@@ -269,6 +302,17 @@ def create_command(
     show_default=True,
     help="How long the invitation code is valid.",
 )
+@click.option(
+    "--team",
+    default=None,
+    help="Invite them into this team only, instead of the default one (a new account).",
+)
+@click.option(
+    "--team-role",
+    type=click.Choice(TEAM_ROLES),
+    default=None,
+    help="Their role in --team (viewer when omitted).",
+)
 @pass_context
 def invite_command(
     ctx: Context,
@@ -277,6 +321,8 @@ def invite_command(
     display_name: str | None,
     person_ref: str | None,
     expires_hours: int,
+    team: str | None,
+    team_role: str | None,
 ) -> None:
     """
     Invite a person: they set their own password and authenticator.
@@ -285,14 +331,37 @@ def invite_command(
     invitation is a recovery: accepting it replaces the password and the
     authenticator. The code is printed once; only its digest is stored.
     """
-    account, code = _manager().invite(
-        username,
-        role,
-        display_name=display_name,
-        person_ref=person_ref,
-        created_by="cli",
-        expires_hours=expires_hours,
-    )
+    if team is not None:
+        if role is None:
+            raise ValidationError(
+                "A role is required to invite a new account",
+                details="Pass --role viewer, operator or admin.",
+            )
+        account, code, membership = invite_to_team(
+            _manager(),
+            username,
+            role,
+            team=team,
+            team_role=team_role,
+            display_name=display_name,
+            person_ref=person_ref,
+            created_by="cli",
+            expires_hours=expires_hours,
+        )
+        _record(
+            "team.member.add",
+            f"team:{membership.team}",
+            {"account": account.username, "role": membership.role, "via": "invitation"},
+        )
+    else:
+        account, code = _manager().invite(
+            username,
+            role,
+            display_name=display_name,
+            person_ref=person_ref,
+            created_by="cli",
+            expires_hours=expires_hours,
+        )
     _record("user.invite", f"account:{account.username}", {"expires_hours": expires_hours})
     if ctx.json_output:
         click.echo(json.dumps({"account": account.to_dict(), "code": code}))

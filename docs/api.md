@@ -167,8 +167,15 @@ own session, tokens, second factor and passkeys), or one of `apps.read`, `apps.o
 `server.manage`, `server.host_access`, `databases.read`, `databases.write`, `databases.manage`,
 `backups.read`, `backups.run`, `backups.manage`, `fleet.read`, `fleet.manage`, `settings.read`,
 `settings.manage`, `security.manage`, `accounts.read`, `accounts.manage`, `audit.read`,
-`audit.manage`, `compliance.read`. `GET /api/auth/roles` lists what each role holds; the table
-is in [security.md](security.md#roles-and-permissions).
+`audit.manage`, `compliance.read`, `teams.read`, `teams.manage`. `GET /api/auth/roles` lists
+what each role holds; the table is in [security.md](security.md#roles-and-permissions).
+
+Since 3.4 an account also belongs to **teams** ([teams.md](teams.md)), and the permission of a route
+that names a resource is held *in the resource's team*: a principal that does not see the resource
+gets `404` (the same body as for one that does not exist, before anything else is asked of it),
+and one that sees it but holds the permission only in another team gets `403`. A route about the
+whole server answers `403` with `"error": "instance_scope_required"` to an account that does not see
+every team. `GET /api/teams/mine` says which teams the caller sees and which one it works in.
 
 A credential without the permission gets `403` with `"error": "permission_denied"` and a
 detail naming the permission. A 3.0 scope maps onto permissions: `read` is a viewer, `deploy` a
@@ -799,6 +806,28 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}/webhook/received` | GET `apps.read` | Every delivery received, ignored and refused ones included |
 | `/api/apps/{domain}/webhook/reveal` | POST `secrets.reveal`, sudo |  |
 | `/api/apps/{domain}/zero-downtime` | GET `apps.read`; PUT `apps.manage`, sudo | `{enabled, drain_seconds}`; a Docker Compose stack is accepted since 3.2, updated behind relays |
+
+### Teams, projects and environments
+
+| Endpoint | Method, permission | |
+|---|---|---|
+| `/api/teams` | GET `teams.read`; POST `teams.manage` | The teams you see; create one (an administrator) |
+| `/api/teams/mine` | GET `self` | Your teams with your role in each, your active team, whether you see them all |
+| `/api/teams/active` | PUT `self` | `{team}`: the team you work in, where new things go when a request names none |
+| `/api/teams/roles` | GET `self` | What each team role holds |
+| `/api/teams/{team}` | GET `teams.read`; PATCH `teams.manage`; DELETE `teams.manage`, sudo | One team, with what it holds; rename; delete an empty one |
+| `/api/teams/{team}/members` | GET `teams.read`; POST `teams.manage`, sudo | `{username, role}`: an account that exists |
+| `/api/teams/{team}/members/{username}` | PATCH `teams.manage`, sudo; DELETE `teams.manage`, sudo | Change its role; remove it. The last owner stays |
+| `/api/teams/{team}/projects` | GET `teams.read`; POST `teams.manage` | A project starts with its production environment |
+| `/api/teams/{team}/projects/{project}` | DELETE `teams.manage`, sudo | Only an empty one |
+| `/api/teams/{team}/projects/{project}/environments` | GET `teams.read`; POST `teams.manage` |  |
+| `/api/teams/{team}/projects/{project}/environments/{environment}` | DELETE `teams.manage`, sudo | Not the last of its project |
+| `/api/projects` | GET `teams.read` | Every project you see; `?team=` |
+| `/api/environments` | GET `teams.read` | Every environment you see; `?team=&project=` |
+| `/api/apps/{domain}/move` | POST `apps.manage`, sudo | `{team, project, environment}`: with its sites, databases and backup schedule. Needs `apps.manage` in the team it goes to as well |
+
+Lists of applications, sites, databases and backup schedules take `team`, `project` and
+`environment`; creating one takes the same three.
 
 ### Jobs and deployments
 
