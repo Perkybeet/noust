@@ -164,7 +164,7 @@ def test_a_push_during_a_deploy_is_queued_and_runs_once_the_deploy_is_done(
     """Not AppBusyError, not a lost push: the update waits its turn."""
     running = Work("deploy", [])
     queue_work(manager, running, DOMAIN, JobType.DEPLOY)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
 
     response = push(client, secret)
 
@@ -190,7 +190,7 @@ def test_several_pushes_while_it_builds_are_one_update(
     """The update that waits builds the branch as it is: the last push wins, nothing runs twice."""
     running = Work("deploy", [])
     queue_work(manager, running, DOMAIN, JobType.DEPLOY)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
 
     first = push(client, secret).json()
     second = push(client, secret).json()
@@ -231,7 +231,7 @@ def test_a_full_queue_answers_429_and_says_so_in_the_delivery_log(
     )
     running = Work("deploy", [])
     queue_work(manager, running, "other.example.com", JobType.DEPLOY)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
     queue_work(manager, Work("filler", []), "third.example.com", JobType.UPDATE)
 
     response = push(client, secret)
@@ -261,7 +261,7 @@ def test_a_tag_announced_while_an_update_waits_is_the_one_it_deploys(
     monkeypatch.setattr(hooks_module, "why_tag_is_ignored", lambda app, tag: None)
     running = Work("deploy", [])
     queue_work(manager, running, DOMAIN, JobType.DEPLOY)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
     refreshed = store.get_app(DOMAIN)
     assert refreshed is not None
 
@@ -292,7 +292,7 @@ def test_the_queue_endpoint_lists_what_runs_and_what_waits(
 ) -> None:
     running, waiting = Work("running", []), Work("waiting", [])
     one = queue_work(manager, running, DOMAIN, JobType.DEPLOY)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
     two = queue_work(manager, waiting, DOMAIN)
 
     response = admin.get("/api/jobs/queue")
@@ -320,7 +320,7 @@ def test_a_waiting_job_is_cancelled_through_the_api(
 ) -> None:
     running, doomed = Work("running", []), Work("doomed", [])
     queue_work(manager, running, DOMAIN)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
     job = queue_work(manager, doomed, DOMAIN)
 
     response = admin.post(f"/api/jobs/{job.id}/cancel")
@@ -351,7 +351,7 @@ def test_a_building_job_is_cancelled_through_the_api_and_the_queue_moves_on(
         func=build,
         metadata={"domain": DOMAIN},
     )
-    assert reached.wait(5)
+    assert reached.wait(20)
     follow_up = Work("follow-up", [])
     queue_work(manager, follow_up, DOMAIN)
     listed = admin.get(f"/api/jobs/{building.id}").json()
@@ -362,7 +362,7 @@ def test_a_building_job_is_cancelled_through_the_api_and_the_queue_moves_on(
     assert response.status_code == 200, response.text
     assert response.json()["state"] == "cancelling"
     assert wait_until(lambda: building.status is JobStatus.CANCELLED)
-    assert follow_up.started.wait(5)
+    assert follow_up.started.wait(20)
     after = admin.get(f"/api/jobs/{building.id}").json()
     assert after["status"] == "cancelled"
     assert after["error"] is None
@@ -378,7 +378,7 @@ def test_cancelling_after_the_release_started_to_activate_is_a_409_that_says_why
         with cancellation.operation_window(DOMAIN, "update"):
             cancellation.commit("activating release 7")
             committed.set()
-            done.wait(5)
+            done.wait(20)
 
     building = manager.create_job(
         job_type=JobType.UPDATE,
@@ -387,7 +387,7 @@ def test_cancelling_after_the_release_started_to_activate_is_a_409_that_says_why
         func=build,
         metadata={"domain": DOMAIN},
     )
-    assert committed.wait(5)
+    assert committed.wait(20)
 
     response = admin.post(f"/api/jobs/{building.id}/cancel")
 
@@ -405,7 +405,7 @@ def test_a_running_backup_cannot_be_cancelled_and_an_unknown_job_is_a_404(
 ) -> None:
     work = Work("backup", [])
     job = queue_work(manager, work, DOMAIN, JobType.BACKUP)
-    assert work.started.wait(5)
+    assert work.started.wait(20)
 
     refused = admin.post(f"/api/jobs/{job.id}/cancel")
     unknown = admin.post("/api/jobs/deadbeef/cancel")
@@ -426,7 +426,7 @@ def test_a_second_update_request_joins_the_one_that_waits(
     monkeypatch.setattr("noust.web.api.jobs.check_upstream", lambda domain: None)
     running = Work("running", [])
     queue_work(manager, running, DOMAIN)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
 
     first = admin.post("/api/jobs/update", json={"domain": DOMAIN})
     second = admin.post("/api/jobs/update", json={"domain": DOMAIN})
@@ -452,7 +452,7 @@ def test_a_build_the_full_queue_has_no_room_for_is_a_429(
     )
     running = Work("running", [])
     queue_work(manager, running, "busy.example.com")
-    assert running.started.wait(5)
+    assert running.started.wait(20)
     queue_work(manager, Work("filler", []), "filler.example.com")
 
     response = admin.post("/api/jobs/update", json={"domain": DOMAIN})

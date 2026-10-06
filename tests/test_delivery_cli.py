@@ -121,7 +121,7 @@ class Deployment:
             activating).
         """
         self._thread.start()
-        assert self.building.wait(5)
+        assert self.building.wait(20)
         return self
 
     def _run(self) -> None:

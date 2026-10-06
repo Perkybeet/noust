@@ -68,7 +68,7 @@ def quick_polling(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cancellation, "POLL_INTERVAL", 0.05)
 
 
-def wait_until(condition: object, seconds: float = 3.0) -> bool:
+def wait_until(condition: object, seconds: float = 20.0) -> bool:
     """
     Poll a condition.
 

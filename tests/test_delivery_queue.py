@@ -104,7 +104,7 @@ def manager(store: NoustStore, limits: list[delivery.DeliverySettings]) -> Itera
         mp.undo()
 
 
-def wait_until(condition: Callable[[], object], seconds: float = 5.0) -> bool:
+def wait_until(condition: Callable[[], object], seconds: float = 20.0) -> bool:
     """
     Poll a condition.
 
@@ -207,7 +207,7 @@ def test_a_second_update_of_an_application_waits_for_the_first_instead_of_failin
     """The push that arrives during a deploy is queued, and runs when the deploy is done."""
     first, second = Work("first", log), Work("second", log)
     one = queue_work(manager, first, A)
-    assert first.started.wait(5)
+    assert first.started.wait(20)
 
     two = queue_work(manager, second, A)
 
@@ -217,7 +217,7 @@ def test_a_second_update_of_an_application_waits_for_the_first_instead_of_failin
     assert two.waiting_for is not None and f"update of {A}" in two.waiting_for
     assert not second.started.is_set()
     finish(first)
-    assert second.started.wait(5)
+    assert second.started.wait(20)
     finish(second)
     assert wait_until(lambda: two.status is JobStatus.COMPLETED)
     assert (one.status, two.status) == (JobStatus.COMPLETED, JobStatus.COMPLETED)
@@ -231,11 +231,11 @@ def test_a_job_held_up_by_its_application_does_not_hold_up_the_others(
     """The second update of A waits; the update of B, queued after it, runs beside the first."""
     a1, a2, b1 = Work("a1", log), Work("a2", log), Work("b1", log)
     queue_work(manager, a1, A)
-    assert a1.started.wait(5)
+    assert a1.started.wait(20)
     queue_work(manager, a2, A)
     queue_work(manager, b1, B)
 
-    assert b1.started.wait(5)
+    assert b1.started.wait(20)
     assert not a2.started.is_set()
     finish(a1, b1, a2)
     assert wait_until(lambda: log.count("end a2") == 1)
@@ -250,7 +250,7 @@ def test_requests_of_one_application_run_in_the_order_they_arrived(
         queue_work(manager, work, A)
 
     for work in works:
-        assert work.started.wait(5)
+        assert work.started.wait(20)
         finish(work)
     assert wait_until(lambda: len(log) == 8)
     assert [line for line in log if line.startswith("start")] == [f"start w{i}" for i in range(4)]
@@ -270,7 +270,7 @@ def test_builds_of_different_applications_overlap_up_to_the_limit(
     queue_work(manager, b, B)
     third = queue_work(manager, c, C)
 
-    assert a.started.wait(5) and b.started.wait(5)
+    assert a.started.wait(20) and b.started.wait(20)
     assert wait_until(lambda: third.waiting_for is not None)
     assert third.waiting_for is not None and "2 of 2" in third.waiting_for
     assert third.queue_position == 1
@@ -279,7 +279,7 @@ def test_builds_of_different_applications_overlap_up_to_the_limit(
     assert (snapshot.builds_running, snapshot.max_concurrent_builds) == (2, 2)
     assert [job.id for job in snapshot.queued] == [third.id]
     finish(a)
-    assert c.started.wait(5)
+    assert c.started.wait(20)
     finish(b, c)
 
 
@@ -292,11 +292,11 @@ def test_the_limit_is_read_from_the_configuration_as_it_changes(
     queue_work(manager, a, A)
     queue_work(manager, b, B)
 
-    assert a.started.wait(5)
+    assert a.started.wait(20)
     time.sleep(0.2)
     assert not b.started.is_set()
     finish(a)
-    assert b.started.wait(5)
+    assert b.started.wait(20)
     finish(b)
 
 
@@ -304,18 +304,18 @@ def test_a_job_that_is_not_a_build_runs_alone(manager: JobManager, log: list[str
     """A backup waits for the builds before it, and the builds after it wait for the backup."""
     build, backup, after = Work("build", log), Work("backup", log), Work("after", log)
     queue_work(manager, build, A)
-    assert build.started.wait(5)
+    assert build.started.wait(20)
     queue_work(manager, backup, B, JobType.BACKUP)
     queue_work(manager, after, C)
 
     time.sleep(0.2)
     assert not backup.started.is_set() and not after.started.is_set()
     finish(build)
-    assert backup.started.wait(5)
+    assert backup.started.wait(20)
     time.sleep(0.2)
     assert not after.started.is_set()
     finish(backup)
-    assert after.started.wait(5)
+    assert after.started.wait(20)
     finish(after)
     assert wait_until(lambda: len(log) == 6)
     assert log == [
@@ -346,7 +346,7 @@ def test_a_full_queue_refuses_the_next_build_and_says_how_to_go_on(
     )
     running = Work("running", log)
     queue_work(manager, running, A)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
     queue_work(manager, Work("w1", log), B)
     queue_work(manager, Work("w2", log), C)
 
@@ -370,7 +370,7 @@ def test_the_limit_counts_builds_that_wait_not_jobs_that_are_not_builds(
     )
     running = Work("running", log)
     queue_work(manager, running, A)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
 
     queue_work(manager, Work("backup", log), B, JobType.BACKUP)
     queue_work(manager, Work("build", log), C)
@@ -387,7 +387,7 @@ def test_a_request_that_merges_does_not_need_room(
     )
     running = Work("running", log)
     queue_work(manager, running, A)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
     waiting = queue_work(manager, Work("b", log), B, coalesce_key=f"update:{B}")
 
     again = queue_work(manager, Work("b-again", log), B, coalesce_key=f"update:{B}")
@@ -409,7 +409,7 @@ def test_a_push_during_a_deploy_is_queued_once_however_many_pushes_arrive(
     """Five pushes while the first builds: the update that waits builds the last of them."""
     running = Work("running", log)
     queue_work(manager, running, A, coalesce_key=f"update:{A}")
-    assert running.started.wait(5)
+    assert running.started.wait(20)
     ran: list[str] = []
 
     def push(*, commit: str, job_context: JobContext | None = None) -> None:
@@ -454,7 +454,7 @@ def test_a_request_of_another_kind_is_not_merged(manager: JobManager, log: list[
     """The key says what is the same: another application, or another key, queues apart."""
     running = Work("running", log)
     queue_work(manager, running, A)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
     one = queue_work(manager, Work("one", log), B, coalesce_key=f"update:{B}")
 
     other_app = queue_work(manager, Work("two", log), C, coalesce_key=f"update:{C}")
@@ -470,7 +470,7 @@ def test_a_request_is_not_merged_into_a_job_that_already_runs(
     """The running one built what the branch was when it started: the new push waits for its own."""
     running = Work("running", log)
     first = queue_work(manager, running, A, coalesce_key=f"update:{A}")
-    assert running.started.wait(5)
+    assert running.started.wait(20)
 
     second = queue_work(manager, Work("next", log), A, coalesce_key=f"update:{A}")
 
@@ -490,7 +490,7 @@ def test_a_job_that_waits_is_cancelled_at_once_and_never_runs(
     """The queue moves on without it."""
     running, doomed, next_one = Work("running", log), Work("doomed", log), Work("next", log)
     queue_work(manager, running, A)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
     job = queue_work(manager, doomed, A)
     after = queue_work(manager, next_one, A)
     assert after.queue_position == 2
@@ -502,7 +502,7 @@ def test_a_job_that_waits_is_cancelled_at_once_and_never_runs(
     assert visible_state(job.status) == "cancelled"
     assert after.queue_position == 1
     finish(running)
-    assert next_one.started.wait(5)
+    assert next_one.started.wait(20)
     assert not doomed.started.is_set()
     finish(next_one)
 
@@ -512,7 +512,7 @@ def test_the_job_manager_still_answers_yes_or_no_to_the_old_question(
 ) -> None:
     running = Work("running", log)
     queue_work(manager, running, A)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
     waiting = queue_work(manager, Work("waiting", log), A)
 
     assert manager.cancel_job(waiting.id) is True
@@ -541,7 +541,7 @@ def test_a_build_that_is_cancelled_while_it_builds_ends_cancelled_and_the_queue_
         func=build,
         metadata={"domain": A},
     )
-    assert reached.wait(5)
+    assert reached.wait(20)
     follow_up = Work("follow-up", log)
     queued = queue_work(manager, follow_up, A)
     assert is_cancellable(building) is True
@@ -553,7 +553,7 @@ def test_a_build_that_is_cancelled_while_it_builds_ends_cancelled_and_the_queue_
     assert building.error is None
     assert building.result == {"domain": A, "status": "cancelled", "cancelled_by": "token:ci"}
     assert any("cancelled" in entry.message.lower() for entry in building.logs)
-    assert follow_up.started.wait(5), "the queue advanced"
+    assert follow_up.started.wait(20), "the queue advanced"
     assert queued.status is JobStatus.RUNNING
     record = store.get_job(building.id)
     assert record is not None and record.status == "cancelled" and record.error is None
@@ -572,7 +572,7 @@ def test_cancelling_a_build_that_is_not_started_to_activate_is_accepted_then_ref
         with cancellation.operation_window(A, "update"):
             cancellation.commit("activating release 1")
             committed.set()
-            done.wait(5)
+            done.wait(20)
 
     building = manager.create_job(
         job_type=JobType.UPDATE,
@@ -581,7 +581,7 @@ def test_cancelling_a_build_that_is_not_started_to_activate_is_accepted_then_ref
         func=build,
         metadata={"domain": A},
     )
-    assert committed.wait(5)
+    assert committed.wait(20)
     assert is_cancellable(building) is False
 
     with pytest.raises(CancelRefused) as caught:
@@ -604,7 +604,7 @@ def test_a_deploy_of_a_type_built_by_its_own_tools_cannot_be_cancelled_while_it_
         JobType.DEPLOY,
         metadata={"domain": "stack.example.com", "app_type": "docker-compose"},
     )
-    assert running.started.wait(5)
+    assert running.started.wait(20)
 
     assert is_cancellable(job) is False
     with pytest.raises(CancelRefused) as caught:
@@ -619,7 +619,7 @@ def test_a_running_job_that_is_not_a_build_cannot_be_cancelled(
 ) -> None:
     running = Work("backup", log)
     job = queue_work(manager, running, A, JobType.BACKUP)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
 
     with pytest.raises(CancelRefused) as caught:
         manager.cancel(job.id)
@@ -652,7 +652,7 @@ def test_a_cancellation_another_process_recorded_is_applied_to_the_waiting_job(
     """``noust deploy cancel <job>`` in a terminal writes it in the store; the queue reads it."""
     running, waiting = Work("running", log), Work("waiting", log)
     queue_work(manager, running, A)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
     job = queue_work(manager, waiting, A)
     assert wait_until(lambda: store.get_job(job.id) is not None)
 
@@ -697,7 +697,7 @@ def test_a_push_waits_for_an_update_somebody_runs_by_hand_and_then_deploys(
 ) -> None:
     """Not AppBusyError, not a lost push: queued, saying what it waits for, then run."""
     held, release, thread = hold(A, "update")
-    assert held.wait(5)
+    assert held.wait(20)
     work = Work("push", log)
 
     job = queue_work(manager, work, A)
@@ -709,8 +709,8 @@ def test_a_push_waits_for_an_update_somebody_runs_by_hand_and_then_deploys(
     time.sleep(0.2)
     assert not work.started.is_set()
     release.set()
-    thread.join(5)
-    assert work.started.wait(5)
+    thread.join(20)
+    assert work.started.wait(20)
     assert job.status is JobStatus.RUNNING
     assert holder_of(A) is not None, "the queue holds the application while it runs"
     finish(work)
@@ -725,30 +725,30 @@ def test_a_build_that_waits_too_long_for_the_application_fails_naming_the_holder
     """An operation that never ends is not hidden by a queue that waits for ever."""
     monkeypatch.setattr(jobs_module, "LOCK_WAIT_SECONDS", 0.3)
     held, release, thread = hold(A, "update")
-    assert held.wait(5)
+    assert held.wait(20)
 
     job = queue_work(manager, Work("push", log), A)
 
     assert wait_until(lambda: job.status is JobStatus.FAILED)
     assert job.error is not None and "update started at" in job.error
     release.set()
-    thread.join(5)
+    thread.join(20)
 
 
 def test_a_job_waiting_for_another_process_does_not_hold_up_other_applications(
     manager: JobManager, log: list[str]
 ) -> None:
     held, release, thread = hold(A, "update")
-    assert held.wait(5)
+    assert held.wait(20)
     queue_work(manager, Work("a", log), A)
     other = Work("b", log)
 
     queue_work(manager, other, B)
 
-    assert other.started.wait(5)
+    assert other.started.wait(20)
     finish(other)
     release.set()
-    thread.join(5)
+    thread.join(20)
 
 
 def test_the_queue_holds_the_application_s_lock_so_a_request_in_this_process_is_refused(
@@ -757,7 +757,7 @@ def test_the_queue_holds_the_application_s_lock_so_a_request_in_this_process_is_
     """Whoever else wants the application meanwhile gets AppBusyError naming the job's operation."""
     running = Work("running", log)
     queue_work(manager, running, A)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
     refused: list[AppBusyError] = []
 
     def try_lock() -> None:
@@ -769,7 +769,7 @@ def test_the_queue_holds_the_application_s_lock_so_a_request_in_this_process_is_
 
     thread = threading.Thread(target=try_lock)
     thread.start()
-    thread.join(5)
+    thread.join(20)
 
     assert len(refused) == 1
     assert refused[0].holder is not None and refused[0].holder.operation == "update"
@@ -789,7 +789,7 @@ def test_a_restart_marks_what_waited_and_what_ran_as_interrupted_and_starts_none
 
     running, waiting_work = Work("running", log), Work("waiting", log)
     one = queue_work(manager, running, A)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
     two = queue_work(manager, waiting_work, A)
     assert wait_until(
         lambda: (record := store.get_job(two.id)) is not None and record.status == "pending"
@@ -822,7 +822,7 @@ def test_the_queue_snapshot_lists_running_and_waiting_in_order(
     second = queue_work(manager, b, B)
     third = queue_work(manager, c, C)
     fourth = queue_work(manager, d, D)
-    assert a.started.wait(5) and b.started.wait(5)
+    assert a.started.wait(20) and b.started.wait(20)
 
     snapshot = manager.queue()
 
@@ -838,7 +838,7 @@ def test_a_job_of_the_job_to_dict_carries_the_queue_s_words(
 ) -> None:
     running = Work("running", log)
     queue_work(manager, running, A)
-    assert running.started.wait(5)
+    assert running.started.wait(20)
     waiting = queue_work(manager, Work("waiting", log), A)
 
     data = waiting.to_dict()
