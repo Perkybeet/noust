@@ -1724,6 +1724,32 @@ def set_zero_downtime(
         )
 
 
+def could_update_without_downtime(app: App, *, store: NoustStore | None = None) -> bool:
+    """
+    Tell whether an application restarts in place on every update but could run twice.
+
+    The question behind ``noust health`` and ``noust diagnose`` suggesting
+    ``noust app zero-downtime DOMAIN on``: the application is not in the mode,
+    is not a Compose stack (whose relay is its own opt-in), and passes the
+    mode's eligibility. Nothing is probed on the machine: whether a port is
+    free is the switch's question, asked when it is made.
+
+    Args:
+        app: The application.
+        store: The store; defaults to the process-wide one.
+
+    Returns:
+        True when turning the mode on would be accepted as far as the row says.
+    """
+    if app.zero_downtime or app.app_type == AppType.DOCKER_COMPOSE.value or app.preview_parent:
+        return False
+    try:
+        check_eligible(app, store=store if store is not None else get_store())
+    except ValidationError:
+        return False
+    return True
+
+
 def adopt_for_new_app(
     domain: str,
     *,

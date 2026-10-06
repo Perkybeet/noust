@@ -845,30 +845,31 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
         )
         return JSONResponse(status_code=200, content={"status": "ignored", "reason": "branch"})
 
-    pushed = await run_in_threadpool(
-        queue_push_update,
-        app,
-        validated,
-        provider=provider,
-        branch=branch,
-        delivery=delivery,
-        description=f"Webhook-triggered update of {validated}",
-        started=f"queued the update ({branch or 'no branch named'})",
+    queued_push = await run_in_threadpool(
+        lambda: queue_push_update(
+            app,
+            validated,
+            provider=provider,
+            branch=branch,
+            delivery=delivery,
+            description=f"Webhook-triggered update of {validated}",
+            started=f"queued the update ({branch or 'no branch named'})",
+        )
     )
-    if pushed.refusal is not None:
-        _record(request, validated, "refused", f"{pushed.detail} ({provider})")
-        return error_response(pushed.refusal)
+    if queued_push.refusal is not None:
+        _record(request, validated, "refused", f"{queued_push.detail} ({provider})")
+        return error_response(queued_push.refusal)
     _record(
         request,
         validated,
         "accepted",
-        f"{'merged into' if pushed.merged else 'queued'} job {pushed.job_id} "
+        f"{'merged into' if queued_push.merged else 'queued'} job {queued_push.job_id} "
         f"({provider}, branch {branch or 'any'})",
     )
     return JSONResponse(
         status_code=202,
         # Whatever it joined, it has not started: it waits its turn.
-        content={"job_id": pushed.job_id, "status": "pending", "merged": pushed.merged},
+        content={"job_id": queued_push.job_id, "status": "pending", "merged": queued_push.merged},
     )
 
 

@@ -235,7 +235,20 @@ restore the database from the backup taken before the first of them. See
   upgrades is what restarts the console. A central's fleet job waits for the node to come back
   and reads the reconciled result rather than counting a failure. Each reconciliation is
   audited. A job with no recorded unit is still marked interrupted.
-  Only a job that has not started can be cancelled (`POST /api/jobs/{id}/cancel`).
+  A deploy or an update that is **building** can be cancelled too (`POST /api/jobs/{id}/cancel`):
+  its build is stopped, the release it was making is removed, the deployment is recorded
+  as cancelled (`cancelled: true` on `GET /api/deployments/{id}`; its status stays `failed`)
+  and what served before is never touched. The answer is `{message, job_id, state}` with
+  `state` `cancelled` for a job that waited and `cancelling` for one that was building; from
+  the moment its release is being activated it is `409 cancel_refused`, as it is for a job
+  that ended or that cannot be interrupted (a restore, an in-place build).
+- **The deploy queue.** A push or a request that arrives while an application builds waits
+  its turn (`409 app_busy` is for an operation of another kind): `GET /api/jobs/queue` lists
+  what runs and what waits, with the limits, and every job carries `state` (`queued`,
+  `running`, `succeeded`, `failed` or `cancelled`), `queue_position`, `waiting_for` and
+  `cancellable`. Builds of different applications overlap up to `deploy.max_concurrent_builds`;
+  requests for the same update merge, and `POST /api/jobs/update` says so in its `message`.
+  When `deploy.queue_limit` builds wait, the next is `429 queue_full` with `Retry-After`.
 - **Lists** answer an object with the items and a count: `{apps, total}`,
   `{backups, total}`, `{items, total}`, and so on. The one exception is
   `GET /api/system/disks`, a bare array.
@@ -681,11 +694,12 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/jobs/backup` | POST `backups.run` |  |
 | `/api/jobs/cert` | POST `apps.manage` |  |
 | `/api/jobs/cleanup` | DELETE `audit.manage` | Forget finished jobs in memory; the history stays |
+| `/api/jobs/queue` | GET `apps.read` | What runs, what waits and the limits: `{running, queued, builds_running, max_concurrent_builds, queue_limit, builds_queued}` |
 | `/api/jobs/delete` | POST `apps.manage`, sudo | `{domain, remove_files, remove_ssl, remove_adopted_directory}` |
 | `/api/jobs/rollback` | POST `apps.deploy` | `{domain, backup_id, schema_changed_ok}`: restore a backup. `409 schema_changed` unless confirmed |
 | `/api/jobs/update` | POST `apps.deploy` | `{domain, force}` |
 | `/api/jobs/{job_id}` | GET `apps.read` |  |
-| `/api/jobs/{job_id}/cancel` | POST `apps.operate` |  |
+| `/api/jobs/{job_id}/cancel` | POST `apps.operate` | A job that waits, or a deploy or an update that is building. `409 cancel_refused` once its release is being activated |
 | `/api/jobs/{job_id}/log` | GET `apps.read` |  |
 
 ### Sites, certificates and domains

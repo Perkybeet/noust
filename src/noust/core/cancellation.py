@@ -222,7 +222,9 @@ def token_of(domain: str) -> CancelToken | None:
         return _active.get(domain.strip().lower())
 
 
-def supports_cancel(domain: str, store: NoustStore | None = None) -> tuple[bool, str]:
+def supports_cancel(
+    domain: str, store: NoustStore | None = None, app_type: str | None = None
+) -> tuple[bool, str]:
     """
     Tell whether an application's build can be interrupted safely.
 
@@ -234,12 +236,19 @@ def supports_cancel(domain: str, store: NoustStore | None = None) -> tuple[bool,
     Args:
         domain: The application.
         store: The store; defaults to the process-wide one.
+        app_type: The type a new application is being deployed as, when it is
+            known before its row exists.
 
     Returns:
         Whether it can, and why not when it cannot.
     """
     app = (store or get_store()).get_app(domain)
     if app is None:
+        if app_type in _IN_PLACE_TYPES:
+            return (
+                False,
+                f"{app_type} applications deploy in place and are built by their own tools",
+            )
         return True, ""
     if app.app_type == AppType.DOCKER_COMPOSE.value:
         return False, (
@@ -251,6 +260,27 @@ def supports_cancel(domain: str, store: NoustStore | None = None) -> tuple[bool,
             "would leave the live application broken"
         )
     return True, ""
+
+
+def restrict(reason: str) -> None:
+    """
+    Say that what runs turned out not to be interruptible.
+
+    For a deployer that is chosen after the window opened (the automatic one
+    detects the type from the source it fetched): a monorepo or a Compose stack
+    has no point at which a build can be stopped, and a request must not be
+    accepted for it.
+
+    Args:
+        reason: Why, as the operator reads it.
+    """
+    token = _current.get()
+    if token is None:
+        return
+    with token._lock:
+        if not token.tripped:
+            token.supported = False
+            token.unsupported_reason = reason
 
 
 @contextmanager
@@ -567,7 +597,13 @@ class CancelResult:
     phase: str | None = None
 
 
-def request_cancel(domain: str, *, by: str | None, store: NoustStore | None = None) -> CancelResult:
+def request_cancel(
+    domain: str,
+    *,
+    by: str | None,
+    store: NoustStore | None = None,
+    app_type: str | None = None,
+) -> CancelResult:
     """
     Ask the operation running on an application to stop, if it can.
 
@@ -581,6 +617,8 @@ def request_cancel(domain: str, *, by: str | None, store: NoustStore | None = No
         domain: The application's domain.
         by: Who asks, as the audit trail names them.
         store: The store; defaults to the process-wide one.
+        app_type: The type a new application is being deployed as, when the
+            caller knows it before the application has a row.
 
     Returns:
         What the request is addressed to.
@@ -613,15 +651,19 @@ def request_cancel(domain: str, *, by: str | None, store: NoustStore | None = No
         holder.pid,
         holder.started_at,
     )
-    if local and token is not None:
-        if not token.supported:
-            raise CancelRefused(
-                f"The {holder.operation} of {key} cannot be cancelled",
-                f"{token.unsupported_reason[:1].upper()}{token.unsupported_reason[1:]}.",
-                reason="unsupported",
-            )
-        if token.committed:
-            raise _too_late(key, token.phase)
+    supported, why = (
+        (token.supported, token.unsupported_reason)
+        if local and token is not None
+        else supports_cancel(key, target, app_type)
+    )
+    if not supported:
+        raise CancelRefused(
+            f"The {holder.operation} of {key} cannot be cancelled",
+            f"{why[:1].upper()}{why[1:]}.",
+            reason="unsupported",
+        )
+    if local and token is not None and token.committed:
+        raise _too_late(key, token.phase)
 
     delivery_store.put_request(
         key,

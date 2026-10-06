@@ -377,7 +377,15 @@ class AutoDeployer(AppDeployer):
         # Taken before detection fetches anything; the deployer chosen takes
         # it again, which within this thread is the same lock.
         with app_lock(self.domain, "deploy"), cancellation.operation_window(self.domain, "deploy"):
-            return self.resolve().deploy()
+            chosen = self.resolve()
+            if not getattr(chosen, "SUPPORTS_RELEASES", False):
+                # A monorepo or a Compose stack is built by tools of its own,
+                # with no point at which a build can be stopped safely.
+                cancellation.restrict(
+                    f"{getattr(chosen, 'APP_TYPE', 'this type')} applications are built by "
+                    "their own tools, which cannot be interrupted safely"
+                )
+            return chosen.deploy()
 
 
 DeployerRegistry.register(AutoDeployer)

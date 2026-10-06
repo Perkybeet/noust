@@ -236,10 +236,10 @@ def test_after_the_point_of_no_return_it_is_too_late_and_the_deployment_finishes
     assert f"noust releases rollback {DOMAIN}" in said(result)
 
 
-def test_a_build_in_place_is_refused_with_the_reason_whichever_process_runs_it(
+def test_a_build_in_place_is_refused_at_once_with_the_reason(
     store: NoustStore, another_process: None
 ) -> None:
-    """It builds in the tree that serves: the deployment says so, the terminal repeats it."""
+    """It builds in the tree that serves: the store says so, the terminal does not wait."""
     row = store.get_app(DOMAIN)
     assert row is not None
     row.layout = AppLayout.INPLACE.value
@@ -251,7 +251,7 @@ def test_a_build_in_place_is_refused_with_the_reason_whichever_process_runs_it(
     deployment.join()
     assert result.exit_code != 0
     assert deployment.outcome == "finished"
-    assert "cannot be interrupted" in said(result)
+    assert "cannot be cancelled" in said(result)
     assert "builds in place" in said(result)
 
 

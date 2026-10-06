@@ -24,16 +24,17 @@ import click
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
 from noust.core import cancellation, delivery, delivery_store
 from noust.core.audit.actor import cli_actor
-from noust.core.exceptions import CancelRefused, DomainError
-from noust.core.store import JobRecord, get_store
-from noust.validators.domain import validate_domain
-from noust.web.jobs import (
+from noust.core.delivery_queue import (
     BUILD_JOB_TYPES,
     FINISHED_STATUSES,
-    JobStatus,
+    PENDING,
+    RUNNING,
     cancel_recorded_job,
     visible_state,
 )
+from noust.core.exceptions import CancelRefused, DomainError
+from noust.core.store import JobRecord, get_store
+from noust.validators.domain import validate_domain
 
 #: What a job id looks like: the first eight characters of a uuid.
 _JOB_ID = re.compile(r"^[0-9a-f]{1,36}$")
@@ -47,14 +48,6 @@ def cli() -> None:
     """Follow the deploy queue and cancel a build."""
 
 
-def _build_types() -> set[str]:
-    """
-    Returns:
-        The job types that build an application, as the store spells them.
-    """
-    return {kind.value for kind in BUILD_JOB_TYPES}
-
-
 def _unfinished(record: JobRecord) -> bool:
     """
     Args:
@@ -63,7 +56,7 @@ def _unfinished(record: JobRecord) -> bool:
     Returns:
         Whether it waits or runs.
     """
-    return JobStatus(record.status) not in FINISHED_STATUSES
+    return record.status not in FINISHED_STATUSES
 
 
 def _waiting_for(record: JobRecord, running: list[JobRecord]) -> str:
@@ -80,11 +73,11 @@ def _waiting_for(record: JobRecord, running: list[JobRecord]) -> str:
     for other in running:
         if record.domain and other.domain == record.domain:
             return f"the {other.type} of {record.domain} (job {other.id})"
-    builds = [job for job in running if job.type in _build_types()]
+    builds = [job for job in running if job.type in BUILD_JOB_TYPES]
     limit = delivery.current(refresh=True).max_concurrent_builds
-    if record.type in _build_types() and len(builds) >= limit:
+    if record.type in BUILD_JOB_TYPES and len(builds) >= limit:
         return f"a free build slot ({len(builds)} of {limit} are building)"
-    if running and record.type not in _build_types():
+    if running and record.type not in BUILD_JOB_TYPES:
         return "the jobs that are running now"
     return ""
 
@@ -109,19 +102,19 @@ def queue_command(ctx: Context, domain: str | None) -> None:
     store = get_store()
     running = [
         job
-        for job in store.list_jobs(limit=500, status=JobStatus.RUNNING.value, domain=wanted)
-        if job.type in _build_types()
+        for job in store.list_jobs(limit=500, status=RUNNING, domain=wanted)
+        if job.type in BUILD_JOB_TYPES
     ]
     waiting = sorted(
         (
             job
-            for job in store.list_jobs(limit=500, status=JobStatus.PENDING.value, domain=wanted)
-            if job.type in _build_types()
+            for job in store.list_jobs(limit=500, status=PENDING, domain=wanted)
+            if job.type in BUILD_JOB_TYPES
         ),
         key=lambda job: (job.created_at or "", job.id),
     )
     settings = delivery.current(refresh=True)
-    everything_running = store.list_jobs(limit=500, status=JobStatus.RUNNING.value)
+    everything_running = store.list_jobs(limit=500, status=RUNNING)
 
     if ctx.json_output:
         click.echo(
@@ -279,8 +272,8 @@ def _cancel_application(
     store = get_store()
     waiting = [
         job
-        for job in store.list_jobs(limit=500, status=JobStatus.PENDING.value, domain=domain)
-        if job.type in _build_types()
+        for job in store.list_jobs(limit=500, status=PENDING, domain=domain)
+        if job.type in BUILD_JOB_TYPES
     ]
     if also_waiting:
         for job in waiting:

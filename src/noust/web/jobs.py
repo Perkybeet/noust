@@ -33,11 +33,12 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, TextIO
 
-from noust.core import cancellation, delivery
+from noust.core import cancellation, delivery, delivery_queue
 from noust.core.applock import AppBusyError, app_lock
 from noust.core.audit import Actor
 from noust.core.audit import bind as bind_audit_context
 from noust.core.audit import record as record_audit
+from noust.core.delivery_queue import CancelOutcome
 from noust.core.exceptions import (
     BackupError,
     CancelRefused,
@@ -148,16 +149,11 @@ class JobType(str, Enum):
     CUSTOM = "custom"
 
 
-#: What an operator reads: the five states of a deployment's life. A job's
-#: ``status`` keeps the words clients already depend on (``pending`` for what
-#: waits, ``completed`` for what worked); this is the vocabulary of the queue.
-_VISIBLE_STATES = {
-    JobStatus.PENDING: "queued",
-    JobStatus.RUNNING: "running",
-    JobStatus.COMPLETED: "succeeded",
-    JobStatus.FAILED: "failed",
-    JobStatus.CANCELLED: "cancelled",
-}
+#: The job types that build an application, as the enum spells them. What
+#: counts as a build is :data:`noust.core.delivery_queue.BUILD_JOB_TYPES`, which
+#: the CLI reads too; they may overlap up to ``deploy.max_concurrent_builds``
+#: (and never two on one application), and every other job runs alone.
+BUILD_JOB_TYPES = frozenset(JobType(kind) for kind in delivery_queue.BUILD_JOB_TYPES)
 
 
 def visible_state(status: JobStatus | str) -> str:
@@ -170,15 +166,8 @@ def visible_state(status: JobStatus | str) -> str:
     Returns:
         ``queued``, ``running``, ``succeeded``, ``failed`` or ``cancelled``.
     """
-    return _VISIBLE_STATES[JobStatus(status)]
+    return delivery_queue.visible_state(JobStatus(status).value)
 
-
-#: Job types that build an application. They are the ones that may overlap, up
-#: to ``deploy.max_concurrent_builds`` (and never two on one application);
-#: every other job runs alone, as every job did before 3.4, because a restore,
-#: an operating system update or a certificate round trip is not something to
-#: run beside a build.
-BUILD_JOB_TYPES = frozenset({JobType.DEPLOY, JobType.UPDATE})
 
 #: Job types that hold their application's lock for the whole run, taken by the
 #: queue rather than by the job: a push that arrives while a terminal's update
@@ -229,25 +218,6 @@ class _Entry:
     state: str = "queued"
     not_before: float = 0.0
     coalesce_key: str | None = None
-
-
-@dataclass(frozen=True)
-class CancelOutcome:
-    """
-    What cancelling a job did.
-
-    Attributes:
-        job_id: The job.
-        state: ``cancelled`` when it had not started and never will, or
-            ``cancelling`` when it runs and was asked to stop at the next safe
-            point (it ends as cancelled, or finishes if it passed that point).
-        request: For a job that runs, what the request was addressed to, which
-            is what whoever asked follows to learn how it ended.
-    """
-
-    job_id: str
-    state: str
-    request: cancellation.CancelResult | None = None
 
 
 @dataclass(frozen=True)
@@ -1357,7 +1327,7 @@ class JobManager:
                 "halfway through changing the system. Wait for it to finish.",
                 reason="unsupported",
             )
-        request = cancellation.request_cancel(domain, by=actor)
+        request = cancellation.request_cancel(domain, by=actor, app_type=_app_type_of(job))
         job.cancel_requested_by = actor or "an operator"
         job.add_log(f"Cancellation requested by {job.cancel_requested_by}", "warning")
         record_audit(
@@ -1760,6 +1730,21 @@ def _lock_domain(job: Job, kwargs: Mapping[str, Any]) -> str | None:
     return None
 
 
+def _app_type_of(job: Job) -> str | None:
+    """
+    Name the type a deploy job was asked to deploy.
+
+    Args:
+        job: The job.
+
+    Returns:
+        The type from its metadata, which a deploy of a new application states
+        before the application has a row; None for any other job.
+    """
+    app_type = job.metadata.get("app_type")
+    return app_type if isinstance(app_type, str) else None
+
+
 def is_cancellable(job: Job) -> bool:
     """
     Tell whether cancelling a job would be accepted now.
@@ -1779,81 +1764,11 @@ def is_cancellable(job: Job) -> bool:
     if domain is None or job.cancel_requested_by is not None:
         return False
     token = cancellation.token_of(domain)
-    # No token yet: the operation has not opened its window, and a request
-    # now is adopted when it does.
-    return token is None or (token.supported and not token.committed)
-
-
-def cancel_recorded_job(
-    job_id: str, *, actor: str | None = None, store: NoustStore | None = None
-) -> CancelOutcome:
-    """
-    Cancel a job from a process that is not the one running the queue.
-
-    ``noust deploy cancel`` runs in a terminal; the console's queue lives in
-    another process. A job that waits is marked cancelled in the store, which
-    the queue reads back within a second and never starts; one that builds is
-    asked to stop through the application's cancellation, which the process
-    running it finds in the store (:mod:`noust.core.cancellation`). The
-    console's own endpoint cancels in memory (:meth:`JobManager.cancel`); both
-    end in the same states.
-
-    Args:
-        job_id: The job.
-        actor: Who asked, as the audit trail names them.
-        store: The store; defaults to the process-wide one.
-
-    Returns:
-        ``cancelled`` for a job that had not started, ``cancelling`` for one
-        that was asked to stop.
-
-    Raises:
-        CancelRefused: The job is unknown, has ended, cannot be interrupted, or
-            its release is already being activated.
-    """
-    target = store if store is not None else get_store()
-    record = target.get_job(job_id)
-    if record is None:
-        raise CancelRefused(
-            f"Job not found: {job_id}",
-            "It may have finished long ago and been cleaned up: 'noust deploy queue' lists "
-            "what is running and waiting.",
-            reason="unknown",
-        )
-    status = JobStatus(record.status)
-    if status in FINISHED_STATUSES:
-        raise CancelRefused(
-            f"The job already ended as {visible_state(status)}",
-            "There is nothing to cancel.",
-            reason="finished",
-        )
-    who = Actor.from_label(actor) if actor else None
-    if status is JobStatus.PENDING:
-        target.update_job(
-            job_id, status=JobStatus.CANCELLED.value, finished_at=datetime.now().isoformat()
-        )
-        record_audit(
-            "job.cancel",
-            actor=who,
-            target=f"job:{job_id}",
-            details={"type": record.type, "state": "queued"},
-        )
-        return CancelOutcome(job_id, "cancelled")
-    if record.type not in {kind.value for kind in BUILD_JOB_TYPES} or not record.domain:
-        raise CancelRefused(
-            f"The {record.type} job is running and cannot be stopped safely",
-            "Only a deploy or an update can be cancelled while it runs: the others are "
-            "halfway through changing the system. Wait for it to finish.",
-            reason="unsupported",
-        )
-    request = cancellation.request_cancel(record.domain, by=actor, store=target)
-    record_audit(
-        "job.cancel",
-        actor=who,
-        target=f"job:{job_id}",
-        details={"type": record.type, "state": "running", "domain": record.domain},
-    )
-    return CancelOutcome(job_id, "cancelling", request)
+    if token is None:
+        # No window yet: the operation is starting, and a request now is
+        # adopted when it opens, if what it builds can be interrupted at all.
+        return cancellation.supports_cancel(domain, app_type=_app_type_of(job))[0]
+    return token.supported and not token.committed
 
 
 def _argument_secrets(kwargs: Mapping[str, Any]) -> list[str]:

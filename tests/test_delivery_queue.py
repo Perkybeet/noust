@@ -174,7 +174,7 @@ def queue_work(
         description=work.name,
         func=work,
         kwargs=options.pop("kwargs", {}),
-        metadata={"domain": domain} if domain else {},
+        metadata=options.pop("metadata", {"domain": domain} if domain else {}),
         **options,
     )
 
@@ -590,6 +590,28 @@ def test_cancelling_a_build_that_is_not_started_to_activate_is_accepted_then_ref
     assert caught.value.reason == "too_late"
     done.set()
     assert wait_until(lambda: building.status is JobStatus.COMPLETED)
+
+
+def test_a_deploy_of_a_type_built_by_its_own_tools_cannot_be_cancelled_while_it_runs(
+    manager: JobManager, log: list[str]
+) -> None:
+    """A Compose stack builds inside the Docker daemon: the job says so instead of pretending."""
+    running = Work("compose", log)
+    job = queue_work(
+        manager,
+        running,
+        "stack.example.com",
+        JobType.DEPLOY,
+        metadata={"domain": "stack.example.com", "app_type": "docker-compose"},
+    )
+    assert running.started.wait(5)
+
+    assert is_cancellable(job) is False
+    with pytest.raises(CancelRefused) as caught:
+        manager.cancel(job.id)
+
+    assert caught.value.reason == "unsupported"
+    finish(running)
 
 
 def test_a_running_job_that_is_not_a_build_cannot_be_cancelled(

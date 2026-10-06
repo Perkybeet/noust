@@ -364,6 +364,28 @@ def test_a_request_after_the_update_finished_is_refused_as_idle(
     assert caught.value.reason == "idle"
 
 
+def test_a_redeploy_cancelled_while_it_builds_leaves_the_application_as_it_was(
+    root: Path,
+    store: NoustStore,
+    machine: SimpleNamespace,
+    served: SimpleNamespace,
+) -> None:
+    """The row is not left "deploying", nor marked failed: nothing that served was touched."""
+    machine.runner = CancellingRunner(("npm", "run", "build"))
+    deployer = wire(NodeJSDeployer(verbose=False, runner=machine.runner), machine)
+    deployer.configure(DOMAIN, GIT_URL, port=PORT, ssl=False, app_path=root, layout="releases")
+
+    with pytest.raises(DeploymentCancelled):
+        deployer.deploy()
+
+    app = store.get_app(DOMAIN)
+    assert app is not None
+    assert app.status == "running"
+    assert_untouched(root, store, machine, served.first)
+    assert_recorded_as_cancelled(store)
+    assert "rel-example-com" in machine.services.units
+
+
 def test_the_next_update_runs_after_a_cancelled_one(
     tmp_path: Path,
     root: Path,

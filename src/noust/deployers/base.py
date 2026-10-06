@@ -277,6 +277,9 @@ class BaseDeployer(AppDeployer):
         # Deployment progress, shared between pipeline steps
         self._ssl_obtained: bool = False
         self._app_record: App | None = None
+        # What an application's row said before a redeployment marked it
+        # "deploying": what it says again when the attempt is cancelled.
+        self._status_before_deploy: str | None = None
         self._is_new_deployment: bool = True
 
         # Layout. The request is what configure() was told; the layout is
@@ -659,10 +662,11 @@ class BaseDeployer(AppDeployer):
         # What a repository's code runs (install, build) is what an operator
         # cancels a deployment to stop; a migration (RELEASE) is never killed
         # halfway, and root's own commands are not the build.
-        if effective in (BuildPhase.INSTALL, BuildPhase.BUILD):
-            interrupt = cancellation.interruptible(f"running the {effective.value}")
-        else:
-            interrupt = contextlib.nullcontext()
+        interrupt: contextlib.AbstractContextManager[None] = (
+            cancellation.interruptible(f"running the {effective.value}")
+            if effective in (BuildPhase.INSTALL, BuildPhase.BUILD)
+            else contextlib.nullcontext()
+        )
         with interrupt:
             if stream:
                 result = self.runner.stream(
@@ -3291,6 +3295,7 @@ class BaseDeployer(AppDeployer):
         existing = self.store.get_app(self.domain)
         is_new_deployment = existing is None
         self._is_new_deployment = is_new_deployment
+        self._status_before_deploy = existing.status if existing is not None else None
         self.resolve_layout(existing)
         if self.deploy_target is None:
             # Before anything is fetched: a directory that holds an
@@ -3374,6 +3379,14 @@ class BaseDeployer(AppDeployer):
         Args:
             error: What the failing step raised.
         """
+        if cancellation.is_cancellation(error):
+            if not self._is_new_deployment and self._app_record is not None:
+                # Nothing that served was touched: the row says what it said
+                # before the attempt marked it "deploying".
+                self._app_record.status = self._status_before_deploy or AppStatus.RUNNING.value
+                self.store.update_app(self._app_record)
+            self.logger.warning(f"Deployment cancelled: {getattr(error, 'message', error)}")
+            return
         if not self._is_new_deployment and self._app_record is not None:
             # The rows survive a failed redeployment; mark them honestly.
             self._app_record.status = AppStatus.FAILED.value

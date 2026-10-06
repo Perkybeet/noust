@@ -275,20 +275,7 @@ def _from_record(record: JobRecord) -> JobResponse:
         if isinstance(parsed, dict):
             result = parsed
 
-    # What the queue says about a job is in this process's memory, not in the
-    # store: a job that is still waiting or running here is asked.
-    live = get_job_manager().get_job(record.id)
-    queue = (
-        {
-            "queue_position": live.queue_position,
-            "waiting_for": live.waiting_for,
-            "cancellable": is_cancellable(live),
-            "cancel_requested": live.cancel_requested_by is not None,
-        }
-        if live is not None
-        else {}
-    )
-    return JobResponse(
+    response = JobResponse(
         id=record.id,
         type=record.type,
         name=record.name,
@@ -307,8 +294,16 @@ def _from_record(record: JobRecord) -> JobResponse:
         logs=[],
         metadata={"domain": record.domain} if record.domain else {},
         actor=record.actor,
-        **queue,
     )
+    # What the queue says about a job is in this process's memory, not in the
+    # store: a job that is still waiting or running here is asked.
+    live = get_job_manager().get_job(record.id)
+    if live is not None:
+        response.queue_position = live.queue_position
+        response.waiting_for = live.waiting_for
+        response.cancellable = is_cancellable(live)
+        response.cancel_requested = live.cancel_requested_by is not None
+    return response
 
 
 def _validated_job_id(job_id: str) -> str:

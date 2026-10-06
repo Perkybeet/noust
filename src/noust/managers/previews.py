@@ -61,6 +61,7 @@ from noust.core.exceptions import (
     DeploymentError,
     IntegrationError,
     NoustError,
+    QueueFullError,
     ServiceError,
     ValidationError,
 )
@@ -1380,23 +1381,31 @@ def _record_and_queue(
         )
     )
     first = occupant is None
-    job = _jobs().create_job(
-        job_type=_job_type("DEPLOY" if first else "UPDATE"),
-        name=f"{'Preview' if first else 'Update preview'} #{record.number} of {parent.domain}",
-        description=f"{'Deploying' if first else 'Updating'} the preview of pull request "
-        f"#{record.number} ({record.branch}) at {domain}",
-        func=preview_deploy_job,
-        kwargs={"parent_domain": parent.domain, "number": record.number},
-        metadata={
-            "domain": domain,
-            "parent": parent.domain,
-            "preview": record.number,
-            "branch": record.branch,
-            "trigger": "webhook",
-            "provider": record.provider,
-        },
-        actor="webhook",
-    )
+    try:
+        job = _jobs().create_job(
+            job_type=_job_type("DEPLOY" if first else "UPDATE"),
+            name=f"{'Preview' if first else 'Update preview'} #{record.number} of {parent.domain}",
+            description=f"{'Deploying' if first else 'Updating'} the preview of pull request "
+            f"#{record.number} ({record.branch}) at {domain}",
+            func=preview_deploy_job,
+            kwargs={"parent_domain": parent.domain, "number": record.number},
+            metadata={
+                "domain": domain,
+                "parent": parent.domain,
+                "preview": record.number,
+                "branch": record.branch,
+                "trigger": "webhook",
+                "provider": record.provider,
+            },
+            actor="webhook",
+        )
+    except QueueFullError as exc:
+        # The deploy queue has no room: the preview is not built, and says so
+        # instead of staying "pending" for a job that does not exist. The next
+        # push to the pull request asks again.
+        _log.warning("No preview of %s for #%d: %s", parent.domain, record.number, exc.message)
+        _set_status(record, FAILED, exc.message)
+        return None
     return str(job.id)
 
 

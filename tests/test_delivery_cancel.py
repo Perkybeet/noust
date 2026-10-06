@@ -219,6 +219,40 @@ def test_a_compose_stack_is_refused(store: NoustStore) -> None:
     assert "Docker" in why
 
 
+def test_a_new_application_of_a_type_built_by_its_own_tools_is_refused(
+    store: NoustStore,
+) -> None:
+    """The caller knows the type before the row exists; the refusal does not wait for the window."""
+    assert cancellation.supports_cancel("brand-new.example.com", store, "monorepo")[0] is False
+
+    with app_lock("brand-new.example.com", "deploy"):
+        with pytest.raises(CancelRefused) as caught:
+            request_cancel("brand-new.example.com", by="op", app_type="docker-compose")
+
+    assert caught.value.reason == "unsupported"
+    assert "deploy in place" in caught.value.details
+
+
+def test_a_deployer_chosen_after_the_window_opened_can_take_the_cancellation_away(
+    store: NoustStore,
+) -> None:
+    """The automatic deployer finds out what the source is only after it fetched it."""
+    with app_lock(DOMAIN, "deploy"), operation_window(DOMAIN, "deploy") as token:
+        assert token is not None and token.supported is True
+
+        cancellation.restrict("monorepo applications are built by their own tools")
+
+        assert token.supported is False
+        with pytest.raises(CancelRefused) as caught:
+            request_cancel(DOMAIN, by="op")
+        assert "built by their own tools" in caught.value.details
+        cancellation.checkpoint()
+
+
+def test_restricting_outside_a_window_is_nothing(store: NoustStore) -> None:
+    cancellation.restrict("whatever")
+
+
 def test_a_new_application_can_be_cancelled(store: NoustStore) -> None:
     """Nothing serves yet, so nothing can be broken."""
     assert cancellation.supports_cancel("brand-new.example.com", store) == (True, "")
