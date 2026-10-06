@@ -320,7 +320,8 @@ created with.
   `collectstatic` runs only when a settings module sets `STATIC_ROOT`: without it the command
   fails, and a project that serves static files another way has no use for it. **Migrations
   are not run for you**: a schema change is a decision, so declare it, and Noust records that
-  the deployment changed the schema and asks before going back past it:
+  the deployment changed the schema and asks before going back past it (a project with
+  migrations and no hook is told so in the deployment's log):
 
   ```yaml
   hooks:

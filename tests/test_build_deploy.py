@@ -1387,3 +1387,79 @@ class TestAPublishedDirectoryThatIsALink:
 
         assert excinfo.value.field == "build.publish_directory"
         assert machine.web.sites == {}
+
+
+class TestDjangoMigrationsAreADecision:
+    FILES = {
+        "requirements.txt": "django\n",
+        "manage.py": "",
+        "shop/wsgi.py": "application = None\n",
+        "shop/settings.py": "STATIC_ROOT = 'static'\n",
+        "orders/__init__.py": "",
+        "orders/migrations/__init__.py": "",
+        "orders/migrations/0001_initial.py": "",
+    }
+
+    def deploy_django(
+        self, tmp_path: Path, root: Path, machine: SimpleNamespace, extra: dict[str, str]
+    ) -> list[str]:
+        machine.git.publish(write_tree(tmp_path / "v1", {**self.FILES, **extra}))
+        said: list[str] = []
+        deployer = wire(PythonDeployer(verbose=False, runner=machine.runner), machine)
+        deployer.logger.substep = said.append  # type: ignore[method-assign]
+        deployer.configure(DOMAIN, GIT_URL, port=PORT, ssl=False, app_path=root, layout=RELEASES)
+        assert deployer.deploy() is True
+        return said
+
+    def test_a_project_with_migrations_and_no_hook_is_told_how_to_run_them(
+        self, tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
+    ) -> None:
+        said = self.deploy_django(tmp_path, root, machine, {})
+
+        assert any("migrations are not run for you" in line for line in said)
+        assert not any("migrate" in " ".join(call) for call in machine.runner.calls)
+
+    def test_a_project_that_declares_its_migration_is_not_told(
+        self, tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
+    ) -> None:
+        hook = (
+            "hooks:\n  pre_deploy:\n    - run: ./venv/bin/python manage.py migrate --noinput\n"
+            "      migrates: true\n"
+        )
+
+        said = self.deploy_django(tmp_path, root, machine, {"noust.yaml": hook})
+
+        assert not any("migrations are not run for you" in line for line in said)
+        # The hook runs where a migration runs, as the application, in the release.
+        assert any(
+            call[1:] == ("manage.py", "migrate", "--noinput") for call in machine.runner.calls
+        )
+
+    def test_a_project_without_migrations_is_not_told(
+        self, tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
+    ) -> None:
+        files = {key: value for key, value in self.FILES.items() if "migrations" not in key}
+        machine.git.publish(write_tree(tmp_path / "v1", files))
+        said: list[str] = []
+        deployer = wire(PythonDeployer(verbose=False, runner=machine.runner), machine)
+        deployer.logger.substep = said.append  # type: ignore[method-assign]
+        deployer.configure(DOMAIN, GIT_URL, port=PORT, ssl=False, app_path=root, layout=RELEASES)
+
+        assert deployer.deploy() is True
+
+        assert not any("migrations are not run for you" in line for line in said)
+
+    def test_the_virtual_environments_own_migrations_are_not_the_projects(
+        self, tmp_path: Path, root: Path, store: NoustStore, machine: SimpleNamespace
+    ) -> None:
+        files = {key: value for key, value in self.FILES.items() if "migrations" not in key}
+        files["venv/lib/python3.12/site-packages/django/contrib/auth/migrations/__init__.py"] = ""
+        machine.git.publish(write_tree(tmp_path / "v1", files))
+        said: list[str] = []
+        deployer = wire(PythonDeployer(verbose=False, runner=machine.runner), machine)
+        deployer.logger.substep = said.append  # type: ignore[method-assign]
+        deployer.configure(DOMAIN, GIT_URL, port=PORT, ssl=False, app_path=root, layout=RELEASES)
+
+        assert deployer.deploy() is True
+
+        assert not any("migrations are not run for you" in line for line in said)

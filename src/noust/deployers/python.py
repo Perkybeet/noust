@@ -312,6 +312,38 @@ class PythonDeployer(BaseDeployer):
                     continue
         return False
 
+    def _has_migrations(self) -> bool:
+        """
+        Tell whether the Django project has migrations of its own.
+
+        Returns:
+            True when an application of the project (not the virtual
+            environment's) has a ``migrations`` package.
+        """
+        root = self.build_path / (self.django_dir or "")
+        return any(
+            directory.name == "migrations" and "__init__.py" in files
+            for directory, files in self._walk(root)
+        )
+
+    def _say_migrations_are_a_decision(self) -> None:
+        """
+        Tell the deployment's log that a Django project's migrations are not run for it.
+
+        A schema change is a decision (it decides whether going back is safe),
+        so it is declared, as a ``pre_deploy`` hook, and not guessed at. Said
+        once the project is known to be Django and has migrations, and only
+        while no hook says otherwise.
+        """
+        if self.framework != "django" or not self._has_migrations():
+            return
+        if self._hook_set().declared:
+            return
+        self.logger.substep(
+            "Django migrations are not run for you: declare them as a pre_deploy hook "
+            "(run: ./venv/bin/python manage.py migrate --noinput, migrates: true); see docs/build.md"
+        )
+
     def get_build_command(self) -> list[str]:
         """
         Get the build command: Django's ``collectstatic``, when it has a ``STATIC_ROOT``.
@@ -455,6 +487,7 @@ class PythonDeployer(BaseDeployer):
         self.wsgi_app, self.asgi_app = self._detect_app_module()
         self.logger.debug(f"WSGI app: {self.wsgi_app}")
         self.logger.debug(f"ASGI app: {self.asgi_app}")
+        self._say_migrations_are_a_decision()
 
         if self.build_config().start:
             # The project starts itself the way it said: what it needs to do
