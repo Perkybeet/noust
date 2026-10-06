@@ -20,10 +20,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from fastapi.testclient import TestClient
 
 from noust.core.store import App, NoustStore
 from noust.managers.backup_scheduler import BackupScheduler
 from noust.managers.database.service import DatabaseListing, DatabaseService, DatabaseView
+from noust.web.auth import FLEET_ACTOR_HEADER, FLEET_ACTOR_SCOPE_HEADER
+from noust.web.server import get_token_manager
 from tests.teams_support import World, build_world
 
 ACME = "shop.acme.example"
@@ -605,3 +608,59 @@ class TestCreatingNamesWhereItGoes:
         assert viewer.status_code == 403
         assert foreign.status_code == 400
         assert world.store.get_database("stolen", "postgresql") is None
+
+
+class TestACentralStillDrivesTheWholeNode:
+    """A node with teams is still one a central manages: the fleet token is the instance's."""
+
+    @pytest.fixture
+    def central(self, world: World) -> tuple[TestClient, dict[str, str]]:
+        # What a central sends through its tunnel: the token, from loopback, naming the
+        # person behind it and what that person may do.
+        token = str(get_token_manager().create_fleet_token("fleet-hub")["token"])
+        client = TestClient(world.client.app, client=("127.0.0.1", 50001))
+        headers = {
+            "Authorization": f"Bearer {token}",
+            FLEET_ACTOR_HEADER: "ana",
+            FLEET_ACTOR_SCOPE_HEADER: "admin",
+        }
+        return client, headers
+
+    def test_it_lists_every_team_applications_and_every_team(
+        self, world: World, central: tuple[TestClient, dict[str, str]]
+    ) -> None:
+        client, headers = central
+
+        apps = client.get("/api/apps", headers=headers)
+        teams = client.get("/api/teams", headers=headers)
+
+        assert apps.status_code == 200, apps.text
+        assert domains(apps.json()) == {ACME, GLOBEX}
+        assert {t["slug"] for t in teams.json()["teams"]} == {"acme", "globex", "default"}
+
+    def test_it_reaches_what_a_team_member_cannot(
+        self, world: World, central: tuple[TestClient, dict[str, str]]
+    ) -> None:
+        client, headers = central
+
+        for path in (f"/api/apps/{GLOBEX}", "/api/server/summary", "/api/services"):
+            response = client.get(path, headers=headers)
+            assert response.status_code == 200, (path, response.text)
+
+    def test_what_it_forwards_does_not_narrow_it_to_the_teams_of_the_person_it_names(
+        self, world: World, central: tuple[TestClient, dict[str, str]]
+    ) -> None:
+        # alice belongs to acme only; the central acting for her name still reads the node whole,
+        # because the node's own teams are not the central's to apply.
+        client, headers = central
+        headers = {**headers, FLEET_ACTOR_HEADER: "alice"}
+
+        assert domains(client.get("/api/apps", headers=headers).json()) == {ACME, GLOBEX}
+
+    def test_the_same_token_from_anywhere_else_is_still_refused(
+        self, world: World, central: tuple[TestClient, dict[str, str]]
+    ) -> None:
+        _client, headers = central
+        elsewhere = TestClient(world.client.app, client=("203.0.113.9", 50000))
+
+        assert elsewhere.get("/api/apps", headers=headers).status_code == 401
