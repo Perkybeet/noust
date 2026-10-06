@@ -30,6 +30,19 @@ def _run_script(cursor: sqlite3.Cursor, script: str) -> None:
             cursor.execute(statement)
 
 
+@pytest.fixture(autouse=True)
+def blank_areas(monkeypatch):
+    """
+    Empty every area's fragment, so these tests judge the machinery on its own.
+
+    The areas' real tables belong to their lanes' own tests; here a store with
+    nothing declared must stay untouched, and a probe is declared on purpose.
+    """
+    for area in AREAS:
+        monkeypatch.setattr(schema_v14, f"{area}_SQL", "")
+        monkeypatch.setattr(schema_v14, f"{area}_COLUMNS", [])
+
+
 @pytest.fixture
 def cursor():
     """A cursor on an in-memory database holding the one older table v14 may alter."""
