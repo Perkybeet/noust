@@ -1,0 +1,40 @@
+{
+  "push": {
+    "changes": [
+      {
+        "forced": false,
+        "old": null,
+        "created": true,
+        "commits": [],
+        "truncated": false,
+        "closed": false,
+        "new": {
+          "name": "v1.4.0",
+          "type": "tag",
+          "target": {
+            "type": "commit",
+            "hash": "9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e",
+            "message": "Fix the checkout total\n",
+            "date": "2026-10-05T09:14:03+00:00"
+          }
+        }
+      }
+    ]
+  },
+  "actor": {
+    "display_name": "Ada Lovelace",
+    "nickname": "ada",
+    "type": "user",
+    "uuid": "{6f1c6a56-45a0-4b5f-9f3e-1e1f7c7f2a11}"
+  },
+  "repository": {
+    "type": "repository",
+    "full_name": "acme/shop",
+    "name": "shop",
+    "is_private": true,
+    "links": {
+      "html": {"href": "https://bitbucket.org/acme/shop"}
+    },
+    "scm": "git"
+  }
+}

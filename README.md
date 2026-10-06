@@ -476,11 +476,27 @@ noust preview list shop.example.com
 Every pull request gets `pr-<n>-<app>.previews.example.com`, deployed on releases with 256 MB
 and half a CPU, rebuilt on each push, and removed when the request closes or after seven
 days without a push, up to a quota per application. Events come from the application's own
-webhook (GitHub, GitLab, Gitea) or from the GitHub App. Pull requests from forks are refused,
+webhook (GitHub, GitLab, Gitea, Bitbucket Cloud) or from the GitHub App. Pull requests from forks are refused,
 and on GitHub so are those of authors who are not the repository's owners, members or
 collaborators. A preview runs with the application's environment variables, except those
 listed with `--exclude-env`; its build runs in the sandbox as `noust-build` and never sees
 production secrets.
+
+### A private repository, with a key of its own
+
+```bash
+noust app deploy-key generate shop.example.com   # an ed25519 key for this repository alone
+noust app deploy-key rotate shop.example.com     # a new one waits; the old keeps working until the host answers with it
+noust app git-credential set shop.example.com -u x-token-auth --secret-file -   # an https token, kept as a secret
+```
+
+Each repository can have an SSH deploy key of its own, generated here (no passphrase, a `0600`
+secret file that never travels in a command line) or imported, instead of the one key of the
+server. git is given only that key, host keys are pinned the first time a host is reached and a
+changed key is refused, and a rotation never leaves the repository without a key that works.
+`noust setup ssh` stays the fallback for a repository with none. A Bitbucket Cloud repository
+deploys on push and builds previews like the other hosts (webhook with a secret), and clones with
+a deploy key or an access token.
 
 ---
 
@@ -653,6 +669,14 @@ policies with a schedule, retention, verification and remote destinations (timer
 and restoring over it takes a safety copy first. Passwords never appear in a command line, and
 database ports open beyond the machine are reported (`noust db exposure`).
 
+The engine and its version are a choice, not an accident (`noust db provision shop -e postgresql
+--version 17 --install`; `noust db choices` lists what the server can be given). And when a
+desktop client has to connect from your computer, `noust db public open shop -e postgresql --from
+203.0.113.7` makes that one database reachable on a port you choose, on purpose and with every
+consequence shown first: a proxy forwards the port (the engine is not reconfigured), an account of
+its own is made for it, TLS is required where the engine can, and the firewall is told.
+`noust db public close shop -e postgresql` undoes all of it.
+
 ---
 
 ## Cron
@@ -692,8 +716,8 @@ them in the console (Settings > Notifications) or with
 `notifications.allow_private_hosts`.
 
 Deploy on push: in the console (application > Settings > Webhook) or with
-`POST /api/apps/{domain}/webhook-secret`, create a secret, and point a GitHub, Gitea or
-GitLab webhook at `https://<console>/hooks/deploy/<domain>`, which the forge must be able to
+`POST /api/apps/{domain}/webhook-secret`, create a secret, and point a GitHub, Gitea,
+GitLab or Bitbucket Cloud webhook at `https://<console>/hooks/deploy/<domain>`, which the forge must be able to
 reach. Signatures are verified; only pushes to the branch the application deploys update it
 (pin one with `noust app branch`), or, for an application that follows tags, a published
 release or a tag push.

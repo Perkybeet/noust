@@ -1,0 +1,35 @@
+{
+  "pullrequest": {
+    "type": "pullrequest",
+    "id": 7,
+    "title": "Add a gift message to the checkout (v2)",
+    "state": "MERGED",
+    "author": {"display_name": "Ada Lovelace", "nickname": "ada", "type": "user"},
+    "closed_by": {"display_name": "Grace Hopper", "nickname": "grace", "type": "user"},
+    "merge_commit": {"hash": "0123456789ab", "type": "commit"},
+    "source": {
+      "branch": {"name": "feature/gift-message"},
+      "commit": {"hash": "feedface5678", "type": "commit"},
+      "repository": {
+        "type": "repository",
+        "full_name": "acme/shop",
+        "links": {"html": {"href": "https://bitbucket.org/acme/shop"}}
+      }
+    },
+    "destination": {
+      "branch": {"name": "main"},
+      "commit": {"hash": "0123456789ab", "type": "commit"},
+      "repository": {
+        "type": "repository",
+        "full_name": "acme/shop",
+        "links": {"html": {"href": "https://bitbucket.org/acme/shop"}}
+      }
+    }
+  },
+  "actor": {"display_name": "Grace Hopper", "nickname": "grace", "type": "user"},
+  "repository": {
+    "type": "repository",
+    "full_name": "acme/shop",
+    "links": {"html": {"href": "https://bitbucket.org/acme/shop"}}
+  }
+}

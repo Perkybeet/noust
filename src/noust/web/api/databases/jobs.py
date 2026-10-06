@@ -167,6 +167,8 @@ def provision_job(
     env_var: str | None = None,
     extra_vars: bool = False,
     restart: bool = True,
+    version: str | None = None,
+    install: bool = False,
     actor: str | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
@@ -180,6 +182,9 @@ def provision_job(
         env_var: The variable.
         extra_vars: Also write the ``DB_*`` variables.
         restart: Restart the application behind its gate.
+        version: The version of the engine the database is for; None for the
+            installed one.
+        install: Install the engine, in that version, first when it is missing.
         actor: Who queued it, as the audit trail names them.
         job_context: Injected by the job manager.
 
@@ -187,7 +192,14 @@ def provision_job(
         What was done.
     """
     outcome = _service(job_context, f"Creating a database for {domain}", actor).provision_for_app(
-        domain, engine, name=name, env_var=env_var, extra_vars=extra_vars, restart=restart
+        domain,
+        engine,
+        name=name,
+        env_var=env_var,
+        extra_vars=extra_vars,
+        restart=restart,
+        version=version,
+        install=install,
     )
     _done(job_context)
     return outcome.to_dict()

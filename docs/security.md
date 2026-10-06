@@ -679,8 +679,9 @@ outside its COPY data is refused before anything is dropped, pg_dump's own
 - **A Telegram bot token** must be `<digits>:<secret>` from its first character to its last,
   a trailing line break included; any other shape is refused on save (`422` on `bot_token`)
   and again before it becomes part of a Bot API URL.
-- **Deploy webhooks** (`POST /hooks/deploy/{domain}`) verify `X-Hub-Signature-256` (GitHub)
-  or `X-Gitea-Signature` (Gitea) as HMAC-SHA256 of the body, or `X-Gitlab-Token` (GitLab),
+- **Deploy webhooks** (`POST /hooks/deploy/{domain}`) verify `X-Hub-Signature-256` (GitHub),
+  `X-Gitea-Signature` (Gitea) or `X-Hub-Signature: sha256=...` (Bitbucket Cloud) as HMAC-SHA256
+  of the body, or `X-Gitlab-Token` (GitLab),
   all in constant time. An unknown application and one without a webhook secret look the
   same from outside. A bad signature is counted against that application, not the address:
   after 10 in 15 minutes its hook answers `429` (`"error": "locked_out"`, with `Retry-After`)

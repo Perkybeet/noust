@@ -1478,6 +1478,8 @@ def _provision(
     extra_vars: bool,
     restart: bool,
     logger: Logger,
+    version: str | None = None,
+    install: bool = False,
 ) -> int:
     """
     Create a database and an account for an application, and link them.
@@ -1490,18 +1492,68 @@ def _provision(
         extra_vars: Also write the ``DB_*`` variables.
         restart: Restart the application behind its gate.
         logger: Logger for progress and errors.
+        version: The version of the engine, such as ``17``; the installed one
+            when omitted.
+        install: Install the engine, in that version, when it is missing.
 
     Returns:
         Process exit code.
     """
     try:
         outcome = _service(logger).provision_for_app(
-            domain, engine, name=name, env_var=env_var, extra_vars=extra_vars, restart=restart
+            domain,
+            engine,
+            name=name,
+            env_var=env_var,
+            extra_vars=extra_vars,
+            restart=restart,
+            version=version,
+            install=install,
+            install_hint="add --install",
         )
     except NoustError as e:
         return _fail(logger, e)
     verb = "Created and linked" if outcome.created_database else "Linked"
     logger.success(f"{verb} {outcome.database} for {domain} as {', '.join(outcome.env_vars)}")
+    return 0
+
+
+def _choices(*, json_output: bool, logger: Logger) -> int:
+    """
+    List the engines and versions a database can be created on.
+
+    Args:
+        json_output: Print JSON instead of a table.
+        logger: Where to report.
+
+    Returns:
+        Process exit code.
+    """
+    try:
+        entries = _service(logger).engine_choices()
+    except NoustError as e:
+        return _fail(logger, e)
+    if json_output:
+        _echo_json({"choices": entries})
+        return 0
+    rows = []
+    for entry in entries:
+        versions = ", ".join(
+            f"{item['version']}"
+            + {"installed": " (installed)", "installable": ""}.get(item["state"], " (n/a)")
+            for item in entry["versions"]
+        )
+        status = (
+            f"installed {entry['running_version'] or ''}".strip()
+            if entry["installed"]
+            else ("installable" if entry["installable"] else "unavailable")
+        )
+        rows.append([entry["flavour"], entry["display_name"], status, versions or "-"])
+    logger.table(["Engine", "Name", "State", "Versions"], rows)
+    logger.info(
+        "Create a database on one: noust db provision DOMAIN -e ENGINE --version VERSION "
+        "(--install installs it first)."
+    )
     return 0
 
 
@@ -2587,6 +2639,20 @@ def links(ctx: Context, domain: str) -> None:
 @click.option("--env-var", help="Variable to write. DATABASE_URL, or REDIS_URL for Redis.")
 @click.option("--extra-vars", is_flag=True, help="Also write DB_HOST, DB_PORT, DB_NAME, ...")
 @click.option("--no-restart", is_flag=True, help="Write the variables without restarting.")
+@click.option(
+    "--version",
+    "version",
+    metavar="VERSION",
+    help="The version of the engine the database is for, such as 17 or 11.4 ('noust db "
+    "choices' lists them). The installed one when omitted.",
+)
+@click.option(
+    "--install",
+    "install",
+    is_flag=True,
+    help="Install the engine, in --version, first when it is not installed: the same as "
+    "'noust db install'.",
+)
 @pass_context
 def provision(
     ctx: Context,
@@ -2596,8 +2662,16 @@ def provision(
     env_var: str | None,
     extra_vars: bool,
     no_restart: bool,
+    version: str | None,
+    install: bool,
 ) -> None:
-    """Create a database and an account for an application, and link them."""
+    """
+    Create a database and an account for an application, and link them.
+
+    The engine is the one installed, unless --version asks for another: one
+    that is not installed is installed first only with --install, and a version
+    other than the one that runs is refused with what runs.
+    """
     _exit(
         _provision(
             domain,
@@ -2607,8 +2681,18 @@ def provision(
             extra_vars=extra_vars,
             restart=not no_restart,
             logger=ctx.logger,
+            version=version,
+            install=install,
         )
     )
+
+
+@cli.command(read_only=True)
+@json_option("Print the choices as JSON.")
+@pass_context
+def choices(ctx: Context) -> None:
+    """List the engines and versions a database can be created on, and how."""
+    _exit(_choices(json_output=ctx.json_output, logger=ctx.logger))
 
 
 @cli.command()
@@ -2861,3 +2945,18 @@ def _attach_data_commands() -> None:
 
 
 _attach_data_commands()
+
+
+def _attach_public_commands() -> None:
+    """
+    Add ``public``: make a database reachable from the network, and private again.
+
+    It lives in :mod:`noust.cli.commands.db_public`, which imports this module
+    only at call time, like the backup and data commands.
+    """
+    from noust.cli.commands import db_public
+
+    db_public.register(cli)
+
+
+_attach_public_commands()

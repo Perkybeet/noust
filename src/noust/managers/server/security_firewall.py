@@ -422,6 +422,25 @@ class FirewallPlan:
 
 
 @dataclass(frozen=True)
+class DirectChange:
+    """
+    What an allow rule made without a confirmation window came to.
+
+    Attributes:
+        backend: ``ufw``, ``firewalld``, ``nftables`` or ``none``.
+        active: The firewall filters traffic now; when it does not, a rule is
+            kept (ufw) or not made (firewalld) and every port is open anyway.
+        changed: A rule was added or removed by this call.
+        detail: One sentence on why nothing was changed, when nothing was.
+    """
+
+    backend: str
+    active: bool
+    changed: bool
+    detail: str = ""
+
+
+@dataclass(frozen=True)
 class Protected:
     """
     What the anti-lockout guard keeps open.
@@ -1269,6 +1288,19 @@ class Firewall:
         rule = request.validated()
         state = self._editable()
         self._guard_rule(rule, self.protected())
+        return self._build_add(rule, state)
+
+    def _build_add(self, rule: RuleRequest, state: FirewallState) -> FirewallPlan:
+        """
+        Spell the commands that add a validated rule, and the ones that undo it.
+
+        Args:
+            rule: The validated rule.
+            state: The firewall as it is.
+
+        Returns:
+            The commands that make it, undo it and make it permanent.
+        """
         note = f"{NOUST_COMMENT} {rule.comment}".strip()
         title = f"{rule.action.capitalize()} {rule.proto} port {rule.port} from {rule.source}"
         if state.backend == "ufw":
@@ -1442,6 +1474,154 @@ class Firewall:
             The change.
         """
         return self._apply(self.plan_disable())
+
+    def _same_rule(self, rule: FirewallRule, request: RuleRequest) -> bool:
+        """
+        Tell whether a rule is exactly the one a request describes.
+
+        Args:
+            rule: A rule of the firewall.
+            request: A validated request.
+
+        Returns:
+            True for an allow rule of the one port, over TCP, from the same source.
+        """
+        return (
+            rule.action == "allow"
+            and rule.known
+            and rule.service is None
+            and rule.ports == ((request.port, request.port),)
+            and rule.proto in (request.proto, "any")
+            and rule.source == request.source
+        )
+
+    def allow_direct(self, request: RuleRequest) -> DirectChange:
+        """
+        Allow one port without waiting for a confirmation.
+
+        The confirm-or-revert window exists because a rule can cut the operator
+        off; an allow rule cannot, which is why this takes allow rules only and
+        nothing else may reach it. It is the same plan, run now, with the same
+        audit event. A rule that is already there is left alone and not
+        counted as made, so removing it later does not take away the
+        operator's own.
+
+        Args:
+            request: An allow rule for one port.
+
+        Returns:
+            What came of it; ``changed`` is False for a rule that was already
+            there, a firewall Noust does not change, or one that is not running.
+
+        Raises:
+            SecurityError: The request is not an allow rule, or a command was
+                refused (what was made is undone).
+            ValidationError: A field is invalid.
+        """
+        rule = request.validated()
+        if rule.action != "allow":
+            raise SecurityError(
+                "Only an allow rule is made without a confirmation window",
+                details="Denying a port can cut SSH off, so it waits to be confirmed.",
+            )
+        state = self.state()
+        if state.backend not in ("ufw", "firewalld") or not state.installed:
+            return DirectChange(
+                state.backend,
+                False,
+                False,
+                "Noust changes ufw and firewalld rules, and neither is in use here",
+            )
+        if state.error:
+            raise SecurityError("The firewall's state could not be read", output=state.error)
+        if any(self._same_rule(existing, rule) for existing in state.rules):
+            return DirectChange(state.backend, state.active, False, "it is already allowed")
+        if state.backend == "firewalld" and not state.active:
+            return DirectChange(state.backend, False, False, "firewalld is not running")
+        plan = self._build_add(rule, state)
+        self._run_direct(plan, state)
+        return DirectChange(state.backend, state.active, True)
+
+    def remove_direct(self, request: RuleRequest) -> DirectChange:
+        """
+        Take away a rule :meth:`allow_direct` made, exactly that one.
+
+        On ufw only a rule Noust added (its ``noust:`` comment) is removed, so
+        an operator's identical rule is never touched; firewalld keeps no
+        comments, so the caller removes only what :meth:`allow_direct` reported
+        it made.
+
+        Args:
+            request: The allow rule that was made.
+
+        Returns:
+            What came of it; ``changed`` is False when no such rule is there.
+
+        Raises:
+            SecurityError: A command was refused.
+            AccessGuardError: The rule is the last one that opens SSH or the
+                console (the guard of every deletion).
+        """
+        rule = request.validated()
+        state = self.state()
+        if state.backend not in ("ufw", "firewalld") or not state.installed or state.error:
+            return DirectChange(state.backend, False, False, "no firewall Noust changes")
+        found = next(
+            (
+                item
+                for item in state.rules
+                if self._same_rule(item, rule) and (item.noust or state.backend != "ufw")
+            ),
+            None,
+        )
+        if found is None:
+            return DirectChange(state.backend, state.active, False, "no such rule")
+        plan = self.plan_delete(found.id)
+        self._run_direct(plan, state)
+        return DirectChange(state.backend, state.active, True)
+
+    def _run_direct(self, plan: FirewallPlan, state: FirewallState) -> None:
+        """
+        Run a plan now, undoing what it did if a command fails.
+
+        Args:
+            plan: What to run, and what undoes it.
+            state: The firewall as it was.
+
+        Raises:
+            SecurityError: A command was refused; the earlier ones are undone.
+        """
+        done: list[list[str]] = []
+        for argv in plan.apply:
+            result = self.probe.runner.run(argv, timeout=PROBE_TIMEOUT, env=FIREWALL_ENV)
+            self._say("$ " + " ".join(argv))
+            if not result.success:
+                for undo in reversed(plan.undo[: len(done)]):
+                    self.probe.runner.run(undo, timeout=PROBE_TIMEOUT, env=FIREWALL_ENV)
+                audit(
+                    "server.firewall",
+                    state.backend,
+                    outcome="failure",
+                    action=plan.title,
+                    reason=(result.stderr or result.stdout).strip(),
+                )
+                raise SecurityError(
+                    f"The firewall refused '{' '.join(argv)}'",
+                    output=(result.stderr or result.stdout).strip() or None,
+                )
+            done.append(argv)
+        for argv in plan.commit:
+            result = self.probe.runner.run(argv, timeout=PROBE_TIMEOUT, env=FIREWALL_ENV)
+            self._say("$ " + " ".join(argv))
+            if not result.success:
+                for undo in reversed(plan.undo):
+                    self.probe.runner.run(undo, timeout=PROBE_TIMEOUT, env=FIREWALL_ENV)
+                raise SecurityError(
+                    f"The firewall could not make '{plan.title}' permanent, so it was undone",
+                    output=(result.stderr or result.stdout).strip() or None,
+                )
+        self._state = None
+        audit("server.firewall", state.backend, action=plan.title)
 
     def _apply(self, plan: FirewallPlan) -> PendingChange:
         """

@@ -204,6 +204,9 @@ MONITOR_UNIT = f"{UNIT_PREFIX}monitor"
 PREVIEWS_UNIT = f"{UNIT_PREFIX}previews"
 CRON_UNIT_PREFIX = f"{UNIT_PREFIX}cron-"
 BACKUP_UNIT_PREFIX = f"{UNIT_PREFIX}backup-"
+#: The socket and service of a database made reachable from the network
+#: (``noust-dbexpose-<engine>-<port>``).
+DB_EXPOSE_UNIT_PREFIX = f"{UNIT_PREFIX}dbexpose-"
 #: The transient unit noust-monitor has systemd run the hardening checks in.
 SECURITY_CHECKS_UNIT = f"{UNIT_PREFIX}security-checks"
 
@@ -228,6 +231,7 @@ OWN_UNITS: frozenset[str] = frozenset(
 OWN_UNIT_PREFIXES: tuple[str, ...] = (
     CRON_UNIT_PREFIX,
     BACKUP_UNIT_PREFIX,
+    DB_EXPOSE_UNIT_PREFIX,
     LEGACY_CRON_UNIT_PREFIX,
     LEGACY_BACKUP_UNIT_PREFIX,
 )

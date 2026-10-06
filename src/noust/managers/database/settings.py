@@ -82,7 +82,7 @@ from noust.core.exceptions import (
     DatabaseError,
     ValidationError,
 )
-from noust.core.fs import is_rehearsal
+from noust.core.fs import FileSystem, is_rehearsal
 from noust.managers.database import flavours
 from noust.managers.database.base import QUERY_TIMEOUT, SERVICE_TIMEOUT, is_loopback
 
@@ -1379,40 +1379,7 @@ class EngineSettings(ABC):
             DatabaseEngineError: When the file cannot be written or handed
                 back, or it or its directory is a symbolic link.
         """
-        # Checked again right before the write, so the window a link could be
-        # swapped in through is as narrow as it can be made.
-        _refuse_link(path.parent)
-        _refuse_link(path)
-        mode, owner = 0o644, None
-        if preserve:
-            try:
-                info: os.stat_result | None = os.lstat(path)
-            except FileNotFoundError:
-                info = None
-            except OSError as exc:
-                raise DatabaseEngineError(f"Could not look at {path}", details=str(exc)) from exc
-            if info is not None:
-                # Read and write bits only: a configuration file never needs
-                # to be executable, and setuid, setgid or sticky copied from
-                # a file another account can chmod would be carried by root.
-                mode = info.st_mode & 0o666
-                if info.st_uid != 0 or info.st_gid != 0:
-                    owner = (info.st_uid, info.st_gid)
-        try:
-            self.manager.fs.make_dir(path.parent, mode=0o755)
-            # The owner goes to the temporary file before it takes the path's
-            # place. The directory is often the engine account's own
-            # (/etc/redis), so a chown by name afterwards would follow a link
-            # that account swapped in, handing root's files to it.
-            self.manager.fs.write_text(path, text, mode=mode, owner=owner)
-        except OSError as exc:
-            if owner is None:
-                raise DatabaseEngineError(f"Could not write {path}", details=str(exc)) from exc
-            user = _account_name(owner[0], pwd.getpwuid, "pw_name")
-            group = _account_name(owner[1], grp.getgrgid, "gr_name")
-            raise DatabaseEngineError(
-                f"Could not write {path} as {user}:{group}", details=str(exc)
-            ) from exc
+        write_config_file(self.manager.fs, path, text, preserve=preserve)
 
     def _restart(self) -> None:
         """
@@ -1619,6 +1586,79 @@ def _split_addresses(addresses: Any) -> list[str]:
     if isinstance(addresses, str):
         return [part for part in re.split(r"[\s,]+", addresses) if part]
     return [str(address) for address in addresses]
+
+
+def write_config_file(fs: FileSystem, path: Path, text: str, *, preserve: bool) -> None:
+    """
+    Write one engine configuration file through the filesystem seam.
+
+    The one way Noust writes a file an engine reads: never through a symbolic
+    link, and, for a distribution's own file, handing it back to the account
+    that owned it, because the engine runs as that account and must still read
+    it afterwards.
+
+    Args:
+        fs: The filesystem seam.
+        path: The file.
+        text: Its content.
+        preserve: Keep the owner and mode the file has (a distribution's file);
+            Noust's own files are root's, 0644, and hold no secret.
+
+    Raises:
+        DatabaseEngineError: When the file cannot be written or handed back,
+            or it or its directory is a symbolic link.
+    """
+    # Checked again right before the write, so the window a link could be
+    # swapped in through is as narrow as it can be made.
+    _refuse_link(path.parent)
+    _refuse_link(path)
+    mode, owner = 0o644, None
+    if preserve:
+        try:
+            info: os.stat_result | None = os.lstat(path)
+        except FileNotFoundError:
+            info = None
+        except OSError as exc:
+            raise DatabaseEngineError(f"Could not look at {path}", details=str(exc)) from exc
+        if info is not None:
+            # Read and write bits only: a configuration file never needs
+            # to be executable, and setuid, setgid or sticky copied from
+            # a file another account can chmod would be carried by root.
+            mode = info.st_mode & 0o666
+            if info.st_uid != 0 or info.st_gid != 0:
+                owner = (info.st_uid, info.st_gid)
+    try:
+        fs.make_dir(path.parent, mode=0o755)
+        # The owner goes to the temporary file before it takes the path's
+        # place. The directory is often the engine account's own
+        # (/etc/redis), so a chown by name afterwards would follow a link
+        # that account swapped in, handing root's files to it.
+        fs.write_text(path, text, mode=mode, owner=owner)
+    except OSError as exc:
+        if owner is None:
+            raise DatabaseEngineError(f"Could not write {path}", details=str(exc)) from exc
+        user = _account_name(owner[0], pwd.getpwuid, "pw_name")
+        group = _account_name(owner[1], grp.getgrgid, "gr_name")
+        raise DatabaseEngineError(
+            f"Could not write {path} as {user}:{group}", details=str(exc)
+        ) from exc
+
+
+def read_config_file(path: Path) -> str | None:
+    """
+    Read an engine configuration file Noust may also write, if it exists.
+
+    Args:
+        path: The file.
+
+    Returns:
+        Its text, or None when it does not exist.
+
+    Raises:
+        DatabaseEngineError: When it cannot be read, is not a regular file, is
+            not UTF-8, or is a symbolic link.
+    """
+    return _read(path)
 
 
 def _refuse_link(path: Path) -> None:

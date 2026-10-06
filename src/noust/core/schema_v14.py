@@ -132,11 +132,66 @@ DELIVERY_COLUMNS: list[tuple[str, str, str]] = [
 ]
 
 # Owned by the sources lane: per-application deploy keys and previews.
-SOURCES_SQL = ""
+#
+# deploy_keys: one SSH key pair per row. The private half is a secret file
+# (``deploy-keys/<name>/key``), never a column; the row keeps what is safe to
+# list: the public key, its fingerprint, where it came from and, while a
+# rotation waits for the code host to accept the new key, the new public half.
+# deploy_key_repositories: which repository each key reaches. A repository has
+# one key and a key may serve several repositories (a machine user's does). The
+# key is found by the repository's address, because a clone, a fetch and a
+# webhook all know that and none of them knows the application.
+SOURCES_SQL = """
+CREATE TABLE IF NOT EXISTS deploy_keys (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    origin TEXT NOT NULL CHECK (origin IN ('generated', 'imported')),
+    key_type TEXT NOT NULL,
+    fingerprint TEXT NOT NULL,
+    public_key TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    rotated_at TEXT,
+    last_used_at TEXT,
+    pending_key_type TEXT,
+    pending_fingerprint TEXT,
+    pending_public_key TEXT,
+    pending_since TEXT
+);
+CREATE TABLE IF NOT EXISTS deploy_key_repositories (
+    repository TEXT PRIMARY KEY,
+    key_id INTEGER NOT NULL REFERENCES deploy_keys(id) ON DELETE CASCADE,
+    assigned_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_deploy_key_repositories_key ON deploy_key_repositories(key_id);
+"""
 SOURCES_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the databases lane: database exposure and the choice of engine.
-DATABASES_SQL = ""
+#
+# database_exposures: a database deliberately reachable from the network. The
+# row is written before anything is changed (``state`` says how far the
+# opening or the closing got), so an interrupted action is finished or undone
+# from what it records instead of being guessed at.
+DATABASES_SQL = """
+CREATE TABLE IF NOT EXISTS database_exposures (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    engine TEXT NOT NULL,
+    db_name TEXT NOT NULL,
+    port INTEGER NOT NULL UNIQUE,
+    bind_address TEXT NOT NULL,
+    sources TEXT NOT NULL,
+    tls TEXT NOT NULL CHECK (tls IN ('required', 'optional')),
+    remote_user TEXT NOT NULL,
+    profile TEXT NOT NULL,
+    unit TEXT NOT NULL,
+    firewall TEXT,
+    state TEXT NOT NULL CHECK (state IN ('opening', 'exposed', 'closing')),
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    UNIQUE (engine, db_name)
+);
+"""
 DATABASES_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the backups lane: volume backups and the backup of Noust itself.
