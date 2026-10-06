@@ -4,12 +4,17 @@ import { sessionQuery } from "../api/queries/auth";
 import { FramedRoutePending } from "../app/RoutePending";
 import { LoginPage } from "../features/auth/LoginPage";
 import { safeNext } from "../features/auth/session";
+import { ssoErrorOf, ssoTicketOf } from "../features/auth/sso";
 
 export interface LoginSearch {
   next?: string;
   reason?: "expired";
   /** `token` opens on emergency access. */
   with?: "token";
+  /** The ticket an identity provider's answer left: collected once, then taken out of the address. */
+  sso?: string;
+  /** Why a sign-in through an identity provider did not finish: one word the server chose. */
+  sso_error?: string;
 }
 
 export const Route = createFileRoute("/login")({
@@ -17,6 +22,8 @@ export const Route = createFileRoute("/login")({
     ...(typeof search["next"] === "string" ? { next: search["next"] } : {}),
     ...(search["reason"] === "expired" ? { reason: "expired" as const } : {}),
     ...(search["with"] === "token" ? { with: "token" as const } : {}),
+    ...(typeof search["sso"] === "string" ? { sso: search["sso"] } : {}),
+    ...(typeof search["sso_error"] === "string" ? { sso_error: search["sso_error"] } : {}),
   }),
   beforeLoad: async ({ context, search }) => {
     // An unreachable server is shown on the page itself, with the form still usable.
@@ -32,6 +39,18 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginRoute() {
-  const { next, reason, with: method } = Route.useSearch();
-  return <LoginPage next={safeNext(next)} expired={reason === "expired"} {...(method === "token" ? { initialMode: "token" as const } : {})} />;
+  const { next, reason, with: method, sso, sso_error: reasonWord } = Route.useSearch();
+  // Whatever the address says is checked here, where it is used: a ticket is one value of a
+  // known shape and a reason is one of the server's words, and nothing else is read as either.
+  const ticket = ssoTicketOf(sso);
+  const ssoError = ssoErrorOf(reasonWord);
+  return (
+    <LoginPage
+      next={safeNext(next)}
+      expired={reason === "expired"}
+      {...(method === "token" ? { initialMode: "token" as const } : {})}
+      {...(ticket !== undefined ? { sso: ticket } : {})}
+      {...(ssoError !== undefined ? { ssoError } : {})}
+    />
+  );
 }
