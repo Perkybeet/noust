@@ -7,7 +7,10 @@
 # address, host and scheme instead of the proxy's (config/global.ini.php, "proxy_client_
 # headers", "proxy_host_headers", "proxy_scheme_headers"); they go in
 # config/common.config.ini.php, which Matomo reads beside the config.ini.php its
-# installer writes, so the installer is left alone. The image runs Apache on 80 as root.
+# installer writes, so the installer is left alone. The mount is not read-only: the image's
+# first start copies Matomo into the volume and changes its owner, and a chown that fails on a
+# read-only file stops that start (the container restarts once). The image runs Apache on 80 as
+# root.
 # /matomo.php is the tracker endpoint and answers without a login or a trusted host.
 #
 # Matomo's web installer creates the super user, and nothing in the image can do it
@@ -64,7 +67,7 @@ compose: |
         MATOMO_DATABASE_TABLES_PREFIX: matomo_
       volumes:
         - matomo-html:/var/www/html
-        - ./matomo/common.config.ini.php:/var/www/html/config/common.config.ini.php:ro
+        - ./matomo/common.config.ini.php:/var/www/html/config/common.config.ini.php
       ports:
         - "127.0.0.1:${PORT}:80"
     db:

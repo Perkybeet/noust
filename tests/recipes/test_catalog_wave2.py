@@ -326,3 +326,16 @@ def test_the_stacks_do_not_share_a_published_port() -> None:
 def test_the_recipes_that_were_listed_as_unavailable_until_now_are_installable() -> None:
     """Ghost waited for MySQL 8 and Plausible for ClickHouse: their stacks carry them."""
     assert get_recipe("ghost").available and get_recipe("plausible").available
+
+
+def test_matomos_shared_configuration_is_mounted_writable_so_its_first_start_does_not_stop() -> (
+    None
+):
+    """The smoke test found it: the image chowns its tree once, and a read-only file stops that start."""
+    mounted = [
+        entry
+        for entry in services_of(get_recipe("matomo"))["app"]["volumes"]
+        if entry.startswith("./matomo/common.config.ini.php:")
+    ]
+
+    assert mounted == ["./matomo/common.config.ini.php:/var/www/html/config/common.config.ini.php"]
