@@ -19,6 +19,8 @@ export { CopyButton } from "./CopyButton";
 export type { CopyButtonProps } from "./CopyButton";
 export { CopyTextButton } from "./CopyTextButton";
 export type { CopyTextButtonProps } from "./CopyTextButton";
+export { CopyValue } from "./CopyValue";
+export type { CopyValueProps } from "./CopyValue";
 export { DataTable } from "./DataTable";
 export type { Column, DataTableProps, SortDirection, SortState } from "./DataTable";
 export { Dialog, DialogClose } from "./Dialog";

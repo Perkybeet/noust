@@ -82,6 +82,7 @@ import { Route as ConsoleAppsDomainSettingsExportRouteImport } from "./routes/_c
 import { Route as ConsoleAppsDomainSettingsHooksRouteImport } from "./routes/_console/apps/$domain/settings/hooks"
 import { Route as ConsoleAppsDomainSettingsPreviewsRouteImport } from "./routes/_console/apps/$domain/settings/previews"
 import { Route as ConsoleAppsDomainSettingsResourcesRouteImport } from "./routes/_console/apps/$domain/settings/resources"
+import { Route as ConsoleAppsDomainSettingsSourceRouteImport } from "./routes/_console/apps/$domain/settings/source"
 import { Route as ConsoleDatabasesEngineNameIndexRouteImport } from "./routes/_console/databases/$engine/$name/index"
 import { Route as ConsoleDatabasesEngineNameBackupsRouteImport } from "./routes/_console/databases/$engine/$name/backups"
 import { Route as ConsoleDatabasesEngineNameConnectRouteImport } from "./routes/_console/databases/$engine/$name/connect"
@@ -485,6 +486,12 @@ const ConsoleAppsDomainSettingsResourcesRoute =
     path: "/resources",
     getParentRoute: () => ConsoleAppsDomainSettingsRoute,
   } as any)
+const ConsoleAppsDomainSettingsSourceRoute =
+  ConsoleAppsDomainSettingsSourceRouteImport.update({
+    id: "/source",
+    path: "/source",
+    getParentRoute: () => ConsoleAppsDomainSettingsRoute,
+  } as any)
 const ConsoleDatabasesEngineNameIndexRoute =
   ConsoleDatabasesEngineNameIndexRouteImport.update({
     id: "/",
@@ -623,6 +630,7 @@ export interface FileRoutesByFullPath {
   "/apps/$domain/settings/hooks": typeof ConsoleAppsDomainSettingsHooksRoute
   "/apps/$domain/settings/previews": typeof ConsoleAppsDomainSettingsPreviewsRoute
   "/apps/$domain/settings/resources": typeof ConsoleAppsDomainSettingsResourcesRoute
+  "/apps/$domain/settings/source": typeof ConsoleAppsDomainSettingsSourceRoute
   "/databases/$engine/$name/backups": typeof ConsoleDatabasesEngineNameBackupsRoute
   "/databases/$engine/$name/connect": typeof ConsoleDatabasesEngineNameConnectRoute
   "/databases/$engine/$name/data": typeof ConsoleDatabasesEngineNameDataRoute
@@ -701,6 +709,7 @@ export interface FileRoutesByTo {
   "/apps/$domain/settings/hooks": typeof ConsoleAppsDomainSettingsHooksRoute
   "/apps/$domain/settings/previews": typeof ConsoleAppsDomainSettingsPreviewsRoute
   "/apps/$domain/settings/resources": typeof ConsoleAppsDomainSettingsResourcesRoute
+  "/apps/$domain/settings/source": typeof ConsoleAppsDomainSettingsSourceRoute
   "/databases/$engine/$name/backups": typeof ConsoleDatabasesEngineNameBackupsRoute
   "/databases/$engine/$name/connect": typeof ConsoleDatabasesEngineNameConnectRoute
   "/databases/$engine/$name/data": typeof ConsoleDatabasesEngineNameDataRoute
@@ -788,6 +797,7 @@ export interface FileRoutesById {
   "/_console/apps/$domain/settings/hooks": typeof ConsoleAppsDomainSettingsHooksRoute
   "/_console/apps/$domain/settings/previews": typeof ConsoleAppsDomainSettingsPreviewsRoute
   "/_console/apps/$domain/settings/resources": typeof ConsoleAppsDomainSettingsResourcesRoute
+  "/_console/apps/$domain/settings/source": typeof ConsoleAppsDomainSettingsSourceRoute
   "/_console/databases/$engine/$name/backups": typeof ConsoleDatabasesEngineNameBackupsRoute
   "/_console/databases/$engine/$name/connect": typeof ConsoleDatabasesEngineNameConnectRoute
   "/_console/databases/$engine/$name/data": typeof ConsoleDatabasesEngineNameDataRoute
@@ -875,6 +885,7 @@ export interface FileRouteTypes {
     | "/apps/$domain/settings/hooks"
     | "/apps/$domain/settings/previews"
     | "/apps/$domain/settings/resources"
+    | "/apps/$domain/settings/source"
     | "/databases/$engine/$name/backups"
     | "/databases/$engine/$name/connect"
     | "/databases/$engine/$name/data"
@@ -953,6 +964,7 @@ export interface FileRouteTypes {
     | "/apps/$domain/settings/hooks"
     | "/apps/$domain/settings/previews"
     | "/apps/$domain/settings/resources"
+    | "/apps/$domain/settings/source"
     | "/databases/$engine/$name/backups"
     | "/databases/$engine/$name/connect"
     | "/databases/$engine/$name/data"
@@ -1039,6 +1051,7 @@ export interface FileRouteTypes {
     | "/_console/apps/$domain/settings/hooks"
     | "/_console/apps/$domain/settings/previews"
     | "/_console/apps/$domain/settings/resources"
+    | "/_console/apps/$domain/settings/source"
     | "/_console/databases/$engine/$name/backups"
     | "/_console/databases/$engine/$name/connect"
     | "/_console/databases/$engine/$name/data"
@@ -1575,6 +1588,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleAppsDomainSettingsResourcesRouteImport
       parentRoute: typeof ConsoleAppsDomainSettingsRoute
     }
+    "/_console/apps/$domain/settings/source": {
+      id: "/_console/apps/$domain/settings/source"
+      path: "/source"
+      fullPath: "/apps/$domain/settings/source"
+      preLoaderRoute: typeof ConsoleAppsDomainSettingsSourceRouteImport
+      parentRoute: typeof ConsoleAppsDomainSettingsRoute
+    }
     "/_console/databases/$engine/$name/": {
       id: "/_console/databases/$engine/$name/"
       path: "/"
@@ -1746,6 +1766,7 @@ interface ConsoleAppsDomainSettingsRouteChildren {
   ConsoleAppsDomainSettingsHooksRoute: typeof ConsoleAppsDomainSettingsHooksRoute
   ConsoleAppsDomainSettingsPreviewsRoute: typeof ConsoleAppsDomainSettingsPreviewsRoute
   ConsoleAppsDomainSettingsResourcesRoute: typeof ConsoleAppsDomainSettingsResourcesRoute
+  ConsoleAppsDomainSettingsSourceRoute: typeof ConsoleAppsDomainSettingsSourceRoute
   ConsoleAppsDomainSettingsIndexRoute: typeof ConsoleAppsDomainSettingsIndexRoute
 }
 
@@ -1763,6 +1784,7 @@ const ConsoleAppsDomainSettingsRouteChildren: ConsoleAppsDomainSettingsRouteChil
       ConsoleAppsDomainSettingsPreviewsRoute,
     ConsoleAppsDomainSettingsResourcesRoute:
       ConsoleAppsDomainSettingsResourcesRoute,
+    ConsoleAppsDomainSettingsSourceRoute: ConsoleAppsDomainSettingsSourceRoute,
     ConsoleAppsDomainSettingsIndexRoute: ConsoleAppsDomainSettingsIndexRoute,
   }
 

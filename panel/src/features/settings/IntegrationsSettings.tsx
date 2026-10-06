@@ -12,11 +12,12 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { StatusGlyph } from "../../components/ui/StatusPill";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
+import { DeployKeysSection } from "./DeployKeysSection";
 import { GitHubIntegration } from "./github/GitHubIntegration";
 import { readServerIdentity } from "./GeneralSettings.model";
 
 /**
- * Where GitHub, GitLab and Gitea deliver pushes: the public hooks address every integration
+ * Where GitHub, GitLab, Gitea and Bitbucket deliver pushes: the public hooks address every integration
  * needs first. Written by `noust web expose-hooks`, which also serves it; only read here.
  */
 function HooksAddress() {
@@ -61,7 +62,7 @@ function HooksAddress() {
   );
 }
 
-/** GitLab and Gitea: no App, a webhook per application, set where the application is. */
+/** GitLab, Gitea and Bitbucket: no App, a webhook per application, set where the application is. */
 function OtherHosts() {
   const t = useT();
   return (
@@ -97,6 +98,7 @@ export function IntegrationsSettings() {
       {settled ? (
         <>
           <OtherHosts />
+          <DeployKeysSection />
           <CommandHint command="noust github status" label={t("settings.integrations.fromTerminal")} />
         </>
       ) : null}

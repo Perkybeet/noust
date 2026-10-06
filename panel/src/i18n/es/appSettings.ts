@@ -15,6 +15,7 @@ export const appSettings: Catalog<typeof en> = {
     hooks: "Ganchos",
     builds: "Compilaciones",
     resources: "Recursos",
+    source: "Origen",
     previews: "Vistas previas",
     export: "Exportar",
     delete: "Eliminar",

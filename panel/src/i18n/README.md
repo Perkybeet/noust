@@ -134,3 +134,6 @@ Spanish docs and of most developer tools): "Comprueba la conexión", not "Compru
 | Roll back (an application's button) | Volver atrás | An earlier release. The long form in prose is "revertir" |
 | From a recipe | Desde una receta | Where a wizard starts from; never "Deploy a recipe", which would be a button that only opens a page |
 | Showing 21–40 of 57, Rows per page | Mostrando 21–40 de 57, Filas por página | A list's paging (`common.pagination`) |
+| deploy key, SSH key, host key | clave de despliegue, clave SSH, clave de host | An SSH key is a "clave", never a "llave": "llave de acceso" is the passkey |
+| deploy queue, place in line, waiting for | cola de despliegues, lugar de la cola, esperando a | What waits its turn. What the queue itself says it waits for (`waiting_for`) is the system's phrase and stays as it came |
+| Cancel (a job), Stop the build | Cancelar, Detener compilación | Cancel takes a job out of the queue or stops it; "Stop build" is what the dialog's button says of a build that runs |

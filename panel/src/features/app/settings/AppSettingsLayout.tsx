@@ -14,6 +14,7 @@ import { SettingsAppContext } from "./settingsApp";
 /** The subsections, in order: each its own URL under the app's settings, Delete last and apart. */
 const SUBSECTIONS: readonly { path: string; label: PlainKey; danger?: boolean }[] = [
   { path: "", label: "appSettings.nav.general" },
+  { path: "/source", label: "appSettings.nav.source" },
   { path: "/deploys", label: "appSettings.nav.deploys" },
   { path: "/deploy-on-push", label: "appSettings.nav.push" },
   { path: "/hooks", label: "appSettings.nav.hooks" },

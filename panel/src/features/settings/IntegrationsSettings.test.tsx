@@ -47,6 +47,9 @@ function integrations(status: GitHubStatus, extra: Record<string, RouteHandler> 
     "GET /api/integrations/github": () => json(200, current.status),
     "GET /api/config": () =>
       json(200, { config: { web: { hooks_url: status.hooks_url === null ? "" : "https://hooks.example.com" } }, path: "/etc/noust/config.yaml", writable: true }),
+    // The server's deploy keys share the page; nothing here is about them.
+    "GET /api/deploy-keys": () => json(200, { keys: [], total: 0 }),
+    "GET /api/deploy-keys/hosts": () => json(200, { hosts: [], total: 0 }),
     "POST /api/auth/elevate": () => {
       elevated = true;
       return json(200, { elevated_until: new Date(Date.now() + 600_000).toISOString() });

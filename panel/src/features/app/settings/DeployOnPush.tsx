@@ -15,7 +15,7 @@ import { Subsection } from "../../../components/page/Subsection";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
-import { CopyButton } from "../../../components/ui/CopyButton";
+import { CopyValue } from "../../../components/ui/CopyValue";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
@@ -40,18 +40,6 @@ import { connectionView, forgeName, outcomeView } from "./webhook";
 
 /** The example name `noust web expose-hooks` is shown with: the operator types their own. */
 const HOOKS_EXAMPLE = "hooks.example.com";
-
-/** A value the operator runs or pastes elsewhere: in full, never cut, with its copy button. */
-function CopyValue({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="flex max-w-full min-w-0 items-center gap-1 rounded-control border border-border bg-bg-sunken py-0.5 pr-0.5 pl-2.5">
-      <code translate="no" className="min-w-0 flex-1 text-12 break-all text-fg">
-        {value}
-      </code>
-      <CopyButton value={value} label={label} />
-    </div>
-  );
-}
 
 /**
  * One step of the setup: its number, or a check once done, beside what it asks. Its state is

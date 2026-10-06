@@ -19,6 +19,7 @@ export const appSettings = {
     hooks: "Deploy hooks",
     builds: "Builds",
     resources: "Resources",
+    source: "Source",
     previews: "Previews",
     export: "Export",
     delete: "Delete",
