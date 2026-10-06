@@ -32,5 +32,6 @@ export { settings } from "./settings";
 export { shell } from "./shell";
 export { sources } from "./sources";
 export { teams } from "./teams";
+export { terminal } from "./terminal";
 export { time } from "./time";
 export { timeline } from "./timeline";

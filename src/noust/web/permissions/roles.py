@@ -43,6 +43,10 @@ VIEWER: frozenset[str] = frozenset(
 OPERATOR: frozenset[str] = VIEWER | {P.APPS_OPERATE, P.APPS_DEPLOY, P.BACKUPS_RUN}
 ADMIN: frozenset[str] = OPERATOR | {
     P.APPS_MANAGE,
+    # A shell as the application reads its secrets and changes what runs, so it is
+    # an administrator's, like revealing them; the server's own is root.
+    P.APPS_TERMINAL,
+    P.SERVER_TERMINAL,
     P.SECRETS_REVEAL,
     P.ROOT_EQUIVALENT,
     P.SERVER_MANAGE,

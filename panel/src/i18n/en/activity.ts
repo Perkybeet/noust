@@ -72,6 +72,7 @@ export const activity = {
     siteAction: "Site action",
     delete: "Delete",
     zeroDowntime: "Zero-downtime mode",
+    appExec: "One-off command",
     custom: "Custom",
   },
 

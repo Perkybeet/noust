@@ -72,8 +72,14 @@ HOST_ACCESS_PERMISSION = "server.host_access"
 #: gets it only with host access, exactly like :data:`HOST_ACCESS_PERMISSION`.
 ROOT_EQUIVALENT_PERMISSION = "root_equivalent"
 
+#: A root shell on the server in the browser: the host itself, whatever the
+#: ceiling. A central gets it only with host access, like the two above.
+SERVER_TERMINAL_PERMISSION = "server.terminal"
+
 #: Every permission that reaches the host itself, held back without host access.
-HOST_PERMISSIONS = frozenset({HOST_ACCESS_PERMISSION, ROOT_EQUIVALENT_PERMISSION})
+HOST_PERMISSIONS = frozenset(
+    {HOST_ACCESS_PERMISSION, ROOT_EQUIVALENT_PERMISSION, SERVER_TERMINAL_PERMISSION}
+)
 
 
 def validate_access_level(value: Any) -> AccessLevel:

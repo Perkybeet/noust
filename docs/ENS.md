@@ -94,6 +94,8 @@ como `ens-medium` (falla hacia lo estricto). Cambiarlo queda en la auditoría.
 | Certificado de la consola | cualquiera | del operador (el autofirmado es un fallo en `ens check`) | mp.com.2.r1, mp.com.3.r2 |
 | Lista de acceso a la consola (`web.ip_whitelist`, `NOUST_ALLOW_IP`) | opcional | explícita si escucha fuera de loopback | mp.com.1, op.acc.4.5 |
 | Publicar la consola en un nombre público (`noust console expose`) | permitido, con segundo factor en todas las cuentas | rechazado salvo `--force-ens` con confirmación y una lista de IP (queda auditado) | mp.com.1, op.acc.4.5 |
+| Terminal de la consola (`terminal.idle_minutes`, `terminal.max_minutes`) | los valores configurados | 10 min sin teclear y 60 min en total como máximo; cada sesión queda grabada en la auditoría | op.acc.6.4, op.exp.8 |
+| Terminal root del servidor (`terminal.server.enabled`) | apagado hasta que se enciende | rechazado salvo `terminal.server.force_ens` además, y entonces queda auditado; con aprobación de cuatro ojos | op.acc.3, mp.eq.1 |
 
 Ajustes de seguridad relacionados que no dependen del perfil:
 

@@ -402,6 +402,32 @@ EVENTS: dict[str, EventSpec] = {
             "fleet.enroll.hostkey": "An address was asked for its SSH host key, for the operator to confirm.",
         },
     ),
+    # The console's terminal and one-off commands (3.4): a shell as an application,
+    # or as root, is the most root-equivalent thing the console opens.
+    **_events(
+        "access",
+        INFO,
+        {
+            "terminal.ticket": "A single-use ticket to open a terminal was issued.",
+        },
+    ),
+    **_events(
+        "change",
+        NOTICE,
+        {
+            "terminal.start": "A terminal was opened in an application or on the server itself.",
+            "terminal.end": "A terminal ended, with how long it lasted and the digest of its recording.",
+            "terminal.kill": "An administrator ended somebody else's terminal.",
+            "terminal.exec": "A one-off command was run in an application, queued or finished.",
+        },
+    ),
+    **_events(
+        "denial",
+        WARNING,
+        {
+            "terminal.denied": "A terminal was refused: a limit, a ticket that did not match, or a switch that is off.",
+        },
+    ),
     # Sensitive reads: someone saw something secret.
     **_reads(
         {
@@ -423,6 +449,7 @@ EVENTS: dict[str, EventSpec] = {
             "backup.destination.key": "A backup destination's encryption key was shown.",
             "fleet.node.key": "A node's key was shown.",
             "compliance.read": "The compliance report was read.",
+            "terminal.recording.read": "A recording of a terminal session was read.",
         }
     ),
     # Noust's own operation, the audit trail's included.

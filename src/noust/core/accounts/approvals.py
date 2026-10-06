@@ -299,6 +299,12 @@ ROUTE_RULES: dict[tuple[str, str], ApprovalRule] = {
         KIND_INFRASTRUCTURE,
         "Enrolling a server in this central: installing Noust on it and adding it.",
     ),
+    # A root shell in the browser: the console at its most root-equivalent.
+    ("POST", "/api/server/terminal"): ApprovalRule(
+        "terminal.server",
+        KIND_INFRASTRUCTURE,
+        "Opening a root shell on this server in the browser.",
+    ),
     # A row edit is a write through the console's own database session, the
     # same power as SQL that writes.
     ("POST", "/api/databases/databases/{engine}/{name}/rows"): ApprovalRule(

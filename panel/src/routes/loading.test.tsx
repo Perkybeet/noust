@@ -44,6 +44,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/apps/$domain/settings/previews", "/apps/shop.example.com/settings/previews"],
   ["/apps/$domain/settings/resources", "/apps/shop.example.com/settings/resources"],
   ["/apps/$domain/settings/source", "/apps/shop.example.com/settings/source"],
+  ["/apps/$domain/terminal", "/apps/shop.example.com/terminal"],
   ["/backups", "/backups"],
   ["/backups/destinations", "/backups/destinations"],
   ["/backups/schedules", "/backups/schedules"],
@@ -81,6 +82,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/server/services/$name/unit", "/server/services/wasm-shop/unit"],
   ["/server/storage", "/server/storage"],
   ["/server/system", "/server/system"],
+  ["/server/terminal", "/server/terminal"],
   ["/server/updates", "/server/updates"],
   // Old addresses that redirect: the page they land on is checked as that page.
   ["/services", "/services"],

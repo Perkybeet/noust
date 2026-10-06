@@ -191,6 +191,7 @@ const JOB_ACTION_LABELS: Readonly<Record<string, PlainKey>> = {
   site_action: "activity.jobAction.siteAction",
   delete: "activity.jobAction.delete",
   zero_downtime: "activity.jobAction.zeroDowntime",
+  app_exec: "activity.jobAction.appExec",
   custom: "activity.jobAction.custom",
 };
 

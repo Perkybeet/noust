@@ -166,6 +166,7 @@ def prune(
         report.deleted["observations"] = _prune_observations(settings.observations_days)
     except (NoustError, OSError) as exc:
         report.errors["observations"] = str(exc)
+    _prune_terminal_recordings(report, moment)
     periods = {"sessions": settings.sessions_days}
     for kind, pruner in sorted(_pruners.items()):
         days = periods.get(kind, settings.jobs_days)
@@ -190,6 +191,28 @@ def prune(
             },
         )
     return report
+
+
+def _prune_terminal_recordings(report: RetentionReport, moment: datetime) -> None:
+    """
+    Delete the recordings of console terminals that are past their period.
+
+    The period is the terminal's own (``retention.terminal_days``, and under
+    the ENS profile at least the audit trail's), so it is read where the rest
+    of the terminal's settings are.
+
+    Args:
+        report: Where what was deleted, or why not, is recorded.
+        moment: The current local time.
+    """
+    from noust.terminal import recording
+    from noust.terminal.settings import load_settings
+
+    try:
+        days = load_settings().retention_days
+        report.deleted["terminal"] = recording.prune(moment - timedelta(days=days))
+    except (NoustError, OSError) as exc:
+        report.errors["terminal"] = str(exc)
 
 
 def _deployments_still_needed(store: NoustStore) -> set[int]:

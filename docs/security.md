@@ -579,8 +579,9 @@ root on the host by another name need a second person: raw units, cron commands,
 raw site configuration, deploy hooks, moving an application to its own account and building as
 root (`root_equivalent`); SQL that writes, row edits
 and `EXPLAIN ANALYZE` included; deploying from a directory on the server; adding and removing
-fleet servers; and role grants (a role change, a new account, a recovery invitation). The
-OpenAPI schema marks those routes with `x-noust-requires-approval`.
+fleet servers; opening a root shell on the server in the browser (see
+[Terminal and one-off commands](terminal.md)); and role grants (a role change, a new account, a
+recovery invitation). The OpenAPI schema marks those routes with `x-noust-requires-approval`.
 
 - The first call does not run. It answers `202` with `approval_required` and becomes a request
   that snapshots the exact call (method, path, query and body, by their SHA-256), with a reason.

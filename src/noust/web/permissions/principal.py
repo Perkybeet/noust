@@ -167,6 +167,26 @@ def actor_of(payload: Mapping[str, Any] | None) -> Any | None:
     )
 
 
+def audit_actor(payload: Mapping[str, Any] | None) -> Any:
+    """
+    The audit actor of a request, always one.
+
+    :func:`actor_of` answers None while the audit package is not installed; code
+    that records an event for an action that must be on record needs an actor
+    either way, and an anonymous one is the honest answer when none can be built.
+
+    Args:
+        payload: An authenticated payload, or None.
+
+    Returns:
+        The :class:`noust.core.audit.Actor`.
+    """
+    from noust.core.audit import Actor
+
+    found = actor_of(payload)
+    return found if found is not None else Actor.anonymous()
+
+
 def scope_of(payload: Mapping[str, Any] | None) -> Scope:
     """
     Which teams a payload's principal sees.

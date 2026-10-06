@@ -60,6 +60,7 @@ TENANT_PERMISSIONS: frozenset[str] = frozenset(
         P.APPS_OPERATE,
         P.APPS_DEPLOY,
         P.APPS_MANAGE,
+        P.APPS_TERMINAL,
         P.SECRETS_REVEAL,
         P.DATABASES_READ,
         P.DATABASES_WRITE,

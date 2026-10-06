@@ -23,6 +23,7 @@ export const server = {
     reboot: "Reboot",
     checkUpdates: "Check for system updates",
     runChecks: "Run the security checks",
+    terminal: "Open a terminal",
     shutdown: "Shut down…",
   },
   hostAccess: {
