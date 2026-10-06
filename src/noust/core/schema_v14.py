@@ -260,6 +260,42 @@ CREATE TABLE IF NOT EXISTS database_exposures (
 """
 DATABASES_COLUMNS: list[tuple[str, str, str]] = []
 
+# Owned by the database-instances lane: the database engines Noust runs itself,
+# as containers, beside the host's (noust.core.db_instance_store is the only
+# reader and writer).
+#
+# db_instances: one row per instance, written *before* the first thing is
+# created (``state`` says how far it got), so an interrupted creation, upgrade
+# or removal is finished or undone from what the row records. The image is kept
+# as the repository, the tag Noust offered (``version``, a major such as ``17``
+# or ``8.4``) and the digest the container really runs; ``previous_digest`` is
+# what ran before the last minor upgrade, which is what a failed one is put
+# back to. Nothing secret is here: the superuser's password is in the
+# instance's own 0600 env file, where the container reads it from.
+#
+# The unit, the volume, the container and the directory are not columns: each
+# is derived from ``name`` in one place (noust.managers.database.instance_layout),
+# so a row can never name a unit it was not made with.
+DBINSTANCES_SQL = """
+CREATE TABLE IF NOT EXISTS db_instances (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    flavour TEXT NOT NULL,
+    version TEXT NOT NULL,
+    image TEXT NOT NULL,
+    digest TEXT NOT NULL,
+    previous_digest TEXT,
+    host_port INTEGER NOT NULL UNIQUE,
+    memory_limit_mb INTEGER NOT NULL,
+    state TEXT NOT NULL CHECK (state IN ('creating', 'ready', 'upgrading', 'removing')),
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL,
+    upgraded_at TEXT
+);
+"""
+DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = []
+
 # Owned by the backups lane: volume backups and the backup of Noust itself.
 #
 # volume_backup_policies: what an application's data directories and Docker
@@ -356,6 +392,7 @@ def _fragments() -> list[str]:
         DELIVERY_SQL,
         SOURCES_SQL,
         DATABASES_SQL,
+        DBINSTANCES_SQL,
         BACKUPS_SQL,
         ACCESS_SQL,
         NOTIFY_SQL,
@@ -371,6 +408,7 @@ def _columns() -> list[tuple[str, str, str]]:
         *DELIVERY_COLUMNS,
         *SOURCES_COLUMNS,
         *DATABASES_COLUMNS,
+        *DBINSTANCES_COLUMNS,
         *BACKUPS_COLUMNS,
         *ACCESS_COLUMNS,
         *NOTIFY_COLUMNS,

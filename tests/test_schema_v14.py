@@ -17,6 +17,7 @@ AREAS = (
     "DELIVERY",
     "SOURCES",
     "DATABASES",
+    "DBINSTANCES",
     "BACKUPS",
     "ACCESS",
     "NOTIFY",

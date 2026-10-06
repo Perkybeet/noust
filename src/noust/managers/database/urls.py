@@ -49,7 +49,8 @@ def connection_url(
 
     Args:
         engine: Canonical engine name (``postgresql``, ``mysql``, ``redis``,
-            ``mongodb``); anything else is used as the scheme unchanged.
+            ``mongodb``) or an instance key (``postgresql@pg16``), whose scheme
+            is its engine's; anything else is used as the scheme unchanged.
         database: Database name, or a Redis slot number.
         user: User name. For Redis, None or ``default`` means the password
             alone (``requirepass``).
@@ -61,6 +62,8 @@ def connection_url(
     Returns:
         ``<scheme>://<user>:<password>@<host>:<port>/<database>[?options]``.
     """
+    # A key says where a database is, not what protocol it speaks.
+    engine = engine.partition("@")[0]
     scheme = SCHEMES.get(engine, engine)
     name = user
     if engine == "redis" and (not user or user == REDIS_DEFAULT_USER):

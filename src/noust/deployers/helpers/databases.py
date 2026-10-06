@@ -40,7 +40,7 @@ from noust.core.logger import Logger
 from noust.core.secrets import SecretStore
 from noust.core.store import Database, NoustStore, get_store
 from noust.managers.database.base import BaseDatabaseManager
-from noust.managers.database.instances import storage_name
+from noust.managers.database.instances import engine_of, storage_name
 from noust.managers.database.registry import DatabaseRegistry
 from noust.managers.database.urls import connection_url
 
@@ -187,7 +187,9 @@ def database_identifiers(app_name: str, engine: str) -> tuple[str, str]:
         DatabaseError: The engine is not registered, or is not one Noust
             provisions a database-and-user pair for.
     """
-    _canonical, manager = _resolve_manager(engine)
+    # A key names where a database is (``postgresql@pg16``); how long a name may be is
+    # the engine's, which is what the part before the ``@`` is.
+    _canonical, manager = _resolve_manager(engine_of(engine))
     base = app_name.replace("-", "_")
     digest = hashlib.sha256(app_name.encode("utf-8")).hexdigest()[:8]
     database = _fit(base, "_db", manager.MAX_DATABASE_NAME_LENGTH, digest)

@@ -236,6 +236,7 @@ class TestTheDumpCommandsLeaveThingsOut:
             "--routines",
             "--triggers",
             "--events",
+            "--set-gtid-purged=OFF",
             "--ignore-table=shop.sessions",
             "--ignore-table=shop.cache",
             "shop",
