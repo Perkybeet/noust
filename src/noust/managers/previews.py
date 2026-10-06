@@ -1285,6 +1285,27 @@ def _record_and_queue(
     """
     store = get_store()
     existing = store.get_preview(parent.domain, event.number)
+    if (
+        existing is not None
+        and event.forge is Forge.BITBUCKET
+        and event.action is PullRequestAction.UPDATED
+        and event.head_sha
+        and existing.head_sha == event.head_sha
+        and existing.status in (PENDING, DEPLOYING, READY)
+    ):
+        # An update that moved nothing. Bitbucket sends pullrequest:updated for
+        # a new title or description as well as for new commits, and says
+        # nothing of which it was (GitLab says so with ``oldrev``, which is
+        # read where its event is translated), so a preview that is built, or
+        # being built, from this very commit has nothing to rebuild. A failed
+        # one is not skipped: the same commit again is how an operator retries.
+        _log.info(
+            "Pull request %s#%d is already at %s: nothing to rebuild",
+            event.repository,
+            event.number,
+            event.head_sha[:12],
+        )
+        return None
     if existing is None:
         others = [p for p in store.list_previews(parent.domain) if p.number != event.number]
         if len(others) >= settings.max_previews:

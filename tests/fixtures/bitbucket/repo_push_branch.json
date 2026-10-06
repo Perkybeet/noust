@@ -1,0 +1,70 @@
+{
+  "push": {
+    "changes": [
+      {
+        "forced": false,
+        "old": {
+          "name": "main",
+          "type": "branch",
+          "target": {
+            "type": "commit",
+            "hash": "5b6c0f3a8d4e2f1a9b7c6d5e4f3a2b1c0d9e8f7a"
+          }
+        },
+        "links": {
+          "html": {"href": "https://bitbucket.org/acme/shop/branches/compare/9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e..5b6c0f3a8d4e2f1a9b7c6d5e4f3a2b1c0d9e8f7a"}
+        },
+        "created": false,
+        "commits": [
+          {
+            "hash": "9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e",
+            "type": "commit",
+            "message": "Fix the checkout total\n",
+            "author": {
+              "type": "author",
+              "raw": "Ada Lovelace <ada@example.com>",
+              "user": {
+                "display_name": "Ada Lovelace",
+                "nickname": "ada",
+                "type": "user",
+                "uuid": "{6f1c6a56-45a0-4b5f-9f3e-1e1f7c7f2a11}",
+                "account_id": "5b10ac8d82e05b22cc7d4ef5"
+              }
+            }
+          }
+        ],
+        "truncated": false,
+        "closed": false,
+        "new": {
+          "name": "main",
+          "type": "branch",
+          "target": {
+            "type": "commit",
+            "hash": "9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e",
+            "message": "Fix the checkout total\n",
+            "date": "2026-10-05T09:14:03+00:00"
+          }
+        }
+      }
+    ]
+  },
+  "actor": {
+    "display_name": "Ada Lovelace",
+    "nickname": "ada",
+    "type": "user",
+    "uuid": "{6f1c6a56-45a0-4b5f-9f3e-1e1f7c7f2a11}",
+    "account_id": "5b10ac8d82e05b22cc7d4ef5"
+  },
+  "repository": {
+    "type": "repository",
+    "full_name": "acme/shop",
+    "name": "shop",
+    "is_private": true,
+    "uuid": "{3a4b5c6d-7e8f-4a1b-8c2d-9e0f1a2b3c4d}",
+    "links": {
+      "html": {"href": "https://bitbucket.org/acme/shop"}
+    },
+    "scm": "git",
+    "workspace": {"slug": "acme", "type": "workspace", "name": "Acme"}
+  }
+}

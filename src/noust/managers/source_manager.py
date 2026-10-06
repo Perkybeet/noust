@@ -2167,9 +2167,10 @@ class SourceManager(BaseManager):
         if auth:
             env.update(auth)
         else:
-            # A credential the operator put in the URL wins; otherwise a
-            # github.com repository is reached with this server's GitHub App.
-            env.update(self._github_auth(args, cwd))
+            # A credential the operator put in the URL wins; then the one kept
+            # for the repository; otherwise a github.com repository is reached
+            # with this server's GitHub App.
+            env.update(self._stored_credential(args, cwd) or self._github_auth(args, cwd))
         self.logger.debug(redact_git_text(f"Running: {' '.join(argv)}"))
         result = self._run_network_git(argv, args, cwd, env, timeout)
         stderr = redact_git_text(result.stderr)
@@ -2283,6 +2284,40 @@ class SourceManager(BaseManager):
         if not url or not is_ssh_url(url):
             return None
         return keys.identities_for(url)
+
+    def _stored_credential(self, args: Sequence[str], cwd: Path | None) -> dict[str, str]:
+        """
+        Build the https credential kept for a repository, when it has one.
+
+        The credential lives in the secret store, assigned to the repository
+        (:mod:`noust.managers.source_credentials`), and reaches git as the same
+        ``Authorization`` header an ``https://user:token@host`` source always
+        became: in git's environment, never in an argument.
+
+        Args:
+            args: The git arguments after the safe configuration.
+            cwd: The repository the command runs in, if any.
+
+        Returns:
+            Variables to add to git's environment; empty for a local command,
+            a repository without a credential, or an ssh URL.
+        """
+        verb = args[0] if args else ""
+        if verb not in _NETWORK_VERBS:
+            return {}
+        # Imported here: it reads the store, and the deployers import this module.
+        from noust.managers.source_credentials import GitCredentialManager
+
+        credentials = GitCredentialManager()
+        if not credentials.any_stored():
+            return {}
+        url = next((a for a in args if a.lower().startswith(("https://", "http://"))), None)
+        if url is None and cwd is not None:
+            url = self._remote_urls.get(os.path.abspath(cwd))
+        if url is None and cwd is not None and verb in ("fetch", "pull", "checkout"):
+            origin = self._git(["remote", "get-url", "origin"], cwd=cwd)
+            url = origin.stdout.strip() if origin.success else None
+        return credentials.auth_for(url) if url else {}
 
     def _github_auth(self, args: Sequence[str], cwd: Path | None) -> dict[str, str]:
         """

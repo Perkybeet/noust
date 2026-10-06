@@ -1,0 +1,33 @@
+{
+  "pullrequest": {
+    "type": "pullrequest",
+    "id": 9,
+    "title": "A change from my fork",
+    "state": "OPEN",
+    "author": {"display_name": "Mallory", "nickname": "mallory", "type": "user"},
+    "source": {
+      "branch": {"name": "master"},
+      "commit": {"hash": "badc0de1234a", "type": "commit"},
+      "repository": {
+        "type": "repository",
+        "full_name": "mallory/shop",
+        "links": {"html": {"href": "https://bitbucket.org/mallory/shop"}}
+      }
+    },
+    "destination": {
+      "branch": {"name": "main"},
+      "commit": {"hash": "9d8e7f6a5b4c", "type": "commit"},
+      "repository": {
+        "type": "repository",
+        "full_name": "acme/shop",
+        "links": {"html": {"href": "https://bitbucket.org/acme/shop"}}
+      }
+    }
+  },
+  "actor": {"display_name": "Mallory", "nickname": "mallory", "type": "user"},
+  "repository": {
+    "type": "repository",
+    "full_name": "acme/shop",
+    "links": {"html": {"href": "https://bitbucket.org/acme/shop"}}
+  }
+}

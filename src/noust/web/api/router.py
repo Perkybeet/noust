@@ -43,6 +43,7 @@ from noust.web.api.domains import router as domains_router
 from noust.web.api.ens import router as ens_router
 from noust.web.api.fleet import router as fleet_router
 from noust.web.api.fleet_self import router as fleet_self_router
+from noust.web.api.git_credentials import router as git_credentials_router
 from noust.web.api.identity import router as identity_router
 from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
@@ -168,6 +169,8 @@ router.include_router(app_hooks_router, prefix="/apps", tags=["Applications"])
 # router the whole of "/deploy-keys".
 router.include_router(app_deploy_key_router, prefix="/apps", tags=["Applications"])
 router.include_router(deploy_keys_router, prefix="/deploy-keys", tags=["Deploy keys"])
+# git_credentials.py owns only paths under "/{domain}/git-credential".
+router.include_router(git_credentials_router, prefix="/apps", tags=["Applications"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.
 router.include_router(app_adopt_router, prefix="/apps", tags=["Applications"])
 router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])

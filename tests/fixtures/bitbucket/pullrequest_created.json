@@ -1,0 +1,53 @@
+{
+  "pullrequest": {
+    "type": "pullrequest",
+    "id": 7,
+    "title": "Add a gift message to the checkout",
+    "description": "Adds an optional message.",
+    "state": "OPEN",
+    "draft": false,
+    "author": {
+      "display_name": "Ada Lovelace",
+      "nickname": "ada",
+      "type": "user",
+      "uuid": "{6f1c6a56-45a0-4b5f-9f3e-1e1f7c7f2a11}",
+      "account_id": "5b10ac8d82e05b22cc7d4ef5"
+    },
+    "source": {
+      "branch": {"name": "feature/gift-message"},
+      "commit": {"hash": "c0ffee1234ab", "type": "commit"},
+      "repository": {
+        "type": "repository",
+        "full_name": "acme/shop",
+        "name": "shop",
+        "links": {"html": {"href": "https://bitbucket.org/acme/shop"}}
+      }
+    },
+    "destination": {
+      "branch": {"name": "main"},
+      "commit": {"hash": "9d8e7f6a5b4c", "type": "commit"},
+      "repository": {
+        "type": "repository",
+        "full_name": "acme/shop",
+        "name": "shop",
+        "links": {"html": {"href": "https://bitbucket.org/acme/shop"}}
+      }
+    },
+    "created_on": "2026-10-05T10:02:11.000000+00:00",
+    "updated_on": "2026-10-05T10:02:11.000000+00:00",
+    "links": {"html": {"href": "https://bitbucket.org/acme/shop/pull-requests/7"}}
+  },
+  "actor": {
+    "display_name": "Ada Lovelace",
+    "nickname": "ada",
+    "type": "user",
+    "uuid": "{6f1c6a56-45a0-4b5f-9f3e-1e1f7c7f2a11}"
+  },
+  "repository": {
+    "type": "repository",
+    "full_name": "acme/shop",
+    "name": "shop",
+    "is_private": true,
+    "links": {"html": {"href": "https://bitbucket.org/acme/shop"}}
+  }
+}

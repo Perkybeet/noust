@@ -107,7 +107,7 @@ class WebhookDelivery:
         received_at: When it arrived (or, for a folded row, when the last of
             the burst did), ISO 8601 without an offset, like every timestamp
             the store writes.
-        provider: ``github``, ``gitea``, ``gitlab`` or ``github-app``; None
+        provider: ``github``, ``gitea``, ``gitlab``, ``bitbucket`` or ``github-app``; None
             for a delivery that never verified as any of them.
         event: The forge's own name for the event (``push``, ``ping``...).
         outcome: One of :data:`OUTCOMES`.

@@ -407,7 +407,7 @@ noust preview list shop.example.com
 Every pull request gets `pr-<n>-<app>.previews.example.com`, deployed on releases with 256 MB
 and half a CPU, rebuilt on each push, and removed when the request closes or after seven
 days without a push, up to a quota per application. Events come from the application's own
-webhook (GitHub, GitLab, Gitea) or from the GitHub App. Pull requests from forks are refused,
+webhook (GitHub, GitLab, Gitea, Bitbucket Cloud) or from the GitHub App. Pull requests from forks are refused,
 and on GitHub so are those of authors who are not the repository's owners, members or
 collaborators. A preview runs with the application's environment variables, except those
 listed with `--exclude-env`; its build runs in the sandbox as `noust-build` and never sees
@@ -617,8 +617,8 @@ them in the console (Settings > Notifications) or with
 `notifications.allow_private_hosts`.
 
 Deploy on push: in the console (application > Settings > Webhook) or with
-`POST /api/apps/{domain}/webhook-secret`, create a secret, and point a GitHub, Gitea or
-GitLab webhook at `https://<console>/hooks/deploy/<domain>`, which the forge must be able to
+`POST /api/apps/{domain}/webhook-secret`, create a secret, and point a GitHub, Gitea,
+GitLab or Bitbucket Cloud webhook at `https://<console>/hooks/deploy/<domain>`, which the forge must be able to
 reach. Signatures are verified; only pushes to the branch the application deploys update it
 (pin one with `noust app branch`), or, for an application that follows tags, a published
 release or a tag push.

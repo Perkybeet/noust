@@ -67,7 +67,7 @@ class PreviewOut(BaseModel):
         number: The pull (merge) request number.
         branch: The branch it deploys.
         head_sha: The commit last deployed or asked for.
-        provider: ``github``, ``gitlab`` or ``gitea``.
+        provider: ``github``, ``gitlab``, ``gitea`` or ``bitbucket``.
         repository: ``owner/repo``.
         status: ``pending``, ``deploying``, ``ready``, ``failed`` or
             ``removing``.
