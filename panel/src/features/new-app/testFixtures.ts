@@ -4,7 +4,7 @@
  */
 
 import type { AppExportDocument } from "../../api/queries/appImport";
-import type { Recipe, RecipeList } from "../../api/queries/recipes";
+import type { Recipe, RecipeList, RecipeSummary } from "../../api/queries/recipes";
 
 export const EXPORT: AppExportDocument = {
   format: "wasm-app",
@@ -39,6 +39,17 @@ export const EXPORT: AppExportDocument = {
 };
 
 
+/** What every recipe of the catalogue carries besides its name and what it runs: the same for each of these tests. */
+const CATALOGUE: Pick<RecipeSummary, "architectures" | "dependencies" | "kind" | "revision" | "runs_in_docker" | "schema_version" | "tags"> = {
+  architectures: [],
+  dependencies: [],
+  kind: "native",
+  revision: 1,
+  runs_in_docker: false,
+  schema_version: 2,
+  tags: [],
+};
+
 export const RECIPES: RecipeList = {
   items: [
     {
@@ -46,6 +57,9 @@ export const RECIPES: RecipeList = {
       title: "WordPress",
       description: "The website and blogging platform, on PHP-FPM with a MariaDB or MySQL database.",
       homepage: "https://wordpress.org",
+      slogan: "",
+      category: "other",
+      ...CATALOGUE,
       available: true,
       app_type: "php-fpm",
       database: "mysql",
@@ -56,6 +70,9 @@ export const RECIPES: RecipeList = {
       title: "Uptime Kuma",
       description: "Self-hosted monitoring of websites, APIs and servers.",
       homepage: "https://uptime.kuma.pet",
+      slogan: "",
+      category: "other",
+      ...CATALOGUE,
       available: true,
       app_type: "nodejs",
       database: null,
@@ -66,6 +83,9 @@ export const RECIPES: RecipeList = {
       title: "Ghost",
       description: "A publishing platform for blogs, newsletters and paid memberships.",
       homepage: "https://ghost.org",
+      slogan: "",
+      category: "other",
+      ...CATALOGUE,
       available: false,
       unavailable_reason: "Ghost supports only MySQL 8 in production, not MariaDB. Not available in 2.3.",
       app_type: null,
@@ -73,6 +93,7 @@ export const RECIPES: RecipeList = {
       requires: [],
     },
   ],
+  total: 3,
 };
 
 export const WORDPRESS: Recipe = {
@@ -80,10 +101,17 @@ export const WORDPRESS: Recipe = {
   title: "WordPress",
   description: "The website and blogging platform, on PHP-FPM with a MariaDB or MySQL database.",
   homepage: "https://wordpress.org",
+  slogan: "",
+  category: "cms",
+  ...CATALOGUE,
   available: true,
   app_type: "php-fpm",
   database: "mysql",
   requires: ["PHP-FPM 7.4 or newer"],
+  variables: [],
+  images: [],
+  public_ports: [],
+  changelog: [],
   layout: "releases",
   port: null,
   env: [

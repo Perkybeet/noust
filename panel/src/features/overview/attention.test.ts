@@ -23,6 +23,7 @@ function deploy(id: number, domain: string, status: string, error: string | null
     has_log: true,
     rollback_available: false,
     schema_changed: false,
+    cancelled: false,
   };
 }
 

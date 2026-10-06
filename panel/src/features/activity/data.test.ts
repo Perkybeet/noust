@@ -45,6 +45,9 @@ function job(overrides: Partial<ActivityJob> = {}): ActivityJob {
     logs: [],
     metadata: {},
     actor: null,
+    state: "succeeded",
+    cancellable: false,
+    cancel_requested: false,
     ...overrides,
   };
 }

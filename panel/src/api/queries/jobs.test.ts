@@ -22,8 +22,11 @@ const RUNNING: Job = {
   created_at: "2026-09-25T19:21:13+00:00",
   logs: [],
   metadata: { domain: "shop.example.com" },
+  state: "running",
+  cancellable: false,
+  cancel_requested: false,
 };
-const COMPLETED: Job = { ...RUNNING, status: "completed", progress: 100, current_step: "Done" };
+const COMPLETED: Job = { ...RUNNING, status: "completed", state: "succeeded", progress: 100, current_step: "Done" };
 
 describe("isJobFinished", () => {
   it("is true for the three ends and nothing else", () => {

@@ -87,6 +87,7 @@ export const POLICY: BackupPolicy = {
   destinations: [{ name: "offsite-sftp", retention_count: 30, retention_days: 90, exists: true, encrypted: false }],
   dump_format: null,
   verify_restore: true,
+  scope: "database",
   enabled: true,
   timer: { installed: true, next_run: "Wed 2026-09-30 02:00:00 UTC", last_run: "Tue 2026-09-29 02:00:00 UTC" },
   last_run_at: "2026-09-29T02:00:04+00:00",

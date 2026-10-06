@@ -16,6 +16,9 @@ const JOB: Job = {
   created_at: "2026-09-25T19:21:13",
   logs: [{ timestamp: "2026-09-25T19:21:13", level: "info", message: "Installing dependencies", step: 1 }],
   metadata: { domain: "shop.example.net" },
+  state: "running",
+  cancellable: false,
+  cancel_requested: false,
 };
 
 const DOMAIN = "shop.example.net";

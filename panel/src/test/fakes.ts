@@ -197,6 +197,9 @@ export const JOBS: JobList["jobs"] = [
     error: null,
     logs: [],
     metadata: { domain: "shop.example.com" },
+    state: "succeeded",
+    cancellable: false,
+    cancel_requested: false,
   },
 ];
 

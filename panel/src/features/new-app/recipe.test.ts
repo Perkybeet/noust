@@ -3,28 +3,9 @@ import { describe, expect, it } from "vitest";
 import { recipeNotesOf } from "../../api/queries/recipes";
 import type { Recipe } from "../../api/queries/recipes";
 import { editableVariables, generatedVariables, initialRecipeForm, noteParts, recipeBody, recipeProblems, requiredVariables } from "./recipe";
+import { WORDPRESS as FIXTURE_WORDPRESS } from "./testFixtures";
 
-const WORDPRESS: Recipe = {
-  name: "wordpress",
-  title: "WordPress",
-  description: "The website and blogging platform, on PHP-FPM with a MariaDB or MySQL database.",
-  homepage: "https://wordpress.org",
-  available: true,
-  app_type: "php-fpm",
-  database: "mysql",
-  requires: ["MariaDB or MySQL (noust db install mysql)"],
-  layout: "releases",
-  port: null,
-  env: [
-    { name: "WORDPRESS_DB_PASSWORD", generated: true },
-    { name: "WORDPRESS_AUTH_KEY", generated: true },
-    { name: "WP_DEBUG", generated: false },
-  ],
-  persistent_paths: ["wp-content"],
-  health: { path: "/", expect: "200-399" },
-  notes: [],
-  source: { kind: "archive", url: "https://wordpress.org/latest.tar.gz", checksum_url: "https://wordpress.org/latest.tar.gz.sha1", files: [] },
-};
+const WORDPRESS: Recipe = { ...FIXTURE_WORDPRESS, requires: ["MariaDB or MySQL (noust db install mysql)"], notes: [] };
 
 describe("a recipe's form", () => {
   it("asks only for the variables the recipe does not generate", () => {
