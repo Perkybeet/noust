@@ -6,6 +6,7 @@
 
 export { accounts } from "./accounts";
 export { activity } from "./activity";
+export { appBuild } from "./appBuild";
 export { appPages } from "./appPages";
 export { approvals } from "./approvals";
 export { apps } from "./apps";
@@ -17,6 +18,7 @@ export { backups } from "./backups";
 export { catalog } from "./catalog";
 export { common } from "./common";
 export { compliance } from "./compliance";
+export { containers } from "./containers";
 export { cron } from "./cron";
 export { databases } from "./databases";
 export { domains } from "./domains";

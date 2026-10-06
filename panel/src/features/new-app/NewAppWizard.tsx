@@ -28,6 +28,7 @@ import { translate, useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { normalizeDomain } from "../domains/names";
+import { imageProblem } from "../container/model";
 import { AddressFields } from "./AddressFields";
 import { ConfigureStep } from "./ConfigureStep";
 import { DeployStep, deploySummary } from "./DeployStep";
@@ -56,6 +57,7 @@ import {
   WIZARD_STEPS,
   createAppBody,
   errorsOf,
+  imageInspection,
   initialReview,
   inspectBody,
   manualInspection,
@@ -214,6 +216,9 @@ export function NewAppWizard() {
     if (start !== undefined) setChosenMode(start);
   }
   const [sourceErrors, setSourceErrors] = useState<SourceErrors>({});
+  // An image from a registry, as a container application starts from it: no repository to read.
+  const [imageRef, setImageRef] = useState("");
+  const [imageError, setImageError] = useState<string | undefined>(undefined);
   const [inspected, setInspected] = useState<{ inspection: Inspection; for: SourceForm } | null>(null);
   const [review, setReview] = useState<ReviewForm | null>(null);
   const [reviewErrors, setReviewErrors] = useState<ReviewErrors>({});
@@ -333,6 +338,13 @@ export function NewAppWizard() {
     onError: (error, body) => {
       const refusal = refusalOf(error);
       if (refusal === null) return;
+      if (body.container?.method === "image" && refusal.fields["image"] !== undefined) {
+        // The image is the source step's: what is wrong with it is said beside its field.
+        setImageError(refusal.fields["image"]);
+        go("source");
+        focusFirstInvalid();
+        return;
+      }
       if (body.recipe) {
         // A recipe brings its own source and type: only its domain is the operator's to fix.
         if (refusal.fields["domain"] !== undefined) {
@@ -365,7 +377,7 @@ export function NewAppWizard() {
     },
   });
 
-  const chosen = kind === "recipe" ? recipe !== null : kind === "import" ? loaded !== null : source.source.trim() !== "";
+  const chosen = kind === "recipe" ? recipe !== null : kind === "import" ? loaded !== null : sourceMode === "image" ? imageRef.trim() !== "" : source.source.trim() !== "";
   const dirty = chosen && target === null;
   const blocker = useBlocker({
     // Signing in again after the session expired is not leaving: nothing typed could be kept.
@@ -481,6 +493,35 @@ export function NewAppWizard() {
 
   const sourceActions = (): WizardActionsProps => {
     if (sourceMode === "adopt") return adoption.actions;
+    if (sourceMode === "image") {
+      // Nothing to inspect: the image is pulled when it is deployed, so Continue goes on to the
+      // address with the container section started as an image's.
+      const problem = imageProblem(imageRef);
+      return {
+        next: {
+          label: t("newApp.source.continue"),
+          onClick: () => {
+            setImageError(undefined);
+            const inspection = imageInspection();
+            const reference = imageRef.trim();
+            inspect.reset();
+            setInspected({ inspection, for: { source: reference, branch: "" } });
+            setReview((previous) => initialReview(inspection, { webserver: defaultWebserver, taken: context.ports, image: reference }, previous));
+            setReviewErrors({});
+            go("address");
+          },
+        },
+        ...(problem !== null
+          ? {
+              missing: problem,
+              onMissing: () => {
+                setImageError(problem);
+                focusFirstInvalid();
+              },
+            }
+          : {}),
+      };
+    }
     if (kind === "recipe") {
       return {
         next: { onClick: () => go("setup") },
@@ -541,7 +582,9 @@ export function NewAppWizard() {
           description: t(
             sourceMode === "adopt"
               ? "newApp.source.introAdopt"
-              : kind === "recipe"
+              : sourceMode === "image"
+                ? "containers.source.intro"
+                : kind === "recipe"
                 ? "newApp.source.introRecipe"
                 : kind === "import"
                   ? "newApp.source.introImport"
@@ -570,12 +613,22 @@ export function NewAppWizard() {
                 setChosenMode(mode);
                 // GitHub and a typed source are two spellings of the same field: switching
                 // between them starts it over. A recipe or an export keeps its own state.
-                if (kindOf(mode) === "code") {
+                // An image has a field of its own, so going to it and back loses nothing.
+                if (kindOf(mode) === "code" && mode !== "image" && sourceMode !== "image") {
                   setSource({ source: "", branch: "" });
                   setSourceErrors({});
                 }
+                setImageError(undefined);
                 inspect.reset();
                 openRecipe.reset();
+              }}
+              image={{
+                value: imageRef,
+                error: imageError,
+                onChange: (value) => {
+                  setImageRef(value);
+                  setImageError(undefined);
+                },
               }}
               inspecting={inspect.isPending ? { since: inspect.submittedAt } : null}
               onCancel={cancelInspection}
@@ -968,7 +1021,9 @@ function SoFar({
   const domain = kind === "recipe" ? recipeForm?.domain : kind === "import" ? importForm?.domain : review?.domain;
   if (kind === "recipe" && recipe !== null) items.push({ label: t("newApp.recipes.recipe"), value: recipe.title, mono: false, copy: false });
   if (kind === "import" && loaded !== null) items.push({ label: t("newApp.importApp.file"), value: loaded.fileName, copy: false });
-  if (kind === "code") items.push({ label: t("newApp.deploy.source"), value: shortSource(source.source), copy: false });
+  // An image is named whole: its owner, name and tag read as one thing, not as a path to shorten.
+  const image = review !== null && review.appType === "container" && review.container.method === "image" ? review.container.image : null;
+  if (kind === "code") items.push({ label: t("newApp.deploy.source"), value: image ?? shortSource(source.source), copy: false });
   items.push({ label: t("newApp.deploy.address"), value: domain !== undefined && domain.trim() !== "" ? normalizeDomain(domain) : null, copy: false });
   if (kind === "code" && review !== null) {
     items.push({ label: t("newApp.deploy.type"), value: review.appType === "" ? null : nameOf(review.appType), mono: false, copy: false });

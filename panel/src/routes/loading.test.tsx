@@ -35,7 +35,9 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/apps/$domain/logs", "/apps/shop.example.com/logs"],
   ["/apps/$domain/metrics", "/apps/shop.example.com/metrics"],
   ["/apps/$domain/settings", "/apps/shop.example.com/settings"],
+  ["/apps/$domain/settings/build", "/apps/shop.example.com/settings/build"],
   ["/apps/$domain/settings/builds", "/apps/shop.example.com/settings/builds"],
+  ["/apps/$domain/settings/container", "/apps/shop.example.com/settings/container"],
   ["/apps/$domain/settings/delete", "/apps/shop.example.com/settings/delete"],
   ["/apps/$domain/settings/deploy-on-push", "/apps/shop.example.com/settings/deploy-on-push"],
   ["/apps/$domain/settings/deploys", "/apps/shop.example.com/settings/deploys"],
@@ -117,6 +119,7 @@ const NOTHING_TO_WAIT_FOR: Readonly<Record<string, string>> = {
  */
 const NOTHING_LEFT_TO_WAIT_FOR: Readonly<Record<string, string>> = {
   "/apps/$domain/settings/delete": "the danger zone of the application the layout read",
+  "/apps/$domain/settings/container": "the test application is not a container, so it says so; a container application reads its settings and shows a skeleton while it waits",
   "/apps/$domain/settings/export": "an action on the application the layout read",
   "/apps/$domain/settings/resources": "a form of the application the layout read; the machine's core count only refines a hint",
 };

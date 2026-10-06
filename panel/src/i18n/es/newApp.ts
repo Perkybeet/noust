@@ -33,6 +33,7 @@ export const newApp: Catalog<typeof en> = {
     label: "Dónde está el código",
     github: "Desde GitHub",
     manual: "URL o ruta",
+    image: "Una imagen Docker",
     recipe: "Desde una receta",
     import: "Importar una aplicación",
     adopt: "Un stack en marcha",

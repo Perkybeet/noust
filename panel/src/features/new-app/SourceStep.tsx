@@ -1,4 +1,4 @@
-import { Archive, FolderGit2, FolderOpen, GitBranch, X } from "lucide-react";
+import { Archive, Container, FolderGit2, FolderOpen, GitBranch, X } from "lucide-react";
 import type { ReactNode, SyntheticEvent } from "react";
 
 import type { GitHubStatus } from "../../api/queries/github";
@@ -144,11 +144,12 @@ function InspectFailure({ failure, source, onManual }: { failure: unknown; sourc
 }
 
 /** Where the application comes from: code (GitHub, or a typed source), a recipe, or an export. */
-export type SourceMode = "github" | "manual" | "recipe" | "import" | "adopt";
+export type SourceMode = "github" | "manual" | "image" | "recipe" | "import" | "adopt";
 
 const MODES: readonly { value: SourceMode; label: PlainKey }[] = [
   { value: "github", label: "newApp.modes.github" },
   { value: "manual", label: "newApp.modes.manual" },
+  { value: "image", label: "newApp.modes.image" },
   { value: "recipe", label: "newApp.modes.recipe" },
   { value: "import", label: "newApp.modes.import" },
   { value: "adopt", label: "newApp.modes.adopt" },
@@ -172,6 +173,8 @@ export interface SourceStepProps {
   /** Where the source comes from: a repository the GitHub App reaches, or typed. */
   mode: SourceMode;
   onModeChange: (mode: SourceMode) => void;
+  /** The image of a container application that is pulled from a registry, and what is wrong with it. */
+  image: { value: string; error: string | undefined; onChange: (value: string) => void };
   /** What stands in the step's place when the application starts from a recipe. */
   recipes: ReactNode;
   /** What stands in the step's place when the application is imported from an export. */
@@ -197,6 +200,7 @@ export function SourceStep({
   github,
   mode,
   onModeChange,
+  image,
   recipes,
   importer,
   adopter,
@@ -226,6 +230,23 @@ export function SourceStep({
         importer
       ) : mode === "adopt" ? (
         adopter
+      ) : mode === "image" ? (
+        <form id={SOURCE_FORM} onSubmit={submit} noValidate className="flex flex-col gap-5">
+          <Field label={t("containers.source.image")} error={image.error} description={t("containers.source.imageDescription")}>
+            <Input
+              mono
+              icon={<Container />}
+              value={image.value}
+              onValueChange={image.onChange}
+              placeholder="ghcr.io/owner/app:1.4"
+              autoComplete="off"
+              autoCapitalize="off"
+              spellCheck={false}
+            />
+          </Field>
+          <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("containers.source.privateRegistry")}</p>
+          <CommandHint command={`noust create --domain example.com --image ${image.value.trim() === "" ? "ghcr.io/owner/app:1.4" : image.value.trim()}`} label={t("newApp.source.terminal")} />
+        </form>
       ) : (
         <form id={SOURCE_FORM} onSubmit={submit} noValidate className="flex flex-col gap-5">
           {mode === "github" && github?.configured === true ? (

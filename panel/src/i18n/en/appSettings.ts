@@ -17,6 +17,8 @@ export const appSettings = {
     deploys: "Deploys",
     push: "Deploy on push",
     hooks: "Deploy hooks",
+    container: "Container",
+    buildCommands: "Build commands",
     builds: "Builds",
     resources: "Resources",
     previews: "Previews",

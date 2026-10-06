@@ -1,7 +1,9 @@
 import { ChevronDown } from "lucide-react";
 
+import { KeyValueList } from "../../components/page/KeyValueList";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
 import { Subsection } from "../../components/page/Subsection";
+import { Card } from "../../components/ui/Card";
 import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
@@ -9,6 +11,7 @@ import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { ContainerFields } from "../container/ContainerFields";
 import { InspectionReadout } from "./InspectionReadout";
 import { PersistentPathsField } from "./PersistentPathsField";
 import { PlatformProposalPanel } from "./PlatformProposalPanel";
@@ -66,11 +69,33 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
   const detected = inspection.detected_types.length > 0;
   const chosenElsewhere = detected && form.appType !== inspection.app_type;
   const proposal = inspection.platform_proposal ?? null;
+  const container = form.appType === "container";
+  // An image in a registry has no repository: nothing was inspected, so there is nothing to read out.
+  const pulled = container && form.container.method === "image";
   const advancedErrors = errorsOf(errors, "configure").some(([field]) => field.startsWith("path:") || field.startsWith("limit:"));
 
   return (
     <div className="flex flex-col gap-6">
-      <InspectionReadout inspection={inspection} types={types} source={source} />
+      {pulled ? (
+        <Card padding="none">
+          <div className="px-4 py-1">
+            <KeyValueList
+              items={[
+                { label: t("containers.source.image"), value: form.container.image },
+                {
+                  label: t("containers.summary.builtFrom"),
+                  value: t("containers.settings.fromImage"),
+                  mono: false,
+                  copy: false,
+                  hint: t("containers.source.pulledEvery"),
+                },
+              ]}
+            />
+          </div>
+        </Card>
+      ) : (
+        <InspectionReadout inspection={inspection} types={types} source={source} />
+      )}
 
       {proposal !== null ? (
         <PlatformProposalPanel
@@ -82,16 +107,18 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
       ) : null}
 
       <div className="flex flex-col gap-5">
-        <Field label={t("newApp.review.deployAs")} nativeLabel={false} error={errors["appType"]} description={t("newApp.review.deployAsDescription")} className="sm:max-w-96">
-          <Select
-            options={typeOptions(types, inspection.detected_types)}
-            value={form.appType === "" ? null : form.appType}
-            placeholder={t("newApp.review.chooseType")}
-            onValueChange={(appType) => set({ appType })}
-            className="w-full"
-          />
-        </Field>
-        {chosenElsewhere ? (
+        {pulled ? null : (
+          <Field label={t("newApp.review.deployAs")} nativeLabel={false} error={errors["appType"]} description={t("newApp.review.deployAsDescription")} className="sm:max-w-96">
+            <Select
+              options={typeOptions(types, inspection.detected_types)}
+              value={form.appType === "" ? null : form.appType}
+              placeholder={t("newApp.review.chooseType")}
+              onValueChange={(appType) => set({ appType })}
+              className="w-full"
+            />
+          </Field>
+        )}
+        {chosenElsewhere && !pulled ? (
           <Notice tone="warning">
             {t("newApp.review.chosenElsewhere", { detected: typeName(types, inspection.app_type), chosen: typeName(types, form.appType) })}
           </Notice>
@@ -103,6 +130,16 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
         ) : null}
       </div>
 
+      {container ? (
+        <ContainerFields
+          draft={form.container}
+          errors={errors}
+          onChange={(next) => set({ container: next })}
+          showImage={form.container.method === "image"}
+          suggestedPort={form.container.method === "dockerfile" && inspection.detected_types.includes("container") ? inspection.default_port : null}
+        />
+      ) : null}
+
       <details open={advancedErrors} className="group overflow-hidden rounded-card border border-border">
         <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 -outline-offset-2 hover:bg-surface-hover [&::-webkit-details-marker]:hidden">
           <span className="text-13 font-medium text-fg">{t("newApp.review.advanced")}</span>
@@ -112,6 +149,7 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
           </span>
         </summary>
         <div className="flex flex-col gap-6 border-t border-border px-4 py-4">
+          {container ? null : (
           <ChoiceCards<Layout>
             legend={t("newApp.review.deploys")}
             options={[
@@ -121,7 +159,8 @@ export function ConfigureStep({ inspection, types, taken, cores, source, form, e
             value={form.layout}
             onValueChange={(layout) => set({ layout })}
           />
-          {form.layout === "releases" ? (
+          )}
+          {!container && form.layout === "releases" ? (
             <Subsection title={t("newApp.review.persistentPaths")} description={t("newApp.review.persistentDescription")}>
               <PersistentPathsField rows={form.persistentPaths} errors={errors} onChange={(persistentPaths) => set({ persistentPaths })} />
             </Subsection>

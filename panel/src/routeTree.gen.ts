@@ -77,7 +77,9 @@ import { Route as ConsoleServerServicesNameRouteImport } from "./routes/_console
 import { Route as ConsoleAppsDomainDeploymentsIndexRouteImport } from "./routes/_console/apps/$domain/deployments/index"
 import { Route as ConsoleAppsDomainDeploymentsIdRouteImport } from "./routes/_console/apps/$domain/deployments/$id"
 import { Route as ConsoleAppsDomainSettingsIndexRouteImport } from "./routes/_console/apps/$domain/settings/index"
+import { Route as ConsoleAppsDomainSettingsBuildRouteImport } from "./routes/_console/apps/$domain/settings/build"
 import { Route as ConsoleAppsDomainSettingsBuildsRouteImport } from "./routes/_console/apps/$domain/settings/builds"
+import { Route as ConsoleAppsDomainSettingsContainerRouteImport } from "./routes/_console/apps/$domain/settings/container"
 import { Route as ConsoleAppsDomainSettingsDeleteRouteImport } from "./routes/_console/apps/$domain/settings/delete"
 import { Route as ConsoleAppsDomainSettingsDeployOnPushRouteImport } from "./routes/_console/apps/$domain/settings/deploy-on-push"
 import { Route as ConsoleAppsDomainSettingsDeploysRouteImport } from "./routes/_console/apps/$domain/settings/deploys"
@@ -455,10 +457,22 @@ const ConsoleAppsDomainSettingsIndexRoute =
     path: "/",
     getParentRoute: () => ConsoleAppsDomainSettingsRoute,
   } as any)
+const ConsoleAppsDomainSettingsBuildRoute =
+  ConsoleAppsDomainSettingsBuildRouteImport.update({
+    id: "/build",
+    path: "/build",
+    getParentRoute: () => ConsoleAppsDomainSettingsRoute,
+  } as any)
 const ConsoleAppsDomainSettingsBuildsRoute =
   ConsoleAppsDomainSettingsBuildsRouteImport.update({
     id: "/builds",
     path: "/builds",
+    getParentRoute: () => ConsoleAppsDomainSettingsRoute,
+  } as any)
+const ConsoleAppsDomainSettingsContainerRoute =
+  ConsoleAppsDomainSettingsContainerRouteImport.update({
+    id: "/container",
+    path: "/container",
     getParentRoute: () => ConsoleAppsDomainSettingsRoute,
   } as any)
 const ConsoleAppsDomainSettingsDeleteRoute =
@@ -636,7 +650,9 @@ export interface FileRoutesByFullPath {
   "/apps/$domain/": typeof ConsoleAppsDomainIndexRoute
   "/domains/sites/": typeof ConsoleDomainsSitesIndexRoute
   "/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
+  "/apps/$domain/settings/build": typeof ConsoleAppsDomainSettingsBuildRoute
   "/apps/$domain/settings/builds": typeof ConsoleAppsDomainSettingsBuildsRoute
+  "/apps/$domain/settings/container": typeof ConsoleAppsDomainSettingsContainerRoute
   "/apps/$domain/settings/delete": typeof ConsoleAppsDomainSettingsDeleteRoute
   "/apps/$domain/settings/deploy-on-push": typeof ConsoleAppsDomainSettingsDeployOnPushRoute
   "/apps/$domain/settings/deploys": typeof ConsoleAppsDomainSettingsDeploysRoute
@@ -717,7 +733,9 @@ export interface FileRoutesByTo {
   "/apps/$domain": typeof ConsoleAppsDomainIndexRoute
   "/domains/sites": typeof ConsoleDomainsSitesIndexRoute
   "/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
+  "/apps/$domain/settings/build": typeof ConsoleAppsDomainSettingsBuildRoute
   "/apps/$domain/settings/builds": typeof ConsoleAppsDomainSettingsBuildsRoute
+  "/apps/$domain/settings/container": typeof ConsoleAppsDomainSettingsContainerRoute
   "/apps/$domain/settings/delete": typeof ConsoleAppsDomainSettingsDeleteRoute
   "/apps/$domain/settings/deploy-on-push": typeof ConsoleAppsDomainSettingsDeployOnPushRoute
   "/apps/$domain/settings/deploys": typeof ConsoleAppsDomainSettingsDeploysRoute
@@ -807,7 +825,9 @@ export interface FileRoutesById {
   "/_console/apps/$domain/": typeof ConsoleAppsDomainIndexRoute
   "/_console/domains/sites/": typeof ConsoleDomainsSitesIndexRoute
   "/_console/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
+  "/_console/apps/$domain/settings/build": typeof ConsoleAppsDomainSettingsBuildRoute
   "/_console/apps/$domain/settings/builds": typeof ConsoleAppsDomainSettingsBuildsRoute
+  "/_console/apps/$domain/settings/container": typeof ConsoleAppsDomainSettingsContainerRoute
   "/_console/apps/$domain/settings/delete": typeof ConsoleAppsDomainSettingsDeleteRoute
   "/_console/apps/$domain/settings/deploy-on-push": typeof ConsoleAppsDomainSettingsDeployOnPushRoute
   "/_console/apps/$domain/settings/deploys": typeof ConsoleAppsDomainSettingsDeploysRoute
@@ -897,7 +917,9 @@ export interface FileRouteTypes {
     | "/apps/$domain/"
     | "/domains/sites/"
     | "/apps/$domain/deployments/$id"
+    | "/apps/$domain/settings/build"
     | "/apps/$domain/settings/builds"
+    | "/apps/$domain/settings/container"
     | "/apps/$domain/settings/delete"
     | "/apps/$domain/settings/deploy-on-push"
     | "/apps/$domain/settings/deploys"
@@ -978,7 +1000,9 @@ export interface FileRouteTypes {
     | "/apps/$domain"
     | "/domains/sites"
     | "/apps/$domain/deployments/$id"
+    | "/apps/$domain/settings/build"
     | "/apps/$domain/settings/builds"
+    | "/apps/$domain/settings/container"
     | "/apps/$domain/settings/delete"
     | "/apps/$domain/settings/deploy-on-push"
     | "/apps/$domain/settings/deploys"
@@ -1067,7 +1091,9 @@ export interface FileRouteTypes {
     | "/_console/apps/$domain/"
     | "/_console/domains/sites/"
     | "/_console/apps/$domain/deployments/$id"
+    | "/_console/apps/$domain/settings/build"
     | "/_console/apps/$domain/settings/builds"
+    | "/_console/apps/$domain/settings/container"
     | "/_console/apps/$domain/settings/delete"
     | "/_console/apps/$domain/settings/deploy-on-push"
     | "/_console/apps/$domain/settings/deploys"
@@ -1576,11 +1602,25 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleAppsDomainSettingsIndexRouteImport
       parentRoute: typeof ConsoleAppsDomainSettingsRoute
     }
+    "/_console/apps/$domain/settings/build": {
+      id: "/_console/apps/$domain/settings/build"
+      path: "/build"
+      fullPath: "/apps/$domain/settings/build"
+      preLoaderRoute: typeof ConsoleAppsDomainSettingsBuildRouteImport
+      parentRoute: typeof ConsoleAppsDomainSettingsRoute
+    }
     "/_console/apps/$domain/settings/builds": {
       id: "/_console/apps/$domain/settings/builds"
       path: "/builds"
       fullPath: "/apps/$domain/settings/builds"
       preLoaderRoute: typeof ConsoleAppsDomainSettingsBuildsRouteImport
+      parentRoute: typeof ConsoleAppsDomainSettingsRoute
+    }
+    "/_console/apps/$domain/settings/container": {
+      id: "/_console/apps/$domain/settings/container"
+      path: "/container"
+      fullPath: "/apps/$domain/settings/container"
+      preLoaderRoute: typeof ConsoleAppsDomainSettingsContainerRouteImport
       parentRoute: typeof ConsoleAppsDomainSettingsRoute
     }
     "/_console/apps/$domain/settings/delete": {
@@ -1795,7 +1835,9 @@ const ConsoleSettingsRouteWithChildren = ConsoleSettingsRoute._addFileChildren(
 )
 
 interface ConsoleAppsDomainSettingsRouteChildren {
+  ConsoleAppsDomainSettingsBuildRoute: typeof ConsoleAppsDomainSettingsBuildRoute
   ConsoleAppsDomainSettingsBuildsRoute: typeof ConsoleAppsDomainSettingsBuildsRoute
+  ConsoleAppsDomainSettingsContainerRoute: typeof ConsoleAppsDomainSettingsContainerRoute
   ConsoleAppsDomainSettingsDeleteRoute: typeof ConsoleAppsDomainSettingsDeleteRoute
   ConsoleAppsDomainSettingsDeployOnPushRoute: typeof ConsoleAppsDomainSettingsDeployOnPushRoute
   ConsoleAppsDomainSettingsDeploysRoute: typeof ConsoleAppsDomainSettingsDeploysRoute
@@ -1808,7 +1850,10 @@ interface ConsoleAppsDomainSettingsRouteChildren {
 
 const ConsoleAppsDomainSettingsRouteChildren: ConsoleAppsDomainSettingsRouteChildren =
   {
+    ConsoleAppsDomainSettingsBuildRoute: ConsoleAppsDomainSettingsBuildRoute,
     ConsoleAppsDomainSettingsBuildsRoute: ConsoleAppsDomainSettingsBuildsRoute,
+    ConsoleAppsDomainSettingsContainerRoute:
+      ConsoleAppsDomainSettingsContainerRoute,
     ConsoleAppsDomainSettingsDeleteRoute: ConsoleAppsDomainSettingsDeleteRoute,
     ConsoleAppsDomainSettingsDeployOnPushRoute:
       ConsoleAppsDomainSettingsDeployOnPushRoute,
