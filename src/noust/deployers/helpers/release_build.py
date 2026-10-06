@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -54,6 +55,7 @@ LOCKFILES: tuple[str, ...] = (
     "pnpm-lock.yaml",
     "yarn.lock",
     "bun.lockb",
+    "bun.lock",
     "requirements.txt",
     "poetry.lock",
     "uv.lock",
@@ -209,7 +211,12 @@ def lockfiles_match(active: Path, release: Path) -> bool:
 
 
 def _current_runtime_key(
-    name: str, release: Path, *, runner: CommandRunner
+    name: str,
+    release: Path,
+    *,
+    runner: CommandRunner,
+    env: Mapping[str, str] | None = None,
+    extra: Mapping[str, str] | None = None,
 ) -> tuple[dict[str, str] | None, str | None]:
     """
     The runtime a dependency directory's install is bound to right now.
@@ -226,6 +233,11 @@ def _current_runtime_key(
         release: The release whose lockfile decides the Node package manager.
             Only its presence is read, never a version out of it.
         runner: Runner the version commands go through.
+        env: The environment a pinned runtime puts first on ``PATH``; the
+            versions are those of the runtime the install ran with.
+        extra: More that the install depends on and that is not a version
+            (the install command of a build block): part of the key, so a
+            different one never reuses what another installed.
 
     Returns:
         The key naming every component that matters and its version, or None
@@ -233,21 +245,25 @@ def _current_runtime_key(
         not reuse.
     """
     if name == "node_modules":
-        node = runner.run(["node", "--version"], timeout=VERSION_TIMEOUT)
+        node = runner.run(["node", "--version"], env=env, timeout=VERSION_TIMEOUT)
         if not node.success:
             return None, "node --version failed"
         package_manager = PackageManagerHelper().detect(release)
-        manager = runner.run([package_manager, "--version"], timeout=VERSION_TIMEOUT)
+        manager = runner.run([package_manager, "--version"], env=env, timeout=VERSION_TIMEOUT)
         if not manager.success:
             return None, f"{package_manager} --version failed"
-        return {"node": node.output, package_manager: manager.output}, None
+        return {
+            "node": node.output,
+            package_manager: manager.output,
+            **(extra or {}),
+        }, None
 
     # ".venv" and "venv": PythonDeployer.pre_install always creates a plain
     # venv with "python3 -m venv" - the only interpreter that ever builds one.
-    python = runner.run(["python3", "--version"], timeout=VERSION_TIMEOUT)
+    python = runner.run(["python3", "--version"], env=env, timeout=VERSION_TIMEOUT)
     if not python.success:
         return None, "python3 --version failed"
-    return {"python3": python.output}, None
+    return {"python3": python.output, **(extra or {})}, None
 
 
 def _read_runtime_stamp(directory: Path) -> dict[str, str] | None:
@@ -300,6 +316,8 @@ def reuse_dependencies(
     runner: CommandRunner,
     fs: FileSystem,
     logger: Logger,
+    env: Mapping[str, str] | None = None,
+    extra: Mapping[str, str] | None = None,
 ) -> str | None:
     """
     Copy the installed dependencies of the active release into a new one.
@@ -322,6 +340,10 @@ def reuse_dependencies(
         runner: Runner the version checks and the copies go through.
         fs: Filesystem a partial copy is removed through.
         logger: Where a failed copy, or a runtime mismatch, is reported.
+        env: The environment of a pinned runtime, whose versions the stamps
+            are compared against.
+        extra: What else the install depends on, as for
+            :func:`_current_runtime_key`.
 
     Returns:
         The id of the release the dependencies came from, or None when
@@ -336,7 +358,9 @@ def reuse_dependencies(
         if source.is_symlink() or not source.is_dir() or os.path.lexists(target):
             continue
 
-        current_key, reason = _current_runtime_key(name, release, runner=runner)
+        current_key, reason = _current_runtime_key(
+            name, release, runner=runner, env=env, extra=extra
+        )
         if current_key is None:
             logger.substep(f"Dependencies reinstalled: {reason}")
             return None
@@ -364,7 +388,13 @@ def reuse_dependencies(
 
 
 def stamp_installed_dependencies(
-    release: Path, *, runner: CommandRunner, fs: FileSystem, logger: Logger
+    release: Path,
+    *,
+    runner: CommandRunner,
+    fs: FileSystem,
+    logger: Logger,
+    env: Mapping[str, str] | None = None,
+    extra: Mapping[str, str] | None = None,
 ) -> None:
     """
     Record the runtime a fresh install was just built with.
@@ -382,12 +412,15 @@ def stamp_installed_dependencies(
         logger: Where a version command that failed is noted; never fatal,
             since a deploy must not fail over a stamp that only affects the
             next one.
+        env: The environment of a pinned runtime the install ran with.
+        extra: What else the install depended on, as for
+            :func:`_current_runtime_key`.
     """
     for name in DEPENDENCY_DIRS:
         directory = release / name
         if directory.is_symlink() or not directory.is_dir():
             continue
-        key, reason = _current_runtime_key(name, release, runner=runner)
+        key, reason = _current_runtime_key(name, release, runner=runner, env=env, extra=extra)
         if key is None:
             logger.debug(f"No runtime stamp written for {name}: {reason}")
             continue

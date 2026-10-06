@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends
 
 from noust.core.exceptions import FleetUnavailableError
 from noust.web.api.app_adopt import router as app_adopt_router
+from noust.web.api.app_build import router as app_build_router
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.app_hooks import router as app_hooks_router
 from noust.web.api.app_stack import router as app_stack_router
@@ -162,6 +163,8 @@ router.include_router(identity_router, prefix="/apps", tags=["Applications"])
 router.include_router(app_stack_router, prefix="/apps", tags=["Applications"])
 # app_hooks.py owns only paths under "/{domain}/hooks".
 router.include_router(app_hooks_router, prefix="/apps", tags=["Applications"])
+# app_build.py owns only paths under "/{domain}/build".
+router.include_router(app_build_router, prefix="/apps", tags=["Applications"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.
 router.include_router(app_adopt_router, prefix="/apps", tags=["Applications"])
 router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])

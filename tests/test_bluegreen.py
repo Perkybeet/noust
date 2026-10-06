@@ -832,7 +832,7 @@ def test_a_python_command_binds_the_instance_port_from_its_own_release() -> None
     )
 
     assert command == (
-        "/var/www/apps/shop/colors/%i/venv/bin/python -m gunicorn app:app -w 4 -b 0.0.0.0:${PORT}"
+        "/var/www/apps/shop/colors/%i/venv/bin/python -m gunicorn app:app -b 127.0.0.1:${PORT}"
     )
 
 

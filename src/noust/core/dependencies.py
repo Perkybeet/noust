@@ -106,6 +106,19 @@ def _npm_global_install_argv(script: str) -> list[str] | None:
     return words
 
 
+#: The application types that run on Node and its package managers.
+NODE_APP_TYPES: tuple[str, ...] = (
+    "nextjs",
+    "nodejs",
+    "vite",
+    "nuxt",
+    "sveltekit",
+    "astro",
+    "remix",
+    "angular",
+)
+
+
 class DependencyStatus(Enum):
     """Status of a dependency check."""
 
@@ -609,7 +622,7 @@ class DependencyChecker:
                 missing.append(f"{dep.name}: {dep.description}")
 
         # Check app-type specific deps
-        if app_type in ["nextjs", "nodejs", "vite"]:
+        if app_type in NODE_APP_TYPES:
             # Need Node.js
             if not self.check_command("node"):
                 missing.append("node: Node.js runtime is required for this app type")

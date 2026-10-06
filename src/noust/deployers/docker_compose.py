@@ -48,6 +48,7 @@ from noust.core.logger import Logger
 from noust.core.runner import CommandResult, CommandRunner, get_runner
 from noust.core.store import App, AppStatus, AppType, DeploymentTrigger, get_store
 from noust.core.utils import domain_to_app_name
+from noust.deployers.helpers.build_config import refuse_unsupported, resolve_build
 from noust.deployers.helpers.compose_ports import (
     is_headless_stack,
     published_port,
@@ -876,6 +877,9 @@ class DockerComposeDeployer(AppDeployer):
             ValidationError: The document that applies is not valid.
         """
         app = self.store.get_app(self.domain) if self.domain else None
+        # A stack is built by its compose file: a build block would be read and
+        # never applied, which is how a start command nobody runs goes unseen.
+        refuse_unsupported(resolve_build(app, self.app_path, self.store), self.APP_TYPE)
         return self._hooks.resolve(
             app, self.app_path, self.store, app_type=self.APP_TYPE, serves=True
         )

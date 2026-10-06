@@ -41,6 +41,8 @@ StepReporter: TypeAlias = Callable[[str], None]
 #:   whole thing run; that beats guessing from a package.json. Note that the
 #:   docker-compose deployer itself declines when the compose file is clearly a
 #:   local-development database next to a framework project.
+#: - ``angular``, ``astro``, ``nuxt``, ``remix`` and ``sveltekit`` (75): Node
+#:   frameworks that list ``vite`` among their dependencies too, so they beat it.
 #: - ``nextjs`` (70) and ``vite`` (60): specific frameworks beat generic Node.
 #: - ``python`` (50): requirements.txt / pyproject.toml.
 #: - ``nodejs`` (40): the fallback for any remaining package.json.

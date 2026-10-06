@@ -365,6 +365,11 @@ def test_detection_order_is_independent_of_registration_order() -> None:
     assert order == [
         "monorepo",
         "docker-compose",
+        "angular",
+        "astro",
+        "nuxt",
+        "remix",
+        "sveltekit",
         "nextjs",
         "php-fpm",
         "vite",
@@ -557,7 +562,13 @@ def test_python_commands_use_the_virtualenv(tmp_path: Path) -> None:
     ]
     assert deployer.get_build_command() == []
 
+    # collectstatic needs a STATIC_ROOT: a project without one has nothing to
+    # collect into, and the command would fail the deploy.
     deployer.framework = "django"
+    assert deployer.get_build_command() == []
+
+    (tmp_path / "mysite").mkdir()
+    (tmp_path / "mysite" / "settings.py").write_text("STATIC_ROOT = BASE_DIR / 'static'\n")
     assert deployer.get_build_command() == [
         str(tmp_path / "venv" / "bin" / "python"),
         "manage.py",
@@ -572,7 +583,7 @@ def test_python_poetry_and_pipenv_commands(tmp_path: Path) -> None:
     deployer.configure("app.example.com", "src", app_path=tmp_path)
 
     deployer.use_poetry = True
-    assert deployer.get_install_command() == ["poetry", "install", "--no-dev"]
+    assert deployer.get_install_command() == ["poetry", "install", "--without", "dev"]
 
     deployer.use_poetry = False
     deployer.use_pipenv = True
