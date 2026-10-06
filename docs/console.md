@@ -393,6 +393,17 @@ A Docker Compose stack that publishes no port (a worker) has no port or site to 
 judged by its containers, and the evidence is their state and the last lines of `docker compose
 logs`; when a port is still recorded for it, the report says so and names `noust app headless`.
 
+### Terminal
+
+Off the tab strip, under **More actions > Terminal** (`/apps/<domain>/terminal`): a shell as the
+account the application runs as, in its sandbox and with its environment (a stack's, in its
+container), and below it **Run a command once**, which splits what you type into the program and
+its arguments, shows the list it will run, and shows the output as the job's log. The server's own
+root shell is **Server > More actions > Open a terminal**, off until an administrator turns it
+on. Both need sudo mode, are limited in time and recorded in the audit trail. The page is drawn on
+a canvas, with a text view for screen readers; Escape, then Tab, leaves it with the keyboard. See
+[Terminal and one-off commands](terminal.md).
+
 ### Databases
 
 Two tabs: **Databases**, every database on every running engine with its size, application and
