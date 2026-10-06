@@ -1184,7 +1184,7 @@ def ssh_command(key_path: Path, known_hosts: Path) -> str:
     Build the ``GIT_SSH_COMMAND`` that signs in with one key and nothing else.
 
     ``IdentitiesOnly`` and ``IdentityAgent=none`` keep every other key out of
-    the exchange (the agent's and the user's own); ``-F /dev/null`` keeps a
+    the exchange (ssh-agent's and the user's own); ``-F /dev/null`` keeps a
     configuration file from changing the host or adding a proxy command; the
     host key is checked against Noust's own file only, strictly: the first
     contact is recorded and a different key later is refused.
