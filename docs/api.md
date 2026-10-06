@@ -684,6 +684,10 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}/follow-tags` | PATCH `apps.manage`, sudo | `{pattern}`: deploy the newest git tag that matches a glob (`v*`) instead of a branch; null follows a branch again |
 | `/api/apps/{domain}/headless` | GET `apps.read`; POST `apps.manage`, sudo | Whether a Compose stack publishes no port; record it as a worker (`{remove_site}` also retires the site Noust wrote) |
 | `/api/apps/{domain}/health` | PATCH `apps.manage`, sudo | `{path, expect, timeout}` of the health gate; null is the default |
+| `/api/databases/public` | GET `databases.read`; POST `databases.manage`, sudo | The databases reachable from the network; make one reachable (`{engine, database, port, bind_address, sources, tls, profile, confirm}`): a public port, an account of its own, TLS where the engine can, the firewall; the password is in the answer, once |
+| `/api/databases/public/plan` | POST `databases.read` | What opening would do and what the operator accepts; changes nothing |
+| `/api/databases/public/{engine}/{database}` | GET `databases.read`; DELETE `databases.manage`, sudo | Whether a database is public and how; make it private again (undoes all of it) |
+| `/api/databases/public/{engine}/{database}/reveal` | POST `secrets.reveal`, sudo | The connection details with the account's password |
 | `/api/databases/provisioning/choices` | GET `databases.read` | Each engine, the version that runs and the versions a database can be created on (`installed`, `installable`, `unavailable`) |
 | `/api/apps/{domain}/deploy-key` | GET `apps.read`; POST `apps.manage`; DELETE `apps.manage`, sudo | The key the repository is reached with; make one (or assign `{key}`); take the repository off it |
 | `/api/apps/{domain}/deploy-key/import` | POST `apps.manage`, sudo | Use a private key you have (`{private_key, name}`) |

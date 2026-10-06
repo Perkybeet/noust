@@ -917,6 +917,26 @@ def _check_initial_health(path: str | None, expect: str | None, timeout: int | N
             raise
 
 
+def _database_for_job(body: CreateAppRequest) -> dict[str, Any]:
+    """
+    Describe the new application's database the way the deploy job takes it.
+
+    The version was checked when the request arrived; the job only needs to be
+    told what it did not know before 3.4, so a request that names none is the
+    job it always was.
+
+    Args:
+        body: The request, which has a database.
+
+    Returns:
+        The database as a plain mapping, without an unset version.
+    """
+    described = dump_model(body.database)  # type: ignore[arg-type]
+    if described.get("version") is None:
+        described.pop("version", None)
+    return described
+
+
 @router.post("", response_model=JobAcceptedResponse, status_code=202)
 def create_app(
     body: CreateAppRequest,
@@ -1046,7 +1066,7 @@ def create_app(
             "health_path": body.health_path,
             "health_expect": body.health_expect,
             "health_timeout": body.health_timeout,
-            "database": dump_model(body.database) if body.database is not None else None,
+            "database": _database_for_job(body) if body.database is not None else None,
         },
         metadata={
             "domain": domain,

@@ -41,6 +41,7 @@ from typing import Any, cast
 
 from noust.core import audit
 from noust.core.config import Config
+from noust.core.database_exposures import ExposureStore
 from noust.core.ens import profile as security_profile
 from noust.core.exceptions import (
     ConfigError,
@@ -1458,6 +1459,12 @@ class DatabaseService:
                 if domain
             }
         )
+        if ExposureStore(self.store).get(engine_name, name) is not None:
+            self.audit("db.drop", target, "denied", reason="public")
+            raise DatabaseError(
+                f"The database '{name}' is reachable from the network",
+                details=f"Make it private first: noust db public close {name} --engine {engine_name}",
+            )
         if users and not unlink:
             self.audit("db.drop", target, "denied", reason="linked", apps=",".join(users))
             raise DatabaseError(
@@ -1792,6 +1799,21 @@ class DatabaseService:
         username = manager.validate_user_name(username)
         engine_name = manager.ENGINE_NAME
         self._guard_account(manager, username, "drop")
+        public = next(
+            (
+                entry
+                for entry in ExposureStore(self.store).all()
+                if entry.engine == engine_name and entry.remote_user == username
+            ),
+            None,
+        )
+        if public is not None and public.state == "exposed":
+            self.audit("db.user.drop", f"{engine_name}/{username}", "denied", reason="public")
+            raise DatabaseUserError(
+                f"'{username}' is the account of the public database {public.db_name}",
+                details=f"Make it private first: noust db public close {public.db_name} "
+                f"--engine {engine_name}",
+            )
         users = sorted(
             {
                 domain

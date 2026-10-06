@@ -2945,3 +2945,18 @@ def _attach_data_commands() -> None:
 
 
 _attach_data_commands()
+
+
+def _attach_public_commands() -> None:
+    """
+    Add ``public``: make a database reachable from the network, and private again.
+
+    It lives in :mod:`noust.cli.commands.db_public`, which imports this module
+    only at call time, like the backup and data commands.
+    """
+    from noust.cli.commands import db_public
+
+    db_public.register(cli)
+
+
+_attach_public_commands()

@@ -404,6 +404,18 @@ class MongoDBManager(BaseDatabaseManager):
             "the password that secret holds."
         )
 
+    def remote_access_blockers(self) -> list[str]:
+        """
+        Say what makes MongoDB unsafe to reach from the network as it is.
+
+        MongoDB answers a client that has no password; behind a public port that
+        is an open door, so it is what stands in the way.
+
+        Returns:
+            What :meth:`warnings` says about it, which is exactly that.
+        """
+        return self.warnings()
+
     def listen_addresses(self) -> ListenAddress | None:
         """
         Ask mongod for ``net.bindIp``.

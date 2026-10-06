@@ -1975,6 +1975,55 @@ class BaseDatabaseManager(BaseManager):
         """
         return None
 
+    def remote_access_blockers(self) -> list[str]:
+        """
+        Say what makes this engine unsafe to reach from the network as it is.
+
+        A database made reachable from outside is reached with a password
+        and nothing else, so an engine that lets a client in without one is
+        refused before anything is opened: a public port in front of it would
+        be an open door.
+
+        Returns:
+            One sentence per reason, each with what to do; empty when nothing
+            stands in the way.
+        """
+        return []
+
+    def remote_tls_blocker(self) -> str | None:
+        """
+        Say why this engine cannot be made to require TLS of one account.
+
+        Returns:
+            None when :meth:`set_remote_tls` can; otherwise why it cannot, as
+            one sentence. The base engine cannot: only the engines that can
+            tell the server "this account must use TLS" override this.
+        """
+        return (
+            f"{self.DISPLAY_NAME} cannot be made to require TLS of one account: "
+            "it takes TLS for the whole server or not at all"
+        )
+
+    def set_remote_tls(
+        self, username: str, database: str, required: bool, host: str = "localhost"
+    ) -> None:
+        """
+        Make the server refuse an account that does not use TLS, or stop doing so.
+
+        Args:
+            username: The account.
+            database: The database it is for.
+            required: Require TLS (True) or lift the requirement (False).
+            host: Host restriction, for engines that have one.
+
+        Raises:
+            DatabaseUserError: Always, here: see :meth:`remote_tls_blocker`.
+        """
+        raise DatabaseUserError(
+            self.remote_tls_blocker() or f"{self.DISPLAY_NAME} cannot require TLS",
+            details="Reach it through an SSH tunnel, or leave TLS optional on purpose.",
+        )
+
     # ==================== Backup & Restore ====================
 
     def _ensure_directory(self, path: Path, mode: int = BACKUP_DIR_MODE) -> Path:

@@ -130,6 +130,52 @@ symbolic link is refused: Noust writes as root, and the engine's own account own
 directories. On a server with several PostgreSQL clusters running, Noust does not guess which one
 to configure and says so; every step targets the one cluster by name.
 
+## Making a database public, on purpose
+
+A database is private: its engine listens on the loopback and `noust db connect-info` prints the SSH
+tunnel to reach it. For a desktop client on your own computer there is a deliberate, reversible action:
+
+```bash
+noust db public open shop -e postgresql --from 203.0.113.7 --access read-write   # asks first
+noust db public list
+noust db public show shop -e postgresql --reveal      # the connection, with the password
+noust db public close shop -e postgresql              # undoes all of it
+```
+
+Opening does four things, in this order, each recorded so it can be undone, and undoes the earlier
+ones when a later one fails:
+
+1. **A proxy on the public port you choose** (`--port`, 1024 to 65535; a free one next to the engine's
+   is suggested), on the address you choose (`--bind`, every IPv4 address by default): a systemd
+   socket and a service running `systemd-socket-proxyd` (`noust-dbexpose-<engine>-<port>`), forwarding
+   to the engine's loopback port. The engine is not reconfigured and not restarted, nothing already
+   connected notices, and it keeps listening on the loopback only.
+2. **An account of its own** for that database, `<database>_remote`, with the access you chose
+   (`--access owner|read-write|read-only`, owner by default) on that database alone. Applications'
+   accounts and passwords are never the ones given out. The password is shown once and kept as a
+   secret (`show --reveal`, sudo mode, shows it again).
+3. **TLS required of that account where the engine can**: PostgreSQL refuses it without (one marked
+   `hostnossl ... reject` line above every other in `pg_hba.conf`, checked by PostgreSQL before it is
+   reloaded and put back if it refuses it), MySQL and MariaDB refuse it without (`REQUIRE SSL` on
+   the account). Redis and MongoDB cannot do that for one account, so for them TLS is optional only
+   when you say so (`--allow-plaintext`): the password and the data then cross the network in clear.
+4. **The firewall**, through the one firewall manager (ufw or firewalld): an allow rule for the port from
+   each `--from` address or network, or from anyone when none is given. With no firewall that Noust
+   changes, or an inactive one, the warnings say that nothing limits who reaches the port.
+
+Everything it will do, and what you accept by going ahead (anyone who can reach the port can try the
+account's password; a Redis account reaches every key), is printed first and asked about (`--yes`;
+`confirm` in the API). It is refused whatever you confirm under the `ens-medium` profile, for an engine in a
+container (its compose file publishes its ports), for Redis without a password and MongoDB without
+authorization (a public port in front of them would be an open door), and for a port that is taken.
+
+`close` removes what the record says was made and nothing else: the firewall rule only if Noust added it
+(an identical rule of yours is left), the units, the TLS line and the account. One step that cannot be
+done now (the engine is stopped) leaves the record `closing` and is named; running `close` again
+finishes it. The API is `GET /api/databases/public`, `POST .../public/plan`, `POST .../public` (sudo mode),
+`GET .../public/{engine}/{database}`, `POST .../reveal` (sudo mode) and `DELETE .../public/{engine}/{database}`
+(sudo mode).
+
 ## Exposure
 
 `noust db exposure` lists database ports reachable from the network. A port Docker publishes that
