@@ -1,13 +1,13 @@
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { History, ScrollText } from "lucide-react";
+import { History } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { isApiError } from "../../api/client";
 import { auditPagesQuery } from "../../api/queries/audit";
-import { activeJobsQuery, jobsQuery } from "../../api/queries/jobs";
+import { jobsQuery } from "../../api/queries/jobs";
+import { queueBusy, queueQuery } from "../../api/queries/queue";
 import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
-import { JobProgress } from "../../components/page/JobProgress";
 import { ListPage } from "../../components/page/ListPage";
 import { ErrorBlock } from "../../components/page/QueryState";
 import { SegmentedControl } from "../../components/page/SegmentedControl";
@@ -16,6 +16,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { Notice } from "../../components/ui/Notice";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
+import { QueuePanelView } from "../queue/QueuePanel";
 import { ActivityTable } from "./ActivityTable";
 import { JobLogDrawer } from "./JobLogDrawer";
 import { AUDIT_RESULTS, JOB_STATUSES, actionWords, actorWords, auditCategoriesFor, inKind, isFiltered, matchesText, mergeActivity, resultOptions, resultValidFor } from "./data";
@@ -27,8 +28,6 @@ const OPERATIONS = "operations";
 const JOBS_PAGE = 50;
 /** Entries per page of the audit log's own keyset cursor. */
 const AUDIT_PAGE = 30;
-/** The jobs in hand shown above the timeline, at most. */
-const RUNNING_SHOWN = 3;
 
 export interface ActivityPageProps {
   search: ActivitySearch;
@@ -83,7 +82,8 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
     }),
     enabled: includeAuditQuery,
   });
-  const active = useQuery(activeJobsQuery());
+
+  const queue = useQuery(queueQuery());
 
   const auditForbidden = includeAuditQuery && audit.isError && isApiError(audit.error) && audit.error.status === 403;
   const includeAudit = includeAuditQuery && !auditForbidden;
@@ -123,7 +123,6 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
   // Before either source has answered, neither is complete, so the merge reports "more"; a
   // "Load more" drawn under the skeleton would then be pushed down as the rows arrive.
   const hasMore = loaded && merged.hasMore;
-  const running = (active.data?.jobs ?? []).slice(0, RUNNING_SHOWN);
 
   const set = (patch: SearchPatch): void => {
     const next: SearchPatch = { ...search, ...patch };
@@ -140,21 +139,22 @@ export function ActivityPage({ search, onSearchChange }: ActivityPageProps) {
     if (includeAudit && !auditComplete) void audit.fetchNextPage();
   };
 
+  // What builds and what waits leads the page, with its place in the line and a way to cancel
+  // it, drawn only when there is something in it so the page does not hold a gap open; at most
+  // one other note, about an audit log this session may not read.
+  const queueShown = queueBusy(queue.data) || queue.isError;
   const notices = [
-    ...running.map((job) => (
-      <JobProgress
-        key={job.id}
-        state={job.status === "running" ? "running" : "queued"}
-        title={job.name}
-        step={job.current_step}
-        announce={false}
-        action={
-          <Button size="sm" variant="ghost" icon={<ScrollText aria-hidden="true" />} onClick={() => setOpenJob(job)}>
-            {t("activity.viewLog")}
-          </Button>
-        }
-      />
-    )),
+    ...(queueShown
+      ? [
+          <QueuePanelView
+            key="queue"
+            queue={queue}
+            onOpenLog={(entry) => {
+              setOpenJob(entry);
+            }}
+          />,
+        ]
+      : []),
     ...(auditForbidden ? [<Notice key="forbidden">{t("activity.auditForbidden")}</Notice>] : []),
   ];
 

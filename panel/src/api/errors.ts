@@ -10,6 +10,7 @@
  */
 
 import { getLocale } from "../app/locale";
+import type { Locale } from "../app/locale";
 import { translate } from "../i18n/translate";
 
 /**
@@ -131,6 +132,28 @@ export class ApprovalPendingError extends ElevationCancelledError {
 
 export function isApiError(value: unknown): value is ApiError {
   return value instanceof ApiError;
+}
+
+/**
+ * A request the deploy queue had no room for: `429 queue_full`, answered with the seconds the
+ * server asks to wait in `Retry-After`. Not the rate limit (`rate_limited`), which is about
+ * how often a client asks and is waited out by the client itself.
+ */
+export function isQueueFull(error: unknown): error is ApiError {
+  return isApiError(error) && error.status === 429 && error.error === "queue_full";
+}
+
+/**
+ * The fix to show above the server's words for a full queue, with the wait it asked for when
+ * it asked for one; null for any other error. The server's own hint names terminal commands;
+ * in the console the wait and where the queue can be cancelled from are what helps. Its
+ * `detail`, how many requests wait, is still shown as it came.
+ */
+export function queueFullHint(error: unknown, locale: Locale = getLocale()): string | null {
+  if (!isQueueFull(error)) return null;
+  return error.retryAfter === null
+    ? translate(locale, "queue.full.hintNoWait")
+    : translate(locale, "queue.full.hint", { seconds: error.retryAfter });
 }
 
 /**

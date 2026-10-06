@@ -24,6 +24,7 @@ export { language } from "./language";
 export { nav } from "./nav";
 export { newApp } from "./newApp";
 export { overview } from "./overview";
+export { queue } from "./queue";
 export { server } from "./server";
 export { servers } from "./servers";
 export { services } from "./services";

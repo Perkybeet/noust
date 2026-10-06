@@ -63,9 +63,13 @@ export function shortCommit(commit: string | null | undefined): string | null {
 
 /**
  * A deployment's status word for its pill: one that succeeded but carries warnings (a
- * post_deploy hook failed once it served) is "deployed with warnings", not a plain success.
+ * post_deploy hook failed once it served) is "deployed with warnings", not a plain success,
+ * and one an operator cancelled is "cancelled": the store keeps its status as `failed` (the
+ * column predates cancelling), but nothing went wrong and nothing that served was touched, so
+ * it is never drawn, counted or raised as a failure.
  */
-export function deploymentStatusWord(deployment: { status: string; warnings?: string | null }): string {
+export function deploymentStatusWord(deployment: { status: string; warnings?: string | null; cancelled?: boolean | null }): string {
+  if (deployment.cancelled === true) return "cancelled";
   const succeeded = deployment.status === "success" || deployment.status === "completed";
   return succeeded && deployment.warnings ? "deployed_with_warnings" : deployment.status;
 }

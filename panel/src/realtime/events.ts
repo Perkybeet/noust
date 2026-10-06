@@ -31,6 +31,7 @@ import { jobKeys } from "../api/queries/jobs";
 import type { Job } from "../api/queries/jobs";
 import { metricKeys } from "../api/queries/metrics";
 import type { MetricsSnapshot } from "../api/queries/metrics";
+import { queueKeys } from "../api/queries/queue";
 import { serviceKeys } from "../api/queries/services";
 import { siteKeys } from "../api/queries/sites";
 import { systemKeys } from "../api/queries/system";
@@ -166,6 +167,20 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 const TERMINAL_JOB_STATES = new Set(["completed", "failed", "cancelled"]);
 
 /**
+ * Whether a job's place in the queue changed while its status did not: it moved up the line,
+ * what it waits for changed, or it was asked to stop and still runs. The `job` event carries
+ * all three; a progress tick changes none of them. (Whether it can still be cancelled is not
+ * in the event: the queue's own read says, and is asked again while anything is in it.)
+ */
+function queueMoved(previous: Job, next: Job): boolean {
+  return (
+    previous.queue_position !== next.queue_position ||
+    previous.waiting_for !== next.waiting_for ||
+    previous.cancel_requested !== next.cancel_requested
+  );
+}
+
+/**
  * The machine-wide lists a job can add to or take from, and the command palette indexes: the
  * prefixes of every read of them, so each page's own filtered read goes stale with them.
  */
@@ -198,6 +213,12 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       if (typeof job.id !== "string") return;
       const previous = queryClient.getQueryData<Job>(jobKeys.detail(job.id));
       queryClient.setQueryData(jobKeys.detail(job.id), job);
+      // A job that waits moves up the line, or is asked to stop, without changing status: the
+      // queue and the jobs in hand say where it stands, so they are read again for that.
+      if (previous?.status === job.status && queueMoved(previous, job)) {
+        void queryClient.invalidateQueries({ queryKey: queueKeys.all });
+        void queryClient.invalidateQueries({ queryKey: jobKeys.active });
+      }
       // Progress and log lines arrive as job events too; only a change of status changes a
       // list, so only that refetches one.
       if (previous?.status === job.status) return;

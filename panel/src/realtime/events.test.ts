@@ -6,6 +6,7 @@ import { appKeys } from "../api/queries/apps";
 import { certKeys } from "../api/queries/certs";
 import { databaseKeys } from "../api/queries/databases";
 import { jobKeys } from "../api/queries/jobs";
+import { queueKeys } from "../api/queries/queue";
 import { serviceKeys } from "../api/queries/services";
 import { siteKeys } from "../api/queries/sites";
 import { systemKeys } from "../api/queries/system";
@@ -51,6 +52,38 @@ describe("applyServerEvent", () => {
     applyServerEvent(client, "job", { ...job, progress: 40 });
     expect(client.getQueryData(jobKeys.detail("j1"))).toMatchObject({ progress: 40 });
     expect(client.getQueryState(jobKeys.list({}))?.isInvalidated).toBe(false);
+  });
+
+  it("reads the queue again when a waiting job moves up the line or is asked to stop, not on every tick", () => {
+    const client = new QueryClient();
+    const waiting = { id: "q1", status: "pending", queue_position: 2, waiting_for: "the update of api.example.com", cancel_requested: false, metadata: { domain: "shop.example.com" } };
+    const fresh = (): void => {
+      client.setQueryData(queueKeys.all, { running: [], queued: [] });
+      client.setQueryData(jobKeys.active, { jobs: [] });
+    };
+    const stale = (): boolean[] => [client.getQueryState(queueKeys.all)?.isInvalidated ?? false, client.getQueryState(jobKeys.active)?.isInvalidated ?? false];
+
+    // The first thing heard of it: every job list is read, the queue among them.
+    fresh();
+    applyServerEvent(client, "job", waiting);
+    expect(stale()).toEqual([true, true]);
+
+    fresh();
+    applyServerEvent(client, "job", { ...waiting, queue_position: 1 });
+    expect(stale()).toEqual([true, true]);
+
+    fresh();
+    applyServerEvent(client, "job", { ...waiting, queue_position: 1, waiting_for: null });
+    expect(stale()).toEqual([true, true]);
+
+    fresh();
+    applyServerEvent(client, "job", { ...waiting, queue_position: 1, waiting_for: null, cancel_requested: true });
+    expect(stale()).toEqual([true, true]);
+
+    // A line of its log changes nothing about where it stands.
+    fresh();
+    applyServerEvent(client, "job", { ...waiting, queue_position: 1, waiting_for: null, cancel_requested: true, progress: 40 });
+    expect(stale()).toEqual([false, false]);
   });
 
   it("refreshes the app a finished job acted on", () => {

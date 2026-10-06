@@ -60,6 +60,11 @@ describe("collectAttention", () => {
     });
   });
 
+  it("does not raise a deploy an operator cancelled: stored as failed, but nothing went wrong", () => {
+    const cancelled = { ...deploy(12, "shop.example.net", "failed"), cancelled: true, cancelled_by: "token:ci" };
+    expect(collectAttention({ apps: [app("shop.example.net", "running")], deployments: [cancelled], machine: HEALTHY })).toEqual([]);
+  });
+
   it("forgets a failure an app has since deployed over", () => {
     const items = collectAttention({
       apps: [app("shop.example.net", "running")],

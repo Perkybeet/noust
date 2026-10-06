@@ -258,6 +258,8 @@ export function signedInRoutes(session: SessionInfo = SESSION): Record<string, R
     ...Object.fromEntries(SERVICES.map((service) => [`GET /api/services/${service.name}`, () => json(200, service)])),
     "GET /api/cron": () => json(200, { jobs: CRON_JOBS, total: CRON_JOBS.length }),
     "GET /api/jobs": () => json(200, { jobs: JOBS, total: JOBS.length, active: 0 }),
+    // Nothing builds or waits, unless a test says so.
+    "GET /api/jobs/queue": () => json(200, { running: [], queued: [], builds_running: 0, max_concurrent_builds: 2, queue_limit: 25, builds_queued: 0 }),
     "GET /api/monitor/status": () => json(200, MONITOR_STATUS),
     "GET /api/monitor/config": () => json(200, MONITOR_CONFIG),
     "GET /api/monitor/observations": () => json(200, { observations: OBSERVATIONS, count: OBSERVATIONS.length, stats: {} }),

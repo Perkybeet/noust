@@ -141,6 +141,8 @@ export function collectAttention({ apps, deployments, certificates, observations
   }
 
   for (const deploy of latestDeployByDomain(deployments ?? []).values()) {
+    // Cancelled by an operator: stored as failed, but nothing failed and nothing that served was touched.
+    if (deploy.cancelled) continue;
     const view = deployStatus(deploy.status);
     if (!view.attention) continue;
     // A deploy of something that is no longer an app (deleted since) is history, not a problem.
