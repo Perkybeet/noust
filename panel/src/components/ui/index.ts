@@ -70,6 +70,8 @@ export type { SpinnerProps } from "./Spinner";
 export { STATUS, StatusGlyph, StatusPill, stateTextClass } from "./StatusPill";
 export type { Status, StatusPillProps } from "./StatusPill";
 export { Switch } from "./Switch";
+export { TerminalScreen } from "./TerminalScreen";
+export type { ScreenSource, TerminalScreenProps } from "./TerminalScreen";
 export { SystemOutput } from "./SystemOutput";
 export type { SystemOutputProps } from "./SystemOutput";
 export { useNeedsScrollFocus } from "./scrollable";

@@ -1,0 +1,137 @@
+import type { terminal as en } from "../en/terminal";
+import type { Catalog } from "../types";
+
+export const terminal: Catalog<typeof en> = {
+  screen: {
+    hint: "Escribe para enviar teclas a la shell. Ctrl+C la interrumpe. Copia con Ctrl+Mayús+C y pega con Ctrl+Mayús+V. Mayús+Re Pág retrocede. Para salir del terminal con el teclado, pulsa Escape y después Tab.",
+    textView: "Contenido del terminal como texto",
+    announcements: "Salida nueva del terminal",
+    jump: "Ir a la última salida",
+  },
+  document: {
+    app: "Terminal - {domain}",
+    server: "Terminal - el servidor",
+  },
+  header: {
+    label: "Sesión de terminal",
+    as: "como",
+    endsIn: "Termina en {time}",
+    idleLimit: "Se cierra tras {minutes} min sin teclear",
+    recorded: "Grabada en la auditoría",
+    root: "root",
+    container: "el usuario del contenedor",
+  },
+  state: {
+    opening: "Abriendo",
+    open: "Conectado",
+    reconnecting: "Reconectando",
+    ended: "Terminada",
+    failed: "No se abrió",
+  },
+  actions: {
+    open: "Abrir terminal",
+    opening: "Abriendo...",
+    end: "Terminar sesión",
+    newSession: "Abrir un terminal nuevo",
+    copy: "Copiar",
+    textView: "Vista de texto",
+    textViewHelp: "Muestra la pantalla como texto, que un lector de pantalla puede leer.",
+    announce: "Leer en voz alta la salida nueva",
+    announceHelp: "Un programa que redibuja la pantalla, como un editor, se lee de nuevo cada vez.",
+    options: "Opciones",
+    shell: "Shell",
+    shellDefault: "La predeterminada del servidor",
+    service: "Servicio",
+    serviceHelp: "El contenedor en el que abrirlo. Déjalo vacío cuando el stack ejecuta un solo servicio.",
+  },
+  start: {
+    app: {
+      title: "Una shell como {domain}",
+      description:
+        "Obtienes una shell con la cuenta con la que se ejecuta la aplicación, en su sandbox y con su entorno: los mismos archivos y los mismos secretos que ella tiene, y nada más del servidor. La shell de un stack es una shell dentro de su contenedor.",
+    },
+    server: {
+      title: "Una shell de root en el servidor",
+      description:
+        "Obtienes la shell que un administrador obtiene por SSH, como root, sin nada en medio. Puede cambiar cualquier cosa de esta máquina.",
+    },
+    recorded:
+      "Todo lo que escribes y todo lo que imprime queda en la auditoría, con quién la abrió. Termina tras {idle} min sin teclear y a los {max} min en total.",
+    sudo: "Para abrirlo se te pide que confirmes que eres tú.",
+    permission: "Tu cuenta no puede abrir un terminal aquí. Necesita el permiso {permission}.",
+  },
+  page: {
+    title: "Terminal",
+    loading: "Cargando el terminal",
+  },
+  disabled: {
+    title: "Los terminales están desactivados en este servidor",
+    description:
+      "Un administrador desactivó los terminales de la consola, así que no se abre ninguna shell desde el navegador. Aun así se puede ejecutar un comando una vez, más abajo.",
+    enable: "Actívalos desde un terminal en el servidor:",
+  },
+  off: {
+    title: "El terminal del servidor está desactivado",
+    description:
+      "Una shell de root en el navegador es lo más potente que puede abrir la consola, así que sigue desactivada hasta que un administrador la active.",
+    ens: "El perfil ENS la mantiene desactivada aunque se active, a menos que además se fuerce, lo cual queda registrado.",
+    enable: "Actívala desde un terminal en el servidor:",
+    force: "Para permitirla de todos modos, lo cual queda registrado:",
+  },
+  notice: {
+    idle: "Hace rato que no se teclea nada. Este terminal se cierra en {seconds} s a menos que pulses una tecla.",
+    limit: "Esta sesión llega a su límite de tiempo en {seconds} s.",
+    lost: "Parte de lo que imprimió el programa se perdió mientras la conexión estuvo caída.",
+    resumed: "Reconectado a la misma shell.",
+  },
+  ended: {
+    exited: "La shell terminó.",
+    exitedWith: "La shell terminó con el estado {code}.",
+    idle: "Cerrada: no se tecleó nada durante {minutes} min.",
+    limit: "Cerrada: la sesión llegó a su límite de tiempo.",
+    closed: "La sesión se terminó.",
+    killed: "Un administrador terminó esta sesión.",
+    revoked: "Cerrada: el inicio de sesión con el que se abrió ya no es válido.",
+    disconnected: "Cerrada: la conexión estuvo caída más de un minuto.",
+    shutdown: "Cerrada: la consola se está deteniendo.",
+    unknown: "La sesión terminó.",
+  },
+  failed: {
+    title: "El terminal no se abrió",
+    connection: "La conexión con el terminal se cerró antes de abrirse.",
+    unreachable: "No se pudo alcanzar el terminal.",
+  },
+  exec: {
+    title: "Ejecutar un comando una vez",
+    description:
+      "El comando se ejecuta como la aplicación, en su sandbox y con su entorno, y su salida queda en el registro de la tarea. Después no queda nada abierto.",
+    commandLabel: "Comando",
+    commandPlaceholder: "rails runner 'puts User.count'",
+    commandHelp:
+      "El programa y sus argumentos, separados por espacios; las comillas mantienen juntos los espacios. Se ejecuta tal cual, no con una shell: una tubería, una redirección o una $variable llegan al programa como texto.",
+    unclosed: "Hay una comilla abierta: el comando termina dentro de ella.",
+    argvLabel: "Se ejecuta como",
+    shellSyntax: "Estos llegan como texto, no se interpretan: {words}",
+    serviceLabel: "Servicio",
+    serviceHelp: "Para un stack que ejecuta varios servicios: aquel en el que ejecutarlo.",
+    timeoutLabel: "Límite de tiempo",
+    timeoutHelp: "Segundos. Se detiene cuando se acaban.",
+    run: "Ejecutar comando",
+    running: "Ejecutando",
+    again: "Ejecutar otro",
+    outputLabel: "Registro del comando en {domain}",
+    outputEmpty: "No se registró nada.",
+    outputWaiting: "Esperando la primera línea",
+    queuedTitle: "Ejecutando un comando en {domain}",
+    failedTitle: "Falló el comando en {domain}",
+    succeededTitle: "El comando terminó",
+    exitStatus: "Estado de salida {code}.",
+    cannotQueue: "No se pudo iniciar el comando",
+    viewActivity: "Ver en Actividad",
+    hint: "Desde un terminal:",
+    previewEmpty: "Escribe un comando para ver cómo se ejecutará.",
+    timeoutInvalid: "Segundos enteros, de 1 a {max}.",
+    optionsLabel: "Servicio y límite de tiempo",
+    timeoutPlaceholder: "Hasta {seconds}",
+  },
+};
