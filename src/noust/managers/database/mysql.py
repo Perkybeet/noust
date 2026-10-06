@@ -1108,7 +1108,8 @@ class MySQLManager(BaseDatabaseManager):
             database: Database name.
             output_path: Custom destination.
             compress: Pipe the dump through gzip.
-            **kwargs: Unused.
+            **kwargs: ``exclude_tables`` names tables to leave out of the dump
+                (``mysqldump --ignore-table=<database>.<table>``).
 
         Returns:
             Information about the backup.
@@ -1132,6 +1133,11 @@ class MySQLManager(BaseDatabaseManager):
                 # Scheduled events are part of the schema too; without this a
                 # restored database silently stops running them.
                 "--events",
+                # The option takes the table as db.table, in one word.
+                *(
+                    f"--ignore-table={database}.{table}"
+                    for table in kwargs.get("exclude_tables", ())
+                ),
                 database,
             ]
             return self._dump_to_file(argv, destination, database=database, compress=compress)

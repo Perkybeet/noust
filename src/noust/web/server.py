@@ -67,6 +67,7 @@ from noust.core.tls_policy import TLS12_CIPHERS, harden_server_context
 from noust.deployers import deploy_events
 from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from noust.managers.database.backup_notifications import database_job_notification
+from noust.managers.database.uploads import MAX_CHUNK_BYTES
 from noust.web.auth import (
     SAFE_METHODS,
     SESSION_COOKIE_NAME,
@@ -114,6 +115,11 @@ logger = logging.getLogger(__name__)
 
 #: Path prefix of the forge webhooks, which get :data:`MAX_HOOK_BODY_BYTES`.
 HOOKS_PATH_PREFIX = "/hooks/"
+
+#: Where a dump is uploaded in chunks (``PUT .../uploads/{id}``), which may carry
+#: one chunk (:data:`~noust.managers.database.uploads.MAX_CHUNK_BYTES`) where every
+#: other API request carries at most the panel's ``max_body_bytes``.
+IMPORT_UPLOAD_PATH_PREFIX = "/api/databases/imports/uploads/"
 
 #: Prefix of the anonymous rate key forge deliveries are counted under, in
 #: front of the client address: a budget apart from the console's own.
@@ -1623,11 +1629,13 @@ class SecurityMiddleware:
             path: The request path.
 
         Returns:
-            The forge webhook's cap under ``/hooks/``, the API's everywhere
-            else.
+            The forge webhook's cap under ``/hooks/``, one chunk's under the
+            dump upload, the API's everywhere else.
         """
         if path.startswith(HOOKS_PATH_PREFIX):
             return self.config.max_hook_body_bytes
+        if path.startswith(IMPORT_UPLOAD_PATH_PREFIX):
+            return max(self.config.max_body_bytes, MAX_CHUNK_BYTES + 64 * 1024)
         return self.config.max_body_bytes
 
     @staticmethod

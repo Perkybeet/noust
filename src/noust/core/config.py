@@ -357,6 +357,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # kept per database; older ones go after each restore. The newest
         # is never deleted, whatever this says.
         "safety_copies_kept": 5,
+        # The largest dump a browser may upload to be imported
+        # (noust.managers.database.uploads), in bytes: 10 GiB.
+        "import_max_bytes": 10 * 1024**3,
+        # Folders besides the backup directory's ``imports`` the API may read a
+        # dump from by its path (noust.managers.database.imports).
+        "import_directories": [],
     },
 }
 
@@ -1162,8 +1168,58 @@ def _validate_sudo_section(section: dict[str, Any]) -> None:
         )
 
 
+def _validate_import_directories(value: Any) -> list[str]:
+    """
+    Accept the folders the API may read a dump to import from.
+
+    Args:
+        value: A list of absolute paths, or a comma-separated string (all
+            ``noust config set`` can hand over without ``--list``).
+
+    Returns:
+        The paths, without blanks or repeats.
+
+    Raises:
+        ConfigError: When it is not a list of absolute paths, or names the
+            root directory, which would let the API read any file at all.
+    """
+    if isinstance(value, str):
+        raw = value.split(",")
+    elif isinstance(value, (list, tuple)):
+        raw = [str(item) for item in value]
+    else:
+        raise ConfigError(
+            "databases.import_directories must be a list of folders",
+            details=f"Got {value!r}. Use absolute paths such as /srv/dumps.",
+        )
+    folders: list[str] = []
+    for item in raw:
+        entry = item.strip()
+        if not entry:
+            continue
+        if not entry.startswith("/"):
+            raise ConfigError(
+                f"{entry!r} is not an absolute path",
+                details="Give the whole path of each folder, from /.",
+            )
+        normalised = entry.rstrip("/") or "/"
+        if normalised == "/":
+            raise ConfigError(
+                "The root directory cannot be a folder dumps are imported from",
+                details="It would let the console point the database engine at any file. "
+                "Name the folder that holds the dumps.",
+            )
+        if normalised not in folders:
+            folders.append(normalised)
+    return folders
+
+
 _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "webserver": _validate_webserver,
+    "databases.import_max_bytes": _int_range_validator(
+        "databases.import_max_bytes", 1024 * 1024, 1024**4
+    ),
+    "databases.import_directories": _validate_import_directories,
     "auth.sudo.idle_minutes": _int_range_validator("auth.sudo.idle_minutes", *SUDO_IDLE_RANGE),
     "auth.sudo.max_minutes": _int_range_validator("auth.sudo.max_minutes", *SUDO_MAX_RANGE),
     "auth.sudo.require_password": _validate_flag("auth.sudo.require_password"),

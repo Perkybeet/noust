@@ -45,6 +45,7 @@ the SQL did not already have. See
 from __future__ import annotations
 
 import gzip
+import os
 import re
 from itertools import pairwise
 from pathlib import Path
@@ -516,6 +517,97 @@ def _is_copy_from_stdin(words: list[str]) -> bool:
     if not words or words[0] != "copy":
         return False
     return any(pair == ("from", "stdin") for pair in pairwise(words))
+
+
+#: A statement pg_dump writes to say who owns an object or who may use it, all
+#: on one line: ``ALTER TABLE t OWNER TO app;``, ``GRANT ...;``, ``REVOKE ...;``,
+#: ``ALTER DEFAULT PRIVILEGES ...;``. Matched only at the start of a statement.
+_OWNERSHIP_STATEMENT = re.compile(
+    r"\s*(?:"
+    r"ALTER\s+DEFAULT\s+PRIVILEGES\b.*;"
+    r"|ALTER\s+(?!DEFAULT\b)[A-Z ]+?\s.*\bOWNER\s+TO\s+[^;]+;"
+    r"|GRANT\s.*;"
+    r"|REVOKE\s.*;"
+    r")\s*\r?\n?",
+    re.IGNORECASE,
+)
+
+
+#: A role name Noust writes into ``SET ROLE``: plain, so nothing in it can end
+#: the identifier or the line.
+_PLAIN_ROLE = re.compile(r"[A-Za-z0-9_$@.-]{1,63}")
+
+
+def strip_owners(source: Path, destination: Path, *, role: str | None = None) -> int:
+    """
+    Copy a plain dump without the statements that name owners and privileges.
+
+    What a dump from another server or provider says about who owns what is
+    about that server's roles: loaded here, ``ALTER ... OWNER TO`` fails for a
+    role that does not exist, and the restore with it. Leaving the statements
+    out gives every object to the account loading the dump, which Noust hands
+    back to the database's owner afterwards.
+
+    A statement is only taken out where it begins at the head of a statement,
+    outside every string, quoted name, comment, dollar-quoted body and COPY
+    data, as the scanner that checks the dump for meta-commands reads it
+    (:class:`_Scanner`): a function whose body happens to contain a line that
+    looks like a ``GRANT`` is not touched.
+
+    Args:
+        source: The plain dump, or gzipped plain text. It has passed
+            :func:`check_plain_dump`.
+        destination: Where the filtered, uncompressed dump goes, 0600.
+        role: The role every object is created as (``SET ROLE``), so the
+            database's own owner ends up owning what the dump creates. Without
+            it they belong to whoever loads the dump.
+
+    Returns:
+        How many statements were left out.
+
+    Raises:
+        DatabaseBackupError: When the dump cannot be read or written, or the
+            role's name is not a plain one.
+    """
+    if role is not None and not _PLAIN_ROLE.fullmatch(role):
+        raise DatabaseBackupError(
+            f"The owner {role!r} has a name Noust will not write into a script",
+            details="Import the dump with --keep-owners, or rename the role.",
+        )
+    scanner = _Scanner()
+    left_out = 0
+    try:
+        with (
+            gzip.open(source, "rb") if source.suffix == ".gz" else open(source, "rb") as reader,
+            open(destination, "wb") as writer,
+        ):
+            os.chmod(destination, 0o600)
+            if role is not None:
+                writer.write(f'SET ROLE "{role}";\n'.encode())
+            for raw in reader:
+                text = raw.decode("latin-1")
+                at_head = (
+                    scanner.state == _NORMAL
+                    and scanner.paren_depth == 0
+                    and scanner.statement_empty
+                    and scanner.begin_depth == 0
+                )
+                scanner.feed(text)
+                if (
+                    at_head
+                    and scanner.statement_empty
+                    and scanner.state == _NORMAL
+                    and _OWNERSHIP_STATEMENT.fullmatch(text)
+                ):
+                    left_out += 1
+                    continue
+                writer.write(raw)
+    except (OSError, EOFError) as exc:
+        raise DatabaseBackupError(
+            f"Could not prepare the dump {source.name} without its owners",
+            details=f"{exc}. Check the space and the permissions of {destination.parent}.",
+        ) from exc
+    return left_out
 
 
 def check_plain_dump(path: Path) -> None:

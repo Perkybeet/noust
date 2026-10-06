@@ -29,7 +29,9 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
+from noust.core.exceptions import ValidationError
 from noust.core.store import NoustStore
+from noust.managers.database.scope import ALL_DATABASES, SCOPE_ALL, SCOPE_DATABASE
 
 #: Who made a dump. Retention only ever deletes ``scheduled`` ones.
 ORIGINS = ("manual", "scheduled", "safety", "unknown")
@@ -82,6 +84,27 @@ def _decode_list(raw: str | None) -> list[dict[str, Any]]:
     return [item for item in data if isinstance(item, dict)] if isinstance(data, list) else []
 
 
+def _decode_object(raw: str | None) -> dict[str, list[str]]:
+    """
+    Args:
+        raw: A JSON column holding an object of string lists.
+
+    Returns:
+        Its lists of strings; empty when it is anything else.
+    """
+    try:
+        data = json.loads(raw or "{}")
+    except (json.JSONDecodeError, TypeError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {
+        str(key): [item for item in value if isinstance(item, str)]
+        for key, value in data.items()
+        if isinstance(value, list)
+    }
+
+
 @dataclass
 class BackupPolicy:
     """
@@ -102,6 +125,11 @@ class BackupPolicy:
         dump_format: PostgreSQL's dump format; None for the engine's default.
         verify_restore: Load each dump into a temporary database and drop it,
             as proof it restores.
+        scope: ``database`` (the one ``db_name`` names) or ``all`` (every
+            database of the engine, ``db_name`` being
+            :data:`~noust.managers.database.scope.ALL_DATABASES`).
+        exclusions: What the dumps leave out, as
+            :meth:`~noust.managers.database.scope.Exclusions.to_json` writes it.
         enabled: Whether the timer exists.
         last_run_at: When the policy last ran.
         last_status: ``ok``, ``failed`` or None before the first run.
@@ -121,6 +149,8 @@ class BackupPolicy:
     destinations: list[dict[str, Any]] = field(default_factory=list)
     dump_format: str | None = None
     verify_restore: bool = False
+    scope: str = "database"
+    exclusions: dict[str, list[str]] = field(default_factory=dict)
     enabled: bool = True
     last_run_at: str | None = None
     last_status: str | None = None
@@ -146,6 +176,7 @@ class BackupPolicy:
         data["destinations"] = _decode_list(data.get("destinations"))
         data["verify_restore"] = bool(data.get("verify_restore"))
         data["enabled"] = bool(data.get("enabled"))
+        data["exclusions"] = _decode_object(data.get("exclusions"))
         return cls(**data)
 
     def to_dict(self) -> dict[str, Any]:
@@ -292,18 +323,33 @@ class BackupRecords:
 
         Returns:
             The policy as stored.
+
+        Raises:
+            ValidationError: When the scope is not one a policy has, or does not
+                agree with the database name it is stored under.
         """
+        if policy.scope not in (SCOPE_DATABASE, SCOPE_ALL) or (policy.scope == SCOPE_ALL) != (
+            policy.db_name == ALL_DATABASES
+        ):
+            raise ValidationError(
+                f"A {policy.scope!r} policy cannot be stored for {policy.db_name!r}",
+                details="Only a policy that covers all databases is stored under "
+                f"{ALL_DATABASES!r}, and it is always one.",
+                field="scope",
+            )
         stamp = now()
         with self.store._transaction() as cursor:
             cursor.execute(
                 "INSERT INTO database_backup_policies (engine, db_name, schedule, "
                 "retention_count, retention_days, destinations, dump_format, verify_restore, "
-                "enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+                "scope, exclusions, enabled, created_at, updated_at) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
                 "ON CONFLICT(engine, db_name) DO UPDATE SET schedule = excluded.schedule, "
                 "retention_count = excluded.retention_count, "
                 "retention_days = excluded.retention_days, "
                 "destinations = excluded.destinations, dump_format = excluded.dump_format, "
-                "verify_restore = excluded.verify_restore, enabled = excluded.enabled, "
+                "verify_restore = excluded.verify_restore, scope = excluded.scope, "
+                "exclusions = excluded.exclusions, enabled = excluded.enabled, "
                 "updated_at = excluded.updated_at",
                 (
                     policy.engine,
@@ -314,6 +360,8 @@ class BackupRecords:
                     json.dumps(policy.destinations, sort_keys=True),
                     policy.dump_format,
                     int(policy.verify_restore),
+                    policy.scope,
+                    json.dumps(policy.exclusions, sort_keys=True),
                     int(policy.enabled),
                     stamp,
                     stamp,

@@ -54,6 +54,7 @@ from noust.core.store import BackupScheduleRecord, get_store
 from noust.core.utils import domain_to_app_name, find_noust_executable
 from noust.managers.backup_destinations import BackupDestinationManager
 from noust.managers.backup_manager import SCHEDULED_TAG, BackupManager, BackupMetadata
+from noust.managers.database.scope import ALL_DATABASES, timer_label
 from noust.validators.domain import validate_domain
 from noust.validators.names import resolve_within, validate_app_name, validate_service_name
 
@@ -659,9 +660,11 @@ class BackupScheduler:
             database: The database.
 
         Returns:
-            The unit name without its suffix: ``noust-backup-db-<engine>-<database>``.
+            The unit name without its suffix: ``noust-backup-db-<engine>-<database>``,
+            or ``noust-backup-db-<engine>--all`` for the policy that covers all of
+            an engine's databases.
         """
-        return f"{paths.BACKUP_UNIT_PREFIX}db-{engine}-{database}"
+        return f"{paths.BACKUP_UNIT_PREFIX}db-{engine}-{timer_label(database)}"
 
     def _database_unit_paths(self, engine: str, database: str) -> tuple[str, Path, Path]:
         """
@@ -750,6 +753,9 @@ class BackupScheduler:
                 target=target,
                 engine=engine,
                 database=database,
+                # The unit says --all: a '*' on a command line is a pattern to
+                # whoever types it, and nothing a timer should depend on.
+                all_databases="1" if database == ALL_DATABASES else "",
                 noust=find_noust_executable() or "/usr/bin/noust",
             ),
         )

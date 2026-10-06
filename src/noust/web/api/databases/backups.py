@@ -38,6 +38,7 @@ from noust.core.exceptions import BackupError, DatabaseBackupError, ValidationEr
 from noust.managers.backup_scheduler import SCHEDULE_ALIASES, validate_calendar
 from noust.managers.database.backup_records import STATUS_FAILED
 from noust.managers.database.backups import DatabaseBackups, PolicyView
+from noust.managers.database.scope import Exclusions
 from noust.web.api.auth import get_current_session
 from noust.web.api.databases.common import ActionResponse, queue, service, session_actor
 from noust.web.api.databases.jobs import _done, _service
@@ -118,6 +119,12 @@ class BackupPolicyResponse(BaseModel):
         destinations: Where each dump is sent.
         dump_format: PostgreSQL's format; null for the engine's default.
         verify_restore: Each dump is loaded into a temporary database.
+        scope: ``database`` for the one the policy is stored under, ``all`` for
+            the policy that covers every database of the engine (its database
+            is ``*``).
+        exclusions: What the dumps leave out: ``databases`` (``all`` policies),
+            ``schemas`` (PostgreSQL) and ``tables`` (tables, or MongoDB
+            collections).
         enabled: Whether the timer exists.
         last_run_at: When the policy last ran.
         last_status: ``ok`` or ``failed``; null before the first run.
@@ -136,6 +143,8 @@ class BackupPolicyResponse(BaseModel):
     destinations: list[PolicyDestinationState] = Field(default_factory=list)
     dump_format: str | None = None
     verify_restore: bool = False
+    scope: str = "database"
+    exclusions: dict[str, list[str]] = Field(default_factory=dict)
     enabled: bool = False
     timer: PolicyTimer = Field(default_factory=PolicyTimer)
     last_run_at: str | None = None
@@ -188,6 +197,11 @@ class SetPolicyRequest(BaseModel):
         verify_restore: Load each dump into a temporary database and drop it
             as proof it restores. Not available for Redis.
         enabled: Whether the timer runs; a disabled policy keeps its settings.
+        exclude_databases: Databases an all-databases policy (stored under
+            ``*``) skips.
+        exclude_schemas: PostgreSQL schemas left out of every dump.
+        exclude_tables: Tables (PostgreSQL, MySQL, MariaDB) or collections
+            (MongoDB) left out of every dump.
     """
 
     schedule: str = Field(
@@ -200,6 +214,9 @@ class SetPolicyRequest(BaseModel):
     dump_format: str | None = None
     verify_restore: bool = False
     enabled: bool = True
+    exclude_databases: list[str] = Field(default_factory=list)
+    exclude_schemas: list[str] = Field(default_factory=list)
+    exclude_tables: list[str] = Field(default_factory=list)
 
     @field_validator("schedule")
     @classmethod
@@ -425,7 +442,8 @@ def set_policy(
 
     Args:
         engine: The engine.
-        database: The database, which must exist.
+        database: The database, which must exist, or ``*`` for the policy that
+            covers every database of the engine.
         request: The policy.
         session: The authenticated, elevated session.
 
@@ -446,6 +464,11 @@ def set_policy(
         dump_format=request.dump_format,
         verify_restore=request.verify_restore,
         enabled=request.enabled,
+        exclusions=Exclusions.of(
+            databases=request.exclude_databases,
+            schemas=request.exclude_schemas,
+            tables=request.exclude_tables,
+        ),
     )
     return _policy_response(view)
 
@@ -527,7 +550,7 @@ def run_policy(
         The queued job; its result names the dump and what each destination said.
     """
     manager = service(session).running(engine)
-    name = manager.validate_database_name(database)
+    name = DatabaseBackups.policy_name(manager, database)
     return queue(
         session,
         job_type=JobType.BACKUP,
