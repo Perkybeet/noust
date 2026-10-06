@@ -10998,6 +10998,51 @@
         "title": "ExceptionsResponse",
         "type": "object"
       },
+      "ExecRequest": {
+        "description": "A command to run once in an application.",
+        "properties": {
+          "argv": {
+            "description": "The program and its arguments, given to it as they are; never a shell line",
+            "items": {
+              "type": "string"
+            },
+            "title": "Argv",
+            "type": "array"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Compose service, for a stack",
+            "title": "Service"
+          },
+          "timeout": {
+            "anyOf": [
+              {
+                "maximum": 86400.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Seconds it may run; 300 when absent",
+            "title": "Timeout"
+          }
+        },
+        "required": [
+          "argv"
+        ],
+        "title": "ExecRequest",
+        "type": "object"
+      },
       "ExplainRequest": {
         "description": "Request for a plan.\n\nAttributes:\n    analyze: Execute the statement to report real timings. It runs as the\n        superuser inside a transaction that is rolled back, and needs\n        what a write needs (``databases.write``, sudo mode).",
         "properties": {
@@ -21345,6 +21390,283 @@
         "title": "RecordLinkRequest",
         "type": "object"
       },
+      "RecordingModel": {
+        "description": "One recording of a session, as the list shows it.",
+        "properties": {
+          "account": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account"
+          },
+          "actor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actor"
+          },
+          "bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bytes"
+          },
+          "client_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Ip"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "duration": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration"
+          },
+          "end_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Reason"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "events": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Events"
+          },
+          "exit_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Code"
+          },
+          "failed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "description": "recording, complete or interrupted",
+            "title": "Status",
+            "type": "string"
+          },
+          "truncated_input": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Truncated Input"
+          },
+          "truncated_output": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Truncated Output"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "RecordingModel",
+        "type": "object"
+      },
+      "RecordingResponse": {
+        "description": "One recording, read back.",
+        "properties": {
+          "events": {
+            "description": "[seconds, 'o'|'i'|'r'|'m', data] for each event",
+            "items": {
+              "items": {},
+              "type": "array"
+            },
+            "title": "Events",
+            "type": "array"
+          },
+          "intact": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The cast still matches the digest the audit trail recorded; null while the session is still recording",
+            "title": "Intact"
+          },
+          "recording": {
+            "$ref": "#/components/schemas/RecordingModel"
+          },
+          "transcript": {
+            "description": "Its output and its input as text, safe to print",
+            "title": "Transcript",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recording",
+          "intact",
+          "transcript",
+          "events"
+        ],
+        "title": "RecordingResponse",
+        "type": "object"
+      },
+      "RecordingsResponse": {
+        "description": "The recordings, newest first.",
+        "properties": {
+          "recordings": {
+            "items": {
+              "$ref": "#/components/schemas/RecordingModel"
+            },
+            "title": "Recordings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "recordings"
+        ],
+        "title": "RecordingsResponse",
+        "type": "object"
+      },
       "RefusedRestartOut": {
         "description": "A service on replaced libraries that is not restarted from Noust, and why.",
         "properties": {
@@ -23966,6 +24288,50 @@
         "title": "ServerInfo",
         "type": "object"
       },
+      "ServerShellModel": {
+        "description": "Whether the server's own shell may be opened, and what to do when it may not.",
+        "properties": {
+          "allowed": {
+            "title": "Allowed",
+            "type": "boolean"
+          },
+          "enabled": {
+            "description": "terminal.server.enabled",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "how": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What to change, verbatim",
+            "title": "How"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it may not be opened",
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "allowed",
+          "enabled"
+        ],
+        "title": "ServerShellModel",
+        "type": "object"
+      },
       "ServiceActionResponse": {
         "description": "Response for service actions.",
         "properties": {
@@ -24169,6 +24535,25 @@
           "lines"
         ],
         "title": "ServiceLogsResponse",
+        "type": "object"
+      },
+      "SessionEndedResponse": {
+        "description": "A terminal that was ended.",
+        "properties": {
+          "ended": {
+            "title": "Ended",
+            "type": "boolean"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "ended"
+        ],
+        "title": "SessionEndedResponse",
         "type": "object"
       },
       "SessionEntry": {
@@ -28266,6 +28651,369 @@
           "bot_token_set"
         ],
         "title": "TelegramSettingsResponse",
+        "type": "object"
+      },
+      "TerminalRequest": {
+        "description": "What the person asks of a terminal.",
+        "properties": {
+          "cols": {
+            "default": 80,
+            "description": "The terminal's width",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Cols",
+            "type": "integer"
+          },
+          "resume": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "minLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The session to go back to after the connection dropped, instead of a new one",
+            "title": "Resume"
+          },
+          "rows": {
+            "default": 24,
+            "description": "The terminal's height",
+            "maximum": 500.0,
+            "minimum": 1.0,
+            "title": "Rows",
+            "type": "integer"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Compose service to open it in, for a stack that runs several",
+            "title": "Service"
+          },
+          "shell": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The shell, by name: one of bash, sh, ash, zsh, dash; the default when absent",
+            "title": "Shell"
+          }
+        },
+        "title": "TerminalRequest",
+        "type": "object"
+      },
+      "TerminalSessionModel": {
+        "description": "One open terminal.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "attached": {
+            "title": "Attached",
+            "type": "boolean"
+          },
+          "cols": {
+            "title": "Cols",
+            "type": "integer"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "ends_at": {
+            "title": "Ends At",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "idle_remaining": {
+            "title": "Idle Remaining",
+            "type": "number"
+          },
+          "idle_seconds": {
+            "title": "Idle Seconds",
+            "type": "integer"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "recording": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recording"
+          },
+          "rows": {
+            "title": "Rows",
+            "type": "integer"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service"
+          },
+          "started_at": {
+            "title": "Started At",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "label",
+          "account",
+          "actor",
+          "started_at",
+          "ends_at",
+          "idle_seconds",
+          "idle_remaining",
+          "rows",
+          "cols",
+          "attached"
+        ],
+        "title": "TerminalSessionModel",
+        "type": "object"
+      },
+      "TerminalSessionsResponse": {
+        "description": "The open terminals the caller may see.",
+        "properties": {
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/TerminalSessionModel"
+            },
+            "title": "Sessions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sessions"
+        ],
+        "title": "TerminalSessionsResponse",
+        "type": "object"
+      },
+      "TerminalStatusResponse": {
+        "description": "What the terminal may do on this server.",
+        "properties": {
+          "enabled": {
+            "description": "Application terminals are on",
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "ens": {
+            "title": "Ens",
+            "type": "boolean"
+          },
+          "exec_max_seconds": {
+            "title": "Exec Max Seconds",
+            "type": "integer"
+          },
+          "idle_seconds": {
+            "title": "Idle Seconds",
+            "type": "integer"
+          },
+          "max_seconds": {
+            "title": "Max Seconds",
+            "type": "integer"
+          },
+          "max_sessions": {
+            "title": "Max Sessions",
+            "type": "integer"
+          },
+          "max_sessions_per_user": {
+            "title": "Max Sessions Per User",
+            "type": "integer"
+          },
+          "open_sessions": {
+            "title": "Open Sessions",
+            "type": "integer"
+          },
+          "recording_max_mb": {
+            "title": "Recording Max Mb",
+            "type": "integer"
+          },
+          "retention_days": {
+            "title": "Retention Days",
+            "type": "integer"
+          },
+          "server": {
+            "$ref": "#/components/schemas/ServerShellModel"
+          },
+          "shells": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Shells",
+            "type": "array"
+          }
+        },
+        "required": [
+          "enabled",
+          "server",
+          "idle_seconds",
+          "max_seconds",
+          "max_sessions",
+          "max_sessions_per_user",
+          "open_sessions",
+          "exec_max_seconds",
+          "recording_max_mb",
+          "retention_days",
+          "ens",
+          "shells"
+        ],
+        "title": "TerminalStatusResponse",
+        "type": "object"
+      },
+      "TerminalTargetModel": {
+        "description": "Where a terminal is, as its header says it.",
+        "properties": {
+          "account": {
+            "description": "Who the shell runs as: the application's account, root, or container",
+            "title": "Account",
+            "type": "string"
+          },
+          "domain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Domain"
+          },
+          "kind": {
+            "description": "app or server",
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "description": "What the header shows",
+            "title": "Label",
+            "type": "string"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service"
+          }
+        },
+        "required": [
+          "kind",
+          "label",
+          "account"
+        ],
+        "title": "TerminalTargetModel",
+        "type": "object"
+      },
+      "TerminalTicketResponse": {
+        "description": "The ticket that opens a terminal, and what it will open.",
+        "properties": {
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "idle_seconds": {
+            "description": "How long it may go with nothing typed",
+            "title": "Idle Seconds",
+            "type": "integer"
+          },
+          "max_seconds": {
+            "description": "How long it lasts, however busy",
+            "title": "Max Seconds",
+            "type": "integer"
+          },
+          "path": {
+            "description": "The WebSocket to open it on, with ?terminal_ticket=<ticket>",
+            "title": "Path",
+            "type": "string"
+          },
+          "recorded": {
+            "description": "The session is kept in the audit trail",
+            "title": "Recorded",
+            "type": "boolean"
+          },
+          "resume": {
+            "description": "The ticket goes back to a session that is already open",
+            "title": "Resume",
+            "type": "boolean"
+          },
+          "session": {
+            "description": "The session's identifier",
+            "title": "Session",
+            "type": "string"
+          },
+          "target": {
+            "$ref": "#/components/schemas/TerminalTargetModel"
+          },
+          "ticket": {
+            "description": "Single use; valid for expires_in seconds; shown once",
+            "title": "Ticket",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket",
+          "expires_in",
+          "path",
+          "session",
+          "resume",
+          "target",
+          "idle_seconds",
+          "max_seconds",
+          "recorded"
+        ],
+        "title": "TerminalTicketResponse",
         "type": "object"
       },
       "TestDestinationResponse": {
@@ -35087,6 +35835,61 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/apps/{domain}/exec": {
+      "post": {
+        "description": "Run one command in an application, as a job.\n\nThe command is an argument vector, given to the program as it is. It runs\nas the application's own account in its sandbox (a container of the stack,\nfor Compose), with the application's environment; its output is the job's\nlog. A command that exits with anything but 0 is a failed job whose log\nsays how. Needs sudo mode and ``apps.terminal`` in the application's team.\n\nArgs:\n    domain: Domain of the application.\n    body: The command, the service and the time it may take.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    The queued job.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    ValidationError: 400 for a command or a time that is not acceptable.",
+        "operationId": "exec_in_app_api_apps__domain__exec_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Exec In App",
+        "tags": [
+          "Terminal"
+        ],
+        "x-noust-permission": "apps.terminal",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/apps/{domain}/export": {
       "get": {
         "description": "Export everything that defines an application.\n\nAdmin scope: the document names the source, the variables and every\nschedule. Secret values are null unless ``with_secrets``, which needs\nsudo mode and is audited, naming the caller and never a value.\n\nArgs:\n    domain: Domain of the application.\n    request: The incoming request, for the audit record.\n    session: The authenticated session.\n    with_secrets: Include secret values in clear.\n\nReturns:\n    The document.\n\nRaises:\n    HTTPException: 403 below admin scope or, with secrets, outside sudo\n        mode; 404 when the application is unknown.",
@@ -36971,6 +37774,61 @@
           "Applications"
         ],
         "x-noust-permission": "apps.operate"
+      }
+    },
+    "/api/apps/{domain}/terminal": {
+      "post": {
+        "description": "Get the ticket that opens a terminal as an application.\n\nThe shell runs as the application's own account, in its sandbox, with its\nenvironment; for a Compose or container application it is a shell in the\ncontainer of the service asked for. Needs sudo mode and the\n``apps.terminal`` permission in the application's team. Open the WebSocket\n``/ws/terminal?terminal_ticket=<ticket>`` within ``expires_in`` seconds.\n\nArgs:\n    domain: Domain of the application.\n    body: The service, the shell and the size.\n    request: The request.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    The ticket.\n\nRaises:\n    HTTPException: 404 when the application is unknown.\n    TerminalDisabledError: 403 when terminals are off.\n    TerminalLimitError: 429 when a limit is reached.",
+        "operationId": "open_app_terminal_api_apps__domain__terminal_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "domain",
+            "required": true,
+            "schema": {
+              "title": "Domain",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerminalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalTicketResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open App Terminal",
+        "tags": [
+          "Terminal"
+        ],
+        "x-noust-permission": "apps.terminal",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/apps/{domain}/webhook": {
@@ -53068,6 +53926,55 @@
         "x-noust-requires-elevation": true
       }
     },
+    "/api/server/terminal": {
+      "post": {
+        "description": "Get the ticket that opens a root shell on the server itself.\n\nOff until an administrator turns it on (``terminal.server.enabled``), and\nunder the ENS profile until it is forced too. Needs sudo mode, the\n``server.terminal`` permission and a principal that sees every team; with\nfour-eyes approval on, a second person decides first.\n\nArgs:\n    body: The shell and the size.\n    request: The request.\n    session: The authenticated session, in sudo mode.\n\nReturns:\n    The ticket.\n\nRaises:\n    TerminalDisabledError: 403 when the server's shell is off.\n    TerminalLimitError: 429 when a limit is reached.",
+        "operationId": "open_server_terminal_api_server_terminal_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerminalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalTicketResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Open Server Terminal",
+        "tags": [
+          "Terminal"
+        ],
+        "x-noust-permission": "server.terminal",
+        "x-noust-requires-approval": {
+          "action": "terminal.server",
+          "kind": "infrastructure",
+          "when": "always"
+        },
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/server/time": {
       "get": {
         "description": "Read the clock.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The time zone, whether the clock is synchronised and by what, and, when\n    chrony is running, how far off it is.\n\nRaises:\n    ServerError: timedatectl cannot be run, carrying its output.",
@@ -55988,6 +56895,233 @@
         ],
         "x-noust-permission": "teams.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/terminal/recordings": {
+      "get": {
+        "description": "List the recordings of terminal sessions, newest first.\n\nArgs:\n    session: The authenticated session.\n    domain: Only the sessions in this application.\n    actor: Only the sessions of this person.\n    kind: Only ``app`` or ``server`` sessions.\n    limit: The most to return, 1 to 500.\n\nReturns:\n    The recordings.\n\nRaises:\n    ValidationError: 400 for a kind that is neither.",
+        "operationId": "list_recordings_api_terminal_recordings_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "domain",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Domain"
+            }
+          },
+          {
+            "in": "query",
+            "name": "actor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordingsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Recordings",
+        "tags": [
+          "Terminal"
+        ],
+        "x-noust-permission": "audit.read"
+      }
+    },
+    "/api/terminal/recordings/{recording_id}": {
+      "get": {
+        "description": "Read one recording: what was printed, what was typed, and whether it is intact.\n\nReading it is itself on record. Escape sequences of the programs are kept in\n``events`` as they were and are removed from ``transcript``, which is what\nto print in a terminal.\n\nArgs:\n    recording_id: The recording's id.\n    session: The authenticated session.\n\nReturns:\n    The recording.\n\nRaises:\n    ValidationError: 400 for an id that is not one.\n    NoustError: 400 when there is no such recording or it is damaged.",
+        "operationId": "read_recording_api_terminal_recordings__recording_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recording_id",
+            "required": true,
+            "schema": {
+              "title": "Recording Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecordingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Recording",
+        "tags": [
+          "Terminal"
+        ],
+        "x-noust-permission": "audit.read"
+      }
+    },
+    "/api/terminal/sessions": {
+      "get": {
+        "description": "List the terminals that are open, in the caller's teams.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The open sessions, oldest first.",
+        "operationId": "list_sessions_api_terminal_sessions_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalSessionsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Sessions",
+        "tags": [
+          "Terminal"
+        ],
+        "x-noust-permission": "apps.terminal"
+      }
+    },
+    "/api/terminal/sessions/{session_id}": {
+      "delete": {
+        "description": "End somebody's terminal.\n\nThe program is stopped and the recording closed. The server's own sessions\nneed the ``server.terminal`` permission too.\n\nArgs:\n    session_id: The session.\n    session: The authenticated session.\n\nReturns:\n    That it ended.\n\nRaises:\n    HTTPException: 404 when it is not open, or not the caller's to see.",
+        "operationId": "end_session_api_terminal_sessions__session_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "title": "Session Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionEndedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "End Session",
+        "tags": [
+          "Terminal"
+        ],
+        "x-noust-permission": "apps.terminal"
+      }
+    },
+    "/api/terminal/status": {
+      "get": {
+        "description": "Say what the terminal may do on this server.\n\nWhat the console reads to offer a terminal, or to say why there is none:\nwhether application terminals are on, whether the server's shell is, and\nwhat an administrator would change.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The switches and the limits.",
+        "operationId": "terminal_status_api_terminal_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerminalStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Terminal Status",
+        "tags": [
+          "Terminal"
+        ],
+        "x-noust-permission": "apps.read"
       }
     },
     "/api/timeline": {

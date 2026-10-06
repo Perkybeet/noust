@@ -40,6 +40,7 @@ import asyncio
 import concurrent.futures
 import json
 import logging
+import time
 from typing import Any
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
@@ -222,6 +223,9 @@ def _ready(term: TerminalSession, *, resumed: bool, lost: bool) -> dict[str, Any
         "cols": info.cols,
         "started_at": info.started_at,
         "ends_at": info.ends_at,
+        # Seconds, so the console counts down on its own clock: the server's and the
+        # browser's are not the same.
+        "ends_in": round(max(0.0, info.ends_at - time.time()), 1),
         "idle_seconds": info.idle_seconds,
         "idle_remaining": round(info.idle_remaining, 1),
         "recorded": True,

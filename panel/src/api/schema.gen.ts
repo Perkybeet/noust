@@ -1298,6 +1298,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/exec": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Exec In App
+         * @description Run one command in an application, as a job.
+         *
+         *     The command is an argument vector, given to the program as it is. It runs
+         *     as the application's own account in its sandbox (a container of the stack,
+         *     for Compose), with the application's environment; its output is the job's
+         *     log. A command that exits with anything but 0 is a failed job whose log
+         *     says how. Needs sudo mode and ``apps.terminal`` in the application's team.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The command, the service and the time it may take.
+         *         session: The authenticated session, in sudo mode.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: 400 for a command or a time that is not acceptable.
+         */
+        post: operations["exec_in_app_api_apps__domain__exec_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/export": {
         parameters: {
             query?: never;
@@ -2448,6 +2486,46 @@ export interface paths {
          *         The action outcome.
          */
         post: operations["stop_app_api_apps__domain__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/terminal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open App Terminal
+         * @description Get the ticket that opens a terminal as an application.
+         *
+         *     The shell runs as the application's own account, in its sandbox, with its
+         *     environment; for a Compose or container application it is a shell in the
+         *     container of the service asked for. Needs sudo mode and the
+         *     ``apps.terminal`` permission in the application's team. Open the WebSocket
+         *     ``/ws/terminal?terminal_ticket=<ticket>`` within ``expires_in`` seconds.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The service, the shell and the size.
+         *         request: The request.
+         *         session: The authenticated session, in sudo mode.
+         *
+         *     Returns:
+         *         The ticket.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         TerminalDisabledError: 403 when terminals are off.
+         *         TerminalLimitError: 429 when a limit is reached.
+         */
+        post: operations["open_app_terminal_api_apps__domain__terminal_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12482,6 +12560,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/server/terminal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open Server Terminal
+         * @description Get the ticket that opens a root shell on the server itself.
+         *
+         *     Off until an administrator turns it on (``terminal.server.enabled``), and
+         *     under the ENS profile until it is forced too. Needs sudo mode, the
+         *     ``server.terminal`` permission and a principal that sees every team; with
+         *     four-eyes approval on, a second person decides first.
+         *
+         *     Args:
+         *         body: The shell and the size.
+         *         request: The request.
+         *         session: The authenticated session, in sudo mode.
+         *
+         *     Returns:
+         *         The ticket.
+         *
+         *     Raises:
+         *         TerminalDisabledError: 403 when the server's shell is off.
+         *         TerminalLimitError: 429 when a limit is reached.
+         */
+        post: operations["open_server_terminal_api_server_terminal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/server/time": {
         parameters: {
             query?: never;
@@ -14326,6 +14441,163 @@ export interface paths {
          *             that still holds resources.
          */
         delete: operations["delete_environment_api_teams__team__projects__project__environments__environment__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/terminal/recordings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Recordings
+         * @description List the recordings of terminal sessions, newest first.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         domain: Only the sessions in this application.
+         *         actor: Only the sessions of this person.
+         *         kind: Only ``app`` or ``server`` sessions.
+         *         limit: The most to return, 1 to 500.
+         *
+         *     Returns:
+         *         The recordings.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a kind that is neither.
+         */
+        get: operations["list_recordings_api_terminal_recordings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/terminal/recordings/{recording_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Recording
+         * @description Read one recording: what was printed, what was typed, and whether it is intact.
+         *
+         *     Reading it is itself on record. Escape sequences of the programs are kept in
+         *     ``events`` as they were and are removed from ``transcript``, which is what
+         *     to print in a terminal.
+         *
+         *     Args:
+         *         recording_id: The recording's id.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The recording.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an id that is not one.
+         *         NoustError: 400 when there is no such recording or it is damaged.
+         */
+        get: operations["read_recording_api_terminal_recordings__recording_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/terminal/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Sessions
+         * @description List the terminals that are open, in the caller's teams.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The open sessions, oldest first.
+         */
+        get: operations["list_sessions_api_terminal_sessions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/terminal/sessions/{session_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * End Session
+         * @description End somebody's terminal.
+         *
+         *     The program is stopped and the recording closed. The server's own sessions
+         *     need the ``server.terminal`` permission too.
+         *
+         *     Args:
+         *         session_id: The session.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         That it ended.
+         *
+         *     Raises:
+         *         HTTPException: 404 when it is not open, or not the caller's to see.
+         */
+        delete: operations["end_session_api_terminal_sessions__session_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/terminal/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Terminal Status
+         * @description Say what the terminal may do on this server.
+         *
+         *     What the console reads to offer a terminal, or to say why there is none:
+         *     whether application terminals are on, whether the server's shell is, and
+         *     what an administrator would change.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The switches and the limits.
+         */
+        get: operations["terminal_status_api_terminal_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -20692,6 +20964,27 @@ export interface components {
             exceptions: components["schemas"]["ExceptionInfo"][];
         };
         /**
+         * ExecRequest
+         * @description A command to run once in an application.
+         */
+        ExecRequest: {
+            /**
+             * Argv
+             * @description The program and its arguments, given to it as they are; never a shell line
+             */
+            argv: string[];
+            /**
+             * Service
+             * @description The Compose service, for a stack
+             */
+            service?: string | null;
+            /**
+             * Timeout
+             * @description Seconds it may run; 300 when absent
+             */
+            timeout?: number | null;
+        };
+        /**
          * ExplainRequest
          * @description Request for a plan.
          *
@@ -26106,6 +26399,85 @@ export interface components {
             app: string;
         };
         /**
+         * RecordingModel
+         * @description One recording of a session, as the list shows it.
+         */
+        RecordingModel: {
+            /** Account */
+            account?: string | null;
+            /** Actor */
+            actor?: string | null;
+            /** Bytes */
+            bytes?: number | null;
+            /** Client Ip */
+            client_ip?: string | null;
+            /** Domain */
+            domain?: string | null;
+            /** Duration */
+            duration?: number | null;
+            /** End Reason */
+            end_reason?: string | null;
+            /** Ended At */
+            ended_at?: number | null;
+            /** Events */
+            events?: number | null;
+            /** Exit Code */
+            exit_code?: number | null;
+            /** Failed */
+            failed?: boolean | null;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind?: string | null;
+            /** Label */
+            label?: string | null;
+            /** Service */
+            service?: string | null;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Started At */
+            started_at?: number | null;
+            /**
+             * Status
+             * @description recording, complete or interrupted
+             */
+            status: string;
+            /** Truncated Input */
+            truncated_input?: boolean | null;
+            /** Truncated Output */
+            truncated_output?: boolean | null;
+        };
+        /**
+         * RecordingResponse
+         * @description One recording, read back.
+         */
+        RecordingResponse: {
+            /**
+             * Events
+             * @description [seconds, 'o'|'i'|'r'|'m', data] for each event
+             */
+            events: unknown[][];
+            /**
+             * Intact
+             * @description The cast still matches the digest the audit trail recorded; null while the session is still recording
+             */
+            intact: boolean | null;
+            recording: components["schemas"]["RecordingModel"];
+            /**
+             * Transcript
+             * @description Its output and its input as text, safe to print
+             */
+            transcript: string;
+        };
+        /**
+         * RecordingsResponse
+         * @description The recordings, newest first.
+         */
+        RecordingsResponse: {
+            /** Recordings */
+            recordings: components["schemas"]["RecordingModel"][];
+        };
+        /**
          * RefusedRestartOut
          * @description A service on replaced libraries that is not restarted from Noust, and why.
          */
@@ -27531,6 +27903,29 @@ export interface components {
             version: string;
         };
         /**
+         * ServerShellModel
+         * @description Whether the server's own shell may be opened, and what to do when it may not.
+         */
+        ServerShellModel: {
+            /** Allowed */
+            allowed: boolean;
+            /**
+             * Enabled
+             * @description terminal.server.enabled
+             */
+            enabled: boolean;
+            /**
+             * How
+             * @description What to change, verbatim
+             */
+            how?: string | null;
+            /**
+             * Reason
+             * @description Why it may not be opened
+             */
+            reason?: string | null;
+        };
+        /**
          * ServiceActionResponse
          * @description Response for service actions.
          */
@@ -27630,6 +28025,16 @@ export interface components {
             logs: string;
             /** Service */
             service: string;
+        };
+        /**
+         * SessionEndedResponse
+         * @description A terminal that was ended.
+         */
+        SessionEndedResponse: {
+            /** Ended */
+            ended: boolean;
+            /** Id */
+            id: string;
         };
         /**
          * SessionEntry
@@ -29639,6 +30044,184 @@ export interface components {
             bot_token_set: boolean;
             /** Chat Id */
             chat_id: string;
+        };
+        /**
+         * TerminalRequest
+         * @description What the person asks of a terminal.
+         */
+        TerminalRequest: {
+            /**
+             * Cols
+             * @description The terminal's width
+             * @default 80
+             */
+            cols: number;
+            /**
+             * Resume
+             * @description The session to go back to after the connection dropped, instead of a new one
+             */
+            resume?: string | null;
+            /**
+             * Rows
+             * @description The terminal's height
+             * @default 24
+             */
+            rows: number;
+            /**
+             * Service
+             * @description The Compose service to open it in, for a stack that runs several
+             */
+            service?: string | null;
+            /**
+             * Shell
+             * @description The shell, by name: one of bash, sh, ash, zsh, dash; the default when absent
+             */
+            shell?: string | null;
+        };
+        /**
+         * TerminalSessionModel
+         * @description One open terminal.
+         */
+        TerminalSessionModel: {
+            /** Account */
+            account: string;
+            /** Actor */
+            actor: string;
+            /** Attached */
+            attached: boolean;
+            /** Cols */
+            cols: number;
+            /** Domain */
+            domain?: string | null;
+            /** Ends At */
+            ends_at: number;
+            /** Id */
+            id: string;
+            /** Idle Remaining */
+            idle_remaining: number;
+            /** Idle Seconds */
+            idle_seconds: number;
+            /** Kind */
+            kind: string;
+            /** Label */
+            label: string;
+            /** Recording */
+            recording?: string | null;
+            /** Rows */
+            rows: number;
+            /** Service */
+            service?: string | null;
+            /** Started At */
+            started_at: number;
+        };
+        /**
+         * TerminalSessionsResponse
+         * @description The open terminals the caller may see.
+         */
+        TerminalSessionsResponse: {
+            /** Sessions */
+            sessions: components["schemas"]["TerminalSessionModel"][];
+        };
+        /**
+         * TerminalStatusResponse
+         * @description What the terminal may do on this server.
+         */
+        TerminalStatusResponse: {
+            /**
+             * Enabled
+             * @description Application terminals are on
+             */
+            enabled: boolean;
+            /** Ens */
+            ens: boolean;
+            /** Exec Max Seconds */
+            exec_max_seconds: number;
+            /** Idle Seconds */
+            idle_seconds: number;
+            /** Max Seconds */
+            max_seconds: number;
+            /** Max Sessions */
+            max_sessions: number;
+            /** Max Sessions Per User */
+            max_sessions_per_user: number;
+            /** Open Sessions */
+            open_sessions: number;
+            /** Recording Max Mb */
+            recording_max_mb: number;
+            /** Retention Days */
+            retention_days: number;
+            server: components["schemas"]["ServerShellModel"];
+            /** Shells */
+            shells: string[];
+        };
+        /**
+         * TerminalTargetModel
+         * @description Where a terminal is, as its header says it.
+         */
+        TerminalTargetModel: {
+            /**
+             * Account
+             * @description Who the shell runs as: the application's account, root, or container
+             */
+            account: string;
+            /** Domain */
+            domain?: string | null;
+            /**
+             * Kind
+             * @description app or server
+             */
+            kind: string;
+            /**
+             * Label
+             * @description What the header shows
+             */
+            label: string;
+            /** Service */
+            service?: string | null;
+        };
+        /**
+         * TerminalTicketResponse
+         * @description The ticket that opens a terminal, and what it will open.
+         */
+        TerminalTicketResponse: {
+            /** Expires In */
+            expires_in: number;
+            /**
+             * Idle Seconds
+             * @description How long it may go with nothing typed
+             */
+            idle_seconds: number;
+            /**
+             * Max Seconds
+             * @description How long it lasts, however busy
+             */
+            max_seconds: number;
+            /**
+             * Path
+             * @description The WebSocket to open it on, with ?terminal_ticket=<ticket>
+             */
+            path: string;
+            /**
+             * Recorded
+             * @description The session is kept in the audit trail
+             */
+            recorded: boolean;
+            /**
+             * Resume
+             * @description The ticket goes back to a session that is already open
+             */
+            resume: boolean;
+            /**
+             * Session
+             * @description The session's identifier
+             */
+            session: string;
+            target: components["schemas"]["TerminalTargetModel"];
+            /**
+             * Ticket
+             * @description Single use; valid for expires_in seconds; shown once
+             */
+            ticket: string;
         };
         /**
          * TestDestinationResponse
@@ -33423,6 +34006,41 @@ export interface operations {
             };
         };
     };
+    exec_in_app_api_apps__domain__exec_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExecRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_app_export_api_apps__domain__export_get: {
         parameters: {
             query?: {
@@ -34633,6 +35251,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AppActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    open_app_terminal_api_apps__domain__terminal_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TerminalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TerminalTicketResponse"];
                 };
             };
             /** @description Validation Error */
@@ -45061,6 +45714,39 @@ export interface operations {
             };
         };
     };
+    open_server_terminal_api_server_terminal_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TerminalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TerminalTicketResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_time_api_server_time_get: {
         parameters: {
             query?: never;
@@ -47097,6 +47783,142 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_recordings_api_terminal_recordings_get: {
+        parameters: {
+            query?: {
+                domain?: string | null;
+                actor?: string | null;
+                kind?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_recording_api_terminal_recordings__recording_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recording_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordingResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_sessions_api_terminal_sessions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TerminalSessionsResponse"];
+                };
+            };
+        };
+    };
+    end_session_api_terminal_sessions__session_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionEndedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    terminal_status_api_terminal_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TerminalStatusResponse"];
                 };
             };
         };
