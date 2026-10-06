@@ -7881,6 +7881,280 @@ def _proggest_delete(sc: Scenario, ledger: Ledger) -> None:
     )
 
 
+INSTALLER = REPO_ROOT / "packaging" / "install.sh"
+
+
+@scenario("installer_platform_and_dry_run")
+def scenario_installer_platform_and_dry_run(sc: Scenario) -> None:
+    """The one-line installer detects this system, plans without touching it, and refuses what it must."""
+    sh(["docker", "cp", str(INSTALLER), f"{sc.container}:/tmp/install.sh"], timeout=30)
+    platform = sc.run("sh /tmp/install.sh --print-platform", label="install.sh --print-platform")
+    sc.check(
+        "status=supported" in platform.stdout,
+        f"Ubuntu 24.04 is declared supported: {platform.stdout}",
+    )
+    sc.check("repo=xUbuntu_24.04" in platform.stdout, "it picks the Ubuntu 24.04 repository")
+
+    plan = sc.run("sh /tmp/install.sh --dry-run --version 3.3.1", label="install.sh --dry-run")
+    sc.check(
+        "[dry-run]" in plan.stdout and "Dry run: nothing was changed." in plan.stdout, "it plans"
+    )
+    sc.check(
+        "noust=3.3.1-*" in plan.stdout
+        and "D9FA6122D7F154D75A588A501945D169A62CFF65" in plan.stdout,
+        "the plan names the pinned version and the key fingerprint it will check",
+    )
+    sc.check(
+        sc.run(
+            "test ! -e /etc/apt/sources.list.d/noust.list", check=False, label="nothing written"
+        ).returncode
+        == 0,
+        "a dry run wrote nothing",
+    )
+
+    for name, os_release, arch, expect in (
+        ("Arch Linux", 'ID=arch\nPRETTY_NAME="Arch Linux"\n', "x86_64", 3),
+        ("Debian 11", 'ID=debian\nVERSION_ID="11"\nPRETTY_NAME="Debian 11"\n', "x86_64", 3),
+        (
+            "32-bit Raspberry Pi OS",
+            'ID=debian\nVERSION_ID="12"\nPRETTY_NAME="Debian 12"\n',
+            "armv7l",
+            3,
+        ),
+    ):
+        sc.run(f"printf '{os_release}' > /tmp/fake-os-release", label=f"a {name} os-release")
+        refused = sc.run(
+            f"NOUST_OS_RELEASE=/tmp/fake-os-release NOUST_ARCH={arch} sh /tmp/install.sh --yes",
+            check=False,
+            label=f"install.sh on {name}",
+        )
+        sc.check(
+            refused.returncode == expect,
+            f"{name} is refused with status {expect}: {refused.returncode}",
+        )
+
+    wrong = sc.run(
+        "NOUST_REPO_KEY_FPR=0123456789ABCDEF0123456789ABCDEF01234567 "
+        "sh /tmp/install.sh --yes --skip-setup --no-console",
+        timeout=180,
+        check=False,
+        label="install.sh with a key fingerprint that is not the repository's",
+    )
+    sc.check(wrong.returncode != 0, "a key with another fingerprint is refused")
+    sc.check("does not have the expected fingerprint" in wrong.stderr, "and the refusal says why")
+    sc.check(
+        sc.run(
+            "test ! -e /etc/apt/sources.list.d/noust.list",
+            check=False,
+            label="still nothing written",
+        ).returncode
+        == 0,
+        "nothing was written before the key was verified",
+    )
+
+
+#: Stands in for certbot in the harness, which has no route to an ACME server: it "issues" a
+#: self-signed certificate where certbot would put one, and removes it on `delete`. Everything
+#: else of the exposure (nginx, systemd, the console, the store) is the real thing.
+FAKE_CERTBOT = """#!/bin/sh
+case "$1" in
+    delete)
+        while [ "$#" -gt 0 ]; do [ "$1" = --cert-name ] && name="$2"; shift; done
+        rm -rf "/etc/letsencrypt/live/$name" "/etc/letsencrypt/archive/$name"
+        exit 0 ;;
+    certonly)
+        while [ "$#" -gt 0 ]; do [ "$1" = --cert-name ] && name="$2"; shift; done
+        live="/etc/letsencrypt/live/$name"
+        mkdir -p "$live"
+        openssl req -x509 -newkey rsa:2048 -nodes -days 90 -subj "/CN=$name" \\
+            -keyout "$live/privkey.pem" -out "$live/fullchain.pem" 2>/dev/null
+        cp "$live/fullchain.pem" "$live/cert.pem"; cp "$live/fullchain.pem" "$live/chain.pem"
+        exit 0 ;;
+esac
+exit 0
+"""
+
+CONSOLE_NAME = "console.test"
+CONSOLE_SITE = "/etc/nginx/sites-available/console.test"
+
+
+@scenario("console_exposed_through_nginx")
+def scenario_console_exposed_through_nginx(sc: Scenario) -> None:
+    """`noust console expose` publishes the console over TLS through the real nginx, and undoes it.
+
+    The console is a real systemd service; nginx, the unit, the store and the configuration are
+    real; only certbot is a stand-in that issues a self-signed certificate. What is pinned:
+    the refusals before anything is written (no second factor), the nginx allow-list enforced
+    before the console sees a request, the console's unit trusting nginx and still answering,
+    and `unexpose` leaving the machine as it found it.
+    """
+    require_cli(sc, "console expose", what="the console on a public name")
+    sc.run("command -v openssl nginx", timeout=15, label="openssl and nginx are there")
+    docker_exec(
+        sc.container,
+        f"cat > /usr/local/bin/certbot <<'SHIM'\n{FAKE_CERTBOT}SHIM\nchmod 0755 /usr/local/bin/certbot",
+        timeout=30,
+    )
+    sc.evidence.append("$ install a certbot stand-in (self-signed certificate, no ACME)")
+    secret = ""
+    try:
+        enable = docker_exec(sc.container, "noust web enable", timeout=90, check=False)
+        sc.evidence.append("$ noust web enable\n(output withheld: it holds the access token)")
+        sc.check(enable.returncode == 0, f"noust web enable failed: {enable.stderr}")
+        wait_until_health(sc, PANEL_URL)
+
+        # Refused first: no account and the access token has no second factor.
+        refused = sc.run(
+            f"noust console expose --domain {CONSOLE_NAME} --skip-dns-check --yes",
+            check=False,
+            label="expose without a second factor",
+        )
+        sc.check(refused.returncode != 0, "the console was published without a second factor")
+        sc.check(
+            "second factor" in refused.stderr + refused.stdout,
+            f"the refusal does not say why: {refused.stderr}{refused.stdout}",
+        )
+        sc.check(
+            sc.run(f"test ! -e {CONSOLE_SITE}", check=False, label="nothing written").returncode
+            == 0,
+            "a refused exposure wrote the site",
+        )
+
+        # An account that signs in with a password alone stops it too.
+        sc.run(
+            "printf '%s\n' 'a-long-passphrase-for-the-admin-7' | noust user create alice --role admin --stdin",
+            label="noust user create alice",
+        )
+        refused = sc.run(
+            f"noust console expose --domain {CONSOLE_NAME} --skip-dns-check --yes",
+            check=False,
+            label="expose with an account lacking a second factor",
+        )
+        sc.check(refused.returncode != 0, "published while alice has no second factor")
+        sc.check(
+            "alice" in refused.stderr + refused.stdout, "the refusal does not name the account"
+        )
+        sc.run("noust user disable alice", label="noust user disable alice")
+
+        # The access token's own second factor, enrolled the way an operator does.
+        enroll = docker_exec(sc.container, "noust 2fa enroll", timeout=30, check=False)
+        match = re.search(r"Secret\W+([A-Z2-7]{16,})", enroll.stdout)
+        sc.check(match is not None, "noust 2fa enroll printed no secret")
+        secret = match.group(1) if match else ""
+        code = docker_exec(
+            sc.container,
+            f"/opt/noust/bin/python -c 'from noust.core.totp import totp_now; print(totp_now(\"{secret}\"))'",
+            timeout=30,
+        ).stdout.strip()
+        confirmed = docker_exec(sc.container, f"noust 2fa confirm {code}", timeout=30, check=False)
+        sc.evidence.append("$ noust 2fa enroll / confirm\n(output withheld: it holds secrets)")
+        sc.check(confirmed.returncode == 0, f"2fa confirm failed: {confirmed.stderr}")
+
+        # The real thing, with an allow-list that does not include the address the test comes from.
+        sc.run(
+            f"noust console expose --domain {CONSOLE_NAME} --allow-ip 203.0.113.0/24 "
+            "--skip-dns-check --yes",
+            timeout=180,
+            label="noust console expose",
+        )
+        site = sc.run(f"cat {CONSOLE_SITE}", label="the nginx site").stdout
+        sc.check(site.startswith("# Noust console site for"), "the site does not say it is Noust's")
+        sc.check(
+            "allow 203.0.113.0/24;" in site and "deny all;" in site, "the allow-list is not there"
+        )
+        sc.check(
+            sc.run("nginx -t", check=False, label="nginx -t").returncode == 0,
+            "nginx rejects the site",
+        )
+        unit = sc.run("systemctl cat noust-web.service", label="the console's unit").stdout
+        sc.check("--trusted-proxy 127.0.0.1" in unit, "the console does not trust nginx")
+        wait_until_health(sc, PANEL_URL)
+        status = sc.run("noust console status --json", label="noust console status").stdout
+        sc.check('"exposed": true' in status, f"status does not say it is exposed: {status}")
+
+        via_nginx = (
+            f"curl -sk -o /dev/null -w '%{{http_code}}' --resolve {CONSOLE_NAME}:443:127.0.0.1 "
+            f"https://{CONSOLE_NAME}/health"
+        )
+        blocked = sc.run(via_nginx, check=False, label="through nginx, from outside the allow-list")
+        sc.check(blocked.stdout.strip() == "403", f"nginx let a stranger through: {blocked.stdout}")
+        redirect = sc.run(
+            f"curl -s -o /dev/null -w '%{{http_code}} %{{redirect_url}}' -H 'Host: {CONSOLE_NAME}' "
+            "http://127.0.0.1/",
+            check=False,
+            label="plain HTTP",
+        )
+        sc.check(
+            redirect.stdout.startswith(f"301 https://{CONSOLE_NAME}"),
+            f"plain HTTP is not redirected to HTTPS: {redirect.stdout}",
+        )
+
+        # Open it to this machine, and the console answers through nginx over TLS.
+        sc.run(
+            f"noust console expose --domain {CONSOLE_NAME} --allow-ip 127.0.0.1 --skip-dns-check --yes",
+            timeout=180,
+            label="noust console expose again, allowing 127.0.0.1",
+        )
+        wait_until_health(sc, PANEL_URL)
+        answered = sc.run(via_nginx, check=False, label="through nginx, from inside the allow-list")
+        sc.check(
+            answered.stdout.strip() == "200",
+            f"the console does not answer through nginx: {answered.stdout}",
+        )
+
+        # Take it off: exactly what it made, and the console keeps running on loopback.
+        sc.run("noust console unexpose --yes", timeout=180, label="noust console unexpose")
+        sc.check(
+            sc.run(
+                f"test ! -e {CONSOLE_SITE} && test ! -e /etc/letsencrypt/live/{CONSOLE_NAME}",
+                check=False,
+                label="the site and the certificate are gone",
+            ).returncode
+            == 0,
+            "unexpose left the site or the certificate",
+        )
+        unit = sc.run("systemctl cat noust-web.service", label="the console's unit again").stdout
+        sc.check("--trusted-proxy" not in unit, "the unit still trusts a proxy that is gone")
+        sc.check(
+            sc.run("nginx -t", check=False, label="nginx -t").returncode == 0,
+            "nginx rejects what is left",
+        )
+        wait_until_health(sc, PANEL_URL)
+        again = sc.run("noust console status --json", label="noust console status").stdout
+        sc.check('"exposed": false' in again, f"status still says exposed: {again}")
+    finally:
+        sc.run("noust console unexpose --yes", timeout=180, check=False, label="cleanup: unexpose")
+        if secret:
+            # The next 30-second step: the one confirm used is spent and replays are refused.
+            code = docker_exec(
+                sc.container,
+                "/opt/noust/bin/python -c 'import time; from noust.core.totp import totp_now; "
+                f'print(totp_now("{secret}", t=time.time() + 30))\'',
+                timeout=30,
+                check=False,
+            ).stdout.strip()
+            docker_exec(sc.container, f"noust 2fa disable {code}", timeout=30, check=False)
+        sc.run("noust user remove alice --force", check=False, label="cleanup: alice")
+        sc.run("noust web disable", timeout=60, check=False, label="cleanup: web disable")
+        sc.run("rm -f /usr/local/bin/certbot", check=False, label="cleanup: certbot stand-in")
+
+
+def wait_until_health(sc: Scenario, url: str) -> None:
+    """Wait until the console answers ``/health``."""
+    deadline = time.time() + 45
+    while time.time() < deadline:
+        probe = docker_exec(
+            sc.container,
+            f"curl -sS -o /dev/null -w '%{{http_code}}' {url}/health",
+            timeout=15,
+            check=False,
+        )
+        if probe.stdout.strip() == "200":
+            return
+        time.sleep(1)
+    raise AssertionError(f"the console did not answer {url}/health within 45s")
+
+
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
@@ -7949,6 +8223,15 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--install-matrix",
+        action="store_true",
+        help=(
+            "Run only the installer against the platform matrix (tests/integration/"
+            "install_matrix.py): one throwaway container per distribution, installing the "
+            "published package. Run install_matrix.py itself for one image."
+        ),
+    )
+    parser.add_argument(
         "--monitor-variant",
         choices=("installed", "uninstalled", "both"),
         default="both",
@@ -7983,6 +8266,11 @@ def selected_scenarios(names: list[str] | None) -> list[tuple[str, ScenarioFn]]:
 def main() -> int:
     global IGNORE_REQUIREMENTS
     args = parse_args()
+    if args.install_matrix:
+        # No wheel and no systemd image: the matrix installs the published package.
+        import install_matrix
+
+        return install_matrix.main([])
     IGNORE_REQUIREMENTS = args.ignore_requirements
     started_at = time.monotonic()
 

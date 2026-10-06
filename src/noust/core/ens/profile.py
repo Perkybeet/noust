@@ -100,6 +100,11 @@ class ProfileDefaults:
             database engine on an address beyond loopback (mp.com.1): under
             the profile an engine is reached through an SSH tunnel, never
             directly.
+        console_exposure: Whether ``noust console expose`` may publish the
+            console on a name of its own (mp.com.1): the console is
+            root-equivalent, so under the profile it stays on loopback and is
+            reached through an SSH tunnel unless the operator forces it in so
+            many words, and then only with an explicit allow-list.
         sudo_idle_minutes: How long sudo mode ("Confirm it's you") stays open
             without an elevated action being performed in it. Every elevated
             action extends it by this much, up to ``sudo_max_minutes``.
@@ -132,6 +137,7 @@ class ProfileDefaults:
     audit_review_days: int
     stale_account_days: int
     database_remote_listen: bool = True
+    console_exposure: bool = True
     sudo_idle_minutes: int = 15
     sudo_max_minutes: int = 120
     sudo_require_password: bool = False
@@ -166,6 +172,7 @@ STANDARD = ProfileDefaults(
     audit_review_days=7,
     stale_account_days=90,
     database_remote_listen=True,
+    console_exposure=True,
     sudo_idle_minutes=15,
     sudo_max_minutes=120,
     sudo_require_password=False,
@@ -196,6 +203,7 @@ ENS_MEDIUM = ProfileDefaults(
     audit_review_days=7,
     stale_account_days=90,
     database_remote_listen=False,
+    console_exposure=False,
     # Tighter than the session's own 15 minutes of idleness (the old fixed
     # window was 10), a short ceiling on standing destructive power, and the
     # password again on top of the code: the extra friction ENS accepts that
@@ -337,6 +345,21 @@ def database_remote_listen_allowed(config: Any | None = None) -> bool:
         ``listen_addresses``, ``bind-address``, ``bind`` or ``net.bindIp``.
     """
     return active_defaults(config).database_remote_listen
+
+
+def console_exposure_allowed(config: Any | None = None) -> bool:
+    """
+    Report whether the console may be published on a public name without being forced.
+
+    Args:
+        config: The configuration; the process-wide one by default.
+
+    Returns:
+        False under ``ens-medium``: ``noust console expose`` refuses unless the
+        operator confirms the override in so many words, and the override needs
+        an allow-list of who may connect.
+    """
+    return active_defaults(config).console_exposure
 
 
 @dataclass(frozen=True)
@@ -493,6 +516,13 @@ def baseline() -> list[BaselineItem]:
             "allowed, with a warning and sudo mode",
             "refused: reach engines through an SSH tunnel",
             ("mp.com.1",),
+        ),
+        BaselineItem(
+            "console exposure",
+            "Noust may publish the console on a public name of its own (noust console expose).",
+            "allowed, with two-factor on every account",
+            "refused unless forced, and then only with an allow-list of who may connect",
+            ("mp.com.1", "op.acc.4.5"),
         ),
         BaselineItem(
             "web.ip_whitelist",

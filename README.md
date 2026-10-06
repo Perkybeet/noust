@@ -107,7 +107,28 @@ Noust needs root: it writes to `/etc`, `/var` and systemd. Run the commands belo
 prefix them with `sudo`. The packages come from the `home:Perkybeet` repository on the
 openSUSE Build Service.
 
-### Ubuntu and Debian (recommended)
+### One line
+
+On a fresh server, as root. The installer is published with every release beside its checksum
+(and the checksum's signature), so check it before you run it:
+
+```bash
+curl -fsSLO https://github.com/Perkybeet/noust/releases/latest/download/install.sh
+curl -fsSLO https://github.com/Perkybeet/noust/releases/latest/download/SHA256SUMS
+sha256sum -c --ignore-missing SHA256SUMS && sh install.sh
+```
+
+It reads the distribution and the architecture and refuses what is not on the
+[platform list](docs/PLATFORMS.md); adds the Noust repository after checking that the key it
+serves has the fingerprint pinned in the script; installs the `noust` package with `apt`, `dnf`
+or `zypper` (the RHEL family has no package, so it gets a virtual environment with pip); runs
+`noust setup init -y` and `noust web enable`; and prints how to reach the console. It downloads
+no other script. `sh install.sh --dry-run` prints what it would do and changes nothing;
+`--version 3.3.1`, `--no-console`, `--yes` and the `NOUST_*` variables for provisioning scripts
+are in `sh install.sh --help`. The signature, the platforms and what is tested on each are in
+[docs/PLATFORMS.md](docs/PLATFORMS.md).
+
+### By hand: Ubuntu and Debian
 
 ```bash
 # Add GPG key
@@ -127,13 +148,11 @@ Replace `xUbuntu_26.04` with your release: `xUbuntu_24.04`, `xUbuntu_22.04`, `De
 `Debian_13`. A server that already has the WASM repository configured needs no new
 repository: it is the same one.
 
-**Supported versions:**
-- Ubuntu 26.04 LTS (Resolute Raccoon, Python 3.14)
-- Ubuntu 24.04 LTS (Noble Numbat)
-- Ubuntu 22.04 LTS (Jammy Jellyfish)
-- Debian 12 (Bookworm) and 13 (Trixie)
+The releases it is built for, and what has been tested on each, are listed in
+[docs/PLATFORMS.md](docs/PLATFORMS.md): Ubuntu 22.04, 24.04 and 26.04 LTS, Debian 12 and 13
+(Raspberry Pi OS 64-bit is Debian 12 or 13).
 
-### Fedora
+### By hand: Fedora
 
 ```bash
 sudo dnf config-manager --add-repo \
@@ -141,7 +160,7 @@ sudo dnf config-manager --add-repo \
 sudo dnf install noust
 ```
 
-### openSUSE
+### By hand: openSUSE
 
 ```bash
 # Tumbleweed
@@ -252,7 +271,21 @@ runs it in the foreground until Ctrl+C, and `noust web start -d` in the backgrou
 `noust web stop` or the next reboot. All three take the same options and print the access
 token the same way.
 
-To expose it, serve TLS (`--host 0.0.0.0 --tls-cert ... --tls-key ...`, or `--self-signed`),
+To open it from a browser without a tunnel, publish it on a name of your own, over TLS, with
+Noust's own nginx and Let's Encrypt:
+
+```bash
+noust console expose --domain console.example.com --allow-ip 203.0.113.0/24
+noust console unexpose                  # removes exactly what the line above made
+```
+
+It refuses while any account can sign in without a second factor, when the name belongs to an
+application or to a site Noust did not write, when the name does not point at this server, and
+under the ENS profile unless forced (`--force-ens`, which asks, needs `--allow-ip` and is
+audited). There is no plain-HTTP option: until the certificate exists the site answers 404. See
+[docs/console.md](docs/console.md#on-a-name-of-its-own-over-tls).
+
+To expose it by hand, serve TLS (`--host 0.0.0.0 --tls-cert ... --tls-key ...`, or `--self-signed`),
 or put it behind a reverse proxy that terminates TLS and declare it with `--trusted-proxy`.
 Binding beyond loopback without TLS is refused unless you pass `--insecure-http`. A running
 console reads the token from disk on every request, so `noust web token --new` retires the
@@ -715,8 +748,13 @@ noust node label vps1 env=prod
 noust fleet run apps_update --label env=prod --serial 1 --canary vps1  # plan first, then run
 ```
 
-Enrollment is inverted: the central never logs in to a server with your credentials. You
-authorize it **on the server**, where you are already root: `noust fleet authorize` installs
+Enrollment is inverted by default: you authorize the central **on the server**, where you are
+already root. When you only have an address and a way in, `noust fleet enroll vps1 --host
+203.0.113.9` (or the same two API calls, `POST /api/fleet/enroll/host-key` and `POST
+/api/fleet/enroll`) does the three steps from the central:
+it connects once, to a host key you confirm, installs Noust there if it is missing, authorizes
+itself and joins the server, and keeps neither the password nor the key. The result is the same
+as the manual way, which is what happens underneath: `noust fleet authorize` installs
 the central's key for `noust-tunnel`, an account with no home, no shell and no password that
 sshd itself restricts to forwarding that server's console port - no terminal, no command, no
 other forward - and prints a join code, which you paste into the central (`noust node add`).
@@ -910,7 +948,7 @@ is.
 
 ## Requirements
 
-- **Operating system**: Ubuntu 22.04+, Debian 12+, Fedora 40+, openSUSE Leap 15.6+
+- **Operating system and processor**: Debian 12 and 13, Ubuntu 22.04, 24.04 and 26.04, Fedora, openSUSE Leap and Tumbleweed, and the RHEL family through pip; amd64 and arm64, Raspberry Pi 64-bit included ([docs/PLATFORMS.md](docs/PLATFORMS.md) says what each is, and what was tested where)
 - **Python**: 3.10 to 3.14
 - **Privileges**: root
 - **Installed by `noust setup init` when missing**: nginx or Apache, certbot, git, Node.js
@@ -932,6 +970,7 @@ is.
 - [docs/UPGRADING-3.1.md](docs/UPGRADING-3.1.md): upgrading a 3.0 server or fleet to 3.1, and rolling back
 - [docs/CHANGELOG-3.0.md](docs/CHANGELOG-3.0.md): what changed in 3.0
 - [docs/UPGRADING-3.0.md](docs/UPGRADING-3.0.md): upgrading a WASM 2.x server to Noust 3.0
+- [docs/PLATFORMS.md](docs/PLATFORMS.md): the distributions and processors Noust installs on, what is tested where, and how to verify the installer
 - [docs/CENTRAL.md](docs/CENTRAL.md): running a central, adding a server, fleet views and bulk actions, sealing its secrets
 - [docs/CONFIG.md](docs/CONFIG.md): every setting, and the obsolete ones
 - [docs/console.md](docs/console.md): the console, page by page

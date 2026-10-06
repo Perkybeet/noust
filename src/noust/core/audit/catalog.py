@@ -333,6 +333,18 @@ EVENTS: dict[str, EventSpec] = {
             "incident.lockdown": "The console was locked down for an incident.",
         },
     ),
+    # The console's reach, and how a server joins a fleet (3.4).
+    **_events(
+        "change",
+        NOTICE,
+        {
+            "console.expose": "The console was published on a public name over TLS.",
+            "console.unexpose": "The console was taken off its public name.",
+            "fleet.enroll.start": "A server's enrollment from this central began, with a credential used once.",
+            "fleet.enroll.finish": "A guided enrollment ended: the server joined, or it did not.",
+            "fleet.enroll.hostkey": "An address was asked for its SSH host key, for the operator to confirm.",
+        },
+    ),
     # Sensitive reads: someone saw something secret.
     **_reads(
         {

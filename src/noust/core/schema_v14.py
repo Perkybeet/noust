@@ -53,7 +53,30 @@ BACKUPS_SQL = ""
 BACKUPS_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the access lane: the console's exposure and guided enrollment.
-ACCESS_SQL = ""
+#
+# console_exposure holds at most one row (id = 1): the public name the console
+# was given with `noust console expose`, and exactly what that call created or
+# changed, so `unexpose` removes those and nothing else. Every "previous_*"
+# column is what the setting held before, JSON text, NULL when it was unset.
+# site_created / certificate_created / proxy_added say whether Noust made that
+# part (a name that already had a site or a certificate is never removed).
+ACCESS_SQL = """
+CREATE TABLE IF NOT EXISTS console_exposure (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    domain TEXT NOT NULL,
+    port INTEGER NOT NULL,
+    scheme TEXT NOT NULL DEFAULT 'http',
+    allow_ips TEXT NOT NULL DEFAULT '[]',
+    site_created INTEGER NOT NULL DEFAULT 0,
+    certificate_created INTEGER NOT NULL DEFAULT 0,
+    proxy_added TEXT,
+    previous_public_url TEXT,
+    previous_allowed_hosts TEXT,
+    state TEXT NOT NULL DEFAULT 'active',
+    created_at TEXT NOT NULL,
+    created_by TEXT
+);
+"""
 ACCESS_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the notifications lane: notification channels.
