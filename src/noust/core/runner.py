@@ -938,6 +938,20 @@ class PtyHandle(ABC):
             cols: The new width.
         """
 
+    def input_is_hidden(self) -> bool:
+        """
+        Say whether what is typed now is a secret the program asked for.
+
+        A prompt that reads a password (``sudo``, ``passwd``, ``ssh``,
+        ``mysql -p``) switches the terminal's echo off while it still reads
+        whole lines. A full-screen program (an editor, ``less``) switches echo
+        off too, but also leaves line mode, so it is not mistaken for one.
+
+        Returns:
+            True while the terminal is in the state of a password prompt.
+        """
+        return False
+
     @abstractmethod
     def terminate(self, timeout: float = TERMINATE_TIMEOUT) -> int | None:
         """
@@ -1174,6 +1188,16 @@ class _SubprocessPty(PtyHandle):
             except OSError as exc:
                 _log.debug("Could not resize a terminal: %s", exc)
 
+    def input_is_hidden(self) -> bool:
+        with self._write_lock:
+            if not self._fd_open:
+                return False
+            try:
+                local_flags = termios.tcgetattr(self._master)[3]
+            except (termios.error, OSError):
+                return False
+        return bool(local_flags & termios.ICANON) and not local_flags & termios.ECHO
+
     def terminate(self, timeout: float = TERMINATE_TIMEOUT) -> int | None:
         with self._state_lock:
             if self._end_reason is None:
@@ -1356,6 +1380,8 @@ class FakePty(PtyHandle):
         self.written: list[bytes] = []
         self.resizes: list[tuple[int, int]] = []
         self.terminated = False
+        #: What :meth:`input_is_hidden` answers: a test sets it for a password prompt.
+        self.hidden_input = False
         if output:
             self.feed(output)
         if shell is not None and alive:
@@ -1428,6 +1454,9 @@ class FakePty(PtyHandle):
                 self.feed(answer)
             if ended:
                 self.die(0)
+
+    def input_is_hidden(self) -> bool:
+        return self.hidden_input
 
     def resize(self, rows: int, cols: int) -> None:
         self.rows = _clamp(rows, PTY_MAX_ROWS)
@@ -3937,6 +3966,8 @@ class FakeRunner(CommandRunner):
         self.ptys: list[FakePty] = []
         #: Whether a terminal answers like a tiny shell instead of staying silent.
         self.pty_echo = False
+        #: The clock a fake terminal measures its limits with; a test replaces it.
+        self.pty_clock: Callable[[], float] = time.monotonic
         #: The sandbox each run or stream was given, in order, None for none.
         self.sandboxes: list[SandboxSpec | None] = []
         #: The command inside each sandboxed call, with its spec.
@@ -4304,6 +4335,7 @@ class FakeRunner(CommandRunner):
             exit_code=result.exit_code,
             output=result.stderr if not alive else "",
             shell=_EchoShell(account) if self.pty_echo and alive else None,
+            clock=self.pty_clock,
         )
         self.ptys.append(handle)
         return handle

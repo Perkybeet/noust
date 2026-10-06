@@ -163,6 +163,26 @@ class TestSubprocessPty:
         finally:
             handle.close()
 
+    def test_a_password_prompt_is_told_from_a_full_screen_program(self):
+        # What is typed at a prompt that switched echo off is a secret nobody
+        # should have in a recording; an editor switches echo off too, and what
+        # is typed there is exactly what an audit wants.
+        prompt = SubprocessRunner().pty(["sh", "-c", "stty -echo; echo ready; sleep 5"], **LIMITS)
+        screen = SubprocessRunner().pty(
+            ["sh", "-c", "stty raw -echo; echo ready; sleep 5"], **LIMITS
+        )
+        shell = SubprocessRunner().pty(["sh", "-c", "echo ready; sleep 5"], **LIMITS)
+        try:
+            for handle in (prompt, screen, shell):
+                _read_until(handle, b"ready")
+            assert prompt.input_is_hidden() is True
+            assert screen.input_is_hidden() is False
+            assert shell.input_is_hidden() is False
+        finally:
+            for handle in (prompt, screen, shell):
+                handle.terminate()
+                handle.close()
+
     def test_a_program_that_exits_ends_the_session_with_its_status(self):
         handle = SubprocessRunner().pty(["sh", "-c", "echo bye; exit 7"], **LIMITS)
         try:

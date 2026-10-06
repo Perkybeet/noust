@@ -96,6 +96,32 @@ class Scrubber:
             ordered = sorted(self._values, key=len, reverse=True)
             self._pattern = re.compile("|".join(re.escape(value) for value in ordered))
 
+    def longest(self) -> int:
+        """
+        Returns:
+            The length of the longest value to scrub; 0 when there is none. A
+            stream that is scrubbed chunk by chunk holds back this much less
+            one, so a value split across two chunks is still found.
+        """
+        values = self._values
+        return max((len(value) for value in values), default=0)
+
+    def spans(self, text: str) -> list[tuple[int, int]]:
+        """
+        Find where the known secrets are in a piece of text.
+
+        Args:
+            text: Text about to be stored or shown.
+
+        Returns:
+            The ``(start, end)`` of each secret, in order and not overlapping,
+            as :meth:`scrub` would replace them.
+        """
+        pattern = self._pattern
+        if pattern is None or not text:
+            return []
+        return [match.span() for match in pattern.finditer(text)]
+
     def scrub(self, text: str) -> str:
         """
         Replace every known secret in a piece of text.

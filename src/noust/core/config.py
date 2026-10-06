@@ -343,6 +343,27 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "jobs_days": 90,
         "deployments_days": 365,
         "sessions_days": 30,
+        # Recordings of console terminals (noust.terminal.recordings).
+        "terminal_days": 90,
+    },
+    "terminal": {
+        # The console's terminal (noust.terminal): a shell in the browser as
+        # an application's own account, in its sandbox. Every session is
+        # recorded in the audit trail; the limits below are what the runner
+        # enforces, and the ENS profile caps both times.
+        "enabled": True,
+        "idle_minutes": 10,
+        "max_minutes": 120,
+        # Open sessions in all, and for one person.
+        "max_sessions": 8,
+        "max_sessions_per_user": 3,
+        # Most a session's recording may take, input and output together.
+        "recording": {"max_mb": 8},
+        # A root shell on the server itself. Off until turned on; under the
+        # ENS profile it also needs force_ens, which is on record.
+        "server": {"enabled": False, "force_ens": False},
+        # One-off commands (noust app exec, POST /api/apps/{domain}/exec).
+        "exec": {"max_seconds": 1800},
     },
     "central": {
         # What this Noust is for. "server" is the Noust every release has
@@ -1269,6 +1290,16 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "auth.sudo.idle_minutes": _int_range_validator("auth.sudo.idle_minutes", *SUDO_IDLE_RANGE),
     "auth.sudo.max_minutes": _int_range_validator("auth.sudo.max_minutes", *SUDO_MAX_RANGE),
     "auth.sudo.require_password": _validate_flag("auth.sudo.require_password"),
+    "terminal.enabled": _validate_flag("terminal.enabled"),
+    "terminal.idle_minutes": _int_range_validator("terminal.idle_minutes", 1, 120),
+    "terminal.max_minutes": _int_range_validator("terminal.max_minutes", 1, 720),
+    "terminal.max_sessions": _int_range_validator("terminal.max_sessions", 1, 64),
+    "terminal.max_sessions_per_user": _int_range_validator("terminal.max_sessions_per_user", 1, 16),
+    "terminal.recording.max_mb": _int_range_validator("terminal.recording.max_mb", 1, 1024),
+    "terminal.server.enabled": _validate_flag("terminal.server.enabled"),
+    "terminal.server.force_ens": _validate_flag("terminal.server.force_ens"),
+    "terminal.exec.max_seconds": _int_range_validator("terminal.exec.max_seconds", 1, 86400),
+    "retention.terminal_days": _int_range_validator("retention.terminal_days", 1, 3650),
     "central.role": _validate_central_role,
     "deploy.zero_downtime": _validate_flag("deploy.zero_downtime"),
     # The largest drain an application may ask for is store.MAX_DRAIN_SECONDS;
