@@ -35,6 +35,7 @@ from noust.core.runner import (
 )
 from noust.core.store import NoustStore
 from noust.deployers import inspect as inspect_module
+from noust.deployers.container import ContainerDeployer
 from noust.deployers.docker_compose import COMPOSE_FILE_PRIORITY, DockerComposeDeployer
 from noust.deployers.inspect import (
     STALE_CHECKOUT_AGE,
@@ -957,15 +958,76 @@ def test_a_missing_runtime_makes_it_not_deployable_here(
     assert result.suggestion and "noust setup init" in result.suggestion
 
 
-def test_a_dockerfile_alone_suggests_a_compose_file(remote: FakeRemote) -> None:
-    _write(remote.tree, {"Dockerfile": "FROM node:22\n", "src/index.js": ""})
+def test_a_dockerfile_alone_is_deployed_as_a_container(remote: FakeRemote) -> None:
+    """It used to be "incompatible: write a compose file"; now it is a container."""
+    _write(remote.tree, {"Dockerfile": "FROM node:22\nEXPOSE 3000\n", "src/index.js": ""})
 
-    with pytest.raises(DeploymentError) as exc_info:
-        inspect_source(REMOTE_URL)
+    result = inspect_source(REMOTE_URL)
 
-    assert "Dockerfile" in exc_info.value.message
-    assert "compose.yaml" in exc_info.value.details
-    assert "build: ." in exc_info.value.details
+    assert result.app_type == "container"
+    assert result.detected_types == ["container"]
+    assert result.compatible is True
+    assert "Dockerfile" in result.verdict
+    assert result.suggestion is None
+    # Where the Dockerfile says the process listens, not a guess.
+    assert result.default_port == 3000
+
+
+def test_a_containerfile_is_a_dockerfile_too(remote: FakeRemote) -> None:
+    _write(remote.tree, {"Containerfile": "FROM scratch\nEXPOSE 9090/tcp\n"})
+
+    result = inspect_source(REMOTE_URL)
+
+    assert result.app_type == "container"
+    assert result.default_port == 9090
+
+
+def test_a_dockerfile_without_expose_gets_the_containers_default_port(
+    remote: FakeRemote,
+) -> None:
+    _write(remote.tree, {"Dockerfile": "FROM scratch\n"})
+
+    result = inspect_source(REMOTE_URL)
+
+    assert result.default_port == ContainerDeployer.DEFAULT_PORT
+
+
+def test_a_dockerfile_next_to_a_framework_is_offered_as_the_other_way(
+    remote: FakeRemote,
+) -> None:
+    """The framework's deployer is more specific: the container is what else it looks like."""
+    _write(
+        remote.tree,
+        {"next.config.js": "", "package.json": NEXTJS_PACKAGE_JSON, "Dockerfile": "FROM node\n"},
+    )
+
+    result = inspect_source(REMOTE_URL)
+
+    assert result.app_type == "nextjs"
+    assert result.detected_types == ["nextjs", "container"]
+    assert "Container" in result.verdict
+
+
+def test_a_dockerfile_with_a_compose_file_is_a_compose_stack(remote: FakeRemote) -> None:
+    """The compose file says how its author wants it run; the Dockerfile is inside it."""
+    _write(remote.tree, {"Dockerfile": "FROM scratch\n", "docker-compose.yml": "services: {}\n"})
+
+    result = inspect_source(REMOTE_URL)
+
+    assert result.app_type == "docker-compose"
+    assert "container" in result.detected_types
+
+
+def test_a_container_needs_docker_on_this_server(remote: FakeRemote) -> None:
+    _write(remote.tree, {"Dockerfile": "FROM scratch\n"})
+    remote.only_knows("git")
+
+    result = inspect_source(REMOTE_URL)
+
+    assert result.app_type == "container"
+    assert result.compatible is False
+    assert "docker" in result.verdict
+    assert result.suggestion and "noust setup init" in result.suggestion
 
 
 def test_projects_in_subdirectories_are_named(remote: FakeRemote) -> None:
@@ -1006,7 +1068,17 @@ def test_a_near_miss_monorepo_says_what_the_monorepo_type_needs(remote: FakeRemo
     assert "two" in exc_info.value.details and "apps/" in exc_info.value.details
 
 
-def test_an_unsupported_language_is_named(tmp_path: Path, store: NoustStore) -> None:
+@pytest.fixture
+def server_without_railpack(store: NoustStore):
+    """A server that has docker and git, and not Railpack."""
+    set_runner(FakeRunner().only_knows("git", "docker"))
+    yield
+    set_runner(None)
+
+
+def test_an_unsupported_language_is_named(
+    tmp_path: Path, store: NoustStore, server_without_railpack: None
+) -> None:
     project = tmp_path / "project"
     _write(project, {"go.mod": "module example.com/app\n", "main.go": ""})
 
@@ -1015,6 +1087,61 @@ def test_an_unsupported_language_is_named(tmp_path: Path, store: NoustStore) -> 
 
     assert "Go" in exc_info.value.message
     assert "Dockerfile" in exc_info.value.details
+
+
+def test_an_unsupported_language_is_pointed_at_the_container_type_not_at_compose(
+    tmp_path: Path, store: NoustStore, server_without_railpack: None
+) -> None:
+    """Go, Rust, Ruby, Java, Kotlin, Elixir and Deno: a Dockerfile or Railpack, not "wrap it"."""
+    for marker, language in (
+        ("go.mod", "Go"),
+        ("Cargo.toml", "Rust"),
+        ("Gemfile", "Ruby"),
+        ("pom.xml", "Java"),
+        ("build.gradle.kts", "Kotlin"),
+        ("mix.exs", "Elixir"),
+        ("deno.json", "Deno"),
+    ):
+        project = tmp_path / marker.replace(".", "_")
+        _write(project, {marker: ""})
+
+        with pytest.raises(DeploymentError) as exc_info:
+            inspect_source(str(project))
+
+        assert language in exc_info.value.message
+        details = exc_info.value.details
+        assert "--type container" in details
+        assert "railpack" in details.lower()
+        assert "compose" not in details.lower()
+
+
+def test_where_railpack_is_installed_an_unsupported_language_is_deployable(
+    tmp_path: Path, store: NoustStore
+) -> None:
+    set_runner(FakeRunner().only_knows("git", "docker", "railpack"))
+    try:
+        project = tmp_path / "project"
+        _write(project, {"go.mod": "module example.com/app\n", "main.go": ""})
+
+        result = inspect_source(str(project))
+    finally:
+        set_runner(None)
+
+    assert result.app_type == "container"
+    assert result.compatible is True
+    assert "Railpack" in result.verdict
+
+
+def test_where_railpack_is_not_installed_a_package_json_without_a_start_script_stays_unmatched(
+    tmp_path: Path, store: NoustStore, server_without_railpack: None
+) -> None:
+    project = tmp_path / "project"
+    _write(project, {"package.json": json.dumps({"name": "lib"})})
+
+    with pytest.raises(DeploymentError) as exc_info:
+        inspect_source(str(project))
+
+    assert "start" in exc_info.value.details
 
 
 def test_a_package_json_without_a_start_script_says_to_add_one(

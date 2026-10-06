@@ -336,6 +336,12 @@ class AutoDeployer(AppDeployer):
         """
         app_type = DeployerRegistry.detect(tree, verbose=self.verbose)
         if app_type is None:
+            from noust.deployers.container import ContainerDeployer
+
+            # Nothing Noust deploys itself, but Railpack is installed and builds it.
+            if ContainerDeployer.builds_with_railpack(tree):
+                app_type = ContainerDeployer.APP_TYPE
+        if app_type is None:
             if not tree.is_dir() or not any(tree.iterdir()):
                 raise DeploymentError(
                     f"Nothing to deploy at {self.source}",

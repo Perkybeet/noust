@@ -81,7 +81,9 @@ BLUE, GREEN = BLUE_GREEN_COLORS
 
 #: Application types that deploy in place and write their own units and
 #: sites: nothing about them can be run twice by a template.
-_IN_PLACE_TYPES = frozenset({AppType.DOCKER_COMPOSE.value, AppType.MONOREPO.value})
+_IN_PLACE_TYPES = frozenset(
+    {AppType.DOCKER_COMPOSE.value, AppType.MONOREPO.value, AppType.CONTAINER.value}
+)
 
 #: How long the instance that kept serving gets to prove it still answers,
 #: after the new one failed: a few quick probes, not a whole gate.

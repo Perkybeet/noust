@@ -197,6 +197,7 @@ def _import_deployers() -> None:
     """
     from noust.deployers import (  # noqa: F401
         auto,
+        container,
         docker_compose,
         monorepo,
         nextjs,

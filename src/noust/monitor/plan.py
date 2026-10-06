@@ -45,7 +45,7 @@ from typing import Any
 
 from noust.core.exceptions import DeploymentError, NoustError
 from noust.core.runner import CommandRunner, get_runner
-from noust.core.store import runs_as_instances
+from noust.core.store import is_compose_backed, runs_as_instances
 
 log = logging.getLogger(__name__)
 
@@ -417,7 +417,7 @@ class PlanBuilder:
 
         if is_php_fpm(app):
             return KIND_PHP_FPM
-        if getattr(app, "app_type", None) == "docker-compose":
+        if is_compose_backed(getattr(app, "app_type", None)):
             return KIND_COMPOSE
         if getattr(app, "is_static", False) or getattr(app, "app_type", None) == "static":
             return KIND_STATIC

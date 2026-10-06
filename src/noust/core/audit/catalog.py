@@ -220,6 +220,7 @@ EVENTS: dict[str, EventSpec] = {
             "apps.identity": "An application's own system account was given or taken away.",
             "apps.headless": "A Compose stack that publishes no port was recorded as a worker.",
             "apps.hooks": "An application's deploy hooks were set or cleared.",
+            "apps.container": "A container application's image, build or runtime settings were changed.",
             "apps.adopt": "A Docker Compose stack that already ran was registered as it is.",
             "apps.reclaim": "A Compose stack running outside its unit was handed back to it.",
             "hooks.deploy": "A deploy webhook delivery was handled.",

@@ -2570,7 +2570,14 @@ def stack_deployer(
     from noust.core.paths import LEGACY_UNIT_PREFIX
     from noust.deployers.helpers.layout import app_root
 
-    deployer = DockerComposeDeployer(verbose=verbose, runner=runner)
+    deployer_class: type[DockerComposeDeployer] = DockerComposeDeployer
+    if app.app_type == AppType.CONTAINER.value:
+        # The same machinery with Noust's own compose file (rule 3): imported
+        # here because that module builds on this one.
+        from noust.deployers.container import ContainerDeployer
+
+        deployer_class = ContainerDeployer
+    deployer = deployer_class(verbose=verbose, runner=runner)
     deployer.app_path = app_root(app)
     deployer.domain = app.domain
     deployer.app_name = domain_to_app_name(app.domain)
