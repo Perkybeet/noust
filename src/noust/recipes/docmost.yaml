@@ -1,0 +1,107 @@
+# Docmost from the image the project publishes on Docker Hub, with the PostgreSQL and
+# the Redis-compatible store of its own docker-compose.yml at the v0.96.0 tag (and its
+# installation guide): APP_URL, APP_SECRET (a long random value), DATABASE_URL and REDIS_URL,
+# the uploaded files in /app/data/storage, and the store started with --appendonly yes and
+# --maxmemory-policy noeviction, which is what the project asks of its queue; Valkey, the
+# BSD-licensed Redis fork, takes the same flags. The image runs as user node on 3000.
+# Upstream's file runs PostgreSQL 18 and `latest`; here the database is PostgreSQL 17 and
+# the application is the release tag.
+#
+# Docmost has no way to create its first account from the environment: whoever opens it
+# first makes the workspace and its owner, which the first note says. The open source
+# edition is AGPL-3.0; its "ee" directory is under a separate commercial licence and is
+# not unlocked without a key. Pinned to the release tag and the digest Docker Hub serves.
+schema: 2
+name: docmost
+kind: compose
+title: Docmost
+slogan: "Collaborative wiki and documentation software: an open source Notion and Confluence alternative."
+description: A workspace for documentation and knowledge sharing, with real-time collaboration, spaces, permissions, comments and diagrams. Runs with its own PostgreSQL and Valkey. The first person to open it creates the workspace, so do it right after installing.
+category: productivity
+tags: [wiki, documentation, notes, collaboration]
+logo: logo.svg
+version: "0.96.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://docmost.com
+docs: https://docmost.com/docs
+repository: https://github.com/docmost/docmost
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  APP_URL:
+    from: url
+    description: The address people use; Docmost builds its links and e-mails from it.
+  APP_SECRET:
+    generate: password64
+    description: Signs sessions and tokens; at least 32 characters. Changing it signs everybody out.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /api/health
+  expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    docmost:
+      image: docmost/docmost:0.96.0@sha256:b56947fcfd08aab8fae12a377e1792784786adbf8b96e4281f14ef4fc072685a
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_started
+      environment:
+        APP_URL: "${APP_URL}"
+        APP_SECRET: "${APP_SECRET}"
+        DATABASE_URL: "postgresql://docmost:${DB_PASSWORD}@db:5432/docmost"
+        REDIS_URL: "redis://redis:6379"
+        DISABLE_TELEMETRY: "true"
+        # Passed through from the application's environment when the operator sets them
+        # (e-mail needs an SMTP server; the names are those of the project's .env.example).
+        MAIL_DRIVER:
+        MAIL_FROM_ADDRESS:
+        MAIL_FROM_NAME:
+        SMTP_HOST:
+        SMTP_PORT:
+        SMTP_USERNAME:
+        SMTP_PASSWORD:
+        SMTP_SECURE:
+      volumes:
+        - docmost-storage:/app/data/storage
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: docmost
+        POSTGRES_DB: docmost
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U docmost -d docmost"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - docmost-db:/var/lib/postgresql/data
+    redis:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      restart: unless-stopped
+      command: ["valkey-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+      volumes:
+        - docmost-redis:/data
+  volumes:
+    docmost-storage:
+    docmost-db:
+    docmost-redis:
+notes:
+  - "Open {{ url }} now and create the workspace: whoever does it first becomes its owner."
+  - "Pages and users are in the PostgreSQL of this stack (Docker volume docmost-db, dumped by Noust before every update); uploaded files and images are in the volume docmost-storage. Back up both before updating: files are not in the database dump."
+  - "E-mail (invitations, password resets) needs an SMTP server: set MAIL_DRIVER=smtp, MAIL_FROM_ADDRESS, SMTP_HOST, SMTP_PORT, SMTP_USERNAME and SMTP_PASSWORD in the application's environment, then noust restart {{ domain }}."

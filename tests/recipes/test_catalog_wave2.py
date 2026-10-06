@@ -26,15 +26,21 @@ from noust.recipes.model import Recipe
 
 #: The recipes this wave added, which run an application with databases of its own.
 STACKS = {
+    "authentik",
     "directus",
+    "docmost",
     "forgejo",
     "ghost",
     "gitea",
+    "keycloak",
     "listmonk",
+    "matomo",
+    "mattermost",
     "metabase",
     "miniflux",
     "nextcloud",
     "nocodb",
+    "paperless-ngx",
     "plausible",
 }
 #: The recipes this wave added that are a single container or keep data in a file.
@@ -139,7 +145,8 @@ def test_a_database_of_a_stack_is_one_noust_dumps_before_an_update(name: str) ->
         if engine.flavour == "postgres":
             assert environment.get("POSTGRES_USER") and environment.get("POSTGRES_DB")
         elif engine.flavour in ("mysql", "mariadb"):
-            assert environment.get("MYSQL_USER") and environment.get("MYSQL_DATABASE")
+            prefix = "MARIADB_" if engine.flavour == "mariadb" else "MYSQL_"
+            assert environment.get(prefix + "USER") and environment.get(prefix + "DATABASE")
         elif engine.flavour == "mongo":
             assert environment.get("MONGO_INITDB_ROOT_USERNAME"), service_name
     assert databases >= 1, name
