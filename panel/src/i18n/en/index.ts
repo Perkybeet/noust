@@ -14,6 +14,7 @@ export { audit } from "./audit";
 export { auditEvents } from "./auditEvents";
 export { auth } from "./auth";
 export { backups } from "./backups";
+export { catalog } from "./catalog";
 export { common } from "./common";
 export { compliance } from "./compliance";
 export { cron } from "./cron";

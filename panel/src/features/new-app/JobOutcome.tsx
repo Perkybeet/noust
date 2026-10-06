@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { CircleMinus, ScrollText } from "lucide-react";
-import { useEffect, useId } from "react";
+import { useEffect, useId, useState } from "react";
 
 import { importReportOf } from "../../api/queries/appImport";
 import type { ImportReport, ImportStepReport } from "../../api/queries/appImport";
@@ -9,10 +9,12 @@ import { isJobFinished } from "../../api/queries/jobs";
 import type { FollowedJob } from "../../api/queries/jobs";
 import { recipeNotesOf } from "../../api/queries/recipes";
 import { JobProgress } from "../../components/page/JobProgress";
+import { Button } from "../../components/ui/Button";
 import { ICONS } from "../../components/ui/icons";
 import { Mono } from "../../components/ui/Mono";
 import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
+import { JobOutputDrawer } from "../databases/jobs";
 import { NoteText } from "./NoteText";
 import { useDeploymentLanding } from "./useDeploymentLanding";
 import type { LandingTarget } from "./useDeploymentLanding";
@@ -126,7 +128,27 @@ export function JobOutcome({ kind, target, followedJob }: JobOutcomeProps) {
   const landing = useDeploymentLanding(target, followedJob);
   const job = followedJob.job;
   const finished = job !== null && isJobFinished(job);
-  const log = landing?.kind === "deployment" ? <BuildLogLink domain={target.domain} id={landing.id} /> : undefined;
+  const [outputOpen, setOutputOpen] = useState(false);
+  const build = landing?.kind === "deployment" ? <BuildLogLink domain={target.domain} id={landing.id} /> : undefined;
+  // The job's own output, line by line as it prints, from the moment there is a job: the install
+  // of a recipe is minutes of somebody else's tools, and nobody should have to guess what it does.
+  const log =
+    job !== null ? (
+      <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <Button size="sm" variant="ghost" onClick={() => setOutputOpen(true)}>
+          {t("catalog.job.viewOutput")}
+        </Button>
+        {build}
+        <JobOutputDrawer
+          job={job}
+          open={outputOpen}
+          onOpenChange={setOutputOpen}
+          title={t(kind === "import" ? "newApp.deploy.importing" : "newApp.deploy.deploying", { domain: target.domain })}
+        />
+      </span>
+    ) : (
+      build
+    );
 
   useEffect(() => {
     // The application exists now, or failed to: the list and the palette read it again.

@@ -26,6 +26,7 @@ export const nav: Catalog<typeof en> = {
   failed: { one: "{count} con fallo", other: "{count} con fallos" },
   overview: { label: "Resumen", keywords: "inicio panel salud home dashboard health", goTo: "Ir al resumen" },
   apps: { label: "Aplicaciones", keywords: "apps sitios desplegar despliegue deploy", goTo: "Ir a aplicaciones" },
+  catalog: { label: "Catálogo", keywords: "recetas plantillas instalar tienda catalog recipes templates marketplace", goTo: "Ir al catálogo" },
   databases: {
     label: "Bases de datos",
     keywords: "mysql postgres redis mongodb sql databases",

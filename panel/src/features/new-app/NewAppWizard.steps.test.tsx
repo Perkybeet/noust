@@ -11,7 +11,7 @@ import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
 import { fakeBackend, json, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
-import { RECIPES, WORDPRESS } from "./testFixtures";
+import { RECIPES, WORDPRESS, recipeVariable } from "./testFixtures";
 import type { Inspection } from "./wizard";
 
 /** A small service: one type detected, nothing declared. Nothing is left to ask after the address. */
@@ -216,7 +216,7 @@ describe("the ways in the wizard opens on", () => {
 
 describe("a recipe to its first build", () => {
   /** WordPress with one variable it cannot run without. */
-  const NEEDS_EMAIL = { ...WORDPRESS, env: [{ name: "ADMIN_EMAIL", generated: false, required: true }, ...WORDPRESS.env] };
+  const NEEDS_EMAIL = { ...WORDPRESS, variables: [recipeVariable("ADMIN_EMAIL", { origin: "required", required: true }), ...WORDPRESS.variables] };
 
   it("is one choice and one Deploy, and Deploy waits for the variables the recipe cannot run without", { timeout: 40_000 }, async () => {
     const { backend, harness } = wizard("/apps/new?start=recipe", { "GET /api/recipes/wordpress": () => json(200, NEEDS_EMAIL) });
@@ -256,7 +256,10 @@ describe("a recipe to its first build", () => {
   });
 
   it("goes to the field that is missing first, and counts the others", { timeout: 40_000 }, async () => {
-    const two = { ...WORDPRESS, env: [{ name: "ADMIN_EMAIL", generated: false, required: true }, { name: "LICENCE_KEY", generated: false, required: true }, ...WORDPRESS.env] };
+    const two = {
+      ...WORDPRESS,
+      variables: [recipeVariable("ADMIN_EMAIL", { origin: "required", required: true }), recipeVariable("LICENCE_KEY", { origin: "required", required: true }), ...WORDPRESS.variables],
+    };
     const { harness } = wizard("/apps/new?start=recipe", { "GET /api/recipes/wordpress": () => json(200, two) });
     const { user } = harness;
     await user.click(await screen.findByRole("button", { name: "Use WordPress" }));

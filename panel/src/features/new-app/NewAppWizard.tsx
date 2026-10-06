@@ -47,7 +47,7 @@ import type { DatabaseChoice } from "../databases/wizard/DatabaseStep";
 import { useServerStep, withServerStep } from "./ServerStep";
 import { SourceStep } from "./SourceStep";
 import { useAdoption } from "./AdoptStack";
-import { wizardStart } from "./search";
+import { wizardRecipe, wizardStart } from "./search";
 import type { SourceMode } from "./SourceStep";
 import { useDomainDnsCheck } from "./useDomainDnsCheck";
 import type { LandingTarget } from "./useDeploymentLanding";
@@ -199,7 +199,10 @@ export function NewAppWizard() {
   const [source, setSource] = useState<SourceForm>({ source: "", branch: "" });
   // The way in the link asked for (`/apps/new?start=recipe`, from the Applications page and the
   // palette): the wizard opens on it instead of on the default.
-  const start = wizardStart(useSearch({ from: "/_console/apps/new" }).start);
+  const linkSearch = useSearch({ from: "/_console/apps/new" });
+  const start = wizardStart(linkSearch.start);
+  // The recipe the link already chose (`&recipe=wordpress`, from the catalog): opened for the operator.
+  const linkedRecipe = start === "recipe" ? wizardRecipe(linkSearch.recipe) : undefined;
   // Null until the operator acts: what the link asked for, GitHub when the App is connected,
   // the typed source otherwise.
   const [chosenMode, setChosenMode] = useState<SourceMode | null>(start ?? null);
@@ -295,7 +298,7 @@ export function NewAppWizard() {
   });
 
   const openRecipe = useMutation({
-    mutationFn: (summary: RecipeSummary) => queryClient.query(recipeQuery(summary.name)),
+    mutationFn: (summary: Pick<RecipeSummary, "name" | "title">) => queryClient.query(recipeQuery(summary.name)),
     onSuccess: (full) => {
       setRecipe(full);
       setRecipeForm((previous) => initialRecipeForm(full, previous));
@@ -303,6 +306,16 @@ export function NewAppWizard() {
       go("setup");
     },
   });
+
+  // A recipe the link names is opened once, as if its card had been pressed; the catalog asking
+  // again for another one over the wizard opens that one.
+  const openedFromLink = useRef<string | null>(null);
+  const openLinkedRecipe = openRecipe.mutate;
+  useEffect(() => {
+    if (linkedRecipe === undefined || openedFromLink.current === linkedRecipe) return;
+    openedFromLink.current = linkedRecipe;
+    openLinkedRecipe({ name: linkedRecipe, title: linkedRecipe });
+  }, [linkedRecipe, openLinkedRecipe]);
 
   const queued = (accepted: { job?: unknown; job_id: string }, domain: string, message: string): void => {
     followedJob.follow(accepted.job === undefined ? accepted.job_id : (accepted.job as Job));

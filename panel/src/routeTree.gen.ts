@@ -26,6 +26,9 @@ import { Route as ConsoleAppsNewRouteImport } from "./routes/_console/apps/new"
 import { Route as ConsoleBackupsIndexRouteImport } from "./routes/_console/backups/index"
 import { Route as ConsoleBackupsDestinationsRouteImport } from "./routes/_console/backups/destinations"
 import { Route as ConsoleBackupsSchedulesRouteImport } from "./routes/_console/backups/schedules"
+import { Route as ConsoleCatalogIndexRouteImport } from "./routes/_console/catalog/index"
+import { Route as ConsoleCatalogNameRouteImport } from "./routes/_console/catalog/$name"
+import { Route as ConsoleCatalogInstalledRouteImport } from "./routes/_console/catalog/installed"
 import { Route as ConsoleDatabasesIndexRouteImport } from "./routes/_console/databases/index"
 import { Route as ConsoleDatabasesEnginesRouteImport } from "./routes/_console/databases/engines"
 import { Route as ConsoleDomainsIndexRouteImport } from "./routes/_console/domains/index"
@@ -177,6 +180,21 @@ const ConsoleBackupsDestinationsRoute =
 const ConsoleBackupsSchedulesRoute = ConsoleBackupsSchedulesRouteImport.update({
   id: "/backups/schedules",
   path: "/backups/schedules",
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleCatalogIndexRoute = ConsoleCatalogIndexRouteImport.update({
+  id: "/catalog/",
+  path: "/catalog/",
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleCatalogNameRoute = ConsoleCatalogNameRouteImport.update({
+  id: "/catalog/$name",
+  path: "/catalog/$name",
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleCatalogInstalledRoute = ConsoleCatalogInstalledRouteImport.update({
+  id: "/catalog/installed",
+  path: "/catalog/installed",
   getParentRoute: () => ConsoleRoute,
 } as any)
 const ConsoleDatabasesIndexRoute = ConsoleDatabasesIndexRouteImport.update({
@@ -567,6 +585,8 @@ export interface FileRoutesByFullPath {
   "/apps/new": typeof ConsoleAppsNewRoute
   "/backups/destinations": typeof ConsoleBackupsDestinationsRoute
   "/backups/schedules": typeof ConsoleBackupsSchedulesRoute
+  "/catalog/$name": typeof ConsoleCatalogNameRoute
+  "/catalog/installed": typeof ConsoleCatalogInstalledRoute
   "/databases/engines": typeof ConsoleDatabasesEnginesRoute
   "/fleet/activity": typeof ConsoleFleetActivityRoute
   "/fleet/apps": typeof ConsoleFleetAppsRoute
@@ -594,6 +614,7 @@ export interface FileRoutesByFullPath {
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/apps/": typeof ConsoleAppsIndexRoute
   "/backups/": typeof ConsoleBackupsIndexRoute
+  "/catalog/": typeof ConsoleCatalogIndexRoute
   "/databases/": typeof ConsoleDatabasesIndexRoute
   "/domains/": typeof ConsoleDomainsIndexRoute
   "/fleet/": typeof ConsoleFleetIndexRoute
@@ -648,6 +669,8 @@ export interface FileRoutesByTo {
   "/apps/new": typeof ConsoleAppsNewRoute
   "/backups/destinations": typeof ConsoleBackupsDestinationsRoute
   "/backups/schedules": typeof ConsoleBackupsSchedulesRoute
+  "/catalog/$name": typeof ConsoleCatalogNameRoute
+  "/catalog/installed": typeof ConsoleCatalogInstalledRoute
   "/databases/engines": typeof ConsoleDatabasesEnginesRoute
   "/fleet/activity": typeof ConsoleFleetActivityRoute
   "/fleet/apps": typeof ConsoleFleetAppsRoute
@@ -675,6 +698,7 @@ export interface FileRoutesByTo {
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/apps": typeof ConsoleAppsIndexRoute
   "/backups": typeof ConsoleBackupsIndexRoute
+  "/catalog": typeof ConsoleCatalogIndexRoute
   "/databases": typeof ConsoleDatabasesIndexRoute
   "/domains": typeof ConsoleDomainsIndexRoute
   "/fleet": typeof ConsoleFleetIndexRoute
@@ -732,6 +756,8 @@ export interface FileRoutesById {
   "/_console/apps/new": typeof ConsoleAppsNewRoute
   "/_console/backups/destinations": typeof ConsoleBackupsDestinationsRoute
   "/_console/backups/schedules": typeof ConsoleBackupsSchedulesRoute
+  "/_console/catalog/$name": typeof ConsoleCatalogNameRoute
+  "/_console/catalog/installed": typeof ConsoleCatalogInstalledRoute
   "/_console/databases/engines": typeof ConsoleDatabasesEnginesRoute
   "/_console/fleet/activity": typeof ConsoleFleetActivityRoute
   "/_console/fleet/apps": typeof ConsoleFleetAppsRoute
@@ -759,6 +785,7 @@ export interface FileRoutesById {
   "/_console/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/_console/apps/": typeof ConsoleAppsIndexRoute
   "/_console/backups/": typeof ConsoleBackupsIndexRoute
+  "/_console/catalog/": typeof ConsoleCatalogIndexRoute
   "/_console/databases/": typeof ConsoleDatabasesIndexRoute
   "/_console/domains/": typeof ConsoleDomainsIndexRoute
   "/_console/fleet/": typeof ConsoleFleetIndexRoute
@@ -819,6 +846,8 @@ export interface FileRouteTypes {
     | "/apps/new"
     | "/backups/destinations"
     | "/backups/schedules"
+    | "/catalog/$name"
+    | "/catalog/installed"
     | "/databases/engines"
     | "/fleet/activity"
     | "/fleet/apps"
@@ -846,6 +875,7 @@ export interface FileRouteTypes {
     | "/settings/tokens"
     | "/apps/"
     | "/backups/"
+    | "/catalog/"
     | "/databases/"
     | "/domains/"
     | "/fleet/"
@@ -900,6 +930,8 @@ export interface FileRouteTypes {
     | "/apps/new"
     | "/backups/destinations"
     | "/backups/schedules"
+    | "/catalog/$name"
+    | "/catalog/installed"
     | "/databases/engines"
     | "/fleet/activity"
     | "/fleet/apps"
@@ -927,6 +959,7 @@ export interface FileRouteTypes {
     | "/settings/tokens"
     | "/apps"
     | "/backups"
+    | "/catalog"
     | "/databases"
     | "/domains"
     | "/fleet"
@@ -983,6 +1016,8 @@ export interface FileRouteTypes {
     | "/_console/apps/new"
     | "/_console/backups/destinations"
     | "/_console/backups/schedules"
+    | "/_console/catalog/$name"
+    | "/_console/catalog/installed"
     | "/_console/databases/engines"
     | "/_console/fleet/activity"
     | "/_console/fleet/apps"
@@ -1010,6 +1045,7 @@ export interface FileRouteTypes {
     | "/_console/settings/tokens"
     | "/_console/apps/"
     | "/_console/backups/"
+    | "/_console/catalog/"
     | "/_console/databases/"
     | "/_console/domains/"
     | "/_console/fleet/"
@@ -1181,6 +1217,27 @@ declare module "@tanstack/react-router" {
       path: "/backups/schedules"
       fullPath: "/backups/schedules"
       preLoaderRoute: typeof ConsoleBackupsSchedulesRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/catalog/": {
+      id: "/_console/catalog/"
+      path: "/catalog"
+      fullPath: "/catalog/"
+      preLoaderRoute: typeof ConsoleCatalogIndexRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/catalog/$name": {
+      id: "/_console/catalog/$name"
+      path: "/catalog/$name"
+      fullPath: "/catalog/$name"
+      preLoaderRoute: typeof ConsoleCatalogNameRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/catalog/installed": {
+      id: "/_console/catalog/installed"
+      path: "/catalog/installed"
+      fullPath: "/catalog/installed"
+      preLoaderRoute: typeof ConsoleCatalogInstalledRouteImport
       parentRoute: typeof ConsoleRoute
     }
     "/_console/databases/": {
@@ -1857,10 +1914,13 @@ interface ConsoleRouteChildren {
   ConsoleAppsNewRoute: typeof ConsoleAppsNewRoute
   ConsoleBackupsDestinationsRoute: typeof ConsoleBackupsDestinationsRoute
   ConsoleBackupsSchedulesRoute: typeof ConsoleBackupsSchedulesRoute
+  ConsoleCatalogNameRoute: typeof ConsoleCatalogNameRoute
+  ConsoleCatalogInstalledRoute: typeof ConsoleCatalogInstalledRoute
   ConsoleDatabasesEnginesRoute: typeof ConsoleDatabasesEnginesRoute
   ConsoleServicesNameRoute: typeof ConsoleServicesNameRoute
   ConsoleAppsIndexRoute: typeof ConsoleAppsIndexRoute
   ConsoleBackupsIndexRoute: typeof ConsoleBackupsIndexRoute
+  ConsoleCatalogIndexRoute: typeof ConsoleCatalogIndexRoute
   ConsoleDatabasesIndexRoute: typeof ConsoleDatabasesIndexRoute
   ConsoleDomainsIndexRoute: typeof ConsoleDomainsIndexRoute
   ConsoleServicesIndexRoute: typeof ConsoleServicesIndexRoute
@@ -1885,10 +1945,13 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleAppsNewRoute: ConsoleAppsNewRoute,
   ConsoleBackupsDestinationsRoute: ConsoleBackupsDestinationsRoute,
   ConsoleBackupsSchedulesRoute: ConsoleBackupsSchedulesRoute,
+  ConsoleCatalogNameRoute: ConsoleCatalogNameRoute,
+  ConsoleCatalogInstalledRoute: ConsoleCatalogInstalledRoute,
   ConsoleDatabasesEnginesRoute: ConsoleDatabasesEnginesRoute,
   ConsoleServicesNameRoute: ConsoleServicesNameRoute,
   ConsoleAppsIndexRoute: ConsoleAppsIndexRoute,
   ConsoleBackupsIndexRoute: ConsoleBackupsIndexRoute,
+  ConsoleCatalogIndexRoute: ConsoleCatalogIndexRoute,
   ConsoleDatabasesIndexRoute: ConsoleDatabasesIndexRoute,
   ConsoleDomainsIndexRoute: ConsoleDomainsIndexRoute,
   ConsoleServicesIndexRoute: ConsoleServicesIndexRoute,

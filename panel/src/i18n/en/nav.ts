@@ -25,6 +25,7 @@ export const nav = {
   failed: { one: "{count} failed", other: "{count} failed" },
   overview: { label: "Overview", keywords: "home dashboard health", goTo: "Go to overview" },
   apps: { label: "Applications", keywords: "apps sites deploy", goTo: "Go to applications" },
+  catalog: { label: "Catalog", keywords: "recipes templates one-click marketplace store install apps", goTo: "Go to the catalog" },
   databases: { label: "Databases", keywords: "mysql postgres redis mongodb sql", goTo: "Go to databases" },
   services: { label: "Services", keywords: "systemd units daemons" },
   cron: { label: "Cron", keywords: "schedule timers jobs" },

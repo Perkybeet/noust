@@ -15,6 +15,11 @@ export interface NewAppSearch {
    * without the click that would choose them.
    */
   start?: WizardStart | undefined;
+  /**
+   * With `start=recipe`: the recipe already chosen (`/apps/new?start=recipe&recipe=wordpress`,
+   * from the catalog), so the wizard opens on its install form instead of on the recipes.
+   */
+  recipe?: string | undefined;
 }
 
 /** `value` as a start the wizard knows, or undefined: a stale or invented link opens the default. */
@@ -22,10 +27,19 @@ export function wizardStart(value: unknown): WizardStart | undefined {
   return typeof value === "string" && (WIZARD_STARTS as readonly string[]).includes(value) ? (value as WizardStart) : undefined;
 }
 
+/** What a recipe's name looks like (the backend's own pattern): anything else is no recipe. */
+const RECIPE_NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
+
+/** `value` as the name of a recipe to open, or undefined for anything that cannot be one. */
+export function wizardRecipe(value: unknown): string | undefined {
+  return typeof value === "string" && RECIPE_NAME.test(value) ? value : undefined;
+}
+
 /**
  * Reads the search. A start it does not know is set to undefined, not left out: the router
  * keeps the keys a route's validation does not name, so only an explicit undefined replaces one.
+ * The same goes for a recipe, which is only named when the link carries one.
  */
 export function validateNewAppSearch(search: Record<string, unknown>): NewAppSearch {
-  return { start: wizardStart(search["start"]) };
+  return { start: wizardStart(search["start"]), ...("recipe" in search ? { recipe: wizardRecipe(search["recipe"]) } : {}) };
 }
