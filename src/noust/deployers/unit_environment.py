@@ -36,7 +36,7 @@ from noust.core.exceptions import DeploymentError, ValidationError
 from noust.core.fs import get_fs
 from noust.core.logger import Logger
 from noust.core.secret_detection import classify
-from noust.core.store import App, NoustStore, get_store
+from noust.core.store import App, NoustStore, get_store, is_compose_backed
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.deployers.helpers.layout import app_root, env_file_for
 from noust.deployers.helpers.permissions import hand_over_file
@@ -45,7 +45,23 @@ from noust.managers.service_manager import ServiceManager
 #: What a unit keeps inline: not secret, and Noust's to decide (the port, the
 #: mode, which Compose file a stack runs). systemd lets ``EnvironmentFile=``
 #: override ``Environment=``, so they stay out of the file.
-INLINE = frozenset({"PORT", "NODE_ENV", "COMPOSE_FILE", "COMPOSE_PROJECT_NAME"})
+INLINE = frozenset(
+    {
+        "PORT",
+        "NODE_ENV",
+        "COMPOSE_FILE",
+        "COMPOSE_PROJECT_NAME",
+        # 3.4: the runtime an application is pinned to is first on its PATH,
+        # a Python application's workers are WEB_CONCURRENCY, and a Node
+        # framework's server is told where it listens and behind whom.
+        "PATH",
+        "WEB_CONCURRENCY",
+        "HOST",
+        "PROTOCOL_HEADER",
+        "HOST_HEADER",
+        "PORT_HEADER",
+    }
+)
 
 #: Variables a framework copies into the code when it builds. For them the
 #: value that was in use is the ``.env``'s, which every build read, not the
@@ -234,7 +250,7 @@ def _unit_of(app: App, store: NoustStore) -> str:
     """
     from noust.deployers.lifecycle import PHP_FPM
 
-    if app.is_static or app.app_type in (PHP_FPM, "docker-compose"):
+    if app.is_static or app.app_type == PHP_FPM or is_compose_backed(app.app_type):
         raise ValidationError(f"{app.domain} has no unit of its own to carry variables")
     if app.zero_downtime:
         raise ValidationError(

@@ -23,11 +23,36 @@ AREAS = (
 )
 
 
+@pytest.fixture(autouse=True)
+def mechanism_only(monkeypatch):
+    """
+    Empty every area's fragment: these tests are about the mechanism.
+
+    What a lane writes in its own fragment is tested by that lane, against the real
+    fragment (the console's exposure, ``tests/test_console_exposure_store.py``), so a
+    lane filling its pair cannot break the tests of the helpers that gather them.
+    """
+    for area in AREAS:
+        monkeypatch.setattr(schema_v14, f"{area}_SQL", "")
+        monkeypatch.setattr(schema_v14, f"{area}_COLUMNS", [])
+
+
 def _run_script(cursor: sqlite3.Cursor, script: str) -> None:
     """Run a fragment the way the store's runner does, statement by statement."""
     for statement in script.split(";"):
         if statement.strip():
             cursor.execute(statement)
+
+
+@pytest.fixture(autouse=True)
+def blank_areas(monkeypatch):
+    """
+    Start from empty fragments: these tests are about the mechanism, not about
+    what each lane declared. Each lane tests its own fragment against a real store.
+    """
+    for area in AREAS:
+        monkeypatch.setattr(schema_v14, f"{area}_SQL", "")
+        monkeypatch.setattr(schema_v14, f"{area}_COLUMNS", [])
 
 
 @pytest.fixture
@@ -40,7 +65,24 @@ def cursor():
     conn.close()
 
 
+@pytest.fixture(autouse=True)
+def unfilled_areas(monkeypatch):
+    """
+    Every area as the foundation left it: empty.
+
+    These tests are about the fragment machinery, not about what any lane put in
+    its own fragment (each lane's tests cover that), so they run over empty ones.
+    """
+    for area in AREAS:
+        monkeypatch.setattr(schema_v14, f"{area}_SQL", "")
+        monkeypatch.setattr(schema_v14, f"{area}_COLUMNS", [])
+
+
 def _declare(monkeypatch, area: str = "TEAMS") -> None:
+    # Only the probe is under test: the lanes' own fragments are not.
+    for other in AREAS:
+        monkeypatch.setattr(schema_v14, f"{other}_SQL", "")
+        monkeypatch.setattr(schema_v14, f"{other}_COLUMNS", [])
     monkeypatch.setattr(
         schema_v14,
         f"{area}_SQL",
@@ -71,7 +113,11 @@ def test_the_helpers_gather_every_area_once():
     ]
 
 
-def test_empty_fragments_leave_a_store_complete_and_change_nothing(cursor):
+def test_empty_fragments_leave_a_store_complete_and_change_nothing(cursor, monkeypatch):
+    # The lanes fill their fragments; this is about what an empty one does.
+    for area in AREAS:
+        monkeypatch.setattr(schema_v14, f"{area}_SQL", "")
+        monkeypatch.setattr(schema_v14, f"{area}_COLUMNS", [])
     assert schema_v14.incomplete(cursor) is False
 
     schema_v14.apply_v14(cursor, _run_script)

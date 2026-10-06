@@ -6,39 +6,53 @@
 # would downgrade a site WordPress already updated itself. The two files come
 # from the same origin, so the check catches a corrupt or truncated download
 # and a mirror serving something else, not a compromised wordpress.org.
+# `version` is the release current when this recipe was last revised, which is
+# what the catalogue compares an installed site with; the archive itself
+# always follows the latest.
 #
 # wp-content (plugins, themes, uploads) is moved into shared/ on the first
 # deploy, so whatever is installed through the admin survives every release.
 # WordPress can still update its own core in place, inside the active
 # release; the next `noust update` builds a new release from the latest
 # archive, which is at least as new, so nothing goes backwards.
+schema: 2
 name: wordpress
+kind: native
 title: WordPress
-description: The website and blogging platform, on PHP-FPM with a MariaDB or MySQL database.
+slogan: The website and blogging platform, on PHP-FPM.
+description: The website and blogging platform, on PHP-FPM with a MariaDB or MySQL database. Plugins, themes and uploads survive every release.
+category: cms
+tags: [blog, website, php, cms]
+logo: logo.svg
+version: "7.1.2"
+revision: 1
+updated: 2026-10-06
 homepage: https://wordpress.org
-requires:
+docs: https://wordpress.org/documentation/
+repository: https://github.com/WordPress/WordPress
+license: GPL-2.0-or-later
+needs:
   - PHP-FPM 7.4 or newer with the mysqli, curl, gd, mbstring, xml, zip and intl extensions
   - MariaDB or MySQL (noust db install mysql)
+requires: [mysql]
 app_type: php-fpm
 source:
   archive: https://wordpress.org/latest.tar.gz
   checksum_url: https://wordpress.org/latest.tar.gz.sha1
 layout: releases
-database:
-  engine: mysql
-env:
-  WORDPRESS_DB_NAME: "{{ database.name }}"
-  WORDPRESS_DB_USER: "{{ database.user }}"
-  WORDPRESS_DB_PASSWORD: "{{ database.password }}"
-  WORDPRESS_DB_HOST: "{{ database.host }}"
-  WORDPRESS_AUTH_KEY: "{{ secret(64) }}"
-  WORDPRESS_SECURE_AUTH_KEY: "{{ secret(64) }}"
-  WORDPRESS_LOGGED_IN_KEY: "{{ secret(64) }}"
-  WORDPRESS_NONCE_KEY: "{{ secret(64) }}"
-  WORDPRESS_AUTH_SALT: "{{ secret(64) }}"
-  WORDPRESS_SECURE_AUTH_SALT: "{{ secret(64) }}"
-  WORDPRESS_LOGGED_IN_SALT: "{{ secret(64) }}"
-  WORDPRESS_NONCE_SALT: "{{ secret(64) }}"
+variables:
+  WORDPRESS_DB_NAME: {from: mysql.name}
+  WORDPRESS_DB_USER: {from: mysql.user}
+  WORDPRESS_DB_PASSWORD: {from: mysql.password}
+  WORDPRESS_DB_HOST: {from: mysql.host}
+  WORDPRESS_AUTH_KEY: {generate: password64}
+  WORDPRESS_SECURE_AUTH_KEY: {generate: password64}
+  WORDPRESS_LOGGED_IN_KEY: {generate: password64}
+  WORDPRESS_NONCE_KEY: {generate: password64}
+  WORDPRESS_AUTH_SALT: {generate: password64}
+  WORDPRESS_SECURE_AUTH_SALT: {generate: password64}
+  WORDPRESS_LOGGED_IN_SALT: {generate: password64}
+  WORDPRESS_NONCE_SALT: {generate: password64}
 health:
   # Before the installation WordPress redirects to wp-admin/install.php; a
   # database it cannot reach is a 500.

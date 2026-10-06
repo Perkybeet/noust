@@ -163,6 +163,31 @@ as such:
 - **A hook's output is kept**, in the deployment's log and, the last 4000 characters of each, in
   its history, like any build output: a hook should not print a secret.
 
+## The build block and the runtimes it pins
+
+`build:` in a `noust.yaml` is the same kind of input as a hook, and is held to the same rules
+(see [build.md](build.md)):
+
+- **The schema is closed.** An unknown key, a path with `..`, an absolute path, `~` or a name a
+  unit or a site could not carry is refused, naming the field; a link on the way to the base
+  directory is never followed. A command is an argument list split with `shlex`, never a shell.
+- **Where its commands run.** `install` and `build` run in the build sandbox as `noust-build`
+  with the whole release writable and nothing else of the machine; `start` is the unit's
+  `ExecStart=`, as the application's account. A runtime is run by absolute path, and the
+  directory it is installed in is root's and cannot be written by a build.
+- **The operator's block needs `root_equivalent`** and sudo mode, replaces the repository's
+  whole, and every change is audited (`apps.build`).
+- **A runtime is downloaded once, verified, and proved.** Node comes from nodejs.org as the
+  official tarball, its SHA-256 compared with the release's published `SHASUMS256.txt` (fetched
+  over HTTPS from the same origin; the release signature is not verified) before a member is
+  unpacked, unpacked with the checks every archive gets (nothing outside the destination, no
+  devices, no setuid), and run once to prove its version before it is put in place. Python comes
+  from `uv`, PHP from the distribution's packages. Installing and removing runtimes is audited
+  (`runtimes.install`, `runtimes.remove`).
+- **A hint is not an order.** The version files of a repository (`.nvmrc`, `engines.node`,
+  `.python-version`...) may make Noust install a runtime; a failed install never fails a
+  deployment that the server's own runtime can build.
+
 ## Secrets via --stdin
 
 The same rule applies one level up, to how an operator runs `noust` itself: a value typed after
@@ -654,8 +679,9 @@ outside its COPY data is refused before anything is dropped, pg_dump's own
 - **A Telegram bot token** must be `<digits>:<secret>` from its first character to its last,
   a trailing line break included; any other shape is refused on save (`422` on `bot_token`)
   and again before it becomes part of a Bot API URL.
-- **Deploy webhooks** (`POST /hooks/deploy/{domain}`) verify `X-Hub-Signature-256` (GitHub)
-  or `X-Gitea-Signature` (Gitea) as HMAC-SHA256 of the body, or `X-Gitlab-Token` (GitLab),
+- **Deploy webhooks** (`POST /hooks/deploy/{domain}`) verify `X-Hub-Signature-256` (GitHub),
+  `X-Gitea-Signature` (Gitea) or `X-Hub-Signature: sha256=...` (Bitbucket Cloud) as HMAC-SHA256
+  of the body, or `X-Gitlab-Token` (GitLab),
   all in constant time. An unknown application and one without a webhook secret look the
   same from outside. A bad signature is counted against that application, not the address:
   after 10 in 15 minutes its hook answers `429` (`"error": "locked_out"`, with `Retry-After`)

@@ -67,6 +67,10 @@ upgrade runs `noust config upgrade` and then `noust config clean`.
 | `service_user` | `www-data` | The Unix user the units of applications without an account of their own run as, and their files belong to. From 3.2 an application Noust creates runs as its own account, `noust-app-<name>`, and one from before moves to its own with `noust app identity migrate`; Docker Compose stacks, monorepos and static sites keep this account (see [releases.md](releases.md#the-account-an-application-runs-as)). |
 | `service_group` | `www-data` | Its group. |
 | `deploy.layout` | `releases` | Layout of applications created from now on: `releases` builds each deploy in its own directory behind a health gate; `inplace` is the 1.x layout. An application keeps its layout until it is migrated explicitly. |
+| `deploy.zero_downtime` | `true` | Whether a new application on releases that runs a process behind nginx starts in zero-downtime mode (two instances, blue and green) right after its first deploy answered. Applications that exist keep how they update until `noust app zero-downtime DOMAIN on`; static and PHP sites never need it (see [releases.md](releases.md#zero-downtime-by-default)). |
+| `deploy.drain_seconds` | `10` | Seconds the old instance keeps running after traffic moved, for the applications that start in zero-downtime mode (0 to 300). |
+| `deploy.max_concurrent_builds` | `2` | How many applications build at the same time (1 to 16). One application never builds two things at once, and anything that is not a build (a restore, an operating system update) runs alone; the rest wait in the queue (see [releases.md](releases.md#the-deploy-queue)). Read again every few seconds: no restart. |
+| `deploy.queue_limit` | `25` | How many deployments and updates may wait before the next is refused with 429 (1 to 1000). A push that is the same as one already waiting merges into it and needs no room. |
 | `ssl.email` | empty | The address certbot registers certificates with. Empty registers without one. |
 | `ssl.enabled` | `true` | Shown in the console's general settings. It switches nothing: every site gets a certificate unless it is created with `--no-ssl`. |
 | `ssl.provider` | `certbot` | Shown in the console's general settings. certbot is the only provider. |
@@ -190,7 +194,9 @@ used, with their default in the code, so a file that lacks them behaves as docum
 | `notifications.channels.webhook.webhook_url` | empty | The generic endpoint notifications are posted to (a secret: it is a capability URL). |
 | `notifications.channels.webhook.secret` | empty | Signs every delivery with HMAC-SHA256 in `X-Noust-Signature` when set (a secret). |
 | `notifications.channels.slack.webhook_url` | empty | A Slack incoming webhook (a secret). |
-| `notifications.channels.discord.webhook_url` | empty | A Discord webhook (a secret). |
+| `notifications.channels.discord.webhook_url` | empty | A Discord webhook (a secret). The message is one embed (state colour, facts, timestamp, a link to the console when `web.public_url` is set); if Discord refuses it, the alert is sent once more as plain text. |
+| `notifications.channels.discord.mention_role_id` | empty | A Discord role to ping when a **critical** event arrives (a deploy, restore, backup, unit or node that failed; a certificate that expired; an application not answering). Only a failure pings; warnings, successes and the test message never do. The id is 17 to 20 digits: Developer Mode, right-click the role, Copy ID. |
+| `notifications.channels.discord.mention_user_id` | empty | A Discord user to ping in the same cases, in addition to the role. |
 | `notifications.channels.telegram.bot_token` | empty | The bot's token (a secret). |
 | `notifications.channels.telegram.chat_id` | empty | The chat: an integer id (a group's is negative) or `@channelname`. |
 | `notifications.channels.email.enabled` | `false` | Send notifications by email, through the `monitor.smtp.*` account to `monitor.email_recipients`. |
@@ -207,6 +213,8 @@ used, with their default in the code, so a file that lacks them behaves as docum
 | `databases.credentials.mongodb.user` | empty | The administrative user for MongoDB. |
 | `databases.credentials.mongodb.password` | empty | Its password (a secret). |
 | `databases.safety_copies_kept` | `5` | Safety copies a restore takes of a database before loading over it, kept per database; older ones are deleted after each restore. The newest is never deleted, whatever the value. |
+| `databases.import_max_bytes` | `10737418240` (10 GiB) | The largest dump the console may upload to import (`/api/databases/imports/uploads`): a bigger size is refused before a byte is sent. A file already on the server is not limited by it (`noust db import`). |
+| `databases.import_directories` | empty | Folders, besides `imports` under the backup directory, the API may read a dump from by its path. A comma-separated list of absolute paths; `/` is refused. The CLI reads any file. |
 
 ## Adding a setting
 

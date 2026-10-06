@@ -32,6 +32,9 @@ override_dh_auto_install:
 	# in a 0700 directory, when it first needs it.
 	install -Dm644 obs/noust.default.yaml \
 		debian/noust/usr/share/noust/config.example.yaml
+	# The installer, for a central that enrolls a server with no Noust on it
+	# (noust fleet enroll): it sends this copy over the connection.
+	install -Dm644 packaging/install.sh debian/noust/usr/share/noust/install.sh
 	# The manual, and `man wasm` for the alias. dh_compress gzips the page and
 	# repoints the link.
 	install -Dm644 man/noust.1 debian/noust/usr/share/man/man1/noust.1

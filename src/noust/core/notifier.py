@@ -22,7 +22,10 @@ Channels and what each one receives:
   Contract: :mod:`noust.core.notifications.render.webhook`.
 - **slack** - Slack incoming webhook: Block Kit in an attachment with the
   state's colour strip.
-- **discord** - Discord webhook: one embed.
+- **discord** - Discord webhook: one embed, colour by severity. A role and/or a
+  user the operator names (``mention_role_id``, ``mention_user_id``) is pinged
+  by a critical event, and only by one; if Discord refuses the embed the alert
+  is sent once more as plain text.
 - **telegram** - Bot API ``sendMessage`` in HTML, the console link as a button,
   silent unless it needs attention; retried once as plain text if Telegram
   refuses the markup.
@@ -105,6 +108,7 @@ from noust.core.notifications.model import (
     State,
 )
 from noust.core.notifications.render import discord, slack, telegram, webhook
+from noust.validators.discord import validate_discord_id
 from noust.validators.telegram import validate_telegram_chat_id
 
 if TYPE_CHECKING:
@@ -629,13 +633,52 @@ def _slack_request(url: str, notification: Notification) -> Request:
     return _json_request(url, slack.render(notification))
 
 
-def _discord_request(url: str, notification: Notification) -> Request:
+def _discord_mention(channel: dict[str, Any]) -> discord.Mention | None:
+    """
+    Read whom Discord pings from the channel's settings.
+
+    A value that is not an id (the file was edited by hand) is ignored and
+    logged, never sent: the alert matters more than the ping, and an id is
+    never put into a message unless it is one.
+
+    Args:
+        channel: The ``notifications.channels.discord`` block.
+
+    Returns:
+        The mention, or None when nobody is named.
+    """
+    ids: dict[str, str] = {}
+    for key, field_name in (("mention_role_id", "role_id"), ("mention_user_id", "user_id")):
+        value = str(channel.get(key) or "").strip()
+        if not value:
+            continue
+        try:
+            validate_discord_id(value, key)
+        except ValueError:
+            logger.warning(
+                "Ignoring notifications.channels.discord.%s: it is not a Discord id", key
+            )
+            continue
+        ids[field_name] = value
+    return discord.Mention(**ids) if ids else None
+
+
+def _discord_request(
+    url: str,
+    notification: Notification,
+    mention: discord.Mention | None = None,
+    *,
+    plain: bool = False,
+) -> Request:
     """
     Build the Discord webhook POST.
 
     Args:
         url: The Discord webhook URL.
         notification: The notification to deliver.
+        mention: Whom a critical notification pings; nobody by default.
+        plain: Send text instead of an embed, for the retry after Discord
+            refused the embed.
 
     Returns:
         The request.
@@ -644,7 +687,8 @@ def _discord_request(url: str, notification: Notification) -> Request:
         ValueError: When the URL is not HTTP(S).
     """
     _require_http_url(url, "notifications.channels.discord.webhook_url")
-    return _json_request(url, discord.render(notification))
+    render = discord.render_plain if plain else discord.render
+    return _json_request(url, render(notification, mention=mention))
 
 
 def _telegram_request(
@@ -1067,10 +1111,11 @@ class Notifier:
         channels: dict[str, Any],
     ) -> Request | None:
         """
-        Build the one retry Telegram deserves when it refuses the markup.
+        Build the one retry a chat deserves when it refuses the formatting.
 
         A message whose entities Telegram cannot parse is answered with 400
-        ``can't parse entities``. An alert must not be lost to a formatting
+        ``can't parse entities``, and an embed Discord does not accept with a
+        400 ``Invalid Form Body``. An alert must not be lost to a formatting
         quirk, so it is sent once more, as plain text.
 
         Args:
@@ -1082,6 +1127,14 @@ class Notifier:
         Returns:
             The plain-text request, or None when this failure is not that one.
         """
+        if name == "discord" and error.code == 400:
+            channel: dict[str, Any] = channels.get("discord") or {}
+            return _discord_request(
+                str(channel.get("webhook_url") or ""),
+                notification,
+                _discord_mention(channel),
+                plain=True,
+            )
         if name != "telegram" or error.code != 400:
             return None
         description = _telegram_error_description(error) or ""
@@ -1125,11 +1178,9 @@ class Notifier:
             return None
         if name == "webhook":
             return _webhook_request(url, notification, str(channel.get("secret") or ""))
-        builders: dict[str, Callable[[str, Notification], Request]] = {
-            "slack": _slack_request,
-            "discord": _discord_request,
-        }
-        return builders[name](url, notification)
+        if name == "discord":
+            return _discord_request(url, notification, _discord_mention(channel))
+        return _slack_request(url, notification)
 
     def _send_email(self, notification: Notification, channel: dict[str, Any]) -> bool:
         """

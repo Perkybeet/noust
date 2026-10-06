@@ -50,6 +50,7 @@ from noust.core.accounts.approvals import (
     ApprovalRequest,
     describe_rules,
     may_need_approval,
+    one_time_fields,
     rule_for,
     snapshot,
 )
@@ -493,7 +494,13 @@ async def require_approval(
         return
 
     client_ip = get_client_ip(request)
-    digest, parameters = snapshot(method, request.url.path, request.query_params.multi_items(), raw)
+    digest, parameters = snapshot(
+        method,
+        request.url.path,
+        request.query_params.multi_items(),
+        raw,
+        omit=one_time_fields(method, rule_template),
+    )
     requester = approval_actor(session, client_ip)
     presented = request.headers.get(APPROVAL_HEADER)
     if presented:

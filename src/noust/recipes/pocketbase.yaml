@@ -1,0 +1,36 @@
+# PocketBase is one static Go binary with an embedded SQLite database and no
+# official container image (neither Docker Hub nor ghcr.io has one), so its
+# recipe is a native one: a pinned release archive and a start command.
+#
+# It is listed and not deployable because no deployer of this release can run a
+# pre-built binary: the native build block (build.start) that would carry
+# `./pocketbase serve` belongs to the build lane. The pin below was read, not
+# typed: the SHA-256 is that of the file, of the checksums.txt the project
+# publishes with the release, and of the digest GitHub shows for the asset.
+#
+# Ready to switch on once a deployer can run it:
+#
+#   available: true
+#   app_type: <the type that runs a binary>
+#   source:
+#     archive: https://github.com/pocketbase/pocketbase/releases/download/v0.40.4/pocketbase_0.40.4_linux_amd64.zip
+#     sha256: 9042ec818570e79c3628dadcd0a756c1496d9e1173918ec409d133c02f82e5fa
+#   build:
+#     start: ./pocketbase serve --http=127.0.0.1:${PORT} --dir=${APP_DATA}
+#   persistent_paths: [pb_data]
+#   health: {path: /api/health, expect: "200"}
+schema: 2
+name: pocketbase
+kind: native
+title: PocketBase
+slogan: "An open-source backend in one file: database, auth, files and realtime."
+description: "A single-binary backend with an embedded SQLite database, authentication, file storage, realtime subscriptions and an admin dashboard, with a REST-ish API."
+category: backend
+tags: [backend, sqlite, auth, realtime]
+logo: logo.svg
+homepage: https://pocketbase.io
+docs: https://pocketbase.io/docs/
+repository: https://github.com/pocketbase/pocketbase
+license: MIT
+available: false
+unavailable_reason: "PocketBase ships as a single static binary with no container image, and this release has no deployer that runs a pre-built binary (the native build block that would carry its start command is the build lane's). Not available in this release; its verified v0.40.4 archive pin is recorded in the recipe file."

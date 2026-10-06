@@ -1,0 +1,51 @@
+# Meilisearch from its own image. From its Dockerfile (v1.54.3): it listens on
+# 0.0.0.0:7700 (MEILI_HTTP_ADDR) and its working directory is /meili_data,
+# where it keeps data.ms. MEILI_ENV=production turns the dashboard off and
+# makes a master key of at least 16 bytes mandatory; /health is its public
+# health endpoint.
+schema: 2
+name: meilisearch
+kind: compose
+title: Meilisearch
+slogan: A fast, typo-tolerant search engine with a simple API.
+description: "A search engine for your own data: typo-tolerant, fast, with filters and facets, and a REST API. Production mode, with a generated master key."
+category: search
+tags: [search, api, full-text]
+logo: logo.svg
+version: "1.54.3"
+revision: 1
+updated: 2026-10-06
+homepage: https://www.meilisearch.com
+docs: https://www.meilisearch.com/docs
+repository: https://github.com/meilisearch/meilisearch
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 7700
+variables:
+  MEILI_MASTER_KEY:
+    generate: password64
+    description: The key every request to the API is authorised with; others are derived from it.
+health:
+  path: /health
+  expect: "200"
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    meilisearch:
+      image: getmeili/meilisearch:v1.54.3@sha256:e68913ab7d6f5b159529e472cfd362ce3c741fafd3c127961b2142abbe41b3c9
+      restart: unless-stopped
+      environment:
+        MEILI_ENV: production
+        MEILI_MASTER_KEY: "${MEILI_MASTER_KEY}"
+        MEILI_NO_ANALYTICS: "true"
+      volumes:
+        - meili-data:/meili_data
+      ports:
+        - "127.0.0.1:${PORT}:7700"
+  volumes:
+    meili-data:
+notes:
+  - "The API is at {{ url }}. Every request except /health needs the master key (MEILI_MASTER_KEY: noust env show {{ domain }} --unmask) as a bearer token; create search-only keys for your applications through the API and keep the master key on the server."
+  - "Indexes are in the Docker volume meili-data of this application. After updating Meilisearch to a new minor version its data may need a dump and import: read the release notes first."

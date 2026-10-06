@@ -1,0 +1,2 @@
+# How nginx proxies this application. Memos uploads images and files as resources.
+max_body_size: 100m

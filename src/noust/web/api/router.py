@@ -15,6 +15,8 @@ from fastapi import APIRouter, Depends
 
 from noust.core.exceptions import FleetUnavailableError
 from noust.web.api.app_adopt import router as app_adopt_router
+from noust.web.api.app_build import router as app_build_router
+from noust.web.api.app_container import router as app_container_router
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.app_hooks import router as app_hooks_router
 from noust.web.api.app_stack import router as app_stack_router
@@ -29,9 +31,12 @@ from noust.web.api.backups import router as backups_router
 from noust.web.api.central import router as central_router
 from noust.web.api.certs import router as certs_router
 from noust.web.api.config import router as config_router
+from noust.web.api.console_exposure import router as console_exposure_router
 from noust.web.api.cron import router as cron_router
 from noust.web.api.databases import apps_router as databases_apps_router
 from noust.web.api.databases import router as databases_router
+from noust.web.api.deploy_keys import keys_router as deploy_keys_router
+from noust.web.api.deploy_keys import router as app_deploy_key_router
 from noust.web.api.deployments import app_router as deployment_actions_router
 from noust.web.api.deployments import router as deployments_router
 from noust.web.api.deps import NoustErrorRoute, install_error_handlers
@@ -41,12 +46,14 @@ from noust.web.api.domains import router as domains_router
 from noust.web.api.ens import router as ens_router
 from noust.web.api.fleet import router as fleet_router
 from noust.web.api.fleet_self import router as fleet_self_router
+from noust.web.api.git_credentials import router as git_credentials_router
 from noust.web.api.identity import router as identity_router
 from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
 from noust.web.api.metrics import app_router as app_metrics_router
 from noust.web.api.metrics import router as metrics_router
 from noust.web.api.monitor import router as monitor_router
+from noust.web.api.node_enroll import router as node_enroll_router
 from noust.web.api.nodes import router as nodes_router
 from noust.web.api.openapi import router as openapi_router
 from noust.web.api.overview import router as overview_router
@@ -54,11 +61,13 @@ from noust.web.api.passkeys import router as passkeys_router
 from noust.web.api.previews import router as previews_router
 from noust.web.api.recipes import router as recipes_router
 from noust.web.api.sandbox import router as sandbox_router
+from noust.web.api.self_backup import router as self_backup_router
 from noust.web.api.server import router as server_router
 from noust.web.api.services import router as services_router
 from noust.web.api.sites import router as sites_router
 from noust.web.api.system import router as system_router
 from noust.web.api.timeline import router as timeline_router
+from noust.web.api.volume_backups import router as volume_backups_router
 from noust.web.api.zero_downtime import router as zero_downtime_router
 from noust.web.auth import require_auth
 
@@ -125,10 +134,14 @@ router.include_router(app_metrics_router, prefix="/apps", tags=["Metrics"])
 # The jobs router carries its own "/jobs" prefix.
 router.include_router(jobs_router, tags=["Jobs"])
 router.include_router(config_router, prefix="/config", tags=["Configuration"])
+# The console's own reach: published on a name of its own, over TLS (3.4).
+router.include_router(console_exposure_router, prefix="/console", tags=["Console"])
 router.include_router(backups_router, prefix="/backups", tags=["Backups"])
 router.include_router(
     backup_schedules_router, prefix="/backup-schedules", tags=["Backup Schedules"]
 )
+router.include_router(volume_backups_router, prefix="/volume-backups", tags=["Volume Backups"])
+router.include_router(self_backup_router, prefix="/self-backup", tags=["Self Backup"])
 router.include_router(databases_router, prefix="/databases", tags=["Databases"])
 router.include_router(databases_apps_router, prefix="/apps", tags=["Databases"])
 router.include_router(cron_router, prefix="/cron", tags=["Cron Jobs"])
@@ -162,6 +175,16 @@ router.include_router(identity_router, prefix="/apps", tags=["Applications"])
 router.include_router(app_stack_router, prefix="/apps", tags=["Applications"])
 # app_hooks.py owns only paths under "/{domain}/hooks".
 router.include_router(app_hooks_router, prefix="/apps", tags=["Applications"])
+# deploy_keys.py owns only paths under "/{domain}/deploy-key", and its second
+# router the whole of "/deploy-keys".
+router.include_router(app_deploy_key_router, prefix="/apps", tags=["Applications"])
+router.include_router(deploy_keys_router, prefix="/deploy-keys", tags=["Deploy keys"])
+# git_credentials.py owns only paths under "/{domain}/git-credential".
+router.include_router(git_credentials_router, prefix="/apps", tags=["Applications"])
+# app_container.py owns only "/{domain}/container".
+router.include_router(app_container_router, prefix="/apps", tags=["Applications"])
+# app_build.py owns only paths under "/{domain}/build".
+router.include_router(app_build_router, prefix="/apps", tags=["Applications"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.
 router.include_router(app_adopt_router, prefix="/apps", tags=["Applications"])
 router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])
@@ -173,6 +196,8 @@ router.include_router(fleet_self_router, prefix="/auth/fleet", tags=["Fleet"])
 router.include_router(passkeys_router, prefix="/auth/passkeys", tags=["Passkeys"])
 router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])
 router.include_router(fleet_router, prefix="/fleet", tags=["Fleet"])
+# Guided enrollment of a server: its host key, then the job that installs and joins it.
+router.include_router(node_enroll_router, prefix="/fleet/enroll", tags=["Fleet"])
 router.include_router(nodes_router, prefix="/nodes", tags=["Nodes"])
 router.include_router(node_proxy_router(), prefix="/nodes", tags=["Nodes"])
 # No prefix: the route is declared as "/openapi.json" and this router mounts

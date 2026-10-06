@@ -47,6 +47,7 @@ from noust.core.store import (
 from noust.core.utils import domain_to_app_name
 from noust.deployers.base import BaseDeployer
 from noust.deployers.helpers.app_env import read_app_env, write_app_env
+from noust.deployers.helpers.build_config import describe_build
 from noust.deployers.helpers.env_manager import redact_url_credentials
 from noust.deployers.helpers.health_gate import HealthCheck
 from noust.deployers.helpers.layout import RELEASES, app_root
@@ -68,13 +69,14 @@ from noust.deployers.php_fpm import control_pool
 from noust.deployers.registry import DeployerRegistry, available_types
 from noust.deployers.releases import is_release_id
 from noust.managers.backup_manager import RollbackManager
-from noust.managers.database.service import OWN_DATABASE_TYPES
+from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.recipes import RecipeError, get_recipe
 from noust.recipes.deploy import refuse_conflicts
 from noust.validators.environment import EnvironmentValidationError
 from noust.validators.port import find_available_port, validate_port
 from noust.validators.source import validate_source
+from noust.web.api.app_container import ContainerSettingsRequest, request_to_changes
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
     JobAcceptedResponse,
@@ -260,12 +262,20 @@ class NewAppDatabaseRequest(BaseModel):
         env_var: The variable; ``DATABASE_URL``, or ``REDIS_URL`` for Redis.
         extra_vars: Also write ``DB_HOST``, ``DB_PORT``, ``DB_NAME``,
             ``DB_USER`` and ``DB_PASSWORD``.
+        version: The version of the engine the database is for, such as ``17``.
+            Checked when the request arrives: one other than the version that
+            runs is refused with what runs, and an engine that is not
+            installed is refused with how to install it (``GET
+            /api/databases/provisioning/choices``) before anything is queued.
     """
 
     engine: str = Field(..., description="Database engine")
     name: str | None = Field(default=None, description="Database name")
     env_var: str | None = Field(default=None, description="Variable to write")
     extra_vars: bool = Field(default=False, description="Also write the DB_* variables")
+    version: str | None = Field(
+        default=None, max_length=16, description="Version of the engine, such as 17"
+    )
 
 
 class CreateAppRequest(BaseModel):
@@ -360,6 +370,13 @@ class CreateAppRequest(BaseModel):
         default=None,
         description="GitHub App installation that clones this application's repository, "
         "as the repository list returned it; kept for every later update",
+    )
+    container: ContainerSettingsRequest | None = Field(
+        default=None,
+        description="A container application: how its image is made (a Dockerfile, Railpack, "
+        "or an image from a registry in container.image, which then needs no source) and how "
+        "it runs. The registry account's password and the build secrets are kept in the secret "
+        "store and never shown again. Giving it makes app_type container",
     )
     database: NewAppDatabaseRequest | None = Field(
         default=None,
@@ -698,6 +715,13 @@ def _deployer_build_command(app: App) -> list[str]:
     deployer_class = DeployerRegistry.get(app.app_type)
     if deployer_class is None or not issubclass(deployer_class, BaseDeployer):
         return []
+    # What the application's build block says replaces the type's command.
+    try:
+        declared = describe_build(app.domain).build.build
+    except (NoustError, OSError):
+        declared = None
+    if declared:
+        return list(declared)
     try:
         instance = deployer_class(verbose=False)
         instance.configure(
@@ -909,6 +933,68 @@ def _check_initial_health(path: str | None, expect: str | None, timeout: int | N
             raise
 
 
+def _database_for_job(body: CreateAppRequest) -> dict[str, Any]:
+    """
+    Describe the new application's database the way the deploy job takes it.
+
+    The version was checked when the request arrived; the job only needs to be
+    told what it did not know before 3.4, so a request that names none is the
+    job it always was.
+
+    Args:
+        body: The request, which has a database.
+
+    Returns:
+        The database as a plain mapping, without an unset version.
+    """
+    described = dump_model(body.database)  # type: ignore[arg-type]
+    if described.get("version") is None:
+        described.pop("version", None)
+    return described
+
+
+def _new_container_settings(
+    domain: str, request: ContainerSettingsRequest | None, source: str | None
+) -> dict[str, Any]:
+    """
+    Turn the container settings of a creation request into what the deploy job takes.
+
+    Args:
+        domain: The new application's domain.
+        request: What the client gave, or None for a repository with a Dockerfile.
+        source: The request's source, which an image from a registry has none of.
+
+    Returns:
+        The validated settings as a mapping; their secrets are already in the
+        secret store.
+
+    Raises:
+        ValidationError: The settings are not valid, an image was given a
+            source, or a build was given none.
+    """
+    from dataclasses import asdict
+
+    from noust.deployers.helpers.container_settings import settings_for_new_app
+
+    body = request if request is not None else ContainerSettingsRequest()
+    changes = request_to_changes(body)
+    method = changes.get("method") or ("image" if changes.get("image") else "dockerfile")
+    changes["method"] = method
+    if method == "image" and source:
+        raise ValidationError(
+            "An image from a registry has no source",
+            details="Give the image in container.image and leave source out.",
+            field="source",
+        )
+    if method != "image" and not source:
+        raise ValidationError(
+            "A source is required",
+            details="Give the repository to build in source, or an image in container.image.",
+            field="source",
+        )
+    return asdict(settings_for_new_app(domain, changes))
+
+
 @router.post("", response_model=JobAcceptedResponse, status_code=202)
 def create_app(
     body: CreateAppRequest,
@@ -946,6 +1032,20 @@ def create_app(
     """
     domain = strict_domain(body.domain)
     recipe = get_recipe(body.recipe) if body.recipe is not None else None
+    container = body.container
+    if recipe is not None and container is not None:
+        raise ValidationError(
+            "A recipe and container settings cannot be given together",
+            details="A recipe brings its own source, type and settings.",
+            field="container",
+        )
+    if recipe is None and container is not None:
+        if body.app_type not in ("auto", "container"):
+            raise ValidationError(
+                f"Container settings do not apply to a {body.app_type} application",
+                details="Leave app_type on auto or container, or remove container.",
+                field="container",
+            )
     if recipe is not None:
         refuse_conflicts(source=body.source, app_type=body.app_type)
         if not recipe.available:
@@ -953,13 +1053,16 @@ def create_app(
                 f"{recipe.title} is not available in this release",
                 details=recipe.unavailable_reason or "See GET /api/recipes",
             )
-    elif not body.source:
+    elif not body.source and not (container is not None and container.image):
         raise ValidationError(
-            "A source is required", details="Give source, or a recipe from GET /api/recipes."
+            "A source is required",
+            details="Give source, an image in container.image, or a recipe from GET /api/recipes.",
         )
-    else:
+    elif body.source:
         _require_local_source_privilege(request, session, body.source)
     app_type = recipe.app_type if recipe is not None else body.app_type
+    if container is not None:
+        app_type = "container"
     if body.database is not None and (recipe is not None or app_type in OWN_DATABASE_TYPES):
         raise ValidationError(
             "A database cannot be created with "
@@ -969,6 +1072,10 @@ def create_app(
             "/api/apps/{domain}/databases.",
             field="database",
         )
+    if body.database is not None and body.database.version is not None:
+        # Before anything is queued: a version this server does not run is a
+        # refusal the wizard shows next to the field, not a failed job.
+        DatabaseService().resolve_engine_choice(body.database.engine, version=body.database.version)
 
     if get_store().get_app(domain):
         raise HTTPException(status_code=409, detail=f"Application already exists: {domain}")
@@ -999,6 +1106,12 @@ def create_app(
             "or omit it to detect automatically from the project's lock file.",
         )
 
+    # Last of the checks, because it writes: the registry password and the
+    # build secrets go to the secret store, and only their names are queued.
+    container_settings = (
+        _new_container_settings(domain, container, body.source) if app_type == "container" else None
+    )
+
     job = get_job_manager().create_job(
         job_type=JobType.DEPLOY,
         name=f"Deploy {domain}",
@@ -1010,8 +1123,9 @@ def create_app(
         func=deploy_app_job,
         kwargs={
             "domain": domain,
-            "source": body.source or "",
+            "source": body.source or (container_settings or {}).get("image") or "",
             "app_type": app_type,
+            **({"container": container_settings} if container_settings is not None else {}),
             "recipe": recipe.name if recipe is not None else None,
             "port": port,
             "branch": body.branch,
@@ -1034,7 +1148,7 @@ def create_app(
             "health_path": body.health_path,
             "health_expect": body.health_expect,
             "health_timeout": body.health_timeout,
-            "database": dump_model(body.database) if body.database is not None else None,
+            "database": _database_for_job(body) if body.database is not None else None,
         },
         metadata={
             "domain": domain,
@@ -1467,6 +1581,15 @@ def get_app_logs(
     """
     validated = strict_domain(domain)
     app_name = domain_to_app_name(validated)
+    app = get_store().get_app(validated)
+
+    if app is not None and app.app_type == "container":
+        # What the container printed, with its secrets masked: the unit only
+        # ran 'docker compose up' once and says nothing of the application.
+        from noust.deployers.docker_compose import stack_deployer
+
+        output = stack_deployer(app).logs(lines=lines)
+        return AppLogsResponse(domain=validated, logs=output or "No logs available", lines=lines)
 
     logs = ServiceManager(verbose=False).logs(app_name, lines=lines) or "No logs available"
 
@@ -1860,7 +1983,7 @@ def _release_app_or_error(domain: str) -> App:
             place: it has no releases until it is migrated.
     """
     app = _env_app(domain)
-    if app.layout != RELEASES:
+    if app.layout != RELEASES and app.app_type != "container":
         raise HTTPException(
             status_code=409,
             detail=f"{app.domain} is deployed in place and has no releases. Migrate it to "

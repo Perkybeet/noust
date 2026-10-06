@@ -41,6 +41,7 @@ from typing import Any, cast
 
 from noust.core import audit
 from noust.core.config import Config
+from noust.core.database_exposures import ExposureStore
 from noust.core.ens import profile as security_profile
 from noust.core.exceptions import (
     ConfigError,
@@ -76,6 +77,7 @@ from noust.managers.database.base import (
     UserInfo,
     console_statement,
 )
+from noust.managers.database.choice import EngineChoice, choices, resolve_choice
 from noust.managers.database.detect_links import (
     AppReferences,
     Detected,
@@ -114,6 +116,7 @@ from noust.managers.database.linking import (
 )
 from noust.managers.database.records import DatabaseLink, DatabaseRecords, default_env_var
 from noust.managers.database.registry import DatabaseRegistry, get_db_manager
+from noust.managers.database.scope import SCOPE_DATABASE, Exclusions
 from noust.managers.database.settings import SettingsOutcome, SettingsReport, settings_for
 from noust.managers.database.urls import connection_url, masked
 from noust.validators.domain import validate_domain
@@ -189,9 +192,10 @@ class _CredentialOverlay:
 
 
 #: Application types whose deployers provision their own databases (from the
-#: repository's compose file): a database asked for with their first deploy is
+#: repository's compose file), or run where the host's databases are not
+#: reachable (a container): a database asked for with their first deploy is
 #: refused rather than created and never written into their environment.
-OWN_DATABASE_TYPES = frozenset({"monorepo", "docker-compose"})
+OWN_DATABASE_TYPES = frozenset({"monorepo", "docker-compose", "container"})
 
 #: The profile a new application account gets when a link creates it.
 LINK_PROFILE = "owner"
@@ -1457,6 +1461,12 @@ class DatabaseService:
                 if domain
             }
         )
+        if ExposureStore(self.store).get(engine_name, name) is not None:
+            self.audit("db.drop", target, "denied", reason="public")
+            raise DatabaseError(
+                f"The database '{name}' is reachable from the network",
+                details=f"Make it private first: noust db public close {name} --engine {engine_name}",
+            )
         if users and not unlink:
             self.audit("db.drop", target, "denied", reason="linked", apps=",".join(users))
             raise DatabaseError(
@@ -1791,6 +1801,21 @@ class DatabaseService:
         username = manager.validate_user_name(username)
         engine_name = manager.ENGINE_NAME
         self._guard_account(manager, username, "drop")
+        public = next(
+            (
+                entry
+                for entry in ExposureStore(self.store).all()
+                if entry.engine == engine_name and entry.remote_user == username
+            ),
+            None,
+        )
+        if public is not None and public.state == "exposed":
+            self.audit("db.user.drop", f"{engine_name}/{username}", "denied", reason="public")
+            raise DatabaseUserError(
+                f"'{username}' is the account of the public database {public.db_name}",
+                details=f"Make it private first: noust db public close {public.db_name} "
+                f"--engine {engine_name}",
+            )
         users = sorted(
             {
                 domain
@@ -2803,6 +2828,9 @@ class DatabaseService:
         env_var: str | None = None,
         extra_vars: bool = False,
         restart: bool = True,
+        version: str | None = None,
+        install: bool = False,
+        install_hint: str = "",
     ) -> LinkOutcome:
         """
         Create a database and an account for an application, and link them.
@@ -2817,16 +2845,30 @@ class DatabaseService:
             env_var: The variable; see :meth:`link`.
             extra_vars: See :meth:`link`.
             restart: See :meth:`link`.
+            version: The version of the engine the database is for, such as
+                ``17``; None for the one that is installed. See
+                :func:`~noust.managers.database.choice.resolve_choice`.
+            install: Install the engine, in that version, when it is missing.
+            install_hint: How the caller says "install it", for the error
+                that refuses a missing engine.
 
         Returns:
             What was done.
 
         Raises:
+            ValidationError: When the version is not one this server can be
+                given, or is not the one that runs.
             DatabaseError: When the engine refuses, or the names belong to
                 another application.
             DeploymentError: When the application did not come up.
         """
         app = self._app(domain)
+        choice = resolve_choice(
+            self, engine, version=version, install=install, install_hint=install_hint
+        )
+        if choice.action == "install":
+            self.logger.info(f"Installing {choice.display_name} first")
+            self.install_engine(engine, flavour=choice.flavour, version=choice.version)
         manager = self.running(engine)
         db_name, user, created = self._provision(app.domain, manager, name, app=app)
         outcome = self.link(
@@ -2850,6 +2892,8 @@ class DatabaseService:
         env_var: str | None = None,
         extra_vars: bool = False,
         env: Mapping[str, str] | None = None,
+        version: str | None = None,
+        install: bool = False,
     ) -> NewAppDatabase:
         """
         Create a database for an application its first deploy is about to create.
@@ -2875,11 +2919,16 @@ class DatabaseService:
                 ``DB_USER`` and ``DB_PASSWORD``.
             env: The variables the operator gave the deploy. One the database
                 would write is refused, never overwritten.
+            version: The version of the engine the database is for; None for
+                the one that is installed.
+            install: Install the engine, in that version, when it is missing.
 
         Returns:
             The database and the variables to write.
 
         Raises:
+            ValidationError: When the version is not one this server can be
+                given, or is not the one that runs.
             DatabaseError: When the domain is already deployed, a variable is
                 already given, the engine refuses, or the names belong to
                 another application.
@@ -2892,6 +2941,10 @@ class DatabaseService:
                 f"{domain} is already deployed",
                 details=f"Create its database with: noust db provision {domain} --engine {engine}",
             )
+        choice = resolve_choice(self, engine, version=version, install=install)
+        if choice.action == "install":
+            self.logger.info(f"Installing {choice.display_name} first")
+            self.install_engine(engine, flavour=choice.flavour, version=choice.version)
         manager = self.running(engine)
         engine_name = manager.ENGINE_NAME
         variable = env_var or default_env_var(engine_name)
@@ -3024,7 +3077,7 @@ class DatabaseService:
             kept=True,
         )
 
-    def plan_for_app(self, domain: str, engine: str) -> dict[str, Any]:
+    def plan_for_app(self, domain: str, engine: str, version: str | None = None) -> dict[str, Any]:
         """
         Say what provisioning a database for an application would write.
 
@@ -3035,13 +3088,25 @@ class DatabaseService:
         Args:
             domain: The application's domain, existing or not.
             engine: The engine.
+            version: The version the database is wanted on; None for the one
+                that is installed.
 
         Returns:
             ``engine``, ``display_name``, ``installed``, ``running``,
             ``database``, ``username``, ``env_vars`` (names), ``url`` (the
-            connection string with the password masked) and
-            ``database_exists``.
+            connection string with the password masked), ``database_exists``,
+            ``version`` (as asked), ``running_version`` and ``will_install``
+            (the engine is missing and creating the database would install it).
+
+        Raises:
+            ValidationError: When the version cannot be had here, or is not the
+                one that runs.
         """
+        choice = (
+            resolve_choice(self, engine, version=version, install=True)
+            if version is not None
+            else None
+        )
         manager = self.manager(engine)
         engine_name = manager.ENGINE_NAME
         app_name = domain_to_app_name(validate_domain(domain))
@@ -3076,6 +3141,9 @@ class DatabaseService:
             "env_vars": [default_env_var(engine_name)],
             "url": url,
             "database_exists": bool(running and manager.database_exists(database)),
+            "version": version,
+            "running_version": manager.get_version() if installed else None,
+            "will_install": bool(choice is not None and choice.action == "install"),
         }
 
     # ---------------------------------------------------------------- dumps
@@ -3137,6 +3205,7 @@ class DatabaseService:
         compress: bool = True,
         dump_format: str | None = None,
         output: Path | None = None,
+        exclusions: Exclusions | None = None,
     ) -> BackupInfo:
         """
         Dump a database.
@@ -3148,6 +3217,7 @@ class DatabaseService:
                 names is compressed by pg_dump already).
             dump_format: PostgreSQL's ``custom`` (default), ``plain`` or ``tar``.
             output: Where to write it; the engine's backup directory when None.
+            exclusions: Schemas, tables or collections to leave out of the dump.
 
         Returns:
             The dump.
@@ -3159,6 +3229,12 @@ class DatabaseService:
         database = manager.validate_database_name(database)
         target = f"{manager.ENGINE_NAME}/{database}"
         kwargs: dict[str, Any] = {"format": dump_format} if dump_format else {}
+        if exclusions:
+            exclusions.check_for(manager.engine_type, scope=SCOPE_DATABASE)
+            if exclusions.schemas:
+                kwargs["exclude_schemas"] = list(exclusions.schemas)
+            if exclusions.tables:
+                kwargs["exclude_tables"] = list(exclusions.tables)
         try:
             info = manager.backup(database, output_path=output, compress=compress, **kwargs)
         except DatabaseError:
@@ -3177,6 +3253,7 @@ class DatabaseService:
         safety_backup: bool = True,
         new_name: str | None = None,
         on_safety_copy: Callable[[Path], None] | None = None,
+        options: Mapping[str, Any] | None = None,
     ) -> RestoreOutcome:
         """
         Restore a dump into a database, or into a new one beside it.
@@ -3197,6 +3274,8 @@ class DatabaseService:
             new_name: Restore into a new database of this name instead.
             on_safety_copy: Called with the safety copy before anything is
                 dropped or loaded (see the manager's ``restore``).
+            options: Engine-specific loader options an import passes
+                (``keep_owners``, ``owner_role``).
 
         Returns:
             What was done.
@@ -3228,6 +3307,7 @@ class DatabaseService:
                 safety_backup=safety_backup,
                 on_safety_copy=on_safety_copy,
                 **isolation,
+                **(options or {}),
             )
         except DatabaseError:
             self.audit("db.restore", target, "failure", source=source.name)
@@ -3393,6 +3473,58 @@ class DatabaseService:
             it can be installed, why not, and in which versions.
         """
         return install_catalog(self.all_managers())
+
+    def resolve_engine_choice(
+        self,
+        engine: str,
+        *,
+        version: str | None = None,
+        flavour: str | None = None,
+        install: bool = False,
+        install_hint: str = "",
+    ) -> EngineChoice:
+        """
+        Decide what creating a database on an engine in a version means here.
+
+        Changes nothing: it reads what is installed and what the catalog
+        offers. See :func:`~noust.managers.database.choice.resolve_choice`.
+
+        Args:
+            engine: The engine as typed.
+            version: The version asked for; None for whatever is installed.
+            flavour: A flavour named explicitly.
+            install: Whether installing a missing engine is allowed.
+            install_hint: How the caller says "install it", for the refusal.
+
+        Returns:
+            The decision: use the engine that runs, or install it first.
+
+        Raises:
+            ValidationError: When the version cannot be had here or is not the
+                one that runs.
+            DatabaseEngineError: When the engine is unknown, or missing and
+                not to be installed.
+        """
+        return resolve_choice(
+            self,
+            engine,
+            version=version,
+            flavour=flavour,
+            install=install,
+            install_hint=install_hint,
+        )
+
+    def engine_choices(self) -> list[dict[str, Any]]:
+        """
+        List every engine and version a database can be created on.
+
+        Returns:
+            One entry per flavour: whether it is installed and in which
+            version, whether it can be installed here, and the versions the
+            catalog offers each as ``installed``, ``installable`` or
+            ``unavailable``.
+        """
+        return choices(self)
 
     def plan_engine_install(
         self, engine: str, *, flavour: str | None = None, version: str | None = None

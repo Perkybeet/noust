@@ -49,7 +49,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from noust import __version__
 from noust.core.audit import bind as bind_audit_context
 from noust.core.audit.context import request_correlation_id
 from noust.core.config import Config
@@ -67,6 +66,7 @@ from noust.core.tls_policy import TLS12_CIPHERS, harden_server_context
 from noust.deployers import deploy_events
 from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from noust.managers.database.backup_notifications import database_job_notification
+from noust.managers.database.uploads import MAX_CHUNK_BYTES
 from noust.web.auth import (
     SAFE_METHODS,
     SESSION_COOKIE_NAME,
@@ -109,11 +109,17 @@ from noust.web.events import (
 )
 from noust.web.permissions.enforce import PermissionDenied, check_permission
 from noust.web.permissions.websockets import websocket_permissions
+from noust.web.versioning import API_VERSION, API_VERSION_HEADER, ApiVersionMiddleware
 
 logger = logging.getLogger(__name__)
 
 #: Path prefix of the forge webhooks, which get :data:`MAX_HOOK_BODY_BYTES`.
 HOOKS_PATH_PREFIX = "/hooks/"
+
+#: Where a dump is uploaded in chunks (``PUT .../uploads/{id}``), which may carry
+#: one chunk (:data:`~noust.managers.database.uploads.MAX_CHUNK_BYTES`) where every
+#: other API request carries at most the panel's ``max_body_bytes``.
+IMPORT_UPLOAD_PATH_PREFIX = "/api/databases/imports/uploads/"
 
 #: Prefix of the anonymous rate key forge deliveries are counted under, in
 #: front of the client address: a budget apart from the console's own.
@@ -941,10 +947,12 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
     app = FastAPI(
         title="Noust Web Interface",
         description="Web-based dashboard for Noust - Web App System Management",
-        # The schema an operator fetches from GET /api/openapi.json describes
-        # the release that is running. scripts/export_openapi.py replaces it
-        # with a placeholder in the committed file; see EXPORTED_VERSION there.
-        version=__version__,
+        # The API's own version, not the product's: the schema an operator
+        # fetches from GET /api/openapi.json carries the running release in
+        # info.x-noust-version (noust.web.api.openapi.annotate_version), which
+        # scripts/export_openapi.py replaces with a placeholder in the
+        # committed file.
+        version=API_VERSION,
         docs_url=None,
         redoc_url=None,
         # The schema of an API that runs systemd as root is a map for an
@@ -970,11 +978,18 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
             allow_credentials=True,
             allow_methods=["GET", "POST", "PUT", "DELETE"],
             allow_headers=["Authorization", "Content-Type", "X-WASM-CSRF"],
+            # A script in a browser reads which API version answered, and a
+            # deprecation notice, only if the response exposes the headers.
+            expose_headers=[API_VERSION_HEADER, "Deprecation", "Sunset", "Link"],
         )
 
     # Added last, so it is the outermost layer: CORS preflights are answered
     # from inside the whitelist and the rate limiter, not in front of them.
     app.add_middleware(SecurityMiddleware, config=security_config)
+    # Added after it, so outside it: /api/v1/... is /api/... before the
+    # whitelist, the rate limiter, the audit trail or the router see the
+    # path, and a refusal the security layer makes still names the API version.
+    app.add_middleware(ApiVersionMiddleware)
 
     from noust.web.api import router as api_router
     from noust.web.api.deps import API_PATH_PREFIX, handle_http_exception, install_error_handlers
@@ -1623,11 +1638,13 @@ class SecurityMiddleware:
             path: The request path.
 
         Returns:
-            The forge webhook's cap under ``/hooks/``, the API's everywhere
-            else.
+            The forge webhook's cap under ``/hooks/``, one chunk's under the
+            dump upload, the API's everywhere else.
         """
         if path.startswith(HOOKS_PATH_PREFIX):
             return self.config.max_hook_body_bytes
+        if path.startswith(IMPORT_UPLOAD_PATH_PREFIX):
+            return max(self.config.max_body_bytes, MAX_CHUNK_BYTES + 64 * 1024)
         return self.config.max_body_bytes
 
     @staticmethod

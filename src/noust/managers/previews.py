@@ -61,12 +61,14 @@ from noust.core.exceptions import (
     DeploymentError,
     IntegrationError,
     NoustError,
+    QueueFullError,
     ServiceError,
     ValidationError,
 )
 from noust.core.forge_events import Forge, PullRequestAction, PullRequestEvent
 from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
+from noust.core.repositories import repository_key
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, DeploymentTrigger, PreviewRecord, PreviewSettings, get_store
 from noust.core.utils import domain_to_app_name, find_noust_executable
@@ -161,49 +163,10 @@ _SYSTEMCTL_TIMEOUT = 60
 _TTL_PATTERN = re.compile(r"^\s*(\d{1,6})\s*([hdw]?)\s*$", re.IGNORECASE)
 _TTL_UNITS = {"": 1, "h": 1, "d": 24, "w": 24 * 7}
 
-# Git sources, reduced to the host and the repository path they name.
-_GITHUB_SHORTHAND = re.compile(r"^github:(?P<path>[\w.-]+/[\w.-]+?)(?:\.git)?/?$", re.IGNORECASE)
-_SCP_LIKE = re.compile(r"^[\w.-]+@(?P<host>[\w.-]+):(?!//)(?P<path>[\w./-]+?)(?:\.git)?/?$")
-_URL_LIKE = re.compile(
-    r"^(?:https?|ssh|git)://(?:[^@/]+@)?(?P<host>[\w.-]+)(?::\d+)?/(?P<path>[\w./-]+?)(?:\.git)?/?$",
-    re.IGNORECASE,
-)
-
 
 # ---------------------------------------------------------------------------
 # Pure helpers
 # ---------------------------------------------------------------------------
-
-
-def repository_key(source: str | None) -> tuple[str, str] | None:
-    """
-    Reduce a git source to the repository it names.
-
-    ``https://github.com/Owner/Repo.git``, ``git@github.com:owner/repo``,
-    ``ssh://git@github.com/owner/repo`` and ``github:owner/repo`` all name the
-    same repository, and a webhook names it as ``owner/repo``; comparing the
-    sources as typed would miss every one of those.
-
-    Args:
-        source: A source as the store records it.
-
-    Returns:
-        ``(host, path)``, both lowercased, the path without ``.git``; None
-        when the source is not a git repository (a local path, an archive).
-    """
-    if not source:
-        return None
-    text = source.strip().split("#", 1)[0]
-    shorthand = _GITHUB_SHORTHAND.match(text)
-    if shorthand:
-        return ("github.com", shorthand.group("path").lower())
-    match = _URL_LIKE.match(text) or _SCP_LIKE.match(text)
-    if not match:
-        return None
-    path = match.group("path").strip("/")
-    if "/" not in path:
-        return None
-    return (match.group("host").lower(), path.lower())
 
 
 def parse_ttl(value: str | int) -> int:
@@ -1323,6 +1286,27 @@ def _record_and_queue(
     """
     store = get_store()
     existing = store.get_preview(parent.domain, event.number)
+    if (
+        existing is not None
+        and event.forge is Forge.BITBUCKET
+        and event.action is PullRequestAction.UPDATED
+        and event.head_sha
+        and existing.head_sha == event.head_sha
+        and existing.status in (PENDING, DEPLOYING, READY)
+    ):
+        # An update that moved nothing. Bitbucket sends pullrequest:updated for
+        # a new title or description as well as for new commits, and says
+        # nothing of which it was (GitLab says so with ``oldrev``, which is
+        # read where its event is translated), so a preview that is built, or
+        # being built, from this very commit has nothing to rebuild. A failed
+        # one is not skipped: the same commit again is how an operator retries.
+        _log.info(
+            "Pull request %s#%d is already at %s: nothing to rebuild",
+            event.repository,
+            event.number,
+            event.head_sha[:12],
+        )
+        return None
     if existing is None:
         others = [p for p in store.list_previews(parent.domain) if p.number != event.number]
         if len(others) >= settings.max_previews:
@@ -1380,23 +1364,31 @@ def _record_and_queue(
         )
     )
     first = occupant is None
-    job = _jobs().create_job(
-        job_type=_job_type("DEPLOY" if first else "UPDATE"),
-        name=f"{'Preview' if first else 'Update preview'} #{record.number} of {parent.domain}",
-        description=f"{'Deploying' if first else 'Updating'} the preview of pull request "
-        f"#{record.number} ({record.branch}) at {domain}",
-        func=preview_deploy_job,
-        kwargs={"parent_domain": parent.domain, "number": record.number},
-        metadata={
-            "domain": domain,
-            "parent": parent.domain,
-            "preview": record.number,
-            "branch": record.branch,
-            "trigger": "webhook",
-            "provider": record.provider,
-        },
-        actor="webhook",
-    )
+    try:
+        job = _jobs().create_job(
+            job_type=_job_type("DEPLOY" if first else "UPDATE"),
+            name=f"{'Preview' if first else 'Update preview'} #{record.number} of {parent.domain}",
+            description=f"{'Deploying' if first else 'Updating'} the preview of pull request "
+            f"#{record.number} ({record.branch}) at {domain}",
+            func=preview_deploy_job,
+            kwargs={"parent_domain": parent.domain, "number": record.number},
+            metadata={
+                "domain": domain,
+                "parent": parent.domain,
+                "preview": record.number,
+                "branch": record.branch,
+                "trigger": "webhook",
+                "provider": record.provider,
+            },
+            actor="webhook",
+        )
+    except QueueFullError as exc:
+        # The deploy queue has no room: the preview is not built, and says so
+        # instead of staying "pending" for a job that does not exist. The next
+        # push to the pull request asks again.
+        _log.warning("No preview of %s for #%d: %s", parent.domain, record.number, exc.message)
+        _set_status(record, FAILED, exc.message)
+        return None
     return str(job.id)
 
 

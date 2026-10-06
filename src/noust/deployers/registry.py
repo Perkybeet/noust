@@ -196,13 +196,19 @@ def _import_deployers() -> None:
     ``DETECTION_PRIORITY``, not from who registered first.
     """
     from noust.deployers import (  # noqa: F401
+        angular,
+        astro,
         auto,
+        container,
         docker_compose,
         monorepo,
         nextjs,
         nodejs,
+        nuxt,
         php_fpm,
         python,
+        remix,
         static,
+        sveltekit,
         vite,
     )

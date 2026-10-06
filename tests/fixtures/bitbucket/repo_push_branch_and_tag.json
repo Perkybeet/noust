@@ -1,0 +1,39 @@
+{
+  "push": {
+    "changes": [
+      {
+        "forced": false,
+        "old": {"name": "release", "type": "branch", "target": {"type": "commit", "hash": "1111111111111111111111111111111111111111"}},
+        "created": false,
+        "commits": [],
+        "truncated": false,
+        "closed": false,
+        "new": {"name": "release", "type": "branch", "target": {"type": "commit", "hash": "2222222222222222222222222222222222222222"}}
+      },
+      {
+        "forced": false,
+        "old": {"name": "main", "type": "branch", "target": {"type": "commit", "hash": "3333333333333333333333333333333333333333"}},
+        "created": false,
+        "commits": [],
+        "truncated": false,
+        "closed": false,
+        "new": {"name": "main", "type": "branch", "target": {"type": "commit", "hash": "4444444444444444444444444444444444444444"}}
+      },
+      {
+        "forced": false,
+        "old": null,
+        "created": true,
+        "commits": [],
+        "truncated": false,
+        "closed": false,
+        "new": {"name": "v2.0.0-rc.1", "type": "tag", "target": {"type": "commit", "hash": "4444444444444444444444444444444444444444"}}
+      }
+    ]
+  },
+  "actor": {"display_name": "Ada Lovelace", "nickname": "ada", "type": "user"},
+  "repository": {
+    "type": "repository",
+    "full_name": "acme/shop",
+    "links": {"html": {"href": "https://bitbucket.org/acme/shop"}}
+  }
+}

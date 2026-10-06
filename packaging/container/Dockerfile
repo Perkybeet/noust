@@ -8,6 +8,7 @@
 # this image for linux/amd64 and linux/arm64:
 #
 #   python -m build --wheel --outdir packaging/container/dist
+#   cp packaging/install.sh packaging/container/dist/install.sh
 #   docker build -t noust packaging/container
 #
 # Installing the wheel built from the tag, not `pip install noust` from PyPI,
@@ -39,6 +40,11 @@ RUN apt-get update \
 COPY dist/noust-${NOUST_VERSION}-py3-none-any.whl /tmp/
 RUN pip install --no-cache-dir --no-compile "/tmp/noust-${NOUST_VERSION}-py3-none-any.whl[web]" \
     && rm /tmp/noust-*.whl
+
+# The installer a central sends to a server that has no Noust yet, when it enrolls
+# it from the console (noust.fleet.enroll): the same file the release publishes.
+COPY dist/install.sh /usr/share/noust/install.sh
+RUN chmod 0644 /usr/share/noust/install.sh
 
 # An unprivileged user owns everything the central keeps. Nothing it does
 # needs root: it listens on an unprivileged port and only dials out.

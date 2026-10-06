@@ -25,6 +25,7 @@ from noust.core.logger import Logger
 from noust.core.runner import FakeRunner
 from noust.core.store import App, AppStatus, MonorepoWorkspace, NoustStore
 from noust.deployers.auto import AutoDeployer
+from noust.deployers.container import ContainerDeployer
 from noust.deployers.docker_compose import DockerComposeDeployer, compose_project_name
 from noust.deployers.helpers.permissions import hand_over_tree
 from noust.deployers.interface import AppDeployer, UpdateResult
@@ -245,6 +246,8 @@ TREES: dict[str, dict[str, str]] = {
     "static": {"index.html": "<html></html>"},
     "nodejs": {"package.json": PACKAGE_JSON},
     "docker-compose": {"docker-compose.yml": "services:\n  web:\n    image: nginx\n"},
+    "dockerfile": {"Dockerfile": "FROM scratch\n"},
+    "containerfile": {"Containerfile": "FROM scratch\n"},
     "monorepo": {
         "turbo.json": "{}",
         "pnpm-workspace.yaml": "packages:\n  - apps/*\n",
@@ -270,6 +273,8 @@ TREES: dict[str, dict[str, str]] = {
         ("static", "static"),
         ("nodejs", "nodejs"),
         ("docker-compose", "docker-compose"),
+        ("dockerfile", "container"),
+        ("containerfile", "container"),
         ("monorepo", "monorepo"),
     ],
 )
@@ -365,13 +370,42 @@ def test_detection_order_is_independent_of_registration_order() -> None:
     assert order == [
         "monorepo",
         "docker-compose",
+        "angular",
+        "astro",
+        "nuxt",
+        "remix",
+        "sveltekit",
         "nextjs",
         "php-fpm",
         "vite",
         "python",
         "nodejs",
         "static",
+        "container",
     ]
+
+
+def test_a_dockerfile_loses_to_everything_that_knows_its_framework(tmp_path: Path) -> None:
+    """A Dockerfile is how a project ships, not what it is: the framework's deployer wins."""
+    write_tree(tmp_path, TREES["nextjs"])
+    (tmp_path / "Dockerfile").write_text("FROM node:22\n")
+
+    assert ContainerDeployer().detect(tmp_path)
+    assert detect_app_type(tmp_path) == "nextjs"
+
+
+def test_a_dockerfile_next_to_a_compose_file_is_the_stack(tmp_path: Path) -> None:
+    write_tree(tmp_path, TREES["docker-compose"])
+    (tmp_path / "Dockerfile").write_text("FROM scratch\n")
+
+    assert detect_app_type(tmp_path) == "docker-compose"
+
+
+def test_a_static_site_with_a_dockerfile_is_still_served_from_disk(tmp_path: Path) -> None:
+    write_tree(tmp_path, TREES["static"])
+    (tmp_path / "Dockerfile").write_text("FROM nginx\n")
+
+    assert detect_app_type(tmp_path) == "static"
 
 
 # ---------------------------------------------------------------------------
@@ -388,6 +422,7 @@ def test_detection_order_is_independent_of_registration_order() -> None:
         ("static", "static"),
         ("nodejs", "nodejs"),
         ("docker-compose", "docker-compose"),
+        ("dockerfile", "container"),
         ("monorepo", "monorepo"),
     ],
 )
@@ -557,7 +592,13 @@ def test_python_commands_use_the_virtualenv(tmp_path: Path) -> None:
     ]
     assert deployer.get_build_command() == []
 
+    # collectstatic needs a STATIC_ROOT: a project without one has nothing to
+    # collect into, and the command would fail the deploy.
     deployer.framework = "django"
+    assert deployer.get_build_command() == []
+
+    (tmp_path / "mysite").mkdir()
+    (tmp_path / "mysite" / "settings.py").write_text("STATIC_ROOT = BASE_DIR / 'static'\n")
     assert deployer.get_build_command() == [
         str(tmp_path / "venv" / "bin" / "python"),
         "manage.py",
@@ -572,7 +613,7 @@ def test_python_poetry_and_pipenv_commands(tmp_path: Path) -> None:
     deployer.configure("app.example.com", "src", app_path=tmp_path)
 
     deployer.use_poetry = True
-    assert deployer.get_install_command() == ["poetry", "install", "--no-dev"]
+    assert deployer.get_install_command() == ["poetry", "install", "--without", "dev"]
 
     deployer.use_poetry = False
     deployer.use_pipenv = True

@@ -6,25 +6,39 @@
 # start it with `next start` from the repository root, where its build puts
 # the GeoIP database it reads at runtime; the standalone server the Next.js
 # deployer would run looks for it elsewhere.
+#
+# v2.20.2 is the last 2.x release; 3.x is a recipe revision of its own once it
+# has been deployed here.
+schema: 2
 name: umami
+kind: native
 title: Umami
-description: Simple, privacy-friendly web analytics, an alternative to Google Analytics.
+slogan: Simple, privacy-friendly web analytics.
+description: Simple, privacy-friendly web analytics, an alternative to Google Analytics, with a PostgreSQL database Noust provisions.
+category: analytics
+tags: [analytics, privacy, statistics]
+logo: logo.svg
+version: "2.20.2"
+revision: 1
+updated: 2026-10-06
 homepage: https://umami.is
-requires:
+docs: https://umami.is/docs
+repository: https://github.com/umami-software/umami
+license: MIT
+needs:
   - Node.js 18.18 or newer, with pnpm (npm install -g pnpm)
   - PostgreSQL (noust db install postgresql)
+requires: [postgres]
 app_type: nodejs
 source:
   git: https://github.com/umami-software/umami.git
   ref: v2.20.2
 layout: releases
 port: 3000
-database:
-  engine: postgresql
-env:
-  DATABASE_URL: "{{ database.url }}"
-  APP_SECRET: "{{ secret(48) }}"
-  DISABLE_TELEMETRY: "1"
+variables:
+  DATABASE_URL: {from: postgres.url}
+  APP_SECRET: {generate: password64, description: Signs Umami's sessions.}
+  DISABLE_TELEMETRY: {value: "1"}
 health:
   path: /api/heartbeat
   expect: "200"

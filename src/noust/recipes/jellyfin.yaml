@@ -1,0 +1,61 @@
+# Jellyfin from its own image. From the image's configuration
+# (ghcr.io/jellyfin/jellyfin:12.2): it runs as root unless told otherwise, listens
+# on 8096, keeps its data in /config and its cache in /cache (JELLYFIN_DATA_DIR,
+# JELLYFIN_CACHE_DIR), and its own health check is /health. The media is mounted
+# read-only at /media from MEDIA_PATH, a directory inside the application by
+# default (./media) that the operator can point anywhere.
+#
+# Jellyfin's tags are "12.2" (major.minor) and their dated builds; the digest
+# makes the tag immutable.
+schema: 2
+name: jellyfin
+kind: compose
+title: Jellyfin
+slogan: The free software media system for your own movies, shows and music.
+description: Stream your own media library to any device, with no tracking and no licence fees. Transcoding runs in software; hardware acceleration is not set up by this recipe.
+category: media
+tags: [media, streaming, movies, music]
+logo: logo.svg
+version: "12.2"
+revision: 1
+updated: 2026-10-06
+homepage: https://jellyfin.org
+docs: https://jellyfin.org/docs/
+repository: https://github.com/jellyfin/jellyfin
+license: GPL-2.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - Disk for the media library, and CPU for transcoding
+port: 8096
+variables:
+  JELLYFIN_PublishedServerUrl:
+    from: url
+    description: The address clients are told to use.
+  MEDIA_PATH:
+    default: ./media
+    description: The directory of media to serve, read-only. Inside the application by default; give an absolute path to use a library elsewhere.
+health:
+  path: /health
+  expect: "200"
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    jellyfin:
+      image: ghcr.io/jellyfin/jellyfin:12.2@sha256:c3efa69a22f2691fc88d6bb035e87a8560e395a6047f062fb381c61c3185e8f5
+      restart: unless-stopped
+      environment:
+        JELLYFIN_PublishedServerUrl: "${JELLYFIN_PublishedServerUrl}"
+      volumes:
+        - jellyfin-config:/config
+        - jellyfin-cache:/cache
+        - "${MEDIA_PATH}:/media:ro"
+      ports:
+        - "127.0.0.1:${PORT}:8096"
+  volumes:
+    jellyfin-config:
+    jellyfin-cache:
+notes:
+  - "Open {{ url }} now to run the setup wizard: until it is done, anyone who reaches the page can create the administrator account."
+  - "Put your media in {{ app_path }}/media, or set MEDIA_PATH to the directory that holds it and restart the application: noust restart {{ domain }}. Add it as a library in the wizard under /media."
+  - "Its database and settings are in the Docker volume jellyfin-config of this application."

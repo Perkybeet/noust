@@ -1,0 +1,5 @@
+# How nginx proxies this application. PDFs are uploaded whole, and OCR or conversion can take minutes.
+max_body_size: 200m
+routes:
+  - path: /
+    read_timeout: 600

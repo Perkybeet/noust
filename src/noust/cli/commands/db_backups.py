@@ -33,6 +33,7 @@ from noust.cli.app import Context, NoustCommand, NoustGroup, json_option, pass_c
 from noust.core.exceptions import NoustError, ValidationError
 from noust.core.logger import Logger
 from noust.managers.database.backups import DatabaseBackups, DumpView, PolicyView
+from noust.managers.database.scope import ALL_DATABASES, Exclusions
 
 
 class _Engine(click.ParamType):
@@ -211,6 +212,35 @@ def _destination(value: str) -> dict[str, Any]:
     return entry
 
 
+def _database_or_all(database: str | None, everything: bool) -> str:
+    """
+    Decide what a command is about: one database, or all of an engine's.
+
+    ``*`` is never typed for this: a shell would expand it.
+
+    Args:
+        database: The database the operator named, if any.
+        everything: ``--all`` was given.
+
+    Returns:
+        The database, or :data:`~noust.managers.database.scope.ALL_DATABASES`.
+
+    Raises:
+        ValidationError: When neither or both were given.
+    """
+    if everything and database:
+        raise ValidationError(
+            "Name a database or give --all, not both",
+            details="--all is the policy that covers every database of the engine.",
+        )
+    if not everything and not database:
+        raise ValidationError(
+            "Name a database, or give --all for every database of the engine",
+            details="Example: noust db backup-schedule set --all --engine postgresql",
+        )
+    return ALL_DATABASES if everything else str(database)
+
+
 def _describe_destination(entry: dict[str, Any]) -> str:
     """
     Args:
@@ -236,7 +266,9 @@ def _print_policy(logger: Logger, view: PolicyView) -> None:
         view: The policy and its timer.
     """
     data = view.to_dict()
-    click.echo(f"\n{view.engine}/{view.database}")
+    click.echo(
+        f"\n{view.engine}/{'all databases' if view.database == ALL_DATABASES else view.database}"
+    )
     if not view.policy:
         click.echo("  No backup policy: nothing backs this database up on a schedule.")
         return
@@ -246,6 +278,19 @@ def _print_policy(logger: Logger, view: PolicyView) -> None:
     if data["retention_days"]:
         keep.append(f"{data['retention_days']} days")
     click.echo(f"  Schedule:     {data['schedule']}{'' if data['enabled'] else '  (disabled)'}")
+    if data["scope"] == "all":
+        click.echo("  Covers:       every database of the engine, those created later too")
+    left_out = [
+        f"{kind}: {', '.join(names)}"
+        for kind, names in (
+            ("databases", data["exclusions"].get("databases")),
+            ("schemas", data["exclusions"].get("schemas")),
+            ("tables or collections", data["exclusions"].get("tables")),
+        )
+        if names
+    ]
+    if left_out:
+        click.echo(f"  Leaves out:   {'; '.join(left_out)}")
     click.echo(f"  Keeps here:   {', '.join(keep) if keep else 'everything'}")
     destinations = [_describe_destination(entry) for entry in data["destinations"]]
     click.echo(f"  Destinations: {', '.join(destinations) if destinations else 'none'}")
@@ -289,8 +334,32 @@ def backup_schedule() -> None:
 
 
 @backup_schedule.command("set")
-@click.argument("database")
+@click.argument("database", required=False)
 @click.option("--engine", "-e", type=ENGINE, required=True, help="Engine the database is on.")
+@click.option(
+    "--all",
+    "everything",
+    is_flag=True,
+    help="One policy for every database of the engine, those created later too.",
+)
+@click.option(
+    "--exclude-database",
+    "exclude_databases",
+    multiple=True,
+    help="With --all, a database to skip. Repeatable.",
+)
+@click.option(
+    "--exclude-schema",
+    "exclude_schemas",
+    multiple=True,
+    help="PostgreSQL schema to leave out of every dump. Repeatable.",
+)
+@click.option(
+    "--exclude-table",
+    "exclude_tables",
+    multiple=True,
+    help="Table (PostgreSQL, MySQL, MariaDB) or collection (MongoDB) to leave out. Repeatable.",
+)
 @click.option(
     "--schedule",
     default="daily",
@@ -332,8 +401,12 @@ def backup_schedule() -> None:
 @pass_context
 def set_schedule(
     ctx: Context,
-    database: str,
+    database: str | None,
     engine: str,
+    everything: bool,
+    exclude_databases: tuple[str, ...],
+    exclude_schemas: tuple[str, ...],
+    exclude_tables: tuple[str, ...],
     schedule: str,
     keep: str,
     keep_days: str,
@@ -348,12 +421,21 @@ def set_schedule(
     Saving the policy again is how it is changed. The timer runs 'noust db
     backup-run', which dumps, checks the dump, sends it to each destination
     and deletes what retention no longer keeps.
+
+    With --all the policy covers every database the engine holds, each dumped
+    on its own, the ones created later included; a database with a policy of
+    its own is left to it. What a dump leaves out is named with --exclude-*.
     """
     try:
         with _quiet(ctx):
             view = _backups(ctx.logger).set_policy(
                 engine,
-                database,
+                _database_or_all(database, everything),
+                exclusions=Exclusions.of(
+                    databases=exclude_databases,
+                    schemas=exclude_schemas,
+                    tables=exclude_tables,
+                ),
                 schedule=schedule,
                 retention_count=_limit(keep, "--keep"),
                 retention_days=_limit(keep_days, "--keep-days"),
@@ -376,17 +458,18 @@ def set_schedule(
 @backup_schedule.command("show", read_only=True)
 @click.argument("database", required=False)
 @click.option("--engine", "-e", type=ENGINE, help="Engine the database is on.")
+@click.option("--all", "everything", is_flag=True, help="The policy that covers every database.")
 @json_option("Print the policies as JSON.")
 @pass_context
-def show_schedule(ctx: Context, database: str | None, engine: str | None) -> None:
+def show_schedule(ctx: Context, database: str | None, engine: str | None, everything: bool) -> None:
     """Show one database's backup policy, or every policy."""
     backups = _backups(ctx.logger)
     try:
         with _quiet(ctx):
-            if database:
+            if database or everything:
                 if not engine:
                     raise ValidationError("--engine is needed to name a database")
-                views = [backups.get_policy(engine, database)]
+                views = [backups.get_policy(engine, _database_or_all(database, everything))]
             else:
                 views = backups.list_policies(engine)
     except NoustError as exc:
@@ -403,36 +486,48 @@ def show_schedule(ctx: Context, database: str | None, engine: str | None) -> Non
 
 
 @backup_schedule.command("remove")
-@click.argument("database")
+@click.argument("database", required=False)
 @click.option("--engine", "-e", type=ENGINE, required=True, help="Engine the database is on.")
+@click.option("--all", "everything", is_flag=True, help="The policy that covers every database.")
 @click.option("--force", "-f", "-y", is_flag=True, help="Do not ask for confirmation.")
 @pass_context
-def remove_schedule(ctx: Context, database: str, engine: str, force: bool) -> None:
+def remove_schedule(
+    ctx: Context, database: str | None, engine: str, everything: bool, force: bool
+) -> None:
     """Remove a database's backup policy and its timer. Its dumps stay."""
+    try:
+        target = _database_or_all(database, everything)
+    except NoustError as exc:
+        _exit(_fail(ctx.logger, exc))
+        return
+    label = "every database" if target == ALL_DATABASES else target
     if not _confirm(
-        f"Remove the backup policy of {database}? No new dumps will be taken on a schedule",
+        f"Remove the backup policy of {label}? No new dumps will be taken on a schedule",
         force=force,
     ):
         ctx.logger.info("Cancelled")
         _exit(0)
     try:
-        removed = _backups(ctx.logger).remove_policy(engine, database)
+        removed = _backups(ctx.logger).remove_policy(engine, target)
     except NoustError as exc:
         _exit(_fail(ctx.logger, exc))
         return
     if removed:
-        ctx.logger.success(f"Backup policy removed for {database}")
+        ctx.logger.success(f"Backup policy removed for {label}")
     else:
-        ctx.logger.info(f"{database} had no backup policy")
+        ctx.logger.info(f"{label} had no backup policy")
     _exit(0)
 
 
 @click.command("backup-run", cls=NoustCommand)
-@click.argument("database")
+@click.argument("database", required=False)
 @click.option("--engine", "-e", type=ENGINE, required=True, help="Engine the database is on.")
+@click.option(
+    "--all", "everything", is_flag=True, help="Run the policy that covers every database."
+)
 @json_option("Print what the run did as JSON.")
 @pass_context
-def backup_run(ctx: Context, database: str, engine: str) -> None:
+def backup_run(ctx: Context, database: str | None, engine: str, everything: bool) -> None:
     """
     Run a database's backup policy now: dump, check, send, prune.
 
@@ -443,13 +538,21 @@ def backup_run(ctx: Context, database: str, engine: str) -> None:
     try:
         with _quiet(ctx):
             result = _backups(ctx.logger).run_policy(
-                engine, database, notify=True, on_step=lambda text: ctx.logger.info(text)
+                engine,
+                _database_or_all(database, everything),
+                notify=True,
+                on_step=lambda text: ctx.logger.info(text),
             )
     except NoustError as exc:
         _exit(_fail(ctx.logger, exc))
         return
     if ctx.json_output:
         _echo_json(result)
+    elif result["database"] == ALL_DATABASES:
+        done = [name for name, outcome in result["databases"].items() if outcome["ok"]]
+        ctx.logger.success(f"Backup complete: {len(done)} database(s) dumped")
+        for skipped in result["skipped"]:
+            ctx.logger.info(f"  Skipped {skipped['database']}: {skipped['reason']}")
     else:
         dump = result["dump"]
         ctx.logger.success(f"Backup complete: {dump['name']} ({dump['size_human']})")
@@ -675,3 +778,7 @@ def register(group: click.Group) -> None:
         restore_remote,
     ):
         group.add_command(command)
+    # A dump from another provider; its module imports this one for the helpers.
+    from noust.cli.commands import db_import
+
+    db_import.register(group)

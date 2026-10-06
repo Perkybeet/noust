@@ -17,6 +17,8 @@ Usage:
     .venv/bin/python tests/integration/run.py --keep
     .venv/bin/python tests/integration/run.py --scenario node_app_update
     .venv/bin/python tests/integration/run.py --scenario compose
+    .venv/bin/python tests/integration/run.py --scenario container
+    .venv/bin/python tests/integration/run.py --scenario railpack   (optional, needs the network)
     .venv/bin/python tests/integration/run.py --scenario proggest   (optional, slow)
 
 Requires Docker (tested against Docker 29) with a working systemd-in-Docker
@@ -7881,6 +7883,280 @@ def _proggest_delete(sc: Scenario, ledger: Ledger) -> None:
     )
 
 
+INSTALLER = REPO_ROOT / "packaging" / "install.sh"
+
+
+@scenario("installer_platform_and_dry_run")
+def scenario_installer_platform_and_dry_run(sc: Scenario) -> None:
+    """The one-line installer detects this system, plans without touching it, and refuses what it must."""
+    sh(["docker", "cp", str(INSTALLER), f"{sc.container}:/tmp/install.sh"], timeout=30)
+    platform = sc.run("sh /tmp/install.sh --print-platform", label="install.sh --print-platform")
+    sc.check(
+        "status=supported" in platform.stdout,
+        f"Ubuntu 24.04 is declared supported: {platform.stdout}",
+    )
+    sc.check("repo=xUbuntu_24.04" in platform.stdout, "it picks the Ubuntu 24.04 repository")
+
+    plan = sc.run("sh /tmp/install.sh --dry-run --version 3.3.1", label="install.sh --dry-run")
+    sc.check(
+        "[dry-run]" in plan.stdout and "Dry run: nothing was changed." in plan.stdout, "it plans"
+    )
+    sc.check(
+        "noust=3.3.1-*" in plan.stdout
+        and "D9FA6122D7F154D75A588A501945D169A62CFF65" in plan.stdout,
+        "the plan names the pinned version and the key fingerprint it will check",
+    )
+    sc.check(
+        sc.run(
+            "test ! -e /etc/apt/sources.list.d/noust.list", check=False, label="nothing written"
+        ).returncode
+        == 0,
+        "a dry run wrote nothing",
+    )
+
+    for name, os_release, arch, expect in (
+        ("Arch Linux", 'ID=arch\nPRETTY_NAME="Arch Linux"\n', "x86_64", 3),
+        ("Debian 11", 'ID=debian\nVERSION_ID="11"\nPRETTY_NAME="Debian 11"\n', "x86_64", 3),
+        (
+            "32-bit Raspberry Pi OS",
+            'ID=debian\nVERSION_ID="12"\nPRETTY_NAME="Debian 12"\n',
+            "armv7l",
+            3,
+        ),
+    ):
+        sc.run(f"printf '{os_release}' > /tmp/fake-os-release", label=f"a {name} os-release")
+        refused = sc.run(
+            f"NOUST_OS_RELEASE=/tmp/fake-os-release NOUST_ARCH={arch} sh /tmp/install.sh --yes",
+            check=False,
+            label=f"install.sh on {name}",
+        )
+        sc.check(
+            refused.returncode == expect,
+            f"{name} is refused with status {expect}: {refused.returncode}",
+        )
+
+    wrong = sc.run(
+        "NOUST_REPO_KEY_FPR=0123456789ABCDEF0123456789ABCDEF01234567 "
+        "sh /tmp/install.sh --yes --skip-setup --no-console",
+        timeout=180,
+        check=False,
+        label="install.sh with a key fingerprint that is not the repository's",
+    )
+    sc.check(wrong.returncode != 0, "a key with another fingerprint is refused")
+    sc.check("does not have the expected fingerprint" in wrong.stderr, "and the refusal says why")
+    sc.check(
+        sc.run(
+            "test ! -e /etc/apt/sources.list.d/noust.list",
+            check=False,
+            label="still nothing written",
+        ).returncode
+        == 0,
+        "nothing was written before the key was verified",
+    )
+
+
+#: Stands in for certbot in the harness, which has no route to an ACME server: it "issues" a
+#: self-signed certificate where certbot would put one, and removes it on `delete`. Everything
+#: else of the exposure (nginx, systemd, the console, the store) is the real thing.
+FAKE_CERTBOT = """#!/bin/sh
+case "$1" in
+    delete)
+        while [ "$#" -gt 0 ]; do [ "$1" = --cert-name ] && name="$2"; shift; done
+        rm -rf "/etc/letsencrypt/live/$name" "/etc/letsencrypt/archive/$name"
+        exit 0 ;;
+    certonly)
+        while [ "$#" -gt 0 ]; do [ "$1" = --cert-name ] && name="$2"; shift; done
+        live="/etc/letsencrypt/live/$name"
+        mkdir -p "$live"
+        openssl req -x509 -newkey rsa:2048 -nodes -days 90 -subj "/CN=$name" \\
+            -keyout "$live/privkey.pem" -out "$live/fullchain.pem" 2>/dev/null
+        cp "$live/fullchain.pem" "$live/cert.pem"; cp "$live/fullchain.pem" "$live/chain.pem"
+        exit 0 ;;
+esac
+exit 0
+"""
+
+CONSOLE_NAME = "console.test"
+CONSOLE_SITE = "/etc/nginx/sites-available/console.test"
+
+
+@scenario("console_exposed_through_nginx")
+def scenario_console_exposed_through_nginx(sc: Scenario) -> None:
+    """`noust console expose` publishes the console over TLS through the real nginx, and undoes it.
+
+    The console is a real systemd service; nginx, the unit, the store and the configuration are
+    real; only certbot is a stand-in that issues a self-signed certificate. What is pinned:
+    the refusals before anything is written (no second factor), the nginx allow-list enforced
+    before the console sees a request, the console's unit trusting nginx and still answering,
+    and `unexpose` leaving the machine as it found it.
+    """
+    require_cli(sc, "console expose", what="the console on a public name")
+    sc.run("command -v openssl nginx", timeout=15, label="openssl and nginx are there")
+    docker_exec(
+        sc.container,
+        f"cat > /usr/local/bin/certbot <<'SHIM'\n{FAKE_CERTBOT}SHIM\nchmod 0755 /usr/local/bin/certbot",
+        timeout=30,
+    )
+    sc.evidence.append("$ install a certbot stand-in (self-signed certificate, no ACME)")
+    secret = ""
+    try:
+        enable = docker_exec(sc.container, "noust web enable", timeout=90, check=False)
+        sc.evidence.append("$ noust web enable\n(output withheld: it holds the access token)")
+        sc.check(enable.returncode == 0, f"noust web enable failed: {enable.stderr}")
+        wait_until_health(sc, PANEL_URL)
+
+        # Refused first: no account and the access token has no second factor.
+        refused = sc.run(
+            f"noust console expose --domain {CONSOLE_NAME} --skip-dns-check --yes",
+            check=False,
+            label="expose without a second factor",
+        )
+        sc.check(refused.returncode != 0, "the console was published without a second factor")
+        sc.check(
+            "second factor" in refused.stderr + refused.stdout,
+            f"the refusal does not say why: {refused.stderr}{refused.stdout}",
+        )
+        sc.check(
+            sc.run(f"test ! -e {CONSOLE_SITE}", check=False, label="nothing written").returncode
+            == 0,
+            "a refused exposure wrote the site",
+        )
+
+        # An account that signs in with a password alone stops it too.
+        sc.run(
+            "printf '%s\n' 'a-long-passphrase-for-the-admin-7' | noust user create alice --role admin --stdin",
+            label="noust user create alice",
+        )
+        refused = sc.run(
+            f"noust console expose --domain {CONSOLE_NAME} --skip-dns-check --yes",
+            check=False,
+            label="expose with an account lacking a second factor",
+        )
+        sc.check(refused.returncode != 0, "published while alice has no second factor")
+        sc.check(
+            "alice" in refused.stderr + refused.stdout, "the refusal does not name the account"
+        )
+        sc.run("noust user disable alice", label="noust user disable alice")
+
+        # The access token's own second factor, enrolled the way an operator does.
+        enroll = docker_exec(sc.container, "noust 2fa enroll", timeout=30, check=False)
+        match = re.search(r"Secret\W+([A-Z2-7]{16,})", enroll.stdout)
+        sc.check(match is not None, "noust 2fa enroll printed no secret")
+        secret = match.group(1) if match else ""
+        code = docker_exec(
+            sc.container,
+            f"/opt/noust/bin/python -c 'from noust.core.totp import totp_now; print(totp_now(\"{secret}\"))'",
+            timeout=30,
+        ).stdout.strip()
+        confirmed = docker_exec(sc.container, f"noust 2fa confirm {code}", timeout=30, check=False)
+        sc.evidence.append("$ noust 2fa enroll / confirm\n(output withheld: it holds secrets)")
+        sc.check(confirmed.returncode == 0, f"2fa confirm failed: {confirmed.stderr}")
+
+        # The real thing, with an allow-list that does not include the address the test comes from.
+        sc.run(
+            f"noust console expose --domain {CONSOLE_NAME} --allow-ip 203.0.113.0/24 "
+            "--skip-dns-check --yes",
+            timeout=180,
+            label="noust console expose",
+        )
+        site = sc.run(f"cat {CONSOLE_SITE}", label="the nginx site").stdout
+        sc.check(site.startswith("# Noust console site for"), "the site does not say it is Noust's")
+        sc.check(
+            "allow 203.0.113.0/24;" in site and "deny all;" in site, "the allow-list is not there"
+        )
+        sc.check(
+            sc.run("nginx -t", check=False, label="nginx -t").returncode == 0,
+            "nginx rejects the site",
+        )
+        unit = sc.run("systemctl cat noust-web.service", label="the console's unit").stdout
+        sc.check("--trusted-proxy 127.0.0.1" in unit, "the console does not trust nginx")
+        wait_until_health(sc, PANEL_URL)
+        status = sc.run("noust console status --json", label="noust console status").stdout
+        sc.check('"exposed": true' in status, f"status does not say it is exposed: {status}")
+
+        via_nginx = (
+            f"curl -sk -o /dev/null -w '%{{http_code}}' --resolve {CONSOLE_NAME}:443:127.0.0.1 "
+            f"https://{CONSOLE_NAME}/health"
+        )
+        blocked = sc.run(via_nginx, check=False, label="through nginx, from outside the allow-list")
+        sc.check(blocked.stdout.strip() == "403", f"nginx let a stranger through: {blocked.stdout}")
+        redirect = sc.run(
+            f"curl -s -o /dev/null -w '%{{http_code}} %{{redirect_url}}' -H 'Host: {CONSOLE_NAME}' "
+            "http://127.0.0.1/",
+            check=False,
+            label="plain HTTP",
+        )
+        sc.check(
+            redirect.stdout.startswith(f"301 https://{CONSOLE_NAME}"),
+            f"plain HTTP is not redirected to HTTPS: {redirect.stdout}",
+        )
+
+        # Open it to this machine, and the console answers through nginx over TLS.
+        sc.run(
+            f"noust console expose --domain {CONSOLE_NAME} --allow-ip 127.0.0.1 --skip-dns-check --yes",
+            timeout=180,
+            label="noust console expose again, allowing 127.0.0.1",
+        )
+        wait_until_health(sc, PANEL_URL)
+        answered = sc.run(via_nginx, check=False, label="through nginx, from inside the allow-list")
+        sc.check(
+            answered.stdout.strip() == "200",
+            f"the console does not answer through nginx: {answered.stdout}",
+        )
+
+        # Take it off: exactly what it made, and the console keeps running on loopback.
+        sc.run("noust console unexpose --yes", timeout=180, label="noust console unexpose")
+        sc.check(
+            sc.run(
+                f"test ! -e {CONSOLE_SITE} && test ! -e /etc/letsencrypt/live/{CONSOLE_NAME}",
+                check=False,
+                label="the site and the certificate are gone",
+            ).returncode
+            == 0,
+            "unexpose left the site or the certificate",
+        )
+        unit = sc.run("systemctl cat noust-web.service", label="the console's unit again").stdout
+        sc.check("--trusted-proxy" not in unit, "the unit still trusts a proxy that is gone")
+        sc.check(
+            sc.run("nginx -t", check=False, label="nginx -t").returncode == 0,
+            "nginx rejects what is left",
+        )
+        wait_until_health(sc, PANEL_URL)
+        again = sc.run("noust console status --json", label="noust console status").stdout
+        sc.check('"exposed": false' in again, f"status still says exposed: {again}")
+    finally:
+        sc.run("noust console unexpose --yes", timeout=180, check=False, label="cleanup: unexpose")
+        if secret:
+            # The next 30-second step: the one confirm used is spent and replays are refused.
+            code = docker_exec(
+                sc.container,
+                "/opt/noust/bin/python -c 'import time; from noust.core.totp import totp_now; "
+                f'print(totp_now("{secret}", t=time.time() + 30))\'',
+                timeout=30,
+                check=False,
+            ).stdout.strip()
+            docker_exec(sc.container, f"noust 2fa disable {code}", timeout=30, check=False)
+        sc.run("noust user remove alice --force", check=False, label="cleanup: alice")
+        sc.run("noust web disable", timeout=60, check=False, label="cleanup: web disable")
+        sc.run("rm -f /usr/local/bin/certbot", check=False, label="cleanup: certbot stand-in")
+
+
+def wait_until_health(sc: Scenario, url: str) -> None:
+    """Wait until the console answers ``/health``."""
+    deadline = time.time() + 45
+    while time.time() < deadline:
+        probe = docker_exec(
+            sc.container,
+            f"curl -sS -o /dev/null -w '%{{http_code}}' {url}/health",
+            timeout=15,
+            check=False,
+        )
+        if probe.stdout.strip() == "200":
+            return
+        time.sleep(1)
+    raise AssertionError(f"the console did not answer {url}/health within 45s")
+
+
 # ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
@@ -7888,6 +8164,326 @@ def _proggest_delete(sc: Scenario, ledger: Ledger) -> None:
 
 def random_container_name() -> str:
     return f"noust-it-{secrets.token_hex(4)}"
+
+
+# ---------------------------------------------------------------------------
+# 3.4: container applications (a Dockerfile, an image from a registry, Railpack)
+# ---------------------------------------------------------------------------
+
+CONTAINER_DOMAIN = "ctr.test"
+CONTAINER_PORT = 18210
+CONTAINER_REPO = "/root/fixtures/ctr-app"
+CONTAINER_URL = "git://127.0.0.1/ctr-app"
+CONTAINER_IMAGES = "noust-ctr-test"
+CONTAINER_BASE = "nginx:alpine"
+
+CONTAINER_REGISTRY_DOMAIN = "ctr-image.test"
+CONTAINER_REGISTRY_PORT = 18211
+CONTAINER_REGISTRY_IMAGES = "noust-ctr-image-test"
+
+CONTAINER_RAILPACK_DOMAIN = "ctr-rp.test"
+CONTAINER_RAILPACK_PORT = 18212
+CONTAINER_RAILPACK_REPO = "/root/fixtures/ctr-railpack"
+CONTAINER_RAILPACK_URL = "git://127.0.0.1/ctr-railpack"
+
+#: Seconds a way back may take: it recreates one container from an image already on the host.
+CONTAINER_ROLLBACK_SECONDS = 45
+
+
+def container_dockerfile(extra: str = "") -> str:
+    """A printf-ready Dockerfile of the nginx fixture, with a line of ``extra`` before EXPOSE."""
+    return f"FROM {CONTAINER_BASE}\\nCOPY html /usr/share/nginx/html\\n{extra}EXPOSE 80\\n"
+
+
+def container_images(sc: Scenario, repository: str) -> list[str]:
+    """The tags of an application's images, as the container's own Docker lists them."""
+    listed = sc.run(
+        f"docker image ls --format '{{{{.Repository}}}}:{{{{.Tag}}}}' {repository}",
+        timeout=30,
+        check=False,
+        label=f"docker image ls {repository}",
+    )
+    return sorted(line for line in listed.stdout.split() if line)
+
+
+def container_clean(sc: Scenario, domain: str, repository: str) -> None:
+    """Remove an application, then anything of it that is left, whatever the scenario did."""
+    compose_clean(sc, domain)
+    sc.run(
+        f"docker image ls -q {repository} | xargs -r docker image rm -f; true",
+        timeout=60,
+        check=False,
+        label=f"cleanup: the images of {repository}",
+    )
+
+
+@scenario("container_app_dockerfile_update_rollback_and_failed_update")
+def scenario_container_dockerfile(sc: Scenario) -> None:
+    """
+    A Dockerfile in a repository is a container application, with a release per image.
+
+    Deployed with ``--type container``: the site answers through nginx and the container is
+    published on loopback only. An update builds a second image and serves it; going back is
+    instant (no build: the image of the first release is still there); an update whose container
+    cannot start puts the one that served back and says so. Deleting the application takes every
+    image with it.
+    """
+    require_cli(sc, "app container", what="container applications")
+    require_docker(sc)
+    pull_images(sc, CONTAINER_BASE)
+    sc.run(
+        f"rm -rf {CONTAINER_REPO} && mkdir -p {CONTAINER_REPO}/html && cd {CONTAINER_REPO} && "
+        f"printf 'ctr v1' > html/index.html && printf '{container_dockerfile()}' > Dockerfile && "
+        f"git init -q -b main && {GIT_IDENTITY} && git add -A && git commit -q -m 'v1'",
+        timeout=30,
+        label="(fixture repo) a Dockerfile that serves one page with nginx",
+    )
+    sc.run(
+        f"noust create -d {CONTAINER_DOMAIN} -s {CONTAINER_URL} -t container "
+        f"-p {CONTAINER_PORT} --no-ssl",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"noust create -d {CONTAINER_DOMAIN} -s {CONTAINER_URL} -t container",
+    )
+    try:
+        wait_served(sc, CONTAINER_DOMAIN, "ctr v1")
+
+        # The container is reached through nginx, never from the network.
+        published = sc.run(
+            f"docker port $(docker ps -q -f label=io.noust.app={CONTAINER_DOMAIN} | head -1)",
+            timeout=15,
+            label="docker port <the container>",
+        ).stdout
+        sc.check(
+            f"127.0.0.1:{CONTAINER_PORT}" in published and "0.0.0.0" not in published,  # noqa: S104 - the check that it is not bound
+            f"the container is published beyond loopback: {published!r}",
+        )
+
+        shown = json_of(
+            sc.run(
+                f"noust app container show {CONTAINER_DOMAIN} --json",
+                timeout=30,
+                label=f"noust app container show {CONTAINER_DOMAIN} --json",
+            ),
+            "app container show",
+        )
+        sc.check(shown["method"] == "dockerfile", f"the method: {shown['method']!r}")
+        sc.check(shown["container_port"] == 80, f"the port the Dockerfile exposes: {shown!r}")
+
+        commit_to(sc, CONTAINER_REPO, "printf 'ctr v2' > html/index.html", "v2")
+        sc.run(
+            f"noust update {CONTAINER_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust update {CONTAINER_DOMAIN}",
+        )
+        wait_served(sc, CONTAINER_DOMAIN, "ctr v2")
+        releases = json_of(
+            sc.run(
+                f"noust releases list {CONTAINER_DOMAIN} --json",
+                timeout=30,
+                label=f"noust releases list {CONTAINER_DOMAIN} --json",
+            ),
+            "releases list",
+        )["items"]
+        sc.check(
+            len(releases) == 2 and [r["active"] for r in releases] == [True, False],
+            f"two releases, the newest serving: {releases!r}",
+        )
+        sc.check(
+            len(container_images(sc, CONTAINER_IMAGES)) == 2,
+            "each release must have its own image on the host",
+        )
+
+        # Instant: nothing is built, the first release's image is what runs again.
+        started = time.monotonic()
+        sc.run(
+            f"noust releases rollback {CONTAINER_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust releases rollback {CONTAINER_DOMAIN}",
+        )
+        took = time.monotonic() - started
+        wait_served(sc, CONTAINER_DOMAIN, "ctr v1")
+        sc.check(
+            took < CONTAINER_ROLLBACK_SECONDS,
+            f"going back took {took:.0f}s: it recreates one container from an image on the host",
+        )
+
+        # nginx refuses to start on a broken configuration: the container exits.
+        broken = container_dockerfile("RUN echo broken > /etc/nginx/conf.d/broken.conf\\n")
+        commit_to(
+            sc,
+            CONTAINER_REPO,
+            f"printf 'ctr v3' > html/index.html && printf '{broken}' > Dockerfile",
+            "v3: nginx cannot start",
+        )
+        update = sc.run(
+            f"noust update {CONTAINER_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            check=False,
+            label=f"noust update {CONTAINER_DOMAIN}",
+        )
+        output = update.stdout + update.stderr
+        sc.check(update.returncode != 0, "an update whose container does not start must fail")
+        sc.check(
+            "did not pass its health check" in output and "running again" in output,
+            f"the update did not say it went back: {output!r}",
+        )
+        body = curl_host(sc, CONTAINER_DOMAIN)
+        sc.check("ctr v1" in body, f"what served before is not serving again: {body!r}")
+        after = json_of(
+            sc.run(
+                f"noust releases list {CONTAINER_DOMAIN} --json",
+                timeout=30,
+                label=f"noust releases list {CONTAINER_DOMAIN} --json",
+            ),
+            "releases list",
+        )["items"]
+        statuses = [release["status"] for release in after]
+        sc.check(
+            statuses.count("failed") == 1,
+            f"the release that did not answer must be recorded as failed: {statuses!r}",
+        )
+
+        sc.run(
+            f"noust delete {CONTAINER_DOMAIN} -f",
+            timeout=180,
+            label=f"noust delete {CONTAINER_DOMAIN} -f",
+        )
+        left = container_images(sc, CONTAINER_IMAGES)
+        sc.check(not left, f"images of a deleted application were left on the host: {left!r}")
+    finally:
+        container_clean(sc, CONTAINER_DOMAIN, CONTAINER_IMAGES)
+
+
+@scenario("container_app_from_a_registry_image")
+def scenario_container_registry(sc: Scenario) -> None:
+    """
+    An image from a registry is deployed with no source, and an update pulls it again.
+
+    ``noust create --image``: no repository, no Dockerfile. The image is named for the release
+    on the host, so going back never needs the registry. The restart policy set afterwards
+    reaches the container with the next update. Skipped, saying why, when the registry cannot be
+    reached from the harness container.
+    """
+    require_cli(sc, "app container", what="container applications")
+    require_docker(sc)
+    pull_images(sc, CONTAINER_BASE)
+    sc.run(
+        f"noust create -d {CONTAINER_REGISTRY_DOMAIN} --image {CONTAINER_BASE} "
+        f"-p {CONTAINER_REGISTRY_PORT} --no-ssl",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"noust create -d {CONTAINER_REGISTRY_DOMAIN} --image {CONTAINER_BASE}",
+    )
+    try:
+        wait_served(sc, CONTAINER_REGISTRY_DOMAIN, "Welcome to nginx!")
+        shown = json_of(
+            sc.run(
+                f"noust app container show {CONTAINER_REGISTRY_DOMAIN} --json",
+                timeout=30,
+                label=f"noust app container show {CONTAINER_REGISTRY_DOMAIN} --json",
+            ),
+            "app container show",
+        )
+        sc.check(shown["method"] == "image" and shown["image"] == CONTAINER_BASE, f"{shown!r}")
+        sc.check(
+            str(shown.get("digest") or "").startswith("sha256:"),
+            f"the digest the pull resolved was not recorded: {shown!r}",
+        )
+        sc.check(shown["container_port"] == 80, f"the port the image exposes: {shown!r}")
+
+        sc.run(
+            f"noust app container set {CONTAINER_REGISTRY_DOMAIN} --restart always",
+            timeout=30,
+            label=f"noust app container set {CONTAINER_REGISTRY_DOMAIN} --restart always",
+        )
+        update = sc.run(
+            f"noust update {CONTAINER_REGISTRY_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust update {CONTAINER_REGISTRY_DOMAIN}",
+        )
+        sc.check("Pulling the image again" in update.stdout + update.stderr, "no pull on update")
+        wait_served(sc, CONTAINER_REGISTRY_DOMAIN, "Welcome to nginx!")
+        policy = sc.run(
+            "docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' "
+            f"$(docker ps -q -f label=io.noust.app={CONTAINER_REGISTRY_DOMAIN} | head -1)",
+            timeout=15,
+            label="the container's restart policy",
+        ).stdout.strip()
+        sc.check(policy == "always", f"the restart policy did not reach the container: {policy!r}")
+        sc.check(
+            len(container_images(sc, CONTAINER_REGISTRY_IMAGES)) == 2,
+            "each pull must leave its release's image on the host",
+        )
+    finally:
+        container_clean(sc, CONTAINER_REGISTRY_DOMAIN, CONTAINER_REGISTRY_IMAGES)
+
+
+@scenario("container_app_built_by_railpack")
+def scenario_container_railpack(sc: Scenario) -> None:
+    """
+    A repository with no Dockerfile is built by Railpack, installed by ``noust setup railpack``.
+
+    The install is the pinned release, checked against its published SHA-256. The build pulls
+    Railpack's BuildKit frontend and its base images, so it needs the network of the machine:
+    when the release or an image cannot be fetched the scenario is skipped, never passed.
+    """
+    require_cli(sc, "setup railpack", what="Railpack builds")
+    require_docker(sc)
+    installed = sc.run(
+        "noust setup railpack",
+        timeout=300,
+        check=False,
+        label="noust setup railpack",
+    )
+    if installed.returncode != 0:
+        raise ScenarioSkipped(
+            "Railpack could not be installed here (no network to its release?): "
+            f"{(installed.stdout + installed.stderr).strip()[-300:]}"
+        )
+    sc.run(
+        "railpack --version",
+        timeout=30,
+        label="railpack --version",
+    )
+    sc.run(
+        f"rm -rf {CONTAINER_RAILPACK_REPO} && mkdir -p {CONTAINER_RAILPACK_REPO} && "
+        f"cd {CONTAINER_RAILPACK_REPO} && "
+        'printf \'{"name":"rp","version":"1.0.0","scripts":{"start":"node server.js"}}\' '
+        "> package.json && "
+        "printf \"require('http').createServer((q, r) => r.end('railpack v1'))"
+        '.listen(process.env.PORT || 3000);\\n" > server.js && '
+        f"git init -q -b main && {GIT_IDENTITY} && git add -A && git commit -q -m 'v1'",
+        timeout=30,
+        label="(fixture repo) a Node server and no Dockerfile",
+    )
+    created = sc.run(
+        f"noust create -d {CONTAINER_RAILPACK_DOMAIN} -s {CONTAINER_RAILPACK_URL} -t container "
+        f"--builder railpack -p {CONTAINER_RAILPACK_PORT} --no-ssl",
+        timeout=1800,
+        check=False,
+        label=f"noust create -d {CONTAINER_RAILPACK_DOMAIN} --builder railpack",
+    )
+    output = created.stdout + created.stderr
+    try:
+        if created.returncode != 0 and any(
+            hint in output for hint in ("railpack-frontend", "ghcr.io", "mise", "no such host")
+        ):
+            raise ScenarioSkipped(
+                "Railpack's frontend or base images could not be pulled here: "
+                f"{output.strip()[-300:]}"
+            )
+        sc.check(created.returncode == 0, f"the Railpack build failed: {output[-600:]!r}")
+        wait_served(sc, CONTAINER_RAILPACK_DOMAIN, "railpack v1")
+        shown = json_of(
+            sc.run(
+                f"noust app container show {CONTAINER_RAILPACK_DOMAIN} --json",
+                timeout=30,
+                label=f"noust app container show {CONTAINER_RAILPACK_DOMAIN} --json",
+            ),
+            "app container show",
+        )
+        sc.check(shown["method"] == "railpack", f"the method: {shown['method']!r}")
+    finally:
+        container_clean(sc, CONTAINER_RAILPACK_DOMAIN, "noust-ctr-rp-test")
 
 
 def parse_args() -> argparse.Namespace:
@@ -7949,6 +8545,15 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--install-matrix",
+        action="store_true",
+        help=(
+            "Run only the installer against the platform matrix (tests/integration/"
+            "install_matrix.py): one throwaway container per distribution, installing the "
+            "published package. Run install_matrix.py itself for one image."
+        ),
+    )
+    parser.add_argument(
         "--monitor-variant",
         choices=("installed", "uninstalled", "both"),
         default="both",
@@ -7959,8 +8564,12 @@ def parse_args() -> argparse.Namespace:
 
 #: Scenarios that run only when a --scenario pattern holds their key, never in the default
 #: suite nor matched by a broader pattern such as "compose": they are slow and need something
-#: outside this repository (Proggest's checkout).
-OPTIONAL_SCENARIOS = {"proggest_compose_stack": "proggest"}
+#: outside this repository (Proggest's checkout, the network that has Railpack's images).
+OPTIONAL_SCENARIOS = {
+    "proggest_compose_stack": "proggest",
+    # Pulls Railpack's BuildKit frontend and its base images: minutes and the network.
+    "container_app_built_by_railpack": "railpack",
+}
 
 
 def selected_scenarios(names: list[str] | None) -> list[tuple[str, ScenarioFn]]:
@@ -7983,6 +8592,11 @@ def selected_scenarios(names: list[str] | None) -> list[tuple[str, ScenarioFn]]:
 def main() -> int:
     global IGNORE_REQUIREMENTS
     args = parse_args()
+    if args.install_matrix:
+        # No wheel and no systemd image: the matrix installs the published package.
+        import install_matrix
+
+        return install_matrix.main([])
     IGNORE_REQUIREMENTS = args.ignore_requirements
     started_at = time.monotonic()
 

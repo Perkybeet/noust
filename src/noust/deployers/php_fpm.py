@@ -45,6 +45,7 @@ from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Icons, Logger
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App
+from noust.core.versions import parse_version
 from noust.deployers.base import INSTALL_TIMEOUT, BaseDeployer
 from noust.deployers.helpers.env_manager import EnvManager
 from noust.deployers.helpers.health import failure_output
@@ -59,6 +60,8 @@ from noust.deployers.helpers.php_fpm import (
     fastcgi_params,
     fastcgi_probe,
     find_fpm,
+    find_fpm_for,
+    fpm_versions,
     nginx_worker_group,
     pool_tmp_dir,
     prepare_tmp_dir,
@@ -71,6 +74,7 @@ from noust.deployers.interface import StepReporter, UpdateResult
 from noust.deployers.pipeline import DeployStep
 from noust.deployers.registry import DeployerRegistry
 from noust.deployers.releases import first_obstacle, persistent_path
+from noust.managers.runtimes import RuntimeManager
 
 #: Where an application's PHP settings are kept, in its directory.
 PHP_SETTINGS_FILE = ".wasm-php.json"
@@ -261,7 +265,12 @@ def detect_webroot(tree: Path) -> str:
 
 
 def fpm_service(
-    *, runner: CommandRunner | None = None, fs: FileSystem | None = None, logger: Logger
+    *,
+    runner: CommandRunner | None = None,
+    fs: FileSystem | None = None,
+    logger: Logger,
+    app_name: str | None = None,
+    version: str | None = None,
 ) -> FpmService:
     """
     Find this machine's PHP-FPM and return its controller.
@@ -270,6 +279,11 @@ def fpm_service(
         runner: Where commands run. Defaults to the process-wide runner.
         fs: Where files are written. Defaults to the process-wide one.
         logger: Where progress is reported.
+        app_name: The application whose pool is to be controlled: the FPM that
+            holds it (applications can be pinned to different PHP versions).
+            None for the newest.
+        version: The ``major.minor`` an application with no pool yet is
+            pinned to.
 
     Returns:
         The controller.
@@ -279,8 +293,13 @@ def fpm_service(
     """
     from noust.core.fs import get_fs
 
+    installation = (
+        find_fpm_for(app_name, FPM_ROOT, version)
+        if app_name is not None
+        else find_fpm(FPM_ROOT, version)
+    )
     return FpmService(
-        find_fpm(FPM_ROOT),
+        installation,
         runner=runner or get_runner(),
         fs=fs or get_fs(),
         logger=logger,
@@ -437,7 +456,7 @@ def health_gate_for_app(app: App, log: Logger) -> HealthGate:
         DeploymentError: When PHP-FPM is not installed.
     """
     return build_gate(
-        fpm=fpm_service(logger=log),
+        fpm=fpm_service(logger=log, app_name=app_root(app).name),
         app_name=app_root(app).name,
         domain=app.domain,
         document_root=document_root_for(app),
@@ -468,7 +487,7 @@ def remove_pool_of(app_path: Path, log: Logger) -> bool:
     if tmp.is_dir() and not tmp.is_symlink():
         get_fs().remove_tree(tmp)
     try:
-        fpm = fpm_service(logger=log)
+        fpm = fpm_service(logger=log, app_name=app_path.name)
     except DeploymentError:
         return False
     path = fpm.installation.pool_file(app_path.name)
@@ -538,9 +557,9 @@ def inspect_pool(
         DeploymentError: When PHP-FPM is not installed.
         ValidationError: When the settings file holds something unacceptable.
     """
-    fpm = fpm_service(runner=runner, logger=Logger(verbose=False))
-    installation = fpm.installation
     name = app_root(app).name
+    fpm = fpm_service(runner=runner, logger=Logger(verbose=False), app_name=name)
+    installation = fpm.installation
     pool = installation.pool_file(name)
     socket_path = installation.socket(name)
     state = fpm.state()
@@ -595,11 +614,11 @@ def pool_serving(app: App) -> str:
         ``"active"``, ``"stopped"`` (a stop moved the pool aside) or
         ``"failed"``.
     """
+    name = app_root(app).name
     try:
-        installation = find_fpm(FPM_ROOT)
+        installation = find_fpm_for(name, FPM_ROOT)
     except DeploymentError:
         return "failed"
-    name = app_root(app).name
     if installation.pool_file(name).is_file():
         return "active" if socket_accepts(installation.socket(name)) else "failed"
     return "stopped" if installation.disabled_pool_file(name).is_file() else "failed"
@@ -641,8 +660,8 @@ def control_pool(app: App, action: str, *, logger: Logger | None = None) -> str:
     if action not in POOL_ACTIONS:
         raise ValueError(f"not a pool action: {action!r}")
     log = logger if logger is not None else Logger(verbose=False)
-    fpm = fpm_service(logger=log)
     name = app_root(app).name
+    fpm = fpm_service(logger=log, app_name=name)
     path = fpm.installation.pool_file(name)
     service = fpm.installation.service
     # A deploy rewriting the pool while it moves would leave whichever
@@ -693,9 +712,9 @@ def set_pool_limits(
         ValidationError: When FPM refuses the new pool (the previous one is
             back).
     """
-    fpm = fpm_service(logger=logger)
-    installation = fpm.installation
     root = app_root(app)
+    fpm = fpm_service(logger=logger, app_name=root.name)
+    installation = fpm.installation
     path = installation.pool_file(root.name)
     if not path.is_file():
         raise DeploymentError(
@@ -751,9 +770,9 @@ def rewrite_pool(app: App, *, logger: Logger) -> tuple[Path, str]:
         ValidationError: When FPM refuses the new pool (the previous one is
             back).
     """
-    fpm = fpm_service(logger=logger)
-    installation = fpm.installation
     root = app_root(app)
+    fpm = fpm_service(logger=logger, app_name=root.name)
+    installation = fpm.installation
     path = installation.pool_file(root.name)
     if not path.is_file():
         raise DeploymentError(
@@ -798,6 +817,14 @@ class PhpFpmDeployer(BaseDeployer):
     DETECTION_FILES: ClassVar[list[str]] = ["composer.json", "index.php"]
 
     DEFAULT_PORT = 80  # Not used: nginx talks to the pool's socket.
+
+    #: PHP is not started by a unit and serves its web root (the PHP settings'
+    #: ``webroot``, which is also how a project in a subdirectory is served),
+    #: so what a build block can say is how to install, how to build and which
+    #: PHP version.
+    BUILD_KEYS: ClassVar[frozenset[str]] = frozenset({"install", "build", "runtime"})
+    RUNTIME_LANGUAGES: ClassVar[frozenset[str]] = frozenset({"php"})
+    PRIMARY_RUNTIME: ClassVar[str | None] = "php"
 
     DETECTION_PRIORITY = 65
 
@@ -1018,19 +1045,93 @@ class PhpFpmDeployer(BaseDeployer):
 
     # FPM -----------------------------------------------------------------
 
-    def _fpm_service(self) -> FpmService:
+    @property
+    def runtimes(self) -> RuntimeManager:
+        """The manager of the runtimes, looking for PHP-FPM where this module's root says."""
+        if self._runtime_manager is None:
+            manager = RuntimeManager(
+                verbose=self.verbose, runner=self._runner, fs=self._fs, php_root=FPM_ROOT
+            )
+            manager.logger = self.logger
+            self._runtime_manager = manager
+        return self._runtime_manager
+
+    def _php_version(self) -> str | None:
         """
-        Return the controller of this machine's PHP-FPM, found once.
+        Say which PHP version the application is pinned to, when it is.
+
+        A version the project's ``composer.json`` merely requires does not
+        move an application out of the FPM it already runs in while that one
+        satisfies it; a pin in the build block always does.
 
         Returns:
-            The controller.
+            ``major.minor``, or None for the newest PHP-FPM installed (or the
+            one the application's pool is in).
+        """
+        choice = self.runtime_choice()
+        runtime = choice.runtime if choice is not None else None
+        if choice is None or runtime is None or runtime.language != "php":
+            return None
+        if not choice.request.explicit:
+            held = self._holder_version()
+            parsed = parse_version(held) if held else None
+            if parsed is not None and choice.request.allows(parsed):
+                return held
+        return runtime.version
+
+    def _holder_version(self) -> str | None:
+        """
+        Name the PHP version of the FPM that runs this application's pool.
+
+        Returns:
+            ``major.minor``, or None when no versioned FPM holds the pool.
+        """
+        try:
+            held = find_fpm_for(self.app_name, FPM_ROOT)
+        except DeploymentError:
+            return None
+        return held.version if held.holds(self.app_name) else None
+
+    def _fpm_service(self) -> FpmService:
+        """
+        Return the controller of the PHP-FPM this application runs in, found once.
+
+        Returns:
+            The controller: the pinned PHP version's, else the one that already
+            runs the application's pool, else the newest.
 
         Raises:
-            DeploymentError: When PHP-FPM is not installed.
+            DeploymentError: When PHP-FPM is not installed, or not the version
+                the application is pinned to.
         """
         if self._fpm is None:
-            self._fpm = fpm_service(runner=self.runner, fs=self.fs, logger=self.logger)
+            version = self._php_version()
+            self._fpm = fpm_service(
+                runner=self.runner,
+                fs=self.fs,
+                logger=self.logger,
+                app_name=None if version is not None else self.app_name or None,
+                version=version,
+            )
         return self._fpm
+
+    def _retire_other_pools(self) -> None:
+        """
+        Remove the application's pool from every FPM but the one it now runs in.
+
+        What changing the PHP version of an application leaves behind: a pool
+        in the old version's directory that would run beside the new one.
+        """
+        current = self._fpm_service().installation
+        for version in fpm_versions(FPM_ROOT):
+            if version == current.version:
+                continue
+            other = find_fpm(FPM_ROOT, version)
+            if other.holds(self.app_name):
+                service = FpmService(other, runner=self.runner, fs=self.fs, logger=self.logger)
+                path = other.pool_file(self.app_name)
+                if service.remove_pool(path):
+                    self.logger.substep(f"Removed the pool from PHP {version}: {path}")
 
     def _pool_spec(self) -> PoolSpec:
         """
@@ -1073,6 +1174,7 @@ class PhpFpmDeployer(BaseDeployer):
         )
         if fpm.install_pool(path, content):
             self.logger.substep(f"Pool: {path}")
+        self._retire_other_pools()
         self._persist_settings()
 
     def remove_pool(self) -> None:
@@ -1122,11 +1224,11 @@ class PhpFpmDeployer(BaseDeployer):
             DeploymentError: When composer is missing or fails.
         """
         self.pre_install()
-        command = self.get_install_command()
+        command = self.install_command()
         if not command:
             self.logger.substep("No composer.json: nothing to install")
             return True
-        if not self.runner.exists("composer"):
+        if not self.runner.exists("composer") and not self.build_config().install:
             raise DeploymentError(
                 "composer.json needs Composer, which is not installed",
                 details=(

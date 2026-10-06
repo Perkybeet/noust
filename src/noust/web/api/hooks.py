@@ -4,9 +4,10 @@ Git webhook auto-deploy: the panel's only deliberately session-less mutation.
 ``POST /hooks/deploy/{domain}`` is called server-to-server by a git forge, so
 there is no session, no cookie and therefore no CSRF to check. What
 authenticates a delivery is a per-application secret, stored by the store and
-presented the way each forge presents it: GitHub and Gitea sign the raw body
-with HMAC-SHA256, GitLab sends the secret itself in a header. All three are
-compared in constant time.
+presented the way each forge presents it: GitHub, Gitea and Bitbucket Cloud
+sign the raw body with HMAC-SHA256 (in ``X-Hub-Signature-256``,
+``X-Gitea-Signature`` and ``X-Hub-Signature`` respectively), GitLab sends the
+secret itself in a header. All of them are compared in constant time.
 
 The refusals are deliberately unhelpful. A domain without a secret answers the
 same generic 404 an unknown domain does, so the hook cannot be used to map
@@ -23,7 +24,8 @@ the application being guessed at stops taking deliveries for a while, and
 nothing else does.
 
 A delivery is dispatched on the event its forge says it is (``X-GitHub-Event``,
-``X-Gitea-Event``, ``X-Gitlab-Event`` or GitLab's ``object_kind``): a push
+``X-Gitea-Event``, ``X-Gitlab-Event`` or GitLab's ``object_kind``, Bitbucket's
+``X-Event-Key``): a push
 updates the application, a ping is answered and nothing else, a pull (merge)
 request goes to :func:`noust.managers.previews.handle_pull_request`, and every
 other event is acknowledged and ignored. An application that follows tags
@@ -64,8 +66,13 @@ from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from noust.core import webhook_deliveries as deliveries_log
-from noust.core.exceptions import DeploymentError, DomainError
-from noust.core.forge_events import TagEvent, parse_pull_request, parse_tag_event
+from noust.core.exceptions import DeploymentError, DomainError, QueueFullError
+from noust.core.forge_events import (
+    TagEvent,
+    bitbucket_pushed_branches,
+    parse_pull_request,
+    parse_tag_event,
+)
 from noust.core.store import App, DeploymentRecord, DeploymentTrigger, StoreError, get_store
 from noust.core.tags import tag_from_ref
 from noust.core.webhook_deliveries import WebhookDelivery
@@ -74,7 +81,7 @@ from noust.integrations import webhook as webhook_service
 from noust.integrations.webhook import mint_secret as mint_webhook_secret
 from noust.managers.previews import handle_pull_request
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
+from noust.web.api.deps import NoustErrorRoute, error_response, require_elevated, strict_domain
 from noust.web.auth import actor_label, get_audit_logger, get_client_ip
 from noust.web.jobs import JobContext, JobType, get_job_manager, run_update
 from noust.web.pydantic_compat import iso_offset_validator
@@ -235,14 +242,128 @@ class TagDelivery:
 
     Attributes:
         outcome: One of :data:`noust.core.webhook_deliveries.OUTCOMES`:
-            ``deploy_started`` or ``ignored_tag``.
+            ``deploy_started``, ``ignored_tag`` or ``queue_full``.
         detail: One sentence saying which, naming the tag.
-        job_id: The update job queued; None when the tag was ignored.
+        job_id: The update queued, or the waiting one that now deploys the
+            tag; None when the tag was ignored or the queue had no room.
+        refusal: Why the queue had no room, when it had not.
     """
 
     outcome: str
     detail: str
     job_id: str | None = None
+    refusal: QueueFullError | None = None
+
+
+@dataclass(frozen=True)
+class PushDelivery:
+    """
+    What a push came to for one application.
+
+    Attributes:
+        outcome: ``deploy_started`` or ``queue_full``
+            (:mod:`noust.core.webhook_deliveries`).
+        detail: One sentence saying which.
+        job_id: The update queued, or the one this push joined.
+        merged: The update that waits already covered it: the last push wins,
+            and nothing is queued twice.
+        refusal: Why the queue had no room, when it had not.
+    """
+
+    outcome: str
+    detail: str
+    job_id: str | None = None
+    merged: bool = False
+    refusal: QueueFullError | None = None
+
+
+def queue_push_update(
+    app: App | None,
+    domain: str,
+    *,
+    provider: str,
+    branch: str | None,
+    delivery: str | None,
+    description: str,
+    started: str,
+    commit: str | None = None,
+) -> PushDelivery:
+    """
+    Queue the update a push asks for, the one way both endpoints do.
+
+    A push that arrives while the application builds does not fail and is not
+    lost: it waits its turn, and several pushes that wait are one update (the
+    update builds the branch as it is when its turn comes, so the last push
+    wins). A queue with no room refuses it, which the forge answers by
+    retrying. Either way it is written to the application's delivery log.
+
+    Args:
+        app: The application, for its delivery log.
+        domain: The application's domain.
+        provider: The forge, as the delivery log names it.
+        branch: The branch the push named.
+        delivery: The forge's id for the delivery.
+        description: What the job says it is.
+        started: What the delivery log says when the update is queued.
+        commit: The commit the push announced, when it said.
+
+    Returns:
+        What came of it.
+    """
+    metadata = {
+        "domain": domain,
+        "trigger": DeploymentTrigger.WEBHOOK.value,
+        "provider": provider,
+        "branch": branch,
+        "delivery": delivery,
+        **({"commit": commit} if commit else {}),
+    }
+    joined: list[str] = []
+    try:
+        job = get_job_manager().create_job(
+            job_type=JobType.UPDATE,
+            name=f"Update {domain}",
+            description=description,
+            func=webhook_update_job,
+            kwargs={"domain": domain},
+            metadata=metadata,
+            actor="webhook",
+            coalesce_key=f"update:{domain}",
+            note=(
+                f"Another push arrived ({provider}, {branch or 'no branch named'}): merged, "
+                "the update builds the branch as it is when its turn comes"
+            ),
+            on_merge=lambda waiting: joined.append(waiting.id),
+        )
+    except QueueFullError as exc:
+        detail = f"the deploy queue is full ({exc.limit} waiting); the forge retries"
+        _log(
+            app,
+            deliveries_log.QUEUE_FULL,
+            provider=provider,
+            event=PUSH,
+            branch=branch,
+            detail=detail,
+            delivery=delivery,
+        )
+        return PushDelivery(deliveries_log.QUEUE_FULL, detail, refusal=exc)
+    merged = bool(joined)
+    detail = (
+        f"joined the update already waiting (job {job.id}): the last push wins"
+        if merged
+        else started
+    )
+    _log(
+        app,
+        deliveries_log.DEPLOY_STARTED,
+        provider=provider,
+        event=PUSH,
+        branch=branch,
+        detail=detail,
+        job_id=job.id,
+        delivery=delivery,
+    )
+    return PushDelivery(deliveries_log.DEPLOY_STARTED, detail, job.id, merged)
 
 
 def _tag_in_flight(domain: str, tag: str) -> str | None:
@@ -306,24 +427,46 @@ def queue_tag_update(
         )
         return TagDelivery(deliveries_log.IGNORED_TAG, reason)
 
-    job = get_job_manager().create_job(
-        job_type=JobType.UPDATE,
-        name=f"Update {app.domain}",
-        description=f"Webhook-triggered update of {app.domain} to {tag}",
-        func=webhook_update_job,
-        kwargs={"domain": app.domain, "tag": tag},
-        metadata={
-            "domain": app.domain,
-            "trigger": DeploymentTrigger.WEBHOOK.value,
-            "provider": provider,
-            "tag": tag,
-            "event": event.source,
-            "commit": event.sha,
-            "delivery": delivery,
-        },
-        actor="webhook",
+    joined = []
+    try:
+        job = get_job_manager().create_job(
+            job_type=JobType.UPDATE,
+            name=f"Update {app.domain}",
+            description=f"Webhook-triggered update of {app.domain} to {tag}",
+            func=webhook_update_job,
+            kwargs={"domain": app.domain, "tag": tag},
+            metadata={
+                "domain": app.domain,
+                "trigger": DeploymentTrigger.WEBHOOK.value,
+                "provider": provider,
+                "tag": tag,
+                "event": event.source,
+                "commit": event.sha,
+                "delivery": delivery,
+            },
+            actor="webhook",
+            coalesce_key=f"update:{app.domain}",
+            # The newest tag the queue is told of is the one it deploys.
+            merge={"tag": tag},
+            note=f"{tag} was announced while this update waited: it deploys {tag} instead",
+            on_merge=lambda waiting: joined.append(waiting.id),
+        )
+    except QueueFullError as exc:
+        detail = f"the deploy queue is full ({exc.limit} waiting); {tag} was not queued"
+        _log(
+            app,
+            deliveries_log.QUEUE_FULL,
+            provider=provider,
+            event=event.source,
+            detail=detail,
+            delivery=delivery,
+        )
+        return TagDelivery(deliveries_log.QUEUE_FULL, detail, refusal=exc)
+    detail = (
+        f"the update that waits now deploys {tag} ({event.source})"
+        if joined
+        else f"queued the update to {tag} ({event.source})"
     )
-    detail = f"queued the update to {tag} ({event.source})"
     _log(
         app,
         deliveries_log.DEPLOY_STARTED,
@@ -363,8 +506,8 @@ def _verify_provider(secret: str, body: bytes, request: Request) -> str | None:
         request: The incoming request.
 
     Returns:
-        ``github``, ``gitea`` or ``gitlab`` when a credential verified, else
-        None. Which header failed is deliberately not reported.
+        ``github``, ``gitea``, ``bitbucket`` or ``gitlab`` when a credential
+        verified, else None. Which header failed is deliberately not reported.
     """
     headers = request.headers
 
@@ -377,6 +520,14 @@ def _verify_provider(secret: str, body: bytes, request: Request) -> str | None:
     gitea = headers.get("X-Gitea-Signature")
     if gitea and hmac.compare_digest(_hmac_hex(secret, body), gitea.strip().lower()):
         return "gitea"
+
+    # Bitbucket Cloud signs with the secret too, in the header GitHub used
+    # for its SHA-1 signature: only a ``sha256=`` value is ever accepted.
+    bitbucket = headers.get("X-Hub-Signature")
+    if bitbucket and bitbucket.startswith(_GITHUB_SIGNATURE_PREFIX):
+        presented = bitbucket[len(_GITHUB_SIGNATURE_PREFIX) :].strip().lower()
+        if hmac.compare_digest(_hmac_hex(secret, body), presented):
+            return "bitbucket"
 
     gitlab = headers.get("X-Gitlab-Token")
     if gitlab and hmac.compare_digest(secret.encode(), gitlab.encode()):
@@ -399,6 +550,7 @@ def _delivery_id(request: Request) -> str | None:
         request.headers.get("X-GitHub-Delivery")
         or request.headers.get("X-Gitea-Delivery")
         or request.headers.get("X-Gitlab-Event-UUID")
+        or request.headers.get("X-Request-UUID")
     )
 
 
@@ -438,6 +590,20 @@ _GITLAB_EVENTS = {
 }
 
 
+#: Bitbucket Cloud's ``X-Event-Key`` values, in the same vocabulary. The four
+#: pull request keys a preview acts on are one kind; the specific key is read
+#: again where the event is translated. Any other (``pullrequest:approved``,
+#: ``repo:fork``...) is acknowledged and ignored under its own name.
+_BITBUCKET_EVENTS = {
+    "repo:push": PUSH,
+    "diagnostics:ping": PING,
+    "pullrequest:created": PULL_REQUEST,
+    "pullrequest:updated": PULL_REQUEST,
+    "pullrequest:fulfilled": PULL_REQUEST,
+    "pullrequest:rejected": PULL_REQUEST,
+}
+
+
 def _event_kind(provider: str, request: Request, payload: dict[str, Any]) -> str | None:
     """
     Say which event a verified delivery is.
@@ -447,7 +613,7 @@ def _event_kind(provider: str, request: Request, payload: dict[str, Any]) -> str
     sends ``X-GitHub-Event`` for compatibility, which is read after its own.
 
     Args:
-        provider: ``github``, ``gitea`` or ``gitlab``, as verified.
+        provider: ``github``, ``gitea``, ``gitlab`` or ``bitbucket``, as verified.
         request: The delivery.
         payload: Its parsed body.
 
@@ -456,6 +622,9 @@ def _event_kind(provider: str, request: Request, payload: dict[str, Any]) -> str
         other event (lowercased), or None when the delivery names none.
     """
     headers = request.headers
+    if provider == "bitbucket":
+        key = (headers.get("X-Event-Key") or "").strip().lower()
+        return _BITBUCKET_EVENTS.get(key, key) or None
     if provider == "gitlab":
         named = headers.get("X-Gitlab-Event") or payload.get("object_kind")
         if not isinstance(named, str) or not named.strip():
@@ -471,27 +640,47 @@ def _event_kind(provider: str, request: Request, payload: dict[str, Any]) -> str
     return named.strip().lower()
 
 
-def _pushed_branch(payload: dict[str, Any]) -> str | None:
+def _pushed_branches(payload: dict[str, Any], provider: str) -> list[str]:
     """
-    Extract the branch from a push payload.
+    Extract the branches a push payload moved.
 
-    All three forges put ``refs/heads/<branch>`` in ``ref`` for push events.
+    GitHub, GitLab and Gitea put ``refs/heads/<branch>`` in ``ref``, one branch
+    per push; Bitbucket Cloud lists every ref the push changed.
 
     Args:
         payload: The parsed body.
+        provider: The forge, as verified.
 
     Returns:
-        The branch name, or None when the payload names no branch - a tag
-        push, a ping event, or a body that is not the JSON it claims to be.
+        The branch names; empty when the payload names none - a tag push, a
+        ping event, or a body that is not the JSON it claims to be.
     """
+    if provider == "bitbucket":
+        return bitbucket_pushed_branches(payload)
     ref = payload.get("ref")
     if not isinstance(ref, str) or not ref:
-        return None
+        return []
     if ref.startswith("refs/heads/"):
-        return ref[len("refs/heads/") :]
+        return [ref[len("refs/heads/") :]]
     if ref.startswith("refs/"):
-        return None
-    return ref
+        return []
+    return [ref]
+
+
+def _announces_tag(provider: str, payload: dict[str, Any]) -> bool:
+    """
+    Tell whether a push payload names a tag.
+
+    Args:
+        payload: The parsed body.
+        provider: The forge, as verified.
+
+    Returns:
+        True when it created or moved a tag.
+    """
+    if provider == "bitbucket":
+        return parse_tag_event(provider, PUSH, payload) is not None
+    return tag_from_ref(payload.get("ref")) is not None
 
 
 def _record(request: Request, domain: str, result: str, detail: str) -> None:
@@ -647,7 +836,7 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
         )
     follows = app.follow_tags if app is not None else None
     if follows is not None and (
-        kind == RELEASE or (kind in (None, PUSH) and tag_from_ref(payload.get("ref")) is not None)
+        kind == RELEASE or (kind in (None, PUSH) and _announces_tag(provider, payload))
     ):
         return await _deliver_tag(
             request,
@@ -672,7 +861,8 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
             status_code=202, content={"status": "ignored", "reason": "event", "event": kind}
         )
 
-    branch = _pushed_branch(payload)
+    branches = _pushed_branches(payload, provider)
+    branch = branches[0] if branches else None
     if follows is not None:
         # What it deploys is the tag a release or a tag push names; a push to
         # a branch is news about something it does not follow.
@@ -691,6 +881,9 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
     # The branch the queued update would build, not only the recorded one: a
     # pin, or the checkout's branch in place, is what gets deployed.
     tracked = await run_in_threadpool(branch_to_build, app) if app is not None else None
+    if tracked and tracked in branches:
+        # A Bitbucket push can move several branches at once; one of them is it.
+        branch = tracked
     if app is not None and tracked and branch != tracked:
         _record(
             request,
@@ -709,39 +902,32 @@ async def deliver(domain: str, request: Request) -> JSONResponse:
         )
         return JSONResponse(status_code=200, content={"status": "ignored", "reason": "branch"})
 
-    job = get_job_manager().create_job(
-        job_type=JobType.UPDATE,
-        name=f"Update {validated}",
-        description=f"Webhook-triggered update of {validated}",
-        func=webhook_update_job,
-        kwargs={"domain": validated},
-        metadata={
-            "domain": validated,
-            "trigger": DeploymentTrigger.WEBHOOK.value,
-            "provider": provider,
-            "branch": branch,
-            "delivery": delivery,
-        },
-        actor="webhook",
+    queued_push = await run_in_threadpool(
+        lambda: queue_push_update(
+            app,
+            validated,
+            provider=provider,
+            branch=branch,
+            delivery=delivery,
+            description=f"Webhook-triggered update of {validated}",
+            started=f"queued the update ({branch or 'no branch named'})",
+        )
     )
-
+    if queued_push.refusal is not None:
+        _record(request, validated, "refused", f"{queued_push.detail} ({provider})")
+        return error_response(queued_push.refusal)
     _record(
         request,
         validated,
         "accepted",
-        f"queued job {job.id} ({provider}, branch {branch or 'any'})",
+        f"{'merged into' if queued_push.merged else 'queued'} job {queued_push.job_id} "
+        f"({provider}, branch {branch or 'any'})",
     )
-    _log(
-        app,
-        deliveries_log.DEPLOY_STARTED,
-        provider=provider,
-        event=PUSH,
-        branch=branch,
-        detail=f"queued the update ({branch or 'no branch named'})",
-        job_id=job.id,
-        delivery=delivery,
+    return JSONResponse(
+        status_code=202,
+        # Whatever it joined, it has not started: it waits its turn.
+        content={"job_id": queued_push.job_id, "status": "pending", "merged": queued_push.merged},
     )
-    return JSONResponse(status_code=202, content={"job_id": job.id, "status": job.status.value})
 
 
 async def _deliver_tag(
@@ -788,6 +974,9 @@ async def _deliver_tag(
     result = await run_in_threadpool(
         queue_tag_update, app, event, provider=provider, delivery=delivery
     )
+    if result.refusal is not None:
+        _record(request, domain, "refused", f"{result.detail} ({provider})")
+        return error_response(result.refusal)
     if result.job_id is None:
         _record(request, domain, "ignored", f"{result.detail} ({provider})")
         return JSONResponse(
@@ -826,7 +1015,7 @@ async def _deliver_pull_request(
         202 with the queued job ids; 200 when nothing was queued (an action
         previews ignore, previews off, a fork, the limit reached).
     """
-    event = parse_pull_request(provider, payload)
+    event = parse_pull_request(provider, payload, request.headers.get("X-Event-Key"))
     if event is None:
         _record(request, domain, "ignored", f"pull request action not acted on ({provider})")
         _log(
@@ -850,7 +1039,8 @@ async def _deliver_pull_request(
             deliveries_log.IGNORED_PULL_REQUEST,
             provider=provider,
             event=PULL_REQUEST,
-            detail=f"{summary}: no preview queued (previews off, a fork, or the limit)",
+            detail=f"{summary}: no preview queued (previews off, a fork, the limit, or nothing new "
+            "to build)",
             delivery=delivery,
         )
         return JSONResponse(status_code=200, content={"status": "ignored", "reason": "no_preview"})
@@ -1120,7 +1310,7 @@ class WebhookForgeOut(BaseModel):
     The forge side of the setup.
 
     Attributes:
-        forge: ``github``, ``gitlab`` or ``gitea``; None for another host.
+        forge: ``github``, ``gitlab``, ``gitea`` or ``bitbucket``; None for another host.
         host: The forge's host name; never a credential.
         repository: ``owner/repo``.
         settings_url: Where to add the webhook, when the forge is known.
@@ -1162,7 +1352,7 @@ class WebhookReceivedOut(BaseModel):
         id: Row id; larger is newer.
         received_at: When it arrived (the last of a burst, for a folded row),
             with a UTC offset.
-        provider: ``github``, ``gitea``, ``gitlab`` or ``github-app``; None
+        provider: ``github``, ``gitea``, ``gitlab``, ``bitbucket`` or ``github-app``; None
             when no credential verified.
         event: The forge's name for the event.
         outcome: ``deploy_started``, ``preview_started``, ``ping``,

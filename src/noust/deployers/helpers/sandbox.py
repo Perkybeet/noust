@@ -101,7 +101,7 @@ BUILD_GROUP = "noust-build"
 
 #: Application types whose builds do not go through the sandbox: a compose
 #: stack builds inside the Docker daemon.
-UNSUPPORTED_TYPES = frozenset({"docker-compose"})
+UNSUPPORTED_TYPES = frozenset({"docker-compose", "container"})
 
 #: Application types a deploy runs no code for: a static site is copied and
 #: served, with nothing to install, build or hook, so there is nothing for the
@@ -759,8 +759,9 @@ def refuse_unsupported(app: App) -> None:
     if (app.app_type or "") in UNSUPPORTED_TYPES:
         raise ValidationError(
             f"{app.domain} is a {app.app_type} application, whose builds do not run in the sandbox",
-            details="A compose stack builds inside the Docker daemon, guarded by the compose "
-            "file check: noust app sandbox compose-exception shows what it allows.",
+            details="A compose stack or a container application builds inside the Docker "
+            "daemon, guarded by the compose file check: noust app sandbox compose-exception "
+            "shows what it allows.",
         )
 
 
@@ -783,6 +784,10 @@ def sandbox_warning(app: App, state: SandboxState | None = None) -> str | None:
     """
     if (app.app_type or "") == "docker-compose":
         return _compose_warning(app)
+    if (app.app_type or "") in UNSUPPORTED_TYPES:
+        # A container application's compose file is the one Noust writes: there
+        # is no repository file to be root, and its build is the daemon's.
+        return None
     if (app.app_type or "") in NOTHING_TO_BUILD_TYPES:
         return None
     state = state or get_state(app.domain)
@@ -1339,6 +1344,7 @@ def build_spec(
     memory_max_mb: int | None = None,
     cpu_quota_percent: int | None = None,
     tasks_max: int | None = None,
+    work_dir: Path | None = None,
 ) -> SandboxSpec:
     """
     Describe the sandbox one install or build command runs in.
@@ -1361,6 +1367,9 @@ def build_spec(
         memory_max_mb: ``MemoryMax`` of the build.
         cpu_quota_percent: ``CPUQuota`` of the build.
         tasks_max: ``TasksMax`` of the build.
+        work_dir: Where the command runs, when that is not ``build_path``: a
+            project in a subdirectory of the tree (a base directory) builds
+            there, and may still write what a workspace keeps at the root.
 
     Returns:
         The spec.
@@ -1402,7 +1411,7 @@ def build_spec(
         cpu_quota_percent=cpu_quota_percent,
         tasks_max=tasks_max,
         network="none" if strict and phase is BuildPhase.BUILD else "full",
-        working_dir=build_path,
+        working_dir=work_dir or build_path,
         protect_home=not any(_under_home(path) for path in (*writable, *read_only)),
         pty=state.pty,
         name=app_name,

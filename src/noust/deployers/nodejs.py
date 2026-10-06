@@ -9,7 +9,27 @@ from typing import ClassVar
 from noust.core.fs import FileSystem
 from noust.core.runner import CommandRunner
 from noust.deployers.base import BaseDeployer
+from noust.deployers.node_framework import NodeFrameworkDeployer
 from noust.deployers.registry import DeployerRegistry
+
+#: Dependencies that make a project one of a framework with a deployer of its
+#: own (the ones of the Node frameworks are asked of their deployers).
+_FRAMEWORKS = ("next", "vite", "@angular/core")
+
+
+def framework_dependencies() -> set[str]:
+    """
+    Name the dependencies that say a project belongs to a framework's deployer.
+
+    Returns:
+        Next.js, Vite and Angular, and what every registered Node framework
+        deployer (Nuxt, SvelteKit, Astro, Remix) is recognised by.
+    """
+    names = set(_FRAMEWORKS)
+    for deployer_class in DeployerRegistry.in_detection_order():
+        if issubclass(deployer_class, NodeFrameworkDeployer):
+            names.update(deployer_class.MARKERS)
+    return names
 
 
 class NodeJSDeployer(BaseDeployer):
@@ -31,6 +51,9 @@ class NodeJSDeployer(BaseDeployer):
     DETECTION_PRIORITY = 40
 
     SYSTEM_DEPS: ClassVar[list[str]] = ["node", "npm"]
+
+    RUNTIME_LANGUAGES: ClassVar[frozenset[str]] = frozenset({"node"})
+    PRIMARY_RUNTIME: ClassVar[str | None] = "node"
 
     def __init__(
         self,
@@ -69,8 +92,7 @@ class NodeJSDeployer(BaseDeployer):
                 all_deps = {**deps, **dev_deps}
 
                 # Exclude framework-specific projects
-                frameworks = ["next", "vite", "@angular/core", "nuxt"]
-                for framework in frameworks:
+                for framework in framework_dependencies():
                     if framework in all_deps:
                         return False
 
@@ -107,6 +129,18 @@ class NodeJSDeployer(BaseDeployer):
                         self.start_script = "start"
             except (json.JSONDecodeError, OSError, AttributeError) as e:
                 self.logger.debug(f"Failed to analyse package.json: {e}")
+
+    def _tool_dirs(self) -> list[Path]:
+        """
+        List the ``node_modules/.bin`` directories of the project and its workspace.
+
+        Returns:
+            The project's first, then each ancestor's up to the tree's root.
+        """
+        return [
+            directory / "node_modules" / ".bin"
+            for directory in self._pm_helper.directories_up(self.build_path, self.tree_root)
+        ]
 
     def get_install_command(self) -> list[str]:
         """Get dependency installation command."""

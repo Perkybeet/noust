@@ -56,6 +56,7 @@ HUB_REFUSED_COMMANDS: dict[str, str] = {
     "env": "Application environments",
     "github": "GitHub deploys",
     "site": "Sites",
+    "console": "Console exposure",
     "domain": "Domains",
     "cert": "Certificates",
     "db": "Databases",

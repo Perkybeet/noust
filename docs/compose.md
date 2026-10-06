@@ -42,7 +42,8 @@ changed](#other-things-that-changed-for-compose).
 ## noust.yaml
 
 A repository can tell Noust how to deploy it with a `noust.yaml` (or `.noust.yaml`) at its
-root, versioned with the code. It has two keys, both optional:
+root, versioned with the code. For a Compose stack it has two keys, both optional (a third, `build`,
+changes how Node, Python and static applications are built and started: [build.md](build.md)):
 
 ```yaml
 hooks:
@@ -641,7 +642,7 @@ noust update shop.example.com --tag v1.4.0     # one tag, now
   for it is ignored and recorded.
 - **The webhook** of an application that follows tags deploys what the forge announces: a
   **published release** (GitHub or Gitea `release` events with the action `published` or
-  `released`, not a draft and not a pre-release) and a **tag push** (GitHub, Gitea and GitLab).
+  `released`, not a draft and not a pre-release) and a **tag push** (GitHub, Gitea, GitLab and Bitbucket Cloud).
   Each queues an update to exactly that tag, resolved in the repository. A push to a branch
   deploys nothing. Enable the `release` event at the forge besides the push. Ignored deliveries
   appear in `noust app webhook deliveries DOMAIN` and in the console with the reason, as

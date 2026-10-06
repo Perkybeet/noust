@@ -41,10 +41,21 @@ CONTENT_TYPE = "application/json"
 #: sends everything only fills the delivery list with what is ignored.
 EVENTS = ["push"]
 
+#: What Bitbucket Cloud calls the events (``X-Event-Key``): a push deploys,
+#: and the four pull request ones build and remove previews.
+BITBUCKET_EVENTS = ["repo:push"]
+BITBUCKET_PREVIEW_EVENTS = [
+    "pullrequest:created",
+    "pullrequest:updated",
+    "pullrequest:fulfilled",
+    "pullrequest:rejected",
+]
+
 #: Forges whose settings page Noust can link to, by host (or a word in it).
 _GITLAB_WORD = "gitlab"
 _GITEA_HOSTS = ("codeberg.org", "gitea.com")
 _GITEA_WORD = "gitea"
+_BITBUCKET_WORD = "bitbucket"
 
 
 @dataclass
@@ -93,8 +104,8 @@ class ForgeInfo:
     The forge side of the setup.
 
     Attributes:
-        forge: ``github``, ``gitlab`` or ``gitea``; None for another host or a
-            source that is not a remote repository.
+        forge: ``github``, ``gitlab``, ``gitea`` or ``bitbucket``; None for
+            another host or a source that is not a remote repository.
         host: The forge's host name. Never a credential: a source may carry a
             token in its URL, and nothing here repeats it.
         repository: ``owner/repo`` (``group/subgroup/repo`` on GitLab).
@@ -309,7 +320,27 @@ def _forge_of(source: str | None) -> ForgeInfo:
     elif host in _GITEA_HOSTS or _GITEA_WORD in host:
         forge = "gitea"
         settings_url = f"https://{host}/{repo}/settings/hooks/gitea/new" if repo else None
+    elif _BITBUCKET_WORD in host:
+        forge = "bitbucket"
+        settings_url = f"https://{host}/{repo}/admin/webhooks" if repo else None
     return ForgeInfo(forge=forge, host=host, repository=repository, settings_url=settings_url)
+
+
+def _events_for(forge: str | None, *, previews: bool) -> list[str]:
+    """
+    Name the events to enable at a forge.
+
+    Args:
+        forge: The forge, or None for another host.
+        previews: Whether the application builds previews of pull requests.
+
+    Returns:
+        ``push`` everywhere but Bitbucket Cloud, which names its own keys; with
+        previews on, Bitbucket's four pull request keys too.
+    """
+    if forge != "bitbucket":
+        return list(EVENTS)
+    return [*BITBUCKET_EVENTS, *(BITBUCKET_PREVIEW_EVENTS if previews else [])]
 
 
 def _github_app_of(app: App, repository: str | None, forge: str | None) -> GitHubAppInfo:
@@ -395,17 +426,20 @@ def status(app: App, *, fallback_base: str | None = None) -> WebhookStatus:
     enabled = bool(store.get_webhook_secret(app.domain))
     public = public_hooks_url()
     base = public or (fallback_base.rstrip("/") if fallback_base else None)
+    forge = _forge_of(app.source)
     hooks = HooksInfo(
         exposed=public is not None,
         base_url=public,
         hook_url=f"{base}/deploy/{app.domain}" if base else None,
         hook_url_public=public is not None,
+        events=_events_for(
+            forge.forge, previews=store.get_preview_settings(app.domain) is not None
+        ),
     )
 
     pinned = bool(app.branch)
     branch = BranchInfo(tracked=app.branch or None, pinned=pinned, any_push_deploys=not pinned)
 
-    forge = _forge_of(app.source)
     summary = (
         webhook_deliveries.summarize(app.id)
         if app.id is not None

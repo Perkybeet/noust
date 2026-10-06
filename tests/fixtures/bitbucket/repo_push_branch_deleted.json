@@ -1,0 +1,25 @@
+{
+  "push": {
+    "changes": [
+      {
+        "forced": false,
+        "old": {
+          "name": "feature/old",
+          "type": "branch",
+          "target": {"type": "commit", "hash": "5b6c0f3a8d4e2f1a9b7c6d5e4f3a2b1c0d9e8f7a"}
+        },
+        "created": false,
+        "commits": [],
+        "truncated": false,
+        "closed": true,
+        "new": null
+      }
+    ]
+  },
+  "actor": {"display_name": "Ada Lovelace", "nickname": "ada", "type": "user"},
+  "repository": {
+    "type": "repository",
+    "full_name": "acme/shop",
+    "links": {"html": {"href": "https://bitbucket.org/acme/shop"}}
+  }
+}

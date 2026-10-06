@@ -72,10 +72,17 @@ from the CLI, a browser console and a JSON API.
 - **A distribution package.** Installed with `apt`, `dnf` or `zypper`, or from PyPI.
 - **Atomic deploys with instant rollback.** Each deploy builds in its own directory, is
   activated behind a health check, rolls back by itself when it does not answer, and any
-  release still on disk can be reactivated in seconds. Blue/green activation, opt-in per
-  application, keeps the old version serving until the new one answers; a Docker Compose
-  stack gets the same through a relay. A repository's `noust.yaml` runs its migrations before
-  anything serves the new version, and stops the deploy when they fail.
+  release still on disk can be reactivated in seconds. From 3.4 a new application that runs a
+  process behind nginx starts as two instances (blue and green): the next release starts
+  beside the old one and nginx switches only once it answers; static and PHP sites already
+  switch with one atomic rename, and a Docker Compose stack gets the same through a relay,
+  which stays opt-in. A repository's `noust.yaml` runs its migrations before anything serves
+  the new version, and stops the deploy when they fail.
+- **A deploy queue.** A push that arrives while an application builds waits its turn instead
+  of failing, and several pushes are one update. Builds of different applications overlap up
+  to a limit you set, `noust deploy queue` shows the line, and `noust deploy cancel` stops a
+  build that has not started to activate, removing the half-built release and touching nothing
+  that serves.
 - **Per-application resource limits** with cgroups: memory, CPU and tasks.
 - **Builds without root.** Dependencies install and build as an unprivileged account in a
   systemd sandbox that cannot read the rest of the machine, and every application created from
@@ -96,8 +103,7 @@ from the CLI, a browser console and a JSON API.
   runs as an account of its own, so one cannot read another's tree, but they share the kernel
   and the machine; those from before keep the shared service account until `noust app identity
   migrate`. Deploy only code you trust, as you would on any server you administer.
-- **Zero-downtime by default.** Activating a release restarts the unit, unless blue/green (or,
-  for a Compose stack, the relay) is turned on for the application. There is no web terminal.
+- **A web terminal.** There is none: the console does not open a shell on the server.
 
 ---
 
@@ -107,7 +113,28 @@ Noust needs root: it writes to `/etc`, `/var` and systemd. Run the commands belo
 prefix them with `sudo`. The packages come from the `home:Perkybeet` repository on the
 openSUSE Build Service.
 
-### Ubuntu and Debian (recommended)
+### One line
+
+On a fresh server, as root. The installer is published with every release beside its checksum
+(and the checksum's signature), so check it before you run it:
+
+```bash
+curl -fsSLO https://github.com/Perkybeet/noust/releases/latest/download/install.sh
+curl -fsSLO https://github.com/Perkybeet/noust/releases/latest/download/SHA256SUMS
+sha256sum -c --ignore-missing SHA256SUMS && sh install.sh
+```
+
+It reads the distribution and the architecture and refuses what is not on the
+[platform list](docs/PLATFORMS.md); adds the Noust repository after checking that the key it
+serves has the fingerprint pinned in the script; installs the `noust` package with `apt`, `dnf`
+or `zypper` (the RHEL family has no package, so it gets a virtual environment with pip); runs
+`noust setup init -y` and `noust web enable`; and prints how to reach the console. It downloads
+no other script. `sh install.sh --dry-run` prints what it would do and changes nothing;
+`--version 3.3.1`, `--no-console`, `--yes` and the `NOUST_*` variables for provisioning scripts
+are in `sh install.sh --help`. The signature, the platforms and what is tested on each are in
+[docs/PLATFORMS.md](docs/PLATFORMS.md).
+
+### By hand: Ubuntu and Debian
 
 ```bash
 # Add GPG key
@@ -127,13 +154,11 @@ Replace `xUbuntu_26.04` with your release: `xUbuntu_24.04`, `xUbuntu_22.04`, `De
 `Debian_13`. A server that already has the WASM repository configured needs no new
 repository: it is the same one.
 
-**Supported versions:**
-- Ubuntu 26.04 LTS (Resolute Raccoon, Python 3.14)
-- Ubuntu 24.04 LTS (Noble Numbat)
-- Ubuntu 22.04 LTS (Jammy Jellyfish)
-- Debian 12 (Bookworm) and 13 (Trixie)
+The releases it is built for, and what has been tested on each, are listed in
+[docs/PLATFORMS.md](docs/PLATFORMS.md): Ubuntu 22.04, 24.04 and 26.04 LTS, Debian 12 and 13
+(Raspberry Pi OS 64-bit is Debian 12 or 13).
 
-### Fedora
+### By hand: Fedora
 
 ```bash
 sudo dnf config-manager --add-repo \
@@ -141,7 +166,7 @@ sudo dnf config-manager --add-repo \
 sudo dnf install noust
 ```
 
-### openSUSE
+### By hand: openSUSE
 
 ```bash
 # Tumbleweed
@@ -252,7 +277,21 @@ runs it in the foreground until Ctrl+C, and `noust web start -d` in the backgrou
 `noust web stop` or the next reboot. All three take the same options and print the access
 token the same way.
 
-To expose it, serve TLS (`--host 0.0.0.0 --tls-cert ... --tls-key ...`, or `--self-signed`),
+To open it from a browser without a tunnel, publish it on a name of your own, over TLS, with
+Noust's own nginx and Let's Encrypt:
+
+```bash
+noust console expose --domain console.example.com --allow-ip 203.0.113.0/24
+noust console unexpose                  # removes exactly what the line above made
+```
+
+It refuses while any account can sign in without a second factor, when the name belongs to an
+application or to a site Noust did not write, when the name does not point at this server, and
+under the ENS profile unless forced (`--force-ens`, which asks, needs `--allow-ip` and is
+audited). There is no plain-HTTP option: until the certificate exists the site answers 404. See
+[docs/console.md](docs/console.md#on-a-name-of-its-own-over-tls).
+
+To expose it by hand, serve TLS (`--host 0.0.0.0 --tls-cert ... --tls-key ...`, or `--self-signed`),
 or put it behind a reverse proxy that terminates TLS and declare it with `--trusted-proxy`.
 Binding beyond loopback without TLS is refused unless you pass `--insecure-http`. A running
 console reads the token from disk on every request, so `noust web token --new` retires the
@@ -352,14 +391,44 @@ network.
 noust app zero-downtime shop.example.com on
 ```
 
-Opt-in per application. The application runs as two instances of one systemd template unit,
-each on its own port and release, behind an nginx upstream. An activation starts the idle
+On by default for applications created from 3.4 (`deploy.zero_downtime`); opt-in for the
+ones from before, with the command above. The application runs as two instances of one systemd
+template unit, each on its own port and release, behind an nginx upstream. An activation starts the idle
 instance on the new release, passes the health gate on its port, moves the upstream with
 `nginx -t` and a reload, and stops the old instance after a drain (10 seconds by default). A
 failed gate stops the new instance; the old one never stopped. Only for applications on
 releases, with a process, behind nginx; the application must tolerate two copies running
 for a few seconds. A Docker Compose stack uses the same command and gets
 [a relay](#docker-compose) instead.
+
+---
+
+## Build, start and runtime
+
+```bash
+noust app build set shop.example.com --base-directory apps/web --build 'pnpm --filter web build'
+noust app build set shop.example.com --start 'node dist/server.js --port ${PORT}' --runtime node@22
+noust app build show shop.example.com        # which block applies, and where it comes from
+noust create -d api.example.com -s https://github.com/you/shop.git --build-file api.yaml   # one repository, several apps
+noust runtime install python@3.12            # Node and Python are installed under /opt/noust/runtimes
+```
+
+A `build:` block in the repository's `noust.yaml` (or the operator's, which replaces it whole)
+changes how an application is installed, built and started: `base_directory` for a project in a
+subdirectory of a monorepo, `install`, `build` and `start` commands (an argument vector, never a
+shell), `publish_directory` for static output, and `runtime` to pin `node@22`, `python@3.12` or
+`php@8.3`. The project's `.nvmrc`, `engines.node`, `.python-version`, `runtime.txt` and
+`composer.json` are read too. Pinned Node comes from nodejs.org verified against its published
+SHA-256, Python from uv, PHP from the distribution's packages; builds run in the sandbox with the
+runtime first on `PATH`, and the unit names its interpreter by absolute path. An update that
+changes the block rewrites the unit's command, directory and `PATH`, and puts the previous unit
+back when the release does not answer.
+
+Nuxt, SvelteKit, Astro, Remix and React Router, and Angular are detected and deployed as a
+server or as static files depending on how they are configured. Python binds `127.0.0.1`, takes
+its workers from `WEB_CONCURRENCY`, and starts with whatever server you name.
+
+See [docs/build.md](docs/build.md).
 
 ---
 
@@ -407,11 +476,27 @@ noust preview list shop.example.com
 Every pull request gets `pr-<n>-<app>.previews.example.com`, deployed on releases with 256 MB
 and half a CPU, rebuilt on each push, and removed when the request closes or after seven
 days without a push, up to a quota per application. Events come from the application's own
-webhook (GitHub, GitLab, Gitea) or from the GitHub App. Pull requests from forks are refused,
+webhook (GitHub, GitLab, Gitea, Bitbucket Cloud) or from the GitHub App. Pull requests from forks are refused,
 and on GitHub so are those of authors who are not the repository's owners, members or
 collaborators. A preview runs with the application's environment variables, except those
 listed with `--exclude-env`; its build runs in the sandbox as `noust-build` and never sees
 production secrets.
+
+### A private repository, with a key of its own
+
+```bash
+noust app deploy-key generate shop.example.com   # an ed25519 key for this repository alone
+noust app deploy-key rotate shop.example.com     # a new one waits; the old keeps working until the host answers with it
+noust app git-credential set shop.example.com -u x-token-auth --secret-file -   # an https token, kept as a secret
+```
+
+Each repository can have an SSH deploy key of its own, generated here (no passphrase, a `0600`
+secret file that never travels in a command line) or imported, instead of the one key of the
+server. git is given only that key, host keys are pinned the first time a host is reached and a
+changed key is refused, and a rotation never leaves the repository without a key that works.
+`noust setup ssh` stays the fallback for a repository with none. A Bitbucket Cloud repository
+deploys on push and builds previews like the other hosts (webhook with a secret), and clones with
+a deploy key or an access token.
 
 ---
 
@@ -432,16 +517,22 @@ on a domain of its own, so GitHub can reach a console that listens on loopback.
 ## Recipes
 
 ```bash
-noust recipe list
-noust recipe show wordpress                         # what it needs, what it creates
-noust create --recipe wordpress -d blog.example.com
+noust recipe list -q "password manager"             # search; --category, --tag, --kind filter
+noust recipe show vaultwarden                       # what it runs, what it opens, what to give it
+noust recipe install vaultwarden -d vault.example.com
+noust recipe outdated                               # installed recipes the catalogue has a newer version of
+noust recipe update vault.example.com               # through the one update: backup, health gate, way back
 ```
 
-WordPress (PHP-FPM and MariaDB), Uptime Kuma, Umami (PostgreSQL) and n8n, each with its
-source pinned or checked against a published checksum, generated secrets, its database,
-persistent paths, a health check and the next steps. Also "From a recipe" in the console's
-new-application wizard. Noust installs nothing on its own: `noust recipe show` lists the
-packages a recipe needs.
+Twenty applications: WordPress (PHP-FPM and MariaDB), Uptime Kuma, Umami (PostgreSQL) and n8n
+run natively from a source pinned to a tag or checked against a published checksum; sixteen more
+(Vaultwarden, Memos, Syncthing, Stirling PDF, Grafana, Meilisearch, code-server, Jellyfin, Mailpit,
+Open WebUI, Ollama, ntfy, Navidrome, linkding, FreshRSS and Homepage) run in Docker, as a Compose
+stack behind nginx whose images are pinned by tag and by digest. Each has generated secrets, its
+variables (kept across updates and editable afterwards), a health check and the next steps. Also
+"From a recipe" in the console's new-application wizard. Noust installs nothing on its own:
+`noust recipe show` lists what a recipe needs. The format, the pinning policy and how to contribute
+one are in [docs/recipes.md](docs/recipes.md).
 
 ---
 
@@ -578,6 +669,14 @@ policies with a schedule, retention, verification and remote destinations (timer
 and restoring over it takes a safety copy first. Passwords never appear in a command line, and
 database ports open beyond the machine are reported (`noust db exposure`).
 
+The engine and its version are a choice, not an accident (`noust db provision shop -e postgresql
+--version 17 --install`; `noust db choices` lists what the server can be given). And when a
+desktop client has to connect from your computer, `noust db public open shop -e postgresql --from
+203.0.113.7` makes that one database reachable on a port you choose, on purpose and with every
+consequence shown first: a proxy forwards the port (the engine is not reconfigured), an account of
+its own is made for it, TLS is required where the engine can, and the firewall is told.
+`noust db public close shop -e postgresql` undoes all of it.
+
 ---
 
 ## Cron
@@ -617,8 +716,8 @@ them in the console (Settings > Notifications) or with
 `notifications.allow_private_hosts`.
 
 Deploy on push: in the console (application > Settings > Webhook) or with
-`POST /api/apps/{domain}/webhook-secret`, create a secret, and point a GitHub, Gitea or
-GitLab webhook at `https://<console>/hooks/deploy/<domain>`, which the forge must be able to
+`POST /api/apps/{domain}/webhook-secret`, create a secret, and point a GitHub, Gitea,
+GitLab or Bitbucket Cloud webhook at `https://<console>/hooks/deploy/<domain>`, which the forge must be able to
 reach. Signatures are verified; only pushes to the branch the application deploys update it
 (pin one with `noust app branch`), or, for an application that follows tags, a published
 release or a tag push.
@@ -715,8 +814,13 @@ noust node label vps1 env=prod
 noust fleet run apps_update --label env=prod --serial 1 --canary vps1  # plan first, then run
 ```
 
-Enrollment is inverted: the central never logs in to a server with your credentials. You
-authorize it **on the server**, where you are already root: `noust fleet authorize` installs
+Enrollment is inverted by default: you authorize the central **on the server**, where you are
+already root. When you only have an address and a way in, `noust fleet enroll vps1 --host
+203.0.113.9` (or the same two API calls, `POST /api/fleet/enroll/host-key` and `POST
+/api/fleet/enroll`) does the three steps from the central:
+it connects once, to a host key you confirm, installs Noust there if it is missing, authorizes
+itself and joins the server, and keeps neither the password nor the key. The result is the same
+as the manual way, which is what happens underneath: `noust fleet authorize` installs
 the central's key for `noust-tunnel`, an account with no home, no shell and no password that
 sshd itself restricts to forwarding that server's console port - no terminal, no command, no
 other forward - and prints a join code, which you paste into the central (`noust node add`).
@@ -793,10 +897,11 @@ See [docs/security.md](docs/security.md), which also says how to report a vulner
 | `noust logs` | Show or follow an application's log (`-f`, `--json`) |
 | `noust env` | Show, configure, mark or export an application's environment |
 | `noust releases` | List releases, set their retention and roll back to one instantly |
-| `noust app` | Migrate to releases; limits, health check, blue/green and the Compose relay, branch and tags, hooks, adopt a running stack, workers, database copy, build sandbox, account, deploy webhook; export and import |
+| `noust app` | Migrate to releases; limits, health check, blue/green and the Compose relay, branch and tags, hooks, build commands and runtime (`app build`), adopt a running stack, workers, database copy, build sandbox, account, deploy webhook; export and import |
+| `noust runtime` | List, install and remove the Node and Python versions applications are pinned to; the PHP versions the server has |
 | `noust domain` | Add, list and remove aliases and redirects |
 | `noust preview` | Pull request previews |
-| `noust recipe` | List and show the ready-made applications |
+| `noust recipe` | Browse the catalogue of ready-made applications, install one, see which are outdated and update them |
 | `noust import` | Read another platform's configuration and propose Noust's |
 | `noust diagnose` | Explain why an application is down |
 | `noust rollback` | Restore an application's latest backup |
@@ -851,18 +956,27 @@ completions`. `wasm` runs the same program throughout 3.x.
 | Type | Detected by | Built and run with | Releases |
 |---|---|---|---|
 | `nextjs` | `next.config.{js,mjs,ts}`, or `next` in `package.json` | Install, `build`, then `start` or the standalone server | Yes |
+| `nuxt` | `nuxt` in `package.json`, or a `nuxt.config` | Install, `build`; Nitro's server (`.output/server/index.mjs`), or the generated files | Yes |
+| `sveltekit` | `@sveltejs/kit` in `package.json` | Install, `build`; `node build` with `adapter-node`, the files with `adapter-static` | Yes |
+| `astro` | `astro` in `package.json`, or an `astro.config` | Install, `build`; the files, or `dist/server/entry.mjs` with `@astrojs/node` | Yes |
+| `remix` | `@remix-run/*` or `@react-router/*`, or a `react-router.config` | Install, `build`; the `start` script or `remix-serve`; the client bundle in SPA mode | Yes |
+| `angular` | `angular.json` with `@angular/core` | Install, `build`; the client bundle, or the SSR server | Yes |
 | `vite` | `vite.config.{js,ts,mjs}`, or `vite` in `package.json` | Install, `build`, served as static files; `preview` when it uses SSR | Yes |
 | `nodejs` | `package.json` with Express, Fastify or Koa, a `main` or a `start` script | Install, `build` if present, then `start:prod`, `start:production` or `start` | Yes |
-| `python` | `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` | A virtual environment (Poetry or Pipenv when locked); Gunicorn, with Uvicorn workers for FastAPI and Starlette; Django's `collectstatic` | Yes |
+| `python` | `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` | A virtual environment (Poetry or Pipenv when locked); Gunicorn (Hypercorn when the project depends on it) on `127.0.0.1`, with Uvicorn workers for FastAPI and Starlette; Django's `collectstatic` when it has a `STATIC_ROOT` | Yes |
 | `php-fpm` | `composer.json` with a front controller, or a root `index.php` | A PHP-FPM pool per application on its own socket, `composer` when there is a `composer.json`, a fastcgi site (nginx only); `public/` detected | Yes |
 | `static` | `index.html`, and no project manifest | Served by the web server from `public`, `dist`, `build`, `www`, `html` or the root | Yes |
 | `monorepo` | `turbo.json`, pnpm workspaces and at least two apps under `apps/` | pnpm; one unit and one subdomain per workspace | In place |
 | `docker-compose` | A compose file (`docker-compose.prod.yml` first) | `docker compose` v2 under a systemd unit, nginx in front of published ports; hooks, relay, database copy | In place |
+| `container` | A `Dockerfile` or `Containerfile` with no compose file; `--image` for a registry; `--builder railpack` for any other language | A compose file Noust writes, one container on 127.0.0.1 under a systemd unit, nginx in front; one image per release | Images |
 
-Detection tries the most specific type first: monorepo, Docker Compose, Next.js, PHP, Vite,
-Python, Node.js, static. When nothing matches, Noust falls back to Node.js and says so; pass
-`--type` to choose. Node package managers (npm, pnpm, Yarn, Bun) are detected from the
-lockfile; `--pm npm|pnpm|bun` forces one.
+Detection tries the most specific type first: monorepo, Docker Compose, Angular, Astro, Nuxt,
+Remix, SvelteKit, Next.js, PHP, Vite, Python, Node.js, static. When nothing matches, Noust falls
+back to Node.js and says so; pass `--type` to choose. Node package managers (npm, pnpm, Yarn,
+Bun) are detected from the lockfile (`pnpm-lock.yaml`, `bun.lockb` or `bun.lock`, `yarn.lock`,
+`package-lock.json`, then `packageManager`), the nearest one above the project in a monorepo;
+`--pm npm|pnpm|bun` forces one. Any of them can be built and started with commands of your
+own: [docs/build.md](docs/build.md).
 
 ---
 
@@ -910,7 +1024,7 @@ is.
 
 ## Requirements
 
-- **Operating system**: Ubuntu 22.04+, Debian 12+, Fedora 40+, openSUSE Leap 15.6+
+- **Operating system and processor**: Debian 12 and 13, Ubuntu 22.04, 24.04 and 26.04, Fedora, openSUSE Leap and Tumbleweed, and the RHEL family through pip; amd64 and arm64, Raspberry Pi 64-bit included ([docs/PLATFORMS.md](docs/PLATFORMS.md) says what each is, and what was tested where)
 - **Python**: 3.10 to 3.14
 - **Privileges**: root
 - **Installed by `noust setup init` when missing**: nginx or Apache, certbot, git, Node.js
@@ -924,14 +1038,17 @@ is.
 
 - [docs/CHANGELOG-3.3.md](docs/CHANGELOG-3.3.md): what changed in 3.3
 - [docs/UPGRADING-3.3.md](docs/UPGRADING-3.3.md): upgrading a 3.2 server or fleet to 3.3
+- [docs/build.md](docs/build.md): the `build:` block (commands, base directory, publish directory), pinned runtimes, the Node frameworks and Python servers
 - [docs/databases.md](docs/databases.md): databases on the host and in containers, credentials, detected links, versions and settings
 - [docs/CHANGELOG-3.2.md](docs/CHANGELOG-3.2.md): what changed in 3.2
 - [docs/UPGRADING-3.2.md](docs/UPGRADING-3.2.md): upgrading a 3.1 server or fleet to 3.2, and rolling back
+- [docs/containers.md](docs/containers.md): container applications: a Dockerfile, an image from a registry or Railpack, releases that are images, instant rollback
 - [docs/compose.md](docs/compose.md): Docker Compose projects: `noust.yaml`, hooks, the relay, adopting a stack, database copies, tags
 - [docs/CHANGELOG-3.1.md](docs/CHANGELOG-3.1.md): what changed in 3.1
 - [docs/UPGRADING-3.1.md](docs/UPGRADING-3.1.md): upgrading a 3.0 server or fleet to 3.1, and rolling back
 - [docs/CHANGELOG-3.0.md](docs/CHANGELOG-3.0.md): what changed in 3.0
 - [docs/UPGRADING-3.0.md](docs/UPGRADING-3.0.md): upgrading a WASM 2.x server to Noust 3.0
+- [docs/PLATFORMS.md](docs/PLATFORMS.md): the distributions and processors Noust installs on, what is tested where, and how to verify the installer
 - [docs/CENTRAL.md](docs/CENTRAL.md): running a central, adding a server, fleet views and bulk actions, sealing its secrets
 - [docs/CONFIG.md](docs/CONFIG.md): every setting, and the obsolete ones
 - [docs/console.md](docs/console.md): the console, page by page

@@ -18,6 +18,13 @@ Read from the root of the tree being deployed (``noust.yaml``, or
         - run: ./scripts/purge-cache.sh
     backup:
       databases: auto             # auto | off | [{service, engine, database, user}]
+    build:
+      base_directory: apps/web    # the project lives in this subdirectory
+      install: pnpm install --frozen-lockfile
+      build: pnpm --filter web build
+      start: node dist/server.js
+      publish_directory: dist     # static output
+      runtime: node@22
 
 The file is untrusted input like the rest of the repository: the schema is
 closed (an unknown key is refused, never ignored), a path that leaves the
@@ -27,7 +34,9 @@ about (``hooks.pre_deploy[0].timeout``). A file that is a link is refused
 unread: Noust reads it as root.
 
 The operator's hooks (:func:`noust.deployers.helpers.hooks.set_operator_hooks`)
-are a document of the same shape, holding only ``hooks``.
+are a document of the same shape, holding only ``hooks``; so is the operator's
+build block (:func:`noust.deployers.helpers.build_config.set_operator_build`),
+holding only ``build``. A command is an argument vector, never a shell line.
 """
 
 from __future__ import annotations
@@ -41,6 +50,8 @@ from typing import Any, Literal, cast
 import yaml  # type: ignore[import-untyped]
 
 from noust.core.exceptions import ValidationError
+from noust.core.versions import parse_runtime
+from noust.deployers.helpers.build_config import BuildConfig, BuildSource
 from noust.deployers.helpers.hooks import Hook, HookPhase, HookSet, HookSource
 
 #: The names the project file is read under, in order.
@@ -61,11 +72,20 @@ STACK_ENGINES: tuple[str, ...] = ("postgres", "mysql", "mariadb", "mongo")
 #: What ``backup.databases`` says when it is not a list.
 BackupDatabases = Literal["auto", "off"]
 
-_TOP_KEYS = ("hooks", "backup")
+_TOP_KEYS = ("hooks", "backup", "build")
 _HOOK_PHASES: tuple[HookPhase, ...] = ("pre_deploy", "post_deploy")
 _HOOK_KEYS = ("run", "service", "workdir", "timeout", "migrates")
 _BACKUP_KEYS = ("databases",)
 _DATABASE_KEYS = ("service", "engine", "database", "user")
+_BUILD_KEYS = ("base_directory", "install", "build", "start", "publish_directory", "runtime")
+
+#: One segment of a directory the build block names. Narrower than a file
+#: name on purpose: the path ends up in a unit's WorkingDirectory and in the
+#: web server's ``root``, where a space or a quote is a syntax error or worse.
+_PATH_SEGMENT = re.compile(r"^[A-Za-z0-9._@+~=-]+$")
+
+#: The longest directory the build block names.
+_MAX_BUILD_PATH = 200
 
 # A Compose service name, as Compose itself accepts them.
 _SERVICE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
@@ -101,11 +121,14 @@ class ProjectFile:
             no file.
         backup_databases: ``auto`` (detect the stack's databases), ``off``, or
             the databases declared by hand.
+        build: Its build block; source ``none`` when it declares none or there
+            is no file.
         path: The file read, when there was one.
     """
 
     hooks: HookSet = field(default_factory=HookSet)
     backup_databases: BackupDatabases | tuple[StackDatabaseSpec, ...] = "auto"
+    build: BuildConfig = field(default_factory=BuildConfig)
     path: Path | None = field(default=None, compare=False)
 
 
@@ -193,6 +216,39 @@ def parse_hooks_document(text: str, *, source: str) -> HookSet:
     return _hooks(mapping.get("hooks"), label)
 
 
+def parse_build_document(text: str, *, source: str) -> BuildConfig:
+    """
+    Parse a document holding a build block: the operator's, or a repository's.
+
+    Args:
+        text: The YAML document, with ``build`` at its top.
+        source: ``operator`` (only ``build`` is accepted) or ``repo`` (the
+            whole project file's schema).
+
+    Returns:
+        The block, labelled with the source.
+
+    Raises:
+        ValidationError: Not YAML, or outside the schema; ``field`` names what.
+    """
+    label: BuildSource = "repo" if source == "repo" else "operator"
+    name = "noust.yaml" if label == "repo" else "build"
+    document = _load_yaml(text, name)
+    if label == "repo":
+        return _project(document, source="repo", path=None).build
+    mapping = _mapping(document, name, where="the document")
+    for key in mapping:
+        if key in ("hooks", "backup"):
+            raise ValidationError(
+                f"The operator's build block does not carry {key}",
+                details="Set hooks with: noust app hooks set DOMAIN --file FILE",
+                field=str(key),
+            )
+        if key != "build":
+            raise _unknown(str(key), str(key), ("build",))
+    return _build(mapping.get("build"), label)
+
+
 def _load_yaml(text: str, name: str) -> object:
     """
     Args:
@@ -211,7 +267,7 @@ def _load_yaml(text: str, name: str) -> object:
         raise ValidationError(
             f"{name} is not valid YAML",
             details=str(exc),
-            field=name if name == "noust.yaml" else "hooks",
+            field=name if name in ("noust.yaml", "build") else "hooks",
         ) from exc
 
 
@@ -235,8 +291,114 @@ def _project(document: object, *, source: HookSource, path: Path | None) -> Proj
     return ProjectFile(
         hooks=_hooks(mapping.get("hooks"), source),
         backup_databases=_backup(mapping.get("backup")),
+        build=_build(mapping.get("build"), "repo" if source == "repo" else "operator"),
         path=path,
     )
+
+
+def _build(value: object, source: BuildSource) -> BuildConfig:
+    """
+    Args:
+        value: What ``build`` holds.
+        source: Where it came from.
+
+    Returns:
+        The block; ``source`` is kept only when a key is set, except for the
+        operator's, whose empty block still wins over the repository's.
+
+    Raises:
+        ValidationError: Outside the schema.
+    """
+    mapping = _mapping(value, "build", where="build")
+    for key in mapping:
+        if key not in _BUILD_KEYS:
+            raise _unknown(f"build.{key}", str(key), _BUILD_KEYS)
+    runtime = mapping.get("runtime")
+    config = BuildConfig(
+        base_directory=_build_directory(
+            mapping.get("base_directory"), "build.base_directory", what="base directory"
+        ),
+        install=_build_command(mapping.get("install"), "build.install"),
+        build=_build_command(mapping.get("build"), "build.build"),
+        start=_build_command(mapping.get("start"), "build.start"),
+        publish_directory=_build_directory(
+            mapping.get("publish_directory"), "build.publish_directory", what="publish directory"
+        ),
+        runtime=None if runtime is None else parse_runtime(runtime, field="build.runtime"),
+    )
+    return config.with_source(source)
+
+
+def _build_command(value: object, where: str) -> tuple[str, ...] | None:
+    """
+    Args:
+        value: What an ``install``, ``build`` or ``start`` key holds.
+        where: Its field path.
+
+    Returns:
+        The argument vector, or None when the key is left out.
+
+    Raises:
+        ValidationError: Empty, unbalanced quotes, or a program that climbs.
+    """
+    if value is None:
+        return None
+    return _argv(value, where)
+
+
+def _build_directory(value: object, where: str, *, what: str) -> str | None:
+    """
+    Args:
+        value: What a directory key holds.
+        where: Its field path.
+        what: What to call it in a message.
+
+    Returns:
+        The directory as a normalised relative POSIX path; None for the root
+        of the repository (``.``, ``./``) or when the key is left out.
+
+    Raises:
+        ValidationError: Not text, absolute, climbing with ``..``, with a
+            segment a unit or a site cannot carry, or too long.
+    """
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise ValidationError(
+            f"{where} must be a path",
+            details=f"Name the {what} relative to the project, as in {where.rsplit('.', 1)[-1]}: dist.",
+            field=where,
+        )
+    text = value.strip()
+    if text in ("", ".", "./"):
+        return None
+    if text.startswith(("/", "~")) or "\\" in text:
+        raise ValidationError(
+            f"{where} is not a path inside the repository",
+            details="Use a path relative to the repository, without a leading '/' or '~'.",
+            field=where,
+        )
+    parts = [part for part in text.split("/") if part not in ("", ".")]
+    if ".." in parts:
+        raise ValidationError(
+            f"{where} climbs out of the repository with '..'",
+            details=f"Name the {what} directly, without '..'.",
+            field=where,
+        )
+    if not parts or any(not _PATH_SEGMENT.match(part) for part in parts):
+        raise ValidationError(
+            f"{where} has a name Noust cannot serve or run from",
+            details="Use letters, digits and . _ - @ + ~ = in each name; no spaces or quotes.",
+            field=where,
+        )
+    normalised = "/".join(parts)
+    if len(normalised) > _MAX_BUILD_PATH:
+        raise ValidationError(
+            f"{where} is longer than {_MAX_BUILD_PATH} characters",
+            details=f"Name a shorter {what}.",
+            field=where,
+        )
+    return normalised
 
 
 def _hooks(value: object, source: HookSource) -> HookSet:
@@ -594,5 +756,6 @@ __all__ = [
     "StackDatabaseSpec",
     "StackEngine",
     "load_project_file",
+    "parse_build_document",
     "parse_hooks_document",
 ]

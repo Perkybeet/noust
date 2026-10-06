@@ -376,6 +376,12 @@ jobs:
       - name: Check the OpenAPI export is current
         run: python scripts/export_openapi.py --check
 
+      # What a release promised its clients (docs/api.md, "The promise"): an
+      # operation that disappears or starts asking for more fails here, and is
+      # accepted on purpose in the same change as the code.
+      - name: Check the API keeps its compatibility promise
+        run: python scripts/api_compat.py
+
       - name: Check the man page is current
         run: python scripts/generate_man.py --check
 
@@ -383,6 +389,19 @@ jobs:
       # upgrade that changes the shim has to be noticed here.
       - name: Check the completion scripts are current
         run: python scripts/generate_completions.py --check
+
+      # packaging/install.sh cannot import Noust, so it carries a generated copy
+      # of the platform table (noust.managers.server.platforms) and docs/PLATFORMS.md
+      # shows the same rows: this is the gate that keeps the three equal.
+      - name: Check the installer's platform table is current
+        run: python scripts/sync_install_targets.py --check
+
+      # The installer is the first thing a new server runs, as root, on whatever
+      # shell it has: it must parse in POSIX sh and pass shellcheck as sh.
+      - name: Lint the installer
+        run: |
+          sh -n packaging/install.sh
+          shellcheck -s sh packaging/install.sh
 
       # The product and the transitional wasm-cli that carries pip users of the
       # old name over to it.

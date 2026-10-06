@@ -127,6 +127,7 @@ class DeploysFigure(BaseModel):
         succeeded: Of those, finished well.
         failed: Of those, failed.
         rolled_back: Of those, undone.
+        cancelled: Of those, cancelled by an operator while they built.
         running: Still in progress.
         finished: Finished either way.
         last_at: When the newest one ended (or started).
@@ -140,6 +141,7 @@ class DeploysFigure(BaseModel):
     succeeded: int = 0
     failed: int = 0
     rolled_back: int = 0
+    cancelled: int = 0
     running: int = 0
     finished: int = 0
     last_at: str | None = None

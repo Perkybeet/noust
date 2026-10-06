@@ -57,6 +57,9 @@ DUPLICATE = "duplicate"
 BAD_SIGNATURE = "bad_signature"
 #: A delivery refused because of too many wrong signatures.
 LOCKED = "locked"
+#: A push or a tag that would have been queued, but the deploy queue had no
+#: room (``deploy.queue_limit``). The forge is answered 429 and retries.
+QUEUE_FULL = "queue_full"
 
 #: Every outcome there is.
 OUTCOMES = (
@@ -70,6 +73,7 @@ OUTCOMES = (
     DUPLICATE,
     BAD_SIGNATURE,
     LOCKED,
+    QUEUE_FULL,
 )
 
 #: Outcomes of a delivery that did not verify: not from the forge, or the forge
@@ -107,7 +111,7 @@ class WebhookDelivery:
         received_at: When it arrived (or, for a folded row, when the last of
             the burst did), ISO 8601 without an offset, like every timestamp
             the store writes.
-        provider: ``github``, ``gitea``, ``gitlab`` or ``github-app``; None
+        provider: ``github``, ``gitea``, ``gitlab``, ``bitbucket`` or ``github-app``; None
             for a delivery that never verified as any of them.
         event: The forge's own name for the event (``push``, ``ping``...).
         outcome: One of :data:`OUTCOMES`.

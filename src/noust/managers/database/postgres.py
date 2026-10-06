@@ -36,6 +36,7 @@ import os
 import re
 import secrets
 import stat
+import tempfile
 import time
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -46,14 +47,16 @@ from typing import Any
 from noust.core.config import secure_write
 from noust.core.exceptions import (
     DatabaseBackupError,
+    DatabaseEngineError,
     DatabaseError,
     DatabaseExistsError,
     DatabaseNotFoundError,
     DatabaseQueryError,
     DatabaseUserError,
 )
-from noust.core.fs import FileSystem
+from noust.core.fs import FileSystem, is_rehearsal
 from noust.core.runner import CommandResult, CommandRunner, runuser_prefix
+from noust.managers.database import pg_hba
 from noust.managers.database.base import (
     DEFAULT_STRUCTURED_ROW_CAP,
     PROFILES,
@@ -76,8 +79,9 @@ from noust.managers.database.base import (
     validate_name,
 )
 from noust.managers.database.instances import storage_name
-from noust.managers.database.psql_script import check_plain_dump
+from noust.managers.database.psql_script import check_plain_dump, strip_owners
 from noust.managers.database.registry import DatabaseRegistry
+from noust.managers.database.settings import read_config_file, write_config_file
 
 #: Privileges PostgreSQL accepts on a DATABASE object.
 DATABASE_PRIVILEGES = frozenset(
@@ -1131,7 +1135,10 @@ class PostgresManager(BaseDatabaseManager):
             output_path: Custom destination.
             compress: Pipe the dump through gzip. Ignored for a custom-format
                 dump Noust names itself.
-            **kwargs: Accepts ``format`` (plain, custom or tar) and ``schemas``.
+            **kwargs: Accepts ``format`` (plain, custom or tar), ``schemas``,
+                and ``exclude_schemas`` and ``exclude_tables`` to leave out
+                of the dump (``pg_dump --exclude-schema`` and
+                ``--exclude-table``; a table may be ``schema.table``).
 
         Returns:
             Information about the backup.
@@ -1164,7 +1171,12 @@ class PostgresManager(BaseDatabaseManager):
             database, output_path, compress, suffix=DUMP_SUFFIXES[dump_format]
         )
         return self._dump_to_file(
-            self._pg_dump_argv(database, dump_format),
+            self._pg_dump_argv(
+                database,
+                dump_format,
+                exclude_schemas=kwargs.get("exclude_schemas") or (),
+                exclude_tables=kwargs.get("exclude_tables") or (),
+            ),
             destination,
             database=database,
             compress=compress,
@@ -1172,7 +1184,13 @@ class PostgresManager(BaseDatabaseManager):
         )
 
     def _pg_dump_argv(
-        self, database: str, dump_format: str, schema: str | None = None
+        self,
+        database: str,
+        dump_format: str,
+        schema: str | None = None,
+        *,
+        exclude_schemas: Sequence[str] = (),
+        exclude_tables: Sequence[str] = (),
     ) -> list[str]:
         """
         Build a pg_dump invocation that writes to stdout.
@@ -1184,6 +1202,9 @@ class PostgresManager(BaseDatabaseManager):
             database: Database name.
             dump_format: One of :data:`DUMP_FORMATS`.
             schema: Restrict the dump to this schema.
+            exclude_schemas: Schemas to leave out.
+            exclude_tables: Tables to leave out (``table`` or ``schema.table``;
+                pg_dump reads ``*`` and ``?`` in them as patterns).
 
         Returns:
             The argument vector.
@@ -1195,6 +1216,10 @@ class PostgresManager(BaseDatabaseManager):
         ]
         if schema is not None:
             argv.append(f"--schema={schema}")
+        # One argument each, joined to its option: a name is never a separate
+        # word pg_dump could read as an option of its own.
+        argv.extend(f"--exclude-schema={name}" for name in exclude_schemas)
+        argv.extend(f"--exclude-table={name}" for name in exclude_tables)
         argv.append(database)
         return argv
 
@@ -1392,6 +1417,16 @@ class PostgresManager(BaseDatabaseManager):
             f"{storage_name(self.ENGINE_NAME)}-restore-{database}{DUMP_SUFFIXES[dump_format]}"
         )
         owner = None if self.instance is not None else self.SUPERUSER
+        if dump_format == "plain" and kwargs.get("keep_owners") is False:
+            # Owners and privileges named in a plain dump are the roles of the
+            # server it came from; they are taken out before the file is staged.
+            with tempfile.TemporaryDirectory(prefix="noust-restore-") as scratch:
+                filtered = Path(scratch) / "owners-stripped.sql"
+                left_out = strip_owners(backup_path, filtered, role=kwargs.get("owner_role"))
+                self.logger.info(f"Left {left_out} ownership and privilege statement(s) out")
+                with self._staged_backup(filtered, staged_name, owner=owner) as staged:
+                    yield staged
+            return
         with self._staged_backup(backup_path, staged_name, owner=owner) as staged:
             yield staged
 
@@ -1421,7 +1456,11 @@ class PostgresManager(BaseDatabaseManager):
         Args:
             database: The database to load into.
             backup_path: The dump as :meth:`_restore_input` prepared it.
-            **kwargs: Accepts ``format`` to override the detected one.
+            **kwargs: Accepts ``format`` to override the detected one, and
+                ``keep_owners``: False has pg_restore leave the owners and
+                privileges of an archive out (a plain dump is cleaned of them
+                by :meth:`_restore_input`), and ``owner_role``, the role the
+                objects are then created as.
 
         Raises:
             DatabaseBackupError: When psql or pg_restore fails or runs out of
@@ -1431,6 +1470,12 @@ class PostgresManager(BaseDatabaseManager):
             backup_path, kwargs.get("format") or self._staged_format(backup_path)
         )
         timeout = restore_timeout(backup_path)
+        ownerless: list[str] = []
+        if kwargs.get("keep_owners") is False:
+            ownerless = ["--no-owner", "--no-acl"]
+            if kwargs.get("owner_role"):
+                # Objects are created as the database's owner, not as whoever loads them.
+                ownerless.append(f"--role={kwargs['owner_role']}")
         if self.instance is not None:
             # A client inside a container cannot open a file on the host: the
             # dump is its stdin, which psql (-f -) and pg_restore (no file)
@@ -1438,13 +1483,20 @@ class PostgresManager(BaseDatabaseManager):
             if dump_format == "plain":
                 argv = self._psql_argv(database, "-f", "-")
             else:
-                argv = ["pg_restore", "--no-password", "-d", database]
+                argv = ["pg_restore", "--no-password", *ownerless, "-d", database]
             result = self._exec(argv, stdin_path=backup_path, timeout=timeout, user=self.SUPERUSER)
         else:
             if dump_format == "plain":
                 argv = self._psql_argv(database, "-f", str(backup_path))
             else:
-                argv = ["pg_restore", "--no-password", "-d", database, str(backup_path)]
+                argv = [
+                    "pg_restore",
+                    "--no-password",
+                    *ownerless,
+                    "-d",
+                    database,
+                    str(backup_path),
+                ]
             result = self._exec(argv, timeout=timeout, user=self.SUPERUSER)
 
         if not result.success:
@@ -2465,6 +2517,110 @@ class PostgresManager(BaseDatabaseManager):
             "authentication). Put 'local all postgres peer' back at the top of pg_hba.conf "
             "and reload PostgreSQL."
         )
+
+    # ==================== Remote access ====================
+
+    def remote_tls_blocker(self) -> str | None:
+        """
+        Say why PostgreSQL cannot be made to refuse an account that does not use TLS.
+
+        Returns:
+            None when ``ssl`` is on, which Debian and Ubuntu ship with a
+            self-signed certificate; otherwise why not.
+        """
+        value = self._show("ssl")
+        if value == "on":
+            return None
+        if value is None:
+            return "PostgreSQL did not say whether TLS (ssl) is on"
+        return (
+            "PostgreSQL has ssl = off, so no client can use TLS here. Turn it on in "
+            "postgresql.conf (Debian and Ubuntu ship ssl = on with a self-signed certificate) "
+            "and restart it, or leave TLS optional on purpose"
+        )
+
+    def set_remote_tls(
+        self, username: str, database: str, required: bool, host: str = "localhost"
+    ) -> None:
+        """
+        Make ``pg_hba.conf`` refuse an account that does not use TLS, or stop doing so.
+
+        One marked block above every connection line, for that account on that
+        database (:mod:`noust.managers.database.pg_hba`). The file is checked by
+        PostgreSQL itself (``pg_hba_file_rules``) before it is reloaded, and
+        put back as it was when PostgreSQL finds an error in it.
+
+        Args:
+            username: The account.
+            database: The database it is for.
+            required: Require TLS (True) or lift the requirement (False).
+            host: Ignored; PostgreSQL restricts hosts in pg_hba.conf.
+
+        Raises:
+            DatabaseUserError: When the file cannot be read or written, or
+                PostgreSQL does not accept what was written (the file is back
+                as it was).
+        """
+        if is_rehearsal():
+            return
+        self.validate_user_name(username)
+        self.validate_database_name(database)
+        located = self._show("hba_file")
+        if not located:
+            raise DatabaseUserError(
+                "PostgreSQL did not say where its pg_hba.conf is",
+                details="Is the server running? 'noust db status postgresql' says.",
+            )
+        path = Path(located)
+        try:
+            before = read_config_file(path)
+            if before is None:
+                raise DatabaseUserError(f"{path} does not exist")
+            after = (
+                pg_hba.with_block(before, database, username)
+                if required
+                else pg_hba.without_block(before, username)
+            )
+            if after == before:
+                return
+            write_config_file(self.fs, path, after, preserve=True)
+        except DatabaseEngineError as exc:
+            raise DatabaseUserError(exc.message, details=exc.details) from exc
+        except (OSError, ValueError) as exc:
+            raise DatabaseUserError(f"Could not change {path}", details=str(exc)) from exc
+        ok, output = self._execute_sql(
+            "SELECT count(*) FROM pg_hba_file_rules WHERE error IS NOT NULL;"
+        )
+        if not ok or output.strip() != "0":
+            # The server read the file and never loaded it: nothing to reload.
+            self._put_back_hba(path, before, reload=False)
+            raise DatabaseUserError(
+                "PostgreSQL did not accept the pg_hba.conf Noust wrote, so it was put back",
+                details=output.strip(),
+            )
+        ok, output = self._execute_sql("SELECT pg_reload_conf();")
+        if not ok:
+            self._put_back_hba(path, before, reload=True)
+            raise DatabaseUserError(
+                "PostgreSQL did not reload pg_hba.conf, so it was put back", details=output.strip()
+            )
+
+    def _put_back_hba(self, path: Path, text: str, *, reload: bool) -> None:
+        """
+        Put ``pg_hba.conf`` back as it was, and tell the server so when it had read it.
+
+        Args:
+            path: The file.
+            text: What it held.
+            reload: Ask the server to read it again.
+        """
+        try:
+            write_config_file(self.fs, path, text, preserve=True)
+        except DatabaseEngineError as exc:
+            self.logger.warning(f"Could not put {path} back: {exc}. Restore it by hand.")
+            return
+        if reload:
+            self._execute_sql("SELECT pg_reload_conf();")
 
     def listen_addresses(self) -> ListenAddress | None:
         """

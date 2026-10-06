@@ -62,7 +62,7 @@ ACCOUNT_PREFIX = "noust-app-"
 MAX_ACCOUNT_LENGTH = 32
 
 #: Application types whose processes are not the application's account's.
-EXCLUDED_TYPES = frozenset({"docker-compose", "monorepo", "static"})
+EXCLUDED_TYPES = frozenset({"docker-compose", "container", "monorepo", "static"})
 
 #: The PHP-FPM type, whose account is its pool's, not a unit's.
 PHP_TYPE = "php-fpm"
@@ -144,7 +144,7 @@ def ineligible(app: App) -> str | None:
         The reason, or None when it can.
     """
     kind = app.app_type or ""
-    if kind == "docker-compose":
+    if kind in ("docker-compose", "container"):
         return "its processes run in containers, as the users their images say"
     if kind == "monorepo":
         return "a monorepo runs several units, which stay on the shared account for now"
