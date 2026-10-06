@@ -221,6 +221,8 @@ def _create_app(
     limits: ResourceLimits | None = None,
     initial_health: tuple[str | None, str | None, int | None] | None = None,
     database: tuple[str, str | None] | None = None,
+    database_version: str | None = None,
+    install_database: bool = False,
     container: dict[str, Any] | None = None,
     build_document: str | None = None,
 ) -> int:
@@ -263,6 +265,10 @@ def _create_app(
             build, its connection string written into the environment marked
             secret (``--database``); the name None derives it from the
             application. Kept, with how to drop it, when the deploy fails.
+        database_version: The version of the database's engine
+            (``--database-version``); None for the installed one.
+        install_database: Install the engine, in that version, when it is
+            missing (``--install-database``).
         container: What a container application is made from and how it runs,
             as :func:`~noust.cli.commands.app_container.changes_from_options`
             gives it (``--image``, ``--builder``, ``--build-arg``...); None for
@@ -381,7 +387,15 @@ def _create_app(
     new_database = None
     if databases is not None and database is not None:
         engine, name = database
-        new_database = databases.prepare_for_new_app(domain, engine, name=name, env=env_vars)
+        # Only what was asked for: no version and no --install is the 3.3 call.
+        asked: dict[str, Any] = {}
+        if database_version:
+            asked["version"] = database_version
+        if install_database:
+            asked["install"] = True
+        new_database = databases.prepare_for_new_app(
+            domain, engine, name=name, env=env_vars, **asked
+        )
         options.update(new_database.configure_options(options.get("env_secret_marks")))
 
     container_settings = _container_settings(domain, app_type, container, source)
@@ -1963,6 +1977,18 @@ def cli() -> None:
     "REDIS_URL for Redis). NAME defaults to one derived from the domain. Not with --recipe.",
 )
 @click.option(
+    "--database-version",
+    metavar="VERSION",
+    help="The version of the --database engine, such as 17 or 11.4. The installed one when "
+    "omitted; one the server does not run is refused with what it runs.",
+)
+@click.option(
+    "--install-database",
+    is_flag=True,
+    help="Install the --database engine, in --database-version, when it is not installed. "
+    "Installs packages: the same as 'noust db install'.",
+)
+@click.option(
     "--compose-file",
     help="Compose file to use, relative to the project. Detected when omitted.",
 )
@@ -2022,6 +2048,8 @@ def create(
     workspaces: tuple[str, ...],
     no_database: bool,
     database_spec: str | None,
+    database_version: str | None,
+    install_database: bool,
     compose_file: str | None,
     compose_profiles: tuple[str, ...],
     layout: str | None,
@@ -2055,6 +2083,8 @@ def create(
     database = _parse_database(database_spec) if database_spec is not None else None
     if recipe is not None and database is not None:
         raise click.UsageError("--database cannot be used with --recipe: the recipe has its own.")
+    if (database_version or install_database) and database is None:
+        raise click.UsageError("--database-version and --install-database need --database.")
     if follow_tags is not None:
         if branch is not None or recipe is not None:
             raise click.UsageError(
@@ -2119,6 +2149,8 @@ def create(
             persist=persist,
             replace_existing=force,
             database=database,
+            database_version=database_version,
+            install_database=install_database,
             container=container or None,
             build_document=build_document,
         ),

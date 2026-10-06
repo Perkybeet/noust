@@ -1711,6 +1711,66 @@ class MySQLManager(BaseDatabaseManager):
         if not success:
             self.logger.warning(f"Could not drop the read-only account {account}: {output.strip()}")
 
+    # ==================== Remote access ====================
+
+    def remote_tls_blocker(self) -> str | None:
+        """
+        Say why the server cannot be made to refuse an account that does not use TLS.
+
+        Returns:
+            None when the server has TLS (MySQL 8 makes its own certificates;
+            MariaDB 11.4 too), or does not say it has none; otherwise why not.
+        """
+        success, output = self._execute_sql("SHOW GLOBAL VARIABLES LIKE 'have_ssl';")
+        if not success:
+            return f"{self.DISPLAY_NAME} did not say whether TLS is on"
+        fields = output.split()
+        # Absent on MySQL 8.4, which always has TLS; "YES" elsewhere.
+        if len(fields) < 2 or fields[-1].upper() == "YES":
+            return None
+        return (
+            f"{self.DISPLAY_NAME} has TLS turned off (have_ssl = {fields[-1]}), so an account "
+            "that requires it could never connect. Give it a certificate (ssl_cert, ssl_key) "
+            "and restart it, or leave TLS optional on purpose"
+        )
+
+    def set_remote_tls(
+        self, username: str, database: str, required: bool, host: str = "localhost"
+    ) -> None:
+        """
+        Make the server refuse an account that does not use TLS, or stop doing so.
+
+        ``ALTER USER ... REQUIRE SSL`` is the account's own, so it changes
+        nothing for any other account.
+
+        Args:
+            username: The account.
+            database: The database it is for; unused, the requirement is the
+                account's.
+            required: Require TLS (True) or lift the requirement (False).
+            host: Host the account connects from.
+
+        Raises:
+            DatabaseUserError: When the account does not exist or the server refuses.
+        """
+        self.validate_user_name(username)
+        self.validate_host(host)
+        if not self.user_exists(username, host):
+            raise DatabaseUserError(
+                f"User '{username}'@'{host}' does not exist",
+                details="Run 'noust db user-list --engine mysql' to see the users.",
+            )
+        success, output = self._execute_sql(
+            f"ALTER USER {self._escape_literal(username)}@{self._escape_literal(host)} "
+            f"REQUIRE {'SSL' if required else 'NONE'};"
+        )
+        if not success:
+            raise DatabaseUserError(
+                f"Failed to change the TLS requirement of '{username}'@'{host}'",
+                details=output.strip(),
+            )
+        self._execute_sql("FLUSH PRIVILEGES;")
+
     def listen_addresses(self) -> ListenAddress | None:
         """
         Ask the server for ``bind_address``.

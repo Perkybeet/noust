@@ -703,6 +703,18 @@ to send push events to `hook_url`, which is `https://<console>/hooks/deploy/{dom
 | GitHub | `X-Hub-Signature-256: sha256=<HMAC-SHA256 of the body>` (set the webhook secret) |
 | Gitea | `X-Gitea-Signature: <HMAC-SHA256 of the body>` |
 | GitLab | `X-Gitlab-Token: <secret>` |
+| Bitbucket Cloud | `X-Hub-Signature: sha256=<HMAC-SHA256 of the body>` (set the webhook's secret); the event is in `X-Event-Key` |
+
+Bitbucket Cloud (3.4): add the webhook at the repository's Repository settings > Webhooks with
+the triggers `Repository: Push` and, for previews, `Pull request: Created, Updated, Merged,
+Declined`. A push (`repo:push`) deploys the tracked branch (a push that moves several branches
+deploys when one of them is it), `diagnostics:ping` is answered, and the four pull request keys
+build, rebuild (only when the commit at the tip of the branch is new: Bitbucket sends
+`pullrequest:updated` for a new title too) and remove previews; merged and declined both end
+the preview. A request from a fork is refused, a bot's unless previews allow bots, and no
+comment is posted on it. Private repositories are cloned with a
+[deploy key](#deploy-keys) or an [https credential](#deploy-keys) kept as a secret: app
+passwords stopped working on 28 July 2026.
 
 A push to a branch other than the one the application deploys (its pinned branch; without a
 pin, the branch its checkout is on in place or its recorded branch on releases) answers
@@ -710,7 +722,7 @@ pin, the branch its checkout is on in place or its recorded branch on releases) 
 deploys. A forge's ping is answered and recorded; a forge retry of the same delivery answers `"reason": "duplicate"`.
 An application that **follows tags** (`noust app follow-tags DOMAIN 'v*'`, `PATCH
 /api/apps/{domain}/follow-tags`) reads its deliveries differently (3.2): a published `release` of
-GitHub or Gitea (not a draft or a pre-release) and a pushed tag (GitHub, Gitea or GitLab)
+GitHub or Gitea (not a draft or a pre-release) and a pushed tag (GitHub, Gitea, GitLab or Bitbucket)
 deploy that tag, once even though a forge may send both for one version (`202 {job_id,
 status}`); a draft or a pre-release, a tag that does not match the pattern, is not a version,
 or is not newer than what is deployed answers `200 {"status":
@@ -729,6 +741,39 @@ whatever became of it (a burst of wrong signatures is one row with a count), and
 `GET /api/apps/{domain}/webhook/deliveries` lists the deployments webhooks triggered. The same
 from the terminal: `noust app webhook show|rotate|disable|deliveries DOMAIN`. The hook must be reachable from the forge, which means exposing the console (see
 [security.md](security.md)).
+
+## Deploy keys
+
+Each repository an application is cloned from can have an SSH key of its own (3.4), instead of the
+one key `noust setup ssh` manages for the whole server: a key whose theft reaches one repository,
+and which GitHub accepts, since it refuses one deploy key on two repositories.
+
+```bash
+# See what the repository is reached with (the key's public half, never its private one)
+curl -s -H "Authorization: Bearer $TOKEN" https://panel.example.com/api/apps/shop.example.com/deploy-key
+# Make an ed25519 key with no passphrase (or {"key": "name"} to assign one that exists)
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{}' \
+  https://panel.example.com/api/apps/shop.example.com/deploy-key
+# Replace it without a moment when the repository has none that works
+curl -s -X POST -H "Authorization: Bearer $TOKEN" .../deploy-key/rotate   # add key.pending.public_key at the host
+curl -s -X POST -H "Authorization: Bearer $TOKEN" .../deploy-key/test     # the host answers: the new key is the key
+```
+
+`POST .../deploy-key/import` (sudo mode) takes `{private_key, name}`; the public half is derived
+with `ssh-keygen -y` and a key with a passphrase is refused. `DELETE .../deploy-key` (sudo mode)
+takes the repository off its key and deletes the key when nothing else uses it. The private
+half is a 0600 secret file, never in an argument or a response; git is given its path
+(`ssh -i <key> -o IdentitiesOnly=yes`). Host keys are pinned in a `known_hosts` of Noust's own
+the first time each code host is reached, and a different key later is refused, never accepted
+silently: `GET /api/deploy-keys/hosts` lists them and `DELETE /api/deploy-keys/hosts/{host}` (sudo
+mode) forgets one, the one deliberate way to accept a change. The same from the terminal:
+`noust app deploy-key show|list|generate|import|assign|rotate|test|remove|prune|hosts|forget-host`.
+
+A private https repository is reached with a user and a token kept in the secret store, not in
+the source URL: `PUT /api/apps/{domain}/git-credential` (sudo mode, `{username, secret}`),
+`GET` (never the token) and `DELETE` (sudo mode), or `noust app git-credential show|set|remove`.
+For Bitbucket Cloud the user is your username or `x-bitbucket-api-token-auth` with an API token,
+or `x-token-auth` with a repository or workspace access token.
 
 ## Health
 
@@ -777,6 +822,19 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}/follow-tags` | PATCH `apps.manage`, sudo | `{pattern}`: deploy the newest git tag that matches a glob (`v*`) instead of a branch; null follows a branch again |
 | `/api/apps/{domain}/headless` | GET `apps.read`; POST `apps.manage`, sudo | Whether a Compose stack publishes no port; record it as a worker (`{remove_site}` also retires the site Noust wrote) |
 | `/api/apps/{domain}/health` | PATCH `apps.manage`, sudo | `{path, expect, timeout}` of the health gate; null is the default |
+| `/api/databases/public` | GET `databases.read`; POST `databases.manage`, sudo | The databases reachable from the network; make one reachable (`{engine, database, port, bind_address, sources, tls, profile, confirm}`): a public port, an account of its own, TLS where the engine can, the firewall; the password is in the answer, once |
+| `/api/databases/public/plan` | POST `databases.read` | What opening would do and what the operator accepts; changes nothing |
+| `/api/databases/public/{engine}/{database}` | GET `databases.read`; DELETE `databases.manage`, sudo | Whether a database is public and how; make it private again (undoes all of it) |
+| `/api/databases/public/{engine}/{database}/reveal` | POST `secrets.reveal`, sudo | The connection details with the account's password |
+| `/api/databases/provisioning/choices` | GET `databases.read` | Each engine, the version that runs and the versions a database can be created on (`installed`, `installable`, `unavailable`) |
+| `/api/apps/{domain}/deploy-key` | GET `apps.read`; POST `apps.manage`; DELETE `apps.manage`, sudo | The key the repository is reached with; make one (or assign `{key}`); take the repository off it |
+| `/api/apps/{domain}/deploy-key/import` | POST `apps.manage`, sudo | Use a private key you have (`{private_key, name}`) |
+| `/api/apps/{domain}/deploy-key/rotate` | POST `apps.manage`; DELETE `apps.manage` | Make the key that replaces it, keeping the old working; give the rotation up |
+| `/api/apps/{domain}/deploy-key/test` | POST `apps.manage` | Ask the repository with the key, as a deploy would; a waiting key that works becomes the key |
+| `/api/apps/{domain}/git-credential` | GET `apps.read`; PUT `apps.manage`, sudo; DELETE `apps.manage`, sudo | The https user and token of a private repository, as a secret; the token is never returned |
+| `/api/deploy-keys` | GET `apps.read` | Every deploy key and the applications it reaches |
+| `/api/deploy-keys/hosts` | GET `apps.read` | The SSH host keys pinned the first time each code host was reached |
+| `/api/deploy-keys/hosts/{host}` | DELETE `server.host_access`, sudo | Forget a pinned host key, to accept the one the host shows now |
 | `/api/apps/{domain}/hooks` | GET `apps.read`; PUT `root_equivalent`, sudo, four-eyes; DELETE `apps.manage` | The hooks the next deployment runs and where they come from; set the operator's own (`{document}`, a YAML `hooks:`), which replace the repository's `noust.yaml`; clear them |
 | `/api/apps/{domain}/identity` | GET `apps.read` | The system account it runs as, whether it is its own, and why not when it cannot be |
 | `/api/apps/{domain}/identity/migrate` | POST `root_equivalent`, sudo, four-eyes | Move it to its own account behind the health gate (job) |

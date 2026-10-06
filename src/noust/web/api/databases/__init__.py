@@ -17,6 +17,7 @@ all live below it.
 - :mod:`.backups`: policies, verification, offsite copies, downloads and remote
   restores.
 - :mod:`.exposure`: where engines listen, open ports, Connect instructions.
+- :mod:`.public`: a database made reachable from the network on purpose, and private again.
 - :mod:`.imports`: a dump from another provider: chunked upload, what it is,
   and the import.
 - :mod:`.query`: the SQL console (history, saved queries, EXPLAIN, export)
@@ -45,6 +46,7 @@ from noust.web.api.databases import (
     imports,
     links,
     metrics,
+    public,
     query,
     users,
 )
@@ -65,6 +67,7 @@ AREAS = (
     query.router,
     browse.router,
     metrics.router,
+    public.router,
 )
 
 router = APIRouter(route_class=NoustErrorRoute)

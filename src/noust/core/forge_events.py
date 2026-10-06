@@ -5,7 +5,8 @@
 What a code host told us, in one shape whichever host it was.
 
 GitHub (through this server's GitHub App or an application's own webhook),
-GitLab and Gitea describe a push and a pull request each in their own JSON.
+GitLab, Gitea and Bitbucket Cloud describe a push and a pull request each in
+their own JSON.
 The webhook endpoints translate those payloads into these records once, and
 everything after them - an update, a preview - reads only these.
 """
@@ -16,6 +17,7 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any
+from urllib.parse import urlsplit
 
 from noust.core.tags import tag_from_ref
 
@@ -26,6 +28,7 @@ class Forge(str, Enum):
     GITHUB = "github"
     GITLAB = "gitlab"
     GITEA = "gitea"
+    BITBUCKET = "bitbucket"
 
 
 class PullRequestAction(str, Enum):
@@ -218,18 +221,25 @@ def _section(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def parse_pull_request(provider: str, payload: dict[str, Any]) -> PullRequestEvent | None:
+def parse_pull_request(
+    provider: str, payload: dict[str, Any], event_key: str | None = None
+) -> PullRequestEvent | None:
     """
     Translate a pull (merge) request delivery into a :class:`PullRequestEvent`.
 
     GitHub and Gitea send ``pull_request`` payloads of the same shape; GitLab
-    sends ``merge_request`` with ``object_attributes``. A branch is from a
-    fork when the repository it lives in is not the one the request targets
-    (GitHub: a deleted fork has no head repository at all, and counts).
+    sends ``merge_request`` with ``object_attributes``; Bitbucket Cloud sends a
+    ``pullrequest`` and names what happened in a header, not in the body. A
+    branch is from a fork when the repository it lives in is not the one the
+    request targets (GitHub: a deleted fork has no head repository at all, and
+    counts).
 
     Args:
-        provider: ``github``, ``gitea`` or ``gitlab``.
+        provider: ``github``, ``gitea``, ``gitlab`` or ``bitbucket``.
         payload: The parsed body.
+        event_key: What the delivery says it is, for the forge that says it
+            outside the body: Bitbucket's ``X-Event-Key``
+            (``pullrequest:created``...).
 
     Returns:
         The event, or None for an action a preview does not act on (labels,
@@ -238,6 +248,8 @@ def parse_pull_request(provider: str, payload: dict[str, Any]) -> PullRequestEve
     """
     if provider == "gitlab":
         return _merge_request_event(payload)
+    if provider == "bitbucket":
+        return _bitbucket_pull_request(payload, event_key)
     forge = Forge.GITHUB if provider == "github" else Forge.GITEA
     action = _PR_ACTIONS.get(_text(payload.get("action")))
     pull = _section(payload.get("pull_request"))
@@ -335,6 +347,165 @@ def _merge_request_event(payload: dict[str, Any]) -> PullRequestEvent | None:
     )
 
 
+#: Bitbucket Cloud's pull request event keys a preview acts on. A merge
+#: (``fulfilled``) and a decline (``rejected``) both end the request.
+_BITBUCKET_PR_EVENTS = {
+    "pullrequest:created": PullRequestAction.OPENED,
+    "pullrequest:updated": PullRequestAction.UPDATED,
+    "pullrequest:fulfilled": PullRequestAction.CLOSED,
+    "pullrequest:rejected": PullRequestAction.CLOSED,
+}
+
+#: Where Bitbucket Cloud's repositories are cloned from when a payload does not
+#: say which host sent it.
+_BITBUCKET_HOST = "bitbucket.org"
+
+
+def _bitbucket_repository(repository: dict[str, Any]) -> tuple[str, str]:
+    """
+    Read the name and HTTPS clone URL of a Bitbucket repository object.
+
+    Args:
+        repository: A ``repository`` object of a delivery.
+
+    Returns:
+        ``(workspace/repo, clone URL)``, each empty when the payload lacks it.
+    """
+    full_name = _text(repository.get("full_name"))
+    html = _text(_section(_section(repository.get("links")).get("html")).get("href"))
+    host = urlsplit(html).hostname or _BITBUCKET_HOST
+    return full_name, (f"https://{host}/{full_name}.git" if full_name else "")
+
+
+def _bitbucket_login(account: dict[str, Any]) -> str:
+    """
+    Name a Bitbucket account the way a person recognises it.
+
+    Args:
+        account: An ``actor`` or ``author`` object.
+
+    Returns:
+        Its nickname, else its display name, else empty.
+    """
+    return _text(account.get("nickname")) or _text(account.get("display_name"))
+
+
+def _bitbucket_pull_request(
+    payload: dict[str, Any], event_key: str | None
+) -> PullRequestEvent | None:
+    """
+    Translate a Bitbucket Cloud ``pullrequest`` delivery.
+
+    ``pullrequest:updated`` is sent for a new title as well as for new commits;
+    what tells the two apart is the commit at the tip of the branch, which the
+    previews compare with the one they built.
+
+    Args:
+        payload: The parsed body.
+        event_key: The ``X-Event-Key`` header.
+
+    Returns:
+        The event, or None (see :func:`parse_pull_request`).
+    """
+    action = _BITBUCKET_PR_EVENTS.get(_text(event_key).lower())
+    pull = _section(payload.get("pullrequest"))
+    number = pull.get("id")
+    source = _section(pull.get("source"))
+    destination = _section(pull.get("destination"))
+    branch = _text(_section(source.get("branch")).get("name"))
+    if action is None or not isinstance(number, int) or isinstance(number, bool) or number < 1:
+        return None
+    if action is PullRequestAction.UPDATED and _text(pull.get("state")).upper() not in ("", "OPEN"):
+        return None
+    target_name, target_url = _bitbucket_repository(_section(destination.get("repository")))
+    if not target_name:
+        target_name, target_url = _bitbucket_repository(_section(payload.get("repository")))
+    if not target_name or not branch:
+        return None
+    source_name, source_url = _bitbucket_repository(_section(source.get("repository")))
+    # A request from a deleted fork has no source repository, and counts as one.
+    from_fork = not source_name or source_name.lower() != target_name.lower()
+    author = _bitbucket_login(_section(pull.get("author")))
+    sender = _bitbucket_login(_section(payload.get("actor"))) or author
+    return PullRequestEvent(
+        forge=Forge.BITBUCKET,
+        action=action,
+        repository=target_name,
+        clone_url=source_url or target_url,
+        number=number,
+        title=_text(pull.get("title")),
+        branch=branch,
+        base_branch=_text(_section(destination.get("branch")).get("name")),
+        head_sha=_text(_section(source.get("commit")).get("hash")),
+        from_fork=from_fork,
+        author=author or sender,
+        sender=sender,
+        bot=_is_bot(author, by_suffix=True) or _is_bot(sender, by_suffix=True),
+    )
+
+
+def _bitbucket_changes(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    """
+    List the ref changes of a Bitbucket ``repo:push`` delivery.
+
+    A deleted branch has no ``new``; a push can carry several changes (a
+    branch and a tag together).
+
+    Args:
+        payload: The parsed body.
+
+    Returns:
+        The ``new`` object of every change that created or moved a ref.
+    """
+    changes = _section(payload.get("push")).get("changes")
+    if not isinstance(changes, list):
+        return []
+    return [new for change in changes if (new := _section(_section(change).get("new")))]
+
+
+def bitbucket_pushed_branches(payload: dict[str, Any]) -> list[str]:
+    """
+    Name the branches a Bitbucket ``repo:push`` delivery moved.
+
+    Args:
+        payload: The parsed body.
+
+    Returns:
+        The branch names, in the order the delivery lists them; empty for a
+        push of tags only, a deleted branch, or a body that is not a push.
+    """
+    return [
+        name
+        for new in _bitbucket_changes(payload)
+        if _text(new.get("type")) in ("branch", "named_branch") and (name := _text(new.get("name")))
+    ]
+
+
+def _bitbucket_tag_event(payload: dict[str, Any]) -> TagEvent | None:
+    """
+    Translate the first tag a Bitbucket ``repo:push`` delivery created or moved.
+
+    Args:
+        payload: The parsed body.
+
+    Returns:
+        The event, or None when the push names no tag.
+    """
+    for new in _bitbucket_changes(payload):
+        if _text(new.get("type")) != "tag" or not _text(new.get("name")):
+            continue
+        name, clone_url = _bitbucket_repository(_section(payload.get("repository")))
+        return TagEvent(
+            forge=Forge.BITBUCKET,
+            tag=_text(new.get("name")),
+            source="push",
+            repository=name,
+            clone_url=clone_url,
+            sha=_text(_section(new.get("target")).get("hash")) or None,
+        )
+    return None
+
+
 #: Release actions that put a release in front of users: published, or a
 #: pre-release promoted. The rest (created, edited, deleted...) publish nothing.
 _RELEASE_ACTIONS = frozenset({"published", "released"})
@@ -350,7 +521,7 @@ def parse_tag_event(provider: str, kind: str, payload: dict[str, Any]) -> TagEve
     push too, and deploys nothing.
 
     Args:
-        provider: ``github``, ``gitea`` or ``gitlab``.
+        provider: ``github``, ``gitea``, ``gitlab`` or ``bitbucket``.
         kind: ``push`` or ``release``, as the delivery says it is.
         payload: The parsed body.
 
@@ -361,6 +532,9 @@ def parse_tag_event(provider: str, kind: str, payload: dict[str, Any]) -> TagEve
         ``skip`` set, so the delivery log can say that is why it was ignored.
     """
     forge = {"github": Forge.GITHUB, "gitea": Forge.GITEA, "gitlab": Forge.GITLAB}.get(provider)
+    if provider == "bitbucket":
+        # Bitbucket has no release event, and names a pushed tag in its changes.
+        return _bitbucket_tag_event(payload) if kind == "push" else None
     if forge is None:
         return None
     installation = _section(payload.get("installation")).get("id")

@@ -4,7 +4,7 @@
 """
 A public address for the console's webhooks, and for nothing else.
 
-GitHub (and GitLab, and Gitea) must reach ``/hooks/...`` to deliver pushes and
+GitHub (and GitLab, Gitea and Bitbucket) must reach ``/hooks/...`` to deliver pushes and
 pull requests, but the console itself should stay on loopback, reached through
 an SSH tunnel. ``noust web expose-hooks DOMAIN`` puts an nginx site of Noust's
 own on a dedicated name that forwards ``/hooks/`` to the console on

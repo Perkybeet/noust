@@ -217,6 +217,10 @@ class ProvisioningPlanResponse(BaseModel):
     Attributes:
         url: The connection string, password masked.
         database_exists: A database of that name is already on the engine.
+        version: The version asked for, when one was.
+        running_version: The version of the installed engine.
+        will_install: The engine is not installed, and creating the database
+            with ``install`` would install it in that version first.
     """
 
     engine: str
@@ -228,6 +232,59 @@ class ProvisioningPlanResponse(BaseModel):
     env_vars: list[str]
     url: str
     database_exists: bool
+    version: str | None = None
+    running_version: str | None = None
+    will_install: bool = False
+
+
+class ChoiceVersionResponse(BaseModel):
+    """
+    One version of an engine a database can be created on.
+
+    Attributes:
+        version: The version (a PostgreSQL major, a MariaDB release).
+        state: ``installed`` (it is the one that runs), ``installable`` (it can
+            be installed now) or ``unavailable`` (it cannot be had: another
+            version of the engine, or another flavour, is installed).
+        default: Whether it is what installs when no version is chosen.
+    """
+
+    version: str
+    state: str
+    default: bool = False
+
+
+class EngineChoiceResponse(BaseModel):
+    """
+    One engine a database can be created on, and its versions.
+
+    Attributes:
+        flavour: ``postgresql``, ``mysql``, ``mariadb``, ``redis``, ``valkey``
+            or ``mongodb``; what ``engine`` takes in ``POST
+            /api/apps/{domain}/databases`` besides the engine's own name.
+        engine: The manager that runs it.
+        display_name: How it is named to a person.
+        installed: This flavour is the one installed.
+        running_version: The version that runs, when installed.
+        installable: It can be installed now.
+        reason: Why not, or what is installed, as one sentence.
+        versions: The versions on offer, oldest first.
+    """
+
+    flavour: str
+    engine: str
+    display_name: str
+    installed: bool
+    running_version: str | None = None
+    installable: bool
+    reason: str | None = None
+    versions: list[ChoiceVersionResponse]
+
+
+class EngineChoicesResponse(BaseModel):
+    """The engines and versions a new database can be created on."""
+
+    choices: list[EngineChoiceResponse]
 
 
 @router.get("/databases", response_model=DatabaseListResponse)
@@ -370,11 +427,36 @@ def record_detected_link(
     return LinkResponse(**view.to_dict())
 
 
+@router.get("/provisioning/choices", response_model=EngineChoicesResponse)
+def provisioning_choices(
+    session: Annotated[dict, Depends(get_current_session)],
+) -> EngineChoicesResponse:
+    """
+    List the engines and versions a database can be created on.
+
+    For the new-database choice: each flavour says whether it is installed and
+    in which version, and each version whether it is the one that runs,
+    could be installed now, or cannot be had. Nothing is changed.
+
+    Args:
+        session: The authenticated session.
+
+    Returns:
+        One entry per flavour, in the install catalog's order.
+    """
+    return EngineChoicesResponse(
+        choices=[EngineChoiceResponse(**entry) for entry in service(session).engine_choices()]
+    )
+
+
 @router.get("/provisioning/plan", response_model=ProvisioningPlanResponse)
 def provisioning_plan(
     session: Annotated[dict, Depends(get_current_session)],
     domain: Annotated[str, Query(description="The application's domain")],
     engine: Annotated[str, Query(description="The engine")],
+    version: Annotated[
+        str | None, Query(max_length=16, description="The version the database is wanted on")
+    ] = None,
 ) -> ProvisioningPlanResponse:
     """
     Say what creating a database for an application would write.
@@ -391,7 +473,7 @@ def provisioning_plan(
     Returns:
         The plan.
     """
-    return ProvisioningPlanResponse(**service(session).plan_for_app(domain, engine))
+    return ProvisioningPlanResponse(**service(session).plan_for_app(domain, engine, version))
 
 
 @router.get("/databases/{engine}/{name}", response_model=DatabaseInfoResponse)

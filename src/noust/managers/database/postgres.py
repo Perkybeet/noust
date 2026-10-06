@@ -47,14 +47,16 @@ from typing import Any
 from noust.core.config import secure_write
 from noust.core.exceptions import (
     DatabaseBackupError,
+    DatabaseEngineError,
     DatabaseError,
     DatabaseExistsError,
     DatabaseNotFoundError,
     DatabaseQueryError,
     DatabaseUserError,
 )
-from noust.core.fs import FileSystem
+from noust.core.fs import FileSystem, is_rehearsal
 from noust.core.runner import CommandResult, CommandRunner, runuser_prefix
+from noust.managers.database import pg_hba
 from noust.managers.database.base import (
     DEFAULT_STRUCTURED_ROW_CAP,
     PROFILES,
@@ -79,6 +81,7 @@ from noust.managers.database.base import (
 from noust.managers.database.instances import storage_name
 from noust.managers.database.psql_script import check_plain_dump, strip_owners
 from noust.managers.database.registry import DatabaseRegistry
+from noust.managers.database.settings import read_config_file, write_config_file
 
 #: Privileges PostgreSQL accepts on a DATABASE object.
 DATABASE_PRIVILEGES = frozenset(
@@ -2514,6 +2517,110 @@ class PostgresManager(BaseDatabaseManager):
             "authentication). Put 'local all postgres peer' back at the top of pg_hba.conf "
             "and reload PostgreSQL."
         )
+
+    # ==================== Remote access ====================
+
+    def remote_tls_blocker(self) -> str | None:
+        """
+        Say why PostgreSQL cannot be made to refuse an account that does not use TLS.
+
+        Returns:
+            None when ``ssl`` is on, which Debian and Ubuntu ship with a
+            self-signed certificate; otherwise why not.
+        """
+        value = self._show("ssl")
+        if value == "on":
+            return None
+        if value is None:
+            return "PostgreSQL did not say whether TLS (ssl) is on"
+        return (
+            "PostgreSQL has ssl = off, so no client can use TLS here. Turn it on in "
+            "postgresql.conf (Debian and Ubuntu ship ssl = on with a self-signed certificate) "
+            "and restart it, or leave TLS optional on purpose"
+        )
+
+    def set_remote_tls(
+        self, username: str, database: str, required: bool, host: str = "localhost"
+    ) -> None:
+        """
+        Make ``pg_hba.conf`` refuse an account that does not use TLS, or stop doing so.
+
+        One marked block above every connection line, for that account on that
+        database (:mod:`noust.managers.database.pg_hba`). The file is checked by
+        PostgreSQL itself (``pg_hba_file_rules``) before it is reloaded, and
+        put back as it was when PostgreSQL finds an error in it.
+
+        Args:
+            username: The account.
+            database: The database it is for.
+            required: Require TLS (True) or lift the requirement (False).
+            host: Ignored; PostgreSQL restricts hosts in pg_hba.conf.
+
+        Raises:
+            DatabaseUserError: When the file cannot be read or written, or
+                PostgreSQL does not accept what was written (the file is back
+                as it was).
+        """
+        if is_rehearsal():
+            return
+        self.validate_user_name(username)
+        self.validate_database_name(database)
+        located = self._show("hba_file")
+        if not located:
+            raise DatabaseUserError(
+                "PostgreSQL did not say where its pg_hba.conf is",
+                details="Is the server running? 'noust db status postgresql' says.",
+            )
+        path = Path(located)
+        try:
+            before = read_config_file(path)
+            if before is None:
+                raise DatabaseUserError(f"{path} does not exist")
+            after = (
+                pg_hba.with_block(before, database, username)
+                if required
+                else pg_hba.without_block(before, username)
+            )
+            if after == before:
+                return
+            write_config_file(self.fs, path, after, preserve=True)
+        except DatabaseEngineError as exc:
+            raise DatabaseUserError(exc.message, details=exc.details) from exc
+        except (OSError, ValueError) as exc:
+            raise DatabaseUserError(f"Could not change {path}", details=str(exc)) from exc
+        ok, output = self._execute_sql(
+            "SELECT count(*) FROM pg_hba_file_rules WHERE error IS NOT NULL;"
+        )
+        if not ok or output.strip() != "0":
+            # The server read the file and never loaded it: nothing to reload.
+            self._put_back_hba(path, before, reload=False)
+            raise DatabaseUserError(
+                "PostgreSQL did not accept the pg_hba.conf Noust wrote, so it was put back",
+                details=output.strip(),
+            )
+        ok, output = self._execute_sql("SELECT pg_reload_conf();")
+        if not ok:
+            self._put_back_hba(path, before, reload=True)
+            raise DatabaseUserError(
+                "PostgreSQL did not reload pg_hba.conf, so it was put back", details=output.strip()
+            )
+
+    def _put_back_hba(self, path: Path, text: str, *, reload: bool) -> None:
+        """
+        Put ``pg_hba.conf`` back as it was, and tell the server so when it had read it.
+
+        Args:
+            path: The file.
+            text: What it held.
+            reload: Ask the server to read it again.
+        """
+        try:
+            write_config_file(self.fs, path, text, preserve=True)
+        except DatabaseEngineError as exc:
+            self.logger.warning(f"Could not put {path} back: {exc}. Restore it by hand.")
+            return
+        if reload:
+            self._execute_sql("SELECT pg_reload_conf();")
 
     def listen_addresses(self) -> ListenAddress | None:
         """

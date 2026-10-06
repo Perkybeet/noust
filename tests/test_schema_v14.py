@@ -79,6 +79,10 @@ def unfilled_areas(monkeypatch):
 
 
 def _declare(monkeypatch, area: str = "TEAMS") -> None:
+    # Only the probe is under test: the lanes' own fragments are not.
+    for other in AREAS:
+        monkeypatch.setattr(schema_v14, f"{other}_SQL", "")
+        monkeypatch.setattr(schema_v14, f"{other}_COLUMNS", [])
     monkeypatch.setattr(
         schema_v14,
         f"{area}_SQL",
@@ -109,7 +113,11 @@ def test_the_helpers_gather_every_area_once():
     ]
 
 
-def test_empty_fragments_leave_a_store_complete_and_change_nothing(cursor):
+def test_empty_fragments_leave_a_store_complete_and_change_nothing(cursor, monkeypatch):
+    # The lanes fill their fragments; this is about what an empty one does.
+    for area in AREAS:
+        monkeypatch.setattr(schema_v14, f"{area}_SQL", "")
+        monkeypatch.setattr(schema_v14, f"{area}_COLUMNS", [])
     assert schema_v14.incomplete(cursor) is False
 
     schema_v14.apply_v14(cursor, _run_script)

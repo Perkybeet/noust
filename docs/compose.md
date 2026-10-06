@@ -642,7 +642,7 @@ noust update shop.example.com --tag v1.4.0     # one tag, now
   for it is ignored and recorded.
 - **The webhook** of an application that follows tags deploys what the forge announces: a
   **published release** (GitHub or Gitea `release` events with the action `published` or
-  `released`, not a draft and not a pre-release) and a **tag push** (GitHub, Gitea and GitLab).
+  `released`, not a draft and not a pre-release) and a **tag push** (GitHub, Gitea, GitLab and Bitbucket Cloud).
   Each queues an update to exactly that tag, resolved in the repository. A push to a branch
   deploys nothing. Enable the `release` event at the forge besides the push. Ignored deliveries
   appear in `noust app webhook deliveries DOMAIN` and in the console with the reason, as

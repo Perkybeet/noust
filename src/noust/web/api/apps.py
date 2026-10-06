@@ -70,7 +70,7 @@ from noust.deployers.php_fpm import control_pool
 from noust.deployers.registry import DeployerRegistry, available_types
 from noust.deployers.releases import is_release_id
 from noust.managers.backup_manager import RollbackManager
-from noust.managers.database.service import OWN_DATABASE_TYPES
+from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.recipes import RecipeError, get_recipe
 from noust.recipes.deploy import refuse_conflicts
@@ -272,12 +272,20 @@ class NewAppDatabaseRequest(BaseModel):
         env_var: The variable; ``DATABASE_URL``, or ``REDIS_URL`` for Redis.
         extra_vars: Also write ``DB_HOST``, ``DB_PORT``, ``DB_NAME``,
             ``DB_USER`` and ``DB_PASSWORD``.
+        version: The version of the engine the database is for, such as ``17``.
+            Checked when the request arrives: one other than the version that
+            runs is refused with what runs, and an engine that is not
+            installed is refused with how to install it (``GET
+            /api/databases/provisioning/choices``) before anything is queued.
     """
 
     engine: str = Field(..., description="Database engine")
     name: str | None = Field(default=None, description="Database name")
     env_var: str | None = Field(default=None, description="Variable to write")
     extra_vars: bool = Field(default=False, description="Also write the DB_* variables")
+    version: str | None = Field(
+        default=None, max_length=16, description="Version of the engine, such as 17"
+    )
 
 
 class CreateAppRequest(BaseModel):
@@ -965,6 +973,26 @@ def _check_initial_health(path: str | None, expect: str | None, timeout: int | N
             raise
 
 
+def _database_for_job(body: CreateAppRequest) -> dict[str, Any]:
+    """
+    Describe the new application's database the way the deploy job takes it.
+
+    The version was checked when the request arrived; the job only needs to be
+    told what it did not know before 3.4, so a request that names none is the
+    job it always was.
+
+    Args:
+        body: The request, which has a database.
+
+    Returns:
+        The database as a plain mapping, without an unset version.
+    """
+    described = dump_model(body.database)  # type: ignore[arg-type]
+    if described.get("version") is None:
+        described.pop("version", None)
+    return described
+
+
 def _new_container_settings(
     domain: str, request: ContainerSettingsRequest | None, source: str | None
 ) -> dict[str, Any]:
@@ -1084,6 +1112,10 @@ def create_app(
             "/api/apps/{domain}/databases.",
             field="database",
         )
+    if body.database is not None and body.database.version is not None:
+        # Before anything is queued: a version this server does not run is a
+        # refusal the wizard shows next to the field, not a failed job.
+        DatabaseService().resolve_engine_choice(body.database.engine, version=body.database.version)
 
     # A name is taken whoever owns it: a domain is one per server.
     if scoped_store().domain_is_taken(domain):
@@ -1167,7 +1199,7 @@ def create_app(
             "health_path": body.health_path,
             "health_expect": body.health_expect,
             "health_timeout": body.health_timeout,
-            "database": dump_model(body.database) if body.database is not None else None,
+            "database": _database_for_job(body) if body.database is not None else None,
         },
         metadata={
             "domain": domain,

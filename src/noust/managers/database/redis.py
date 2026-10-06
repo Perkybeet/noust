@@ -1329,6 +1329,18 @@ class RedisManager(BaseDatabaseManager):
             return self._port
         return self.DEFAULT_PORT
 
+    def remote_access_blockers(self) -> list[str]:
+        """
+        Say what makes Redis unsafe to reach from the network as it is.
+
+        Redis answers a client that has no password; behind a public port that
+        is an open door, so it is what stands in the way.
+
+        Returns:
+            What :meth:`warnings` says about it, which is exactly that.
+        """
+        return self.warnings()
+
     def listen_addresses(self) -> ListenAddress | None:
         """
         Ask the server for its ``bind`` setting.
