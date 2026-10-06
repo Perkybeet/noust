@@ -376,6 +376,12 @@ jobs:
       - name: Check the OpenAPI export is current
         run: python scripts/export_openapi.py --check
 
+      # What a release promised its clients (docs/api.md, "The promise"): an
+      # operation that disappears or starts asking for more fails here, and is
+      # accepted on purpose in the same change as the code.
+      - name: Check the API keeps its compatibility promise
+        run: python scripts/api_compat.py
+
       - name: Check the man page is current
         run: python scripts/generate_man.py --check
 

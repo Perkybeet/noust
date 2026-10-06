@@ -122,6 +122,12 @@ STATE_GLYPHS: dict[State, str] = {
 #: phone should ring for.
 LOUD_STATES: frozenset[State] = frozenset({State.WARNING, State.FAILED})
 
+#: Which states are critical: something that was meant to work did not. The
+#: only ones a channel may wake a named person for (Discord's optional mention);
+#: a warning is loud but waits for the morning. Always a subset of the loud
+#: states, so a mention never sits on a message sent silently.
+CRITICAL_STATES: frozenset[State] = frozenset({State.FAILED})
+
 
 @dataclass(frozen=True)
 class StateColors:
@@ -380,6 +386,11 @@ class Notification:
     def loud(self) -> bool:
         """Whether a phone should ring for it."""
         return self.state in LOUD_STATES
+
+    @property
+    def critical(self) -> bool:
+        """Whether it is worth waking a named person for."""
+        return self.state in CRITICAL_STATES
 
     @property
     def console_link(self) -> Link | None:

@@ -28,9 +28,11 @@ from fastapi import routing as fastapi_routing
 from fastapi.dependencies.models import Dependant
 from fastapi.routing import APIRoute
 
+from noust import __version__
 from noust.web.api.deps import NoustErrorRoute, require_elevated
 from noust.web.auth import require_auth
 from noust.web.permissions.enforce import annotate_permissions
+from noust.web.versioning import API_VERSION, VERSIONED_PREFIX
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -160,9 +162,35 @@ def annotate_approval(schema: dict[str, Any], routes: list[Any]) -> dict[str, An
     return schema
 
 
+def annotate_version(schema: dict[str, Any]) -> dict[str, Any]:
+    """
+    Say which API the document describes and which release serves it.
+
+    ``info.version`` is the API's version (:data:`~noust.web.versioning.API_VERSION`),
+    the one a client's compatibility promise is made against. The product's
+    version, which moves with every release whether or not the API did, is in
+    ``info.x-noust-version``; ``scripts/export_openapi.py`` replaces it with a
+    placeholder so the committed file does not change on a release bump.
+    ``info.x-noust-api-prefix`` is the address every path below also answers
+    at: the document lists the canonical ``/api/...`` paths once, and a client
+    that wants the versioned address puts this prefix in their place.
+
+    Args:
+        schema: The OpenAPI document. Modified in place.
+
+    Returns:
+        The same document.
+    """
+    info = schema.setdefault("info", {})
+    info["version"] = API_VERSION
+    info["x-noust-version"] = __version__
+    info["x-noust-api-prefix"] = VERSIONED_PREFIX
+    return schema
+
+
 def install_openapi(app: FastAPI) -> None:
     """
-    Make ``app.openapi()`` carry the elevation, permission and approval extensions.
+    Make ``app.openapi()`` carry the version, elevation, permission and approval extensions.
 
     Wrapped rather than rebuilt so the document stays FastAPI's own, cached
     exactly as FastAPI caches it, whoever asks: this route, the export
@@ -178,9 +206,11 @@ def install_openapi(app: FastAPI) -> None:
         Returns:
             The application's OpenAPI document, annotated.
         """
-        return annotate_approval(
-            annotate_permissions(annotate_elevation(build(), app.routes), app.routes),
-            app.routes,
+        return annotate_version(
+            annotate_approval(
+                annotate_permissions(annotate_elevation(build(), app.routes), app.routes),
+                app.routes,
+            )
         )
 
     # FastAPI documents overriding app.openapi as the way to customise the
