@@ -573,6 +573,9 @@ class JobManager:
         self._shutdown = False
         self._log_handles: dict[str, TextIO] = {}
         self._log_paths: dict[str, str] = {}
+        # How many of a job's lines are in its file already: a notification that carries no
+        # new line (progress, a result, its metadata) must not write the last one again.
+        self._log_written: dict[str, int] = {}
         self._initialized = True
 
         self._fail_interrupted_jobs()
@@ -1579,9 +1582,7 @@ class JobManager:
             job: The job that changed.
         """
         with self._persist_lock:
-            if job.logs:
-                latest = job.logs[-1]
-                self._write_log_line(job.id, latest.message, latest.level)
+            self._write_new_log_lines(job)
 
             domain = job.metadata.get("domain")
             try:
@@ -1669,6 +1670,23 @@ class JobManager:
         except _RECORDING_ERRORS as exc:
             logger.warning("Could not open the log file for job %s: %s", job_id, exc)
 
+    def _write_new_log_lines(self, job: Job) -> None:
+        """
+        Append to the job's log file the lines it has not got yet, once each.
+
+        What a command printed is the log of a one-off command, so a line written
+        twice would be output the command never produced.
+
+        Args:
+            job: The job that changed.
+        """
+        if job.id not in self._log_handles:
+            return
+        written = self._log_written.get(job.id, 0)
+        for entry in job.logs[written:]:
+            self._write_log_line(job.id, entry.message, entry.level)
+        self._log_written[job.id] = len(job.logs)
+
     def _write_log_line(self, job_id: str, message: str, level: str) -> None:
         """
         Append one timestamped line to the job's captured log.
@@ -1697,6 +1715,7 @@ class JobManager:
         Args:
             job_id: Identifier of the job whose log is being closed.
         """
+        self._log_written.pop(job_id, None)
         handle = self._log_handles.pop(job_id, None)
         if handle is None:
             return
