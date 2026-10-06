@@ -279,6 +279,10 @@ class Account:
     #: Passkeys registered (:mod:`noust.core.accounts.passkeys`); last, with
     #: a default, so a record built without it still reads as before.
     passkeys: int = 0
+    #: People at outside identity providers linked to the account
+    #: (:mod:`noust.core.accounts.oidc`); an account with one and no password
+    #: signs in only through its provider.
+    identities: int = 0
 
     def is_locked(self, now: float | None = None) -> bool:
         """
@@ -351,6 +355,7 @@ class Account:
             "mfa_enabled": self.has_mfa,
             "totp_enabled": self.totp_enabled,
             "passkeys": self.passkeys,
+            "sso_identities": self.identities,
             "backup_codes_remaining": self.backup_codes_remaining,
             "last_login_at": self.last_login_at,
             "last_login_ip": self.last_login_ip,

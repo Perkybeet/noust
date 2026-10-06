@@ -100,6 +100,7 @@ EVENTS: dict[str, EventSpec] = {
             "auth.ws_ticket": "A single-use WebSocket ticket was issued.",
             "auth.passkey.login": "Sign-in with a passkey.",
             "auth.passkey.rename": "A passkey was renamed.",
+            "auth.oidc.login": "Sign-in through an identity provider, successful or not.",
             "ws.connect": "A WebSocket handshake, accepted or refused.",
         },
     ),
@@ -115,6 +116,9 @@ EVENTS: dict[str, EventSpec] = {
             "auth.passkey.register": "A passkey was registered.",
             "auth.passkey.remove": "A passkey was removed.",
             "auth.passkey.reset": "Every passkey of an account or of the master token was removed.",
+            "auth.oidc.link": "A person at an identity provider was linked to an account.",
+            "auth.oidc.unlink": "A person at an identity provider was unlinked from an account.",
+            "auth.oidc.provision": "An account was created or activated by its first single sign-in.",
         },
     ),
     **_events(
@@ -196,6 +200,7 @@ EVENTS: dict[str, EventSpec] = {
             "central.lock": "A central's secrets were locked.",
             "central.seal": "A central's secrets were sealed.",
             "central.unseal": "A central's secrets were unsealed.",
+            "auth.oidc.config": "An identity provider was configured, changed or removed.",
         },
     ),
     # Changes to applications and to the machine.

@@ -87,7 +87,11 @@ _COLUMNS = (
     "created_by, updated_at, disabled_at, disabled_reason, "
     # Passkeys count as a second factor (noust.core.accounts.passkeys).
     "(SELECT COUNT(*) FROM account_passkeys WHERE account_passkeys.account_id = accounts.id) "
-    "AS passkey_count"
+    "AS passkey_count, "
+    # Single sign-in identities (noust.core.accounts.oidc): an account that has
+    # one and no password is not an invitation waiting to be accepted.
+    "(SELECT COUNT(*) FROM account_identities "
+    "WHERE account_identities.account_id = accounts.id) AS identity_count"
 )
 
 
@@ -160,6 +164,7 @@ def _account(row: sqlite3.Row) -> Account:
         disabled_at=row["disabled_at"],
         disabled_reason=row["disabled_reason"],
         passkeys=int(row["passkey_count"] or 0),
+        identities=int(row["identity_count"] or 0),
     )
 
 
@@ -494,6 +499,7 @@ class AccountManager:
         person_ref: str | None,
         created_by: str | None,
         join_default_team: bool = True,
+        membership: tuple[int, str] | None = None,
     ) -> Account:
         """
         Write a new account row after the separation-of-duties check.
@@ -508,6 +514,8 @@ class AccountManager:
             created_by: Who is creating it.
             join_default_team: Whether the account joins the default team,
                 in the same transaction that creates it.
+            membership: A team id and the team role to join it with, in the
+                same transaction; for an account made for one team only.
 
         Returns:
             The account.
@@ -539,6 +547,12 @@ class AccountManager:
                 account_id = int(cursor.lastrowid or 0)
                 if join_default_team:
                     enrol_in_default(cursor, account_id, role)
+                if membership is not None:
+                    cursor.execute(
+                        "INSERT INTO team_members (team_id, account_id, role, created_at, "
+                        "created_by) VALUES (?, ?, ?, ?, ?)",
+                        (membership[0], account_id, membership[1], now, created_by),
+                    )
         except sqlite3.IntegrityError as exc:
             raise AccountError(
                 f"An account named {username!r} already exists",
@@ -796,6 +810,114 @@ class AccountManager:
             )
         return self.require(str(row["username"])), shown
 
+    # ------------------------------------------------- single sign-in (SSO)
+
+    def find_by_person(self, person_ref: str) -> list[Account]:
+        """
+        Find the accounts of one person, in any state.
+
+        Args:
+            person_ref: The person's e-mail (or other reference), in any case.
+
+        Returns:
+            Their accounts, by username; empty when the reference is not valid.
+        """
+        try:
+            ref = clean_person_ref(person_ref)
+        except ValidationError:
+            return []
+        if ref is None:
+            return []
+        rows = self._rows(
+            f"SELECT {_COLUMNS} FROM accounts WHERE person_ref = ? ORDER BY username",  # noqa: S608 - fixed columns
+            (ref,),
+        )
+        return [_account(row) for row in rows]
+
+    def create_external(
+        self,
+        username: str,
+        role: str,
+        *,
+        display_name: str | None = None,
+        person_ref: str | None = None,
+        created_by: str | None = None,
+        team: tuple[int, str] | None = None,
+    ) -> Account:
+        """
+        Create an active account that signs in through an identity provider.
+
+        It has no password and so cannot sign in with one; the provider is its
+        first factor, and its second factor is enrolled at its first sign-in
+        like everybody's. Whoever calls this has already decided that this
+        person may have an account (:mod:`noust.core.accounts.oidc`).
+
+        Args:
+            username: Sign-in name, validated here.
+            role: One of :data:`noust.core.accounts.model.ROLES`.
+            display_name: How the console greets them.
+            person_ref: Who the account belongs to, for separation of duties.
+            created_by: Who or what creates it, for the record.
+            team: A team id and team role: the account joins that team only,
+                instead of the default one.
+
+        Returns:
+            The account.
+
+        Raises:
+            ValidationError: When a field is refused.
+            AccountError: When the name is taken or the role is incompatible
+                with another account of the same person.
+        """
+        return self._insert(
+            validate_username(username),
+            validate_role(role),
+            status=STATUS_ACTIVE,
+            password_hash=None,
+            display_name=clean_display_name(display_name),
+            person_ref=clean_person_ref(person_ref),
+            created_by=created_by,
+            join_default_team=team is None,
+            membership=team,
+        )
+
+    def activate_external(self, account_id: int) -> Account:
+        """
+        Make an invited account active because its person signed in at their provider.
+
+        The invitation is used up: a code issued for the same person stops
+        working, so the account has one way in, not two.
+
+        Args:
+            account_id: The invited account.
+
+        Returns:
+            The account, active.
+
+        Raises:
+            AccountNotFoundError: When there is no such account.
+            AccountError: When it is not waiting for an invitation.
+        """
+        row = self._row("id = ?", (int(account_id),))
+        if row is None:
+            raise AccountNotFoundError(f"No account with id {account_id}")
+        if row["status"] != STATUS_INVITED:
+            raise AccountError(
+                f"The account {row['username']!r} is not waiting for an invitation",
+                details="Only an invited account is activated by its first single sign-in.",
+            )
+        now = self.now()
+        with self._write() as cursor:
+            cursor.execute(
+                "UPDATE accounts SET status = ?, updated_at = ? WHERE id = ?",
+                (STATUS_ACTIVE, now, int(account_id)),
+            )
+            cursor.execute(
+                "UPDATE account_invitations SET used_at = ? WHERE account_id = ? AND used_at IS NULL",
+                (now, int(account_id)),
+            )
+        return self.require_id(int(account_id))
+
     def set_role(self, username: str, role: str) -> Account:
         """
         Change an account's role.
@@ -903,7 +1025,9 @@ class AccountManager:
         self._check_separation(row["person_ref"], str(row["role"]), exclude_id=int(row["id"]))
         self._update(
             int(row["id"]),
-            status=STATUS_ACTIVE if row["password_hash"] else STATUS_INVITED,
+            status=(
+                STATUS_ACTIVE if row["password_hash"] or row["identity_count"] else STATUS_INVITED
+            ),
             disabled_at=None,
             disabled_reason=None,
             consecutive_failures=0,

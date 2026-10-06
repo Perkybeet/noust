@@ -20,6 +20,7 @@ AREAS = (
     "BACKUPS",
     "ACCESS",
     "NOTIFY",
+    "SSO",
 )
 
 
