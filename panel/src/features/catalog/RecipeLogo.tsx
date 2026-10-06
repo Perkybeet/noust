@@ -18,11 +18,12 @@ export interface RecipeLogoProps {
   logo: string | null | undefined;
   /** The recipe's title, for the monogram. */
   title: string;
-  size?: "md" | "lg";
+  size?: "sm" | "md" | "lg";
   className?: string;
 }
 
-const SIZES = { md: "size-10", lg: "size-16" } as const;
+const SIZES = { sm: "size-6", md: "size-10", lg: "size-16" } as const;
+const PIXELS = { sm: 24, md: 40, lg: 64 } as const;
 
 /**
  * A recipe's logo, as the image the server serves: an SVG held to a closed list of elements, so
@@ -41,7 +42,7 @@ export function RecipeLogo({ logo, title, size = "md", className }: RecipeLogoPr
       <span
         aria-hidden="true"
         translate="no"
-        className={cx(box, "flex items-center justify-center border border-border bg-bg-sunken text-13 font-medium text-fg-muted", size === "lg" && "text-18")}
+        className={cx(box, "flex items-center justify-center border border-border bg-bg-sunken font-medium text-fg-muted", size === "sm" ? "text-12" : size === "lg" ? "text-18" : "text-13")}
       >
         {monogram(title)}
       </span>
@@ -51,8 +52,8 @@ export function RecipeLogo({ logo, title, size = "md", className }: RecipeLogoPr
     <img
       src={src}
       alt=""
-      width={size === "lg" ? 64 : 40}
-      height={size === "lg" ? 64 : 40}
+      width={PIXELS[size]}
+      height={PIXELS[size]}
       loading="lazy"
       decoding="async"
       onError={() => setFailedFor(src)}

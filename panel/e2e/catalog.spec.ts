@@ -312,8 +312,9 @@ withCatalogApps("an image's registry account is kept without its password coming
 });
 
 withCatalogApps("a Compose stack and a container have no build commands to set, and the navigation does not offer them", async ({ page, consoleServer }) => {
+  await signIn(page, consoleServer, "/apps/vault.example.net/settings/build");
   for (const domain of ["vault.example.net", "crate.example.net"]) {
-    await signIn(page, consoleServer, `/apps/${domain}/settings/build`);
+    await page.goto(`/apps/${domain}/settings/build`);
     await expect(page.getByRole("heading", { level: 2, name: "Build commands" })).toBeVisible();
     await expect(page.getByText(/is built by its own configuration, so it has no build commands here/)).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Application settings" }).first().getByRole("link", { name: "Build commands" })).toHaveCount(0);

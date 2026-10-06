@@ -101,7 +101,7 @@ export function InstalledRecipesPage() {
         const recipe = recipes.get(row.recipe);
         return (
           <span className="flex min-w-0 items-center gap-2">
-            <RecipeLogo logo={recipe?.logo} title={recipe?.title ?? row.recipe} className="size-6 text-12" />
+            <RecipeLogo logo={recipe?.logo} title={recipe?.title ?? row.recipe} size="sm" />
             <span translate="no" className="min-w-0 truncate">
               {recipe?.title ?? row.recipe}
             </span>
