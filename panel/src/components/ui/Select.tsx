@@ -28,6 +28,8 @@ export interface SelectProps<V extends string = string> {
   disabled?: boolean;
   size?: "sm" | "md";
   mono?: boolean;
+  /** For a value of a few characters (a page size): no 10rem minimum, so the control is as wide as it needs. */
+  compact?: boolean;
   className?: string;
 }
 
@@ -44,6 +46,7 @@ export function Select<V extends string = string>({
   disabled = false,
   size = "md",
   mono = false,
+  compact = false,
   className,
 }: SelectProps<V>) {
   const t = useT();
@@ -69,7 +72,8 @@ export function Select<V extends string = string>({
       <BaseSelect.Trigger
         {...(ariaLabel !== undefined ? { "aria-label": ariaLabel } : {})}
         className={cx(
-          "flex min-w-40 cursor-pointer items-center justify-between gap-2 pr-2 pl-2.5 text-left text-13 select-none",
+          "flex cursor-pointer items-center justify-between gap-2 pr-2 pl-2.5 text-left text-13 select-none",
+          compact ? "min-w-16" : "min-w-40",
           CONTROL_FRAME,
           "focus-visible:border-focus focus-visible:outline-2 focus-visible:-outline-offset-1 focus-visible:outline-focus",
           "data-disabled:cursor-not-allowed data-disabled:bg-bg-sunken data-disabled:opacity-60",

@@ -124,12 +124,14 @@ describe("the fleet's views", () => {
     fakeBackend({ ...fleetRoutes(), "GET /api/fleet/apps": () => json(200, { ...APPS_VIEW, items: many }) });
     const { user } = renderConsole("/fleet/apps");
     const table = await rows("Applications on every server");
-    expect(await within(table).findByText("app24.example.com")).toBeInTheDocument();
-    expect(within(table).queryByText("app25.example.com")).not.toBeInTheDocument();
-    expect(screen.getByText("Showing 25 of 30")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Show 5 more" }));
+    // The kit's paging, the same as every other list: 20 to a page until the operator says otherwise.
+    expect(await within(table).findByText("app19.example.com")).toBeInTheDocument();
+    expect(within(table).queryByText("app20.example.com")).not.toBeInTheDocument();
+    expect(screen.getByText("Showing 1–20 of 30")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Next page" }));
     expect(await within(table).findByText("app29.example.com")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Show \d+ more$/ })).not.toBeInTheDocument();
+    expect(screen.getByText("Showing 21–30 of 30")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled();
   });
 
   it("lists certificates soonest first, backups gaps first, updates and activity, with no violations", { timeout: 40_000 }, async () => {
@@ -144,7 +146,7 @@ describe("the fleet's views", () => {
     expect(screen.getByText(/1 without a backup/)).toBeInTheDocument();
 
     await act(() => router.navigate({ to: "/fleet/updates" }));
-    const updates = await rows("Updates of every server");
+    const updates = await rows("Noust and system updates of every server");
     expect(within(await rowOf(updates, "web-2")).getByText("3 for security")).toBeInTheDocument();
     expect(within(await rowOf(updates, "db-1")).getByText("Update available")).toBeInTheDocument();
     expect(within(await rowOf(updates, "old-1")).getByText("Package index behind")).toBeInTheDocument();

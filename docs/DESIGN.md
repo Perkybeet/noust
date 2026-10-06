@@ -84,7 +84,7 @@ exist. The utility name is the token's with `color-` dropped (`--text-muted` is 
 | `--surface` | `#ffffff` / `#171717` | Cards, tables |
 | `--surface-raised` | `#ffffff` / `#1f1f1f` | Everything that floats: menus, popovers, dialogs, drawers, toasts; info notices |
 | `--surface-hover` | `#f2f2f2` / `#222222` | Hover on a row or a control |
-| `--surface-active` | `#ebebeb` / `#2a2a2a` | Pressed; the current navigation item |
+| `--surface-active` | `#ebebeb` / `#2a2a2a` | Pressed; the current navigation item's fill (with its bar, below) |
 | `--border` | `#e3e3e3` / `#2a2a2a` | Hairlines that separate content |
 | `--border-strong` | `#898989` / `#6e6e6e` | The boundary of a control (3:1) |
 | `--text` | `#161616` / `#ededed` | Content |
@@ -141,6 +141,13 @@ Rules:
   state word take the state colour.
 - **C-9** Work in progress is amber: the spinner, the deploying and queued glyphs, a progress bar.
 - **C-10** The hull violet of the logo (`#7b61ff`) is the brand, not a UI colour.
+- **C-11** The current navigation item is told by more than its fill. `--surface-active` is
+  1.1 to 1.3:1 against the ground, which is not a way to tell where you are (WCAG 1.4.11, and
+  the complaint Coolify's users made of their selected item), so the item also has a 2px bar at
+  its start drawn in `--text`: achromatic, 3:1 or more against the ground, a hovered item and the
+  active fill in both themes (`tokens.test.ts`), and a shape as well as a colour. The bar is in
+  the DOM only on the current item (`data-nav-indicator`), so a test and a screen reader's
+  `aria-current` agree on it.
 
 ### 2.2 Data and charts
 
@@ -346,6 +353,13 @@ Rules common to all:
 
 - **One primary action per view**, the last of the header's actions (or the save bar's Save,
   while there are changes). Never in a section, never `size="sm"` for a page's primary.
+- **The daily verbs are on the surface.** What an operator presses every day on a resource is
+  a secondary action of its header, never behind `More actions` (Coolify's "Actions" dropdown
+  is what its users protested most): an application's Restart, Stop or Start (by its state) and
+  Roll back beside its primary, Update. `More actions` holds what is rare (Diagnose, Delete).
+  Below 640px those verbs stay on screen as icon buttons that keep their names; the header
+  wraps rather than hides them. A verb the resource cannot do is not drawn (a static site has no
+  service to restart).
 - **The header order**: breadcrumbs, the title with its state, one line of facts, one sentence
   of description; at the right the secondary actions, the primary, then `More actions` (an
   `IconButton`, never a text button "Actions").
@@ -411,7 +425,7 @@ For: an application, a database, a service, a site, a fleet node, a deployment.
 
 ```
 Applications >
-shop.example.net  * Running  Next.js . :3001 . shop.example.net ->     [Restart] [Update] [...]
+shop.example.net  * Running  Next.js . :3001 . shop.example.net ->  [Restart] [Stop] [Roll back] [Update] [...]
 +--------------------------------------------------------------------------------------------+
 | x The service keeps failing to start. systemd gave up after 5 restarts.       [Diagnose]    |  <- banner, every tab
 +--------------------------------------------------------------------------------------------+
@@ -558,6 +572,22 @@ Page (from 1024px):                          Dialog (lg, 720px):
   notice, announced) and moves focus to it (`onMissing`) instead of moving on. A disabled button
   does not say why.
 - A step fits in about one screen; its title is an `h2`.
+- **A step with nothing to ask is passed over** (New application, checklist M-12): Continue and
+  Back skip it, the stepper still lists it, done, and opens it on request, and the last step says
+  what was passed over. What decides is in `stepAsks` (`features/new-app/wizard.ts`), pure and
+  tested: configuration asks when the type was not detected (or more than one was), when
+  another platform proposes settings, when this server cannot deploy it as it is, or when
+  something needs a fix; variables ask when one is required and has no value; a database asks
+  when the project names one. Nothing is passed over on a guess: before the inspection arrives
+  every step asks. The server step on a fleet is passed over when the one server that can take
+  it is the one on screen. The budget, counted in clicks from the Applications list and
+  measured by `e2e/click-budget.spec.ts`: a public repository to its first build in 4 (New
+  application, Inspect, Continue, Deploy), a recipe in 3 (From a recipe, its card, Deploy).
+- **A recipe is one step with its own Deploy** (`setup`: where it answers and the variables it
+  cannot run without), then the job followed on the last step. What the recipe cannot run
+  without is in front and blocks Deploy, said in a sentence that leads to the field; everything
+  it brings with it is folded. A button that only opens a page is never called Deploy: it says
+  where it starts ("From a recipe").
 
 ### T6 File editor: `FileEditorPage`
 
@@ -703,10 +733,19 @@ state is the URL) by default; `Tabs` only where a URL makes no sense. Eight tabs
 
 **`DataTable`** (`mobile` `"scroll" | "cards"`, column `card` `"title" | "status" | "meta" |
 "control" | "hidden"`, `density`, `layout` `"auto" | "fixed"`, `rowActions`, `onRowActivate`,
-`skeletonRows`). Rows of like things. Lists of a T1 page use `mobile="cards"`; a selection
+`skeletonRows`, `pagination`). Rows of like things. Lists of a T1 page use `mobile="cards"`; a selection
 checkbox is `card: "control"` (its own slot, never on the meta line), and an empty meta value
 is left out of the card rather than drawn as a dash. `layout="fixed"` for values with no
-natural length (an audit event): the columns keep their widths and cells truncate. See 6.8.
+natural length (an audit event): the columns keep their widths and cells truncate.
+`pagination="apps"` names the list and turns on paging for it: see **`TablePagination`** and 6.8.
+
+**`TablePagination`** (`total`, `page`, `pageSize`, `onPageChange`, `onPageSizeChange`), with
+`usePageSize(list)` and `pageWindow`. Under a list of more than 20 rows: "Showing 21-40 of
+57", how many to a page (20, 50, 100 or all) in a compact `Select`, and previous and next.
+`DataTable` draws it itself when it is given a `pagination` id; the size is the operator's,
+remembered per list in `localStorage` (`noust.pageSize.<list>`), so applications and
+databases are chosen apart and every table of one list agrees. Not for a list the server pages
+(Activity's "Load more", the audit trail's keyset): those say how many are loaded instead.
 
 **`EmptyCell`** (`reason`). A table cell with nothing in it: an en dash on screen and the reason
 for screen readers. Never a bare "-".
@@ -950,7 +989,12 @@ drawer.
 - Density per D-2; truncation is a last resort, with the full value in a tooltip, and system
   values are truncated in mono.
 - Headers are 12px, 500, `text-muted`, sortable with `aria-sort`.
-- Pagination at about 20 rows or "Load more"; virtualise only beyond 100.
+- Paging is the operator's: 20 rows to a page to start with, 50, 100 or all on request, kept
+  per list, with "Showing X-Y of Z" and a page-size control that is always where the rows are
+  (`DataTable pagination`, `TablePagination`). A list of 20 or fewer draws none. A list the
+  server pages uses "Load more" and says how many are loaded; virtualise only beyond 100. The
+  last page is never padded: a grid with an incomplete last row makes people think there is no
+  more.
 - On a phone, card rows (`mobile="cards"`) with the actions in view.
 
 ### 6.9 Filters and search
@@ -991,7 +1035,15 @@ at most one action. Success is said sparingly: only when it is not evident from 
 
 ### 6.13 Keyboard and real time
 
-`Ctrl/Cmd K` opens the command palette; `g` then a letter goes to a section; `/` focuses the
+`Ctrl/Cmd K` opens the command palette, which finds anything the console lists, by any name
+it answers to (checklist M-23): pages and settings sections; applications (domain, name, type
+as a person says it); databases; sites; certificates; services; servers; the newest
+deployments (by application, commit or message); and the create commands (New application,
+from a recipe, import, adopt, New database, Add a server). Each result is in its group, with
+what tells two of one name apart beside it (a type, a time left). Its lists are the console's
+own, read when it is first opened and only those the account may read, and a finished job
+marks them stale (`applyServerEvent`); nothing is read until it is opened. `g` then a letter
+goes to a section; `/` focuses the
 page's search; `?` lists the shortcuts. No single-key shortcut acts unless the focus is in a
 list or table. Every shortcut is in the shortcuts dialog and in its control's tooltip. A live
 stream's state ("Live", "Reconnecting") uses a `StatusGlyph` and a word; numbers that change
@@ -1018,6 +1070,15 @@ every few seconds are never live regions.
   elsewhere), Revoke (invalidates a credential), Drop (SQL only), Discard (unsaved changes),
   Enable / Disable (reversible), Start / Stop / Restart (a service's life), Roll back (to an
   earlier version), Save (persists) / Apply (persists and runs).
+- **The verbs of an application do not collide** (checklist M-32). Each word means one thing:
+  **Update** pulls the source and builds a new release; **Deploy** is the wizard's last button,
+  which creates the application and builds its first; **Restart** starts the same release again
+  (no build); **Stop** and **Start** are the service, with no build; **Roll back** goes to an
+  earlier release. A button that only opens a page is never called Deploy ("New application",
+  "From a recipe"). Two other things are called updates and are named by what they update:
+  **System updates** (the operating system's packages: Server, Overview, the fleet's "Noust
+  and system updates") and **Update Noust** (Noust itself). Never a bare "Updates" for either.
+  `i18n/verbs.test.ts` holds the words in both languages.
 - **Empty states**: the title says what this place is and what is missing ("No applications
   yet"); one or two sentences say the next step; the action is an imperative of one or two
   words; the command, when the CLI has one.

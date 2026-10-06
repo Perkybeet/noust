@@ -245,8 +245,8 @@ test("the deploy that is live offers nothing to go back to; the header lists the
   await page.goto(`/apps/${RELEASES_APP}/deployments/${String(id)}`);
   await expect(page.getByRole("button", { name: "Rebuild this commit" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Go back to this version" })).toHaveCount(0);
-  await page.locator("main header").filter({ has: page.getByRole("heading", { level: 1 }) }).getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Roll back…" }).click();
+  // Roll back is one of the header's daily verbs: on the surface, not in the menu.
+  await page.locator("main header").filter({ has: page.getByRole("heading", { level: 1 }) }).getByRole("button", { name: "Roll back", exact: true }).click();
   const chooser = page.getByRole("dialog", { name: `Roll back ${RELEASES_APP}` });
   await expect(chooser.getByRole("button", { name: /^Go back to / }).first()).toBeVisible();
   await chooser.getByRole("button", { name: "Cancel" }).click();

@@ -64,7 +64,7 @@ describe("the Server area", () => {
         .map((link) => link.textContent),
     ).toEqual([
       "Overview",
-      "Updates23",
+      "System updates23",
       "Security3",
       "Storage",
       "Services",

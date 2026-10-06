@@ -9,6 +9,7 @@ import type { Job } from "../../api/queries/jobs";
 import { appStatus } from "../../components/page/status";
 import { Button } from "../../components/ui/Button";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
+import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { SM_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
@@ -22,21 +23,48 @@ import { RollbackDialog } from "./RollbackDialog";
 import { useConfirmItsYou } from "./useDeleteApp";
 
 export interface AppHeaderActions {
-  /** Restart, beside the primary action from the small breakpoint up. */
+  /** The daily verbs beside the primary action: Restart, Stop or Start, Roll back. */
   secondaryActions?: ReactNode;
   /** Update: the one primary action of every tab of the app. */
   primaryAction?: ReactNode;
-  /** Everything else, behind "More actions": start or stop, roll back, and delete, last. */
+  /** What is rare, behind "More actions": Diagnose, and Delete last after a separator. */
   overflow?: ReactNode;
   /** The dialogs those actions open, rendered by the layout beside the page. */
   dialogs?: ReactNode;
 }
 
+interface VerbProps {
+  /** Wide enough for words; below that the verb is an icon that keeps its name. */
+  wide: boolean;
+  label: string;
+  icon: ReactNode;
+  loading?: boolean;
+  onClick: () => void;
+}
+
 /**
- * The app's actions, in the header's slots: Update the primary, Restart beside it, the rest in
- * the overflow menu (Diagnose among them) with Delete last after a separator. On a phone Update stays in view beside
- * "More actions" and Restart moves into the menu. Stopping asks once; deleting asks for the
- * domain to be typed, after "Confirm it's you" when the session is not in sudo mode.
+ * One daily verb of the header. A phone has no room for four words beside the title, and the
+ * verbs are what an operator opens an app on a phone to press (checklist M-31): they stay on
+ * screen as icons whose name is their label, never behind the menu.
+ */
+function Verb({ wide, label, icon, loading = false, onClick }: VerbProps) {
+  if (wide) {
+    return (
+      <Button icon={icon} loading={loading} onClick={onClick}>
+        {label}
+      </Button>
+    );
+  }
+  return <IconButton variant="secondary" label={label} icon={icon} disabled={loading} onClick={onClick} />;
+}
+
+/**
+ * The app's actions, in the header's slots. The daily verbs are always on screen, in this order:
+ * Restart (the same release, again), Stop or Start by state, Roll back (an earlier release),
+ * then Update, the one primary (a new release). What is rare is in the overflow menu: Diagnose,
+ * and Delete last after a separator. A static site has no service, so only Roll back. Stopping
+ * asks once; deleting asks for the domain to be typed, after "Confirm it's you" when the
+ * session is not in sudo mode. On a phone the verbs are icons with their names (`Verb`).
  */
 export function useAppHeaderActions(
   domain: string,
@@ -63,33 +91,24 @@ export function useAppHeaderActions(
   const outside = app.status === "running_unmanaged";
   const Delete = ICONS.delete;
 
-  const restartButton = (
-    <Button icon={<RotateCw aria-hidden="true" />} loading={restart.isPending} onClick={() => restart.mutate()}>
-      {t("appPages.actions.restart")}
-    </Button>
+  const secondaryActions = (
+    <>
+      {unit ? (
+        <Verb wide={wide} label={t("appPages.actions.restart")} icon={<RotateCw aria-hidden="true" />} loading={restart.isPending} onClick={() => restart.mutate()} />
+      ) : null}
+      {unit && !outside ? (
+        running ? (
+          <Verb wide={wide} label={t("appPages.actions.stop")} icon={<Square aria-hidden="true" />} loading={stop.isPending} onClick={() => setConfirmStop(true)} />
+        ) : (
+          <Verb wide={wide} label={t("appPages.actions.start")} icon={<Play aria-hidden="true" />} loading={start.isPending} onClick={() => start.mutate()} />
+        )
+      ) : null}
+      <Verb wide={wide} label={t("appPages.actions.rollBack")} icon={<History aria-hidden="true" />} onClick={() => setRollbackOpen(true)} />
+    </>
   );
 
   const overflow = (
     <>
-      {unit && !wide ? (
-        <MenuItem icon={<RotateCw />} disabled={restart.isPending} onClick={() => restart.mutate()}>
-          {t("appPages.actions.restart")}
-        </MenuItem>
-      ) : null}
-      {unit && !outside ? (
-        running ? (
-          <MenuItem icon={<Square />} disabled={stop.isPending} onClick={() => setConfirmStop(true)}>
-            {t("appPages.actions.stop")}
-          </MenuItem>
-        ) : (
-          <MenuItem icon={<Play />} disabled={start.isPending} onClick={() => start.mutate()}>
-            {t("appPages.actions.start")}
-          </MenuItem>
-        )
-      ) : null}
-      <MenuItem icon={<History />} onClick={() => setRollbackOpen(true)}>
-        {t("appPages.actions.rollBackEllipsis")}
-      </MenuItem>
       {/* Off the tab strip (eight tabs at most), one click away from every tab. */}
       <MenuItem icon={<Stethoscope />} onClick={() => void navigate({ to: "/apps/$domain/diagnose", params: { domain } })}>
         {t("appPages.actions.diagnose")}
@@ -149,7 +168,7 @@ export function useAppHeaderActions(
   );
 
   return {
-    ...(unit && wide ? { secondaryActions: restartButton } : {}),
+    secondaryActions,
     primaryAction: (
       <Button variant="primary" icon={<CircleArrowUp aria-hidden="true" />} loading={update.isPending || busy} onClick={() => update.mutate()}>
         {t("appPages.actions.update")}

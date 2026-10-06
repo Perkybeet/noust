@@ -173,14 +173,6 @@ export function useServerStep(handlers: ServerStepHandlers): ServerStep {
   useEffect(() => {
     latest.current = handlers;
   });
-  const startHere = hasFleet && answered !== here;
-  const initially = useRef(startHere);
-  useEffect(() => {
-    if (!startHere || initially.current) return;
-    initially.current = true;
-    latest.current.onArrive();
-  }, [startHere]);
-
   const accessByNode = new Map((fleet.data?.items ?? []).filter((row) => !originOf(row).local).map((row) => [originOf(row).node, accessOf(row)]));
   const options: ServerOption[] = [
     // A hub deploys nothing itself: it is not a place for an application.
@@ -216,6 +208,18 @@ export function useServerStep(handlers: ServerStepHandlers): ServerStep {
   const usable = options.filter((option) => option.unavailable === null);
   const fallback = options.some((option) => option.value === here && option.unavailable === null) ? here : (usable[0]?.value ?? null);
   const chosen = choice ?? fallback;
+
+  // Asked first, unless there is nothing to ask: when the one server that can take it is the one
+  // on screen, a question with a single answer is a click that decides nothing (checklist M-12).
+  // The step stays on the stepper, done, and shows who cannot take it.
+  const onlyThisOne = usable.length === 1 && usable[0]?.value === here;
+  const startHere = hasFleet && answered !== here && !onlyThisOne;
+  const initially = useRef(startHere);
+  useEffect(() => {
+    if (!startHere || initially.current) return;
+    initially.current = true;
+    latest.current.onArrive();
+  }, [startHere]);
 
   if (!hasFleet) return { enabled: false, startHere: false, view: null };
 

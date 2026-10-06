@@ -1,7 +1,7 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, QueryObserver } from "@tanstack/react-query";
 import { renderHook } from "@testing-library/react";
 import { createElement } from "react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { certKeys } from "../../api/queries/certs";
 import { siteKeys } from "../../api/queries/sites";
@@ -39,12 +39,22 @@ describe("useCertificateRefresh", () => {
     expect(client.getQueryState(siteKeys.detail("shop.example.com"))?.isInvalidated).toBe(true);
   });
 
-  it("ignores jobs that are not about a certificate", () => {
+  it("does not read the certificates again for a job that is not about one", async () => {
     const client = new QueryClient();
-    client.setQueryData(certKeys.all, { certificates: [] });
+    const read = vi.fn(() => Promise.resolve({ certificates: [] }));
+    // A page showing the list: a refetch of it would be a second read.
+    const observer = new QueryObserver(client, { queryKey: certKeys.all, queryFn: read, staleTime: Infinity });
+    const unsubscribe = observer.subscribe(() => undefined);
+    await vi.waitFor(() => {
+      expect(read).toHaveBeenCalledTimes(1);
+    });
     mount(client);
 
+    // The palette's index goes stale with any job that ends (events.test.ts); this hook's refresh does not.
     FakeEventSource.latest().emit("job", { id: "j2", type: "deploy", status: "completed", metadata: { domain: "shop.example.com" } });
-    expect(client.getQueryState(certKeys.all)?.isInvalidated).toBe(false);
+    await Promise.resolve();
+    expect(client.isFetching()).toBe(0);
+    expect(read).toHaveBeenCalledTimes(1);
+    unsubscribe();
   });
 });

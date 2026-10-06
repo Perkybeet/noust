@@ -9,7 +9,7 @@
 
 import { forgetApp } from "./apps-cleanup";
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
-import { continueTo } from "./wizard-sources";
+import { continueTo, openConfiguration } from "./wizard-sources";
 
 test("a repository and branch chosen from GitHub reach the inspection and the deploy with their installation", async ({ page, consoleServer, problems }) => {
   test.setTimeout(240_000);
@@ -65,14 +65,15 @@ test("a repository and branch chosen from GitHub reach the inspection and the de
 
   await page.getByLabel("Domain", { exact: true }).fill(domain);
   await expect(page.getByText(`${domain} points here`)).toBeVisible();
-  await continueTo(page, "Configuration");
-  const found = page.getByRole("group", { name: "What Noust found" });
-  await expect(found.getByText(/^Noust can deploy this as Next\.js/)).toBeVisible();
+  // One type detected: Configuration has nothing to ask, the variables the project needs do.
   await continueTo(page, "Variables");
   await page.getByLabel(/^DATABASE_URL/).fill("postgres://landing@localhost/landing");
   for (const name of ["NEXTAUTH_SECRET", "STRIPE_SECRET_KEY", "SMTP_PASSWORD"]) {
     await page.getByRole("button", { name: `Generate ${name}` }).click();
   }
+  await openConfiguration(page);
+  const found = page.getByRole("group", { name: "What Noust found" });
+  await expect(found.getByText(/^Noust can deploy this as Next\.js/)).toBeVisible();
   await continueTo(page, "Deploy");
   await stillness(page);
   await expectNoA11yViolations(page, "the deploy step of a GitHub source");

@@ -327,7 +327,7 @@ describe("the overview", () => {
     const { user } = await overview();
     await user.click(screen.getByRole("button", { name: "More actions" }));
     expect(await screen.findByRole("menuitem", { name: "Renew certificates" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Check for updates" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Check for system updates" })).toBeInTheDocument();
   });
 
   it("opens with the range the URL names", async () => {

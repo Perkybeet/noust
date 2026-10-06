@@ -145,7 +145,7 @@ withFleet("the Fleet's views show this server and the node, each row naming its 
     ["Servers", "Servers of this fleet"],
     ["Certificates", "Certificates on every server"],
     ["Backups", "Backups of every application"],
-    ["Updates", "Updates of every server"],
+    ["Updates", "Noust and system updates of every server"],
     ["Activity", "What happened lately on every server"],
   ] as const) {
     await tabs.getByRole("link", { name: tab }).click();
@@ -473,7 +473,7 @@ test("a node that is down and one on an older Noust: the views answer partially,
     await expect(page.getByRole("region", { name: "Applications on every server" }).getByRole("link", { name: NODE_APP, exact: true })).toBeVisible();
 
     await page.getByRole("navigation", { name: "Fleet views" }).getByRole("link", { name: "Updates" }).click();
-    const updates = page.getByRole("region", { name: "Updates of every server" });
+    const updates = page.getByRole("region", { name: "Noust and system updates of every server" });
     await expect(updates.getByRole("row").filter({ hasText: "old-1" })).toContainText("3.0.0");
     await settle(page);
     await expectNoA11yViolations(page, "a partial fleet's updates");

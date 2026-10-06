@@ -7343,9 +7343,14 @@ def _recipes_php_fpm(sandbox: Sandbox) -> None:
     binary.write_text("", encoding="utf-8")
     binary.chmod(0o755)
     php_module.FPM_ROOT = sandbox.root  # type: ignore[misc]
-    # The dependency report asks without a root: the same machine.
+    # The dependency report asks without a root: the same machine. A function and not a partial
+    # of the root, because the deployer also passes the root (and a pinned version) itself.
     original_find = fpm_helpers.find_fpm
-    fpm_helpers.find_fpm = functools.partial(original_find, sandbox.root)  # type: ignore[assignment]
+
+    def find_in_sandbox(root: Path | None = None, version: str | None = None) -> Any:
+        return original_find(sandbox.root if root is None else root, version)
+
+    fpm_helpers.find_fpm = find_in_sandbox  # type: ignore[assignment]
 
     def installer(_socket: Path, _params: Mapping[str, str], **_kwargs: Any) -> Any:
         return fpm_helpers.FastCgiResponse(

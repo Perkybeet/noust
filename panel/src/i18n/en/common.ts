@@ -96,6 +96,15 @@ export const common = {
     actions: "Actions",
     cardActions: "Actions for {name}",
   },
+  pagination: {
+    label: "Pagination",
+    rowsPerPage: "Rows per page",
+    all: "All",
+    showing: "Showing {from}–{to} of {total}",
+    previous: "Previous page",
+    next: "Next page",
+    page: "Page {page} of {pages}",
+  },
   logViewer: {
     label: "Log output",
     searchLabel: "Search output",

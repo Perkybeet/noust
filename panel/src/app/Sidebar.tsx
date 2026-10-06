@@ -25,7 +25,7 @@ function useFailureCounts(enabled: boolean): Partial<Record<ConsolePath, number>
 }
 
 const LINK = cx(
-  "group flex h-control-md items-center gap-2.5 rounded-control px-2 text-13 text-fg-muted",
+  "group relative flex h-control-md items-center gap-2.5 rounded-control px-2 text-13 text-fg-muted",
   "transition-colors duration-(--duration-fast) ease-out",
   "hover:bg-surface-hover hover:text-fg",
   "focus-visible:-outline-offset-2",
@@ -55,20 +55,28 @@ function NavLink({ item, failed, onNavigate, node }: NavLinkProps) {
       {...(onNavigate ? { onClick: onNavigate } : {})}
       className={LINK}
     >
-      <Icon aria-hidden="true" className="size-icon-md shrink-0 text-fg-faint group-hover:text-fg-muted group-data-[status=active]:text-fg" />
-      <span className="min-w-0 flex-1 truncate">{t(item.label)}</span>
-      {/* Spaces between the parts keep the accessible name "Server 1 failed"; the visible
-          number is the one inside that sentence, read once. */}
-      {failed !== undefined && failed > 0 ? " " : null}
-      {failed !== undefined && failed > 0 ? (
-        <span className="inline-flex items-center gap-1 text-12 font-medium text-fail">
-          <StatusGlyph state="failed" size={10} />
-          <span aria-hidden="true" className="tabular-nums">
-            {failed}
-          </span>
-          <span className="sr-only">{t("nav.failed", { count: failed })}</span>
-        </span>
-      ) : null}
+      {({ isActive }) => (
+        <>
+          {/* The fill of the current item is within 1.1 to 1.3 of the ground, which is not enough
+              to tell it by (WCAG 1.4.11). The bar is: it is drawn in `text`, 3:1 or more against
+              the ground, a hovered item and the active fill in both themes (tokens.test.ts). */}
+          {isActive ? <span aria-hidden="true" data-nav-indicator="" className="absolute inset-y-1.5 left-0 w-0.5 rounded-pill bg-fg" /> : null}
+          <Icon aria-hidden="true" className="size-icon-md shrink-0 text-fg-faint group-hover:text-fg-muted group-data-[status=active]:text-fg" />
+          <span className="min-w-0 flex-1 truncate">{t(item.label)}</span>
+          {/* Spaces between the parts keep the accessible name "Server 1 failed"; the visible
+              number is the one inside that sentence, read once. */}
+          {failed !== undefined && failed > 0 ? " " : null}
+          {failed !== undefined && failed > 0 ? (
+            <span className="inline-flex items-center gap-1 text-12 font-medium text-fail">
+              <StatusGlyph state="failed" size={10} />
+              <span aria-hidden="true" className="tabular-nums">
+                {failed}
+              </span>
+              <span className="sr-only">{t("nav.failed", { count: failed })}</span>
+            </span>
+          ) : null}
+        </>
+      )}
     </Link>
   );
 }

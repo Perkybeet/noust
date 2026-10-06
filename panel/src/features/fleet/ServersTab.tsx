@@ -331,6 +331,7 @@ export function ServersTab({ search, onSearchChange }: ServersTabProps) {
         loading={view.isPending}
         skeletonRows={3}
         mobile="cards"
+        pagination="fleet-servers"
         rowActions={(row) => (
           <RowActions
             t={t}

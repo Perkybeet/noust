@@ -185,6 +185,22 @@ describe("the applications list", () => {
     await expectNoAxeViolations(table);
   });
 
+  it("opens the recipes in one click from the header, beside the one primary action (checklist M-19)", async () => {
+    await appsAt();
+    const recipes = screen.getByRole("link", { name: "From a recipe" });
+    expect(recipes).toHaveAttribute("href", "/apps/new?start=recipe");
+    // Not a second primary: "New application" stays the page's one.
+    expect(recipes.className).not.toContain("bg-accent");
+    expect(screen.getByRole("link", { name: "New application" }).className).toContain("bg-accent");
+  });
+
+  it("offers the recipes on an empty machine too", async () => {
+    fakeBackend({ ...signedInRoutes(), "GET /api/apps": () => json(200, { total: 0, apps: [] }) });
+    renderConsole("/apps");
+    await screen.findByRole("heading", { level: 2, name: "No applications yet" });
+    expect(screen.getByRole("link", { name: "From a recipe" })).toHaveAttribute("href", "/apps/new?start=recipe");
+  });
+
   it("invites the first deploy on an empty machine, without filters or a table", async () => {
     fakeBackend({ ...signedInRoutes(), "GET /api/apps": () => json(200, { total: 0, apps: [] }) });
     renderConsole("/apps");

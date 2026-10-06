@@ -250,6 +250,7 @@ export function DatabasesTable({ databases, engines, policies, dumps, caption, r
       empty={empty}
       loading={loading}
       mobile="cards"
+      pagination="databases"
     />
   );
 }

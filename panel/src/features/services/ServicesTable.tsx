@@ -161,6 +161,7 @@ export function ServicesTable({ services, caption, loading = false, empty, rowAc
       caption={caption}
       loading={loading}
       mobile="cards"
+      pagination="services"
       {...(empty !== undefined ? { empty } : {})}
       {...(rowActions ? { rowActions } : {})}
       defaultSort={{ column: "name", direction: "ascending" }}

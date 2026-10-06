@@ -133,7 +133,7 @@ test("the command palette opens with Ctrl+K, filters, navigates on Enter and clo
   await signIn(page, consoleServer);
   await settle(page);
   const palette = page.getByRole("dialog");
-  const search = page.getByRole("combobox", { name: "Search pages, applications and actions" });
+  const search = page.getByRole("combobox", { name: "Search apps, databases, domains, servers, settings and actions" });
 
   await page.keyboard.press("Control+k");
   await expect(palette).toBeVisible();
@@ -150,7 +150,9 @@ test("the command palette opens with Ctrl+K, filters, navigates on Enter and clo
   // Applications come from the API: the seeded machine's apps are searchable.
   await page.keyboard.press("Control+k");
   await search.fill("shop");
-  await expect(page.getByRole("option", { name: /shop\.example\.net/ })).toBeVisible();
+  // The same name is an application, a site, a certificate and deployments: the application
+  // comes first, and Enter opens it.
+  await expect(page.getByRole("option", { name: /^shop\.example\.net Next\.js/ })).toBeVisible();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/\/apps\/shop\.example\.net$/);
   await expect(heading(page)).toHaveText("shop.example.net");

@@ -93,6 +93,15 @@ export const common: Catalog<typeof en> = {
     actions: "Acciones",
     cardActions: "Acciones de {name}",
   },
+  pagination: {
+    label: "Paginación",
+    rowsPerPage: "Filas por página",
+    all: "Todas",
+    showing: "Mostrando {from}–{to} de {total}",
+    previous: "Página anterior",
+    next: "Página siguiente",
+    page: "Página {page} de {pages}",
+  },
   logViewer: {
     label: "Salida del registro",
     searchLabel: "Buscar en la salida",

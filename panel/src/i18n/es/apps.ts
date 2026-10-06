@@ -4,6 +4,7 @@ import type { Catalog } from "../types";
 export const apps: Catalog<typeof en> = {
   area: "Aplicaciones",
   newApplication: "Nueva aplicación",
+  fromRecipe: "Desde una receta",
   page: {
     title: "Aplicaciones",
     description: "Todo lo que ejecuta este servidor, y en qué estado está.",

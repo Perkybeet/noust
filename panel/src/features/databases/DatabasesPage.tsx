@@ -157,6 +157,17 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   };
   const clear = (): void => onSearchChange({});
 
+  // Arriving with `?new` (the palette's "New database"): the dialog opens, and the link is spent.
+  const opening = search.new === true;
+  useEffect(() => {
+    if (!opening) return;
+    openCreate();
+    const { q, engine, backups } = search;
+    onSearchChange({ ...(q ? { q } : {}), ...(engine ? { engine } : {}), ...(backups ? { backups } : {}) }, { replace: true });
+    // Once per arrival: what it reads is what it was opened with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opening]);
+
   const filtered = isFiltered(search);
   const running = (engines.data?.engines ?? []).some((engine) => engine.running);
   const exposed = exposure.data?.exposed ?? [];

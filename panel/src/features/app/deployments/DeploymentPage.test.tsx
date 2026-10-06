@@ -317,8 +317,8 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
     await screen.findByRole("button", { name: "Rebuild this commit" });
     expect(screen.queryByRole("button", { name: "Go back to this version" })).not.toBeInTheDocument();
     expect(screen.queryByText(/did not finish serving anything/)).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "More actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Roll back…" }));
+    // Roll back is one of the header's daily verbs, on the surface rather than in the menu.
+    await user.click(screen.getByRole("button", { name: "Roll back" }));
     const chooser = await screen.findByRole("dialog", { name: `Roll back ${TAB_DOMAIN}` });
     expect(await within(chooser).findByRole("button", { name: "Go back to 20260916-182823-9f2c41a" })).toBeInTheDocument();
   });

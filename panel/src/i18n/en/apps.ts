@@ -2,6 +2,7 @@
 export const apps = {
   area: "Applications",
   newApplication: "New application",
+  fromRecipe: "From a recipe",
   page: {
     title: "Applications",
     description: "Everything this server runs, and the state it is in.",

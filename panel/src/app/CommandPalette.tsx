@@ -11,7 +11,21 @@ import { useT } from "../i18n";
 import type { PlainKey } from "../i18n";
 import { cx } from "../lib/cx";
 
-export type CommandGroup = "Pages" | "Applications" | "Actions";
+/**
+ * What the palette finds: every page, every kind of resource the console lists, and the actions
+ * that are not a page. The identifiers stay English: they are compared, not shown.
+ */
+export type CommandGroup =
+  | "Pages"
+  | "Settings"
+  | "Applications"
+  | "Databases"
+  | "Domains"
+  | "Certificates"
+  | "Services"
+  | "Servers"
+  | "Deployments"
+  | "Actions";
 
 export interface Command {
   /** Unique across the palette. */
@@ -21,6 +35,8 @@ export interface Command {
   icon?: ReactNode;
   /** Other words it should be found by. */
   keywords?: string;
+  /** What distinguishes it from the next one, in muted text after the name: a type, a time left. */
+  detail?: string;
   /** Keys of the shortcut that does the same, shown at the end of the row. */
   shortcut?: readonly string[];
   /** For applications: their state, shown as a pill. */
@@ -38,17 +54,50 @@ export interface CommandResults {
   items: Command[];
 }
 
-const GROUP_ORDER: readonly CommandGroup[] = ["Pages", "Applications", "Actions"];
+const GROUP_ORDER: readonly CommandGroup[] = [
+  "Pages",
+  "Settings",
+  "Applications",
+  "Databases",
+  "Domains",
+  "Certificates",
+  "Services",
+  "Servers",
+  "Deployments",
+  "Actions",
+];
 
 /** The group identifiers stay English (they are compared, not shown); this is what renders them. */
 const GROUP_LABEL: Record<CommandGroup, PlainKey> = {
   Pages: "shell.commandGroups.pages",
+  Settings: "shell.commandGroups.settings",
   Applications: "shell.commandGroups.applications",
+  Databases: "shell.commandGroups.databases",
+  Domains: "shell.commandGroups.domains",
+  Certificates: "shell.commandGroups.certificates",
+  Services: "shell.commandGroups.services",
+  Servers: "shell.commandGroups.servers",
+  Deployments: "shell.commandGroups.deployments",
   Actions: "shell.commandGroups.actions",
 };
 
-/** With nothing typed, a long list of applications would push actions off screen. */
-const BROWSE_LIMIT: Partial<Record<CommandGroup, number>> = { Applications: 6 };
+/**
+ * With nothing typed, a long list of applications would push actions off screen, and a list of
+ * every certificate and deployment would bury them. The applications show six; the rest of the
+ * resources (databases, domains, certificates, services, deployments) appear once something is
+ * typed, which is what the search box is for.
+ */
+const BROWSE_LIMIT: Partial<Record<CommandGroup, number>> = {
+  Applications: 6,
+  Databases: 0,
+  Domains: 0,
+  Certificates: 0,
+  Services: 0,
+  Deployments: 0,
+};
+
+/** A group whose labels are names of things on the machine, not words of the console. */
+const NAMED_GROUPS: ReadonlySet<CommandGroup> = new Set(["Applications", "Databases", "Domains", "Certificates", "Services", "Servers"]);
 
 function isSubsequence(needle: string, haystack: string): boolean {
   let at = 0;
@@ -68,7 +117,8 @@ export function scoreCommand(command: Command, query: string): number {
   if (label.startsWith(q)) return 80;
   if (label.split(/[\s./-]+/).some((word) => word.startsWith(q))) return 60;
   if (label.includes(q)) return 40;
-  const haystack = `${label} ${command.keywords ?? ""} ${command.group}`.toLowerCase();
+  // What is shown beside the name is found too: nobody should have to guess what is searched.
+  const haystack = `${label} ${command.keywords ?? ""} ${command.detail ?? ""} ${command.group}`.toLowerCase();
   if (q.split(/\s+/).every((token) => haystack.includes(token))) return 20;
   // Scattered letters only mean something once there are a few of them.
   if (q.length >= 3 && isSubsequence(q, label)) return 10;
@@ -207,9 +257,13 @@ function PaletteBody({
                     <span aria-hidden="true" className="flex size-4 shrink-0 text-fg-muted [&_svg]:size-4">
                       {command.icon}
                     </span>
-                    <span translate={command.group === "Applications" ? "no" : undefined} className="min-w-0 flex-1 truncate">
+                    <span translate={NAMED_GROUPS.has(command.group) ? "no" : undefined} className="min-w-0 flex-1 truncate">
                       {command.label}
                     </span>
+                    {command.detail !== undefined ? (
+                      // Read with the name by a screen reader: it is what tells two of them apart.
+                      <span className="max-w-48 shrink truncate text-12 text-fg-muted max-sm:hidden">{command.detail}</span>
+                    ) : null}
                     {command.status !== undefined ? (
                       <StatusPill state={command.status} appearance="inline" size="sm" />
                     ) : null}

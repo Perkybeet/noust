@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useBlocker, useNavigate } from "@tanstack/react-router";
+import { useBlocker, useNavigate, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 
@@ -23,6 +23,7 @@ import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { Mono } from "../../components/ui/Mono";
 import { Dialog } from "../../components/ui/Dialog";
+import { textLinkClassName } from "../../components/ui/TextLink";
 import { translate, useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
@@ -38,14 +39,15 @@ import { EXPORT_FILE_INPUT, ImportFile } from "./ImportFile";
 import type { LoadedExport } from "./ImportFile";
 import { ImportAddress, ImportSecrets, importSummary } from "./ImportReview";
 import { RecipeGallery } from "./RecipeGallery";
-import { RecipeFacts, RecipeVariables, recipeSummary } from "./RecipeReview";
-import { initialRecipeForm, recipeBody, recipeProblems } from "./recipe";
+import { RECIPE_VARIABLE_ATTRIBUTE, RecipeFacts, RecipeVariables, recipeSummary } from "./RecipeReview";
+import { initialRecipeForm, recipeBody, recipeProblems, recipeVariableField, requiredVariables } from "./recipe";
 import type { RecipeForm } from "./recipe";
 import { DatabaseStep, NO_DATABASE, NO_DATABASE_STEP_TYPES, databaseSummary, useDatabaseStepAvailable, withDatabase, withDatabaseStep } from "../databases/wizard/DatabaseStep";
 import type { DatabaseChoice } from "../databases/wizard/DatabaseStep";
 import { useServerStep, withServerStep } from "./ServerStep";
 import { SourceStep } from "./SourceStep";
 import { useAdoption } from "./AdoptStack";
+import { wizardStart } from "./search";
 import type { SourceMode } from "./SourceStep";
 import { useDomainDnsCheck } from "./useDomainDnsCheck";
 import type { LandingTarget } from "./useDeploymentLanding";
@@ -64,6 +66,7 @@ import {
   sameSource,
   shortSource,
   sourceProblems,
+  stepAsks,
   stepOfField,
   typeName,
 } from "./wizard";
@@ -110,17 +113,22 @@ function readText(file: File): Promise<string> {
 }
 
 /** A step's errors put in place of what that step said before, the other steps' left alone. */
-function replaceStepErrors(previous: ReviewErrors, step: Step, own: ReviewErrors): ReviewErrors {
-  return { ...Object.fromEntries(Object.entries(previous).filter(([field]) => stepOfField(field) !== step)), ...own };
+function replaceStepErrors(previous: ReviewErrors, step: Step, own: ReviewErrors, kind: StartKind = "code"): ReviewErrors {
+  return { ...Object.fromEntries(Object.entries(previous).filter(([field]) => stepOfField(field, kind) !== step)), ...own };
 }
 
 /**
  * After a Continue pointed at a step's fields, their messages follow what is typed: the step's
  * errors are found again on every change, and only the step's.
  */
-function revalidated(previous: ReviewErrors, step: Step, found: ReviewErrors): ReviewErrors {
-  if (errorsOf(previous, step).length === 0) return previous;
-  return replaceStepErrors(previous, step, Object.fromEntries(errorsOf(found, step)));
+function revalidated(previous: ReviewErrors, step: Step, found: ReviewErrors, kind: StartKind = "code"): ReviewErrors {
+  if (errorsOf(previous, step, kind).length === 0) return previous;
+  return replaceStepErrors(previous, step, Object.fromEntries(errorsOf(found, step, kind)), kind);
+}
+
+/** Takes the operator to a recipe variable's control, from the sentence that names it. */
+function focusRecipeVariable(name: string): void {
+  document.querySelector<HTMLElement>(`[${RECIPE_VARIABLE_ATTRIBUTE}="${CSS.escape(name)}"]`)?.focus();
 }
 
 /** The first message of a set of errors, as the sentence Continue says when pressed. */
@@ -189,8 +197,19 @@ export function NewAppWizard() {
   });
   const [step, setStep] = useState<Step>(serverStep.startHere ? "server" : "source");
   const [source, setSource] = useState<SourceForm>({ source: "", branch: "" });
-  // Null until the operator acts: GitHub when the App is connected, the typed source otherwise.
-  const [chosenMode, setChosenMode] = useState<SourceMode | null>(null);
+  // The way in the link asked for (`/apps/new?start=recipe`, from the Applications page and the
+  // palette): the wizard opens on it instead of on the default.
+  const start = wizardStart(useSearch({ from: "/_console/apps/new" }).start);
+  // Null until the operator acts: what the link asked for, GitHub when the App is connected,
+  // the typed source otherwise.
+  const [chosenMode, setChosenMode] = useState<SourceMode | null>(start ?? null);
+  // The same page, asked again from where it already is (the palette, over the wizard): a new
+  // start replaces the way in, settled while rendering rather than in an effect.
+  const [seenStart, setSeenStart] = useState(start);
+  if (start !== seenStart) {
+    setSeenStart(start);
+    if (start !== undefined) setChosenMode(start);
+  }
   const [sourceErrors, setSourceErrors] = useState<SourceErrors>({});
   const [inspected, setInspected] = useState<{ inspection: Inspection; for: SourceForm } | null>(null);
   const [review, setReview] = useState<ReviewForm | null>(null);
@@ -219,11 +238,27 @@ export function NewAppWizard() {
   // A stack that already runs: its own form and its two presses, preview then adopt.
   const adoption = useAdoption();
   const kind = kindOf(sourceMode);
-  // The order Continue and Back follow; the server step is reached on its own.
-  // Not for a static site (nothing runs to read it), nor a monorepo or a compose project, which provision their own.
-  const order = withDatabaseStep(WIZARD_STEPS[kind], databaseAvailable && kind === "code" && !NO_DATABASE_STEP_TYPES.has(review?.appType ?? ""));
-  const steps = withServerStep(order, serverStep.enabled);
   const typeList = types.data?.types ?? [];
+
+  const cores = system.data?.cpu.cores ?? null;
+  const context = useMemo(() => {
+    const list = apps.data?.apps ?? [];
+    return {
+      domains: new Set(list.map((app) => app.domain)),
+      ports: new Map(list.filter((app) => app.port !== null && app.port !== undefined).map((app) => [Number(app.port), app.domain])),
+      cores,
+    };
+  }, [apps.data, cores]);
+
+  // Every step this start has, in order, which is what the stepper lists. Database: not for a
+  // static site (nothing runs to read it), nor a monorepo or a compose project, which provision
+  // their own.
+  const allSteps = withDatabaseStep(WIZARD_STEPS[kind], databaseAvailable && kind === "code" && !NO_DATABASE_STEP_TYPES.has(review?.appType ?? ""));
+  // The steps Continue and Back walk: the ones with something to ask (`stepAsks`), and the one on
+  // screen, which the operator opened and may leave from. The server step is reached on its own.
+  const order = allSteps.filter((id) => id === step || stepAsks(id, kind, { inspection: inspected?.inspection ?? null, review, context }));
+  const passedOver = allSteps.filter((id) => !order.includes(id));
+  const steps = withServerStep(allSteps, serverStep.enabled);
 
   const go = (next: Step): void => {
     setMoved(true);
@@ -236,16 +271,6 @@ export function NewAppWizard() {
   useEffect(() => {
     if (moved) focusStepHeading();
   }, [step, moved]);
-
-  const cores = system.data?.cpu.cores ?? null;
-  const context = useMemo(() => {
-    const list = apps.data?.apps ?? [];
-    return {
-      domains: new Set(list.map((app) => app.domain)),
-      ports: new Map(list.filter((app) => app.port !== null && app.port !== undefined).map((app) => [Number(app.port), app.domain])),
-      cores,
-    };
-  }, [apps.data, cores]);
 
   const defaultWebserver: WebServer = webserver.data?.webserver === "apache" ? "apache" : "nginx";
 
@@ -275,7 +300,7 @@ export function NewAppWizard() {
       setRecipe(full);
       setRecipeForm((previous) => initialRecipeForm(full, previous));
       setRecipeErrors({});
-      go("address");
+      go("setup");
     },
   });
 
@@ -299,7 +324,8 @@ export function NewAppWizard() {
         // A recipe brings its own source and type: only its domain is the operator's to fix.
         if (refusal.fields["domain"] !== undefined) {
           setRecipeErrors({ domain: refusal.fields["domain"] });
-          go("address");
+          go("setup");
+          focusFirstInvalid();
         }
       } else if (refusal.step === "source") {
         setSourceErrors(refusal.fields);
@@ -379,7 +405,9 @@ export function NewAppWizard() {
       if (loaded !== null && importForm !== null) importing.mutate(importBody(loaded.document, importForm));
     } else if (review !== null && inspected !== null) {
       const body = createAppBody(inspected.for, review, inspected.inspection.platform_proposal ?? null);
-      create.mutate(order.includes("database") ? withDatabase(body, database) : body);
+      // The database is the operator's choice whether or not the step was passed over: the
+      // choice stays "none" until it is opened.
+      create.mutate(allSteps.includes("database") ? withDatabase(body, database) : body);
     }
   };
 
@@ -389,7 +417,8 @@ export function NewAppWizard() {
 
   // What is wrong with each kind's form, found fresh on every render so Continue can say it.
   const codeErrors = review !== null ? reviewProblems(review, context) : {};
-  const recipeFound = recipeForm !== null ? recipeProblems(recipeForm, context.domains) : {};
+  const requiredRecipeVariables = recipe !== null ? requiredVariables(recipe) : [];
+  const recipeFound = recipeForm !== null ? recipeProblems(recipeForm, context.domains, requiredRecipeVariables) : {};
   const importFound = importForm !== null ? importProblems(importForm, context.domains) : {};
 
   /** The step's Back, when it has one, going to the step before for this start. */
@@ -441,7 +470,7 @@ export function NewAppWizard() {
     if (sourceMode === "adopt") return adoption.actions;
     if (kind === "recipe") {
       return {
-        next: { onClick: () => go("address") },
+        next: { onClick: () => go("setup") },
         ...(recipe === null
           ? {
               missing: t("newApp.source.chooseRecipe"),
@@ -553,7 +582,7 @@ export function NewAppWizard() {
                   onChoose={(summary) => {
                     // The same recipe again: what was set over it stays, nothing is read twice.
                     if (recipe !== null && recipe.name === summary.name && recipeForm !== null) {
-                      go("address");
+                      go("setup");
                       return;
                     }
                     openRecipe.mutate(summary);
@@ -570,28 +599,6 @@ export function NewAppWizard() {
       case "address": {
         const title = t("newApp.steps.address");
         const description = t("newApp.review.addressDescription");
-        if (kind === "recipe" && recipe !== null && recipeForm !== null) {
-          return {
-            title,
-            description,
-            content: (
-              <div className="flex flex-col gap-6">
-                <RecipeFacts recipe={recipe} types={typeList} />
-                <AddressFields
-                  value={recipeForm}
-                  onChange={(patch) => {
-                    const next = { ...recipeForm, ...patch };
-                    setRecipeForm(next);
-                    setRecipeErrors((previous) => revalidated(previous, "address", recipeProblems(next, context.domains)));
-                  }}
-                  error={recipeErrors["domain"]}
-                  dns={dns}
-                />
-              </div>
-            ),
-            actions: checked("address", recipeFound, setRecipeErrors, dns.checkNow),
-          };
-        }
         if (kind === "import" && loaded !== null && importForm !== null) {
           return {
             title,
@@ -657,15 +664,87 @@ export function NewAppWizard() {
           actions: checked("configure", codeErrors, setReviewErrors),
         };
 
-      case "variables":
-        if (kind === "recipe" && recipe !== null && recipeForm !== null) {
-          return {
-            title: t("newApp.steps.variables"),
-            description: t("newApp.recipes.variablesIntro", { title: recipe.title }),
-            content: <RecipeVariables recipe={recipe} form={recipeForm} onChange={setRecipeForm} />,
-            actions: checked("variables", recipeFound, setRecipeErrors),
-          };
+      case "setup": {
+        // A recipe's one step: where it answers, the variables it cannot run without, and a
+        // Deploy of its own. Pressed with something missing it says what, as every step's Continue
+        // does, and takes the operator to the field.
+        if (kind !== "recipe" || recipe === null || recipeForm === null) return null;
+        const missingNames = requiredRecipeVariables.filter((name) => recipeFound[recipeVariableField(name)] !== undefined);
+        const [firstMissing] = missingNames;
+        const domainProblem = recipeFound["domain"];
+        let missing: ReactNode;
+        if (domainProblem !== undefined) missing = domainProblem;
+        else if (firstMissing !== undefined) {
+          const link = (
+            <button
+              type="button"
+              aria-label={t("newApp.recipes.goTo", { name: firstMissing })}
+              onClick={() => focusRecipeVariable(firstMissing)}
+              className={textLinkClassName("inline", "cursor-pointer")}
+            >
+              <Mono>{firstMissing}</Mono>
+            </button>
+          );
+          missing =
+            missingNames.length === 1
+              ? t.rich("newApp.recipes.missingOne", { name: link })
+              : t.rich("newApp.recipes.missingMany", { count: missingNames.length, name: link });
         }
+        const before = back("setup");
+        return {
+          title: t("newApp.steps.setup"),
+          description: t("newApp.recipes.setupIntro", { title: recipe.title }),
+          content: (
+            <div className="flex flex-col gap-6">
+              <RecipeFacts recipe={recipe} types={typeList} />
+              <AddressFields
+                value={recipeForm}
+                onChange={(patch) => {
+                  const next = { ...recipeForm, ...patch };
+                  setRecipeForm(next);
+                  setRecipeErrors((previous) => revalidated(previous, "setup", recipeProblems(next, context.domains, requiredRecipeVariables), "recipe"));
+                }}
+                error={recipeErrors["domain"]}
+                dns={dns}
+              />
+              <RecipeVariables
+                recipe={recipe}
+                form={recipeForm}
+                errors={recipeErrors}
+                onChange={(next) => {
+                  setRecipeForm(next);
+                  setRecipeErrors((previous) => revalidated(previous, "setup", recipeProblems(next, context.domains, requiredRecipeVariables), "recipe"));
+                }}
+              />
+            </div>
+          ),
+          actions: {
+            ...(before !== undefined ? { back: before } : {}),
+            // Deploy goes ahead on the next step, where the job is followed to its end.
+            next: {
+              label: t("newApp.recipes.deploy"),
+              onClick: () => {
+                setRecipeErrors({});
+                dns.checkNow();
+                go("deploy");
+                deploy();
+              },
+            },
+            ...(missing !== undefined
+              ? {
+                  missing,
+                  onMissing: () => {
+                    setRecipeErrors((previous) => replaceStepErrors(previous, "setup", recipeFound, "recipe"));
+                    dns.checkNow();
+                    focusFirstInvalid();
+                  },
+                }
+              : {}),
+          },
+        };
+      }
+
+      case "variables":
         if (kind === "import" && importForm !== null) {
           return {
             title: t("newApp.steps.variables"),
@@ -706,7 +785,7 @@ export function NewAppWizard() {
         return null;
 
       case "database": {
-        if (kind !== "code" || review === null || !order.includes("database")) return null;
+        if (kind !== "code" || review === null || !allSteps.includes("database")) return null;
         const before = back("database");
         return {
           title: t("databases.wizard.title"),
@@ -721,7 +800,7 @@ export function NewAppWizard() {
         let domain = "";
         if (kind === "code" && inspected !== null && review !== null) {
           summary = deploySummary(t, inspected.for, inspected.inspection, typeList, review);
-          if (order.includes("database")) summary = [...summary, databaseSummary(t, database, undefined)];
+          if (allSteps.includes("database")) summary = [...summary, databaseSummary(t, database, undefined)];
           domain = review.domain;
         } else if (kind === "recipe" && recipe !== null && recipeForm !== null) {
           summary = recipeSummary(t, recipe, recipeForm);
@@ -757,7 +836,16 @@ export function NewAppWizard() {
         const backTo = previousStep(kind, "deploy", order);
         return {
           title: t("newApp.deploy.heading"),
-          description: t(kind === "recipe" ? "newApp.deploy.introRecipe" : importKind ? "newApp.deploy.introImport" : "newApp.deploy.intro"),
+          description: t(
+            kind === "recipe"
+              ? "newApp.deploy.introRecipe"
+              : importKind
+                ? "newApp.deploy.introImport"
+                : // Steps that had nothing to ask were passed over: say so, and where they are.
+                  passedOver.length > 0
+                  ? "newApp.deploy.introDetected"
+                  : "newApp.deploy.intro",
+          ),
           content: (
             <DeployStep
               kind={deployKind}
@@ -811,7 +899,7 @@ export function NewAppWizard() {
         {...(locked ? {} : { onSelectStep: (id: string) => go(id as Step) })}
         title={view?.title ?? ""}
         description={view?.description}
-        {...(current !== "server" && current !== "source" && current !== "deploy" ? { summary: <SoFar t={t} kind={kind} source={inspected?.for ?? source} review={review} recipe={recipe} recipeForm={recipeForm} loaded={loaded} importForm={importForm} typeName={(type) => typeName(typeList, type)} /> } : {})}
+        {...(current !== "server" && current !== "source" && current !== "setup" && current !== "deploy" ? { summary: <SoFar t={t} kind={kind} source={inspected?.for ?? source} review={review} recipe={recipe} recipeForm={recipeForm} loaded={loaded} importForm={importForm} typeName={(type) => typeName(typeList, type)} /> } : {})}
         actions={view?.actions ?? { next: { onClick: () => undefined } }}
       >
         {view?.content}

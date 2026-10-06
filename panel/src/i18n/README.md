@@ -127,3 +127,10 @@ Spanish docs and of most developer tools): "Comprueba la conexión", not "Compru
 | webhook, token, API token | webhook, token, token de API | |
 | server, machine | servidor, máquina | |
 | overview | resumen | |
+| Update (an application) | Actualizar | Pulls the source and builds a new release. Never the system's updates, never Noust's own (below) |
+| System updates | Actualizaciones del sistema | The operating system's packages (Server, Overview). Never a bare "Updates" |
+| Update Noust | Actualizar Noust | Noust itself, on one server or the whole fleet |
+| Restart, Stop, Start | Reiniciar, Detener, Iniciar | The service, with no build. Restart is the same release again |
+| Roll back (an application's button) | Volver atrás | An earlier release. The long form in prose is "revertir" |
+| From a recipe | Desde una receta | Where a wizard starts from; never "Deploy a recipe", which would be a button that only opens a page |
+| Showing 21–40 of 57, Rows per page | Mostrando 21–40 de 57, Filas por página | A list's paging (`common.pagination`) |

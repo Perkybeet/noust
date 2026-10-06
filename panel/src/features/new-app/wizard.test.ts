@@ -21,6 +21,7 @@ import {
   shortSource,
   sourceKind,
   sourceProblems,
+  stepAsks,
   typeName,
   typeOptions,
   withProposal,
@@ -311,13 +312,26 @@ describe("the request", () => {
 describe("the steps", () => {
   it("has a configuration step only for an application started from code", () => {
     expect(WIZARD_STEPS.code).toEqual(["source", "address", "configure", "variables", "deploy"]);
-    expect(WIZARD_STEPS.recipe).toEqual(["source", "address", "variables", "deploy"]);
+    // A recipe brings its own type, commands and settings: one step sets it up, and Deploy follows.
+    expect(WIZARD_STEPS.recipe).toEqual(["source", "setup", "deploy"]);
     expect(WIZARD_STEPS.import).toEqual(["source", "address", "variables", "deploy"]);
     expect(nextStep("code", "address")).toBe("configure");
-    expect(nextStep("recipe", "address")).toBe("variables");
+    expect(nextStep("recipe", "source")).toBe("setup");
     expect(nextStep("code", "deploy")).toBeNull();
     expect(previousStep("import", "variables")).toBe("address");
+    expect(previousStep("recipe", "deploy")).toBe("setup");
     expect(previousStep("code", "source")).toBeNull();
+  });
+
+  it("puts every field of a recipe on its one step, and every field of the other starts where it was", () => {
+    expect(stepOfField("domain", "recipe")).toBe("setup");
+    expect(stepOfField("env:WP_DEBUG", "recipe")).toBe("setup");
+    expect(stepOfField("domain", "code")).toBe("address");
+    expect(stepOfField("domain")).toBe("address");
+    expect(errorsOf({ domain: "a", "env:WP_DEBUG": "b" }, "setup", "recipe")).toEqual([
+      ["domain", "a"],
+      ["env:WP_DEBUG", "b"],
+    ]);
   });
 
   it("knows which step asks for each field", () => {
@@ -332,6 +346,97 @@ describe("the steps", () => {
     expect(stepOfField("env-name:added:1")).toBe("variables");
     expect(stepOfField("secret:STRIPE_KEY")).toBe("variables");
     expect(errorsOf({ domain: "a", port: "b", "env:x": "c" }, "configure")).toEqual([["port", "b"]]);
+  });
+});
+
+describe("the steps with nothing to ask (checklist M-12)", () => {
+  /** One type detected, nothing declared: what a plain static site or a small service looks like. */
+  const CLEAN: Inspection = { ...INSPECTION, app_type: "static", detected_types: ["static"], env_keys: [], default_port: 80 };
+  const ask = (inspection: Inspection, patch: Partial<ReviewForm> = {}) => {
+    const form = { ...initialReview(inspection, { webserver: "nginx", taken: new Map() }), domain: "shop.example.com", ...patch };
+    return { inspection, review: form, context: NOBODY };
+  };
+
+  it("always asks where the code is, where it answers and whether to go", () => {
+    for (const step of ["source", "address", "deploy"] as const) expect(stepAsks(step, "code", ask(CLEAN))).toBe(true);
+  });
+
+  it("passes over configuration and variables for a project that is detected and declares nothing", () => {
+    expect(stepAsks("configure", "code", ask(CLEAN))).toBe(false);
+    expect(stepAsks("variables", "code", ask(CLEAN))).toBe(false);
+    expect(stepAsks("database", "code", ask(CLEAN))).toBe(false);
+  });
+
+  it("asks for configuration when nothing was detected, or when more than one type was", () => {
+    expect(stepAsks("configure", "code", ask({ ...CLEAN, app_type: "", detected_types: [] }))).toBe(true);
+    expect(stepAsks("configure", "code", ask({ ...CLEAN, app_type: "nextjs", detected_types: ["nextjs", "nodejs"] }))).toBe(true);
+  });
+
+  it("asks for configuration when this server cannot deploy it as it is, which that step says first", () => {
+    expect(stepAsks("configure", "code", ask({ ...CLEAN, compatible: false, verdict: "This server does not have python3." }))).toBe(true);
+    expect(stepAsks("configure", "code", ask({ ...CLEAN, compatible: true }))).toBe(false);
+  });
+
+  it("asks for configuration when another platform's configuration proposes settings", () => {
+    const proposal: PlatformProposal = {
+      platform: "railway",
+      files: ["railway.toml"],
+      app_type: null,
+      install_command: null,
+      build_command: null,
+      start_command: null,
+      output_directory: null,
+      port: 8080,
+      health_path: null,
+      health_timeout: null,
+      env: [],
+      databases: [],
+      domains: [],
+      persistent_paths: [],
+      warnings: [],
+    };
+    expect(stepAsks("configure", "code", ask({ ...CLEAN, platform_proposal: proposal }))).toBe(true);
+  });
+
+  it("asks for configuration when it has something to fix, such as a port that is taken", () => {
+    const node: Inspection = { ...CLEAN, app_type: "nodejs", detected_types: ["nodejs"], default_port: 3000 };
+    const taken = { ...ask(node, { port: "3000" }), context: { ...NOBODY, ports: new Map([[3000, "shop.example.com"]]) } };
+    expect(stepAsks("configure", "code", taken)).toBe(true);
+  });
+
+  it("asks for variables only when one is required and has no value yet", () => {
+    const declared: Inspection = {
+      ...CLEAN,
+      env_keys: [
+        { name: "LOG_LEVEL", default: "info", secret: false, required: false },
+        { name: "API_TOKEN", default: null, secret: true, required: true },
+      ],
+    };
+    expect(stepAsks("variables", "code", ask(declared))).toBe(true);
+    // The operator filled it in on the way back: nothing is left to ask.
+    const filled = ask(declared);
+    const answered = { ...filled, review: { ...filled.review, env: filled.review.env.map((row) => (row.required ? { ...row, value: "x" } : row)) } };
+    expect(stepAsks("variables", "code", answered)).toBe(false);
+    // Optional ones, with their examples, are not a question.
+    expect(stepAsks("variables", "code", ask({ ...CLEAN, env_keys: [{ name: "LOG_LEVEL", default: "info", secret: false, required: false }] }))).toBe(false);
+  });
+
+  it("asks about a database only when the project names one", () => {
+    const names = (...keys: string[]): Inspection => ({ ...CLEAN, env_keys: keys.map((name) => ({ name, default: null, secret: false, required: false })) });
+    expect(stepAsks("database", "code", ask(names("DATABASE_URL")))).toBe(true);
+    expect(stepAsks("database", "code", ask(names("REDIS_URL")))).toBe(true);
+    expect(stepAsks("database", "code", ask(names("DB_HOST", "DB_PASSWORD")))).toBe(true);
+    expect(stepAsks("database", "code", ask(names("LOG_LEVEL")))).toBe(false);
+  });
+
+  it("asks before anything was read, so no step is passed over on a guess", () => {
+    const nothing = { inspection: null, review: null, context: NOBODY };
+    for (const step of ["configure", "variables", "database"] as const) expect(stepAsks(step, "code", nothing)).toBe(true);
+  });
+
+  it("leaves a recipe's and an export's steps as they are", () => {
+    for (const step of WIZARD_STEPS.recipe) expect(stepAsks(step, "recipe", ask(CLEAN))).toBe(true);
+    for (const step of WIZARD_STEPS.import) expect(stepAsks(step, "import", ask(CLEAN))).toBe(true);
   });
 });
 

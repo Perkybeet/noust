@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { setLocale } from "../../app/locale";
 import { expectNoAxeViolations } from "../../test/axe";
 import { renderConsole } from "../../test/console";
-import { FakeEventSource, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
+import { APPS, FakeEventSource, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../test/fakes";
 import type { RouteHandler } from "../../test/fakes";
 import { screenWidth } from "./testRoutes";
 
@@ -89,9 +89,65 @@ describe("an application's page", () => {
     });
     expect(live).toHaveAttribute("target", "_blank");
     expect(screen.getByRole("navigation", { name: "Application sections" })).toBeInTheDocument();
-    // Update is the one primary action; Restart sits beside it.
+    // Update is the one primary action; the other daily verbs sit beside it, never behind a menu.
     expect(within(top).getByRole("button", { name: "Update" })).toHaveAttribute("data-variant", "primary");
     expect(within(top).getByRole("button", { name: "Restart" })).toHaveAttribute("data-variant", "secondary");
+    expect(within(top).getByRole("button", { name: "Stop" })).toHaveAttribute("data-variant", "secondary");
+    expect(within(top).getByRole("button", { name: "Roll back" })).toHaveAttribute("data-variant", "secondary");
+    expect(within(top).queryByRole("button", { name: "Start" })).not.toBeInTheDocument();
+    const primaries = within(top).getAllByRole("button").filter((button) => button.getAttribute("data-variant") === "primary");
+    expect(primaries).toHaveLength(1);
+  });
+
+  it("keeps only what is rare behind More actions", async () => {
+    const { user } = await appAt();
+    const top = header();
+    await user.click(await within(top).findByRole("button", { name: "More actions" }));
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Diagnose", "Delete application"]);
+  });
+
+  it("offers Start, not Stop, while the app is stopped", async () => {
+    await appAt({ [`GET /api/apps/${DOMAIN}`]: () => json(200, { ...APPS[0], status: "stopped", active: false }) });
+    const top = header();
+    expect(await within(top).findByRole("button", { name: "Start" })).toHaveAttribute("data-variant", "secondary");
+    expect(within(top).queryByRole("button", { name: "Stop" })).not.toBeInTheDocument();
+    expect(within(top).getByRole("button", { name: "Restart" })).toBeInTheDocument();
+    expect(within(top).getByRole("button", { name: "Roll back" })).toBeInTheDocument();
+  });
+
+  it("starts a stopped app in one click, with nothing to confirm", async () => {
+    const { user, backend } = await appAt({
+      [`GET /api/apps/${DOMAIN}`]: () => json(200, { ...APPS[0], status: "stopped", active: false }),
+      [`POST /api/apps/${DOMAIN}/start`]: () => json(200, { success: true, message: "Application started", domain: DOMAIN }),
+    });
+    await user.click(await within(header()).findByRole("button", { name: "Start" }));
+    await waitFor(() => {
+      expect(backend.callsTo(`POST /api/apps/${DOMAIN}/start`)).toHaveLength(1);
+    });
+  });
+
+  it("restarts in one click, with nothing to confirm", async () => {
+    const { user, backend } = await appAt({
+      [`POST /api/apps/${DOMAIN}/restart`]: () => json(200, { success: true, message: "Application restarted", domain: DOMAIN }),
+    });
+    await user.click(await within(header()).findByRole("button", { name: "Restart" }));
+    await waitFor(() => {
+      expect(backend.callsTo(`POST /api/apps/${DOMAIN}/restart`)).toHaveLength(1);
+    });
+  });
+
+  it("offers only Roll back where there is no service to restart or stop (a static site)", async () => {
+    await appAt({ [`GET /api/apps/${DOMAIN}`]: () => json(200, { ...APPS[0], app_type: "static", status: "static", active: false }) });
+    const top = header();
+    expect(await within(top).findByRole("button", { name: "Roll back" })).toBeInTheDocument();
+    for (const name of ["Restart", "Stop", "Start"]) expect(within(top).queryByRole("button", { name })).not.toBeInTheDocument();
+  });
+
+  it("has no accessibility violations with the daily verbs in the header", async () => {
+    await appAt();
+    await within(header()).findByRole("button", { name: "Roll back" });
+    await expectNoAxeViolations(document.body, { page: true });
   });
 
   it("keeps eight sections on the strip: Diagnose is reached from the menu, the banner and the Overview", async () => {
@@ -124,13 +180,21 @@ describe("an application's page", () => {
     }
   });
 
-  it("keeps Update in view on a phone and moves Restart into the menu", async () => {
+  it("keeps every daily verb in view on a phone: Update, then Restart, Stop and Roll back as named icons", async () => {
     const { user } = await appAt({}, `/apps/${DOMAIN}`, 390);
     const top = header();
-    expect(await within(top).findByRole("button", { name: "Update" })).toBeInTheDocument();
-    expect(within(top).queryByRole("button", { name: "Restart" })).not.toBeInTheDocument();
+    expect(await within(top).findByRole("button", { name: "Update" })).toHaveAttribute("data-variant", "primary");
+    for (const name of ["Restart", "Stop", "Roll back"]) expect(within(top).getByRole("button", { name })).toBeInTheDocument();
     await user.click(within(top).getByRole("button", { name: "More actions" }));
-    expect(await screen.findByRole("menuitem", { name: "Restart" })).toBeInTheDocument();
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).queryByRole("menuitem", { name: "Restart" })).not.toBeInTheDocument();
+    expect(within(menu).getAllByRole("menuitem").map((item) => item.textContent)).toEqual(["Diagnose", "Delete application"]);
+  });
+
+  it("has no accessibility violations on a phone with the verbs as icons", async () => {
+    await appAt({}, `/apps/${DOMAIN}`, 390);
+    await within(header()).findByRole("button", { name: "Roll back" });
+    await expectNoAxeViolations(document.body, { page: true });
   });
 
   it("queues an update, shows it running, and keeps its failure on screen from the job events", async () => {
@@ -265,8 +329,7 @@ describe("an application's page", () => {
     const { user, backend } = await appAt({
       [`POST /api/apps/${DOMAIN}/stop`]: () => json(200, { success: true, message: "Application stopped", domain: DOMAIN }),
     });
-    await user.click(await within(header()).findByRole("button", { name: "More actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Stop" }));
+    await user.click(await within(header()).findByRole("button", { name: "Stop" }));
     const dialog = await screen.findByRole("alertdialog", { name: `Stop ${DOMAIN}?` });
     expect(backend.callsTo(`POST /api/apps/${DOMAIN}/stop`)).toHaveLength(0);
     await user.click(within(dialog).getByRole("button", { name: "Stop application" }));
@@ -284,8 +347,8 @@ describe("an application's page", () => {
         }),
       "POST /api/jobs/rollback": () => json(202, { message: "Rollback job created", job: { ...JOB, type: "rollback" } }),
     });
-    await user.click(await within(header()).findByRole("button", { name: "More actions" }));
-    await user.click(await screen.findByRole("menuitem", { name: "Roll back…" }));
+    // One click from the header, not two through a menu.
+    await user.click(await within(header()).findByRole("button", { name: "Roll back" }));
     const dialog = await screen.findByRole("dialog", { name: `Roll back ${DOMAIN}` });
     await user.click(await within(dialog).findByRole("button", { name: "Go back to shop-example-com_20260923_182035" }));
     await waitFor(() => {

@@ -218,6 +218,7 @@ export function BackupsTab({ search, onSearchChange }: BackupsTabProps) {
         loading={view.isPending}
         skeletonRows={6}
         mobile="cards"
+        pagination="fleet-backups"
         empty={
           rows.length === 0 && view.data !== undefined ? (
             <EmptyState variant="inline" title={t("fleet.backups.empty")} />

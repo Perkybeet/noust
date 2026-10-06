@@ -26,9 +26,9 @@ test("the header says the app's state, type and port, links to the live site, an
   await expect(pill(page)).toHaveAttribute("data-state", "running");
   await expect(pill(page)).toHaveText("Running");
   await expect(header(page).getByText("Next.js", { exact: true })).toBeVisible();
-  // Update is the page's one primary action, Restart beside it.
+  // Update is the page's one primary action; the daily verbs are beside it, not in a menu.
   await expect(header(page).getByRole("button", { name: "Update" })).toHaveAttribute("data-variant", "primary");
-  await expect(header(page).getByRole("button", { name: "Restart" })).toBeVisible();
+  for (const verb of ["Restart", "Stop", "Roll back"]) await expect(header(page).getByRole("button", { name: verb, exact: true })).toBeVisible();
 
   const live = header(page).getByRole("link", { name: new RegExp(`^${DOMAIN.replace(".", "\\.")}`) });
   await expect(live).toHaveAttribute("href", `https://${DOMAIN}`);
@@ -152,8 +152,7 @@ test("Stop asks first; the header follows the unit down and back up", async ({ p
   await signIn(page, consoleServer, `/apps/${domain}`);
   await expect(pill(page)).toHaveAttribute("data-state", "running");
 
-  await header(page).getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Stop" }).click();
+  await header(page).getByRole("button", { name: "Stop", exact: true }).click();
   const dialog = page.getByRole("alertdialog", { name: `Stop ${domain}?` });
   await expect(dialog).toBeVisible();
   await expectNoA11yViolations(page, "the stop confirmation");
@@ -162,9 +161,11 @@ test("Stop asks first; the header follows the unit down and back up", async ({ p
   await expect(pill(page)).toHaveAttribute("data-state", "stopped");
   await expect(toasts(page).getByText(`Stopped ${domain}`)).toBeVisible();
 
-  await header(page).getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Start" }).click();
+  // Stopped, the verb is Start and Stop is gone; there is nothing to confirm.
+  await expect(header(page).getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
+  await header(page).getByRole("button", { name: "Start", exact: true }).click();
   await expect(pill(page)).toHaveAttribute("data-state", "running");
+  await expect(header(page).getByRole("button", { name: "Stop", exact: true })).toBeVisible();
 });
 
 test("Delete stays disabled until the domain is typed", async ({ page, consoleServer }) => {
@@ -200,8 +201,7 @@ test("Delete stays disabled until the domain is typed", async ({ page, consoleSe
 
 test("Roll back lists the backups of an app kept in a single folder", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, `/apps/${DOMAIN}`);
-  await header(page).getByRole("button", { name: "More actions" }).click();
-  await page.getByRole("menuitem", { name: "Roll back…" }).click();
+  await header(page).getByRole("button", { name: "Roll back", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: `Roll back ${DOMAIN}` });
   await expect(dialog.getByRole("button", { name: /^Go back to / })).not.toHaveCount(0);
   await expectNoA11yViolations(page, "the rollback dialog");
@@ -241,12 +241,15 @@ test("the overview tab shows the deploys as dots that open each deploy, and the 
   await expect(page).toHaveURL(/\/apps\/clientes\.example\.com\/deployments\/\d+$/);
 });
 
-test("on a phone the header keeps Update in view beside More actions", async ({ page, consoleServer }) => {
+test("on a phone the header keeps every daily verb in view, beside More actions", async ({ page, consoleServer }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signIn(page, consoleServer, `/apps/${DOMAIN}`);
   await expect(header(page).getByRole("button", { name: "Update" })).toBeInViewport();
+  for (const verb of ["Restart", "Stop", "Roll back"]) await expect(header(page).getByRole("button", { name: verb, exact: true })).toBeInViewport();
   await header(page).getByRole("button", { name: "More actions" }).click();
-  await expect(page.getByRole("menuitem", { name: "Restart" })).toBeVisible();
+  // What is left in the menu is what is rare.
+  await expect(page.getByRole("menuitem", { name: "Diagnose" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Restart" })).toHaveCount(0);
   await page.keyboard.press("Escape");
   await settle(page);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

@@ -24,11 +24,15 @@ import { nodeEventsPath, runOnNode } from "../api/nodeScope";
 import { appKeys } from "../api/queries/apps";
 import type { App } from "../api/queries/apps";
 import { sessionQuery } from "../api/queries/auth";
+import { certKeys } from "../api/queries/certs";
+import { databaseKeys } from "../api/queries/databases";
 import { deploymentKeys } from "../api/queries/deployments";
 import { jobKeys } from "../api/queries/jobs";
 import type { Job } from "../api/queries/jobs";
 import { metricKeys } from "../api/queries/metrics";
 import type { MetricsSnapshot } from "../api/queries/metrics";
+import { serviceKeys } from "../api/queries/services";
+import { siteKeys } from "../api/queries/sites";
 import { systemKeys } from "../api/queries/system";
 import type { Machine } from "../api/queries/system";
 import { toast } from "../components/ui/toast";
@@ -162,6 +166,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 const TERMINAL_JOB_STATES = new Set(["completed", "failed", "cancelled"]);
 
 /**
+ * The machine-wide lists a job can add to or take from, and the command palette indexes: the
+ * prefixes of every read of them, so each page's own filtered read goes stale with them.
+ */
+const RESOURCE_LIST_KEYS = [databaseKeys.lists, siteKeys.all, certKeys.all, serviceKeys.all] as const;
+
+/**
  * Writes one server event into the query cache. Pure over the client passed in, so every
  * cache effect of the stream is tested without a stream.
  */
@@ -196,6 +206,13 @@ export function applyServerEvent(queryClient: QueryClient, name: ServerEventName
       const domain = job.metadata?.["domain"];
       if (typeof domain === "string" && TERMINAL_JOB_STATES.has(job.status)) {
         void queryClient.invalidateQueries({ queryKey: appKeys.detail(domain) });
+      }
+      // What a job leaves behind (a database, a certificate, a site, a service) is what the
+      // command palette searches: marked stale, it is read again the next time it is opened.
+      // Not refetched now: a page that is open keeps refreshing the way it always did, and the
+      // palette, closed, reads nothing.
+      if (TERMINAL_JOB_STATES.has(job.status)) {
+        for (const queryKey of RESOURCE_LIST_KEYS) void queryClient.invalidateQueries({ queryKey, refetchType: "none" });
       }
       return;
     }
