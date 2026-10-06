@@ -158,6 +158,14 @@ Accounts are managed under `/api/auth/accounts`, invitations under `/api/auth/in
 (accepted at `/api/auth/invitations/open` and `/accept`, without a credential), passkeys under
 `/api/auth/passkeys`, and an account changes its own password with `POST /api/auth/password`.
 
+Since 3.4 a person can also sign in through an identity provider (OpenID Connect), under
+`/api/auth/oidc` ([sso.md](sso.md)). `GET /api/auth/oidc/providers` lists the buttons the sign-in page
+shows (anonymous); `GET /start` and `GET /callback` are the browser's two redirects; `POST /complete`
+collects the single-use ticket the callback left and answers what `POST /api/auth/login` answers
+(`login`), so an account with a second factor is given the same `second_factor` step to finish. The
+provider is a first factor only. `/config`, `/config/{provider}` (PUT in sudo mode), `/config/{provider}/test`
+and `/identities` are the security officer's (`accounts.read`, `accounts.manage`).
+
 ### Permissions
 
 Every route needs one permission, published in `/api/openapi.json` as the operation's
@@ -1199,6 +1207,15 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/auth/login` | POST `public` |  |
 | `/api/auth/logout` | POST `self` |  |
 | `/api/auth/notice/accept` | POST `self` |  |
+| `/api/auth/oidc/callback` | GET `public` | The provider's redirect; answers a redirect to the sign-in page, counted by the lockout |
+| `/api/auth/oidc/complete` | POST `public` | Collects the single-use ticket; counted by the lockout |
+| `/api/auth/oidc/config` | GET `accounts.read` |  |
+| `/api/auth/oidc/config/{provider}` | PUT `accounts.manage`, sudo; DELETE `accounts.manage`, sudo |  |
+| `/api/auth/oidc/config/{provider}/test` | POST `accounts.manage` |  |
+| `/api/auth/oidc/identities` | GET `accounts.read`; POST `accounts.manage`, sudo |  |
+| `/api/auth/oidc/identities/{identity_id}` | DELETE `accounts.manage`, sudo |  |
+| `/api/auth/oidc/providers` | GET `public` | Name and button label of each enabled provider |
+| `/api/auth/oidc/start` | GET `public` | Redirects to the provider |
 | `/api/auth/passkeys` | GET `self` |  |
 | `/api/auth/passkeys/elevate` | POST `self` |  |
 | `/api/auth/passkeys/elevate/options` | POST `self` |  |
