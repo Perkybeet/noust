@@ -4451,8 +4451,14 @@ NOTHING_NEW_COMMIT = "6d1e0b27c4a95f3e8d20b61c7a4f9e5d3b2c1a08"
 #: A static site with one deploy of ten seconds in its history: its Health phase does not apply.
 STATIC_DEPLOY_APP = "bodas.example.com"
 
-#: The wizard's source that is a lone Dockerfile: no type matches, and the verdict says to add compose.
+#: The wizard's source that is a lone Dockerfile: the inspection proposes the container type for it
+#: (the modelled machine has no Docker, so the verdict says what to install first).
 WIZARD_DOCKERFILE_SOURCE = "container-api"
+
+#: The wizard's source that nothing here deploys: a Rust project with no Dockerfile, and no
+#: Railpack on the modelled machine. The inspection refuses it, and the verdict says how a
+#: container would deploy it.
+WIZARD_UNSUPPORTED_SOURCE = "rust-service"
 
 
 def seed_deploy_actions_history(store: Any, apps: dict[str, _TabsApp]) -> None:
@@ -4557,7 +4563,7 @@ def seed_deploy_actions(
     - The in-place app's deployment before its live one gets the pre-update
       backup the update after it took, as its snapshot: it can be gone back to.
     - The nothing-new app, on releases with its one release serving.
-    - The wizard's lone-Dockerfile source.
+    - The wizard's lone-Dockerfile source, and the Rust project nothing deploys.
 
     Args:
         sandbox: The sandbox.
@@ -4640,7 +4646,7 @@ def seed_deploy_actions(
 
     runner.run = run  # type: ignore[method-assign]
 
-    # Only a Dockerfile: Noust runs containers through Compose, and says so.
+    # Only a Dockerfile: the inspection proposes the container type for it.
     container = sandbox.var / "www" / "src" / WIZARD_DOCKERFILE_SOURCE
     container.mkdir(parents=True, exist_ok=True)
     (container / "Dockerfile").write_text(
@@ -4650,6 +4656,16 @@ def seed_deploy_actions(
     )
     (container / "server.js").write_text(
         "require('http').createServer((q, s) => s.end('ok')).listen(3000);\n", encoding="utf-8"
+    )
+
+    # A stack Noust has no deployer for and no Dockerfile to build it with: refused.
+    unsupported = sandbox.var / "www" / "src" / WIZARD_UNSUPPORTED_SOURCE
+    (unsupported / "src").mkdir(parents=True, exist_ok=True)
+    (unsupported / "Cargo.toml").write_text(
+        '[package]\nname = "rust-service"\nversion = "0.1.0"\nedition = "2021"\n', encoding="utf-8"
+    )
+    (unsupported / "src" / "main.rs").write_text(
+        'fn main() {\n    println!("ok");\n}\n', encoding="utf-8"
     )
 
 

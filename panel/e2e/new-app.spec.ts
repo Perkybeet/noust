@@ -192,12 +192,40 @@ test("also serving www and resource limits reach the deploy request", async ({ p
   await forgetApp(page, consoleServer, domain);
 });
 
-test("a source Noust cannot deploy as it is gets the inspection's verdict and the file to add", async ({ page, consoleServer, problems }) => {
+test("a repository with only a Dockerfile is proposed as a container application", async ({ page, consoleServer, problems }) => {
+  await signIn(page, consoleServer, "/apps/new");
+  const source = await wizardSource(page, "container-api");
+  // The first answer of a session is the sudo-mode 403; the one that counts is the inspection's own.
+  const inspected = page.waitForResponse((response) => response.url().endsWith("/api/apps/inspect") && response.status() !== 403);
+  await inspectSource(page, consoleServer, problems, source);
+  const response = await inspected;
+  expect(response.status()).toBe(200);
+  // What the real inspection read: the Dockerfile's port, and the one type that builds it.
+  expect(await response.json()).toMatchObject({ app_type: "container", detected_types: ["container"], default_port: 3000 });
+  // Not refused: the wizard went on to the address, with no verdict on the source.
+  await expect(page.getByText("Noust cannot deploy", { exact: false })).toHaveCount(0);
+  await page.getByLabel("Domain", { exact: true }).fill("contenedor.example.net");
+  await settle(page);
+  await expectNoA11yViolations(page, "the address of a container application");
+
+  // The machine the console server models has no Docker, which the container type needs: the
+  // wizard says so on the Configuration step, which it asks for, instead of passing over it.
+  await continueTo(page, "Configuration");
+  const found = page.getByRole("group", { name: "What Noust found" });
+  await expect(found.getByText("This is a Container project, but this server does not have docker.")).toBeVisible();
+  await expect(found.getByText("Not deployable as it is:", { exact: false })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "App type" })).toHaveText(/Container/);
+  await settle(page);
+  await expectNoA11yViolations(page, "the configuration of a container application");
+});
+
+test("a source Noust cannot deploy as it is gets the inspection's verdict and how a container would deploy it", async ({ page, consoleServer, problems }) => {
   // Chromium logs the inspection's refusal as a failed resource.
   problems.expect(/status of 400 .* \/api\/apps\/inspect$/);
   problems.expect(/status of 403 .* \/api\/apps\/inspect$/);
   await signIn(page, consoleServer, "/apps/new");
-  const source = await wizardSource(page, "container-api");
+  // A Rust project with no Dockerfile: no type is Noust's own, and this machine has no Railpack.
+  const source = await wizardSource(page, "rust-service");
   await (await typedSource(page)).fill(source);
   await page.getByRole("button", { name: "Inspect source" }).click();
   const confirm = page.getByRole("dialog", { name: "Confirm it's you" });
@@ -205,9 +233,10 @@ test("a source Noust cannot deploy as it is gets the inspection's verdict and th
   await expect(confirm.or(verdict)).toBeVisible();
   if (await confirm.isVisible()) await confirmItsYou(page, consoleServer);
 
-  await expect(verdict.getByText("The repository has a Dockerfile but no Compose file.")).toBeVisible();
-  // The compose file to commit, as the file it is: indentation included.
-  await expect(verdict.locator("pre").filter({ hasText: /^services:\n {2}app:\n {4}build: \./ })).toBeVisible();
+  await expect(verdict.getByText("This is a Rust project (Cargo.toml); Noust has no Rust deployer.")).toBeVisible();
+  // What would make it deployable, in the backend's words: a Dockerfile, or Railpack to build without one.
+  await expect(verdict).toContainText("add a Dockerfile to the repository and deploy it with --type container");
+  await expect(verdict).toContainText("--builder railpack");
   await expect(page.getByLabel("Repository or directory")).not.toHaveAttribute("aria-invalid", "true");
   await settle(page);
   await expectNoA11yViolations(page, "an inspection's verdict");
