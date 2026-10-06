@@ -277,6 +277,10 @@ class NewAppDatabaseRequest(BaseModel):
             runs is refused with what runs, and an engine that is not
             installed is refused with how to install it (``GET
             /api/databases/provisioning/choices``) before anything is queued.
+        instance: The name of an instance Noust runs (``GET
+            /api/databases/instances``) to make the database on, instead of the
+            host's engine. One is also chosen by itself when ``version`` is the
+            one an instance runs and the host does not.
     """
 
     engine: str = Field(..., description="Database engine")
@@ -285,6 +289,9 @@ class NewAppDatabaseRequest(BaseModel):
     extra_vars: bool = Field(default=False, description="Also write the DB_* variables")
     version: str | None = Field(
         default=None, max_length=16, description="Version of the engine, such as 17"
+    )
+    instance: str | None = Field(
+        default=None, max_length=24, description="Make it on this instance Noust runs"
     )
 
 
@@ -988,8 +995,9 @@ def _database_for_job(body: CreateAppRequest) -> dict[str, Any]:
         The database as a plain mapping, without an unset version.
     """
     described = dump_model(body.database)  # type: ignore[arg-type]
-    if described.get("version") is None:
-        described.pop("version", None)
+    for optional in ("version", "instance"):
+        if described.get(optional) is None:
+            described.pop(optional, None)
     return described
 
 
@@ -1112,10 +1120,16 @@ def create_app(
             "/api/apps/{domain}/databases.",
             field="database",
         )
-    if body.database is not None and body.database.version is not None:
+    if body.database is not None and (
+        body.database.version is not None or body.database.instance is not None
+    ):
         # Before anything is queued: a version this server does not run is a
         # refusal the wizard shows next to the field, not a failed job.
-        DatabaseService().resolve_engine_choice(body.database.engine, version=body.database.version)
+        DatabaseService().resolve_engine_choice(
+            body.database.engine,
+            version=body.database.version,
+            instance=body.database.instance,
+        )
 
     # A name is taken whoever owns it: a domain is one per server.
     if scoped_store().domain_is_taken(domain):

@@ -514,6 +514,8 @@ OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
 #: Tables with a column that looks like an owner and is not one, and why.
 NOT_OWNED: dict[str, str] = {
     "console_exposure": "the name the console itself is published on: the server's, not an application's",
+    "db_instances": "an engine Noust runs in a container beside the host's: the server's, like the "
+    "host's engines. A database on it is a team's, and is reached as any database is",
 }
 
 #: Prefixes whose routes belong to what the tables above hold. None of them may be "open": a route
@@ -524,6 +526,7 @@ OWNED_PREFIXES = (
     "/api/databases/backup-policies",
     "/api/databases/backups",
     "/api/databases/imports",
+    "/api/databases/instances",
     "/api/volume-backups",
     "/api/self-backup",
     "/api/backups",

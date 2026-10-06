@@ -85,6 +85,10 @@ src/noust/
     siteconf/       the one nginx/Apache parser: lossless tree, structured model, edit
                     operations, request routing (rule 3: nothing reads a site with a regex)
     stack_databases.py  a Compose stack's databases: detect, dump, restore
+    database/managed.py  the engines Noust runs itself in containers beside the host's (another
+                    version, or an engine the host lacks): make, start, stop, upgrade, remove, from
+                    the catalog of official images pinned by digest (instance_catalog.py); once
+                    made, an instance is one more key (`postgresql@pg16`) to every database manager
     app_identity.py the one answer to "which account does this app run as"
     site_topology.py, timeline.py   what a site reaches, live; one timeline over a stretch
     console_exposure.py  the console on a public name over TLS (`noust console expose`): nginx

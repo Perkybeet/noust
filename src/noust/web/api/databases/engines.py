@@ -67,6 +67,11 @@ class EngineInfo(BaseModel):
             application's).
         access: ``full``, or ``limited`` when the credentials the container
             carries only let Noust in as the application's own account.
+        managed: The name of the instance Noust runs this container as, when it
+            is one (``name`` is then ``<engine>@<managed>``): an instance is
+            Noust's to start, stop, upgrade and remove, and its image is pinned.
+        pinned_version: The version a managed instance was made with.
+        memory_limit_mb: A managed instance's memory limit.
     """
 
     name: str
@@ -88,6 +93,9 @@ class EngineInfo(BaseModel):
     image: str | None = None
     app: str | None = None
     access: str | None = None
+    managed: str | None = None
+    pinned_version: str | None = None
+    memory_limit_mb: int | None = None
 
 
 class EngineCredentialsRequest(BaseModel):
@@ -366,6 +374,9 @@ def list_engines(session: Annotated[dict, Depends(get_current_session)]) -> Engi
                 image=status.get("image"),
                 app=status.get("app"),
                 access=status.get("access"),
+                managed=status.get("managed"),
+                pinned_version=status.get("pinned_version"),
+                memory_limit_mb=status.get("memory_limit_mb"),
             )
             for status in service(session).engines()
         ]

@@ -384,6 +384,21 @@ def test_database_identifiers_turns_dashes_into_underscores(
     assert user == "my_app_user"
 
 
+def test_database_identifiers_of_an_instance_key_follow_the_engine_it_runs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A database on a container (a stack's, or an instance Noust runs) is named by the
+    # limits of its engine: the key says where it is, the engine says how long a name may be.
+    manager = FakeManager("mysql", "MySQL/MariaDB", max_user_name_length=32)
+    _patch_registry(monkeypatch, FakeRegistry({"mysql": manager}))
+
+    database, user = database_identifiers("my-app", "mysql@legacy")
+    assert (database, user) == database_identifiers("my-app", "mysql")
+
+    _database, long_user = database_identifiers("a-" * 30, "mysql@project.db")
+    assert len(long_user) <= 32
+
+
 def test_database_identifiers_truncates_and_hashes_for_mysql_user_limit(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

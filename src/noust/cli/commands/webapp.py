@@ -225,6 +225,7 @@ def _create_app(
     install_database: bool = False,
     container: dict[str, Any] | None = None,
     build_document: str | None = None,
+    database_instance: str | None = None,
 ) -> int:
     """
     Deploy an application.
@@ -269,6 +270,8 @@ def _create_app(
             (``--database-version``); None for the installed one.
         install_database: Install the engine, in that version, when it is
             missing (``--install-database``).
+        database_instance: The instance Noust runs to make the database on
+            (``--database-instance``); None for the host's engine.
         container: What a container application is made from and how it runs,
             as :func:`~noust.cli.commands.app_container.changes_from_options`
             gives it (``--image``, ``--builder``, ``--build-arg``...); None for
@@ -393,6 +396,8 @@ def _create_app(
             asked["version"] = database_version
         if install_database:
             asked["install"] = True
+        if database_instance:
+            asked["instance"] = database_instance
         new_database = databases.prepare_for_new_app(
             domain, engine, name=name, env=env_vars, **asked
         )
@@ -1989,6 +1994,13 @@ def cli() -> None:
     "Installs packages: the same as 'noust db install'.",
 )
 @click.option(
+    "--database-instance",
+    metavar="NAME",
+    help="Make the --database on this instance Noust runs ('noust db instance list') instead "
+    "of the host's engine. One is also chosen by itself when --database-version is what an "
+    "instance runs and the host does not.",
+)
+@click.option(
     "--compose-file",
     help="Compose file to use, relative to the project. Detected when omitted.",
 )
@@ -2050,6 +2062,7 @@ def create(
     database_spec: str | None,
     database_version: str | None,
     install_database: bool,
+    database_instance: str | None,
     compose_file: str | None,
     compose_profiles: tuple[str, ...],
     layout: str | None,
@@ -2083,8 +2096,10 @@ def create(
     database = _parse_database(database_spec) if database_spec is not None else None
     if recipe is not None and database is not None:
         raise click.UsageError("--database cannot be used with --recipe: the recipe has its own.")
-    if (database_version or install_database) and database is None:
-        raise click.UsageError("--database-version and --install-database need --database.")
+    if (database_version or install_database or database_instance) and database is None:
+        raise click.UsageError(
+            "--database-version, --database-instance and --install-database need --database."
+        )
     if follow_tags is not None:
         if branch is not None or recipe is not None:
             raise click.UsageError(
@@ -2151,6 +2166,7 @@ def create(
             database=database,
             database_version=database_version,
             install_database=install_database,
+            database_instance=database_instance,
             container=container or None,
             build_document=build_document,
         ),

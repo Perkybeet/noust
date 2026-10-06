@@ -134,8 +134,10 @@ own backup, with the policies that schedule them: each writes a root timer and n
 the server owns), certificates in bulk, the GitHub App, the fleet and every node, an adopted
 Compose stack, an import of an exported application and the install of a recipe (create the
 application through `POST /api/apps` with a recipe instead). These are what 3.4 does not yet
-filter by team; the pages come to a team member as each is filtered. Database engines, users,
-imports and dumps are also the server's; the databases a team owns are its own.
+filter by team; the pages come to a team member as each is filtered. Database engines (the
+instances Noust runs in containers beside the host's included: making, upgrading and removing one),
+users, imports and dumps are also the server's; the databases a team owns are its own, on whichever
+engine, and a team member picks an instance for its application's database through the choices.
 
 Three more are the server's though the route around them is a team's:
 

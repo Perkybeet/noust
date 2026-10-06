@@ -36,12 +36,13 @@ def default_env_var(engine: str) -> str:
     Name the variable a link writes when the caller names none.
 
     Args:
-        engine: Canonical engine name.
+        engine: Canonical engine name, or an instance key (``redis@cache``),
+            which is named for the engine it runs.
 
     Returns:
         ``REDIS_URL`` for Redis, ``DATABASE_URL`` for every other engine.
     """
-    return DEFAULT_ENV_VARS.get(engine, "DATABASE_URL")
+    return DEFAULT_ENV_VARS.get(engine.partition("@")[0], "DATABASE_URL")
 
 
 def _now() -> str:

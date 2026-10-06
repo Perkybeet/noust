@@ -16,8 +16,10 @@ from __future__ import annotations
 from typing import Any
 
 from noust.core.audit import Actor
+from noust.core.exceptions import DatabaseEngineError
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.database.backups import DatabaseBackups
+from noust.managers.database.managed import ManagedInstances
 from noust.managers.database.service import DatabaseService
 from noust.web.jobs import JobContext
 
@@ -169,6 +171,7 @@ def provision_job(
     restart: bool = True,
     version: str | None = None,
     install: bool = False,
+    instance: str | None = None,
     actor: str | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
@@ -185,6 +188,7 @@ def provision_job(
         version: The version of the engine the database is for; None for the
             installed one.
         install: Install the engine, in that version, first when it is missing.
+        instance: The instance Noust runs to make the database on.
         actor: Who queued it, as the audit trail names them.
         job_context: Injected by the job manager.
 
@@ -200,6 +204,7 @@ def provision_job(
         restart=restart,
         version=version,
         install=install,
+        instance=instance,
     )
     _done(job_context)
     return outcome.to_dict()
@@ -312,3 +317,64 @@ def rotate_job(
     )
     _done(job_context)
     return {**outcome.to_dict(), "password_stored": True}
+
+
+def instance_job(
+    action: str,
+    name: str,
+    engine: str | None = None,
+    version: str | None = None,
+    memory_mb: int | None = None,
+    port: int | None = None,
+    backup: bool = True,
+    confirm: bool = False,
+    actor: str | None = None,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Make, start, upgrade or remove a database instance Noust runs.
+
+    Each of these pulls an image, starts a container or waits for an engine to
+    answer, which is minutes of work that must not sit on a request.
+
+    Args:
+        action: ``create``, ``start``, ``upgrade`` or ``remove``.
+        name: The instance's name.
+        engine: What to run, for ``create``.
+        version: The version, for ``create``.
+        memory_mb: The memory limit, for ``create``.
+        port: The port on 127.0.0.1, for ``create``.
+        backup: Dump every database first, for ``upgrade``.
+        confirm: The operator accepted that the data goes, for ``remove``.
+        actor: Who queued it, as the audit trail names them.
+        job_context: Injected by the job manager.
+
+    Returns:
+        What was done: the instance, what an upgrade changed, or what a
+        removal took away. No password is in it: the superuser's is in a file
+        only root reads.
+
+    Raises:
+        DatabaseEngineError: ``action`` is not one of the four, or a creation
+            names no engine.
+    """
+    managed = ManagedInstances(_service(job_context, f"{action.capitalize()} {name}", actor))
+    if action == "create":
+        if engine is None:
+            raise DatabaseEngineError("An instance needs an engine to run")
+        result: dict[str, Any] = {
+            "instance": managed.create(name, engine, version=version, memory=memory_mb, port=port)
+        }
+    elif action == "start":
+        result = {"instance": managed.start(name)}
+    elif action == "upgrade":
+        result = {"upgrade": managed.upgrade(name, backup=backup).to_dict()}
+    elif action == "remove":
+        result = {"removed": managed.remove(name, confirm=confirm).to_dict()}
+    else:
+        raise DatabaseEngineError(
+            f"Unsupported instance action: {action}",
+            details="Use create, start, upgrade or remove.",
+        )
+    _done(job_context)
+    return result

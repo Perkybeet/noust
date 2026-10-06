@@ -56,6 +56,7 @@ from noust.core.exceptions import DatabaseQueryError, ValidationError
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.secret_detection import name_looks_secret, redact_url_credentials
 from noust.core.utils import domain_to_app_name
+from noust.managers.database.instance_layout import INSTANCE_LABEL
 
 __all__ = [
     "CLIENT_SCRIPT",
@@ -559,6 +560,14 @@ class DatabaseInstance:
         host_network: Whether it shares the server's network (``--network
             host``) instead of having one of its own: nothing is published,
             because the engine listens on the server's own interfaces.
+        instance_label: The ``io.noust.db-instance`` label the container
+            carries. A label alone makes nothing Noust's: the store's row of
+            that name does (``instance_records.assign_managed``).
+        managed: The name of the instance Noust runs this container as, once a
+            row of the store says so. Such an instance is Noust's to start,
+            stop, upgrade and remove, unlike a stack's.
+        version: The tag a managed instance was made from (``17``).
+        memory_limit_mb: A managed instance's memory limit.
     """
 
     key: str
@@ -580,6 +589,10 @@ class DatabaseInstance:
     command_password_variable: str | None = None
     unit: str | None = None
     host_network: bool = False
+    instance_label: str | None = None
+    managed: str | None = None
+    version: str | None = None
+    memory_limit_mb: int | None = None
 
     # ---------------------------------------------------------------- state
 
@@ -892,9 +905,20 @@ class DatabaseInstance:
         Returns:
             ``key``, ``engine``, ``flavour``, ``container``, ``project``,
             ``service``, ``image``, ``state``, ``running``, ``port``, ``app``
-            and ``access``.
+            and ``access``; for an instance Noust runs, also ``managed`` (its
+            name), ``version`` and ``memory_limit_mb``.
         """
+        managed: dict[str, Any] = (
+            {
+                "managed": self.managed,
+                "version": self.version,
+                "memory_limit_mb": self.memory_limit_mb,
+            }
+            if self.managed is not None
+            else {}
+        )
         return {
+            **managed,
             "key": self.key,
             "engine": self.engine,
             "flavour": self.flavour,
@@ -1106,6 +1130,7 @@ def _instance(entry: Mapping[str, Any]) -> DatabaseInstance | None:
         command_password=password,
         command_password_variable=variable,
         host_network=host_network,
+        instance_label=labels.get(INSTANCE_LABEL) or None,
     )
 
 

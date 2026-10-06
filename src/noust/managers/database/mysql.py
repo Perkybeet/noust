@@ -1133,6 +1133,12 @@ class MySQLManager(BaseDatabaseManager):
                 # Scheduled events are part of the schema too; without this a
                 # restored database silently stops running them.
                 "--events",
+                # A MySQL with GTIDs on (the image of 9.x has them) makes the dump
+                # set @@GLOBAL.GTID_PURGED, which the server it was taken from
+                # refuses on restore ("the added gtid set must not overlap with
+                # @@GLOBAL.GTID_EXECUTED"). A dump meant to be loaded back is not a
+                # replica's seed. MariaDB's mysqldump has no such option.
+                *(() if self.is_mariadb else ("--set-gtid-purged=OFF",)),
                 # The option takes the table as db.table, in one word.
                 *(
                     f"--ignore-table={database}.{table}"

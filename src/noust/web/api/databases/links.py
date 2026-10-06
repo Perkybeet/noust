@@ -70,6 +70,10 @@ class ProvisionRequest(BaseModel):
         install: Install the engine, in that version, first when it is not
             installed. Needs sudo mode and ``databases.manage``, like the
             install itself.
+        instance: The name of an instance Noust runs (``GET
+            /api/databases/instances``) to make the database on, instead of the
+            host's engine. One is also chosen by itself when the version asked
+            for is the one an instance runs and the host does not.
     """
 
     engine: str = Field(..., description="Database engine")
@@ -82,6 +86,9 @@ class ProvisionRequest(BaseModel):
     )
     install: bool = Field(
         default=False, description="Install the engine in that version if it is missing"
+    )
+    instance: str | None = Field(
+        default=None, max_length=24, description="Make it on this instance Noust runs"
     )
 
 
@@ -172,10 +179,11 @@ def provision_app_database(
         version=request.version,
         install=request.install,
         install_hint="send install: true",
+        instance=request.instance,
     )
-    manager = databases.manager(request.engine)
+    manager = databases.manager(choice.engine)
     if choice.action == "use":
-        manager = databases.running(request.engine)
+        manager = databases.running(choice.engine)
     return queue(
         session,
         job_type=JobType.DATABASE,
@@ -191,6 +199,7 @@ def provision_app_database(
             "restart": request.restart,
             "version": request.version,
             "install": request.install,
+            "instance": request.instance,
         },
         metadata={"domain": domain, "engine": manager.ENGINE_NAME},
         message=f"Creating a {choice.display_name} database for {domain}",
