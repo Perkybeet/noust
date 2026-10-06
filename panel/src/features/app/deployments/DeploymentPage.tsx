@@ -337,19 +337,24 @@ function Deploy({ domain, deployment, t }: { domain: string; deployment: Deploym
   // Phase changes, and how it ended, are said once each; log lines never.
   const moment = running ? (current?.key ?? "start") : deployment.status;
   const doing = current ? phaseDoing(t, current.key).toLowerCase() : t("appPages.deployments.page.starting");
+  // Cancelled by an operator: stored as failed, but nothing went wrong, so it is neither
+  // announced as a failure nor shown with an error.
+  const cancelled = deployment.cancelled;
   const said = running
     ? t("appPages.deployments.page.announceRunning", { id: String(deployment.id), doing })
-    : outcome === "failed"
-      ? t("appPages.deployments.page.announceFailed", { id: String(deployment.id) })
-      : t("appPages.deployments.page.announceFinished", { id: String(deployment.id) });
-  useAnnounceChange(moment, said, outcome === "failed" ? "assertive" : "polite");
+    : cancelled
+      ? t("queue.cancel.announced", { id: String(deployment.id) })
+      : outcome === "failed"
+        ? t("appPages.deployments.page.announceFailed", { id: String(deployment.id) })
+        : t("appPages.deployments.page.announceFinished", { id: String(deployment.id) });
+  useAnnounceChange(moment, said, outcome === "failed" && !cancelled ? "assertive" : "polite");
 
   const fallback: LogLine[] = job.entries.map((entry, index) => ({
     id: index,
     text: entry.text,
     ...(entry.at ? { ts: logClockText(entry.at) } : {}),
   }));
-  const failure = outcome === "failed" ? failureWords(t, current) : null;
+  const failure = outcome === "failed" && !cancelled ? failureWords(t, current) : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -376,7 +381,14 @@ function Deploy({ domain, deployment, t }: { domain: string; deployment: Deploym
             ) : null}
           </div>
         </Card>
-        {deployment.warnings && failure === null ? (
+        {cancelled ? (
+          <Notice title={t("queue.cancel.deploymentCancelledTitle")}>
+            {deployment.cancelled_by
+              ? t("queue.cancel.deploymentCancelled", { who: deployment.cancelled_by })
+              : t("queue.cancel.deploymentCancelledAnonymous")}
+          </Notice>
+        ) : null}
+        {deployment.warnings && failure === null && !cancelled ? (
           <Notice tone="warning" title={t("appPages.deployments.hooks.warningsTitle")}>
             <div className="flex flex-col gap-2">
               <p>{t("appPages.deployments.hooks.warningsBody")}</p>

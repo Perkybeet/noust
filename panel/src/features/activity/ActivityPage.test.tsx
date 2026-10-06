@@ -170,17 +170,39 @@ describe("the activity timeline", () => {
     expect(within(table).queryByText("/api/apps/blog.example.com")).not.toBeInTheDocument();
   });
 
-  it("leads with the jobs running now, each with its step and its log", async () => {
-    const running = { ...JOBS[0], id: "r1", name: "Deploy shop.example.com", status: "running", current_step: "npm ci", completed_at: null };
+  it("leads with what builds and what waits, each with its place, and opens its log", async () => {
+    const running = {
+      ...JOBS[0],
+      id: "r1",
+      type: "deploy",
+      name: "Deploy shop.example.com",
+      status: "running",
+      current_step: "npm ci",
+      completed_at: null,
+      queue_position: null,
+      waiting_for: null,
+      cancellable: true,
+      cancel_requested: false,
+    };
     const { user } = await activityAt({
-      "GET /api/jobs/active": () => json(200, { jobs: [running], total: 1, active: 1 }),
+      "GET /api/jobs/queue": () =>
+        json(200, { running: [running], queued: [], builds_running: 1, max_concurrent_builds: 2, queue_limit: 25, builds_queued: 0 }),
       "GET /api/jobs/r1/log": () => json(200, { job_id: "r1", content: "[12:00:00] [INFO] npm ci", truncated: false, lines: 1 }),
     });
-    const progress = (await screen.findByText("Deploy shop.example.com")).closest("div");
-    if (!progress) throw new Error("no job in hand");
-    expect(within(progress).getByText("npm ci")).toBeInTheDocument();
-    await user.click(within(progress).getByRole("button", { name: "View log" }));
+    const panel = (await screen.findByRole("heading", { name: "Deploy queue" })).closest("section");
+    if (!panel) throw new Error("no queue panel");
+    expect(within(panel).getByText("Deploying shop.example.com")).toBeInTheDocument();
+    expect(within(panel).getByText("1 of 2 builds running")).toBeInTheDocument();
+    await user.click(within(panel).getByRole("button", { name: "View log of Deploying shop.example.com" }));
     expect(await screen.findByRole("dialog", { name: "Deploy shop.example.com" })).toBeInTheDocument();
+  });
+
+  it("draws no queue while nothing builds or waits", async () => {
+    const { table } = await activityAt({
+      "GET /api/jobs/queue": () => json(200, { running: [], queued: [], builds_running: 0, max_concurrent_builds: 2, queue_limit: 25, builds_queued: 0 }),
+    });
+    await within(table).findByText("shop.example.com");
+    expect(screen.queryByRole("heading", { name: "Deploy queue" })).not.toBeInTheDocument();
   });
 
   it("shows a quiet note instead of an error when the session cannot read the audit log", async () => {

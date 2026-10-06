@@ -66,7 +66,7 @@ export const settings = {
       title: "Details",
       description: "Set from a terminal or when Noust was installed.",
       hooksUrl: "Address for webhooks",
-      hooksUrlUnset: "Not set: GitHub, GitLab and Gitea cannot reach this server. Set it with {command}.",
+      hooksUrlUnset: "Not set: GitHub, GitLab, Gitea and Bitbucket cannot reach this server. Set it with {command}.",
       configFile: "Configuration file",
       serviceUser: "Applications run as",
       notSet: "Not set",
@@ -472,7 +472,7 @@ export const settings = {
     fromTerminal: "The same, from a terminal",
     hooks: {
       title: "Address for webhooks",
-      description: "Where GitHub, GitLab and Gitea deliver pushes to this server.",
+      description: "Where GitHub, GitLab, Gitea and Bitbucket deliver pushes to this server.",
       loadingLabel: "the address for webhooks",
       unsetTitle: "Not set",
       unsetDescription: "Code hosts deliver pushes to /hooks on a public domain, and this server does not expose one yet. Point a domain at this server, then run:",
@@ -480,7 +480,7 @@ export const settings = {
       setDescription: "Set with noust web expose-hooks, which also serves it.",
     },
     others: {
-      title: "GitLab and Gitea",
+      title: "GitLab, Gitea and Bitbucket",
       description: "Deploy on push, without an App.",
       body: "Each application gets its own webhook: open it in {apps}, then Settings, Deploy on push.",
       appsLink: "Applications",

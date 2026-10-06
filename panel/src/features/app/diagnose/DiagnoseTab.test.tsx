@@ -40,6 +40,15 @@ function at(rows: readonly HTMLElement[], index: number): HTMLElement {
   return row;
 }
 
+/** Opens the folded list of checks that passed or were skipped. */
+async function openTheRest(): Promise<void> {
+  const rest = document.querySelector("details[data-rest]");
+  if (rest instanceof HTMLDetailsElement) rest.open = true;
+  await waitFor(() => {
+    expect(rest).not.toBeNull();
+  });
+}
+
 async function diagnoseTab(diagnose: RouteHandler) {
   const backend = fakeBackend({
     ...signedInRoutes(),
@@ -104,6 +113,42 @@ describe("the Diagnose tab", () => {
     await diagnoseTab(() => json(200, DOWN));
     const link = await screen.findByRole("link", { name: "Follow the live log" });
     expect(link).toHaveAttribute("href", `/apps/${DOMAIN}/logs`);
+  });
+
+  it("suggests updating without a cut for an app that restarts on every update, and leads to the setting", async () => {
+    await diagnoseTab(() =>
+      json(200, {
+        ...HEALTHY,
+        checks: [
+          ...HEALTHY.checks,
+          { name: "zero_downtime", status: "skip", summary: "Its updates restart it in place; it could update without a cut", evidence: `Turn it on: noust app zero-downtime ${DOMAIN} on` },
+        ],
+      }),
+    );
+    expect(await screen.findByText("This app could update without a cut")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Turn on zero-downtime deploys" })).toHaveAttribute("href", `/apps/${DOMAIN}/settings/deploys`);
+    // The check itself is in the product's words, and keeps the server's command verbatim.
+    await openTheRest();
+    expect(screen.getByText("Updates without a cut")).toBeInTheDocument();
+    expect(screen.getByText(`Turn it on: noust app zero-downtime ${DOMAIN} on`)).toBeInTheDocument();
+  });
+
+  it("says nothing about updates for an app that already updates without a cut", async () => {
+    await diagnoseTab(() => json(200, HEALTHY));
+    await screen.findByText("All good");
+    expect(screen.queryByText("This app could update without a cut")).not.toBeInTheDocument();
+  });
+
+  it("names the copy that serves in zero-downtime mode", async () => {
+    await diagnoseTab(() =>
+      json(200, {
+        ...HEALTHY,
+        checks: [{ name: "blue_green", status: "ok", summary: "green serves on 3101; blue is idle on 3100", evidence: "" }, ...HEALTHY.checks],
+      }),
+    );
+    await screen.findByText("All good");
+    await openTheRest();
+    expect(screen.getByText("Copy that serves")).toBeInTheDocument();
   });
 
   it("runs the probes again on request and announces the new verdict", async () => {

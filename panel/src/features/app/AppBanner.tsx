@@ -18,7 +18,7 @@ import { ReclaimDialog } from "./ReclaimDialog";
 export const RECENT_APP_DEPLOYS = 5;
 
 /** The newest deploy, as the history has it (with its error) or as the app carries it. */
-type Newest = (Pick<Deployment, "id" | "status" | "finished_at"> & { started_at?: string | null; error?: string | null }) | LastDeployment;
+type Newest = (Pick<Deployment, "id" | "status" | "finished_at"> & { started_at?: string | null; error?: string | null; cancelled?: boolean | null }) | LastDeployment;
 
 /** What is wrong with an app, if anything, in the order an operator should hear about it. */
 export type AppCondition =
@@ -37,7 +37,10 @@ export type AppCondition =
  */
 export function appCondition(app: Pick<App, "status" | "port">, newest: Newest | null): AppCondition | null {
   const word = app.status.trim().toLowerCase().replace(/^no answer$/, "no_answer");
-  const deployFailed = newest?.status === "failed" ? newest : null;
+  // A deploy an operator cancelled is stored as failed, and is not a problem: it stopped what it
+  // was building and left what serves as it was.
+  const cancelled = newest !== null && "cancelled" in newest && newest.cancelled === true;
+  const deployFailed = newest?.status === "failed" && !cancelled ? newest : null;
   if (word === "failed") return { kind: "failed", lastDeploy: deployFailed };
   if (word === "no_answer") return { kind: "noAnswer", port: app.port ?? null };
   if (word === "restarting") return { kind: "restarting" };

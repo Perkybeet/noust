@@ -36,6 +36,7 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "app-diagnose", path: "/apps/clientes.example.com/diagnose" },
   { name: "app-settings", path: "/apps/shop.example.net/settings" },
   // 3.1: each subsection of an app's settings is a URL of its own.
+  { name: "app-settings-source", path: "/apps/taller.example.com/settings/source" },
   { name: "app-settings-deploys", path: "/apps/tienda.example.org/settings/deploys" },
   { name: "app-settings-push", path: "/apps/tienda.example.org/settings/deploy-on-push" },
   { name: "app-settings-hooks", path: "/apps/tienda.example.org/settings/hooks" },

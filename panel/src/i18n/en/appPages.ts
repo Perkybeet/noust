@@ -442,6 +442,10 @@ export const appPages = {
 
   diagnose: {
     followLiveLog: "Follow the live log",
+    openDeploySettings: "Open the deploy settings",
+    zeroDowntimeTitle: "This app could update without a cut",
+    zeroDowntimeBody: "Its updates restart it in place, which drops connections for a moment. With zero-downtime deploys the new version starts beside the old one and traffic moves when it answers.",
+    zeroDowntimeAction: "Turn on zero-downtime deploys",
     openDeployments: "Open the deployments",
     openDomains: "Open the domains",
     verdictPrefix: "Verdict:",
@@ -488,6 +492,8 @@ export const appPages = {
       lastDeployment: "Last deploy",
       oom: "Out-of-memory kills",
       disk: "Disk space",
+      blueGreen: "Copy that serves",
+      zeroDowntime: "Updates without a cut",
     },
     headline: {
       unit: "The app stops when it starts",

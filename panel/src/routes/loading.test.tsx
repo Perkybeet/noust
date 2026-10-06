@@ -43,6 +43,7 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/apps/$domain/settings/hooks", "/apps/shop.example.com/settings/hooks"],
   ["/apps/$domain/settings/previews", "/apps/shop.example.com/settings/previews"],
   ["/apps/$domain/settings/resources", "/apps/shop.example.com/settings/resources"],
+  ["/apps/$domain/settings/source", "/apps/shop.example.com/settings/source"],
   ["/backups", "/backups"],
   ["/backups/destinations", "/backups/destinations"],
   ["/backups/schedules", "/backups/schedules"],

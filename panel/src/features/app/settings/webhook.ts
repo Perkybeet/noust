@@ -44,6 +44,9 @@ const OUTCOME: Readonly<Record<string, { state: Status; label: PlainKey }>> = {
   duplicate: { state: "stopped", label: "appSettings.webhook.outcomeDuplicate" },
   bad_signature: { state: "failed", label: "appSettings.webhook.outcomeBadSignature" },
   locked: { state: "failed", label: "appSettings.webhook.outcomeLocked" },
+  // The push was real and verified; the deploy queue had no room, so the host is answered 429
+  // and retries. Not a failure of the setup, so not red.
+  queue_full: { state: "warning", label: "appSettings.webhook.outcomeQueueFull" },
 };
 
 /**
@@ -57,9 +60,20 @@ export function outcomeView(outcome: string, locale: Locale = getLocale()): Stat
   return { state: known.state, label: translate(locale, known.label) };
 }
 
-const FORGES: Readonly<Record<string, string>> = { github: "GitHub", gitlab: "GitLab", gitea: "Gitea" };
+const FORGES: Readonly<Record<string, string>> = { github: "GitHub", gitlab: "GitLab", gitea: "Gitea", bitbucket: "Bitbucket" };
 
 /** The forge by its product name, which is never translated; a generic name for another host. */
 export function forgeName(forge: string | null | undefined, locale: Locale = getLocale()): string {
   return (forge !== null && forge !== undefined ? FORGES[forge] : undefined) ?? translate(locale, "appSettings.webhook.anyForge");
+}
+
+/**
+ * Who sent a delivery, as the delivery log names its provider: a forge by its product name,
+ * this server's GitHub App by its own, and a provider the console does not know verbatim.
+ * Null when no credential verified, so nothing says who it was.
+ */
+export function senderName(provider: string | null | undefined, locale: Locale = getLocale()): string | null {
+  if (provider === null || provider === undefined || provider === "") return null;
+  if (provider === "github-app") return translate(locale, "appSettings.webhook.sentByGithubApp");
+  return FORGES[provider] ?? provider;
 }

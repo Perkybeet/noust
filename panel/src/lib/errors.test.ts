@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { ApiError } from "../api/errors";
 import { describeError } from "./errors";
 
 describe("describeError", () => {
@@ -36,6 +37,20 @@ describe("describeError", () => {
       detail: 'ERROR: syntax error at or near "SELCT"',
       output: 'psql:query.sql:1: ERROR:  syntax error at or near "SELCT"\nLINE 1: SELCT * FROM apps;\n        ^',
     });
+  });
+
+  it("words a full deploy queue with the wait the server asked for, keeping the server's own sentence", () => {
+    const full = new ApiError(429, "queue_full", "The deploy queue is full: 25 requests are waiting", "Builds run a few at a time... noust config set deploy.queue_limit <number>.", null, 30);
+    const described = describeError(full);
+    expect(described.detail).toBe("The deploy queue is full: 25 requests are waiting");
+    expect(described.hint).toMatch(/Try again in 30 seconds, or cancel what no longer needs to wait/);
+    expect(described.hint).not.toMatch(/noust config set/);
+    expect(describeError(new ApiError(429, "queue_full", "The deploy queue is full", null, null, null)).hint).toMatch(/Try again in a moment/);
+  });
+
+  it("leaves the rate limit's own hint alone: it is about how often a client asks", () => {
+    const limited = new ApiError(429, "rate_limited", "Too many requests", "Wait for the time in Retry-After.", null, 12);
+    expect(describeError(limited).hint).toBe("Wait for the time in Retry-After.");
   });
 
   it("has no output when the error does not carry one", () => {

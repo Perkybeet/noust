@@ -437,6 +437,10 @@ export const appPages: Catalog<typeof en> = {
 
   diagnose: {
     followLiveLog: "Seguir el registro en vivo",
+    openDeploySettings: "Abrir los ajustes de despliegue",
+    zeroDowntimeTitle: "Esta aplicación podría actualizarse sin cortes",
+    zeroDowntimeBody: "Sus actualizaciones la reinician en el sitio, lo que corta las conexiones un momento. Con los despliegues sin cortes la versión nueva arranca junto a la antigua y el tráfico pasa cuando responde.",
+    zeroDowntimeAction: "Activar los despliegues sin cortes",
     openDeployments: "Abrir los despliegues",
     openDomains: "Abrir los dominios",
     verdictPrefix: "Veredicto:",
@@ -483,6 +487,8 @@ export const appPages: Catalog<typeof en> = {
       lastDeployment: "Último despliegue",
       oom: "Terminaciones por falta de memoria",
       disk: "Espacio en disco",
+      blueGreen: "Copia que sirve",
+      zeroDowntime: "Actualizaciones sin cortes",
     },
     headline: {
       unit: "La aplicación se cierra al arrancar",

@@ -59,7 +59,7 @@ test("the subsections are URLs of their own, and on a phone the list is a page o
   await page.setViewportSize({ width: 1440, height: 900 });
   await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings`);
   const nav = page.getByRole("navigation", { name: "Application settings" }).first();
-  await expect(nav.getByRole("link")).toHaveText(["General", "Deploys", "Deploy on push", "Deploy hooks", "Builds", "Resources", "Previews", "Export", "Delete"]);
+  await expect(nav.getByRole("link")).toHaveText(["General", "Source", "Deploys", "Deploy on push", "Deploy hooks", "Builds", "Resources", "Previews", "Export", "Delete"]);
   await nav.getByRole("link", { name: "Deploy on push" }).click();
   await expect(page).toHaveURL(new RegExp(`/apps/${escapeRegExp(RELEASE_APP)}/settings/deploy-on-push$`));
   await expect(page.getByRole("heading", { level: 2, name: "Deploy on push" })).toBeVisible();
@@ -193,7 +193,7 @@ test("resource limits are refused as the backend would, then saved with exactly 
 test("deploy on push says where the setup stands, step by step, and shows the secret only in sudo mode", async ({ page, consoleServer }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signIn(page, consoleServer, `/apps/${RELEASE_APP}/settings/deploy-on-push`);
-  await expect(page.getByText(/When you push to the repository, GitHub, GitLab or Gitea tells this server/)).toBeVisible();
+  await expect(page.getByText(/When you push to the repository, GitHub, GitLab, Gitea or Bitbucket tells this server/)).toBeVisible();
   const setup = card(page, "Set it up");
   await expect(setup.getByRole("heading", { name: "A public address for webhooks" })).toBeVisible();
   await expect(setup.getByText(/^Done: every delivery must be signed with it/)).toBeVisible();

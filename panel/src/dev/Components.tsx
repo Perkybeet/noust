@@ -29,6 +29,7 @@ import {
   ChoiceCards,
   ConfirmDialog,
   CopyButton,
+  CopyValue,
   DataTable,
   Dialog,
   DialogClose,
@@ -702,6 +703,13 @@ function Attributes() {
                 <Mono>ssh root@example.dev</Mono>
                 <CopyButton value="ssh root@example.dev" label="Copy SSH command" />
               </div>
+            </Item>
+            <Item label="Copy a value to paste elsewhere">
+              <CopyValue
+                value="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJm3Nq0YtV4mGx1h5mGq0w1Yk3R8y2Zb9XQe7sT5vC0u shop-example-com"
+                label="Copy the public key"
+                name="Public key of shop-example-com"
+              />
             </Item>
           </Row>
         </div>

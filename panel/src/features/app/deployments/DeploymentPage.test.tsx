@@ -93,6 +93,18 @@ describe("a deployment's page", { timeout: 20_000 }, () => {
     expect(screen.getByRole("link", { name: "Diagnose this app" })).toHaveAttribute("href", `/apps/${TAB_DOMAIN}/diagnose`);
   });
 
+  it("says a cancelled deploy was cancelled, by whom, and that what served was not touched: no error, no alarm", async () => {
+    const cancelled = { ...FAILED, id: 21, error: null, cancelled: true, cancelled_by: "token:ci-deploy", cancelled_at: "2026-09-25T18:00:20" };
+    await pageAt(21, { "GET /api/deployments/21": () => json(200, cancelled), "GET /api/deployments/21/log": () => json(200, { content: FAILED_LOG, truncated: false, missing_reason: null }) });
+    expect(await screen.findByRole("heading", { level: 2, name: "Deployment 21" })).toBeInTheDocument();
+    expect(await screen.findByText("This deploy was cancelled")).toBeInTheDocument();
+    expect(screen.getByText("Cancelled by token:ci-deploy: the build stopped, and what served before was not touched.")).toBeInTheDocument();
+    expect(screen.getByText("Cancelled")).toBeInTheDocument();
+    expect(screen.queryByText("Failed")).not.toBeInTheDocument();
+    expect(screen.queryByText("The deploy failed while building")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Diagnose this app" })).not.toBeInTheDocument();
+  });
+
   it("shows the build log with its times apart from the verbatim text", async () => {
     // The virtualizer sizes its window from offsetHeight, which jsdom reports as 0.
     vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockReturnValue(400);

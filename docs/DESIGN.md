@@ -685,6 +685,11 @@ headings are then drawn but not announced, so an item's label names its group
 (`Europe/Madrid`). A short, known list is a `Select`; a value the operator types freely is an
 `Input`.
 
+**`CopyValue`** (`value`, `label`, `name`). A value the operator pastes into another place (a
+deploy key's public half, a webhook address, a command): in a sunken box, in full and wrapped
+at any character, never cut, with its `CopyButton`. Not for a fact among facts (a
+`KeyValueList` row copies its own) and not for output the system printed (`SystemOutput`).
+
 **`Switch`** applies at once. **`Checkbox`** is a choice inside a form saved with a button, or a
 selection. They never share a form.
 

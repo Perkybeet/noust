@@ -58,6 +58,19 @@ async function tabAt(app: Record<string, unknown>, extra: Record<string, RouteHa
 
 // Whole-console renders: generous under a loaded machine or a slow CI runner.
 describe("the deployments tab", { timeout: 20_000 }, () => {
+  it("draws a deploy an operator cancelled as cancelled, not as a failure", async () => {
+    const rows = [deploy(3, "success"), deploy(2, "failed", { cancelled: true, cancelled_by: "master", error: null }), deploy(1, "failed", { error: "Type error" })];
+    await tabAt({}, { "GET /api/deployments": () => json(200, { items: rows, total: 3, next_before_id: null }) });
+    const table = await screen.findByRole("region", { name: `Deploys of ${TAB_DOMAIN}, newest first` });
+    await within(table).findByRole("link", { name: "Deployment 3" });
+    const cancelled = within(table).getByRole("link", { name: "Deployment 2" }).closest("tr");
+    if (!cancelled) throw new Error("no row for the cancelled deploy");
+    expect(within(cancelled).getByText("Cancelled")).toBeInTheDocument();
+    expect(within(cancelled).queryByText("Failed")).not.toBeInTheDocument();
+    // A real failure beside it is still one.
+    expect(within(table).getAllByText("Failed")).toHaveLength(1);
+  });
+
   it("lists the deploys newest first, each linking to its page, and loads older ones by keyset", async () => {
     const { user, backend } = await tabAt({});
     const table = await screen.findByRole("region", { name: `Deploys of ${TAB_DOMAIN}, newest first` });
