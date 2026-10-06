@@ -64,7 +64,7 @@ export function CreateLinkDialog({ domain, open, onOpenChange, onQueued }: Creat
     mutationFn: () =>
       request("post", "/api/apps/{domain}/databases", {
         params: { domain },
-        body: { engine: chosen?.name ?? "", name: name.trim() === "" ? null : name.trim(), env_var: envVar.trim() === "" ? null : envVar.trim(), extra_vars: extra, restart: true },
+        body: { engine: chosen?.name ?? "", name: name.trim() === "" ? null : name.trim(), env_var: envVar.trim() === "" ? null : envVar.trim(), extra_vars: extra, restart: true, install: false },
       }),
     onSuccess: (accepted) => {
       void queryClient.invalidateQueries({ queryKey: jobKeys.active });

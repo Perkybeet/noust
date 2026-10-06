@@ -72,7 +72,7 @@ export function CreateDatabaseDialog({ open, onOpenChange, engine: preset }: Cre
       if (forApp) {
         const accepted = await request("post", "/api/apps/{domain}/databases", {
           params: { domain: app },
-          body: { engine: chosen.name, name: name.trim() === "" ? null : name.trim(), env_var: null, extra_vars: false, restart: true },
+          body: { engine: chosen.name, name: name.trim() === "" ? null : name.trim(), env_var: null, extra_vars: false, restart: true, install: false },
         });
         return { kind: "job" as const, accepted };
       }
