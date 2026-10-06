@@ -13,12 +13,17 @@ test("lists a seeded Noust-managed service in the Server area and opens its page
   await expect(page.getByRole("navigation", { name: "Server sections" }).getByRole("link", { name: "Services" })).toHaveAttribute("aria-current", "page");
 
   const table = page.getByRole("region", { name: /^Services/ });
-  const link = table.getByRole("link", { name: "wasm-shop-example-net" });
-  await expect(link).toBeVisible();
+  await expect(table.getByRole("link").first()).toBeVisible();
 
   await settle(page);
   await expectNoA11yViolations(page, "the services tab");
 
+  // The list pages at 20 rows and the seeded machine has 21 Noust units, this one the 20th by
+  // name: any unit another test of the same server created before it would push it onto the
+  // second page. It is found as an operator finds a unit on a long list, by searching.
+  await page.getByRole("searchbox", { name: "Search services" }).fill("wasm-shop-example-net");
+  const link = table.getByRole("link", { name: "wasm-shop-example-net" });
+  await expect(link).toBeVisible();
   await link.click();
   await expect(page).toHaveURL(/\/server\/services\/wasm-shop-example-net$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("wasm-shop-example-net");
@@ -54,6 +59,8 @@ test("creates a service in simple mode and finds it in the list", async ({ page,
   await signIn(page, consoleServer, "/server/services");
   await page.getByRole("button", { name: "New service" }).click();
   const dialog = page.getByRole("dialog", { name: "New service" });
+  // Axe reads colours: while the dialog is still fading in, the list behind it is read blended.
+  await settle(page);
   await expectNoA11yViolations(page, "the new service dialog");
 
   await dialog.getByLabel("Name", { exact: true }).fill("e2e-worker");
