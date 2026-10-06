@@ -1,0 +1,2 @@
+# How nginx proxies this application. Images and subtitles are uploaded through the interface.
+max_body_size: 50m

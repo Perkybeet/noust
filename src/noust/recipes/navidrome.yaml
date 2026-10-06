@@ -1,0 +1,52 @@
+# Navidrome from its own image. From the image's configuration
+# (ghcr.io/navidrome/navidrome:0.64.2): port 4533 (ND_PORT), data in /data
+# (ND_DATAFOLDER) and the music library in /music (ND_MUSICFOLDER), both
+# declared as volumes; the project's Docker guide mounts the library read-only.
+# Its public heartbeat is /ping (server/server.go). The library is mounted from
+# MUSIC_PATH, a directory inside the application by default (./music) that the
+# operator can point anywhere.
+schema: 2
+name: navidrome
+kind: compose
+title: Navidrome
+slogan: Your music collection, streamed to any Subsonic-compatible app.
+description: A lightweight music server and streamer compatible with the Subsonic and Jellyfin clients. It indexes the library you mount and keeps its own database apart from it.
+category: media
+tags: [music, streaming, subsonic, audio]
+logo: logo.svg
+version: "0.64.2"
+revision: 1
+updated: 2026-10-06
+homepage: https://www.navidrome.org
+docs: https://www.navidrome.org/docs/
+repository: https://github.com/navidrome/navidrome
+license: GPL-3.0-only
+architectures: ["386", "amd64", "arm", "arm64", "riscv64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 4533
+variables:
+  MUSIC_PATH:
+    default: ./music
+    description: The directory of music to serve, read-only. Inside the application by default; give an absolute path to use a library elsewhere.
+health:
+  path: /ping
+  expect: "200"
+compose: |
+  services:
+    navidrome:
+      image: ghcr.io/navidrome/navidrome:0.64.2@sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52
+      restart: unless-stopped
+      environment:
+        ND_LOGLEVEL: info
+      volumes:
+        - navidrome-data:/data
+        - "${MUSIC_PATH}:/music:ro"
+      ports:
+        - "127.0.0.1:${PORT}:4533"
+  volumes:
+    navidrome-data:
+notes:
+  - "Open {{ url }} now and create the administrator account: until it exists, anyone who reaches the page can."
+  - "Put your music in {{ app_path }}/music, or set MUSIC_PATH to the directory that holds it and restart the application: noust restart {{ domain }}."
+  - "The database and the cache are in the Docker volume navidrome-data of this application."

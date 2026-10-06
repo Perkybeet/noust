@@ -1,0 +1,2 @@
+# How nginx proxies this application. Attachments and Sends are uploaded through nginx: Vaultwarden's own guide allows 525 MB.
+max_body_size: 525m

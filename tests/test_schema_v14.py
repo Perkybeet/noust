@@ -23,6 +23,14 @@ AREAS = (
 )
 
 
+@pytest.fixture(autouse=True)
+def no_area_declares_anything(monkeypatch):
+    """The mechanism is tested on its own: what each lane declares is that lane's to test."""
+    for area in AREAS:
+        monkeypatch.setattr(schema_v14, f"{area}_SQL", "")
+        monkeypatch.setattr(schema_v14, f"{area}_COLUMNS", [])
+
+
 def _run_script(cursor: sqlite3.Cursor, script: str) -> None:
     """Run a fragment the way the store's runner does, statement by statement."""
     for statement in script.split(";"):

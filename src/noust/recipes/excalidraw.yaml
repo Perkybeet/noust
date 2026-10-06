@@ -1,0 +1,24 @@
+# Excalidraw's image, excalidraw/excalidraw on Docker Hub, is an nginx serving the
+# built application (port 80, a health check on /). Its tags are `latest` and
+# `sha-<commit>`: no release is ever tagged, and none of the sha- tags carries the
+# digest `latest` has (all 976 were read on 2026-10-06), so there is nothing a
+# recipe can pin to that means a version. A recipe never uses a floating tag, so
+# it is listed with the reason instead of shipped with one.
+#
+# The day upstream tags a release image, or a recipe is allowed to build the
+# static site from the release (npm and a long build), this becomes available.
+schema: 2
+name: excalidraw
+kind: compose
+title: Excalidraw
+slogan: A virtual whiteboard for sketching hand-drawn diagrams.
+description: "A collaborative whiteboard with a hand-drawn look: sketches, diagrams and wireframes, exportable to PNG and SVG. The image is a static site."
+category: utilities
+tags: [whiteboard, diagrams, drawing, collaboration]
+logo: logo.svg
+homepage: https://excalidraw.com
+docs: https://docs.excalidraw.com
+repository: https://github.com/excalidraw/excalidraw
+license: MIT
+available: false
+unavailable_reason: "Upstream publishes its image only as latest and as per-build sha- tags (none of them is the same image as latest), so there is no release to pin, and a recipe never runs a floating tag. Not available in this release."

@@ -1,0 +1,54 @@
+# Homepage from its own image. From the project's installation guide and the
+# image's configuration (ghcr.io/gethomepage/homepage:v2.4.0): it listens on
+# 3000 (PORT), reads its settings from /app/config, runs as root unless PUID and
+# PGID are given, and answers /api/healthcheck. HOMEPAGE_ALLOWED_HOSTS is
+# required behind a reverse proxy: it must name the host the browser uses. The
+# Docker socket the guide mounts for Docker integrations is not mounted: it is
+# root on the host, and a recipe may not ask for it.
+#
+# The configuration directory is mounted from CONFIG_PATH, inside the
+# application by default (./config), so the operator edits plain YAML files.
+schema: 2
+name: homepage
+kind: compose
+title: Homepage
+slogan: A highly customisable dashboard for your services and bookmarks.
+description: A modern, fully static, fast and secure application dashboard with integrations for more than a hundred services, configured with YAML files you edit yourself.
+category: utilities
+tags: [dashboard, start-page, bookmarks, widgets]
+logo: logo.svg
+version: "2.4.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://gethomepage.dev
+docs: https://gethomepage.dev/configs/
+repository: https://github.com/gethomepage/homepage
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3000
+variables:
+  HOMEPAGE_ALLOWED_HOSTS:
+    from: fqdn
+    description: The host name the browser uses; Homepage refuses requests for any other.
+  CONFIG_PATH:
+    default: ./config
+    description: The directory of Homepage's YAML configuration. Inside the application by default.
+health:
+  path: /api/healthcheck
+  expect: "200"
+compose: |
+  services:
+    homepage:
+      image: ghcr.io/gethomepage/homepage:v2.4.0@sha256:643bd0be730d40f69d58028a55d1a896739333e8815786df42bc97f109ecbe61
+      restart: unless-stopped
+      environment:
+        HOMEPAGE_ALLOWED_HOSTS: "${HOMEPAGE_ALLOWED_HOSTS}"
+      volumes:
+        - "${CONFIG_PATH}:/app/config"
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+notes:
+  - "Open {{ url }}. Edit the YAML files in {{ app_path }}/config (services.yaml, bookmarks.yaml, widgets.yaml, settings.yaml); Homepage reloads them by itself."
+  - "The Docker socket integration is not set up: it would give the dashboard root on this server."

@@ -1,0 +1,75 @@
+# Stirling-PDF from its own image. From the image's configuration
+# (ghcr.io/stirling-tools/stirling-pdf:3.1.0): it listens on 8080, runs its init
+# as root and drops to PUID/PGID (1000), keeps its settings in /configs, its OCR
+# languages in /usr/share/tessdata and its logs in /logs, and has a health
+# check against /api/v1/info/status. Login is on by default in the project's
+# settings.yml.template (security.enableLogin: true) and every setting can be
+# overridden with its path in upper case (SECURITY_INITIALLOGIN_USERNAME); the
+# project's own "security" compose file runs with DISABLE_ADDITIONAL_FEATURES
+# false. This recipe keeps the login on and gives the first account a
+# generated password, because a PDF tool on a public domain is otherwise open to
+# anyone who finds it.
+#
+# It is a JVM application: it takes about a minute to start, so the first health
+# gate waits five.
+schema: 2
+name: stirling-pdf
+kind: compose
+title: Stirling PDF
+slogan: Edit, merge, split, convert and sign PDFs from the browser.
+description: "A self-hosted web tool with dozens of operations on PDF files: merge, split, rotate, compress, convert, OCR, sign and redact. Files are processed on your server."
+category: utilities
+tags: [pdf, documents, ocr, conversion]
+logo: logo.svg
+version: "3.1.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://stirling.com
+docs: https://docs.stirlingpdf.com
+repository: https://github.com/Stirling-Tools/Stirling-PDF
+license: LicenseRef-Stirling-PDF-open-core
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 2 GB of memory
+port: 8081
+variables:
+  SECURITY_ENABLELOGIN:
+    default: "true"
+    description: Ask for a login. Leave it on unless the site is already behind your own access control.
+  SECURITY_INITIALLOGIN_USERNAME:
+    default: admin
+    description: The first account's user name.
+  SECURITY_INITIALLOGIN_PASSWORD:
+    generate: password32
+    description: The first account's password.
+health:
+  path: /api/v1/info/status
+  expect: "200"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    stirling-pdf:
+      image: ghcr.io/stirling-tools/stirling-pdf:3.1.0@sha256:b5b9e400c086e5334a4947a0d7cd589808f743f29267d7f41c18200cf4bc48b4
+      restart: unless-stopped
+      environment:
+        DISABLE_ADDITIONAL_FEATURES: "false"
+        SECURITY_ENABLELOGIN: "${SECURITY_ENABLELOGIN}"
+        SECURITY_INITIALLOGIN_USERNAME: "${SECURITY_INITIALLOGIN_USERNAME}"
+        SECURITY_INITIALLOGIN_PASSWORD: "${SECURITY_INITIALLOGIN_PASSWORD}"
+        SHOW_SURVEY: "false"
+      volumes:
+        - stirling-config:/configs
+        - stirling-tessdata:/usr/share/tessdata
+        - stirling-logs:/logs
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+  volumes:
+    stirling-config:
+    stirling-tessdata:
+    stirling-logs:
+notes:
+  - "Sign in at {{ url }} as {{ vars.SECURITY_INITIALLOGIN_USERNAME }}; the password is SECURITY_INITIALLOGIN_PASSWORD (noust env show {{ domain }} --unmask)."
+  - "It takes about a minute to start the first time; the health check waits for it."
+  - "Its settings and OCR languages are in the Docker volumes stirling-config and stirling-tessdata of this application."

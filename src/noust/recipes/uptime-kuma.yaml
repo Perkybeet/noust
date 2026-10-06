@@ -1,11 +1,26 @@
 # Uptime Kuma 1.23, built from its repository at a release tag with the Node
 # deployer: npm ci, npm run build (the frontend), npm run start. Its SQLite
 # database is in ./data, kept in shared/ across releases.
+#
+# 1.23.17 is the last 1.x release; 2.x changes the database and the Node.js it
+# needs, and is a recipe revision of its own once it has been deployed here.
+schema: 2
 name: uptime-kuma
+kind: native
 title: Uptime Kuma
-description: Self-hosted monitoring of websites, APIs and servers, with status pages and notifications.
+slogan: Self-hosted monitoring with status pages and notifications.
+description: Self-hosted monitoring of websites, APIs and servers, with status pages and notifications. Its SQLite database stays in shared/ across releases.
+category: monitoring
+tags: [uptime, monitoring, status-page, alerts]
+logo: logo.svg
+version: "1.23.17"
+revision: 1
+updated: 2026-10-06
 homepage: https://uptime.kuma.pet
-requires:
+docs: https://github.com/louislam/uptime-kuma/wiki
+repository: https://github.com/louislam/uptime-kuma
+license: MIT
+needs:
   - Node.js 18 or newer, with npm
 app_type: nodejs
 source:
@@ -13,9 +28,9 @@ source:
   ref: 1.23.17
 layout: releases
 port: 3001
-env:
+variables:
   # Only nginx needs to reach it; it listens on every interface otherwise.
-  UPTIME_KUMA_HOST: "127.0.0.1"
+  UPTIME_KUMA_HOST: {value: "127.0.0.1"}
 persistent_paths:
   - data
 health:

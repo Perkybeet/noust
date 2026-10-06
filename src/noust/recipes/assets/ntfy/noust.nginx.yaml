@@ -1,0 +1,5 @@
+# How nginx proxies this application. Attachments are uploaded, and subscriptions are long connections (ntfy's guide asks for three minutes).
+max_body_size: 20m
+routes:
+  - path: /
+    read_timeout: 180
