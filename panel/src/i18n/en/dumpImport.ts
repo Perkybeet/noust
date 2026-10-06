@@ -116,7 +116,6 @@ export const dumpImport = {
     failed: "Importing into {name} failed",
     queued: "Waiting to import into {name}",
     logLabel: "Output of the import into {name}",
-    logEmpty: "The job has printed nothing yet.",
     elsewhere: "The import goes on in the background. Follow it in Activity.",
     open: "Open {name}",
     result: {

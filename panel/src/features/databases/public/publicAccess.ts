@@ -6,6 +6,7 @@
  */
 
 import type { PublicBody } from "../../../api/queries/publicAccess";
+import { parseAddresses } from "../../../lib/addresses";
 import { engineFamilyOf } from "../engineKey";
 
 /** What the account made for the database may do, as the API names it. */
@@ -20,26 +21,6 @@ const TLS_ENFORCING: ReadonlySet<string> = new Set(["postgresql", "mysql"]);
 /** Whether the engine can require TLS of the account Noust makes. */
 export function canRequireTls(engine: string): boolean {
   return TLS_ENFORCING.has(engineFamilyOf(engine));
-}
-
-const IPV4 = /^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\/(?:3[0-2]|[12]?\d))?$/;
-const IPV6 = /^(?=.*:)[0-9a-fA-F:.]+(?:\/(?:12[0-8]|1[01]\d|\d?\d))?$/;
-
-/** An address or a network, as the form accepts it (the server decides what it really is). */
-export function isAddressOrNetwork(text: string): boolean {
-  return IPV4.test(text) || IPV6.test(text);
-}
-
-export interface ParsedSources {
-  sources: string[];
-  /** The entries that are neither an address nor a network, in the order typed. */
-  invalid: string[];
-}
-
-/** Reads "203.0.113.7, 10.0.0.0/24" (commas, spaces or lines), without repeats. */
-export function parseSources(text: string): ParsedSources {
-  const entries = [...new Set(text.split(/[\s,;]+/).filter((entry) => entry !== ""))];
-  return { sources: entries.filter(isAddressOrNetwork), invalid: entries.filter((entry) => !isAddressOrNetwork(entry)) };
 }
 
 /** The most addresses one rule may name (`PublicRequest.sources`). */
@@ -75,7 +56,7 @@ export function requestOf(engine: string, database: string, form: PublicForm): O
     database,
     port,
     bind_address: bind === "" ? null : bind,
-    sources: parseSources(form.sources).sources,
+    sources: parseAddresses(form.sources).entries,
     tls: form.tls,
     profile: form.profile,
   };

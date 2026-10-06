@@ -117,7 +117,6 @@ export const dumpImport: Catalog<typeof en> = {
     failed: "Falló la importación en {name}",
     queued: "Esperando para importar en {name}",
     logLabel: "Salida de la importación en {name}",
-    logEmpty: "La tarea todavía no ha imprimido nada.",
     elsewhere: "La importación sigue en segundo plano. Síguela en Actividad.",
     open: "Abrir {name}",
     result: {

@@ -17,8 +17,9 @@ import { Notice } from "../../../components/ui/Notice";
 import { Textarea } from "../../../components/ui/Textarea";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
+import { parseAddresses } from "../../../lib/addresses";
 import { engineName } from "../engines";
-import { ACCESS_PROFILES, MAX_SOURCES, canRequireTls, initialForm, parseSources, requestOf, validPort } from "./publicAccess";
+import { ACCESS_PROFILES, MAX_SOURCES, canRequireTls, initialForm, requestOf, validPort } from "./publicAccess";
 import type { AccessProfile, PublicForm, TlsMode } from "./publicAccess";
 
 type Step = "choose" | "review";
@@ -102,9 +103,9 @@ export function OpenPublicDialog({ engine, database, open, onOpenChange, onOpene
   const validate = (): boolean => {
     const found: FormErrors = {};
     if (!validPort(form.port)) found.port = t("publicAccess.dialog.portInvalid");
-    const parsed = parseSources(form.sources);
+    const parsed = parseAddresses(form.sources);
     if (parsed.invalid.length > 0) found.sources = t("publicAccess.dialog.sourcesInvalid", { entries: parsed.invalid.join(", ") });
-    else if (parsed.sources.length > MAX_SOURCES) found.sources = t("publicAccess.dialog.sourcesTooMany", { max: MAX_SOURCES });
+    else if (parsed.entries.length > MAX_SOURCES) found.sources = t("publicAccess.dialog.sourcesTooMany", { max: MAX_SOURCES });
     setErrors(found);
     return Object.keys(found).length === 0;
   };

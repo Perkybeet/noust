@@ -54,6 +54,7 @@ import { Route as ConsoleSettingsApprovalsRouteImport } from "./routes/_console/
 import { Route as ConsoleSettingsAuditRouteImport } from "./routes/_console/settings/audit"
 import { Route as ConsoleSettingsCentralRouteImport } from "./routes/_console/settings/central"
 import { Route as ConsoleSettingsComplianceRouteImport } from "./routes/_console/settings/compliance"
+import { Route as ConsoleSettingsConsoleRouteImport } from "./routes/_console/settings/console"
 import { Route as ConsoleSettingsIntegrationsRouteImport } from "./routes/_console/settings/integrations"
 import { Route as ConsoleSettingsNotificationsRouteImport } from "./routes/_console/settings/notifications"
 import { Route as ConsoleSettingsSecurityRouteImport } from "./routes/_console/settings/security"
@@ -324,6 +325,11 @@ const ConsoleSettingsComplianceRoute =
     path: "/compliance",
     getParentRoute: () => ConsoleSettingsRoute,
   } as any)
+const ConsoleSettingsConsoleRoute = ConsoleSettingsConsoleRouteImport.update({
+  id: "/console",
+  path: "/console",
+  getParentRoute: () => ConsoleSettingsRoute,
+} as any)
 const ConsoleSettingsIntegrationsRoute =
   ConsoleSettingsIntegrationsRouteImport.update({
     id: "/integrations",
@@ -601,6 +607,7 @@ export interface FileRoutesByFullPath {
   "/settings/audit": typeof ConsoleSettingsAuditRoute
   "/settings/central": typeof ConsoleSettingsCentralRoute
   "/settings/compliance": typeof ConsoleSettingsComplianceRoute
+  "/settings/console": typeof ConsoleSettingsConsoleRoute
   "/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
@@ -684,6 +691,7 @@ export interface FileRoutesByTo {
   "/settings/audit": typeof ConsoleSettingsAuditRoute
   "/settings/central": typeof ConsoleSettingsCentralRoute
   "/settings/compliance": typeof ConsoleSettingsComplianceRoute
+  "/settings/console": typeof ConsoleSettingsConsoleRoute
   "/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/settings/security": typeof ConsoleSettingsSecurityRoute
@@ -770,6 +778,7 @@ export interface FileRoutesById {
   "/_console/settings/audit": typeof ConsoleSettingsAuditRoute
   "/_console/settings/central": typeof ConsoleSettingsCentralRoute
   "/_console/settings/compliance": typeof ConsoleSettingsComplianceRoute
+  "/_console/settings/console": typeof ConsoleSettingsConsoleRoute
   "/_console/settings/integrations": typeof ConsoleSettingsIntegrationsRoute
   "/_console/settings/notifications": typeof ConsoleSettingsNotificationsRoute
   "/_console/settings/security": typeof ConsoleSettingsSecurityRoute
@@ -859,6 +868,7 @@ export interface FileRouteTypes {
     | "/settings/audit"
     | "/settings/central"
     | "/settings/compliance"
+    | "/settings/console"
     | "/settings/integrations"
     | "/settings/notifications"
     | "/settings/security"
@@ -942,6 +952,7 @@ export interface FileRouteTypes {
     | "/settings/audit"
     | "/settings/central"
     | "/settings/compliance"
+    | "/settings/console"
     | "/settings/integrations"
     | "/settings/notifications"
     | "/settings/security"
@@ -1027,6 +1038,7 @@ export interface FileRouteTypes {
     | "/_console/settings/audit"
     | "/_console/settings/central"
     | "/_console/settings/compliance"
+    | "/_console/settings/console"
     | "/_console/settings/integrations"
     | "/_console/settings/notifications"
     | "/_console/settings/security"
@@ -1403,6 +1415,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleSettingsComplianceRouteImport
       parentRoute: typeof ConsoleSettingsRoute
     }
+    "/_console/settings/console": {
+      id: "/_console/settings/console"
+      path: "/console"
+      fullPath: "/settings/console"
+      preLoaderRoute: typeof ConsoleSettingsConsoleRouteImport
+      parentRoute: typeof ConsoleSettingsRoute
+    }
     "/_console/settings/integrations": {
       id: "/_console/settings/integrations"
       path: "/integrations"
@@ -1748,6 +1767,7 @@ interface ConsoleSettingsRouteChildren {
   ConsoleSettingsAuditRoute: typeof ConsoleSettingsAuditRoute
   ConsoleSettingsCentralRoute: typeof ConsoleSettingsCentralRoute
   ConsoleSettingsComplianceRoute: typeof ConsoleSettingsComplianceRoute
+  ConsoleSettingsConsoleRoute: typeof ConsoleSettingsConsoleRoute
   ConsoleSettingsIntegrationsRoute: typeof ConsoleSettingsIntegrationsRoute
   ConsoleSettingsNotificationsRoute: typeof ConsoleSettingsNotificationsRoute
   ConsoleSettingsSecurityRoute: typeof ConsoleSettingsSecurityRoute
@@ -1763,6 +1783,7 @@ const ConsoleSettingsRouteChildren: ConsoleSettingsRouteChildren = {
   ConsoleSettingsAuditRoute: ConsoleSettingsAuditRoute,
   ConsoleSettingsCentralRoute: ConsoleSettingsCentralRoute,
   ConsoleSettingsComplianceRoute: ConsoleSettingsComplianceRoute,
+  ConsoleSettingsConsoleRoute: ConsoleSettingsConsoleRoute,
   ConsoleSettingsIntegrationsRoute: ConsoleSettingsIntegrationsRoute,
   ConsoleSettingsNotificationsRoute: ConsoleSettingsNotificationsRoute,
   ConsoleSettingsSecurityRoute: ConsoleSettingsSecurityRoute,

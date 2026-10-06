@@ -101,7 +101,7 @@ function CodeSummary({ t, summary, centralName, fingerprintMatches }: { t: T; su
   );
 }
 
-function Added({ t, node, onNavigate }: { t: T; node: NodeRecord; onNavigate: () => void }) {
+export function Added({ t, node, onNavigate }: { t: T; node: NodeRecord; onNavigate: () => void }) {
   // The ceiling the server published to this central, read once it is part of the fleet.
   const access = useQuery({
     queryKey: [...fleetKeys.view("servers"), "added", node.name],

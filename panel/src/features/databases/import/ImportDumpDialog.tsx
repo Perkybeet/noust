@@ -11,7 +11,6 @@ import { DEFAULT_IMPORT_MAX_BYTES, dumpInspectionQuery, importLimitQuery } from 
 import type { DumpFormat } from "../../../api/queries/dumpImport";
 import { isJobFinished, jobKeys, useFollowedJob } from "../../../api/queries/jobs";
 import { CommandHint } from "../../../components/page/CommandHint";
-import { JobProgress } from "../../../components/page/JobProgress";
 import { KeyValueList } from "../../../components/page/KeyValueList";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Stepper } from "../../../components/page/Stepper";
@@ -21,7 +20,6 @@ import { Checkbox } from "../../../components/ui/Checkbox";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
-import { LogViewer } from "../../../components/ui/LogViewer";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
 import { Progress } from "../../../components/ui/Progress";
@@ -33,7 +31,8 @@ import { formatBytes } from "../../../lib/format";
 import { creatableEngines } from "../CreateDatabaseDialog";
 import { engineFamilyOf } from "../engineKey";
 import { engineName, instanceLabel } from "../engines";
-import { jobLines, jobState, jobStep } from "../jobs";
+import { JobLogPanel } from "../../jobs/JobLogPanel";
+import { jobState } from "../jobs";
 import type { Accepted } from "../jobs";
 import { clearStoredUpload, discardUpload, readStoredUpload, writeStoredUpload } from "./storedUpload";
 import type { StoredUpload } from "./storedUpload";
@@ -543,25 +542,18 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
     );
   } else {
     const state = job === null ? "queued" : jobState(job.status);
-    const words = job === null ? t("dumpImport.job.queued", { name: database }) : state === "succeeded" ? t("dumpImport.job.succeeded", { name: database }) : state === "failed" ? t("dumpImport.job.failed", { name: database }) : t("dumpImport.job.running", { name: database });
     const result = job !== null && state === "succeeded" ? resultOf(job.result) : {};
     body = (
-      <div className="flex min-w-0 flex-col gap-4">
-        <JobProgress
-          state={state}
-          title={words}
-          step={job !== null ? jobStep(job) : null}
-          {...(state === "failed" ? { error: { detail: job?.error ?? (job !== null ? jobStep(job) : null) ?? "" } } : {})}
-        />
-        <LogViewer
-          lines={job !== null ? jobLines(job) : []}
-          label={t("dumpImport.job.logLabel", { name: database })}
-          filename={`${job?.id ?? "import"}.log`}
-          height={220}
-          loading={job === null}
-          emptyMessage={t("dumpImport.job.logEmpty")}
-        />
-        {state === "succeeded" ? (
+      <JobLogPanel
+        job={job}
+        words={{
+          queued: t("dumpImport.job.queued", { name: database }),
+          running: t("dumpImport.job.running", { name: database }),
+          succeeded: t("dumpImport.job.succeeded", { name: database }),
+          failed: t("dumpImport.job.failed", { name: database }),
+        }}
+        label={t("dumpImport.job.logLabel", { name: database })}
+        result={
           <ul className="flex flex-col gap-1 text-13 text-fg">
             {result.created === true ? <li>{t("dumpImport.job.result.created", { name: database })}</li> : null}
             {result.replaced === true ? <li>{t("dumpImport.job.result.replaced", { name: database })}</li> : null}
@@ -573,8 +565,8 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
               </li>
             ))}
           </ul>
-        ) : null}
-      </div>
+        }
+      />
     );
     footer = (
       <>

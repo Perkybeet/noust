@@ -64,10 +64,23 @@ function currentStep(dialog: HTMLElement): string | null {
   return dialog.querySelector('[aria-current="step"]')?.textContent ?? null;
 }
 
+/**
+ * "Add a server" opens the guided way (an address and a credential used once); the way that
+ * never gives the central a credential is one link away, and is what these tests walk.
+ */
+async function openManual(user: ReturnType<typeof renderConsole>["user"]): Promise<HTMLElement> {
+  await user.click(await screen.findByRole("button", { name: "Add a server" }));
+  const guided = await screen.findByRole("dialog", { name: "Add a server" });
+  await user.click(within(guided).getByRole("button", { name: "Authorize it with a command on the server instead" }));
+  const marker = await screen.findByText("Run it on the other server: the one you are adding");
+  const dialog = marker.closest('[role="dialog"]');
+  if (!(dialog instanceof HTMLElement)) throw new Error("the manual dialog is not open");
+  return dialog;
+}
+
 /** Steps 1 and 2 of adding web-3, up to pressing "Add server". */
 async function enroll(user: ReturnType<typeof renderConsole>["user"], address = "web3.example.com"): Promise<HTMLElement> {
-  await user.click(await screen.findByRole("button", { name: "Add a server" }));
-  const dialog = await screen.findByRole("dialog", { name: "Add a server" });
+  const dialog = await openManual(user);
   expect(currentStep(dialog)).toContain("Authorize");
   // Unmistakably: the command runs on the server being added, not here.
   expect(within(dialog).getByText("Run it on the other server: the one you are adding")).toBeInTheDocument();
@@ -126,8 +139,7 @@ describe("Settings > Servers", () => {
   it("appends the access chosen for this central to the command", { timeout: 20_000 }, async () => {
     serversBackend();
     const { user } = renderConsole("/settings/servers");
-    await user.click(await screen.findByRole("button", { name: "Add a server" }));
-    const dialog = await screen.findByRole("dialog", { name: "Add a server" });
+    const dialog = await openManual(user);
     await user.type(within(dialog).getByLabelText(/^Name/), "web-3");
     await user.click(within(dialog).getByRole("button", { name: "Show the command" }));
     expect(await within(dialog).findByTestId("authorize-command")).toHaveTextContent(AUTHORIZE);
@@ -139,8 +151,7 @@ describe("Settings > Servers", () => {
   it("says what was pasted when it is not a join code, and sends nothing", { timeout: 20_000 }, async () => {
     const backend = serversBackend();
     const { user } = renderConsole("/settings/servers");
-    await user.click(await screen.findByRole("button", { name: "Add a server" }));
-    const dialog = await screen.findByRole("dialog", { name: "Add a server" });
+    const dialog = await openManual(user);
     await user.type(within(dialog).getByLabelText(/^Name/), "web-3");
     await user.click(within(dialog).getByRole("button", { name: "Show the command" }));
     await within(dialog).findByTestId("authorize-command");
@@ -158,8 +169,7 @@ describe("Settings > Servers", () => {
   it("checks the name and the SSH address before asking the central", { timeout: 20_000 }, async () => {
     const backend = serversBackend();
     const { user } = renderConsole("/settings/servers");
-    await user.click(await screen.findByRole("button", { name: "Add a server" }));
-    const dialog = await screen.findByRole("dialog", { name: "Add a server" });
+    const dialog = await openManual(user);
     await user.type(within(dialog).getByLabelText(/^Name/), "Web 3");
     await user.click(within(dialog).getByRole("button", { name: "Show the command" }));
     expect(await within(dialog).findByText(/Use 1 to 32 lower-case letters/)).toBeInTheDocument();
@@ -271,8 +281,13 @@ describe("Settings > Servers", () => {
     expect(within(table).getByText("Cuenta y dirección del túnel")).toBeInTheDocument();
     await expectNoAxeViolations(container, { page: true });
     await user.click(screen.getByRole("button", { name: "Añadir un servidor" }));
-    const dialog = await screen.findByRole("dialog", { name: "Añadir un servidor" });
-    expect(within(dialog).getByText("Ejecútala en el otro servidor: el que estás añadiendo")).toBeInTheDocument();
+    const guided = await screen.findByRole("dialog", { name: "Añadir un servidor" });
+    expect(within(guided).getByText("Se usa una vez y no se guarda en ningún sitio")).toBeInTheDocument();
+    await expectNoAxeViolations(guided);
+    await user.click(within(guided).getByRole("button", { name: "Autorizarlo con un comando en el servidor" }));
+    const marker = await screen.findByText("Ejecútala en el otro servidor: el que estás añadiendo");
+    const dialog = marker.closest('[role="dialog"]');
+    if (!(dialog instanceof HTMLElement)) throw new Error("the manual dialog is not open");
     await user.type(within(dialog).getByLabelText(/^Nombre/), "web-3");
     await user.click(within(dialog).getByRole("button", { name: "Mostrar la orden" }));
     // The command is the system's: never translated.

@@ -14,7 +14,7 @@ import { useServerList } from "../../nodes/servers";
 import type { HubArea } from "../central/central";
 import { useCentral } from "../central/central";
 import { CentralLockedNotice } from "../central/CentralLockedNotice";
-import { AddServerDialog } from "../settings/servers/AddServerDialog";
+import { AddServer } from "./enroll/AddServer";
 import { FleetActionsProvider } from "./BulkActionDialog";
 
 export interface FleetLayoutProps {
@@ -96,7 +96,7 @@ export function FleetLayout({ hub }: FleetLayoutProps) {
           <Outlet />
         )}
       </DetailPage>
-      <AddServerDialog
+      <AddServer
         open={adding}
         onClose={() => {
           setAdding(false);
