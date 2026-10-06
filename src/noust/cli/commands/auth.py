@@ -1,0 +1,627 @@
+# Copyright (c) 2024-2026 Yago Lopez Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+"""
+The ``noust auth`` command group: how people sign in besides a password.
+
+``noust auth oidc`` configures single sign-in through an OpenID Connect
+provider (Keycloak, Authentik, Okta, Auth0, Microsoft Entra, Google, ...): which
+provider, who may come in through it, and what a first sign-in becomes. A thin
+front end over :class:`~noust.core.accounts.oidc.OidcManager`, the manager the
+console's ``/api/auth/oidc`` routes call, so what is set here is what the
+sign-in page offers and every rule is the same one.
+
+It runs as root and is not held to roles, like ``noust user``: it is the channel
+that sets single sign-in up in the first place. What it does is on the audit
+trail with the identity of whoever ran it. The client secret is never taken
+from the command line, which every local user can read in ``ps`` and which
+lands in shell history: it is typed at a hidden prompt, or piped with
+``--client-secret-stdin``, and kept in a 0600 file of the secret store.
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from datetime import datetime
+from typing import Any
+
+import click
+
+from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.core.accounts.oidc import OidcManager
+from noust.core.accounts.oidc_model import PROVIDER_ROLES, PROVISIONING, OidcProvider
+from noust.core.config import Config
+from noust.core.exceptions import ValidationError
+from noust.core.teams.model import TEAM_ROLES
+
+CALLBACK = "/api/auth/oidc/callback"
+
+
+def _manager() -> OidcManager:
+    """
+    Returns:
+        The single sign-in manager over this server's store.
+    """
+    return OidcManager()
+
+
+def _record(event: str, target: str, detail: dict[str, Any] | None = None) -> None:
+    """
+    Put a change on the audit trail, as whoever runs this command.
+
+    Args:
+        event: The catalog name.
+        target: What it was done to.
+        detail: Context, never a credential.
+    """
+    from noust.core.audit import record
+
+    record(event, target=target, details=detail)
+
+
+def _fmt(timestamp: float | None) -> str:
+    """
+    Args:
+        timestamp: UNIX seconds, or None.
+
+    Returns:
+        Local time for a table cell, or ``-``.
+    """
+    if timestamp is None:
+        return "-"
+    return datetime.fromtimestamp(timestamp).isoformat(sep=" ", timespec="seconds")
+
+
+def _callback_for(provider: OidcProvider) -> str | None:
+    """
+    Args:
+        provider: A provider.
+
+    Returns:
+        The callback address to register with it: its own, else the console's
+        public one; None when neither is known.
+    """
+    if provider.redirect_uri:
+        return provider.redirect_uri
+    public = str(Config().get("web.public_url") or "").strip().rstrip("/")
+    return public + CALLBACK if public else None
+
+
+def _read_secret(name: str, from_stdin: bool, prompt: bool) -> str | None:
+    """
+    Read a client secret without it ever touching the command line.
+
+    Args:
+        name: The provider, for the prompt.
+        from_stdin: Read one line from standard input.
+        prompt: Ask at a hidden prompt.
+
+    Returns:
+        The secret, or None when neither was asked for.
+
+    Raises:
+        ValidationError: When standard input is empty.
+    """
+    if from_stdin:
+        line = sys.stdin.readline().rstrip("\r\n")
+        if not line:
+            raise ValidationError(
+                "No client secret on standard input",
+                details="Pipe it in, such as: printf '%s\\n' \"$SECRET\" | noust auth oidc set ...",
+            )
+        return line
+    if prompt:
+        return str(click.prompt(f"Client secret for {name}", hide_input=True, type=str))
+    return None
+
+
+def _flag(given: tuple[bool, bool], what: str) -> bool | None:
+    """
+    Args:
+        given: Whether the "on" flag and the "off" flag were passed.
+        what: The setting, for the message.
+
+    Returns:
+        True, False, or None when neither was passed.
+
+    Raises:
+        ValidationError: When both were.
+    """
+    on, off = given
+    if on and off:
+        raise ValidationError(f"Pass only one of the two {what} flags")
+    return True if on else False if off else None
+
+
+def _mappings(roles: tuple[str, ...], teams: tuple[str, ...]) -> list[dict[str, str]]:
+    """
+    Read the ``--map-role`` and ``--map-team`` options.
+
+    Args:
+        roles: ``GROUP=ROLE`` each.
+        teams: ``GROUP=TEAM:ROLE`` each.
+
+    Returns:
+        The mapping, roles first (the first role mapping that matches decides).
+
+    Raises:
+        ValidationError: When one is not of its shape.
+    """
+    found: list[dict[str, str]] = []
+    for text in roles:
+        group, _, role = text.rpartition("=")
+        if not group or not role:
+            raise ValidationError(
+                f"Not GROUP=ROLE: {text!r}", details="Such as --map-role noust-admins=admin."
+            )
+        found.append({"group": group, "role": role})
+    for text in teams:
+        group, _, target = text.rpartition("=")
+        team, _, team_role = target.partition(":")
+        if not group or not team:
+            raise ValidationError(
+                f"Not GROUP=TEAM:ROLE: {text!r}",
+                details="Such as --map-team acme-ops=acme:operator.",
+            )
+        found.append({"group": group, "team": team, "team_role": team_role or "viewer"})
+    return found
+
+
+def _describe(ctx: Context, provider: OidcProvider, has_secret: bool) -> None:
+    """
+    Print one provider in full.
+
+    Args:
+        ctx: The CLI context.
+        provider: The provider.
+        has_secret: Whether a client secret is stored.
+    """
+    logger = ctx.logger
+    logger.info(
+        f"{provider.name}: {provider.label} ({'enabled' if provider.enabled else 'disabled'})"
+    )
+    rows = [
+        ("issuer", provider.issuer),
+        ("client id", provider.client_id),
+        ("client secret", "set" if has_secret else "none (a public client: PKCE alone)"),
+        ("scopes", provider.scopes),
+        ("e-mail must be verified", "yes" if provider.require_email_verified else "no"),
+        (
+            "e-mail assumed verified when unsaid",
+            "yes (a directory the organisation controls)"
+            if provider.assume_email_verified
+            else "no",
+        ),
+        ("clock skew", f"{provider.clock_skew_seconds} s"),
+        ("provisioning", provider.provisioning),
+        ("default role", provider.default_role),
+        (
+            "default team",
+            f"{provider.default_team} ({provider.default_team_role})"
+            if provider.default_team
+            else "the default team",
+        ),
+        ("link by verified e-mail", "yes" if provider.link_by_email else "no"),
+        ("allowed e-mail domains", ", ".join(provider.allowed_domains) or "any"),
+        ("required methods (amr)", ", ".join(provider.require_amr) or "none"),
+        ("groups claim", provider.groups_claim),
+        ("groups decide roles and teams", "yes" if provider.group_sync else "no"),
+    ]
+    for key, value in rows:
+        logger.key_value(key, value)
+    for mapping in provider.group_mappings:
+        meaning = (
+            f"role {mapping.role}"
+            if mapping.role
+            else f"team {mapping.team} as {mapping.team_role}"
+        )
+        logger.key_value(f"group {mapping.group}", meaning)
+    callback = _callback_for(provider)
+    logger.key_value(
+        "redirect URI to register",
+        callback or "set web.public_url first (https://your-console-name)",
+    )
+
+
+@click.group("auth", cls=NoustGroup)
+def cli() -> None:
+    """How people sign in to the console besides a password."""
+
+
+@cli.group("oidc", cls=NoustGroup)
+def oidc() -> None:
+    """Single sign-in through an OpenID Connect provider."""
+
+
+@oidc.command("set")
+@click.argument("name")
+@click.option(
+    "--issuer", default=None, help="The provider's issuer URL, exactly as its tokens write it."
+)
+@click.option("--client-id", default=None, help="The client id Noust is registered as.")
+@click.option(
+    "--client-secret-stdin", is_flag=True, help="Read the client secret from standard input."
+)
+@click.option("--prompt-secret", is_flag=True, help="Ask for the client secret at a hidden prompt.")
+@click.option(
+    "--clear-secret", is_flag=True, help="Forget the stored client secret (a public client)."
+)
+@click.option("--label", default=None, help="What the button says after 'Sign in with'.")
+@click.option("--scopes", default=None, help="Space separated; openid is always asked.")
+@click.option("--enable", "enable", is_flag=True, help="Offer it on the sign-in page.")
+@click.option(
+    "--disable", "disable", is_flag=True, help="Stop offering it, and refuse its answers."
+)
+@click.option(
+    "--require-email-verified",
+    "verified_on",
+    is_flag=True,
+    help="Refuse a sign-in whose e-mail the provider does not vouch for (the default).",
+)
+@click.option(
+    "--allow-unverified-email",
+    "verified_off",
+    is_flag=True,
+    help="Let in people whose e-mail is not verified; it is then never used to find an account.",
+)
+@click.option(
+    "--assume-email-verified",
+    "assume_on",
+    is_flag=True,
+    help="Treat an e-mail the provider says nothing about as verified (Microsoft Entra, a managed directory).",
+)
+@click.option(
+    "--no-assume-email-verified", "assume_off", is_flag=True, help="Never assume it (the default)."
+)
+@click.option(
+    "--clock-skew", type=int, default=None, help="Seconds of clock difference to forgive (0-300)."
+)
+@click.option(
+    "--provisioning",
+    type=click.Choice(PROVISIONING),
+    default=None,
+    help="A first sign-in: off (an administrator links people), invite, or auto (create the account).",
+)
+@click.option(
+    "--default-role",
+    type=click.Choice(PROVIDER_ROLES),
+    default=None,
+    help="The role of an account that provisioning creates.",
+)
+@click.option(
+    "--default-team",
+    default=None,
+    help="The team a created account joins ('' for the default team).",
+)
+@click.option(
+    "--default-team-role", type=click.Choice(TEAM_ROLES), default=None, help="Its role there."
+)
+@click.option(
+    "--link-by-email",
+    "link_on",
+    is_flag=True,
+    help="Link a first sign-in to the account of its verified e-mail (only one with a second factor).",
+)
+@click.option("--no-link-by-email", "link_off", is_flag=True, help="Never link by e-mail.")
+@click.option(
+    "--allowed-domain",
+    "domains",
+    multiple=True,
+    help="Only e-mail addresses of this domain (repeat for several).",
+)
+@click.option("--clear-domains", is_flag=True, help="Allow every domain again.")
+@click.option(
+    "--require-amr",
+    "amr",
+    multiple=True,
+    help="The provider must say it used one of these methods, such as mfa (repeat for several).",
+)
+@click.option("--clear-amr", is_flag=True, help="Require no method.")
+@click.option("--groups-claim", default=None, help="Where the token lists groups; nest with '>'.")
+@click.option(
+    "--group-sync",
+    "sync_on",
+    is_flag=True,
+    help="Let groups decide roles and teams at every sign-in.",
+)
+@click.option("--no-group-sync", "sync_off", is_flag=True, help="Stop letting groups decide.")
+@click.option(
+    "--map-role", "map_roles", multiple=True, help="GROUP=ROLE: members get this role (repeat)."
+)
+@click.option(
+    "--map-team",
+    "map_teams",
+    multiple=True,
+    help="GROUP=TEAM:ROLE: members join this team (repeat).",
+)
+@click.option("--clear-mappings", is_flag=True, help="Forget every group mapping.")
+@click.option(
+    "--redirect-uri",
+    default=None,
+    help="The callback address, when it cannot be worked out ('' to clear).",
+)
+@pass_context
+def set_command(
+    ctx: Context,
+    name: str,
+    issuer: str | None,
+    client_id: str | None,
+    client_secret_stdin: bool,
+    prompt_secret: bool,
+    clear_secret: bool,
+    label: str | None,
+    scopes: str | None,
+    enable: bool,
+    disable: bool,
+    verified_on: bool,
+    verified_off: bool,
+    assume_on: bool,
+    assume_off: bool,
+    clock_skew: int | None,
+    provisioning: str | None,
+    default_role: str | None,
+    default_team: str | None,
+    default_team_role: str | None,
+    link_on: bool,
+    link_off: bool,
+    domains: tuple[str, ...],
+    clear_domains: bool,
+    amr: tuple[str, ...],
+    clear_amr: bool,
+    groups_claim: str | None,
+    sync_on: bool,
+    sync_off: bool,
+    map_roles: tuple[str, ...],
+    map_teams: tuple[str, ...],
+    clear_mappings: bool,
+    redirect_uri: str | None,
+) -> None:
+    """
+    Add an identity provider, or change one: only the settings given change.
+
+    A new one needs --issuer and --client-id. Register Noust at the provider
+    first (an OpenID Connect client with the authorization code flow), give it
+    the redirect URI 'noust auth oidc show NAME' prints, and copy its client id
+    and secret here.
+    """
+    changes: dict[str, Any] = {
+        "issuer": issuer,
+        "client_id": client_id,
+        "label": label,
+        "scopes": scopes,
+        "enabled": _flag((enable, disable), "--enable/--disable"),
+        "require_email_verified": _flag(
+            (verified_on, verified_off), "--require-email-verified/--allow-unverified-email"
+        ),
+        "assume_email_verified": _flag(
+            (assume_on, assume_off), "--assume-email-verified/--no-assume-email-verified"
+        ),
+        "clock_skew_seconds": clock_skew,
+        "provisioning": provisioning,
+        "default_role": default_role,
+        "default_team": default_team,
+        "default_team_role": default_team_role,
+        "link_by_email": _flag((link_on, link_off), "--link-by-email/--no-link-by-email"),
+        "groups_claim": groups_claim,
+        "group_sync": _flag((sync_on, sync_off), "--group-sync/--no-group-sync"),
+        "redirect_uri": redirect_uri,
+    }
+    if domains or clear_domains:
+        changes["allowed_domains"] = list(domains)
+    if amr or clear_amr:
+        changes["require_amr"] = list(amr)
+    if map_roles or map_teams or clear_mappings:
+        changes["group_mappings"] = _mappings(map_roles, map_teams)
+    changes = {key: value for key, value in changes.items() if value is not None}
+
+    secret = _read_secret(name, client_secret_stdin, prompt_secret)
+    manager = _manager()
+    existed = manager.provider(name) is not None
+    provider = manager.configure(
+        name, changes, client_secret=secret, clear_secret=clear_secret, actor="cli"
+    )
+    names = sorted([*changes, *(["client_secret"] if secret else [])])
+    _record(
+        "auth.oidc.config",
+        f"provider:{provider.name}",
+        {"change": "changed" if existed else "added", "settings": names},
+    )
+    if ctx.json_output:
+        click.echo(
+            json.dumps(
+                {**provider.to_dict(), "client_secret_set": manager.has_secret(provider.name)}
+            )
+        )
+        return
+    ctx.logger.success(f"Provider {'changed' if existed else 'added'}: {provider.name}")
+    _describe(ctx, provider, manager.has_secret(provider.name))
+    if provider.provisioning == "auto":
+        ctx.logger.warning(
+            f"Everyone this provider signs in gets an account as {provider.default_role}. "
+            "Restrict who with --allowed-domain, or use --provisioning invite."
+        )
+    ctx.logger.info(f"Check it with: noust auth oidc test {provider.name}")
+
+
+@oidc.command("show", read_only=True)
+@click.argument("name", required=False)
+@json_option("Print the providers as JSON.")
+@pass_context
+def show_command(ctx: Context, name: str | None) -> None:
+    """Show the configured providers, or one in full. Secrets are never shown."""
+    manager = _manager()
+    providers = [manager.require_provider(name)] if name else manager.providers()
+    if ctx.json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "providers": [
+                        {
+                            **found.to_dict(),
+                            "client_secret_set": manager.has_secret(found.name),
+                            "redirect_uri": _callback_for(found),
+                        }
+                        for found in providers
+                    ]
+                }
+            )
+        )
+        return
+    if not providers:
+        ctx.logger.info(
+            "No identity provider is configured. Add one with 'noust auth oidc set NAME "
+            "--issuer URL --client-id ID --prompt-secret'."
+        )
+        return
+    if name:
+        _describe(ctx, providers[0], manager.has_secret(providers[0].name))
+        return
+    ctx.logger.table(
+        ["Name", "Button", "Issuer", "State", "Provisioning", "Secret"],
+        [
+            [
+                found.name,
+                found.label,
+                found.issuer,
+                "enabled" if found.enabled else "disabled",
+                found.provisioning,
+                "set" if manager.has_secret(found.name) else "-",
+            ]
+            for found in providers
+        ],
+    )
+
+
+@oidc.command("test", read_only=True)
+@click.argument("name")
+@json_option("Print the checks as JSON.")
+@pass_context
+def test_command(ctx: Context, name: str) -> None:
+    """
+    Look at a provider the way a sign-in would: discovery, keys, secret, callback.
+
+    Signs nobody in and changes nothing. Exits 1 when a check fails.
+    """
+    manager = _manager()
+    provider = manager.require_provider(name)
+    checks = manager.test(provider.name, redirect_uri=_callback_for(provider))
+    ok = all(check.ok for check in checks)
+    if ctx.json_output:
+        click.echo(json.dumps({"ok": ok, "checks": [check.to_dict() for check in checks]}))
+    else:
+        for check in checks:
+            (ctx.logger.success if check.ok else ctx.logger.warning)(
+                f"{check.name}: {check.detail}"
+            )
+    if not ok:
+        raise SystemExit(1)
+
+
+@oidc.command("remove")
+@click.argument("name")
+@click.option("-f", "--force", is_flag=True, help="Do not ask for confirmation.")
+@pass_context
+def remove_command(ctx: Context, name: str, force: bool) -> None:
+    """
+    Remove a provider and its client secret.
+
+    Accounts keep their links and every other way in. One that has no password
+    cannot sign in until it is given one: 'noust user invite NAME'.
+    """
+    manager = _manager()
+    provider = manager.require_provider(name)
+    if not force and not click.confirm(
+        f"Remove the provider {provider.name}? Nobody can sign in through it any more",
+        default=False,
+    ):
+        ctx.logger.info("Cancelled")
+        return
+    manager.remove(name)
+    _record("auth.oidc.config", f"provider:{provider.name}", {"change": "removed"})
+    ctx.logger.success(f"Provider removed: {provider.name}")
+
+
+@oidc.command("link")
+@click.argument("name")
+@click.argument("username")
+@click.option(
+    "--subject",
+    required=True,
+    help="The provider's id (sub) for the person: it is in the audit log of a refused sign-in.",
+)
+@pass_context
+def link_command(ctx: Context, name: str, username: str, subject: str) -> None:
+    """Link an account to a person at a provider, so they sign in as it."""
+    identity = _manager().link(name, username, subject, actor="cli")
+    _record(
+        "auth.oidc.link",
+        f"account:{username.strip().lower()}",
+        {"provider": identity.provider, "subject": identity.subject[:64]},
+    )
+    if ctx.json_output:
+        click.echo(json.dumps(identity.to_dict()))
+        return
+    ctx.logger.success(f"Linked {username} to {identity.subject} at {identity.provider}.")
+
+
+@oidc.command("unlink")
+@click.argument("identity_id", type=int)
+@pass_context
+def unlink_command(ctx: Context, identity_id: int) -> None:
+    """Cut a link ('noust auth oidc identities' lists them with their ids)."""
+    manager = _manager()
+    found = manager.data.get_identity(identity_id)
+    account = manager.accounts.get(found.account_id) if found else None
+    removed = manager.unlink_identity(identity_id)
+    _record(
+        "auth.oidc.unlink",
+        f"account:{account.username if account else removed.account_id}",
+        {"provider": removed.provider, "subject": removed.subject[:64]},
+    )
+    ctx.logger.success(f"Unlinked {removed.subject} from {account.username if account else '?'}.")
+    if account is not None and not account.has_password and account.identities <= 1:
+        ctx.logger.warning(
+            f"{account.username} has no password and no other link: it cannot sign in. "
+            f"Give it a way: noust user invite {account.username}."
+        )
+
+
+@oidc.command("identities", read_only=True)
+@click.option("--user", "username", default=None, help="Only this account's.")
+@json_option("Print the links as JSON.")
+@pass_context
+def identities_command(ctx: Context, username: str | None) -> None:
+    """List the people at providers that are linked to accounts."""
+    manager = _manager()
+    links = manager.identities(username)
+    names = {account.id: account.username for account in manager.accounts.list_all()}
+    if ctx.json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "identities": [
+                        {**item.to_dict(), "account": names.get(item.account_id, "")}
+                        for item in links
+                    ]
+                }
+            )
+        )
+        return
+    if not links:
+        ctx.logger.info("No account is linked to a person at a provider.")
+        return
+    ctx.logger.table(
+        ["Id", "Account", "Provider", "Subject", "E-mail", "Last sign-in"],
+        [
+            [
+                str(item.id),
+                names.get(item.account_id, "?"),
+                item.provider,
+                item.subject,
+                item.email or "-",
+                _fmt(item.last_login_at),
+            ]
+            for item in links
+        ],
+    )
