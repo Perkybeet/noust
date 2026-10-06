@@ -1,0 +1,2 @@
+# How nginx proxies this application. Messages with attachments are posted to the API.
+max_body_size: 50m

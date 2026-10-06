@@ -684,7 +684,7 @@ def _create_from_recipe(
         logger.error("System is not ready for deployment")
         for item in missing:
             logger.error(f"  - {item}")
-        for requirement in chosen.requires:
+        for requirement in chosen.needs:
             logger.info(f"  {chosen.title} requires: {requirement}")
         return 1
 

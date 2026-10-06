@@ -1,0 +1,90 @@
+# FreshRSS from its own image, installed without the web installer: the
+# project's Docker README documents FRESHRSS_INSTALL (arguments of
+# cli/do-install.php) and FRESHRSS_USER (cli/create-user.php), which run once on
+# the first start, so the administrator exists before anyone can reach the page
+# (the web installer would let the first visitor choose it). The image listens on
+# 80, keeps its SQLite data in /var/www/FreshRSS/data and extensions in
+# /var/www/FreshRSS/extensions, refreshes feeds with CRON_MIN, and trusts the
+# proxy addresses in TRUSTED_PROXY (the example's range for Docker networks).
+# The README's own health check is cli/health.php.
+schema: 2
+name: freshrss
+kind: compose
+title: FreshRSS
+slogan: A free, self-hostable feed aggregator.
+description: A fast, light and powerful RSS and Atom reader with multiple users, a mobile-friendly interface and an API for reader apps. The administrator is created at install.
+category: productivity
+tags: [rss, feeds, reader, news]
+logo: logo.svg
+version: "1.30.1"
+revision: 1
+updated: 2026-10-06
+homepage: https://freshrss.org
+docs: https://freshrss.github.io/FreshRSS/
+repository: https://github.com/FreshRSS/FreshRSS
+license: AGPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8084
+variables:
+  PUBLIC_URL:
+    from: url
+    description: The address people use; FreshRSS stores it as its base URL.
+  ADMIN_USER:
+    default: admin
+    description: The administrator's user name.
+  ADMIN_EMAIL:
+    required: true
+    description: The administrator's e-mail address.
+  ADMIN_PASSWORD:
+    generate: password32
+    description: The administrator's password.
+  ADMIN_API_PASSWORD:
+    generate: password32
+    description: The password reader apps use through the API.
+  TZ:
+    default: UTC
+    description: The server's time zone, such as Europe/Madrid.
+health:
+  path: /
+  expect: 200-399
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    freshrss:
+      image: ghcr.io/freshrss/freshrss:1.30.1@sha256:48b63b9bc3d042a1301c32971b01af8841c7f059b452589c5bf77f475ba44c61
+      restart: unless-stopped
+      environment:
+        TZ: "${TZ}"
+        CRON_MIN: "3,33"
+        TRUSTED_PROXY: "172.16.0.1/12 192.168.0.1/16"
+        FRESHRSS_INSTALL: |-
+          --api-enabled
+          --base-url ${PUBLIC_URL}
+          --default-user ${ADMIN_USER}
+          --language en
+        FRESHRSS_USER: |-
+          --api-password ${ADMIN_API_PASSWORD}
+          --email ${ADMIN_EMAIL}
+          --language en
+          --password ${ADMIN_PASSWORD}
+          --user ${ADMIN_USER}
+      healthcheck:
+        test: ["CMD", "cli/health.php"]
+        timeout: 10s
+        start_period: 60s
+        interval: 75s
+        retries: 3
+      volumes:
+        - freshrss-data:/var/www/FreshRSS/data
+        - freshrss-extensions:/var/www/FreshRSS/extensions
+      ports:
+        - "127.0.0.1:${PORT}:80"
+  volumes:
+    freshrss-data:
+    freshrss-extensions:
+notes:
+  - "Sign in at {{ url }} as {{ vars.ADMIN_USER }}; the password is ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The installation and the first user are created once, on the first start: changing those variables later does not change the account."
+  - "Reader apps use the API with ADMIN_API_PASSWORD, at {{ url }}/api/."
+  - "Your feeds and settings are in the Docker volume freshrss-data of this application: back it up before updating."

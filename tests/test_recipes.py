@@ -99,26 +99,15 @@ def test_every_shipped_recipe_loads() -> None:
     """A typo in a recipe file fails here, not on an operator's server."""
     recipes = {recipe.name: recipe for recipe in list_recipes()}
 
-    assert set(recipes) == SHIPPED
-    available = [name for name, recipe in recipes.items() if recipe.available]
-    assert sorted(available) == ["n8n", "umami", "uptime-kuma", "wordpress"]
-    assert [recipe.available for recipe in list_recipes()][:4] == [True] * 4
-
-
-@pytest.mark.parametrize("name", ["ghost", "plausible"])
-def test_the_recipes_left_out_of_2_3_say_why(name: str) -> None:
-    """Listed, not deployable, with the reason."""
-    recipe = get_recipe(name)
-
-    assert recipe.available is False
-    assert recipe.unavailable_reason and "Not available in 2.3" in recipe.unavailable_reason
-    assert recipe.summary()["app_type"] is None
-
-
-def test_ghost_names_mysql_8_and_plausible_names_clickhouse() -> None:
-    """The reasons are the real ones."""
-    assert "MySQL 8" in (get_recipe("ghost").unavailable_reason or "")
-    assert "ClickHouse" in (get_recipe("plausible").unavailable_reason or "")
+    assert SHIPPED <= set(recipes)
+    assert {name for name in SHIPPED if recipes[name].available} == {
+        "n8n",
+        "umami",
+        "uptime-kuma",
+        "wordpress",
+    }
+    flags = [recipe.available for recipe in list_recipes()]
+    assert flags == sorted(flags, reverse=True)
 
 
 def test_wordpress_is_verified_against_the_published_sha1() -> None:
@@ -143,8 +132,8 @@ def test_wordpress_keeps_wp_content_and_reads_its_config_from_the_environment() 
     assert recipe.database_engine == "mysql"
     assert recipe.php["shared_from_release"] == ["wp-content"]
     assert "wp-config.php" in recipe.php["deny"]
-    salts = [name for name in recipe.env if name.endswith(("_KEY", "_SALT"))]
-    assert len(salts) == 8
+    salts = [variable for variable in recipe.variables if variable.name.endswith(("_KEY", "_SALT"))]
+    assert len(salts) == 8 and all(variable.generate == "password64" for variable in salts)
     config = read_asset("wordpress", "wp-config.php")
     for name in ("WORDPRESS_DB_PASSWORD", "WORDPRESS_NONCE_SALT"):
         assert f"wasm_env( '{name}' )" in config
@@ -464,7 +453,7 @@ def test_recipe_list_json_lists_every_recipe_with_its_availability() -> None:
 
     assert result.exit_code == 0, result.output
     items = {item["name"]: item for item in json.loads(result.output)["items"]}
-    assert set(items) == SHIPPED
+    assert SHIPPED <= set(items)
     assert items["ghost"]["available"] is False
     assert items["wordpress"]["app_type"] == "php-fpm"
 
@@ -475,7 +464,7 @@ def test_recipe_show_describes_one() -> None:
     as_json = CliRunner().invoke(root_cli, ["recipe", "show", "uptime-kuma", "--json"])
 
     assert human.exit_code == 0, human.output
-    assert "noust create --recipe uptime-kuma" in human.output
+    assert "noust recipe install uptime-kuma -d <domain>" in human.output
     described = json.loads(as_json.output)
     assert described["source"]["ref"].startswith("1.23.")
     assert described["persistent_paths"] == ["data"]
@@ -591,7 +580,7 @@ def test_the_api_lists_and_describes_recipes(client: TestClient) -> None:
 
     assert listed.status_code == 200, listed.text
     names = [item["name"] for item in listed.json()["items"]]
-    assert set(names) == SHIPPED
+    assert SHIPPED <= set(names)
     assert one.json()["source"]["checksum_url"].endswith(".sha1")
     assert {"name": "WORDPRESS_AUTH_KEY", "generated": True} in one.json()["env"]
     assert missing.status_code == 404

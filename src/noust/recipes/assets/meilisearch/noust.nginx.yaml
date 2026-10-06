@@ -1,0 +1,2 @@
+# How nginx proxies this application. Documents are indexed in batches of up to 100 MB.
+max_body_size: 100m

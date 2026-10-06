@@ -85,8 +85,22 @@ CREATE TABLE IF NOT EXISTS app_container (
 """
 CONTAINER_COLUMNS: list[tuple[str, str, str]] = []
 
-# Owned by the recipes lane: what a recipe installed and where.
-RECIPES_SQL = ""
+# Owned by the recipes lane: which recipe an application was installed from,
+# and at which version. One row per application, in a table of its own so a
+# redeploy's full-row write of ``apps`` never touches it; the row goes with the
+# application. Written only through ``noust.recipes.installed``.
+RECIPES_SQL = """
+CREATE TABLE IF NOT EXISTS app_recipes (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    recipe TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    version TEXT NOT NULL,
+    revision INTEGER NOT NULL DEFAULT 1,
+    installed_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_app_recipes_recipe ON app_recipes(recipe);
+"""
 RECIPES_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the delivery lane: the deploy queue, cancellation and zero downtime.

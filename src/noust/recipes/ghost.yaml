@@ -1,6 +1,12 @@
+schema: 2
 name: ghost
+kind: native
 title: Ghost
+slogan: A publishing platform for blogs, newsletters and paid memberships.
 description: A publishing platform for blogs, newsletters and paid memberships.
+category: cms
+tags: [blog, newsletter, publishing]
+logo: logo.svg
 homepage: https://ghost.org
 available: false
-unavailable_reason: "Ghost supports only MySQL 8 in production, not MariaDB, which is what most distributions install as MySQL; its supported install is ghost-cli on Ubuntu. Not available in 2.3."
+unavailable_reason: "Ghost supports only MySQL 8 in production, not MariaDB, which is what most distributions install as MySQL; its supported install is ghost-cli on Ubuntu. Not available in this release: it waits for a MySQL engine distinct from MariaDB."

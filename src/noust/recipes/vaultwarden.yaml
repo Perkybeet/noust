@@ -1,0 +1,63 @@
+# Vaultwarden, an unofficial Bitwarden-compatible server in Rust, from its own
+# image. Configuration is what the project documents: DOMAIN (it must match the
+# address people use, or attachments and e-mailed links break), SIGNUPS_ALLOWED
+# and ADMIN_TOKEN (its wiki and .env.template). The image listens on port 80
+# (ROCKET_PORT=80 in its environment), keeps everything under /data, and has its
+# own health check against /alive.
+#
+# Pinned to the release tag and to the digest ghcr.io serves for it, which is
+# also the digest Docker Hub serves for vaultwarden/server:1.37.4.
+schema: 2
+name: vaultwarden
+kind: compose
+title: Vaultwarden
+slogan: A lightweight Bitwarden-compatible password manager server.
+description: An unofficial Bitwarden-compatible server written in Rust, light enough for a small server. Works with the official Bitwarden apps and browser extensions.
+category: security
+tags: [passwords, bitwarden, vault, self-hosted]
+logo: logo.svg
+version: "1.37.4"
+revision: 1
+updated: 2026-10-06
+homepage: https://github.com/dani-garcia/vaultwarden
+docs: https://github.com/dani-garcia/vaultwarden/wiki
+repository: https://github.com/dani-garcia/vaultwarden
+license: AGPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8000
+variables:
+  DOMAIN:
+    from: url
+    description: The address people use; it must match, or attachments and e-mailed links break.
+  SIGNUPS_ALLOWED:
+    default: "true"
+    description: Whether anybody can create an account. Set it to false once yours exists.
+  ADMIN_TOKEN:
+    generate: password64
+    description: Opens the /admin page. Vaultwarden prefers an Argon2 hash of it (vaultwarden hash).
+health:
+  path: /alive
+  expect: "200"
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    vaultwarden:
+      image: ghcr.io/dani-garcia/vaultwarden:1.37.4@sha256:efb3cde962015fcc036b2ea625242248611943b27212ebf4392841fb30fad055
+      restart: unless-stopped
+      environment:
+        DOMAIN: "${DOMAIN}"
+        SIGNUPS_ALLOWED: "${SIGNUPS_ALLOWED}"
+        ADMIN_TOKEN: "${ADMIN_TOKEN}"
+      volumes:
+        - vw-data:/data
+      ports:
+        - "127.0.0.1:${PORT}:80"
+  volumes:
+    vw-data:
+notes:
+  - "Open {{ url }} and create your account now: while SIGNUPS_ALLOWED is true, anybody who reaches it can create one."
+  - "Then set SIGNUPS_ALLOWED to false (the application's Environment tab in the console) and restart it: noust restart {{ domain }}."
+  - "The admin page is {{ url }}/admin; its token is ADMIN_TOKEN (noust env show {{ domain }} --unmask)."
+  - "Your vault lives in the Docker volume vw-data of this application: back it up before updating."

@@ -1,0 +1,26 @@
+# HashiCorp Vault has an official image (hashicorp/vault, 2.1.1 at the time of
+# writing) but running it as a server is not a deployment this recipe can finish: a new
+# Vault starts uninitialised and sealed, and what makes it usable (init, the
+# unseal keys, the root token, auto-unseal or a manual ceremony every restart)
+# is the operator's, not something a recipe can generate or hide. Its server
+# configuration (storage, listener, api_addr) was not run here, so it is not
+# shipped on a guess.
+#
+# Vault is also under HashiCorp's Business Source License, which the catalogue's
+# licence policy (docs/recipes.md) asks to be reviewed before listing it as
+# deployable.
+schema: 2
+name: vault
+kind: compose
+title: Vault
+slogan: Secrets management, encryption as a service and privileged access.
+description: "A tool for securely accessing secrets: API keys, passwords and certificates, with leasing, revocation, audit logging and encryption as a service."
+category: security
+tags: [secrets, encryption, pki, hashicorp]
+logo: logo.svg
+homepage: https://developer.hashicorp.com/vault
+docs: https://developer.hashicorp.com/vault/docs
+repository: https://github.com/hashicorp/vault
+license: BUSL-1.1
+available: false
+unavailable_reason: "A Vault server starts sealed and uninitialised, and its production configuration and the unseal ceremony are not something a one-click recipe can do safely; its server configuration was not run here. It is also under the Business Source License. Not available in this release."
