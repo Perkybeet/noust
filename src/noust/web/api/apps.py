@@ -68,7 +68,7 @@ from noust.deployers.php_fpm import control_pool
 from noust.deployers.registry import DeployerRegistry, available_types
 from noust.deployers.releases import is_release_id
 from noust.managers.backup_manager import RollbackManager
-from noust.managers.database.service import OWN_DATABASE_TYPES
+from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.recipes import RecipeError, get_recipe
 from noust.recipes.deploy import refuse_conflicts
@@ -260,12 +260,20 @@ class NewAppDatabaseRequest(BaseModel):
         env_var: The variable; ``DATABASE_URL``, or ``REDIS_URL`` for Redis.
         extra_vars: Also write ``DB_HOST``, ``DB_PORT``, ``DB_NAME``,
             ``DB_USER`` and ``DB_PASSWORD``.
+        version: The version of the engine the database is for, such as ``17``.
+            Checked when the request arrives: one other than the version that
+            runs is refused with what runs, and an engine that is not
+            installed is refused with how to install it (``GET
+            /api/databases/provisioning/choices``) before anything is queued.
     """
 
     engine: str = Field(..., description="Database engine")
     name: str | None = Field(default=None, description="Database name")
     env_var: str | None = Field(default=None, description="Variable to write")
     extra_vars: bool = Field(default=False, description="Also write the DB_* variables")
+    version: str | None = Field(
+        default=None, max_length=16, description="Version of the engine, such as 17"
+    )
 
 
 class CreateAppRequest(BaseModel):
@@ -969,6 +977,10 @@ def create_app(
             "/api/apps/{domain}/databases.",
             field="database",
         )
+    if body.database is not None and body.database.version is not None:
+        # Before anything is queued: a version this server does not run is a
+        # refusal the wizard shows next to the field, not a failed job.
+        DatabaseService().resolve_engine_choice(body.database.engine, version=body.database.version)
 
     if get_store().get_app(domain):
         raise HTTPException(status_code=409, detail=f"Application already exists: {domain}")

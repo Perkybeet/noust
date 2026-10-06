@@ -33,6 +33,8 @@ from noust.web.api.deps import (
     strict_domain,
 )
 from noust.web.jobs import JobType
+from noust.web.permissions import Permission
+from noust.web.permissions.enforce import check_permission
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -60,6 +62,13 @@ class ProvisionRequest(BaseModel):
         extra_vars: Also write ``DB_HOST``, ``DB_PORT``, ``DB_NAME``,
             ``DB_USER`` and ``DB_PASSWORD``.
         restart: Restart the application on the new variables.
+        version: The version of the engine the database is for, such as ``17``
+            or ``11.4``; the installed one when omitted. A version other than
+            the one that runs is refused with what runs and what could be
+            installed (``GET /api/databases/provisioning/choices``).
+        install: Install the engine, in that version, first when it is not
+            installed. Needs sudo mode and ``databases.manage``, like the
+            install itself.
     """
 
     engine: str = Field(..., description="Database engine")
@@ -67,6 +76,12 @@ class ProvisionRequest(BaseModel):
     env_var: str | None = Field(default=None, description="Variable to write")
     extra_vars: bool = Field(default=False, description="Also write the DB_* variables")
     restart: bool = Field(default=True, description="Restart the application behind its gate")
+    version: str | None = Field(
+        default=None, max_length=16, description="Version of the engine, such as 17"
+    )
+    install: bool = Field(
+        default=False, description="Install the engine in that version if it is missing"
+    )
 
 
 class LinkRequest(BaseModel):
@@ -123,26 +138,45 @@ def list_app_databases(
 def provision_app_database(
     domain: str,
     request: ProvisionRequest,
+    http_request: Request,
     session: Annotated[dict, Depends(get_current_session)],
 ) -> JobAcceptedResponse:
     """
     Queue creating a database for an application and linking it.
 
+    The engine and version are resolved before the job is queued, so a version
+    this server cannot be given, or is not running, is refused here with what
+    runs and what could be installed. Installing the engine as part of it is
+    the install's own action: sudo mode and ``databases.manage``.
+
     Args:
         domain: The application.
         request: What to create.
+        http_request: The request, for the elevation check's audit record.
         session: The authenticated session.
 
     Returns:
         The queued job.
     """
     domain = strict_domain(domain)
-    manager = service(session).running(request.engine)
+    databases = service(session)
+    if request.install:
+        check_permission(session, Permission.DATABASES_MANAGE)
+        ensure_elevated(http_request, session)
+    choice = databases.resolve_engine_choice(
+        request.engine,
+        version=request.version,
+        install=request.install,
+        install_hint="send install: true",
+    )
+    manager = databases.manager(request.engine)
+    if choice.action == "use":
+        manager = databases.running(request.engine)
     return queue(
         session,
         job_type=JobType.DATABASE,
-        name=f"Create a {manager.DISPLAY_NAME} database for {domain}",
-        description=f"Creating and linking a {manager.DISPLAY_NAME} database for {domain}",
+        name=f"Create a {choice.display_name} database for {domain}",
+        description=f"Creating and linking a {choice.display_name} database for {domain}",
         func=jobs.provision_job,
         kwargs={
             "domain": domain,
@@ -151,9 +185,11 @@ def provision_app_database(
             "env_var": request.env_var,
             "extra_vars": request.extra_vars,
             "restart": request.restart,
+            "version": request.version,
+            "install": request.install,
         },
         metadata={"domain": domain, "engine": manager.ENGINE_NAME},
-        message=f"Creating a {manager.DISPLAY_NAME} database for {domain}",
+        message=f"Creating a {choice.display_name} database for {domain}",
     )
 
 

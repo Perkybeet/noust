@@ -66,6 +66,36 @@ noust db install valkey
 Upstream repositories are added with their signing keys pinned by fingerprint. MySQL and MariaDB,
 and Redis and Valkey, are never installed beside each other.
 
+## A database on the engine and version you choose
+
+```bash
+noust db choices                                  # what a database can be created on, and how
+noust db provision shop.example.com -e postgresql --version 17 --install
+noust create -d shop.example.com -s github:me/shop --database postgresql:shop --database-version 17
+```
+
+`--version` is numbers and dots (`17`, `11.4`) and matches by components: `17` is any 17.x, and
+`11` is not 10.11. Without it nothing changes: the database is created on the engine that is
+installed. Noust runs one instance of each engine on a host, so:
+
+- the version that runs is used;
+- another version than the one that runs is refused with what runs (`PostgreSQL 17 was asked for,
+  but this server runs PostgreSQL 16.4`), before anything is created. Several versions side by
+  side are the container engines of 3.4;
+- MariaDB is not MySQL and Valkey is not Redis: asking for the one that is not installed is refused
+  the same way;
+- an engine that is not installed is installed first only with `--install` (`install: true` in the
+  API, which needs `databases.manage` and sudo mode, the install's own), from the catalog
+  (`noust db catalog`), pinned keys and all; without it the refusal names `noust db install`.
+  A version the release cannot have lists the ones it can.
+
+The API: `GET /api/databases/provisioning/choices` lists each flavour with the version that runs and
+each version as `installed`, `installable` or `unavailable`; `GET
+/api/databases/provisioning/plan?domain=...&engine=...&version=17` says what would be written and
+whether the engine would be installed (`will_install`); `POST /api/apps/{domain}/databases` takes
+`version` and `install`, and `POST /api/apps` takes `database.version`, checked when the request
+arrives.
+
 ## Settings
 
 ```bash

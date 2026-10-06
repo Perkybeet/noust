@@ -684,6 +684,7 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}/follow-tags` | PATCH `apps.manage`, sudo | `{pattern}`: deploy the newest git tag that matches a glob (`v*`) instead of a branch; null follows a branch again |
 | `/api/apps/{domain}/headless` | GET `apps.read`; POST `apps.manage`, sudo | Whether a Compose stack publishes no port; record it as a worker (`{remove_site}` also retires the site Noust wrote) |
 | `/api/apps/{domain}/health` | PATCH `apps.manage`, sudo | `{path, expect, timeout}` of the health gate; null is the default |
+| `/api/databases/provisioning/choices` | GET `databases.read` | Each engine, the version that runs and the versions a database can be created on (`installed`, `installable`, `unavailable`) |
 | `/api/apps/{domain}/deploy-key` | GET `apps.read`; POST `apps.manage`; DELETE `apps.manage`, sudo | The key the repository is reached with; make one (or assign `{key}`); take the repository off it |
 | `/api/apps/{domain}/deploy-key/import` | POST `apps.manage`, sudo | Use a private key you have (`{private_key, name}`) |
 | `/api/apps/{domain}/deploy-key/rotate` | POST `apps.manage`; DELETE `apps.manage` | Make the key that replaces it, keeping the old working; give the rotation up |
