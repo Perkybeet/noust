@@ -726,6 +726,10 @@ class TestSiteListIsTheStoreAndTheDirectoryTogether:
             "config_path": str(available / "proggest"),
             "has_ssl": True,
             "server_names": ["proggest.es", "www.proggest.es"],
+            # The store never recorded this site's owner: it belongs to no team.
+            "team": None,
+            "project": None,
+            "environment": None,
         }
 
     def test_a_site_written_from_the_console_is_noust_managed_and_has_no_app(

@@ -7746,7 +7746,7 @@
         "type": "object"
       },
       "DatabaseInfoResponse": {
-        "description": "One database, as the engine and the store together describe it.\n\nAttributes:\n    owner: The owning role or account. Null for engines with no such\n        concept: MySQL/MariaDB and Redis have none, and MongoDB grants\n        roles to users rather than owning a database with one.\n    tables: Tables or collections; null when the listing does not count\n        them.\n    keys: Keys in a Redis slot.\n    tracked: Recorded by Noust: backed up with its application, linkable.\n    missing: Recorded by Noust but gone from the engine.\n    unverified: Recorded by Noust, on an engine that could not be read.\n    app: The application it belongs to, whose backups include it.\n    apps: Every application linked to it.\n    detected_apps: Applications whose environment names it, without a\n        recorded link.\n    username: The account Noust provisioned for it.\n    engine_version: The engine's version.\n    last_backup: When its newest dump was taken.",
+        "description": "One database, as the engine and the store together describe it.\n\nAttributes:\n    owner: The owning role or account. Null for engines with no such\n        concept: MySQL/MariaDB and Redis have none, and MongoDB grants\n        roles to users rather than owning a database with one.\n    tables: Tables or collections; null when the listing does not count\n        them.\n    keys: Keys in a Redis slot.\n    tracked: Recorded by Noust: backed up with its application, linkable.\n    missing: Recorded by Noust but gone from the engine.\n    unverified: Recorded by Noust, on an engine that could not be read.\n    app: The application it belongs to, whose backups include it.\n    apps: Every application linked to it.\n    detected_apps: Applications whose environment names it, without a\n        recorded link.\n    username: The account Noust provisioned for it.\n    engine_version: The engine's version.\n    last_backup: When its newest dump was taken.\n    team: The slug of the team it belongs to; None for one an engine holds\n        that Noust never recorded, which belongs to nobody.\n    project: The slug of its project.\n    environment: The slug of its environment.",
         "properties": {
           "app": {
             "anyOf": [
@@ -7799,6 +7799,17 @@
             ],
             "title": "Engine Version"
           },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment"
+          },
           "keys": {
             "anyOf": [
               {
@@ -7841,6 +7852,17 @@
             ],
             "title": "Owner"
           },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project"
+          },
           "size": {
             "anyOf": [
               {
@@ -7862,6 +7884,17 @@
               }
             ],
             "title": "Tables"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
           },
           "tracked": {
             "default": false,
@@ -21945,7 +21978,7 @@
         "type": "object"
       },
       "RenameTeamRequest": {
-        "description": "Request to rename a team.",
+        "description": "Request to rename a team, a project or an environment.",
         "properties": {
           "name": {
             "description": "The new display name",
@@ -25271,7 +25304,7 @@
         "type": "object"
       },
       "SiteInfo": {
-        "description": "A configured virtual host.\n\nAttributes:\n    name: The domain the site is addressed by: its application's, else\n        the file's name. What every ``/api/sites/{domain}`` route takes.\n    webserver: Web server serving it.\n    enabled: Whether the site is enabled.\n    config_path: Absolute path of the configuration file.\n    has_ssl: Whether the configuration carries TLS directives.\n    server_names: Every name the configuration answers on - the primary\n        domain and its aliases - read from the file's own directives.\n        Empty when the configuration cannot be read.\n    noust_managed: Whether Noust wrote the file (it carries Noust's\n        marker). False for a site the operator wrote, which a deploy\n        never rewrites.\n    app: Domain of the application the file serves, when one records it.\n    site_name: The file in the sites directory, which is not the domain\n        for a site the operator named (``proggest`` for ``proggest.es``).",
+        "description": "A configured virtual host.\n\nAttributes:\n    name: The domain the site is addressed by: its application's, else\n        the file's name. What every ``/api/sites/{domain}`` route takes.\n    webserver: Web server serving it.\n    enabled: Whether the site is enabled.\n    config_path: Absolute path of the configuration file.\n    has_ssl: Whether the configuration carries TLS directives.\n    server_names: Every name the configuration answers on - the primary\n        domain and its aliases - read from the file's own directives.\n        Empty when the configuration cannot be read.\n    noust_managed: Whether Noust wrote the file (it carries Noust's\n        marker). False for a site the operator wrote, which a deploy\n        never rewrites.\n    app: Domain of the application the file serves, when one records it.\n    site_name: The file in the sites directory, which is not the domain\n        for a site the operator named (``proggest`` for ``proggest.es``).\n    team: The slug of the team it belongs to; None for a file the store\n        never recorded, which belongs to nobody.\n    project: The slug of its project.\n    environment: The slug of its environment.",
         "properties": {
           "app": {
             "anyOf": [
@@ -25292,6 +25325,17 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment"
+          },
           "has_ssl": {
             "default": false,
             "title": "Has Ssl",
@@ -25306,6 +25350,17 @@
             "title": "Noust Managed",
             "type": "boolean"
           },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project"
+          },
           "server_names": {
             "default": [],
             "items": {
@@ -25318,6 +25373,17 @@
             "default": "",
             "title": "Site Name",
             "type": "string"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
           },
           "webserver": {
             "title": "Webserver",
@@ -55811,6 +55877,67 @@
         ],
         "x-noust-permission": "teams.manage",
         "x-noust-requires-elevation": true
+      },
+      "patch": {
+        "description": "Rename a project. Its slug, which commands and links name it by, stays.\n\nArgs:\n    team: The team's slug.\n    project: The project's slug.\n    body: The new name.\n    session: The authenticated session.\n\nReturns:\n    The project.\n\nRaises:\n    TeamNotFoundError: 404 when there is no such project.",
+        "operationId": "rename_project_api_teams__team__projects__project__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameTeamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rename Project",
+        "tags": [
+          "Teams"
+        ],
+        "x-noust-permission": "teams.manage"
       }
     },
     "/api/teams/{team}/projects/{project}/environments": {
@@ -55988,6 +56115,76 @@
         ],
         "x-noust-permission": "teams.manage",
         "x-noust-requires-elevation": true
+      },
+      "patch": {
+        "description": "Rename an environment. Its slug, which commands and links name it by, stays.\n\nArgs:\n    team: The team's slug.\n    project: The project's slug.\n    environment: The environment's slug.\n    body: The new name.\n    session: The authenticated session.\n\nReturns:\n    The environment.\n\nRaises:\n    TeamNotFoundError: 404 when there is no such environment.",
+        "operationId": "rename_environment_api_teams__team__projects__project__environments__environment__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "environment",
+            "required": true,
+            "schema": {
+              "title": "Environment",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameTeamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rename Environment",
+        "tags": [
+          "Teams"
+        ],
+        "x-noust-permission": "teams.manage"
       }
     },
     "/api/timeline": {

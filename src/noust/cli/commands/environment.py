@@ -76,6 +76,29 @@ def create_command(
     )
 
 
+@cli.command("rename")
+@click.argument("environment")
+@click.argument("name")
+@click.option("--team", default=None, help="The team (default: the default team).")
+@click.option("--project", default=DEFAULT_SLUG, show_default=True, help="The project.")
+@pass_context
+def rename_command(
+    ctx: Context, environment: str, name: str, team: str | None, project: str
+) -> None:
+    """Change an environment's display name; the short name commands use stays."""
+    renamed = teams().rename_environment(team or DEFAULT_SLUG, project, environment, name)
+    record(
+        "environment.update",
+        f"environment:{renamed.team}/{renamed.project}/{renamed.slug}",
+        {"name": renamed.name},
+    )
+    say(
+        ctx,
+        {"environment": renamed.to_dict()},
+        f"Environment renamed: {renamed.team}/{renamed.project}/{renamed.slug} is now {renamed.name}",
+    )
+
+
 @cli.command("delete")
 @click.argument("environment")
 @click.option("--team", default=None, help="The team (default: the default team).")

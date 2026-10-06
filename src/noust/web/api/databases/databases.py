@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
-from noust.core.teams import ownership_target, scoped_store
+from noust.core.teams import TeamStore, ownership_target, scoped_store
 from noust.managers.database.registry import DatabaseRegistry
 from noust.web.api.auth import get_current_session
 from noust.web.api.databases import jobs
@@ -317,19 +317,27 @@ def list_databases(
     scoped = scoped_store()
     views = listing.databases
     # The store says whose a database is; an engine's own listing does not.
+    labels = TeamStore().owner_labels()
+    owners = {
+        (record.name, record.engine): labels.of(record.project_id, record.environment_id)
+        for record in scoped.list_databases(
+            engine=DatabaseRegistry.canonical(engine) or engine if engine else None,
+            project=project,
+            environment=environment,
+            team=team,
+        )
+    }
     if scoped.scope.restricted or team or project or environment:
-        owned = {
-            (record.name, record.engine)
-            for record in scoped.list_databases(
-                engine=DatabaseRegistry.canonical(engine) or engine if engine else None,
-                project=project,
-                environment=environment,
-                team=team,
-            )
-        }
-        views = [view for view in views if (view.name, view.engine) in owned]
+        views = [view for view in views if (view.name, view.engine) in owners]
+    rows = []
+    for view in views:
+        row = database_response(view)
+        row.team, row.project, row.environment = owners.get(
+            (view.name, view.engine), (None, None, None)
+        )
+        rows.append(row)
     return DatabaseListResponse(
-        databases=[database_response(view) for view in views],
+        databases=rows,
         total=len(views),
         problems=[ListingProblemResponse(**problem.to_dict()) for problem in listing.problems],
     )

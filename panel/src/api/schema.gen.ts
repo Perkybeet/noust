@@ -14251,7 +14251,23 @@ export interface paths {
         delete: operations["delete_project_api_teams__team__projects__project__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Rename Project
+         * @description Rename a project. Its slug, which commands and links name it by, stays.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         body: The new name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The project.
+         *
+         *     Raises:
+         *         TeamNotFoundError: 404 when there is no such project.
+         */
+        patch: operations["rename_project_api_teams__team__projects__project__patch"];
         trace?: never;
     };
     "/api/teams/{team}/projects/{project}/environments": {
@@ -14328,7 +14344,24 @@ export interface paths {
         delete: operations["delete_environment_api_teams__team__projects__project__environments__environment__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Rename Environment
+         * @description Rename an environment. Its slug, which commands and links name it by, stays.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         environment: The environment's slug.
+         *         body: The new name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The environment.
+         *
+         *     Raises:
+         *         TeamNotFoundError: 404 when there is no such environment.
+         */
+        patch: operations["rename_environment_api_teams__team__projects__project__environments__environment__patch"];
         trace?: never;
     };
     "/api/timeline": {
@@ -18986,6 +19019,10 @@ export interface components {
          *         username: The account Noust provisioned for it.
          *         engine_version: The engine's version.
          *         last_backup: When its newest dump was taken.
+         *         team: The slug of the team it belongs to; None for one an engine holds
+         *             that Noust never recorded, which belongs to nobody.
+         *         project: The slug of its project.
+         *         environment: The slug of its environment.
          */
         DatabaseInfoResponse: {
             /** App */
@@ -19000,6 +19037,8 @@ export interface components {
             engine: string;
             /** Engine Version */
             engine_version?: string | null;
+            /** Environment */
+            environment?: string | null;
             /** Keys */
             keys?: number | null;
             /** Last Backup */
@@ -19013,10 +19052,14 @@ export interface components {
             name: string;
             /** Owner */
             owner?: string | null;
+            /** Project */
+            project?: string | null;
             /** Size */
             size?: string | null;
             /** Tables */
             tables?: number | null;
+            /** Team */
+            team?: string | null;
             /**
              * Tracked
              * @default false
@@ -26403,7 +26446,7 @@ export interface components {
         };
         /**
          * RenameTeamRequest
-         * @description Request to rename a team.
+         * @description Request to rename a team, a project or an environment.
          */
         RenameTeamRequest: {
             /**
@@ -28277,6 +28320,10 @@ export interface components {
          *         app: Domain of the application the file serves, when one records it.
          *         site_name: The file in the sites directory, which is not the domain
          *             for a site the operator named (``proggest`` for ``proggest.es``).
+         *         team: The slug of the team it belongs to; None for a file the store
+         *             never recorded, which belongs to nobody.
+         *         project: The slug of its project.
+         *         environment: The slug of its environment.
          */
         SiteInfo: {
             /** App */
@@ -28285,6 +28332,8 @@ export interface components {
             config_path: string;
             /** Enabled */
             enabled: boolean;
+            /** Environment */
+            environment?: string | null;
             /**
              * Has Ssl
              * @default false
@@ -28297,6 +28346,8 @@ export interface components {
              * @default false
              */
             noust_managed: boolean;
+            /** Project */
+            project?: string | null;
             /**
              * Server Names
              * @default []
@@ -28307,6 +28358,8 @@ export interface components {
              * @default
              */
             site_name: string;
+            /** Team */
+            team?: string | null;
             /** Webserver */
             webserver: string;
         };
@@ -47000,6 +47053,42 @@ export interface operations {
             };
         };
     };
+    rename_project_api_teams__team__projects__project__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameTeamRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_project_environments_api_teams__team__projects__project__environments_get: {
         parameters: {
             query?: never;
@@ -47088,6 +47177,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["noust__web__api__teams__ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_environment_api_teams__team__projects__project__environments__environment__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+                environment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameTeamRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvironmentOut"];
                 };
             };
             /** @description Validation Error */

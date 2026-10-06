@@ -69,7 +69,9 @@ noust team delete acme                           # only an empty one; the defaul
 
 noust project create "Mobile app" --team acme    # also gets its production environment
 noust project list --team acme
+noust project rename mobile-app "Mobile" --team acme   # the display name; the short name stays
 noust environment create Staging --team acme --project mobile-app
+noust environment rename staging "Pre-production" --team acme --project mobile-app
 noust environment list
 
 noust create -d shop.acme.com -s ... --team acme --project mobile-app --environment staging
@@ -105,9 +107,9 @@ DELETE /api/teams/{team}                            delete an empty one
 GET|POST   /api/teams/{team}/members                list; add an account (an owner)
 PATCH|DELETE /api/teams/{team}/members/{username}   change its role; remove it
 GET|POST   /api/teams/{team}/projects               list; create (an owner)
-DELETE     /api/teams/{team}/projects/{project}
+PATCH|DELETE /api/teams/{team}/projects/{project}   rename; delete an empty one
 GET|POST   /api/teams/{team}/projects/{project}/environments
-DELETE     /api/teams/{team}/projects/{project}/environments/{environment}
+PATCH|DELETE /api/teams/{team}/projects/{project}/environments/{environment}
 GET    /api/projects?team=       and   GET /api/environments?team=&project=     flat lists
 POST   /api/apps/{domain}/move  {"team":..., "project":..., "environment":...}
 POST   /api/auth/invitations    {"username":..., "role":..., "team": "acme", "team_role": "operator"}
@@ -115,7 +117,8 @@ POST   /api/auth/invitations    {"username":..., "role":..., "team": "acme", "te
 
 `GET /api/apps`, `/api/sites`, `/api/databases/databases`, `/api/backup-schedules` and the lists of
 history take `team`, `project` and `environment` filters where they list resources, and say where
-each application lives (`team`, `project`, `environment`). `POST /api/apps`, `POST /api/sites` and
+each application, site and database lives (`team`, `project`, `environment`; a site file or a
+database the store never recorded belongs to nobody and has none). `POST /api/apps`, `POST /api/sites` and
 `POST /api/databases/databases` take the same three to say where the new resource goes; left out,
 it goes to **the team you work in** (`PUT /api/teams/active`), your only team, or the default team
 when you see them all. A member of several teams that has not chosen one is asked to.
@@ -187,7 +190,7 @@ What a team member is shown of that is limited to its own applications:
 
 Every change is on the audit trail with whoever made it: `team.create`, `team.update`,
 `team.delete`, `team.member.add`, `team.member.remove`, `project.create`, `project.delete`,
-`environment.create`, `environment.delete` and `apps.move`.
+`project.update`, `environment.create`, `environment.update`, `environment.delete` and `apps.move`.
 
 ## For a developer
 

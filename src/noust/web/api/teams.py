@@ -118,7 +118,7 @@ class CreateTeamRequest(BaseModel):
 
 
 class RenameTeamRequest(BaseModel):
-    """Request to rename a team."""
+    """Request to rename a team, a project or an environment."""
 
     name: str = Field(..., description="The new display name")
 
@@ -781,6 +781,38 @@ def create_project(
     return _project_out(project, _environments_by_project())
 
 
+@router.patch("/{team}/projects/{project}", response_model=ProjectOut)
+def rename_project(
+    team: str,
+    project: str,
+    body: RenameTeamRequest,
+    session: Annotated[dict, Depends(get_current_session)],
+) -> ProjectOut:
+    """
+    Rename a project. Its slug, which commands and links name it by, stays.
+
+    Args:
+        team: The team's slug.
+        project: The project's slug.
+        body: The new name.
+        session: The authenticated session.
+
+    Returns:
+        The project.
+
+    Raises:
+        TeamNotFoundError: 404 when there is no such project.
+    """
+    renamed = _store().rename_project(team, project, body.name)
+    _record(
+        session,
+        "project.update",
+        f"project:{renamed.team}/{renamed.slug}",
+        name=renamed.name,
+    )
+    return _project_out(renamed, _environments_by_project())
+
+
 @router.delete("/{team}/projects/{project}", response_model=ActionResponse)
 def delete_project(
     team: str, project: str, session: Annotated[dict, Depends(require_elevated)]
@@ -873,6 +905,42 @@ def create_environment(
         f"environment:{environment.team}/{environment.project}/{environment.slug}",
     )
     return _environment_out(environment)
+
+
+@router.patch(
+    "/{team}/projects/{project}/environments/{environment}", response_model=EnvironmentOut
+)
+def rename_environment(
+    team: str,
+    project: str,
+    environment: str,
+    body: RenameTeamRequest,
+    session: Annotated[dict, Depends(get_current_session)],
+) -> EnvironmentOut:
+    """
+    Rename an environment. Its slug, which commands and links name it by, stays.
+
+    Args:
+        team: The team's slug.
+        project: The project's slug.
+        environment: The environment's slug.
+        body: The new name.
+        session: The authenticated session.
+
+    Returns:
+        The environment.
+
+    Raises:
+        TeamNotFoundError: 404 when there is no such environment.
+    """
+    renamed = _store().rename_environment(team, project, environment, body.name)
+    _record(
+        session,
+        "environment.update",
+        f"environment:{renamed.team}/{renamed.project}/{renamed.slug}",
+        name=renamed.name,
+    )
+    return _environment_out(renamed)
 
 
 @router.delete(
