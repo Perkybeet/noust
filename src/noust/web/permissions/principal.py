@@ -18,6 +18,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from noust.core.teams.scope import Scope
 from noust.web.permissions.roles import permissions_for_scope
 
 KIND_ACCOUNT = "account"
@@ -163,4 +164,36 @@ def actor_of(payload: Mapping[str, Any] | None) -> Any | None:
         role=principal.role or principal.grant,
         via=principal.via,
         source=principal.source,
+    )
+
+
+def scope_of(payload: Mapping[str, Any] | None) -> Scope:
+    """
+    Which teams a payload's principal sees.
+
+    The master token, a central's fleet token and a token nobody owns act as
+    the instance and see every team. An account, and a token an account owns,
+    sees what its payload says (``team_roles``, ``sees_all_teams``), written
+    where the credential is verified. An account whose payload says nothing
+    sees nothing: a principal that cannot be placed in a team is not given the
+    whole server.
+
+    Args:
+        payload: An authenticated payload, or None.
+
+    Returns:
+        The scope.
+    """
+    if not payload or payload.get("fleet"):
+        return Scope.everything()
+    roles = payload.get("team_roles")
+    account = payload.get("account_id")
+    if account is None:
+        account = payload.get("owner_account_id")
+    if roles is None:
+        return Scope.everything() if account is None else Scope.nothing(int(account))
+    return Scope(
+        team_roles={int(team): str(role) for team, role in roles.items()},
+        sees_all=bool(payload.get("sees_all_teams")),
+        account_id=int(account) if account is not None else None,
     )

@@ -322,6 +322,40 @@ stream and the log and job WebSockets over that tunnel; nothing runs twice.
 See `docs/CENTRAL.md` for running a central, sealing its secrets and adding a server, and
 `docs/PLATFORMS.md` for the platforms and the installer.
 
+## Teams (3.4)
+
+Teams, projects and environments (`docs/teams.md`) are one more instance of rule 4. Applications,
+sites, databases and backup schedules belong to a project, and what a principal sees of them is
+decided in the data layer, not in the routes.
+
+- **Read through `ScopedStore`.** A router asks `noust.core.teams.scoped_store()` for apps, sites,
+  databases, backup schedules, deployments and jobs; the store's own `get_app`, `list_sites` and the
+  rest are for what runs as the instance. `tests/test_scope_architecture.py` fails on a router that
+  reads one directly (with the few places allowed, each with its reason).
+- **Every route is classified** in `web/permissions/scopes.py` (resource, scoped, open, instance), like
+  its permission in `routes_<area>.py`. `enforce_scope` runs on the API router before the approvals
+  guard; a resource outside the principal's teams is a 404 with the body of one that does not exist,
+  never a 403. A new route under `/api/apps/{domain}` is covered by its prefix; a new area needs a rule.
+- **A new row gets an owner from the store** (`core/teams/ownership.py`): its application's, the one a
+  job was queued for (`create_job(..., ownership=...)`), else the default. Never insert into `apps`,
+  `sites`, `databases` or `backup_schedules` around `create_*`, and never write `project_id` or
+  `environment_id` anywhere but a move (`TeamStore.move_app_to`).
+- **A manager that lists applications around what a request names reads through `ScopedStore`** too
+  (the deploy keys do: `DeployKeyManager._visible`). Its scope is the ambient one, the request's inside
+  a request and the instance's in the CLI and in a job, so one implementation serves both without
+  showing a team another team's applications. A route whose body can ask for something the server owns
+  (`install: true` installs a package as root) calls `web.api.scope.require_instance_scope`. A change
+  to something shared by repository (rotating a deploy key that reaches another team's repositories)
+  is refused in the manager, not the route, whoever calls it.
+- **A table another area adds for what an application or a database owns says how a team reaches it.**
+  A column named `app_id`, `app_domain`, `domain`, `db_name`, `database` or `repository` in a
+  `schema_v14.py` fragment (or an `ALTER` of an existing table) must be listed in `OWNED_TABLES` of
+  `tests/test_scope_architecture.py` with the routes that reach it and how each is classified: a
+  resource under `/api/apps/{domain}`, a list the handler filters, or the server's. A table of a
+  server-wide thing (the console's own name) goes in `NOT_OWNED` with the reason.
+- **Team roles never reach the machine** (`web/permissions/team_roles.py`); a permission that is about
+  the server is never added to `TENANT_PERMISSIONS`.
+
 ---
 
 ## Conventions

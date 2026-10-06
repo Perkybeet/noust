@@ -128,6 +128,33 @@ def ensure_notice_accepted(payload: Mapping[str, Any], permission: str = Permiss
         )
 
 
+def check_gates(payload: Mapping[str, Any], permission: str) -> None:
+    """
+    Refuse a principal that must first enrol a second factor or accept the notice.
+
+    The two things that stand before every permission: an account that has not
+    set up its second factor, or accepted the usage notice, may do nothing but
+    its own business, whatever it holds.
+
+    Args:
+        payload: An authenticated payload.
+        permission: What the route needs.
+
+    Raises:
+        PermissionDenied: 403 ``mfa_required`` or ``notice_required``.
+    """
+    if permission in (PUBLIC, Permission.SELF):
+        return
+    if payload.get("mfa_pending"):
+        raise PermissionDenied(
+            "mfa_required",
+            permission,
+            "Set up two-factor authentication before doing anything else",
+            "Enrol an authenticator: POST /api/auth/2fa/enroll, then /api/auth/2fa/confirm.",
+        )
+    ensure_notice_accepted(payload, permission)
+
+
 def check_permission(payload: Mapping[str, Any], permission: str) -> None:
     """
     Refuse a principal that may not do what a route needs.
@@ -144,15 +171,7 @@ def check_permission(payload: Mapping[str, Any], permission: str) -> None:
     """
     if permission == PUBLIC:
         return
-    if permission != Permission.SELF:
-        if payload.get("mfa_pending"):
-            raise PermissionDenied(
-                "mfa_required",
-                permission,
-                "Set up two-factor authentication before doing anything else",
-                "Enrol an authenticator: POST /api/auth/2fa/enroll, then /api/auth/2fa/confirm.",
-            )
-        ensure_notice_accepted(payload, permission)
+    check_gates(payload, permission)
     if permission in permissions_of(payload):
         return
     role = payload.get("role")

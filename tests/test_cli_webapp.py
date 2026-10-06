@@ -195,6 +195,28 @@ class ServiceSpy:
         return name
 
 
+class OneTeam:
+    """
+    The teams of a server nobody organised in them: only the default one.
+
+    ``noust list`` asks whether to say where each application lives, which it
+    does once there is more than one team; the spy has no tables to ask.
+    """
+
+    def __init__(self, store: Any = None) -> None:
+        """
+        Args:
+            store: The store spy, unused.
+        """
+
+    def list_teams(self) -> list[Any]:
+        """
+        Returns:
+            Nothing beyond the default: one team, which is not "more than one".
+        """
+        return [object()]
+
+
 class StoreSpy:
     """
     A stand-in for the SQLite store.
@@ -476,6 +498,7 @@ def store(monkeypatch: pytest.MonkeyPatch) -> StoreSpy:
     spy = StoreSpy()
     monkeypatch.setattr(webapp, "get_store", lambda: spy)
     monkeypatch.setattr(lifecycle, "get_store", lambda: spy)
+    monkeypatch.setattr(webapp, "TeamStore", OneTeam)
     return spy
 
 

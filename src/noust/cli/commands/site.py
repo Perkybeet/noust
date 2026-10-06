@@ -26,8 +26,10 @@ from argparse import Namespace
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.commands.team_common import owner_options
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
+from noust.core.teams import scoped_store
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
@@ -158,7 +160,16 @@ def _site_create(
     logger.success(f"Site created: {domain}")
 
 
-def _site_list(*, webserver: str, logger: Logger, verbose: bool, json_output: bool = False) -> None:
+def _site_list(
+    *,
+    webserver: str,
+    logger: Logger,
+    verbose: bool,
+    json_output: bool = False,
+    team: str | None = None,
+    project: str | None = None,
+    environment: str | None = None,
+) -> None:
     """
     Print every virtual host on the requested web servers.
 
@@ -167,6 +178,9 @@ def _site_list(*, webserver: str, logger: Logger, verbose: bool, json_output: bo
         logger: Logger for the table.
         verbose: Enable verbose logging in the managers.
         json_output: Print the sites as JSON instead of a table.
+        team: Only this team's sites.
+        project: Only the projects with this slug.
+        environment: Only the environments with this slug.
     """
     all_sites = []
 
@@ -183,6 +197,16 @@ def _site_list(*, webserver: str, logger: Logger, verbose: bool, json_output: bo
             for site in apache.list_sites():
                 site["webserver"] = "apache"
                 all_sites.append(site)
+
+    if team or project or environment:
+        # A file the store never recorded has no team, so a filter leaves it out.
+        owned = {
+            site.domain
+            for site in scoped_store().list_sites(
+                project=project, environment=environment, team=team
+            )
+        }
+        all_sites = [site for site in all_sites if site["domain"] in owned]
 
     if json_output:
         # Same outer shape as GET /api/sites (SiteListResponse); "name" rather
@@ -420,15 +444,21 @@ def create(
     show_default=True,
     help="Only show sites from this web server.",
 )
+@owner_options
 @json_option("Print the site list as JSON.")
 @pass_context
-def list_sites(state: Context, webserver: str) -> None:
+def list_sites(
+    state: Context, webserver: str, team: str | None, project: str | None, env: str | None
+) -> None:
     """List the sites configured on this server."""
     _site_list(
         webserver=webserver,
         logger=state.logger,
         verbose=state.verbose,
         json_output=state.json_output,
+        team=team,
+        project=project,
+        environment=env,
     )
 
 

@@ -24,6 +24,7 @@ from noust.core.exceptions import DeploymentError, ValidationError
 from noust.core.logger import Logger
 from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore, Service
+from noust.core.teams import ScopedStore
 from noust.managers import app_identity
 from noust.managers.service_manager import ServiceManager, with_account
 from tests.test_release_pipeline import (  # noqa: F401 - fixtures used by name
@@ -556,7 +557,7 @@ def identity_client(*, elevated: bool) -> Any:
 @pytest.fixture
 def api_app(own_store: NoustStore, monkeypatch: pytest.MonkeyPatch) -> NoustStore:
     """The process-wide store with one in-place application from before 3.2."""
-    monkeypatch.setattr("noust.web.api.identity.get_store", lambda: own_store)
+    monkeypatch.setattr("noust.web.api.identity.scoped_store", lambda: ScopedStore(store=own_store))
     monkeypatch.setattr("noust.managers.app_identity.get_store", lambda: own_store)
     own_store.create_app(
         App(domain="shop.example.com", app_type="nodejs", app_path="/var/www/apps/shop-example-com")

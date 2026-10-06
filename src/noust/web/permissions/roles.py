@@ -37,6 +37,7 @@ VIEWER: frozenset[str] = frozenset(
         P.BACKUPS_READ,
         P.FLEET_READ,
         P.SETTINGS_READ,
+        P.TEAMS_READ,
     }
 )
 OPERATOR: frozenset[str] = VIEWER | {P.APPS_OPERATE, P.APPS_DEPLOY, P.BACKUPS_RUN}
@@ -52,6 +53,7 @@ ADMIN: frozenset[str] = OPERATOR | {
     P.FLEET_MANAGE,
     P.SETTINGS_MANAGE,
     P.COMPLIANCE_READ,
+    P.TEAMS_MANAGE,
 }
 SECURITY: frozenset[str] = VIEWER | {
     P.SECURITY_MANAGE,

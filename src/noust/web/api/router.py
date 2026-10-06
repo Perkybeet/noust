@@ -61,11 +61,15 @@ from noust.web.api.passkeys import router as passkeys_router
 from noust.web.api.previews import router as previews_router
 from noust.web.api.recipes import router as recipes_router
 from noust.web.api.sandbox import router as sandbox_router
+from noust.web.api.scope import enforce_scope
 from noust.web.api.self_backup import router as self_backup_router
 from noust.web.api.server import router as server_router
 from noust.web.api.services import router as services_router
 from noust.web.api.sites import router as sites_router
 from noust.web.api.system import router as system_router
+from noust.web.api.teams import flat_router as teams_flat_router
+from noust.web.api.teams import move_router as teams_move_router
+from noust.web.api.teams import router as teams_router
 from noust.web.api.timeline import router as timeline_router
 from noust.web.api.volume_backups import router as volume_backups_router
 from noust.web.api.zero_downtime import router as zero_downtime_router
@@ -106,9 +110,14 @@ def node_proxy_router() -> APIRouter:
 # Every route below authenticates and is held to the permission its
 # noust.web.permissions map declares, whether or not its handler asks for the
 # payload: a route cannot forget either, and one no map names is refused.
-# The four-eyes guard sits beside it for the same reason: a root-equivalent
-# route cannot forget it (noust.web.api.approvals).
-router = APIRouter(dependencies=[Depends(require_auth), Depends(require_approval)])
+# The teams' guard sits beside it for the same reason: a route is held to the
+# teams of whoever calls it (noust.web.api.scope), and it comes before the
+# four-eyes guard, which must never open an approval for a resource the caller
+# may not know exists. The four-eyes guard too: a root-equivalent route cannot
+# forget it (noust.web.api.approvals).
+router = APIRouter(
+    dependencies=[Depends(require_auth), Depends(enforce_scope), Depends(require_approval)]
+)
 
 router.include_router(auth_router, prefix="/auth", tags=["Authentication"])
 router.include_router(audit_router, prefix="/audit", tags=["Audit"])
@@ -188,6 +197,11 @@ router.include_router(app_build_router, prefix="/apps", tags=["Applications"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.
 router.include_router(app_adopt_router, prefix="/apps", tags=["Applications"])
 router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])
+# Teams, projects and environments. move_router owns only "/{domain}/move" under "/apps";
+# flat_router owns "/projects" and "/environments".
+router.include_router(teams_router, prefix="/teams", tags=["Teams"])
+router.include_router(teams_flat_router, tags=["Teams"])
+router.include_router(teams_move_router, prefix="/apps", tags=["Teams"])
 # The fleet, on a central: the registry of nodes, and the proxy that makes
 # every other route here reachable on a node as /nodes/{node}/api/...
 router.include_router(central_router, prefix="/central", tags=["Central"])

@@ -54,6 +54,8 @@ can decide how to expose it.
 
 **Not defended against**
 
+- **Teams from each other at run time.** A team is a boundary of permissions and organisation, not of
+  execution (see [Teams](#teams)).
 - **Applications from each other at run time, where they share an account.** From 3.2 an
   application Noust creates runs as its own system account, `noust-app-<name>`, with no home and
   no shell, owning its tree, `.env` and caches, so one compromised application cannot read
@@ -431,6 +433,41 @@ once in `noust.web.permissions.roles`:
   deploy, `admin` everything. An unknown role or scope is worth a viewer's permissions, never
   more.
 - **Sudo mode and approvals come on top of the permission**, never instead of it.
+- **Teams narrow what a role reaches, never widen the server.** The five roles are instance roles
+  (3.4): `admin`, `security` and `auditor` see every team; a `viewer` or `operator` sees the teams
+  it belongs to. See [Teams](#teams).
+
+### Teams
+
+A team groups people and the projects they run; every application, site, database and backup
+schedule belongs to one project of one team ([teams.md](teams.md)). The boundary is enforced where
+the data is read, not where it is asked for:
+
+- **The filter is in the data layer.** Routers read these resources through
+  `noust.core.teams.ScopedStore`, which puts the principal's teams in the SQL; the store's own
+  readers remain for what runs as the instance. `tests/test_scope_architecture.py` fails when a
+  router reads one directly, when a route carries no scope guard and when a route no rule in
+  `noust.web.permissions.scopes` names.
+- **A resource outside the principal's teams reads as absent**: `404` with the same body as one that
+  does not exist, for a read, a change and a delete, before sudo mode, approvals or the handler
+  are reached. Never `403`, which would say it exists. Holding a permission in one team gives
+  nothing in another: the permission is checked against the resource's own team.
+- **A team role never reaches the machine.** `viewer`, `operator`, `admin` and `owner` of a team hold
+  the permissions of the instance roles cut to applications, databases and backups; none holds
+  `root_equivalent`, `server.*`, `settings.*`, `fleet.*`, `accounts.*`, `audit.*` or
+  `security.manage`, and a route about the whole server is refused to a principal that does not see every
+  team (`instance_scope_required`). A team admin who could write a raw nginx directive or a systemd
+  unit would be root, and the filter would be decoration.
+- **`security` and `auditor` never join a team**, so the separation of duties does not depend on a
+  team's owner; an account that becomes one leaves its teams.
+- **The master token, a central's fleet token and a token nobody owns act as the instance** and see
+  every team; a token an account owns carries the teams of that account and never more than it.
+  A node does not receive a team's scope from its central (the central reaches nodes as the
+  instance): a principal that does not see every team is refused the node proxy.
+- **What a team does not defend against.** Teams share a kernel, a web server, a database engine and
+  a port range; a name taken by another team (a domain, a database) is a conflict whoever owns it,
+  which tells the caller it is taken; a team's admin can create a site that proxies to any local
+  port. Use a server per team where that matters.
 
 Creating an application and inspecting a source are `apps.manage`: both fetch whatever source
 the caller names and build or read it. Process listings (`GET /api/system/processes`,

@@ -25,6 +25,8 @@ from pydantic import BaseModel, Field
 
 from noust.core.accounts import Account, AuthenticationFailed, SodException
 from noust.core.accounts.model import ROLE_ADMIN, AccountError
+from noust.core.audit import record as audit_record
+from noust.core.teams.onboarding import invite_to_team
 from noust.web.api.deps import NoustErrorRoute, require_elevated
 from noust.web.auth import (
     actor_label,
@@ -33,6 +35,7 @@ from noust.web.auth import (
     record_auth_failure,
     require_auth,
 )
+from noust.web.permissions.principal import actor_of
 from noust.web.server import get_token_manager
 
 router = APIRouter(route_class=NoustErrorRoute)
@@ -207,6 +210,9 @@ class InvitationCreate(BaseModel):
         display_name: Display name of a new account.
         person_ref: Person reference of a new account.
         expires_hours: How long the code is valid.
+        team: The team a new account joins, instead of the default one.
+        team_role: Its role there (``viewer``, ``operator``, ``admin`` or
+            ``owner``); ``viewer`` when only ``team`` is given.
     """
 
     username: str = Field(min_length=2, max_length=64)
@@ -214,6 +220,8 @@ class InvitationCreate(BaseModel):
     display_name: str | None = Field(default=None, max_length=128)
     person_ref: str | None = Field(default=None, max_length=254)
     expires_hours: int = Field(default=24, ge=1, le=24 * 14)
+    team: str | None = Field(default=None, max_length=40)
+    team_role: str | None = Field(default=None, max_length=16)
 
 
 class InvitationIssued(BaseModel):
@@ -634,14 +642,34 @@ def create_invitation(
     if existing is not None:
         # A recovery gives the account's role to whoever holds the code.
         accounts.check_grant(existing, _caller_account(session), "issue a recovery invitation for")
-    account, code = accounts.invite(
-        body.username,
-        body.role,
-        display_name=body.display_name,
-        person_ref=body.person_ref,
-        created_by=actor_label(session),
-        expires_hours=body.expires_hours,
-    )
+    if body.team is not None:
+        # Into one team and not the default: the person is in no other.
+        account, code, membership = invite_to_team(
+            accounts,
+            body.username,
+            body.role or "",
+            team=body.team,
+            team_role=body.team_role,
+            display_name=body.display_name,
+            person_ref=body.person_ref,
+            created_by=actor_label(session),
+            expires_hours=body.expires_hours,
+        )
+        audit_record(
+            "team.member.add",
+            actor=actor_of(session),
+            target=f"team:{membership.team}",
+            details={"account": account.username, "role": membership.role, "via": "invitation"},
+        )
+    else:
+        account, code = accounts.invite(
+            body.username,
+            body.role,
+            display_name=body.display_name,
+            person_ref=body.person_ref,
+            created_by=actor_label(session),
+            expires_hours=body.expires_hours,
+        )
     audit_event(
         "user.invite",
         "success",

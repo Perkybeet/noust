@@ -44,6 +44,7 @@ from noust.core.store import (
     Service,
     get_store,
 )
+from noust.core.teams import TeamStore, scoped_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.base import BaseDeployer
 from noust.deployers.helpers.app_env import read_app_env, write_app_env
@@ -89,6 +90,7 @@ from noust.web.api.platform_proposal import (
     PlatformProposalResponse,
     platform_proposal_response,
 )
+from noust.web.api.scope import resolve_target_for
 from noust.web.auth import (
     actor_label,
     ensure_scope,
@@ -103,6 +105,7 @@ from noust.web.jobs import (
     get_job_manager,
     migrate_app_job,
 )
+from noust.web.permissions import Permission
 from noust.web.pydantic_compat import dump_model, iso_offset_validator
 
 #: app_state's display labels, translated to the fixed API vocabulary.
@@ -209,6 +212,10 @@ class AppInfo(BaseModel):
         backup_before_update: Whether an update of a Docker Compose stack
             copies its databases first (on by default; meaningless for any
             other kind). Set through ``PATCH .../backup-before-update``.
+        team: The slug of the team it belongs to.
+        project: The slug of its project.
+        environment: The slug of its environment. Change them with
+            ``POST /api/apps/{domain}/move``.
     """
 
     name: str
@@ -241,6 +248,9 @@ class AppInfo(BaseModel):
     zero_downtime: bool = False
     preview_parent: str | None = None
     backup_before_update: bool = True
+    team: str | None = None
+    project: str | None = None
+    environment: str | None = None
 
 
 class AppListResponse(BaseModel):
@@ -291,6 +301,17 @@ class CreateAppRequest(BaseModel):
     """
 
     domain: str = Field(..., description="Target domain name")
+    team: str | None = Field(
+        default=None,
+        description="The team it belongs to. Omitted: the one the caller works in "
+        "(PUT /api/teams/active), its only team, or the default",
+    )
+    project: str | None = Field(
+        default=None, description="The project it belongs to. Omitted: the team's default"
+    )
+    environment: str | None = Field(
+        default=None, description="The environment it belongs to. Omitted: production"
+    )
     source: str | None = Field(
         default=None,
         description="Git URL, archive URL or local path. Required unless recipe is given, "
@@ -640,6 +661,7 @@ def _to_app_info(
     *,
     webhook_enabled: bool,
     last_deployment: DeploymentRecord | None,
+    owner: tuple[str | None, str | None, str | None] = (None, None, None),
 ) -> AppInfo:
     """
     Combine a stored application with its resolved state and live status.
@@ -653,6 +675,7 @@ def _to_app_info(
         service: The application's service record, when it has one.
         webhook_enabled: Whether a webhook secret is set for it.
         last_deployment: Its most recent deployment history row, if any.
+        owner: Its team, project and environment slugs, when they are known.
 
     Returns:
         The API representation.
@@ -688,6 +711,9 @@ def _to_app_info(
         zero_downtime=bool(getattr(app, "zero_downtime", False)),
         preview_parent=getattr(app, "preview_parent", None),
         backup_before_update=bool(app.backup_before_update),
+        team=owner[0],
+        project=owner[1],
+        environment=owner[2],
     )
 
 
@@ -846,16 +872,23 @@ def _env_app(domain: str) -> App:
         HTTPException: 404 when nothing is deployed at the domain.
     """
     validated = strict_domain(domain)
-    app = get_store().get_app(validated)
+    app = scoped_store().get_app(validated)
     if app is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
     return app
 
 
 @router.get("", response_model=AppListResponse)
-def list_apps(session: Annotated[dict, Depends(get_current_session)]) -> AppListResponse:
+def list_apps(
+    session: Annotated[dict, Depends(get_current_session)],
+    team: Annotated[str | None, Query(description="Only this team's applications")] = None,
+    project: Annotated[str | None, Query(description="Only this project's applications")] = None,
+    environment: Annotated[
+        str | None, Query(description="Only this environment's applications")
+    ] = None,
+) -> AppListResponse:
     """
-    List every deployed application.
+    List the deployed applications the caller sees.
 
     Every application's service record, webhook flag and last deployment
     come from one store query each, and every application's systemd status
@@ -865,21 +898,27 @@ def list_apps(session: Annotated[dict, Depends(get_current_session)]) -> AppList
 
     Args:
         session: The authenticated session.
+        team: Only this team's applications.
+        project: Only the projects with this slug.
+        environment: Only the environments with this slug.
 
     Returns:
-        The applications, each with the live state of its service.
+        The applications, each with the live state of its service. A team
+        member sees its teams' applications only.
     """
     store = get_store()
+    scoped = scoped_store()
     manager = ServiceManager(verbose=False)
 
-    apps = store.list_apps()
+    apps = scoped.list_apps(project=project, environment=environment, team=team)
     domains = [app.domain for app in apps]
+    labels = TeamStore(store).owner_labels()
 
     services_by_app_id = {
         service.app_id: service for service in store.list_services() if service.app_id is not None
     }
     webhook_flags = store.list_webhook_flags(domains)
-    last_deployments = store.get_latest_deployments(domains)
+    last_deployments = scoped.get_latest_deployments(domains)
     states = resolve_states_with_status(apps, manager)
 
     result = []
@@ -894,6 +933,7 @@ def list_apps(session: Annotated[dict, Depends(get_current_session)]) -> AppList
                 service,
                 webhook_enabled=webhook_flags.get(app.domain, False),
                 last_deployment=last_deployments.get(app.domain),
+                owner=labels.of(app.project_id, app.environment_id),
             )
         )
 
@@ -1077,8 +1117,19 @@ def create_app(
         # refusal the wizard shows next to the field, not a failed job.
         DatabaseService().resolve_engine_choice(body.database.engine, version=body.database.version)
 
-    if get_store().get_app(domain):
+    # A name is taken whoever owns it: a domain is one per server.
+    if scoped_store().domain_is_taken(domain):
         raise HTTPException(status_code=409, detail=f"Application already exists: {domain}")
+
+    # Where it will live, and whether the caller may manage applications there.
+    target = resolve_target_for(
+        request,
+        session,
+        team=body.team,
+        project=body.project,
+        environment=body.environment,
+        permission=Permission.APPS_MANAGE,
+    )
 
     if body.port is not None:
         port: int | None = validate_port(body.port)
@@ -1157,6 +1208,7 @@ def create_app(
             **({"recipe": recipe.name} if recipe is not None else {}),
         },
         actor=actor_label(session),
+        ownership=(target.project_id, target.environment_id),
     )
 
     return JobAcceptedResponse(
@@ -1446,7 +1498,8 @@ def get_app(domain: str, session: Annotated[dict, Depends(get_current_session)])
     validated = strict_domain(domain)
 
     store = get_store()
-    app = store.get_app(validated)
+    scoped = scoped_store()
+    app = scoped.get_app(validated)
     if app is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
 
@@ -1454,7 +1507,7 @@ def get_app(domain: str, session: Annotated[dict, Depends(get_current_session)])
     manager = ServiceManager(verbose=False)
     state, status = resolve_state_with_status(app, manager)
 
-    recent = store.list_deployments(domain=app.domain, limit=1)
+    recent = scoped.list_deployments(domain=app.domain, limit=1)
 
     info = _to_app_info(
         app,
@@ -1463,6 +1516,7 @@ def get_app(domain: str, session: Annotated[dict, Depends(get_current_session)])
         service,
         webhook_enabled=store.get_webhook_secret(app.domain) is not None,
         last_deployment=recent[0] if recent else None,
+        owner=TeamStore(store).owner_labels().of(app.project_id, app.environment_id),
     )
     # Only the detail view pays for this: one deployer instantiation, not one
     # per application in the list.
@@ -1490,7 +1544,7 @@ def _service_action(domain: str, action: str, past_tense: str) -> AppActionRespo
     validated = strict_domain(domain)
     app_name = domain_to_app_name(validated)
 
-    app = get_store().get_app(validated)
+    app = scoped_store().get_app(validated)
     if app is not None and is_php_fpm(app):
         # Its pool, not a unit: the same control the CLI uses.
         detail = control_pool(app, action)
@@ -1581,7 +1635,7 @@ def get_app_logs(
     """
     validated = strict_domain(domain)
     app_name = domain_to_app_name(validated)
-    app = get_store().get_app(validated)
+    app = scoped_store().get_app(validated)
 
     if app is not None and app.app_type == "container":
         # What the container printed, with its secrets masked: the unit only
@@ -1820,7 +1874,7 @@ def delete_app(
     """
     validated = strict_domain(domain)
 
-    app = get_store().get_app(validated)
+    app = scoped_store().get_app(validated)
     if app is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
     # Answered now, while the operator can correct it; the job asks again.

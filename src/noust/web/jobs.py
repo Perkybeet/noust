@@ -27,6 +27,7 @@ import threading
 import time
 import uuid
 from collections.abc import Callable, Mapping
+from contextlib import nullcontext
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -51,6 +52,7 @@ from noust.core.exceptions import (
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, get_fs
 from noust.core.redact import Scrubber, app_secret_values, scrubber_for, secret_env_values
 from noust.core.store import DeploymentTrigger, JobRecord, NoustStore, get_store
+from noust.core.teams import ownership_target
 
 logger = logging.getLogger(__name__)
 
@@ -309,6 +311,9 @@ class Job:
             log line and from the error, before either is kept anywhere.
             Log lines and errors carry raw tool output, and a job's log file,
             row and live updates are readable with the ``read`` scope.
+        ownership: The ``(project_id, environment_id)`` what the job creates
+            belongs to, when the caller chose one (:func:`noust.core.teams.ownership.ownership_target`).
+            None: the default project. Not part of the job's record.
     """
 
     id: str
@@ -335,6 +340,7 @@ class Job:
     holder: str | None = field(default=None, repr=False, compare=False)
     waiting_since: float | None = field(default=None, repr=False, compare=False)
     scrubber: Scrubber = field(default_factory=Scrubber, repr=False, compare=False)
+    ownership: tuple[int, int] | None = field(default=None, repr=False, compare=False)
 
     def to_dict(self) -> dict[str, Any]:
         """
@@ -1043,9 +1049,15 @@ class JobManager:
             # A job runs on a worker thread, outside the request that queued
             # it: its host actions are linked by the job's own id instead,
             # which job.queue ties back to the request.
-            with bind_audit_context(
-                actor=Actor.from_label(job.actor) if job.actor else Actor.system("jobs"),
-                correlation_id=f"job-{job.id}",
+            with (
+                bind_audit_context(
+                    actor=Actor.from_label(job.actor) if job.actor else Actor.system("jobs"),
+                    correlation_id=f"job-{job.id}",
+                ),
+                # What the job creates belongs where the person who queued it
+                # chose, not in the default project: the worker thread has no
+                # request, so the choice travels with the job.
+                ownership_target(*job.ownership) if job.ownership else nullcontext(),
             ):
                 job.result = func(*args, **call_kwargs)
             job.status = JobStatus.COMPLETED
@@ -1120,6 +1132,7 @@ class JobManager:
         merge: Mapping[str, Any] | None = None,
         note: str | None = None,
         on_merge: Callable[[Job], None] | None = None,
+        ownership: tuple[int, int] | None = None,
     ) -> Job:
         """
         Create and queue a background job, or fold the request into an identical one.
@@ -1151,6 +1164,8 @@ class JobManager:
                 merged into it.
             on_merge: Called with the waiting job when the request was merged
                 into it, for a caller that tells its own caller which.
+            ownership: ``(project_id, environment_id)`` what the job creates
+                belongs to.
 
         Returns:
             The queued job, or the waiting one the request was merged into.
@@ -1169,6 +1184,7 @@ class JobManager:
             total_steps=total_steps,
             metadata=metadata or {},
             actor=actor,
+            ownership=ownership,
         )
         call_kwargs = kwargs or {}
 

@@ -40,6 +40,7 @@ from typing import Any, NoReturn
 import click
 
 from noust.cli.app import Context, NoustGroup, json_option, pass_context
+from noust.cli.commands.team_common import owner_options
 from noust.cli.panel_links import open_in_panel
 from noust.core.exceptions import (
     ConfirmationRequired,
@@ -49,6 +50,7 @@ from noust.core.exceptions import (
     ValidationError,
 )
 from noust.core.logger import Logger
+from noust.core.teams import scoped_store
 from noust.managers.database import (
     PROFILES,
     BaseDatabaseManager,
@@ -832,7 +834,15 @@ def _drop(
     return 0
 
 
-def _list(*, engine: str | None, json_output: bool, logger: Logger) -> int:
+def _list(
+    *,
+    engine: str | None,
+    json_output: bool,
+    logger: Logger,
+    team: str | None = None,
+    project: str | None = None,
+    environment: str | None = None,
+) -> int:
     """
     List the databases of every running engine, joined with the store.
 
@@ -847,6 +857,9 @@ def _list(*, engine: str | None, json_output: bool, logger: Logger) -> int:
         engine: Engine name or alias. Every engine when omitted.
         json_output: Print the list as JSON.
         logger: Logger for errors.
+        team: Only this team's databases.
+        project: Only the projects with this slug.
+        environment: Only the environments with this slug.
 
     Returns:
         Process exit code.
@@ -856,6 +869,15 @@ def _list(*, engine: str | None, json_output: bool, logger: Logger) -> int:
     except NoustError as e:
         return _fail(logger, e)
     views = listing.databases
+    if team or project or environment:
+        # The store says whose a database is; an engine's own listing does not.
+        owned = {
+            (record.name, record.engine)
+            for record in scoped_store().list_databases(
+                project=project, environment=environment, team=team
+            )
+        }
+        views = [view for view in views if (view.name, view.engine) in owned]
     failed = 1 if any(problem.kind != "docker" for problem in listing.problems) else 0
 
     entries = []
@@ -2312,11 +2334,26 @@ def drop(ctx: Context, name: str, engine: str, force: bool, no_backup: bool, unl
     is_flag=True,
     help="Print the panel URL for the database list, opening it if a display is available.",
 )
+@owner_options
 @json_option("Print the database list as JSON.")
 @pass_context
-def list_databases(ctx: Context, engine: str | None, open_panel: bool) -> None:
+def list_databases(
+    ctx: Context,
+    engine: str | None,
+    open_panel: bool,
+    team: str | None,
+    project: str | None,
+    env: str | None,
+) -> None:
     """List the databases on every running engine."""
-    code = _list(engine=engine, json_output=ctx.json_output, logger=ctx.logger)
+    code = _list(
+        engine=engine,
+        json_output=ctx.json_output,
+        logger=ctx.logger,
+        team=team,
+        project=project,
+        environment=env,
+    )
     if open_panel and code == 0:
         open_in_panel("/databases", logger=ctx.logger)
     _exit(code)

@@ -69,6 +69,9 @@ class Permission:
     AUDIT_MANAGE = "audit.manage"
     COMPLIANCE_READ = "compliance.read"
 
+    TEAMS_READ = "teams.read"
+    TEAMS_MANAGE = "teams.manage"
+
 
 #: Every permission there is.
 ALL_PERMISSIONS: frozenset[str] = frozenset(
@@ -111,6 +114,8 @@ DESCRIPTIONS: dict[str, str] = {
     Permission.AUDIT_READ: "Read the whole audit log",
     Permission.AUDIT_MANAGE: "Manage the audit log and activity history",
     Permission.COMPLIANCE_READ: "Read the ENS compliance check and its evidence report",
+    Permission.TEAMS_READ: "See the teams, projects and environments one belongs to",
+    Permission.TEAMS_MANAGE: "Create and delete teams, projects and environments, and their members",
 }
 
 __all__ = ["ALL_PERMISSIONS", "DESCRIPTIONS", "PUBLIC", "Permission"]

@@ -72,7 +72,7 @@ from noust.web.auth import (
     require_auth,
 )
 from noust.web.events import CREDENTIAL_RECHECK_SECONDS, HEARTBEAT_SECONDS, shutting_down
-from noust.web.permissions.principal import permissions_of
+from noust.web.permissions.principal import permissions_of, scope_of
 from noust.web.permissions.roles import ROLE_PERMISSIONS, role_within
 from noust.web.versioning import API_PREFIX, canonical_api_path
 
@@ -1294,6 +1294,13 @@ async def proxy_websocket(websocket: WebSocket, node: str, path: str) -> None:
     session = websocket.scope.get("state", {}).get("session")
     if not isinstance(session, dict):
         await websocket.close(code=WS_CLOSE_UNAUTHORIZED, reason="Authentication required")
+        return
+    if scope_of(session).restricted:
+        # Nodes are the server's, and a team's scope does not travel to them: the
+        # node would take the central's token for an instance principal.
+        await _close_browser(
+            websocket, WS_CLOSE_FORBIDDEN, "A node's streams are for administrators of the server"
+        )
         return
 
     try:

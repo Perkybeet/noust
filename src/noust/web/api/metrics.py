@@ -35,7 +35,7 @@ from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
 from noust.core.runner import get_runner
-from noust.core.store import get_store
+from noust.core.teams import scoped_store
 from noust.monitor.appstatus import app_metrics_status
 from noust.monitor.plan import PlanBuilder
 from noust.monitor.timeseries import (
@@ -431,7 +431,7 @@ def app_metrics(domain: str, session: Session) -> Any:
         HTTPException: 404 when there is no such application.
     """
     validated = strict_domain(domain)
-    app = get_store().get_app(validated)
+    app = scoped_store().get_app(validated)
     if app is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
     status = app_metrics_status(

@@ -40,7 +40,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -1018,12 +1018,20 @@ def create_app(config: SecurityConfig | None = None) -> FastAPI:
     from noust.web.api.github_hooks import router as github_hooks_router
     from noust.web.api.hooks import admin_router as webhook_admin_router
     from noust.web.api.hooks import router as hooks_router
+    from noust.web.api.scope import enforce_scope
 
     app.include_router(hooks_router, prefix="/hooks", tags=["Webhooks"])
     # GitHub App deliveries: one endpoint for every application, verified
     # with the App's own secret rather than a per-application one.
     app.include_router(github_hooks_router, prefix="/hooks", tags=["Webhooks"])
-    app.include_router(webhook_admin_router, prefix="/api/apps", tags=["Webhooks"])
+    # Mounted beside the API router, not in it, so the teams' guard is stated here:
+    # an application's webhook secret is not for anyone outside its team.
+    app.include_router(
+        webhook_admin_router,
+        prefix="/api/apps",
+        tags=["Webhooks"],
+        dependencies=[Depends(enforce_scope)],
+    )
 
     from noust.web.websockets import router as ws_router
 

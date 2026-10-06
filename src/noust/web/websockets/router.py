@@ -27,6 +27,7 @@ from starlette.concurrency import run_in_threadpool
 
 from noust.core import paths
 from noust.core.exceptions import ValidationError
+from noust.core.teams import ScopedStore
 from noust.web.auth import (
     WS_CLOSE_FORBIDDEN,
     WS_CLOSE_UNAUTHORIZED,
@@ -39,6 +40,7 @@ from noust.web.auth import (
     get_client_ip,
     scope_satisfies,
 )
+from noust.web.permissions.principal import scope_of
 
 if TYPE_CHECKING:  # pragma: no cover - imported for types only
     from noust.managers.service_manager import UnitOwnership
@@ -203,6 +205,37 @@ async def authenticate_websocket(
     # Defence in depth: a handler must not serve the journal just because the
     # middleware was left out of an embedding application.
     return authenticate_connection(websocket, ticket)
+
+
+def _visible_jobs(scoped: ScopedStore | None, jobs: list[Any]) -> list[Any]:
+    """
+    Keep the jobs a principal may see.
+
+    Args:
+        scoped: The principal's scoped store, or None when nothing is hidden.
+        jobs: Jobs of the job manager.
+
+    Returns:
+        The jobs that act on a domain the principal sees.
+    """
+    if scoped is None:
+        return jobs
+    return scoped.filter_domains(jobs, lambda job: job.metadata.get("domain"))
+
+
+def _scoped(session: dict[str, Any]) -> ScopedStore | None:
+    """
+    The scoped store of a handshake's principal, when its teams limit it.
+
+    Args:
+        session: The authenticated payload.
+
+    Returns:
+        A store scoped to the principal, or None for one that sees every team
+        and so needs no filtering.
+    """
+    scope = scope_of(session)
+    return ScopedStore(scope) if scope.restricted else None
 
 
 async def _reject(websocket: WebSocket, path: str) -> None:
@@ -400,6 +433,14 @@ async def websocket_logs(
 
     await _accept(websocket, session, f"/ws/logs/{domain}")
 
+    scoped = _scoped(session)
+    if scoped is not None and scoped.get_app(domain.strip().lower()) is None:
+        # A team member follows its own applications' journals, never another
+        # team's, and never a unit by name: it says the same of both.
+        await websocket.send_json({"type": "error", "message": f"Application not found: {domain}"})
+        await _close(websocket, WS_CLOSE_FORBIDDEN)
+        return
+
     try:
         # The domain is client supplied and ends up as a journalctl unit
         # selector, where '*' and '/' are not inert. inspect_unit validates
@@ -571,6 +612,14 @@ async def websocket_events(websocket: WebSocket, ticket: str | None = Query(defa
 
     await _accept(websocket, session, "/ws/events")
 
+    if _scoped(session) is not None:
+        # The journal of Noust's own units is the server's, not a team's.
+        await websocket.send_json(
+            {"type": "error", "message": "This stream is about the whole server"}
+        )
+        await _close(websocket, WS_CLOSE_FORBIDDEN)
+        return
+
     # Bound before the try, so the cleanup below can always see it. It used to
     # be assigned inside, and the terminate() was on the happy path: closing
     # the browser tab raises WebSocketDisconnect long before that line, so
@@ -691,6 +740,9 @@ async def websocket_job(
 
     manager = get_job_manager()
     job = manager.get_job(job_id)
+    scoped = _scoped(session)
+    if job and scoped is not None and not scoped.sees_domain(job.metadata.get("domain")):
+        job = None
 
     if not job:
         await websocket.send_json({"type": "error", "message": f"Job {job_id} not found"})
@@ -813,8 +865,12 @@ async def websocket_all_jobs(
     # Capture the current event loop for thread-safe callback
     loop = asyncio.get_running_loop()
 
+    scoped = _scoped(session)
+
     def on_any_job_update(job):
         """Callback when any job is updated (called from worker thread)."""
+        if scoped is not None and not scoped.sees_domain(job.metadata.get("domain")):
+            return
         try:
             loop.call_soon_threadsafe(update_queue.put_nowait, job.to_dict())
         except RuntimeError as exc:
@@ -828,12 +884,12 @@ async def websocket_all_jobs(
 
     try:
         # Send current jobs
-        jobs = manager.get_all_jobs(limit=20)
+        jobs = _visible_jobs(scoped, manager.get_all_jobs(limit=20))
         await websocket.send_json(
             {
                 "type": "connected",
                 "jobs": [j.to_dict() for j in jobs],
-                "active": len(manager.get_active_jobs()),
+                "active": len(_visible_jobs(scoped, manager.get_active_jobs())),
             }
         )
 
@@ -845,7 +901,10 @@ async def websocket_all_jobs(
                 except asyncio.TimeoutError:
                     # Send heartbeat with active count
                     await websocket.send_json(
-                        {"type": "heartbeat", "active": len(manager.get_active_jobs())}
+                        {
+                            "type": "heartbeat",
+                            "active": len(_visible_jobs(scoped, manager.get_active_jobs())),
+                        }
                     )
                 except (RuntimeError, WebSocketDisconnect):
                     break
@@ -859,7 +918,7 @@ async def websocket_all_jobs(
                     if msg.get("type") == "ping":
                         await websocket.send_json({"type": "pong"})
                     elif msg.get("type") == "list":
-                        jobs = manager.get_all_jobs(limit=50)
+                        jobs = _visible_jobs(scoped, manager.get_all_jobs(limit=50))
                         await websocket.send_json(
                             {"type": "jobs_list", "jobs": [j.to_dict() for j in jobs]}
                         )

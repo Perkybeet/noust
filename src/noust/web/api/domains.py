@@ -27,7 +27,8 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from noust.core.store import DomainKind, DomainRecord, get_store
+from noust.core.store import DomainKind, DomainRecord
+from noust.core.teams import scoped_store
 from noust.deployers.domains import (
     DomainChange,
     add_domain,
@@ -150,7 +151,7 @@ def _require_app(domain: str) -> str:
         HTTPException: 404 when nothing is deployed there.
     """
     validated = strict_domain(domain)
-    if get_store().get_app(validated) is None:
+    if scoped_store().get_app(validated) is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
     return validated
 

@@ -78,11 +78,14 @@ from noust.core.store import StoreError
 from noust.web.permissions import ALL_PERMISSIONS, PUBLIC, Permission
 from noust.web.permissions.enforce import (
     PermissionDenied,
+    check_gates,
     check_permission,
     has_permission,
     patched_config_key,
     required_permissions,
+    route_template,
 )
+from noust.web.permissions.principal import scope_of
 from noust.web.permissions.roles import (
     GRANT_BREAK_GLASS,
     GRANT_COMPAT,
@@ -95,6 +98,8 @@ from noust.web.permissions.roles import (
     permissions_for_role,
     permissions_for_scope,
 )
+from noust.web.permissions.scopes import RESOURCE, rule_for
+from noust.web.permissions.team_roles import team_fields
 from noust.web.versioning import canonical_api_path
 
 logger = logging.getLogger(__name__)
@@ -2280,13 +2285,19 @@ class TokenManager:
             to, and whether it must enrol a second factor or accept the usage
             notice before anything else.
         """
-        permissions = permissions_for_role(account.role)
+        # What the role holds outside any team, and what its team roles add:
+        # the payload carries both so a route is held to the ceiling first and
+        # to the resource's own team after (noust.web.permissions.team_roles).
+        teams = team_fields(
+            account.id, account.role, permissions_for_role(account.role), self.accounts.store
+        )
+        permissions = teams["permissions"]
         notice = self.policy().notice_version
         return {
             "account_id": account.id,
             "username": account.username,
             "role": account.role,
-            "permissions": permissions,
+            **teams,
             "scope": legacy_scope(permissions),
             "mfa_pending": not account.has_mfa,
             "notice_pending": notice is not None and account.notice_version != notice,
@@ -2995,7 +3006,11 @@ class TokenManager:
                 )
         stored_permissions: list[str] | None = None
         if owner is not None:
-            held = permissions_for_role(owner.role)
+            # A token never holds more than its owner does anywhere: the role's
+            # permissions and what the owner's team roles add.
+            held = team_fields(
+                owner.id, owner.role, permissions_for_role(owner.role), self.accounts.store
+            )["permissions"]
             if permissions is None:
                 granted = TOKEN_SCOPES[scope] & held
             else:
@@ -3329,6 +3344,9 @@ class TokenManager:
         )
         role: str | None = None
         owner: Account | None = None
+        # A token nobody owns acts as the instance and sees every team; one an
+        # account owns carries the teams of that account.
+        team_part: dict[str, Any] = {}
         if owner_id is None:
             if policy.ens:
                 raise CredentialRefused(
@@ -3357,12 +3375,18 @@ class TokenManager:
                     action="auth.token.denied",
                 )
             role = owner.role
-            permissions = requested & permissions_for_role(owner.role)
+            teams = team_fields(
+                owner.id, owner.role, permissions_for_role(owner.role), self.accounts.store
+            )
+            permissions = requested & teams["permissions"]
+            team_part = {key: teams[key] for key in ("team_roles", "sees_all_teams")}
+            team_part["instance_permissions"] = teams["instance_permissions"]
         if policy.ens:
             permissions = permissions - ENS_TOKEN_EXCLUDED
         allow_elevated = record.get("allow_elevated")
         notice = policy.notice_version
         return {
+            **team_part,
             "permissions": frozenset(permissions),
             "scope": legacy_scope(permissions),
             "role": role,
@@ -5692,8 +5716,36 @@ def authorize(request: Request, payload: Mapping[str, Any], needed: list[str] | 
             "This is a defect in Noust: every route must name its permission in "
             "noust.web.permissions. Report it; the route is refused until then.",
         )
+    if _team_decides(request, payload):
+        # What the route needs is held per team, and which team is the resource's:
+        # noust.web.api.scope decides, once it knows the resource is the caller's to
+        # know about (404 first, so a team's resource never answers 403). What stands
+        # before every permission still stands here.
+        for permission in needed:
+            check_gates(payload, permission)
+        return
     for permission in needed:
         ensure_permission(request, payload, permission)
+
+
+def _team_decides(request: Request, payload: Mapping[str, Any]) -> bool:
+    """
+    Whether the permission of this request is judged against a resource's team.
+
+    Args:
+        request: The incoming request.
+        payload: The authenticated payload.
+
+    Returns:
+        True for a principal that does not see every team, on a route addressed
+        to one resource: :func:`noust.web.api.scope.enforce_scope` holds it to the
+        permission it has in that resource's team after finding the resource.
+    """
+    if not scope_of(payload).restricted:
+        return False
+    template = route_template(request)
+    rule = rule_for(request.method, template) if template is not None else None
+    return rule is not None and rule.scoping == RESOURCE
 
 
 async def require_auth(request: Request) -> dict[str, Any]:

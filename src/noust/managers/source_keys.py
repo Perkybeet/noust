@@ -48,7 +48,7 @@ import logging
 import re
 import shlex
 import struct
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Literal
 
@@ -66,6 +66,7 @@ from noust.core.repositories import repository_identity
 from noust.core.runner import CommandError, CommandRunner, get_runner
 from noust.core.secrets import SecretStore
 from noust.core.store import App, NoustStore, get_store
+from noust.core.teams import ScopedStore
 from noust.core.utils import domain_to_app_name
 from noust.managers.source_manager import SourceManager
 from noust.validators.ssh import get_public_key, is_ssh_url, ssh_key_exists
@@ -364,6 +365,21 @@ class DeployKeyManager:
         """The filesystem every file is written through."""
         return self.secrets.fs
 
+    def _visible(self) -> ScopedStore:
+        """
+        Read applications as whoever is being served.
+
+        A key is found by repository, so one key can reach the applications of
+        several teams. What the manager says about the applications around a
+        key (which share it, which it reaches) is limited to the ones the
+        caller sees; outside a request the scope is the instance's and nothing
+        is left out.
+
+        Returns:
+            A scoped store over this manager's store, with the ambient scope.
+        """
+        return ScopedStore(store=self.store)
+
     def _audit(self, event: str, domain: str | None, key: str, **details: object) -> None:
         """
         Record a change in the audit trail.
@@ -394,7 +410,7 @@ class DeployKeyManager:
         Raises:
             ValidationError: When nothing is deployed there.
         """
-        app = self.store.get_app(domain)
+        app = self._visible().get_app(domain)
         if app is None:
             raise ValidationError(
                 f"Application not found: {domain}",
@@ -442,7 +458,7 @@ class DeployKeyManager:
         """
         app = self._app(domain)
         identity = repository_identity(app.source)
-        key = self.keystore.for_repository(identity) if identity else None
+        key = self._narrowed(self.keystore.for_repository(identity)) if identity else None
         source = app.source or ""
         ssh_source = is_ssh_url(source.split("#", 1)[0].strip())
         warnings: list[str] = []
@@ -460,7 +476,7 @@ class DeployKeyManager:
         shared = tuple(
             sorted(
                 other.domain
-                for other in self.store.list_apps()
+                for other in self._visible().list_apps()
                 if other.domain != app.domain
                 and identity is not None
                 and repository_identity(other.source) == identity
@@ -498,14 +514,38 @@ class DeployKeyManager:
             return line, None
         return line, parsed.fingerprint
 
-    def keys(self) -> list[DeployKey]:
+    def _narrowed(self, key: DeployKey | None) -> DeployKey | None:
         """
-        List every deploy key.
+        Limit a key to what the caller may know it reaches.
+
+        Args:
+            key: A key, or None.
 
         Returns:
-            The keys, by name.
+            For the instance, the key as it is. For a team member, the key
+            with only the repositories its visible applications are built
+            from, or None when it reaches none of them: a key that exists but
+            serves no application of the caller's is not the caller's to see.
         """
-        return self.keystore.keys()
+        if key is None:
+            return None
+        scoped = self._visible()
+        if scoped.scope.sees_all:
+            return key
+        mine = {repository_identity(app.source) for app in scoped.list_apps()}
+        reached = tuple(repository for repository in key.repositories if repository in mine)
+        return replace(key, repositories=reached) if reached else None
+
+    def keys(self) -> list[DeployKey]:
+        """
+        List the deploy keys the caller may see.
+
+        Returns:
+            The keys, by name. For a team member only those that reach the
+            repository of one of its applications, each showing only those.
+        """
+        found = (self._narrowed(key) for key in self.keystore.keys())
+        return [key for key in found if key is not None]
 
     def apps_of(self, key: DeployKey) -> list[str]:
         """
@@ -515,12 +555,12 @@ class DeployKeyManager:
             key: The key.
 
         Returns:
-            Their domains, sorted.
+            Their domains, sorted; those the caller sees.
         """
         reached = set(key.repositories)
         return sorted(
             app.domain
-            for app in self.store.list_apps()
+            for app in self._visible().list_apps()
             if repository_identity(app.source) in reached
         )
 
@@ -814,6 +854,10 @@ class DeployKeyManager:
         app = self._app(domain)
         repository = self._repository(app)
         name = validate_name(key_name)
+        if self._visible().scope.restricted and name not in {key.name for key in self.keys()}:
+            # The same answer for a key that does not exist and one the caller may not see:
+            # assigning another team's key by guessing its name would be reading its code.
+            raise ValidationError(f"There is no deploy key named {name}", field="name")
         self.keystore.assign(name, repository)
         key = self.keystore.get(name)
         if key is None:
@@ -853,6 +897,8 @@ class DeployKeyManager:
         Returns:
             The names deleted.
         """
+        # Every application, whoever is asking: a key another team's application still uses
+        # is not unused because this caller cannot see that application.
         used = {repository_identity(app.source) for app in self.store.list_apps()}
         deleted: list[str] = []
         for key in self.keystore.keys():
@@ -892,10 +938,11 @@ class DeployKeyManager:
             The key, with its ``pending`` half set.
 
         Raises:
-            ValidationError: When the application has no key.
+            ValidationError: When the application has no key, or the key also
+                reaches repositories the caller's teams have no application for.
             SourceError: When ssh-keygen fails.
         """
-        key = self._key_of(domain)
+        key = self._rotatable_key_of(domain)
         if key.pending is not None:
             return key
         public = self._make_pair(key.name, NEXT_PRIVATE, NEXT_PUBLIC)
@@ -919,9 +966,10 @@ class DeployKeyManager:
             The key, with no pending half.
 
         Raises:
-            ValidationError: When the application has no key.
+            ValidationError: When the application has no key, or the key also
+                reaches repositories the caller's teams have no application for.
         """
-        key = self._key_of(domain)
+        key = self._rotatable_key_of(domain)
         if key.pending is not None:
             self.keystore.clear_pending(key.name)
             self.secrets.delete(secret_name(key.name, NEXT_PRIVATE))
@@ -986,6 +1034,38 @@ class DeployKeyManager:
             raise ValidationError(
                 f"{repository} has no deploy key of its own",
                 details=f"Make one with: noust app deploy-key generate {domain}",
+            )
+        return key
+
+    def _rotatable_key_of(self, domain: str) -> DeployKey:
+        """
+        Find the key an application's repository has, for a change to the key itself.
+
+        Rotating replaces the key for every repository it reaches, and a key
+        can reach the repositories of several teams (a machine user's does). A
+        team member may not replace what another team's deploys sign in with.
+
+        Args:
+            domain: The application.
+
+        Returns:
+            The key.
+
+        Raises:
+            ValidationError: When it has none, or the caller sees only some of
+                the repositories the key reaches.
+        """
+        key = self._key_of(domain)
+        scoped = self._visible()
+        if scoped.scope.sees_all:
+            return key
+        mine = {repository_identity(app.source) for app in scoped.list_apps()}
+        if any(repository not in mine for repository in key.repositories):
+            raise ValidationError(
+                f"The deploy key {key.name} also reaches repositories outside your teams",
+                details="Replacing it would stop those deployments, so only an administrator of "
+                "the server can rotate it. Make a key of its own for this repository instead: "
+                "remove it from the application, then generate one.",
             )
         return key
 

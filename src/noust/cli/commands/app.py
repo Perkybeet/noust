@@ -128,6 +128,51 @@ cli.add_command(adopt_command)
 cli.add_command(reclaim_command)
 
 
+@cli.command("move")
+@click.argument("domain")
+@click.option("--team", default=None, help="The team it moves to, when it is another one.")
+@click.option("--project", default=None, help="The project it moves to.")
+@click.option("--env", "environment", default=None, help="The environment it moves to.")
+@global_flags
+@json_option("Print where it is now as JSON.")
+@pass_context
+def move_command(
+    ctx: Context, domain: str, team: str | None, project: str | None, environment: str | None
+) -> None:
+    """
+    Move an application to another project or environment.
+
+    Its sites, the databases linked to it and its backup schedule move with
+    it, and so do the previews of it. What is left out stays as it is:
+    '--env staging' moves within the project, '--project mobile' to that
+    project's production, '--team globex --project web' to another team's.
+    Nothing is restarted: where an application lives is a matter of
+    organisation, not of how it runs.
+    """
+    from noust.cli.commands.team_common import record, say, teams
+    from noust.core.teams import Scope
+
+    result = teams().move_app_to(
+        Scope.everything(), domain, team=team, project=project, environment=environment
+    )
+    record(
+        "apps.move",
+        f"app:{result.domain}",
+        {"to": f"{result.team}/{result.project}/{result.environment}", "moved": result.moved},
+    )
+    say(
+        ctx,
+        {
+            "domain": result.domain,
+            "team": result.team,
+            "project": result.project,
+            "environment": result.environment,
+            "moved": result.moved,
+        },
+        f"{result.domain} moved to {result.team}/{result.project}/{result.environment}",
+    )
+
+
 @cli.command("migrate")
 @click.argument("domain")
 @click.option(

@@ -33,6 +33,7 @@ import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
 from noust.cli.commands.app_container import changes_from_options, container_options
+from noust.cli.commands.team_common import placed_in_a_project
 from noust.cli.panel_links import open_in_panel
 from noust.core.app_state import RUNNING, RUNNING_UNMANAGED, STATIC, resolve_states
 from noust.core.config import Config
@@ -52,6 +53,7 @@ from noust.core.runner import (
 )
 from noust.core.store import DeploymentTrigger, get_store, is_compose_backed, validate_tag_pattern
 from noust.core.tags import newest_tag
+from noust.core.teams import Scope, ScopedStore, TeamStore
 from noust.core.utils import domain_to_app_name
 from noust.deployers import get_deployer
 from noust.deployers.docker_compose import DockerComposeDeployer, stack_deployer
@@ -877,19 +879,40 @@ def _app_summary(app: Any, current: Any) -> dict[str, Any]:
     }
 
 
-def _list_apps(logger: Logger, *, json_output: bool = False) -> int:
+def _list_apps(
+    logger: Logger,
+    *,
+    json_output: bool = False,
+    team: str | None = None,
+    project: str | None = None,
+    environment: str | None = None,
+) -> int:
     """
     Show every deployed application.
 
     Args:
         logger: Logger of the current command.
         json_output: Print ``{"items": [...]}`` instead of a table.
+        team: Only this team's applications.
+        project: Only the projects with this slug.
+        environment: Only the environments with this slug.
 
     Returns:
         Exit code.
     """
     store = get_store()
-    apps = store.list_apps()
+    # The CLI is the instance's own: it lists everything unless asked for a team's.
+    if team or project or environment:
+        apps = ScopedStore(Scope.everything(), store).list_apps(
+            project=project, environment=environment, team=team
+        )
+    else:
+        apps = store.list_apps()
+    # Where each lives is shown once there is more than one place to live: a
+    # server nobody organised in teams reads exactly as it did.
+    owners = (
+        TeamStore(store).owner_labels() if _organised(store, team, project, environment) else None
+    )
 
     if not apps:
         if json_output:
@@ -909,27 +932,38 @@ def _list_apps(logger: Logger, *, json_output: bool = False) -> int:
 
     if json_output:
         items = [_app_summary(app, states[app.domain]) for app in apps]
+        if owners is not None:
+            for item, app in zip(items, apps, strict=True):
+                item["team"], item["project"], item["environment"] = owners.of(
+                    app.project_id, app.environment_id
+                )
         click.echo(json.dumps({"items": items}))
         return 0
 
     logger.header("Deployed Applications")
 
     headers = ["Domain", "Type", "Status", "Port", "SSL"]
+    justify = ["left", "left", "left", "right", "left"]
+    if owners is not None:
+        headers.append("Project")
+        justify.append("left")
     rows = []
 
     for app in apps:
         current = states[app.domain]
-        rows.append(
-            [
-                styled(app.domain, "bold"),
-                app.app_type,
-                state(current.label),
-                styled(app.port, "") if app.port else state("static"),
-                state("yes") if app.ssl_enabled else state("no"),
-            ]
-        )
+        row = [
+            styled(app.domain, "bold"),
+            app.app_type,
+            state(current.label),
+            styled(app.port, "") if app.port else state("static"),
+            state("yes") if app.ssl_enabled else state("no"),
+        ]
+        if owners is not None:
+            where = owners.of(app.project_id, app.environment_id)
+            row.append("/".join(part for part in where if part) or "-")
+        rows.append(row)
 
-    logger.table(headers, rows, justify=["left", "left", "left", "right", "left"])
+    logger.table(headers, rows, justify=justify)
 
     running = sum(1 for s in states.values() if s.label == RUNNING)
     static = sum(1 for s in states.values() if s.label == STATIC)
@@ -952,6 +986,22 @@ def _list_apps(logger: Logger, *, json_output: bool = False) -> int:
             logger.list_item(f"{domain} - {current.detail or current.label.lower()}")
 
     return 0
+
+
+def _organised(store: Any, team: str | None, project: str | None, environment: str | None) -> bool:
+    """
+    Whether this server is arranged in more than the default team, or asked to be.
+
+    Args:
+        store: The store.
+        team: The ``--team`` filter.
+        project: The ``--project`` filter.
+        environment: The ``--env`` filter.
+
+    Returns:
+        True when the list should say where each application lives.
+    """
+    return bool(team or project or environment) or len(TeamStore(store).list_teams()) > 1
 
 
 def _show_status(domain: str, logger: Logger, *, json_output: bool = False) -> int:
@@ -1976,6 +2026,7 @@ def cli() -> None:
     "else is refused, never emptied; on releases a release is added beside them.",
 )
 @container_options
+@placed_in_a_project
 @global_flags
 @pass_context
 def create(
@@ -2116,14 +2167,31 @@ def create(
     is_flag=True,
     help="Print the panel URL for the app list, opening it if a display is available.",
 )
+@click.option("--team", default=None, help="Only this team's applications.")
+@click.option(
+    "--project", default=None, help="Only the applications of the projects with this name."
+)
+@click.option("--env", "environment", default=None, help="Only those in this environment.")
 @json_option("Print machine-readable JSON instead of a table.")
 @global_flags
 @pass_context
-def list_apps(ctx: Context, open_panel: bool) -> None:
+def list_apps(
+    ctx: Context,
+    open_panel: bool,
+    team: str | None,
+    project: str | None,
+    environment: str | None,
+) -> None:
     """List the applications deployed on this server."""
     if ctx.json_output and open_panel:
         raise click.UsageError("--json and --open cannot be combined.")
-    code = _list_apps(ctx.logger, json_output=ctx.json_output)
+    code = _list_apps(
+        ctx.logger,
+        json_output=ctx.json_output,
+        team=team,
+        project=project,
+        environment=environment,
+    )
     if open_panel and code == 0:
         open_in_panel("/apps", logger=ctx.logger)
     _exit(code)

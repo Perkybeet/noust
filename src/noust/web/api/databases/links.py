@@ -32,6 +32,7 @@ from noust.web.api.deps import (
     require_elevated,
     strict_domain,
 )
+from noust.web.api.scope import require_instance_scope
 from noust.web.jobs import JobType
 from noust.web.permissions import Permission
 from noust.web.permissions.enforce import check_permission
@@ -161,6 +162,9 @@ def provision_app_database(
     domain = strict_domain(domain)
     databases = service(session)
     if request.install:
+        # A package installed as root is the server's, so the engines' own install route is
+        # closed to a team member and so is this way of reaching it.
+        require_instance_scope(Permission.DATABASES_MANAGE)
         check_permission(session, Permission.DATABASES_MANAGE)
         ensure_elevated(http_request, session)
     choice = databases.resolve_engine_choice(

@@ -20,7 +20,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from noust.core.store import get_store
+from noust.core.teams import scoped_store
 from noust.deployers.helpers.hooks import AppHooks, Hook, describe_hooks, set_operator_hooks
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import NoustErrorRoute, require_elevated, strict_domain
@@ -123,7 +123,7 @@ def _known(domain: str) -> str:
         HTTPException: 404.
     """
     validated = strict_domain(domain)
-    if get_store().get_app(validated) is None:
+    if scoped_store().get_app(validated) is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
     return validated
 

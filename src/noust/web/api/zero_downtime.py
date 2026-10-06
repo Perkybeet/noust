@@ -18,7 +18,8 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from noust.core.store import MAX_DRAIN_SECONDS, get_store
+from noust.core.store import MAX_DRAIN_SECONDS
+from noust.core.teams import scoped_store
 from noust.deployers.bluegreen import (
     ZeroDowntimeStatus,
     check_eligible,
@@ -124,7 +125,7 @@ def _known(domain: str) -> None:
     Raises:
         HTTPException: 404.
     """
-    if get_store().get_app(domain) is None:
+    if scoped_store().get_app(domain) is None:
         raise HTTPException(status_code=404, detail=f"Application not found: {domain}")
 
 
@@ -219,7 +220,7 @@ def put_zero_downtime(
     """
     validated = strict_domain(domain)
     _known(validated)
-    app = get_store().get_app(validated)
+    app = scoped_store().get_app(validated)
     if app is not None and body.enabled and not app.zero_downtime:
         # Not the site of a Compose stack: turning its relay on writes the
         # servers files first, so the line an operator's site is asked to add
