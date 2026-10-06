@@ -134,3 +134,8 @@ Spanish docs and of most developer tools): "Comprueba la conexión", not "Compru
 | Roll back (an application's button) | Volver atrás | An earlier release. The long form in prose is "revertir" |
 | From a recipe | Desde una receta | Where a wizard starts from; never "Deploy a recipe", which would be a button that only opens a page |
 | Showing 21–40 of 57, Rows per page | Mostrando 21–40 de 57, Filas por página | A list's paging (`common.pagination`) |
+| team | equipo | A boundary of who sees and who may act, never of where code runs (`teams` namespace) |
+| project | proyecto | Groups applications, databases and sites of one piece of work |
+| environment (of a project) | entorno | A stage of a project: production, staging. An application's "Environment" tab is its variables, also "entorno": the page says which |
+| team role: viewer, operator, administrator, owner | lector, operador, administrador, propietario | The server's own roles keep "lector", "operador", "administrador" |
+| Move (an application) | Mover | To another project or environment; it takes its sites and databases and restarts nothing |

@@ -54,6 +54,40 @@ one. A team adds four roles, mapped onto the same permission sets and cut to wha
 `admin` of `acme` can manage `acme`'s applications and only read the rest; one that is `operator`
 on the server keeps that in every team it sees. The last owner of a team cannot leave it.
 
+## In the console
+
+Everything below the API is a page of the console, in English and Spanish, and a viewer never
+sees a button it would be refused.
+
+- **The team switcher** is in the top bar, beside the server selector. It is drawn once there is
+  something to switch (a second team, or a team that is not `default`): a server nobody organised
+  looks exactly as it did. It says the team the console works in (or "All teams", which an
+  administrator and anyone in several teams has), narrows the Applications, Databases and Sites
+  lists to it, and is where a new application goes. An account's choice is remembered by the server
+  (`PUT /api/teams/active`); the access token has no account, so its choice is kept in the browser.
+- **Teams** (`/teams`) lists the teams with the operator's role in each and says plainly that a team
+  is not a separate machine. A team's page has **Overview** (what it holds, its projects),
+  **Members** (add an account, change a role in place, remove, leave, and invite a person through
+  the accounts' invitation) and **Settings** (rename; delete, with the short name typed, refused with
+  its reason while the team holds anything). Only an administrator creates a team.
+- **Projects** (`/projects`) lists projects with their environments and what each holds. "New
+  project" is two clicks (the button, then a name) and opens the project, with `production` ready.
+  A project's page shows its environments as a segmented control, production first, and what lives
+  in the one on screen grouped by kind. "New environment" is two clicks; renaming and deleting an
+  environment or a project are one menu away, deleting guarded where the server would refuse (the
+  last environment, anything that holds something, the default project).
+- **The lists say where a row lives.** With more than one project or environment in view, the
+  applications, databases and sites lists gain Project and Environment filters (in the URL: `?project=web&environment=staging`)
+  and columns; with one of each they draw neither.
+- **Moving an application** is "Move to another project..." in its row menu and "Move" beside
+  "Where it lives" in its settings: pick the team, project and environment, and its sites,
+  databases and backup schedule go with it, restarting nothing.
+- **The new-application wizard** asks which project and environment only when there is more than one
+  choice, starting from the team's default project and production, so the click budget of a public
+  repository (New application, Inspect, Continue, Deploy) does not change. A project's page starts it
+  on that project (`/apps/new?team=acme&project=web&environment=staging`).
+- **The command palette** finds teams and projects, and offers "New project" and "New team".
+
 ## From the command line
 
 ```

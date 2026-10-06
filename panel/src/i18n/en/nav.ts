@@ -4,6 +4,7 @@ export const nav = {
     main: "Main",
     appSections: "Application sections",
     settingsSections: "Settings sections",
+    teamSections: "Team sections",
   },
   /** The sidebar's headings on a fleet: every server at once, then the server on screen. */
   groups: {
@@ -24,6 +25,7 @@ export const nav = {
   /** After a destination's name, for assistive technology: "Services 1 failed". */
   failed: { one: "{count} failed", other: "{count} failed" },
   overview: { label: "Overview", keywords: "home dashboard health", goTo: "Go to overview" },
+  projects: { label: "Projects", keywords: "teams environments production staging organise group workspace", goTo: "Go to projects" },
   apps: { label: "Applications", keywords: "apps sites deploy", goTo: "Go to applications" },
   databases: { label: "Databases", keywords: "mysql postgres redis mongodb sql", goTo: "Go to databases" },
   services: { label: "Services", keywords: "systemd units daemons" },
@@ -41,6 +43,11 @@ export const nav = {
     environment: { label: "Environment", keywords: "env variables secrets" },
     domains: { label: "Domains", keywords: "certificate ssl www" },
     settings: { label: "Settings", keywords: "webhook source build port delete" },
+  },
+  teamTabs: {
+    overview: { label: "Overview" },
+    members: { label: "Members", keywords: "people roles invite owner access" },
+    settings: { label: "Settings", keywords: "rename delete name" },
   },
   settingsTabs: {
     general: { label: "General", keywords: "apps directory web server email language", command: "General settings" },

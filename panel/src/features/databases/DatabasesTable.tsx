@@ -13,6 +13,8 @@ import { SM_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatBytes } from "../../lib/format";
+import { ownerColumns } from "../teams/ownership";
+import type { Labels, Scope } from "../teams/organization";
 import { engineName, instancePlace, isContainer } from "./engines";
 import { PROTECTION_RANK, databaseId, databaseProtection } from "./protection";
 import { TEXT_LINK } from "./ui";
@@ -28,6 +30,8 @@ export interface DatabasesTableProps {
   empty: ReactNode;
   /** The list is still being read: placeholder rows stand where the databases will be. */
   loading?: boolean;
+  /** Says where each database lives, when more than one place is in view (teams, projects, environments). */
+  owner?: { scope: Scope; labels: Labels };
 }
 
 /** A size the list sorts by: the engine reports it as words ("46.0 MB"), read back to bytes. */
@@ -122,7 +126,7 @@ function EngineCell({ database, engines, t }: { database: Database; engines: rea
  * up, its engine, who uses it, its size and its newest dump with what checking it found. On a
  * phone each row is a card with its menu in view.
  */
-export function DatabasesTable({ databases, engines, policies, dumps, caption, rowActions, empty, loading = false }: DatabasesTableProps) {
+export function DatabasesTable({ databases, engines, policies, dumps, caption, rowActions, empty, loading = false, owner }: DatabasesTableProps) {
   const t = useT();
   const navigate = useNavigate();
   const wide = useMediaQuery(SM_UP);
@@ -158,6 +162,7 @@ export function DatabasesTable({ databases, engines, policies, dumps, caption, r
       sortValue: (database) => database.engine,
       cell: (database) => <EngineCell database={database} engines={engines} t={t} />,
     },
+    ...(owner !== undefined ? ownerColumns<Database>(t, owner.scope, owner.labels) : []),
     {
       id: "apps",
       header: t("databases.table.usedBy"),

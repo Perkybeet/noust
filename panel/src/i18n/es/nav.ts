@@ -8,6 +8,7 @@ export const nav: Catalog<typeof en> = {
     main: "Principal",
     appSections: "Secciones de la aplicación",
     settingsSections: "Secciones de los ajustes",
+    teamSections: "Secciones del equipo",
   },
   groups: {
     fleet: "Flota",
@@ -25,6 +26,11 @@ export const nav: Catalog<typeof en> = {
   },
   failed: { one: "{count} con fallo", other: "{count} con fallos" },
   overview: { label: "Resumen", keywords: "inicio panel salud home dashboard health", goTo: "Ir al resumen" },
+  projects: {
+    label: "Proyectos",
+    keywords: "equipos entornos producción staging organizar agrupar espacio de trabajo projects teams environments",
+    goTo: "Ir a proyectos",
+  },
   apps: { label: "Aplicaciones", keywords: "apps sitios desplegar despliegue deploy", goTo: "Ir a aplicaciones" },
   databases: {
     label: "Bases de datos",
@@ -49,6 +55,11 @@ export const nav: Catalog<typeof en> = {
     environment: { label: "Entorno", keywords: "env variables secretos environment" },
     domains: { label: "Dominios", keywords: "certificado ssl www domains" },
     settings: { label: "Ajustes", keywords: "webhook origen compilación puerto eliminar settings" },
+  },
+  teamTabs: {
+    overview: { label: "Resumen" },
+    members: { label: "Miembros", keywords: "personas roles invitar propietario acceso members people" },
+    settings: { label: "Ajustes", keywords: "renombrar borrar nombre rename delete" },
   },
   settingsTabs: {
     general: {

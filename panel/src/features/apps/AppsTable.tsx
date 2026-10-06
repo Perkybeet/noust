@@ -14,6 +14,8 @@ import { StatusGlyph, stateTextClass } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { formatBytes, formatPercent, parseTimestamp } from "../../lib/format";
+import { inRows, ownerColumns } from "../teams/ownership";
+import type { Labels, Scope } from "../teams/organization";
 import type { AppInfo, Deployment, LastDeployment } from "./data";
 import { appReading, deployMoment, lastDeployOf, previewParentOf, readsApps, useTypeName } from "./data";
 
@@ -78,6 +80,8 @@ export interface AppsTableProps {
   empty?: ReactNode;
   /** A per-row menu; the list offers one. On a phone it stays in view on every card. */
   rowActions?: (app: AppInfo) => ReactNode;
+  /** Says where each application lives, when more than one place is in view (teams, projects, environments). */
+  owner?: { scope: Scope; labels: Labels };
   className?: string;
 }
 
@@ -87,7 +91,7 @@ export interface AppsTableProps {
  * the collector reads them, its CPU and memory now. On a phone each row is a card with its
  * actions always in view.
  */
-export function AppsTable({ apps, deploys, metrics, caption, loading = false, skeletonRows, empty, rowActions, className }: AppsTableProps) {
+export function AppsTable({ apps, deploys, metrics, caption, loading = false, skeletonRows, empty, rowActions, owner, className }: AppsTableProps) {
   const t = useT();
   const typeName = useTypeName();
   const rows: Row[] = apps.map((app) => ({ app, deploy: lastDeployOf(app, deploys), ...appReading(metrics, app.domain) }));
@@ -119,6 +123,7 @@ export function AppsTable({ apps, deploys, metrics, caption, loading = false, sk
       },
       sortValue: (row) => typeName(row.app.app_type),
     },
+    ...(owner !== undefined ? ownerColumns<AppInfo>(t, owner.scope, owner.labels).map((column) => inRows(column, (row: Row) => row.app)) : []),
     {
       id: "deploy",
       header: t("apps.table.columnLastDeploy"),

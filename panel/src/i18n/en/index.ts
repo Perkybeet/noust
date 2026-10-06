@@ -30,5 +30,6 @@ export { servers } from "./servers";
 export { services } from "./services";
 export { settings } from "./settings";
 export { shell } from "./shell";
+export { teams } from "./teams";
 export { time } from "./time";
 export { timeline } from "./timeline";

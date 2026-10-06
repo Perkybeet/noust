@@ -45,6 +45,13 @@ export const ROUTES: readonly ConsoleRoute[] = [
   // 2.2: an application in blue/green mode, and one with pull request previews.
   { name: "app-settings-zero-downtime", path: "/apps/pagos.example.org/settings/deploys" },
   { name: "app-settings-previews", path: "/apps/portal.example.org/settings/previews" },
+  // 3.4: teams, projects and environments.
+  { name: "projects", path: "/projects" },
+  { name: "project", path: "/projects/default/default" },
+  { name: "teams", path: "/teams" },
+  { name: "team", path: "/teams/default" },
+  { name: "team-members", path: "/teams/default/members" },
+  { name: "team-settings", path: "/teams/default/settings" },
   { name: "databases", path: "/databases" },
   { name: "databases-engines", path: "/databases/engines" },
   { name: "database-engine-settings", path: "/databases/engines/postgresql/settings" },

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { BookOpen, Box, Database, FileUp, Keyboard, Landmark, LogOut, Monitor, Moon, Network, Plus, Server, Sun, Unplug } from "lucide-react";
+import { BookOpen, Box, Database, FileUp, FolderKanban, Keyboard, Landmark, LogOut, Monitor, Moon, Network, Plus, Server, Sun, Unplug, Users } from "lucide-react";
 import { useMemo } from "react";
 
 import { appTypesQuery, appsQuery } from "../api/queries/apps";
@@ -9,6 +9,7 @@ import { appStatus } from "../components/page/status";
 import { typeName } from "../features/apps/data";
 import { useSignOut } from "../features/auth/useSignOut";
 import { field, fleetViewQuery, originOf } from "../features/fleet/data";
+import { useOrganization } from "../features/teams/useOrganization";
 import { useT } from "../i18n";
 import type { PlainKey } from "../i18n";
 import { announce } from "./Announcer";
@@ -49,7 +50,14 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
   const { data: apps } = useQuery({ ...appsQuery(), enabled: open && !onFleet });
   const { data: types } = useQuery({ ...appTypesQuery(), enabled: open && !onFleet, retry: false });
   const { data: fleetApps } = useQuery({ ...fleetViewQuery("apps"), enabled: open && onFleet });
-  const index = useResourceIndex(open, !onFleet);
+  const listed = useResourceIndex(open, !onFleet);
+  const org = useOrganization();
+  const index = useMemo(
+    () => ({ ...listed, ...(org.available ? { teams: org.teams, projects: org.projects } : {}) }),
+    [listed, org.available, org.teams, org.projects],
+  );
+  const mayOrganise = !onFleet && org.available && org.can("teams.manage");
+  const mayCreateTeams = mayOrganise && org.seesAll;
   const { node } = useNode();
   const switchNode = useSwitchNode();
   const { nodes, hostname } = useServerList();
@@ -202,6 +210,36 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
           void navigate({ to: "/databases", search: { new: true } as never });
         },
       },
+      ...(mayOrganise
+        ? [
+            {
+              id: "action:new-project",
+              group: "Actions" as const,
+              label: t("shell.commands.newProject"),
+              icon: <FolderKanban />,
+              keywords: t("shell.commands.newProjectKeywords"),
+              kind: "navigate" as const,
+              run: () => {
+                void navigate({ to: "/projects", search: { new: true } as never });
+              },
+            },
+          ]
+        : []),
+      ...(mayCreateTeams
+        ? [
+            {
+              id: "action:new-team",
+              group: "Actions" as const,
+              label: t("shell.commands.newTeam"),
+              icon: <Users />,
+              keywords: t("shell.commands.newTeamKeywords"),
+              kind: "navigate" as const,
+              run: () => {
+                void navigate({ to: "/teams", search: { new: true } as never });
+              },
+            },
+          ]
+        : []),
       {
         id: "action:add-server",
         group: "Actions",
@@ -323,5 +361,5 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
           ];
 
     return [...pages, ...applications, ...resources, ...servers, ...actions];
-  }, [apps, types, index, fleetApps, onFleet, navigate, theme, setTheme, openShortcuts, signOut, t, node, nodes, hostname, switchNode, hasFleet, context.kind, permissions]);
+  }, [apps, types, index, fleetApps, onFleet, navigate, theme, setTheme, openShortcuts, signOut, t, node, nodes, hostname, switchNode, hasFleet, context.kind, permissions, mayOrganise, mayCreateTeams]);
 }

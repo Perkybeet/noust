@@ -8,17 +8,19 @@
  * page that shows it. Pure, so every rule is tested without a palette.
  */
 
-import { Cog, Database as DatabaseIcon, Globe, Rocket, ShieldCheck } from "lucide-react";
+import { Cog, Database as DatabaseIcon, FolderKanban, Globe, Rocket, ShieldCheck, Users } from "lucide-react";
 
 import type { CertEntry } from "../api/queries/certs";
 import type { Database } from "../api/queries/databases";
 import type { DeploymentList } from "../api/queries/deployments";
 import type { ServiceList } from "../api/queries/services";
 import type { SiteEntry } from "../api/queries/sites";
+import type { Project, Team } from "../api/queries/teams";
 import { deployStatus } from "../components/page/status";
 import type { T } from "../i18n";
 import { engineName } from "../features/databases/engines";
 import { serviceState } from "../features/services/data";
+import { teamRoleLabel } from "../features/teams/roles";
 import type { Command } from "./CommandPalette";
 
 export type ServiceEntry = ServiceList["services"][number];
@@ -34,6 +36,9 @@ export interface ResourceIndex {
   certificates?: readonly CertEntry[] | undefined;
   services?: readonly ServiceEntry[] | undefined;
   deployments?: readonly DeploymentEntry[] | undefined;
+  /** The teams and projects the principal sees, from the console's own organisation (not read by the palette). */
+  teams?: readonly Team[] | undefined;
+  projects?: readonly Project[] | undefined;
 }
 
 /** Where a command goes: a route of the console, its path parameters and its search. */
@@ -133,9 +138,39 @@ function deploymentCommands(deployments: readonly DeploymentEntry[], { t, naviga
   });
 }
 
+function teamCommands(teams: readonly Team[], { t, navigate }: ResourceContext): Command[] {
+  return teams.map((team) => ({
+    id: `team:${team.slug}`,
+    group: "Teams",
+    label: team.name,
+    ...(team.role !== null && team.role !== undefined ? { detail: teamRoleLabel(t, team.role) } : {}),
+    icon: <Users />,
+    keywords: words(team.slug),
+    kind: "navigate",
+    run: () => navigate({ to: "/teams/$team", params: { team: team.slug } }),
+  }));
+}
+
+function projectCommands(projects: readonly Project[], teams: readonly Team[], { navigate }: ResourceContext): Command[] {
+  const names = new Map(teams.map((team) => [team.slug, team.name]));
+  return projects.map((project) => ({
+    id: `project:${project.team}/${project.slug}`,
+    group: "Projects",
+    label: project.name,
+    // Which team it is in, only where there are several to tell two of one name apart.
+    ...(teams.length > 1 ? { detail: names.get(project.team) ?? project.team } : {}),
+    icon: <FolderKanban />,
+    keywords: words(project.slug, project.team, names.get(project.team), ...(project.environments ?? [])),
+    kind: "navigate",
+    run: () => navigate({ to: "/projects/$team/$project", params: { team: project.team, project: project.slug } }),
+  }));
+}
+
 /** One command per resource of the index, group by group; a list that has not arrived adds nothing. */
 export function resourceCommands(index: ResourceIndex, context: ResourceContext): Command[] {
   return [
+    ...projectCommands(index.projects ?? [], index.teams ?? [], context),
+    ...teamCommands(index.teams ?? [], context),
     ...databaseCommands(index.databases ?? [], context),
     ...siteCommands(index.sites ?? [], context),
     ...certificateCommands(index.certificates ?? [], context),

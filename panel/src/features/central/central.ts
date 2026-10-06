@@ -79,7 +79,7 @@ export function isCentralLockedError(error: unknown): boolean {
  * The console's pages about this machine's own deployments: what a hub does not have. A path
  * under `/n/<server>/` is a server's own page and always has them.
  */
-const LOCAL_ONLY = /^\/(?:apps|databases|services|cron|domains|backups)(?:\/|$)/;
+const LOCAL_ONLY = /^\/(?:apps|databases|services|cron|domains|backups|projects|teams)(?:\/|$)/;
 
 /** Whether a path of the console shows something a hub does not do. */
 export function isLocalOnlyPath(pathname: string): boolean {
@@ -87,9 +87,9 @@ export function isLocalOnlyPath(pathname: string): boolean {
 }
 
 /** The part of the console a hub was asked for, so the fleet can say what to pick a server for. */
-export type HubArea = "apps" | "databases" | "services" | "cron" | "domains" | "backups";
+export type HubArea = "apps" | "databases" | "services" | "cron" | "domains" | "backups" | "projects" | "teams";
 
-const HUB_AREAS: readonly HubArea[] = ["apps", "databases", "services", "cron", "domains", "backups"];
+const HUB_AREAS: readonly HubArea[] = ["apps", "databases", "services", "cron", "domains", "backups", "projects", "teams"];
 
 /** Which area a local-only path belongs to; null for any other path. */
 export function hubAreaOf(pathname: string): HubArea | null {

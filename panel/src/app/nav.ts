@@ -9,6 +9,7 @@ import {
   Boxes,
   Clock,
   Database,
+  FolderKanban,
   Gauge,
   History,
   Network,
@@ -37,6 +38,12 @@ export interface NavItem {
   shortcut?: { keys: readonly string[]; description: PlainKey };
   /** Other words an operator might type for it in the palette. */
   keywords?: PlainKey;
+  /**
+   * Offered only where there is something to organise: more than one team, project or
+   * environment, or someone who may start (`teams.manage`). A server nobody organised in
+   * teams shows everyone else the sidebar it always had.
+   */
+  when?: "organised";
 }
 
 /**
@@ -52,6 +59,14 @@ export const NAV_GROUPS: readonly (readonly NavItem[])[] = [
       icon: Gauge,
       shortcut: { keys: ["g", "o"], description: "nav.overview.goTo" },
       keywords: "nav.overview.keywords",
+    },
+    {
+      label: "nav.projects.label",
+      to: "/projects",
+      icon: FolderKanban,
+      shortcut: { keys: ["g", "p"], description: "nav.projects.goTo" },
+      keywords: "nav.projects.keywords",
+      when: "organised",
     },
     {
       label: "nav.apps.label",
@@ -119,6 +134,13 @@ export const APP_TABS: readonly TabItem[] = [
   { label: "databases.appTab.tabLabel", to: "/apps/$domain/database", keywords: "databases.appTab.tabKeywords" },
   { label: "nav.appTabs.domains.label", to: "/apps/$domain/domains", keywords: "nav.appTabs.domains.keywords" },
   { label: "nav.appTabs.settings.label", to: "/apps/$domain/settings", keywords: "nav.appTabs.settings.keywords" },
+];
+
+/** A team's sections, each a URL under /teams/$team: what it is, who is in it, and its settings. */
+export const TEAM_TABS: readonly TabItem[] = [
+  { label: "nav.teamTabs.overview.label", to: "/teams/$team", exact: true },
+  { label: "nav.teamTabs.members.label", to: "/teams/$team/members", keywords: "nav.teamTabs.members.keywords" },
+  { label: "nav.teamTabs.settings.label", to: "/teams/$team/settings", keywords: "nav.teamTabs.settings.keywords" },
 ];
 
 /**

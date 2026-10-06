@@ -5,6 +5,8 @@
 
 import type { Status } from "../../components/ui/StatusPill";
 import { appStatus } from "../../components/page/status";
+import { ownerSearch } from "../teams/search";
+import type { OwnerSearch } from "../teams/search";
 import type { AppInfo } from "./data";
 
 /** The states the list filters by: the console's state language. */
@@ -12,7 +14,7 @@ export const STATE_FILTERS = ["running", "deploying", "failed", "stopped", "stat
 
 export type StateFilter = (typeof STATE_FILTERS)[number];
 
-export interface AppsSearch {
+export interface AppsSearch extends OwnerSearch {
   /** Free text matched against the domain and the type. */
   q?: string;
   state?: StateFilter;
@@ -38,12 +40,13 @@ export function validateAppsSearch(search: Record<string, unknown>): AppsSearch 
     ...(q !== undefined ? { q } : {}),
     ...(state !== undefined && (STATE_FILTERS as readonly string[]).includes(state) ? { state: state as StateFilter } : {}),
     ...(type !== undefined && /^[\w.-]+$/.test(type) ? { type } : {}),
+    ...ownerSearch(search),
   };
 }
 
 /** Whether any filter narrows the list. */
 export function isFiltered(search: AppsSearch): boolean {
-  return search.q !== undefined || search.state !== undefined || search.type !== undefined;
+  return search.q !== undefined || search.state !== undefined || search.type !== undefined || search.project !== undefined || search.environment !== undefined;
 }
 
 /** The apps a search keeps, in their original order. */

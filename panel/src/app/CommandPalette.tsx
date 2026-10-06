@@ -19,6 +19,8 @@ export type CommandGroup =
   | "Pages"
   | "Settings"
   | "Applications"
+  | "Projects"
+  | "Teams"
   | "Databases"
   | "Domains"
   | "Certificates"
@@ -58,6 +60,8 @@ const GROUP_ORDER: readonly CommandGroup[] = [
   "Pages",
   "Settings",
   "Applications",
+  "Projects",
+  "Teams",
   "Databases",
   "Domains",
   "Certificates",
@@ -72,6 +76,8 @@ const GROUP_LABEL: Record<CommandGroup, PlainKey> = {
   Pages: "shell.commandGroups.pages",
   Settings: "shell.commandGroups.settings",
   Applications: "shell.commandGroups.applications",
+  Projects: "shell.commandGroups.projects",
+  Teams: "shell.commandGroups.teams",
   Databases: "shell.commandGroups.databases",
   Domains: "shell.commandGroups.domains",
   Certificates: "shell.commandGroups.certificates",
@@ -89,6 +95,8 @@ const GROUP_LABEL: Record<CommandGroup, PlainKey> = {
  */
 const BROWSE_LIMIT: Partial<Record<CommandGroup, number>> = {
   Applications: 6,
+  Projects: 0,
+  Teams: 0,
   Databases: 0,
   Domains: 0,
   Certificates: 0,
@@ -97,7 +105,7 @@ const BROWSE_LIMIT: Partial<Record<CommandGroup, number>> = {
 };
 
 /** A group whose labels are names of things on the machine, not words of the console. */
-const NAMED_GROUPS: ReadonlySet<CommandGroup> = new Set(["Applications", "Databases", "Domains", "Certificates", "Services", "Servers"]);
+const NAMED_GROUPS: ReadonlySet<CommandGroup> = new Set(["Applications", "Projects", "Teams", "Databases", "Domains", "Certificates", "Services", "Servers"]);
 
 function isSubsequence(needle: string, haystack: string): boolean {
   let at = 0;

@@ -1,11 +1,12 @@
 import { useNavigate } from "@tanstack/react-router";
-import { CircleArrowUp, PanelTop, RotateCw, ScrollText } from "lucide-react";
+import { CircleArrowUp, FolderInput, PanelTop, RotateCw, ScrollText } from "lucide-react";
 
 import { appStatus } from "../../components/page/status";
 import { IconButton } from "../../components/ui/IconButton";
 import { ICONS } from "../../components/ui/icons";
 import { Menu, MenuItem, MenuSeparator } from "../../components/ui/Menu";
 import { useT } from "../../i18n";
+import { useMoveApp } from "../teams/MoveAppDialog";
 import type { AppInfo } from "./data";
 import { NothingNewDialog } from "./NothingNewDialog";
 import { useAppActions } from "./useAppActions";
@@ -23,6 +24,7 @@ export function AppRowActions({ app }: { app: AppInfo }) {
   const t = useT();
   const navigate = useNavigate();
   const { restart, update, rebuildAnyway, nothingNew, dismissNothingNew } = useAppActions(app.domain);
+  const move = useMoveApp(app);
   const domain = app.domain;
   const unit = hasUnit(app);
   return (
@@ -41,7 +43,16 @@ export function AppRowActions({ app }: { app: AppInfo }) {
         <MenuItem icon={<CircleArrowUp />} disabled={update.isPending} onClick={() => update.mutate()}>
           {t("apps.rowActions.update")}
         </MenuItem>
+        {move.available ? (
+          <>
+            <MenuSeparator />
+            <MenuItem icon={<FolderInput />} description={t("teams.move.menuDescription")} onClick={move.open}>
+              {t("teams.move.menu")}
+            </MenuItem>
+          </>
+        ) : null}
       </Menu>
+      {move.dialog}
       <NothingNewDialog
         domain={domain}
         refusal={nothingNew}
