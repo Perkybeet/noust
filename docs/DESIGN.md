@@ -353,6 +353,13 @@ Rules common to all:
 
 - **One primary action per view**, the last of the header's actions (or the save bar's Save,
   while there are changes). Never in a section, never `size="sm"` for a page's primary.
+- **The daily verbs are on the surface.** What an operator presses every day on a resource is
+  a secondary action of its header, never behind `More actions` (Coolify's "Actions" dropdown
+  is what its users protested most): an application's Restart, Stop or Start (by its state) and
+  Roll back beside its primary, Update. `More actions` holds what is rare (Diagnose, Delete).
+  Below 640px those verbs stay on screen as icon buttons that keep their names; the header
+  wraps rather than hides them. A verb the resource cannot do is not drawn (a static site has no
+  service to restart).
 - **The header order**: breadcrumbs, the title with its state, one line of facts, one sentence
   of description; at the right the secondary actions, the primary, then `More actions` (an
   `IconButton`, never a text button "Actions").
@@ -418,7 +425,7 @@ For: an application, a database, a service, a site, a fleet node, a deployment.
 
 ```
 Applications >
-shop.example.net  * Running  Next.js . :3001 . shop.example.net ->     [Restart] [Update] [...]
+shop.example.net  * Running  Next.js . :3001 . shop.example.net ->  [Restart] [Stop] [Roll back] [Update] [...]
 +--------------------------------------------------------------------------------------------+
 | x The service keeps failing to start. systemd gave up after 5 restarts.       [Diagnose]    |  <- banner, every tab
 +--------------------------------------------------------------------------------------------+

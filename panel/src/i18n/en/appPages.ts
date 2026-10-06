@@ -105,7 +105,7 @@ export const appPages = {
     deleteApplication: "Delete application",
     restart: "Restart",
     update: "Update",
-    rollBackEllipsis: "Roll back…",
+    rollBack: "Roll back",
     stopTitle: "Stop {domain}?",
     stopDescription: "The service stops and the site answers 502 until it is started again. Nothing is deleted.",
     stopApplication: "Stop application",

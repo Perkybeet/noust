@@ -100,7 +100,7 @@ export const appPages: Catalog<typeof en> = {
     deleteApplication: "Eliminar aplicación",
     restart: "Reiniciar",
     update: "Actualizar",
-    rollBackEllipsis: "Volver atrás…",
+    rollBack: "Volver atrás",
     stopTitle: "¿Detener {domain}?",
     stopDescription: "El servicio se detiene y el sitio responde 502 hasta que se inicie de nuevo. No se elimina nada.",
     stopApplication: "Detener aplicación",

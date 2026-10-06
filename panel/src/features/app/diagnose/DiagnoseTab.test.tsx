@@ -65,8 +65,10 @@ describe("the Diagnose tab", () => {
     expect(screen.getByText(/^5 checks:/)).toBeInTheDocument();
     // What to do about it, beside it.
     expect(screen.getByRole("link", { name: "View logs" })).toHaveAttribute("href", `/apps/${DOMAIN}/logs`);
-    expect(screen.getByRole("button", { name: "Roll back…" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Restart" })).toBeInTheDocument();
+    // The verdict's own remedies, in its section: the header's daily verbs are on every tab.
+    const remedies = screen.getByRole("region", { name: `Diagnosis of ${DOMAIN}` });
+    expect(within(remedies).getByRole("button", { name: "Roll back…" })).toBeInTheDocument();
+    expect(within(remedies).getByRole("button", { name: "Restart" })).toBeInTheDocument();
   });
 
   it("lists what did not pass first with its output verbatim, and folds what passed into one line", async () => {
@@ -114,7 +116,8 @@ describe("the Diagnose tab", () => {
     await user.click(screen.getByRole("button", { name: "Run again" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Verdict: Healthy" })).toBeInTheDocument();
     expect(screen.getByText("All good")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Restart" })).not.toBeInTheDocument();
+    // A healthy app has no remedies; Restart stays in the header, where it always is.
+    expect(within(screen.getByRole("region", { name: `Diagnosis of ${DOMAIN}` })).queryByRole("button", { name: "Restart" })).not.toBeInTheDocument();
     expect(backend.callsTo(`GET /api/apps/${DOMAIN}/diagnose`)).toHaveLength(2);
     await waitFor(() => {
       expect(screen.getByTestId("announcer-polite")).toHaveTextContent(`${DOMAIN}: Healthy.`);
