@@ -59,6 +59,9 @@ test("zero-downtime deploys are turned off and on again, each confirmed and foll
   const greenPort = seeded.instances.find((instance) => instance.color === "green")?.port;
   expect(seeded.upstream_port).toBe(greenPort);
   await expect(zd.getByLabel("Keep the old version for")).toHaveValue(DRAIN);
+  // What a new application gets, said where the operator decides about this one (3.4).
+  await expect(zd.getByText(/New applications that can run as two copies start with this on too/)).toBeVisible();
+  await expect(zd.getByText("deploy.zero_downtime")).toBeVisible();
   await zd.scrollIntoViewIfNeeded();
   await stillness(page);
   await expectNoA11yViolations(page, "an app with zero-downtime deploys");
@@ -123,4 +126,26 @@ test("an app in a single folder is told it needs instant rollback first, and off
   await zd.scrollIntoViewIfNeeded();
   await stillness(page);
   await expectNoA11yViolations(page, "an app that cannot have zero-downtime deploys yet");
+});
+
+/** On releases, with a process behind nginx, and never switched by any spec: it restarts on every update. */
+const RESTARTS_APP = "tienda.example.org";
+
+test("an app that restarts on every update is told so, and Diagnose suggests the fix and leads to it", async ({ page, consoleServer }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await signIn(page, consoleServer, `/apps/${RESTARTS_APP}/settings/deploys`);
+  const zd = panel(page);
+  await expect(zd.getByText(/New applications that can run as two copies start with this on\. This one restarts on every update until you turn it on\./)).toBeVisible();
+  await expect(zd.getByText("deploy.zero_downtime")).toBeVisible();
+  await zd.scrollIntoViewIfNeeded();
+  await stillness(page);
+  await expectNoA11yViolations(page, "an app that restarts on every update");
+
+  await page.goto(`/apps/${RESTARTS_APP}/diagnose`);
+  await expect(page.getByText("This app could update without a cut")).toBeVisible();
+  await expect(page.getByText(/Its updates restart it in place, which drops connections for a moment/)).toBeVisible();
+  await stillness(page);
+  await expectNoA11yViolations(page, "the suggestion to update without a cut");
+  await page.getByRole("link", { name: "Turn on zero-downtime deploys" }).click();
+  await expect(page).toHaveURL(new RegExp(`/apps/${RESTARTS_APP.replace(/\./g, "\\.")}/settings/deploys$`));
 });

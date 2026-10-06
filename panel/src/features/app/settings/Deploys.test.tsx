@@ -278,6 +278,25 @@ describe("turning on instant rollback", () => {
   });
 });
 
+describe("zero-downtime deploys, by default", () => {
+  it("says a new application that can run twice starts with it on, and that this one restarts until it is turned on", async () => {
+    await deploys(RELEASE_APP, { [`GET /api/apps/${DOMAIN}/zero-downtime`]: () => json(200, ZERO_DOWNTIME_OFF) });
+    await screen.findByRole("button", { name: "Turn on…" });
+    const card = part("Zero-downtime deploys");
+    expect(within(card).getByText(/New applications that can run as two copies start with this on\. This one restarts on every update until you turn it on\./)).toBeInTheDocument();
+    // The server's own setting is named, as the system value it is.
+    expect(within(card).getByText("deploy.zero_downtime")).toBeInTheDocument();
+  });
+
+  it("says the same to an application that already updates without a cut, beside which copy serves", async () => {
+    await deploys(RELEASE_APP, { [`GET /api/apps/${DOMAIN}/zero-downtime`]: () => json(200, ZERO_DOWNTIME_ON) });
+    const card = await screen.findByRole("heading", { name: "Zero-downtime deploys" }).then(() => part("Zero-downtime deploys"));
+    expect(await within(card).findByText(/New applications that can run as two copies start with this on too\./)).toBeInTheDocument();
+    expect(within(card).getByRole("list", { name: "Copies of the app" })).toBeInTheDocument();
+    expect(within(card).getByText("Live")).toBeInTheDocument();
+  });
+});
+
 describe("zero-downtime deploys", () => {
   it("warns about two copies before turning it on, sends the seconds, and waits for the job", async () => {
     let state: object = ZERO_DOWNTIME_OFF;

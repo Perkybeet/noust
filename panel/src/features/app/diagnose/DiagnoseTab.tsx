@@ -15,6 +15,7 @@ import { Section, Sections } from "../../../components/page/Section";
 import { JobProgress } from "../../../components/page/JobProgress";
 import { Button, buttonClassName } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { Notice } from "../../../components/ui/Notice";
 import { ICONS } from "../../../components/ui/icons";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { StatusPill } from "../../../components/ui/StatusPill";
@@ -61,9 +62,36 @@ function nextStep(check: Check, domain: string, t: T): ReactNode {
           {t("appPages.diagnose.openDomains")}
         </TextLink>
       );
+    case "blue_green":
+    case "zero_downtime":
+      return (
+        <TextLink to="/apps/$domain/settings/deploys" params={{ domain }} size="ui">
+          {t("appPages.diagnose.openDeploySettings")}
+        </TextLink>
+      );
     default:
       return null;
   }
+}
+
+/**
+ * What an operator who just watched an update drop the app for a moment can do about it: the
+ * diagnosis says the app restarts in place on every update and could update without a cut.
+ * Not a cause of anything, so it is a suggestion beside the verdict, never a failed check.
+ */
+function ZeroDowntimeSuggestion({ domain, t }: { domain: string; t: T }) {
+  return (
+    <Notice
+      title={t("appPages.diagnose.zeroDowntimeTitle")}
+      action={
+        <Link to="/apps/$domain/settings/deploys" params={{ domain }} className={buttonClassName("secondary", "sm")}>
+          {t("appPages.diagnose.zeroDowntimeAction")}
+        </Link>
+      }
+    >
+      {t("appPages.diagnose.zeroDowntimeBody")}
+    </Notice>
+  );
 }
 
 /**
@@ -335,6 +363,7 @@ export function DiagnoseTab({ domain }: { domain: string }) {
           {(data) => (
             <div className="flex flex-col gap-8">
               <Verdict domain={domain} diagnosis={data} checkedAt={diagnosis.dataUpdatedAt} running={diagnosis.isFetching} onRunAgain={runAgain} t={t} />
+              {data.checks.some((check) => check.name === "zero_downtime") ? <ZeroDowntimeSuggestion domain={domain} t={t} /> : null}
               <Checks diagnosis={data} domain={domain} t={t} />
             </div>
           )}

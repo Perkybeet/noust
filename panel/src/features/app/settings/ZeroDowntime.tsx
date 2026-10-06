@@ -135,6 +135,21 @@ export function useDrain(domain: string, status: ZeroDowntime | undefined): Drai
   };
 }
 
+/**
+ * What a new application gets, said where an operator decides about this one: an application
+ * that can run as two copies starts with this on, and the server's setting is the default for
+ * every new one. Static: it is how the product behaves, not a reading of this server.
+ */
+function DefaultNote({ enabled }: { enabled: boolean }) {
+  const t = useT();
+  const setting = <Mono key="setting">deploy.zero_downtime</Mono>;
+  return (
+    <p className="max-w-measure text-12 text-pretty text-fg-muted">
+      {enabled ? t.rich("appSettings.zeroDowntime.defaultNoteOn", { setting }) : t.rich("appSettings.zeroDowntime.defaultNoteOff", { setting })}
+    </p>
+  );
+}
+
 /** Both copies of the app, which one takes the traffic, and each one's own state. */
 function Instances({ status }: { status: ZeroDowntime }) {
   const t = useT();
@@ -322,6 +337,7 @@ export function ZeroDowntimeCard({ app, status, drain }: { app: App; status: Use
               {compose ? t("appSettings.zeroDowntime.composeOnBody") : t("appSettings.zeroDowntime.onBody")}
             </FeatureState>
           )}
+          <DefaultNote enabled />
           {compose && (data.instances ?? []).length === 0 ? null : <Instances status={data} />}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <Field
@@ -347,17 +363,20 @@ export function ZeroDowntimeCard({ app, status, drain }: { app: App; status: Use
           ) : null}
         </div>
       ) : (
-        <FeatureState
-          state="off"
-          title={t("appSettings.zeroDowntime.off")}
-          action={
-            <Button size="sm" onClick={() => ask(() => setTurningOn(true))}>
-              {t("appSettings.zeroDowntime.turnOnEllipsis")}
-            </Button>
-          }
-        >
-          {t("appSettings.zeroDowntime.offNote")}
-        </FeatureState>
+        <div className="flex flex-col gap-3">
+          <FeatureState
+            state="off"
+            title={t("appSettings.zeroDowntime.off")}
+            action={
+              <Button size="sm" onClick={() => ask(() => setTurningOn(true))}>
+                {t("appSettings.zeroDowntime.turnOnEllipsis")}
+              </Button>
+            }
+          >
+            {t("appSettings.zeroDowntime.offNote")}
+          </FeatureState>
+          <DefaultNote enabled={false} />
+        </div>
       )}
       <TurnOnDialog key={String(turningOn)} domain={domain} drainSeconds={data.drain_seconds} compose={compose} open={turningOn} onOpenChange={setTurningOn} />
       <ConfirmDialog

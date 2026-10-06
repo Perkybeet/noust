@@ -167,6 +167,8 @@ export const appSettings = {
     on: "On",
     off: "Off",
     offNote: "Off, a deploy restarts the app, which drops connections for a moment.",
+    defaultNoteOff: "New applications that can run as two copies start with this on. This one restarts on every update until you turn it on. The default for new applications is {setting}.",
+    defaultNoteOn: "New applications that can run as two copies start with this on too. The default for new applications is {setting}.",
     loading: "Loading zero-downtime deploys",
     readFailed: "Could not read zero-downtime deploys",
     needsRollback: "They need instant rollback, above: turn that on first.",

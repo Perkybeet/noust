@@ -163,6 +163,8 @@ export const appSettings: Catalog<typeof en> = {
     on: "Activados",
     off: "Desactivados",
     offNote: "Desactivados, un despliegue reinicia la aplicación, lo que corta las conexiones un momento.",
+    defaultNoteOff: "Las aplicaciones nuevas que pueden correr en dos copias empiezan con esto activado. Esta se reinicia en cada actualización hasta que lo actives. El valor por defecto de las aplicaciones nuevas es {setting}.",
+    defaultNoteOn: "Las aplicaciones nuevas que pueden correr en dos copias también empiezan con esto activado. El valor por defecto de las aplicaciones nuevas es {setting}.",
     loading: "Cargando los despliegues sin cortes",
     readFailed: "No se pudieron leer los despliegues sin cortes",
     needsRollback: "Necesitan la vuelta atrás instantánea, arriba: actívala primero.",
