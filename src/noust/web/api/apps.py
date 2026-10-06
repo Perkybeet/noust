@@ -47,6 +47,7 @@ from noust.core.store import (
 from noust.core.utils import domain_to_app_name
 from noust.deployers.base import BaseDeployer
 from noust.deployers.helpers.app_env import read_app_env, write_app_env
+from noust.deployers.helpers.build_config import describe_build
 from noust.deployers.helpers.env_manager import redact_url_credentials
 from noust.deployers.helpers.health_gate import HealthCheck
 from noust.deployers.helpers.layout import RELEASES, app_root
@@ -714,6 +715,13 @@ def _deployer_build_command(app: App) -> list[str]:
     deployer_class = DeployerRegistry.get(app.app_type)
     if deployer_class is None or not issubclass(deployer_class, BaseDeployer):
         return []
+    # What the application's build block says replaces the type's command.
+    try:
+        declared = describe_build(app.domain).build.build
+    except (NoustError, OSError):
+        declared = None
+    if declared:
+        return list(declared)
     try:
         instance = deployer_class(verbose=False)
         instance.configure(

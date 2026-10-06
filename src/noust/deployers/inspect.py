@@ -133,11 +133,10 @@ SECRET_NAME_MARKERS: tuple[str, ...] = ("SECRET", "KEY", "TOKEN", "PASSWORD", "P
 _UNSUPPORTED_STACKS: tuple[tuple[str, str], ...] = RAILPACK_STACKS
 
 #: Framework dependencies NodeJSDeployer.detect turns away and nothing else
-#: deploys.
-_UNSUPPORTED_NODE_FRAMEWORKS: tuple[tuple[str, str], ...] = (
-    ("nuxt", "Nuxt"),
-    ("@angular/core", "Angular"),
-)
+#: deploys. None is left: Nuxt, SvelteKit, Astro, Remix and Angular have
+#: deployers of their own since 3.4 (an Angular package without its
+#: ``angular.json`` has nothing to build, and the generic verdict says so).
+_UNSUPPORTED_NODE_FRAMEWORKS: tuple[tuple[str, str], ...] = ()
 
 _DOCKERFILES = ("Dockerfile", "Containerfile")
 
@@ -845,7 +844,7 @@ def _unrecognised_package_json(package_json: Path, container_route: str) -> Verd
         compatible=False,
         summary=(
             "package.json has no start script, no main entry and no framework Noust "
-            "recognises (Next.js, Vite)."
+            "recognises (Next.js, Vite, Nuxt, SvelteKit, Astro, Remix, Angular)."
         ),
         suggestion=(
             'Add a start script to package.json ("scripts": {"start": "node server.js"}) '

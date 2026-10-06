@@ -10,4 +10,8 @@ Type=oneshot
 {# ExecStart reads $ and % as its own syntax: both are doubled, so a name can
    never be expanded into anything but itself. --reason is what the ENS profile
    asks of every change, so the timer keeps running under it. #}
+{% if all_databases %}
+ExecStart={{ esc.line(noust) }} db backup-run --all --engine {{ esc.line(engine) | replace('$', '$$') | replace('%', '%%') }} --reason "Scheduled database backup policy"
+{% else %}
 ExecStart={{ esc.line(noust) }} db backup-run {{ esc.line(database) | replace('$', '$$') | replace('%', '%%') }} --engine {{ esc.line(engine) | replace('$', '$$') | replace('%', '%%') }} --reason "Scheduled database backup policy"
+{% endif %}

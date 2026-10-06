@@ -15,6 +15,7 @@ from fastapi import APIRouter, Depends
 
 from noust.core.exceptions import FleetUnavailableError
 from noust.web.api.app_adopt import router as app_adopt_router
+from noust.web.api.app_build import router as app_build_router
 from noust.web.api.app_container import router as app_container_router
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.app_hooks import router as app_hooks_router
@@ -60,11 +61,13 @@ from noust.web.api.passkeys import router as passkeys_router
 from noust.web.api.previews import router as previews_router
 from noust.web.api.recipes import router as recipes_router
 from noust.web.api.sandbox import router as sandbox_router
+from noust.web.api.self_backup import router as self_backup_router
 from noust.web.api.server import router as server_router
 from noust.web.api.services import router as services_router
 from noust.web.api.sites import router as sites_router
 from noust.web.api.system import router as system_router
 from noust.web.api.timeline import router as timeline_router
+from noust.web.api.volume_backups import router as volume_backups_router
 from noust.web.api.zero_downtime import router as zero_downtime_router
 from noust.web.auth import require_auth
 
@@ -137,6 +140,8 @@ router.include_router(backups_router, prefix="/backups", tags=["Backups"])
 router.include_router(
     backup_schedules_router, prefix="/backup-schedules", tags=["Backup Schedules"]
 )
+router.include_router(volume_backups_router, prefix="/volume-backups", tags=["Volume Backups"])
+router.include_router(self_backup_router, prefix="/self-backup", tags=["Self Backup"])
 router.include_router(databases_router, prefix="/databases", tags=["Databases"])
 router.include_router(databases_apps_router, prefix="/apps", tags=["Databases"])
 router.include_router(cron_router, prefix="/cron", tags=["Cron Jobs"])
@@ -178,6 +183,8 @@ router.include_router(deploy_keys_router, prefix="/deploy-keys", tags=["Deploy k
 router.include_router(git_credentials_router, prefix="/apps", tags=["Applications"])
 # app_container.py owns only "/{domain}/container".
 router.include_router(app_container_router, prefix="/apps", tags=["Applications"])
+# app_build.py owns only paths under "/{domain}/build".
+router.include_router(app_build_router, prefix="/apps", tags=["Applications"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.
 router.include_router(app_adopt_router, prefix="/apps", tags=["Applications"])
 router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])

@@ -1,0 +1,2 @@
+# How nginx proxies this application. A bookmarks file is imported through the interface.
+max_body_size: 20m

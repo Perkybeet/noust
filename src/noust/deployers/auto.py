@@ -24,12 +24,14 @@ from noust.central import require_server_role
 from noust.core import cancellation
 from noust.core.applock import app_lock
 from noust.core.config import Config
-from noust.core.exceptions import DeploymentError
+from noust.core.exceptions import DeploymentError, ValidationError
 from noust.core.fs import FileSystem
 from noust.core.logger import Logger
 from noust.core.store import App, get_store
 from noust.core.utils import domain_to_app_name
+from noust.deployers.helpers.build_config import project_dir, resolve_build
 from noust.deployers.helpers.layout import INPLACE, RELEASES, choose_layout
+from noust.deployers.helpers.project_file import parse_build_document
 from noust.deployers.helpers.release_build import discard_release, stage_release
 from noust.deployers.helpers.target import (
     DeployTarget,
@@ -206,8 +208,8 @@ class AutoDeployer(AppDeployer):
 
         self._fetch_in_place(target)
         try:
-            deployer_class = self._detect(self.app_path)
-        except DeploymentError:
+            deployer_class = self._detect(self._project_in(self.app_path, existing))
+        except (DeploymentError, ValidationError):
             target.undo_fetch(self.fs, self.logger)
             raise
 
@@ -275,8 +277,8 @@ class AutoDeployer(AppDeployer):
                 logger=self.logger,
             )
         try:
-            deployer_class = self._detect(staged.path)
-        except DeploymentError:
+            deployer_class = self._detect(self._project_in(staged.path, existing))
+        except (DeploymentError, ValidationError):
             # Nothing was deployed: a new application leaves no directory
             # behind, anything else loses only the release just staged.
             if existing is None and not target.had_files:
@@ -323,6 +325,33 @@ class AutoDeployer(AppDeployer):
         self.delegate = delegate
         return delegate
 
+    def _project_in(self, tree: Path, existing: App | None) -> Path:
+        """
+        Find the directory the project lives in.
+
+        A repository (or its operator) may say the project is in a
+        subdirectory (``build.base_directory``): that is what has to be
+        recognised, not the root of a workspace.
+
+        Args:
+            tree: The fetched source: a release, or the application directory.
+            existing: The application's store row, when it is deployed already.
+
+        Returns:
+            ``tree``, or the base directory inside it.
+
+        Raises:
+            ValidationError: The build block is not valid, or its base
+                directory is a link or missing.
+        """
+        given = self._options.get("build_document")
+        block = (
+            parse_build_document(str(given), source="operator")
+            if given
+            else resolve_build(existing, tree, get_store())
+        )
+        return project_dir(tree, block.base_directory)
+
     def _detect(self, tree: Path) -> type[AppDeployer]:
         """
         Identify the fetched source and return the deployer class for it.
@@ -361,6 +390,13 @@ class AutoDeployer(AppDeployer):
         deployer_class = DeployerRegistry.get(app_type)
         if deployer_class is None:  # pragma: no cover - registry is populated above
             raise DeploymentError(f"Detected unknown application type: {app_type}")
+        if self._options.get("build_document") and not hasattr(deployer_class, "BUILD_KEYS"):
+            # Read by a deployer that has no use for it, it would be silently ignored.
+            raise DeploymentError(
+                f"A {app_type} application is not built by a build block",
+                details="It is built where its own configuration says. Leave out --build-file, "
+                "or deploy the project as the type that runs it.",
+            )
         return deployer_class
 
     def deploy(self) -> bool:

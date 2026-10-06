@@ -1,0 +1,51 @@
+# code-server from the official image. From the image's configuration
+# (ghcr.io/coder/code-server:4.140.0): it runs as user 1000 ("coder"), its
+# entrypoint binds 0.0.0.0:8080 and opens /home/coder, and the project's
+# install guide runs it with PASSWORD or HASHED_PASSWORD for authentication.
+# /healthz answers without a login. A named volume at /home/coder takes the
+# ownership the image gives that directory, so the user can write to it.
+schema: 2
+name: code-server
+kind: compose
+title: code-server
+slogan: VS Code in the browser, on your own server.
+description: Visual Studio Code running on a server and used from any browser, with a terminal and extensions. It runs in a container, as an unprivileged user, behind a password.
+category: development
+tags: [ide, vscode, editor, remote-development]
+logo: logo.svg
+version: "4.140.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://coder.com/docs/code-server
+docs: https://coder.com/docs/code-server
+repository: https://github.com/coder/code-server
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8082
+variables:
+  PASSWORD:
+    generate: password32
+    description: The password that opens the editor.
+health:
+  path: /healthz
+  expect: "200"
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    code-server:
+      image: ghcr.io/coder/code-server:4.140.0@sha256:1c9ad972a78450f430155144110da4c02d3627c72a598e9197e2781fb9f92e28
+      restart: unless-stopped
+      environment:
+        PASSWORD: "${PASSWORD}"
+      volumes:
+        - code-server-home:/home/coder
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+  volumes:
+    code-server-home:
+notes:
+  - "Open {{ url }} and sign in with the password PASSWORD (noust env show {{ domain }} --unmask)."
+  - "Whoever has that password has a terminal inside the container, with network access. Treat it as a login to this server's network."
+  - "The home directory, with your projects and extensions, is the Docker volume code-server-home of this application."

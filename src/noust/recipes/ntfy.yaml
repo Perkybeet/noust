@@ -1,0 +1,65 @@
+# ntfy from its own image, configured as its documentation's "Docker Compose
+# (w/ auth, cache, attachments)" example (docs/config.md at v2.28.0): a cache
+# and an auth database under /var/lib/ntfy, attachments there too,
+# NTFY_BEHIND_PROXY (it sits behind nginx), NTFY_ENABLE_LOGIN, and deny-all as
+# the default access so nobody can publish or read until an administrator
+# exists and grants access. The image's entrypoint is `ntfy`, listens on port
+# 80 and runs as root; /v1/health is its public health endpoint.
+#
+# Users are not provisioned through NTFY_AUTH_USERS, which takes a bcrypt hash,
+# so the administrator is created with `ntfy user add` (see the notes).
+schema: 2
+name: ntfy
+kind: compose
+title: ntfy
+slogan: Send push notifications to your phone or desktop with a plain HTTP call.
+description: "A simple pub-sub notification service: publish with PUT or POST from any script, subscribe from the Android, iOS or web app. Access is closed by default."
+category: communication
+tags: [notifications, push, pubsub, alerts]
+logo: logo.svg
+version: "2.28.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://ntfy.sh
+docs: https://docs.ntfy.sh
+repository: https://github.com/binwiederhier/ntfy
+license: Apache-2.0 OR GPL-2.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 2586
+variables:
+  NTFY_BASE_URL:
+    from: url
+    description: The address people use; ntfy builds attachment and subscription links from it.
+  NTFY_AUTH_DEFAULT_ACCESS:
+    default: deny-all
+    description: What an anonymous visitor may do (deny-all, read-only, write-only or read-write).
+health:
+  path: /v1/health
+  expect: "200"
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    ntfy:
+      image: binwiederhier/ntfy:v2.28.0@sha256:6ef4b819f722fccdc036af611c4774cfdc2de821ab74fdd48bbf4c9d6f8973da
+      command: serve
+      restart: unless-stopped
+      environment:
+        NTFY_BASE_URL: "${NTFY_BASE_URL}"
+        NTFY_CACHE_FILE: /var/lib/ntfy/cache.db
+        NTFY_AUTH_FILE: /var/lib/ntfy/auth.db
+        NTFY_AUTH_DEFAULT_ACCESS: "${NTFY_AUTH_DEFAULT_ACCESS}"
+        NTFY_BEHIND_PROXY: "true"
+        NTFY_ATTACHMENT_CACHE_DIR: /var/lib/ntfy/attachments
+        NTFY_ENABLE_LOGIN: "true"
+      volumes:
+        - ntfy-data:/var/lib/ntfy
+      ports:
+        - "127.0.0.1:${PORT}:80"
+  volumes:
+    ntfy-data:
+notes:
+  - "Nobody can publish or read yet: create the administrator with: cd {{ app_path }} && docker compose exec ntfy ntfy user add --role=admin admin"
+  - "Then grant access to topics with ntfy access, or set NTFY_AUTH_DEFAULT_ACCESS to read-write (open to the world) in the application's environment and restart it: noust restart {{ domain }}."
+  - "The cache, the users and the attachments are in the Docker volume ntfy-data of this application."

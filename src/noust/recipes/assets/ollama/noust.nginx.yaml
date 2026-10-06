@@ -1,0 +1,5 @@
+# How nginx proxies this application. A model can take minutes to load before it answers.
+max_body_size: 50m
+routes:
+  - path: /
+    read_timeout: 600

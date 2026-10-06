@@ -1,0 +1,59 @@
+# linkding from its own image. From the project's installation guide and the
+# image's configuration (ghcr.io/sissbruecker/linkding:1.47.0): it listens on
+# 9090, keeps its SQLite database in /etc/linkding/data, and has a health
+# endpoint at /health (bookmarks/urls.py). LD_SUPERUSER_NAME and
+# LD_SUPERUSER_PASSWORD create the first user at start, which is how the guide
+# says to avoid a manual `createsuperuser`; LD_CSRF_TRUSTED_ORIGINS, set to the
+# public address, is what the guide asks for behind a reverse proxy.
+schema: 2
+name: linkding
+kind: compose
+title: linkding
+slogan: A minimal self-hosted bookmark manager.
+description: "A bookmark manager that is simple to run and quick to use: tags, search, a browser extension, an API and archived copies of pages. It keeps everything in one SQLite file."
+category: productivity
+tags: [bookmarks, links, tags, archive]
+logo: logo.svg
+version: "1.47.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://linkding.link
+docs: https://linkding.link/installation/
+repository: https://github.com/sissbruecker/linkding
+license: MIT
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 9090
+variables:
+  LD_CSRF_TRUSTED_ORIGINS:
+    from: url
+    description: The address people use; without it, signing in behind a proxy can fail.
+  LD_SUPERUSER_NAME:
+    default: admin
+    description: The first user's name.
+  LD_SUPERUSER_PASSWORD:
+    generate: password32
+    description: The first user's password.
+health:
+  path: /health
+  expect: "200"
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    linkding:
+      image: ghcr.io/sissbruecker/linkding:1.47.0@sha256:e35cb50e0581178f245125ffaa909c565416c94c9f22ace305a7d234a4345522
+      restart: unless-stopped
+      environment:
+        LD_CSRF_TRUSTED_ORIGINS: "${LD_CSRF_TRUSTED_ORIGINS}"
+        LD_SUPERUSER_NAME: "${LD_SUPERUSER_NAME}"
+        LD_SUPERUSER_PASSWORD: "${LD_SUPERUSER_PASSWORD}"
+      volumes:
+        - linkding-data:/etc/linkding/data
+      ports:
+        - "127.0.0.1:${PORT}:9090"
+  volumes:
+    linkding-data:
+notes:
+  - "Sign in at {{ url }} as {{ vars.LD_SUPERUSER_NAME }}; the password is LD_SUPERUSER_PASSWORD (noust env show {{ domain }} --unmask). Change it in Settings."
+  - "Your bookmarks are in the Docker volume linkding-data of this application: back it up before updating."

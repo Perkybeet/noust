@@ -116,6 +116,7 @@ from noust.managers.database.linking import (
 )
 from noust.managers.database.records import DatabaseLink, DatabaseRecords, default_env_var
 from noust.managers.database.registry import DatabaseRegistry, get_db_manager
+from noust.managers.database.scope import SCOPE_DATABASE, Exclusions
 from noust.managers.database.settings import SettingsOutcome, SettingsReport, settings_for
 from noust.managers.database.urls import connection_url, masked
 from noust.validators.domain import validate_domain
@@ -3204,6 +3205,7 @@ class DatabaseService:
         compress: bool = True,
         dump_format: str | None = None,
         output: Path | None = None,
+        exclusions: Exclusions | None = None,
     ) -> BackupInfo:
         """
         Dump a database.
@@ -3215,6 +3217,7 @@ class DatabaseService:
                 names is compressed by pg_dump already).
             dump_format: PostgreSQL's ``custom`` (default), ``plain`` or ``tar``.
             output: Where to write it; the engine's backup directory when None.
+            exclusions: Schemas, tables or collections to leave out of the dump.
 
         Returns:
             The dump.
@@ -3226,6 +3229,12 @@ class DatabaseService:
         database = manager.validate_database_name(database)
         target = f"{manager.ENGINE_NAME}/{database}"
         kwargs: dict[str, Any] = {"format": dump_format} if dump_format else {}
+        if exclusions:
+            exclusions.check_for(manager.engine_type, scope=SCOPE_DATABASE)
+            if exclusions.schemas:
+                kwargs["exclude_schemas"] = list(exclusions.schemas)
+            if exclusions.tables:
+                kwargs["exclude_tables"] = list(exclusions.tables)
         try:
             info = manager.backup(database, output_path=output, compress=compress, **kwargs)
         except DatabaseError:
@@ -3244,6 +3253,7 @@ class DatabaseService:
         safety_backup: bool = True,
         new_name: str | None = None,
         on_safety_copy: Callable[[Path], None] | None = None,
+        options: Mapping[str, Any] | None = None,
     ) -> RestoreOutcome:
         """
         Restore a dump into a database, or into a new one beside it.
@@ -3264,6 +3274,8 @@ class DatabaseService:
             new_name: Restore into a new database of this name instead.
             on_safety_copy: Called with the safety copy before anything is
                 dropped or loaded (see the manager's ``restore``).
+            options: Engine-specific loader options an import passes
+                (``keep_owners``, ``owner_role``).
 
         Returns:
             What was done.
@@ -3295,6 +3307,7 @@ class DatabaseService:
                 safety_backup=safety_backup,
                 on_safety_copy=on_safety_copy,
                 **isolation,
+                **(options or {}),
             )
         except DatabaseError:
             self.audit("db.restore", target, "failure", source=source.name)

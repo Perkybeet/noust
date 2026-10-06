@@ -9,6 +9,7 @@ from typing import ClassVar
 from noust.core.fs import FileSystem
 from noust.core.runner import CommandRunner
 from noust.deployers.base import BaseDeployer
+from noust.deployers.helpers.build_config import refuse_links
 from noust.deployers.registry import DeployerRegistry
 
 
@@ -36,6 +37,14 @@ class ViteDeployer(BaseDeployer):
     DETECTION_PRIORITY = 60
 
     SYSTEM_DEPS: ClassVar[list[str]] = ["node", "npm"]
+
+    #: A Vite project is files the web server serves, or a server it proxies
+    #: to: the build block can say where the files are or what to run.
+    BUILD_KEYS: ClassVar[frozenset[str]] = frozenset(
+        {"base_directory", "install", "build", "start", "publish_directory", "runtime"}
+    )
+    RUNTIME_LANGUAGES: ClassVar[frozenset[str]] = frozenset({"node"})
+    PRIMARY_RUNTIME: ClassVar[str | None] = "node"
 
     def __init__(
         self,
@@ -168,9 +177,29 @@ class ViteDeployer(BaseDeployer):
         self._detect_build_mode()
 
     def _detect_build_mode(self) -> None:
-        """Read the output directory and SSR mode from the Vite configuration."""
-        self.output_dir = self._detect_output_dir()
-        self.is_ssr = self._check_ssr_mode()
+        """
+        Read the output directory and SSR mode from the Vite configuration.
+
+        The build block says over it: a ``start`` command makes the project a
+        server, a ``publish_directory`` says where the static files are.
+        """
+        block = self.build_config()
+        if block.publish_directory:
+            refuse_links(self.build_path, block.publish_directory, field="build.publish_directory")
+        self.output_dir = block.publish_directory or self._detect_output_dir()
+        self.is_ssr = bool(block.start) or (not block.publish_directory and self._check_ssr_mode())
+
+    def _tool_dirs(self) -> list[Path]:
+        """
+        List the ``node_modules/.bin`` directories of the project and its workspace.
+
+        Returns:
+            The project's first, then each ancestor's up to the tree's root.
+        """
+        return [
+            directory / "node_modules" / ".bin"
+            for directory in self._pm_helper.directories_up(self.build_path, self.tree_root)
+        ]
 
     def get_template_context(self) -> dict:
         """Get template context with Vite specifics."""

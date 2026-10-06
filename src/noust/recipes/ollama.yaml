@@ -1,0 +1,50 @@
+# Ollama from its own image, for CPU only, as the project's Docker page runs it
+# (docker run -v ollama:/root/.ollama -p 11434:11434 ollama/ollama). From the
+# image's configuration (ollama/ollama:0.35.1): OLLAMA_HOST=0.0.0.0:11434, the
+# command is `serve`, models go to /root/.ollama. Its root path answers
+# "Ollama is running" and is the health check.
+#
+# Ollama has no authentication at all. Behind a public domain anybody who finds
+# the address can run models on this server; the description and the notes say
+# so, and the usual setup is to leave it unreachable from outside (Open WebUI,
+# on the same server, is what talks to it).
+schema: 2
+name: ollama
+kind: compose
+title: Ollama
+slogan: Run large language models on your own server.
+description: Runs open language models locally and serves them over a simple HTTP API. CPU only in this recipe. The API has no authentication, so do not leave it open to the internet.
+category: ai
+tags: [llm, models, inference, api]
+logo: logo.svg
+version: "0.35.1"
+revision: 1
+updated: 2026-10-06
+homepage: https://ollama.com
+docs: https://docs.ollama.com
+repository: https://github.com/ollama/ollama
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - Several GB of memory and disk per model
+port: 11434
+health:
+  path: /
+  expect: "200"
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    ollama:
+      image: ollama/ollama:0.35.1@sha256:292ee7945dfc3d5840a181f3ab86fedb1e66703e02c8af98b50f4da56b7e278c
+      restart: unless-stopped
+      volumes:
+        - ollama-models:/root/.ollama
+      ports:
+        - "127.0.0.1:${PORT}:11434"
+  volumes:
+    ollama-models:
+notes:
+  - "Ollama has no login. Anyone who can reach {{ url }} can use this server's CPU and memory: restrict the site (allow only your addresses in its nginx configuration) before anything else."
+  - "Pull a model with: cd {{ app_path }} && docker compose exec ollama ollama pull llama3.2"
+  - "Models are in the Docker volume ollama-models of this application, and are large."

@@ -154,6 +154,14 @@ LEGACY_LOG_DIR = Path("/var/log/wasm")
 #: sandboxed builds run as; see noust.deployers.helpers.sandbox.
 BUILD_CACHE_DIR = Path("/var/cache/noust/build")
 
+#: The language runtimes Noust installs for applications that pin one
+#: (``build: {runtime: node@22}``): ``<dir>/<language>/<version>``. Outside the
+#: state directory on purpose: a sandboxed build cannot open that one at all
+#: (it holds the store), and builds and services alike must be able to execute
+#: what is in here. root owns it and it is world-readable; nothing a
+#: repository says is ever written into it.
+RUNTIMES_DIR = (DATA_DIR / "runtimes") if DATA_DIR is not None else Path("/opt/noust/runtimes")
+
 #: Where the runner keeps a sandboxed command's environment file and result
 #: while it runs: on tmpfs, root only.
 SANDBOX_RUNTIME_DIR = Path("/run/noust/sandbox")

@@ -15,6 +15,7 @@ meant a deploy could silently substitute one package manager for another.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Literal
 
@@ -58,9 +59,11 @@ class PackageManagerHelper:
     #: Lock files, in the order that decides which manager a project uses.
     LOCK_FILES: tuple[tuple[str, str], ...] = (
         ("pnpm-lock.yaml", "pnpm"),
-        ("pnpm-workspace.yaml", "pnpm"),
         ("bun.lockb", "bun"),
+        ("bun.lock", "bun"),
         ("yarn.lock", "yarn"),
+        ("package-lock.json", "npm"),
+        ("npm-shrinkwrap.json", "npm"),
     )
 
     def __init__(self, logger: Logger | None = None, runner: CommandRunner | None = None):
@@ -97,15 +100,96 @@ class PackageManagerHelper:
         if not app_path or not app_path.exists():
             return "npm"
 
-        # Check for lock files
-        if (app_path / "pnpm-lock.yaml").exists():
-            return "pnpm"
-        elif (app_path / "bun.lockb").exists():
-            return "bun"
-        elif (app_path / "yarn.lock").exists():
-            return "yarn"
+        return self.declared_manager(app_path) or "npm"
 
+    def declared_manager(self, directory: Path) -> str | None:
+        """
+        Read which package manager a directory says it uses.
+
+        A lockfile is the strongest statement (pnpm, then bun, yarn and npm,
+        the order of :attr:`LOCK_FILES`); without one, the ``packageManager``
+        field Corepack reads (``"pnpm@9.1.0"``) is.
+
+        Args:
+            directory: A project directory.
+
+        Returns:
+            ``pnpm``, ``bun``, ``yarn`` or ``npm``; None when it says nothing.
+        """
+        for name, manager in self.LOCK_FILES:
+            if (directory / name).exists():
+                return manager
+        try:
+            declared = json.loads((directory / "package.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        field = declared.get("packageManager") if isinstance(declared, dict) else None
+        if isinstance(field, str):
+            name = field.split("@", 1)[0]
+            if name in SUPPORTED_PACKAGE_MANAGERS:
+                return name
+        return None
+
+    def detect_up(self, project: Path, stop: Path, requested: PackageManager = "auto") -> str:
+        """
+        Detect the package manager of a project that may live in a workspace.
+
+        A project in a subdirectory (a base directory) keeps its lockfile with
+        the workspace: pnpm's, yarn's and npm's all sit at the root of the
+        repository, not in ``apps/web``. The nearest directory that says
+        anything, from the project up to the root of the tree, decides.
+
+        Args:
+            project: The project directory.
+            stop: The root of the tree; nothing above it is read.
+            requested: A manager asked for explicitly, which wins.
+
+        Returns:
+            The manager's name; ``npm`` when no directory says.
+        """
+        if requested != "auto":
+            return requested
+        for directory in self.directories_up(project, stop):
+            found = self.declared_manager(directory) if directory.exists() else None
+            if found is not None:
+                return found
         return "npm"
+
+    @staticmethod
+    def directories_up(project: Path, stop: Path) -> list[Path]:
+        """
+        List a project's directory and its ancestors up to the root of the tree.
+
+        Args:
+            project: The project directory.
+            stop: The root of the tree, which is included.
+
+        Returns:
+            Nearest first; just the project when it is not inside ``stop``.
+        """
+        found = [project]
+        current = project
+        while current != stop and stop in current.parents:
+            current = current.parent
+            found.append(current)
+        return found
+
+    def lockfile_dir(self, project: Path, stop: Path) -> Path:
+        """
+        Find the directory whose lockfile an install of a project uses.
+
+        Args:
+            project: The project directory.
+            stop: The root of the tree.
+
+        Returns:
+            The nearest directory from the project up that holds a lockfile,
+            or the project when none does.
+        """
+        for directory in self.directories_up(project, stop):
+            if any((directory / name).exists() for name, _ in self.LOCK_FILES):
+                return directory
+        return project
 
     def verify(self, package_manager: str, *, negotiable: bool = True) -> str:
         """

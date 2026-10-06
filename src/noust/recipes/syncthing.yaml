@@ -1,0 +1,70 @@
+# Syncthing from its own image, in bridge networking. Its Docker README shows
+# host networking, which a recipe may not use; in a bridge the sync port is
+# published instead, and local discovery by broadcast (21027/udp) is left out
+# because a broadcast does not cross a bridge. Global discovery and relays still
+# find peers.
+#
+# From the image's own configuration (ghcr.io/syncthing/syncthing:2.1.6): the
+# GUI listens on 0.0.0.0:8384 (STGUIADDRESS), everything is under /var/syncthing,
+# PUID and PGID default to 1000, and its health check is
+# /rest/noauth/health. With the GUI on a non-loopback address Syncthing does not
+# check the Host header (lib/api/api.go: only for localhost), so it works behind
+# nginx under any domain.
+schema: 2
+name: syncthing
+kind: compose
+title: Syncthing
+slogan: Continuous file synchronisation between your devices.
+description: Open-source continuous file synchronisation between devices, peer to peer and encrypted. This recipe runs the web interface behind nginx and opens the sync port.
+category: files
+tags: [sync, files, backup, p2p]
+logo: logo.svg
+version: "2.1.6"
+revision: 1
+updated: 2026-10-06
+homepage: https://syncthing.net
+docs: https://docs.syncthing.net
+repository: https://github.com/syncthing/syncthing
+license: MPL-2.0
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8384
+variables:
+  PUID:
+    default: "1000"
+    description: The user id Syncthing runs as inside the container.
+  PGID:
+    default: "1000"
+    description: The group id Syncthing runs as inside the container.
+public_ports:
+  - port: 22000
+    protocol: tcp
+    purpose: Syncthing's sync protocol, so other devices can connect directly.
+  - port: 22000
+    protocol: udp
+    purpose: The same protocol over QUIC.
+health:
+  path: /rest/noauth/health
+  expect: "200"
+compose: |
+  services:
+    syncthing:
+      image: ghcr.io/syncthing/syncthing:2.1.6@sha256:4d0281bdcb4ed9baf503d251d0544ddd856f49fce3f114056257ae172b7fb670
+      hostname: syncthing
+      restart: unless-stopped
+      environment:
+        PUID: "${PUID}"
+        PGID: "${PGID}"
+      volumes:
+        - syncthing-data:/var/syncthing
+      ports:
+        - "127.0.0.1:${PORT}:8384"
+        - "22000:22000/tcp"
+        - "22000:22000/udp"
+  volumes:
+    syncthing-data:
+notes:
+  - "Open {{ url }} now and set a user and password (Actions > Settings > GUI): Syncthing's web interface has none until you do, and it controls what is shared."
+  - "Ports 22000/tcp and 22000/udp are open to the network so other devices can connect; open them in the firewall too if one is in front of this server."
+  - "Everything, configuration and synchronised folders, is in the Docker volume syncthing-data of this application."

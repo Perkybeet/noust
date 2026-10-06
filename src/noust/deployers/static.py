@@ -9,6 +9,8 @@ from noust.core.fs import FileSystem
 from noust.core.logger import Icons
 from noust.core.runner import CommandRunner
 from noust.deployers.base import BaseDeployer
+from noust.deployers.helpers.build_config import refuse_links
+from noust.deployers.helpers.sandbox import BuildPhase
 from noust.deployers.pipeline import DeployStep
 from noust.deployers.registry import DeployerRegistry
 from noust.validators.environment import validate_environment
@@ -33,6 +35,14 @@ class StaticDeployer(BaseDeployer):
     DETECTION_PRIORITY = 10
 
     SYSTEM_DEPS: ClassVar[list[str]] = []
+
+    #: A static site has nothing to run, but it may be built first (Hugo,
+    #: Eleventy, Docusaurus: whatever the server has the toolchain for) and
+    #: the build block says where the files end up.
+    BUILD_KEYS: ClassVar[frozenset[str]] = frozenset(
+        {"base_directory", "install", "build", "publish_directory", "runtime"}
+    )
+    RUNTIME_LANGUAGES: ClassVar[frozenset[str]] = frozenset({"node", "python"})
 
     def __init__(
         self,
@@ -97,13 +107,47 @@ class StaticDeployer(BaseDeployer):
         self._detect_static_dir()
         return True
 
+    def post_build(self) -> bool:
+        """
+        Find the directory the site serves once a build has made it.
+
+        Returns:
+            True.
+        """
+        self._detect_static_dir()
+        return True
+
+    def _tool_dirs(self) -> list[Path]:
+        """
+        List the ``node_modules/.bin`` directories of the project and its workspace.
+
+        Returns:
+            The project's first, then each ancestor's up to the tree's root.
+        """
+        return [
+            directory / "node_modules" / ".bin"
+            for directory in self._pm_helper.directories_up(self.build_path, self.tree_root)
+        ]
+
     def inspect_site(self) -> None:
         """Find the directory the site serves, as a deploy would."""
         super().inspect_site()
         self._detect_static_dir()
 
     def _detect_static_dir(self) -> None:
-        """Pick the first common output directory that holds an index.html."""
+        """
+        Find the directory the site serves.
+
+        The build block's ``publish_directory`` when it names one; otherwise
+        the first common output directory that holds an ``index.html``.
+        """
+        published = self.build_config().publish_directory
+        if published:
+            self.static_dir = refuse_links(
+                self.build_path, published, field="build.publish_directory"
+            )
+            self.logger.debug(f"Static directory: {self.static_dir}")
+            return
         static_dirs = ["public", "dist", "build", "www", "html", "."]
 
         for dir_name in static_dirs:
@@ -170,6 +214,25 @@ class StaticDeployer(BaseDeployer):
             return True
         return False
 
+    def _prepare_static(self) -> None:
+        """
+        Make the files the site serves, and find them.
+
+        A build block may give a static site a toolchain (``install`` and
+        ``build``: Eleventy, Hugo, Docusaurus, whatever the server has the
+        tools for); what it does not declare is not run, so a site without
+        one is prepared exactly as it always was. The block is read from the
+        code once it is fetched, which is why this is a step of its own and
+        not steps of the pipeline: the pipeline is described before that.
+        """
+        if self.install_command():
+            with self._in_phase(BuildPhase.INSTALL):
+                self.install_dependencies()
+        if self.build_command():
+            with self._in_phase(BuildPhase.BUILD):
+                self.build()
+        self.pre_install()
+
     def build_pipeline(self) -> list[DeployStep]:
         """
         Describe the shorter workflow a static site needs.
@@ -185,7 +248,7 @@ class StaticDeployer(BaseDeployer):
         prepare = DeployStep(
             title="Preparing static files",
             icon=Icons.FOLDER,
-            run=self.pre_install,
+            run=self._prepare_static,
         )
         if self.uses_releases:
             return self._release_pipeline([prepare], with_service=False)

@@ -1344,6 +1344,7 @@ def build_spec(
     memory_max_mb: int | None = None,
     cpu_quota_percent: int | None = None,
     tasks_max: int | None = None,
+    work_dir: Path | None = None,
 ) -> SandboxSpec:
     """
     Describe the sandbox one install or build command runs in.
@@ -1366,6 +1367,9 @@ def build_spec(
         memory_max_mb: ``MemoryMax`` of the build.
         cpu_quota_percent: ``CPUQuota`` of the build.
         tasks_max: ``TasksMax`` of the build.
+        work_dir: Where the command runs, when that is not ``build_path``: a
+            project in a subdirectory of the tree (a base directory) builds
+            there, and may still write what a workspace keeps at the root.
 
     Returns:
         The spec.
@@ -1407,7 +1411,7 @@ def build_spec(
         cpu_quota_percent=cpu_quota_percent,
         tasks_max=tasks_max,
         network="none" if strict and phase is BuildPhase.BUILD else "full",
-        working_dir=build_path,
+        working_dir=work_dir or build_path,
         protect_home=not any(_under_home(path) for path in (*writable, *read_only)),
         pty=state.pty,
         name=app_name,

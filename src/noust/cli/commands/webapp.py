@@ -38,7 +38,13 @@ from noust.core.app_state import RUNNING, RUNNING_UNMANAGED, STATIC, resolve_sta
 from noust.core.config import Config
 from noust.core.container_store import forget_secrets
 from noust.core.dependencies import check_deployment_ready
-from noust.core.exceptions import DeploymentError, NoustError, ServiceError, SourceError
+from noust.core.exceptions import (
+    DeploymentError,
+    NoustError,
+    ServiceError,
+    SourceError,
+    ValidationError,
+)
 from noust.core.logger import Logger, state, styled
 from noust.core.runner import (
     CommandResult,
@@ -216,6 +222,7 @@ def _create_app(
     database_version: str | None = None,
     install_database: bool = False,
     container: dict[str, Any] | None = None,
+    build_document: str | None = None,
 ) -> int:
     """
     Deploy an application.
@@ -264,6 +271,8 @@ def _create_app(
             as :func:`~noust.cli.commands.app_container.changes_from_options`
             gives it (``--image``, ``--builder``, ``--build-arg``...); None for
             a repository with a Dockerfile as it is.
+        build_document: The operator's build block, as YAML (``--build-file``):
+            what the first deployment builds with, kept for every later one.
 
     Returns:
         Exit code.
@@ -272,6 +281,11 @@ def _create_app(
         NoustError: When validation or any deployment step fails.
     """
     domain = validate_domain(domain)
+    if build_document is not None and app_type in ("monorepo", "docker-compose"):
+        raise click.UsageError(
+            f"--build-file cannot be used with a {app_type} application: it is not built "
+            "by a build block."
+        )
     if database is not None and app_type in OWN_DATABASE_TYPES:
         raise click.UsageError(
             f"--database cannot be used with a {app_type} application: it provisions its own."
@@ -365,6 +379,8 @@ def _create_app(
         )
 
     options = _import_options(env_secret_marks, limits, initial_health)
+    if build_document is not None:
+        options["build_document"] = build_document
     databases = DatabaseService(logger=logger) if database is not None else None
     new_database = None
     if databases is not None and database is not None:
@@ -682,7 +698,7 @@ def _create_from_recipe(
         logger.error("System is not ready for deployment")
         for item in missing:
             logger.error(f"  - {item}")
-        for requirement in chosen.requires:
+        for requirement in chosen.needs:
             logger.info(f"  {chosen.title} requires: {requirement}")
         return 1
 
@@ -1778,6 +1794,40 @@ def _exit(code: int) -> None:
         click.get_current_context().exit(code)
 
 
+def _read_build_file(path: Path) -> str:
+    """
+    Read and check the build block a new application is created with.
+
+    Args:
+        path: The YAML file given to ``--build-file``.
+
+    Returns:
+        Its text, once it parses as an operator's build block: a refusal names
+        the field, before anything is fetched.
+
+    Raises:
+        ValidationError: The file cannot be read, is too large, or is not a
+            valid build block.
+    """
+    from noust.deployers.helpers.project_file import parse_build_document
+
+    limit = 64 * 1024
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise ValidationError(
+            f"Cannot read {path}: {exc}", details="Give a readable UTF-8 YAML file.", field="file"
+        ) from exc
+    if len(text) > limit:
+        raise ValidationError(
+            f"{path} is larger than {limit // 1024} KiB",
+            details="A build block is a few lines.",
+            field="file",
+        )
+    parse_build_document(text, source="operator")
+    return text
+
+
 @click.group(cls=NoustGroup)
 def cli() -> None:
     """Commands that act on a deployed application."""
@@ -1911,6 +1961,14 @@ def cli() -> None:
     help="Keep this path, relative to the app, in shared/ across releases. Repeat for several.",
 )
 @click.option(
+    "--build-file",
+    type=click.Path(exists=True, dir_okay=False, readable=True, path_type=Path),
+    help="A YAML file holding 'build:' (base_directory, install, build, start, publish_directory, "
+    "runtime): the operator's block for this application, which replaces the repository's "
+    "noust.yaml and is kept for every update. How several applications are deployed from one "
+    "repository: see docs/build.md.",
+)
+@click.option(
     "--force",
     is_flag=True,
     help="Deploy into an app directory that already holds files: in place a git checkout "
@@ -1945,6 +2003,7 @@ def create(
     compose_profiles: tuple[str, ...],
     layout: str | None,
     persist: tuple[str, ...],
+    build_file: Path | None,
     force: bool,
     **container_given: Any,
 ) -> None:
@@ -1985,6 +2044,11 @@ def create(
         # The tag becomes the ref the deployer builds; a branch is what it
         # would have followed otherwise.
         branch = _newest_followed_tag(source, follow_tags)
+    build_document = _read_build_file(build_file) if build_file is not None else None
+    if build_document is not None and recipe is not None:
+        raise click.UsageError(
+            "--build-file cannot be used with --recipe: the recipe pins its own."
+        )
     if recipe is not None:
         _exit(
             _create_from_recipe(
@@ -2037,6 +2101,7 @@ def create(
             database_version=database_version,
             install_database=install_database,
             container=container or None,
+            build_document=build_document,
         ),
     )
     # Reached only when the deploy succeeded: _exit leaves on a failure code.
