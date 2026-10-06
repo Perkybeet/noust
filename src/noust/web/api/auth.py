@@ -725,7 +725,13 @@ def account_signed_in(
 
 
 def _refused_sign_in(
-    exc: AuthenticationFailed, *, client_ip: str, name: str, lockout_key: str, path: str
+    exc: AuthenticationFailed,
+    *,
+    client_ip: str,
+    name: str,
+    lockout_key: str,
+    path: str,
+    event: str = "auth.login",
 ) -> HTTPException:
     """
     Count and audit a refused account sign-in, and build its one answer.
@@ -736,6 +742,8 @@ def _refused_sign_in(
         name: What the attempt named, printable, for the audit log.
         lockout_key: What the address's count is kept under.
         path: The route.
+        event: The audit event: ``auth.login``, or ``auth.oidc.login`` for the
+            second step of a single sign-in.
 
     Returns:
         The 401 ``invalid_credentials`` to raise.
@@ -746,7 +754,7 @@ def _refused_sign_in(
     get_brute_force().record_failure(lockout_key)
     step = " at the second step" if path == SECOND_FACTOR_PATH else ""
     audit_event(
-        "auth.login",
+        event,
         "failure",
         client_ip=client_ip,
         target=f"account:{name}",
@@ -878,6 +886,11 @@ def login_second_factor(
     account = accounts.get(account_id) if account_id is not None else None
     if account is None:
         raise login_failure("sign_in_expired", SIGN_IN_EXPIRED)
+    # What opened this step: a password, or an identity provider's answer. The
+    # second factor is the same either way; what the audit trail and the
+    # session say about the first is not.
+    via = token_manager.login_challenge_via(body.challenge)
+    event = "auth.oidc.login" if via == "oidc" else "auth.login"
     lockout_key = sign_in_lockout_key(client_ip, account.username)
     refuse_locked_sign_in(lockout_key, client_ip, SECOND_FACTOR_PATH)
     try:
@@ -892,13 +905,14 @@ def login_second_factor(
                 name=account.username,
                 lockout_key=lockout_key,
                 path=SECOND_FACTOR_PATH,
+                event=event,
             ) from exc
         token_manager.fail_login_challenge(body.challenge)
         record_auth_failure(
             client_ip, "/api/auth/login/second-factor", "totp", lockout_key=lockout_key
         )
         audit_event(
-            "auth.login",
+            event,
             "failure",
             client_ip=client_ip,
             target=f"account:{account.username}",
@@ -914,9 +928,13 @@ def login_second_factor(
         response,
         account,
         bearer=body.bearer,
-        auth_method="password",
-        event="auth.login",
-        detail="signed in with a password and a second factor, in two steps",
+        auth_method=via,
+        event=event,
+        detail=(
+            "signed in through an identity provider and a second factor"
+            if via == "oidc"
+            else "signed in with a password and a second factor, in two steps"
+        ),
         lockout_key=lockout_key,
     )
 
@@ -1096,7 +1114,9 @@ def get_session_info(request: Request) -> SessionInfo:
         security_profile=policy.profile,
         idle_minutes=policy.idle_minutes,
         elevation_factors=(elevation_factors(account) if session.get("type") == "session" else []),
-        elevation_requires_password=account is not None and policy.sudo_require_password,
+        elevation_requires_password=(
+            account is not None and policy.sudo_require_password and account.has_password
+        ),
         elevation_idle_minutes=policy.sudo_idle_minutes,
         elevation_max_minutes=policy.sudo_max_minutes,
     )
@@ -1162,6 +1182,15 @@ def elevate(
                 details="Enrol an authenticator first: POST /api/auth/2fa/enroll.",
             )
         if token_manager.policy().sudo_require_password:
+            if not account.has_password:
+                raise AccountError(
+                    "Sudo mode asks for the account's password, and this account has none",
+                    details=(
+                        "It signs in through its identity provider. Give it a password, which "
+                        "it keeps only for this: 'noust user invite NAME' lets its owner set "
+                        "one, with their authenticator."
+                    ),
+                )
             _confirm_with_password_and_code(account, body, session, client_ip)
             factor = "the password and a code"
         else:

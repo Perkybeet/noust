@@ -785,6 +785,13 @@ def login_with_passkey(
     client_ip = get_client_ip(request)
     manager = passkeys()
     step_account = None if body.challenge is None else _second_step_account(request, body.challenge)
+    # Read before the step is spent: what opened it is not known afterwards.
+    first_step = (
+        "single sign-in"
+        if body.challenge is not None
+        and token_manager.login_challenge_via(body.challenge) == "oidc"
+        else "the password"
+    )
     try:
         if body.challenge is None:
             passkey = manager.authenticate(
@@ -844,7 +851,7 @@ def login_with_passkey(
         auth_method="passkey",
         event="auth.passkey.login",
         detail=f"signed in with the passkey '{passkey.name}'"
-        + (" after the password" if body.challenge is not None else ""),
+        + ("" if body.challenge is None else f" after {first_step}"),
         lockout_key=client_ip,
     )
 

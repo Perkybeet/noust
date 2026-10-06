@@ -52,6 +52,11 @@ PUBLIC_API_PATHS = frozenset(
         # The passkey is the credential; a refused assertion is counted.
         "/api/auth/passkeys/login/options",
         "/api/auth/passkeys/login",
+        # The identity provider's answer is the credential; a guess at it is counted.
+        "/api/auth/oidc/providers",
+        "/api/auth/oidc/start",
+        "/api/auth/oidc/callback",
+        "/api/auth/oidc/complete",
     }
 )
 
@@ -80,6 +85,11 @@ PUBLIC_PATHS = frozenset(
         "/api/auth/invitations/accept",
         "/api/auth/passkeys/login/options",
         "/api/auth/passkeys/login",
+        # The identity provider's answer is the credential; a guess at it is counted.
+        "/api/auth/oidc/providers",
+        "/api/auth/oidc/start",
+        "/api/auth/oidc/callback",
+        "/api/auth/oidc/complete",
         "/hooks/deploy/{domain}",
         # Verified with the GitHub App's own webhook secret instead.
         "/hooks/github",
@@ -501,6 +511,11 @@ def test_every_lockout_path_is_a_real_route(sandbox: Path) -> None:
 
     assert AUTH_PATHS <= posts, sorted(AUTH_PATHS - posts)
 
+    from noust.web.server import AUTH_GET_PATHS
+
+    gets = {path for path, route in iter_api_routes(app.routes) if "GET" in route.methods}
+    assert AUTH_GET_PATHS <= gets, sorted(AUTH_GET_PATHS - gets)
+
 
 def test_every_endpoint_that_counts_a_failure_is_behind_the_lockout() -> None:
     """
@@ -509,7 +524,7 @@ def test_every_endpoint_that_counts_a_failure_is_behind_the_lockout() -> None:
     Every handler that feeds :func:`record_auth_failure` names its path; each
     of those paths has to be one the middleware refuses a locked-out address.
     """
-    from noust.web.server import AUTH_PATHS
+    from noust.web.server import AUTH_GET_PATHS, AUTH_PATHS
 
     api_dir = Path(auth_module.__file__).parent / "api"
     counted = {
@@ -521,7 +536,7 @@ def test_every_endpoint_that_counts_a_failure_is_behind_the_lockout() -> None:
     }
 
     assert counted, "the scan found no call sites; the pattern is stale"
-    unguarded = {path for path in counted if path not in AUTH_PATHS}
+    unguarded = {path for path in counted if path not in AUTH_PATHS | AUTH_GET_PATHS}
     assert not unguarded, sorted(unguarded)
 
 

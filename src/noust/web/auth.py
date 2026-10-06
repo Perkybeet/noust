@@ -1372,10 +1372,21 @@ class SessionStore:
                     account_id INTEGER NOT NULL,
                     client_ip TEXT NOT NULL,
                     expires_at REAL NOT NULL,
-                    failures INTEGER NOT NULL DEFAULT 0
+                    failures INTEGER NOT NULL DEFAULT 0,
+                    via TEXT NOT NULL DEFAULT 'password'
                 )
                 """
             )
+            challenge_columns = {
+                row["name"]
+                for row in self._conn.execute("PRAGMA table_info(login_challenges)").fetchall()
+            }
+            if "via" not in challenge_columns:
+                # What the first step was: a password, or a single sign-in
+                # through an identity provider. Every step before 3.4 was a password.
+                self._conn.execute(
+                    "ALTER TABLE login_challenges ADD COLUMN via TEXT NOT NULL DEFAULT 'password'"
+                )
             # The token itself is never stored: only its salted hash, exactly
             # like the master token. Names stay unique across revocations so
             # an audit line naming a token always names one thing.
@@ -1444,7 +1455,7 @@ class SessionStore:
             kind: ``account`` for a person's sign-in, ``master`` for the
                 master token's.
             account_id: The account signed in, for an ``account`` session.
-            auth_method: How it signed in: ``password``, ``token``, ``passkey``.
+            auth_method: How it signed in: ``password``, ``token``, ``passkey``, ``oidc``.
             last_activity: Start of the idle clock; now by default.
         """
         now = time.time()
@@ -2077,22 +2088,28 @@ class SessionStore:
         return dict(row) if row else None
 
     def store_login_challenge(
-        self, challenge_hash: str, account_id: int, client_ip: str, expires_at: float
+        self,
+        challenge_hash: str,
+        account_id: int,
+        client_ip: str,
+        expires_at: float,
+        via: str = "password",
     ) -> None:
         """
         Persist the second step of an account's sign-in.
 
         Args:
             challenge_hash: Hash of the challenge value.
-            account_id: The account whose password step passed.
+            account_id: The account whose first step passed.
             client_ip: The address it passed from.
             expires_at: Expiry as a UNIX timestamp.
+            via: What the first step was: ``password`` or ``oidc``.
         """
         with self._lock, self._conn:
             self._conn.execute(
                 "INSERT OR REPLACE INTO login_challenges "
-                "(challenge_hash, account_id, client_ip, expires_at) VALUES (?, ?, ?, ?)",
-                (challenge_hash, int(account_id), client_ip, expires_at),
+                "(challenge_hash, account_id, client_ip, expires_at, via) VALUES (?, ?, ?, ?, ?)",
+                (challenge_hash, int(account_id), client_ip, expires_at, via),
             )
 
     def get_login_challenge(self, challenge_hash: str) -> dict[str, Any] | None:
@@ -3439,7 +3456,7 @@ class TokenManager:
             client_ip: IP the session is issued to.
             account_id: The account signing in; None for the master token.
             auth_method: How it signed in: ``token`` (the master token),
-                ``password`` or ``passkey``.
+                ``password``, ``passkey`` or ``oidc``.
 
         Returns:
             The issued session, including its CSRF token.
@@ -3937,9 +3954,11 @@ class TokenManager:
         }
         return payload if self._apply_principal(payload, session) else None
 
-    def issue_login_challenge(self, account_id: int, client_ip: str) -> tuple[str, int]:
+    def issue_login_challenge(
+        self, account_id: int, client_ip: str, via: str = "password"
+    ) -> tuple[str, int]:
         """
-        Open the second step of an account's sign-in, once its password step passed.
+        Open the second step of an account's sign-in, once its first step passed.
 
         The value is random and only its hash is stored, so it cannot be
         forged or read back from the database; it is bound to the account and
@@ -3949,8 +3968,10 @@ class TokenManager:
         password never travels twice.
 
         Args:
-            account_id: The account whose password was right.
+            account_id: The account whose first step was right.
             client_ip: The address it came from.
+            via: What the first step was: ``password``, or ``oidc`` for a
+                person their identity provider vouched for.
 
         Returns:
             The challenge and its lifetime in seconds.
@@ -3961,8 +3982,26 @@ class TokenManager:
             account_id,
             client_ip,
             time.time() + LOGIN_CHALLENGE_TTL,
+            via,
         )
         return challenge, LOGIN_CHALLENGE_TTL
+
+    def login_challenge_via(self, challenge: str) -> str:
+        """
+        Say what the first step of a sign-in was, without spending it.
+
+        Args:
+            challenge: The value presented.
+
+        Returns:
+            ``password`` or ``oidc``; ``password`` for one that is not open.
+        """
+        record = (
+            self.sessions.get_login_challenge(hashlib.sha256(challenge.encode()).hexdigest())
+            if challenge
+            else None
+        )
+        return str(record["via"]) if record is not None and record.get("via") else "password"
 
     def login_challenge_account(self, challenge: str, client_ip: str) -> int | None:
         """
