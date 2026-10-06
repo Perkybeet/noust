@@ -137,13 +137,14 @@ describe("the new-app wizard in Spanish", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
 
     await user.click(screen.getByRole("button", { name: "Usar WordPress" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "Dirección" })).toHaveFocus();
+    // One step for a recipe: where it answers and its variables, with a Deploy of its own.
+    expect(await screen.findByRole("heading", { level: 2, name: "Dirección y variables" })).toHaveFocus();
     expect(screen.getByRole("checkbox", { name: "Servirla por HTTPS" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Desplegar" })).toBeInTheDocument();
     await user.type(screen.getByLabelText("Dominio"), "blog.example.com");
-    await user.click(screen.getByRole("button", { name: "Continuar" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "Variables" })).toHaveFocus();
-    expect(screen.getByText("Generadas para ti")).toBeInTheDocument();
-    expect(screen.getByText("Lo que prepara la receta")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Lo que prepara, y variables opcionales" }));
+    expect(screen.getByText("Generadas para ti")).toBeVisible();
+    expect(screen.getByText("Lo que prepara la receta")).toBeVisible();
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 

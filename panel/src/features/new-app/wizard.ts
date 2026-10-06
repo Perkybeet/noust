@@ -38,12 +38,15 @@ export type StartKind = "code" | "recipe" | "import";
  * each `WIZARD_STEPS` list, the fields it owns to `FIELD_STEP` when it validates any, and its
  * case in NewAppWizard's `stepView`, which says its title, its content and what it still needs.
  */
-export type Step = "server" | "source" | "address" | "configure" | "variables" | "database" | "deploy";
+export type Step = "server" | "source" | "address" | "configure" | "variables" | "database" | "setup" | "deploy";
 
 export const WIZARD_STEPS: Readonly<Record<StartKind, readonly Step[]>> = {
   code: ["source", "address", "configure", "variables", "deploy"],
-  // A recipe and an export bring their own type, commands and settings: nothing to configure.
-  recipe: ["source", "address", "variables", "deploy"],
+  // A recipe brings its own source, type, commands and settings: what is left for the operator
+  // is where it answers and the few variables it asks for, one step with its own Deploy (a
+  // recipe from the gallery to a first build in three clicks, checklist M-19).
+  recipe: ["source", "setup", "deploy"],
+  // An export brings its own type and settings too: nothing to configure.
   import: ["source", "address", "variables", "deploy"],
 };
 
@@ -54,6 +57,8 @@ export const STEP_LABELS: Readonly<Record<Step, PlainKey>> = {
   address: "newApp.steps.address",
   configure: "newApp.steps.configure",
   variables: "newApp.steps.variables",
+  // Only for a recipe: its domain and its variables, on one step.
+  setup: "newApp.steps.setup",
   // Only for code, when an engine runs here: a database for it (databases/wizard/DatabaseStep.tsx).
   database: "databases.wizard.step",
   deploy: "newApp.steps.deploy",
@@ -72,17 +77,70 @@ export function previousStep(kind: StartKind, step: Step, order: readonly Step[]
 
 /**
  * Which step asks for a field of the review's errors (`reviewProblems`, `recipeProblems`,
- * `importProblems`, or a refusal's), by its name or its prefix.
+ * `importProblems`, or a refusal's), by its name or its prefix. A recipe asks for all of its
+ * fields on the one step.
  */
-export function stepOfField(field: string): Step {
+export function stepOfField(field: string, kind: StartKind = "code"): Step {
+  if (kind === "recipe") return "setup";
   if (field === "domain" || field === "includeWww" || field === "ssl" || field === "source") return "address";
   if (field.startsWith("env:") || field.startsWith("env-name:") || field.startsWith("secret:")) return "variables";
   return "configure";
 }
 
 /** The errors that belong to one step, in the order they were found. */
-export function errorsOf(errors: Readonly<Record<string, string>>, step: Step): [string, string][] {
-  return Object.entries(errors).filter(([field]) => stepOfField(field) === step);
+export function errorsOf(errors: Readonly<Record<string, string>>, step: Step, kind: StartKind = "code"): [string, string][] {
+  return Object.entries(errors).filter(([field]) => stepOfField(field, kind) === step);
+}
+
+// ---------------------------------------------------------------------------------------
+// Steps with nothing to ask
+
+/** What `stepAsks` reads: what was inspected, what the operator reviewed, and the machine's own. */
+export interface AskContext {
+  inspection: Inspection | null;
+  review: ReviewForm | null;
+  context: ReviewContext;
+}
+
+/**
+ * The variables that name a database for the Database step to answer: the one `noust db` writes
+ * (`DATABASE_URL`, `REDIS_URL`) and the Laravel and Rails set. A project that names none is not
+ * asked whether it wants one: it can still be given one from its Database tab.
+ */
+const DATABASE_VARIABLES: ReadonlySet<string> = new Set(["DATABASE_URL", "REDIS_URL", "DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD"]);
+
+/**
+ * Whether a step of the wizard has anything to ask, for an application started from code. A
+ * step that has nothing to ask is passed over by Continue and Back (the stepper still lists it,
+ * done, and opens it on request): a public repository is then three presses from the source to
+ * the build (Inspect, Continue, Deploy), where Coolify's is four, instead of five (checklist
+ * M-12). What is passed over is what was detected, in full, and the Deploy step says so.
+ *
+ * The source, the address and the deploy always ask. Configuration asks when the type was not
+ * detected, or more than one was, or another platform's configuration proposes settings, or
+ * something in it needs a fix. Variables ask when one is required and still has no value.
+ * The database asks only when the project names one. Before anything was inspected, everything
+ * asks: nothing is passed over on a guess. A recipe's and an export's steps are all asked.
+ */
+export function stepAsks(step: Step, kind: StartKind, { inspection, review, context }: AskContext): boolean {
+  if (kind !== "code") return true;
+  if (step !== "configure" && step !== "variables" && step !== "database") return true;
+  if (inspection === null || review === null) return true;
+  const errors = reviewProblems(review, context);
+  switch (step) {
+    case "configure":
+      return (
+        inspection.detected_types.length !== 1 ||
+        // This server cannot deploy it as it is: what to do first is said on this step.
+        inspection.compatible === false ||
+        (inspection.platform_proposal ?? null) !== null ||
+        errorsOf(errors, "configure").length > 0
+      );
+    case "variables":
+      return errorsOf(errors, "variables").length > 0;
+    case "database":
+      return review.env.some((row) => DATABASE_VARIABLES.has(row.name.trim()));
+  }
 }
 
 /** A list of names as the language joins them: "Node.js and Vite", "Node.js y Vite". */

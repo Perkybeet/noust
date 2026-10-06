@@ -6,6 +6,7 @@ import { KeyValueList } from "../../components/page/KeyValueList";
 import { Subsection } from "../../components/page/Subsection";
 import { Badge } from "../../components/ui/Badge";
 import { Card } from "../../components/ui/Card";
+import { Disclosure } from "../../components/ui/Disclosure";
 import { ExternalLink } from "../../components/ui/ExternalLink";
 import { Field } from "../../components/ui/Field";
 import { Input } from "../../components/ui/Input";
@@ -13,7 +14,7 @@ import { Mono } from "../../components/ui/Mono";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { addressItem } from "./DeployStep";
-import { editableVariables, generatedVariables } from "./recipe";
+import { editableVariables, generatedVariables, recipeVariableField, requiredVariables } from "./recipe";
 import type { RecipeForm } from "./recipe";
 import { joinList, typeName } from "./wizard";
 import type { AppTypeOption } from "./wizard";
@@ -131,61 +132,97 @@ export interface RecipeVariablesProps {
   recipe: Recipe;
   form: RecipeForm;
   onChange: (form: RecipeForm) => void;
+  /** What is wrong with the form's variables, by field (`recipeVariableField`). */
+  errors?: Readonly<Record<string, string>>;
+}
+
+/** The attribute that finds a variable's control, for the step's "go to it" and its focus. */
+export const RECIPE_VARIABLE_ATTRIBUTE = "data-recipe-variable";
+
+function VariableField({ name, optional, form, onChange, error }: { name: string; optional: boolean; form: RecipeForm; onChange: (form: RecipeForm) => void; error?: string | undefined }) {
+  const t = useT();
+  return (
+    <Field
+      {...(optional ? { optional: true } : {})}
+      label={<Mono>{name}</Mono>}
+      error={error}
+      description={optional ? t("newApp.recipes.overridesDescription") : undefined}
+    >
+      <Input
+        mono
+        {...{ [RECIPE_VARIABLE_ATTRIBUTE]: name }}
+        value={form.env[name] ?? ""}
+        onValueChange={(value: string) => onChange({ ...form, env: { ...form.env, [name]: value } })}
+        autoComplete="off"
+        autoCapitalize="off"
+        spellCheck={false}
+      />
+    </Field>
+  );
 }
 
 /**
- * A recipe's variables and what else it sets up: the database, the folders it keeps, its
- * startup check are the recipe's and shown as such; the generated variables are listed, never
- * asked; the others can be given a value over the recipe's.
+ * A recipe's variables, after where it answers. What the recipe cannot run without is in
+ * front, each its own field, with what is wrong with it beside it: the deploy waits for these
+ * and says which. Everything else is folded: what the recipe sets up (the database, the folders
+ * it keeps, its startup check, which are the recipe's and shown as such), the generated
+ * variables (listed, never asked) and the optional values the operator may set over the
+ * recipe's.
  */
-export function RecipeVariables({ recipe, form, onChange }: RecipeVariablesProps) {
+export function RecipeVariables({ recipe, form, onChange, errors = {} }: RecipeVariablesProps) {
   const t = useT();
   const generated = generatedVariables(recipe);
-  const editable = editableVariables(recipe);
+  const required = requiredVariables(recipe);
+  const optional = editableVariables(recipe).filter((name) => !required.includes(name));
   return (
     <div className="flex flex-col gap-6">
-      <Subsection title={t("newApp.recipes.setsUp")} description={t("newApp.recipes.setsUpDescription")}>
-        <Card padding="none">
-          <div className="px-4 py-1">
-            <KeyValueList items={setupItems(t, recipe)} />
+      {required.length > 0 ? (
+        <Subsection title={t("newApp.recipes.required")} description={t("newApp.recipes.requiredDescription", { title: recipe.title })}>
+          <div className="flex flex-col gap-5">
+            {required.map((name) => (
+              <VariableField key={name} name={name} optional={false} form={form} onChange={onChange} error={errors[recipeVariableField(name)]} />
+            ))}
           </div>
-        </Card>
-      </Subsection>
+        </Subsection>
+      ) : null}
 
-      <Subsection title={t("newApp.recipes.environment")} description={t("newApp.review.environmentDescription")}>
-        <div className="flex flex-col gap-5">
-          {recipe.env.length === 0 ? <p className="text-13 text-fg-muted">{t("newApp.recipes.noVariables")}</p> : null}
-          {generated.length > 0 ? (
-            <div className="flex flex-col gap-1.5">
-              <p className="flex items-center gap-2 text-13 font-medium text-fg">
-                <KeyRound aria-hidden="true" className="size-icon-sm text-fg-muted" />
-                {t("newApp.recipes.generated")}
-              </p>
-              <p className="text-12 text-pretty text-fg-muted">{t("newApp.recipes.generatedDescription")}</p>
-              <ul aria-label={t("newApp.recipes.generated")} className="flex flex-wrap gap-1.5">
-                {generated.map((name) => (
-                  <li key={name}>
-                    <Badge mono>{name}</Badge>
-                  </li>
-                ))}
-              </ul>
+      <Disclosure label={t("newApp.recipes.moreTitle")}>
+        <div className="flex flex-col gap-6">
+          <Subsection title={t("newApp.recipes.setsUp")} description={t("newApp.recipes.setsUpDescription")}>
+            <Card padding="none">
+              <div className="px-4 py-1">
+                <KeyValueList items={setupItems(t, recipe)} />
+              </div>
+            </Card>
+          </Subsection>
+
+          <Subsection title={t("newApp.recipes.environment")} description={t("newApp.review.environmentDescription")}>
+            <div className="flex flex-col gap-5">
+              {recipe.env.length === 0 ? <p className="text-13 text-fg-muted">{t("newApp.recipes.noVariables")}</p> : null}
+              {generated.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  <p className="flex items-center gap-2 text-13 font-medium text-fg">
+                    <KeyRound aria-hidden="true" className="size-icon-sm text-fg-muted" />
+                    {t("newApp.recipes.generated")}
+                  </p>
+                  <p className="text-12 text-pretty text-fg-muted">{t("newApp.recipes.generatedDescription")}</p>
+                  <ul aria-label={t("newApp.recipes.generated")} className="flex flex-wrap gap-1.5">
+                    {generated.map((name) => (
+                      <li key={name}>
+                        <Badge mono>{name}</Badge>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {optional.length === 0 && required.length === 0 && generated.length > 0 ? <p className="text-13 text-fg-muted">{t("newApp.recipes.allGenerated")}</p> : null}
+              {optional.map((name) => (
+                <VariableField key={name} name={name} optional form={form} onChange={onChange} />
+              ))}
             </div>
-          ) : null}
-          {editable.length === 0 && generated.length > 0 ? <p className="text-13 text-fg-muted">{t("newApp.recipes.allGenerated")}</p> : null}
-          {editable.map((name) => (
-            <Field key={name} optional label={<Mono>{name}</Mono>} description={t("newApp.recipes.overridesDescription")}>
-              <Input
-                mono
-                value={form.env[name] ?? ""}
-                onValueChange={(value: string) => onChange({ ...form, env: { ...form.env, [name]: value } })}
-                autoComplete="off"
-                autoCapitalize="off"
-                spellCheck={false}
-              />
-            </Field>
-          ))}
+          </Subsection>
         </div>
-      </Subsection>
+      </Disclosure>
     </div>
   );
 }

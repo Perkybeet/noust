@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Boxes, X } from "lucide-react";
+import { BookOpen, Boxes, X } from "lucide-react";
 import { useMemo } from "react";
 
 import { appsQuery } from "../../api/queries/apps";
@@ -52,6 +52,21 @@ function NewAppLink({ variant = "primary" }: { variant?: "primary" | "secondary"
 }
 
 /**
+ * "From a recipe": the new-application wizard already on its recipes, so a known application
+ * (WordPress, Ghost, Uptime Kuma) is a click on its card and a Deploy away, not a mode to find
+ * first (checklist M-19). Named for where it starts from, never "Deploy": it opens a page.
+ */
+function FromRecipeLink() {
+  const t = useT();
+  return (
+    <Link to="/apps/new" search={{ start: "recipe" }} className={buttonClassName("secondary")}>
+      <BookOpen aria-hidden="true" />
+      {t("apps.fromRecipe")}
+    </Link>
+  );
+}
+
+/**
  * Every application on the server, as a T1 list: the domain first and its state beside it,
  * searchable with `/` and filtered by state and type through the URL, each row opening its app
  * or acting on it from its menu. On a phone the rows are cards with the menu always in view.
@@ -95,6 +110,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
     title: t("apps.page.title"),
     description: t("apps.page.description"),
     server: node,
+    secondaryActions: <FromRecipeLink />,
     primaryAction: <NewAppLink />,
   };
 

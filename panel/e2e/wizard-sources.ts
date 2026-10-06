@@ -79,6 +79,16 @@ export async function continueTo(page: Page, step: "Address" | "Configuration" |
   await expect(target).toBeFocused();
 }
 
+/**
+ * Opens the Configuration step. A project with one detected type has nothing to ask there, so
+ * Continue passes over it (checklist M-12); it stays on the stepper, done, once a later step is
+ * on screen, which is where this opens it from.
+ */
+export async function openConfiguration(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Configuration: done" }).click();
+  await expect(page.getByRole("heading", { level: 2, name: "Configuration" })).toBeFocused();
+}
+
 /** The storefront's variables that have no value to fall back on, filled in or generated. */
 export async function fillStorefrontVariables(page: Page): Promise<void> {
   await page.getByLabel(/^DATABASE_URL/).fill("postgres://storefront@localhost/storefront");

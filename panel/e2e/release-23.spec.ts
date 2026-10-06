@@ -68,25 +68,20 @@ test("a recipe from the gallery is reviewed, deployed, and says what to do next"
   await expectNoA11yViolations(page, "the recipe gallery");
 
   await recipes.getByRole("button", { name: "Use WordPress" }).click();
-  await expect(page.getByRole("heading", { level: 2, name: "Address" })).toBeFocused();
+  // One step for a recipe: where it answers, and its variables, with a Deploy of its own.
+  await expect(page.getByRole("heading", { level: 2, name: "Address and variables" })).toBeFocused();
   // The archive and where its checksum is published, straight from wordpress.yaml.
   await expect(page.getByText("https://wordpress.org/latest.tar.gz", { exact: true })).toBeVisible();
   await page.getByLabel("Domain", { exact: true }).fill(domain);
   await expect(page.getByText(`${domain} points here`)).toBeVisible();
-  await settle(page);
-  await expectNoA11yViolations(page, "the WordPress address");
-  await continueTo(page, "Variables");
+  await page.getByRole("button", { name: "What it sets up, and optional variables" }).click();
   await expect(page.getByText("A new mysql database and user, their credentials in the app's .env")).toBeVisible();
   await settle(page);
-  await expectNoA11yViolations(page, "the WordPress variables");
-
-  await page.getByRole("button", { name: "Continue" }).click();
-  await expect(page.getByRole("heading", { level: 2, name: "Deploy" })).toBeFocused();
-  await stillness(page);
-  await expectNoA11yViolations(page, "the WordPress deploy step");
+  await expectNoA11yViolations(page, "the WordPress setup");
 
   const queued = page.waitForRequest((request) => request.url().endsWith("/api/apps") && request.method() === "POST");
-  await page.getByRole("button", { name: `Deploy ${domain}` }).click();
+  await page.getByRole("button", { name: "Deploy", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 2, name: "Deploy" })).toBeFocused();
   const body = (await queued).postDataJSON() as Record<string, unknown>;
   expect(body).toMatchObject({ domain, recipe: "wordpress" });
   expect(body).not.toHaveProperty("source");
@@ -130,7 +125,8 @@ test("a repository configured for Railway gets its proposal, and its health chec
   await settle(page);
   await expectNoA11yViolations(page, "a Railway proposal on the configuration step");
 
-  await continueTo(page, "Variables");
+  // The proposal declares no variable and the project has no .env.example: Variables has nothing
+  // to ask, and Configuration is followed by the deploy.
   await continueTo(page, "Deploy");
   const queued = page.waitForRequest((request) => request.url().endsWith("/api/apps") && request.method() === "POST");
   await page.getByRole("button", { name: `Deploy ${domain}` }).click();

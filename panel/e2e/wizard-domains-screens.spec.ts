@@ -16,7 +16,7 @@ import path from "node:path";
 
 import { confirmItsYou, expect, settle, signIn, stillness, test } from "./fixtures";
 import type { ConsoleServer, PageProblems } from "./fixtures";
-import { continueTo, fillStorefrontVariables, inspectSource, typedSource, wizardSource } from "./wizard-sources";
+import { continueTo, fillStorefrontVariables, inspectSource, openConfiguration, typedSource, wizardSource } from "./wizard-sources";
 
 const OUT = process.env.NOUST_WIZARD_SCREENS ?? "/tmp/console-wizard";
 
@@ -45,7 +45,9 @@ const SCREENS: readonly Screen[] = [
     act: async (page, server, problems) => {
       await inspected(page, server, problems);
       await page.getByLabel("Domain", { exact: true }).fill("tienda-nueva.example.net");
-      await continueTo(page, "Configuration");
+      // One type detected: Configuration is passed over, and opened from the stepper.
+      await continueTo(page, "Variables");
+      await openConfiguration(page);
     },
   },
   {
@@ -54,7 +56,6 @@ const SCREENS: readonly Screen[] = [
     act: async (page, server, problems) => {
       await inspected(page, server, problems);
       await page.getByLabel("Domain", { exact: true }).fill("tienda-nueva.example.net");
-      await continueTo(page, "Configuration");
       await continueTo(page, "Variables");
     },
   },
@@ -64,7 +65,6 @@ const SCREENS: readonly Screen[] = [
     act: async (page, server, problems) => {
       await inspected(page, server, problems);
       await page.getByLabel("Domain", { exact: true }).fill("tienda-nueva.example.net");
-      await continueTo(page, "Configuration");
       await continueTo(page, "Variables");
       await fillStorefrontVariables(page);
       await continueTo(page, "Deploy");

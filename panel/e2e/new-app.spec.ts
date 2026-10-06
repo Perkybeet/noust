@@ -7,7 +7,7 @@
 
 import { forgetApp } from "./apps-cleanup";
 import { confirmItsYou, expect, expectNoA11yViolations, settle, signIn, stillness, test } from "./fixtures";
-import { continueTo, fillStorefrontVariables, inspectSource, typedSource, wizardSource } from "./wizard-sources";
+import { continueTo, fillStorefrontVariables, inspectSource, openConfiguration, typedSource, wizardSource } from "./wizard-sources";
 
 test("inspects a directory on the server, deploys it and lands on its deployment", async ({ page, consoleServer, problems }) => {
   // The deploy runs to its end (a failed health check: nothing listens in the sandbox) before
@@ -31,16 +31,8 @@ test("inspects a directory on the server, deploys it and lands on its deployment
   await expect(page.getByText(`${domain} points here`)).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "the wizard's address step");
-  await continueTo(page, "Configuration");
-
-  // What the real inspection found: a Next.js project on npm with a lock file, deployable here.
-  const found = page.getByRole("group", { name: "What Noust found" });
-  await expect(found.getByText(/^Noust can deploy this as Next\.js/)).toBeVisible();
-  await expect(found.getByText("npm ci")).toBeVisible();
-  await expect(found.getByText("npm run build")).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "App type" })).toHaveText(/Next\.js/);
-  await settle(page);
-  await expectNoA11yViolations(page, "the wizard's configuration step");
+  // One type detected, so Configuration has nothing to ask: the address is followed by the
+  // variables the project cannot run without (checklist M-12). Configuration is on the stepper.
   await continueTo(page, "Variables");
 
   // Every variable of .env.example is a field: the ones without a value first, the rest folded.
@@ -54,6 +46,17 @@ test("inspects a directory on the server, deploys it and lands on its deployment
   await settle(page);
   await expectNoA11yViolations(page, "the wizard's variables step");
 
+  // What the real inspection found: a Next.js project on npm with a lock file, deployable here.
+  await openConfiguration(page);
+  const found = page.getByRole("group", { name: "What Noust found" });
+  await expect(found.getByText(/^Noust can deploy this as Next\.js/)).toBeVisible();
+  await expect(found.getByText("npm ci")).toBeVisible();
+  await expect(found.getByText("npm run build")).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "App type" })).toHaveText(/Next\.js/);
+  await settle(page);
+  await expectNoA11yViolations(page, "the wizard's configuration step");
+
+  // Opened by the operator, so it goes on from there: the variables are filled, the deploy is next.
   await continueTo(page, "Deploy");
   await expect(page.getByText(`https://${domain}`)).toBeVisible();
   await stillness(page);
@@ -87,7 +90,6 @@ test("a taken domain and the variables without a default keep the operator where
   await expectNoA11yViolations(page, "the address step with an error");
 
   await page.getByLabel("Domain", { exact: true }).fill("tienda-otra.example.net");
-  await continueTo(page, "Configuration");
   await continueTo(page, "Variables");
   await page.getByRole("button", { name: "Continue", exact: true }).click();
   // Each of the four fields says why, and Continue's own sentence counts them and names the first.
@@ -128,7 +130,8 @@ test("the type select lists every type the deployer registry knows, not a hand-k
   await signIn(page, consoleServer, "/apps/new");
   await inspectSource(page, consoleServer, problems, await wizardSource(page, "storefront"));
   await page.getByLabel("Domain", { exact: true }).fill("tienda-tipos.example.net");
-  await continueTo(page, "Configuration");
+  await continueTo(page, "Variables");
+  await openConfiguration(page);
   await page.getByRole("combobox", { name: "App type" }).click();
   // Detected first, the closest match on top.
   const options = page.getByRole("listbox").getByRole("option");
@@ -147,7 +150,6 @@ test("a domain that resolves elsewhere warns instead of blocking the deploy", as
   await expect(page.getByText("old.example.net points somewhere else")).toBeVisible();
   await settle(page);
   await expectNoA11yViolations(page, "a domain that resolves elsewhere");
-  await continueTo(page, "Configuration");
   await continueTo(page, "Variables");
   await fillStorefrontVariables(page);
   await continueTo(page, "Deploy");
@@ -166,7 +168,12 @@ test("also serving www and resource limits reach the deploy request", async ({ p
   // The static source has no port and no environment; HTTPS is turned off so the deploy does
   // not also wait on a certificate order that a domain with no DNS record cannot complete.
   await page.getByRole("checkbox", { name: "Serve it over HTTPS" }).uncheck();
-  await continueTo(page, "Configuration");
+  // A static site is detected as one type and declares nothing: Configuration and Variables have
+  // nothing to ask, so the address is followed by the deploy. Configuration is still on the
+  // stepper, done, for whoever wants to change what was detected.
+  await continueTo(page, "Deploy");
+  await page.getByRole("button", { name: "Configuration: done" }).click();
+  await expect(page.getByRole("heading", { level: 2, name: "Configuration" })).toBeFocused();
   await page.getByText("Advanced", { exact: true }).click();
   const limits = page.getByRole("group", { name: "Resource limits" });
   await limits.getByLabel(/^Memory/).fill("256");
@@ -174,7 +181,7 @@ test("also serving www and resource limits reach the deploy request", async ({ p
   await settle(page);
   await expectNoA11yViolations(page, "resource limits on the configuration step");
 
-  await continueTo(page, "Variables");
+  // Opened by the operator, so it goes on from there: to the deploy.
   await continueTo(page, "Deploy");
 
   const queued = page.waitForRequest((request) => request.url().endsWith("/api/apps") && request.method() === "POST");

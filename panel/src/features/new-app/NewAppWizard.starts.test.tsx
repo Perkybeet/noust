@@ -107,22 +107,24 @@ describe("starting from a recipe", () => {
     await choose(user, "From a recipe");
     await user.click(await screen.findByRole("button", { name: "Use WordPress" }));
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Address" })).toHaveFocus();
+    // One step for a recipe, with a Deploy of its own: its type and settings come with it.
+    expect(await screen.findByRole("heading", { level: 2, name: "Address and variables" })).toHaveFocus();
     expect(backend.callsTo("GET /api/recipes/wordpress")).toHaveLength(1);
-    // A recipe has no configuration step: its type and settings come with it.
     const steps = screen.getByRole("list", { name: "Steps" });
-    expect(within(steps).getAllByRole("listitem")).toHaveLength(4);
+    expect(within(steps).getAllByRole("listitem")).toHaveLength(3);
+    expect(screen.queryByRole("button", { name: "Continue" })).not.toBeInTheDocument();
 
     // A domain already deployed here is refused before anything is sent.
     await user.type(screen.getByLabelText("Domain"), "shop.example.com");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("button", { name: "Deploy" }));
     expect(await screen.findAllByText(/shop\.example\.com is already deployed/)).not.toHaveLength(0);
+    expect(backend.callsTo("POST /api/apps")).toHaveLength(0);
     await user.clear(screen.getByLabelText("Domain"));
     await user.type(screen.getByLabelText("Domain"), "blog.example.com");
-    await user.click(screen.getByRole("button", { name: "Continue" }));
 
-    expect(await screen.findByRole("heading", { level: 2, name: "Variables" })).toHaveFocus();
-    // Generated variables are listed, never asked; the others can be set over the recipe's.
+    // What comes with the recipe is folded. Generated variables are listed, never asked; the
+    // others can be set over the recipe's.
+    await user.click(screen.getByRole("button", { name: "What it sets up, and optional variables" }));
     expect(screen.getByText("Generated for you")).toBeInTheDocument();
     expect(screen.getByText("WORDPRESS_DB_PASSWORD")).toBeInTheDocument();
     expect(screen.queryByLabelText(/WORDPRESS_DB_PASSWORD/)).not.toBeInTheDocument();
@@ -132,10 +134,10 @@ describe("starting from a recipe", () => {
     expect(screen.getByText("wp-content")).toBeInTheDocument();
     await user.type(screen.getByLabelText(/WP_DEBUG/), "1");
     await expectNoAxeViolations(screen.getByRole("main"));
-    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("button", { name: "Deploy" }));
 
+    // Deploy went ahead: the next step follows the job.
     expect(await screen.findByRole("heading", { level: 2, name: "Deploy" })).toHaveFocus();
-    await user.click(screen.getByRole("button", { name: "Deploy blog.example.com" }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/apps")).toHaveLength(1);
     });
@@ -341,14 +343,18 @@ describe("another platform's configuration", () => {
     // shop.example.com holds 3000 in the fake machine: the detected default moves to 3001.
     expect(screen.getByLabelText("Port")).toHaveValue("3001");
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    await screen.findByRole("heading", { level: 2, name: "Variables" });
+    // Turned off, it declares no variable: there is nothing for the Variables step to ask.
+    await screen.findByRole("heading", { level: 2, name: "Deploy" });
     expect(screen.queryByLabelText(/^SESSION_SECRET/)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Back" }));
 
     await user.click(within(await screen.findByText(/Found a Railway configuration/).then((title) => title.closest("section") ?? missing("section"))).getByRole("checkbox", { name: "Use what it proposes" }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
+    // What the platform generates is generated here, with a value already: nothing to ask, so
+    // Deploy follows, and the Variables step is one click away on the stepper.
+    await screen.findByRole("heading", { level: 2, name: "Deploy" });
+    await user.click(screen.getByRole("button", { name: "Variables: done" }));
     await screen.findByRole("heading", { level: 2, name: "Variables" });
-    // What the platform generates there is generated here, as a secret.
     expect(screen.getByLabelText(/^SESSION_SECRET/)).toHaveAttribute("type", "password");
     expect(screen.getByLabelText<HTMLInputElement>(/^SESSION_SECRET/).value).toMatch(/^[A-Za-z0-9_-]{43}$/);
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -380,8 +386,6 @@ describe("another platform's configuration", () => {
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await screen.findByRole("heading", { level: 2, name: "Configuration" });
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    await screen.findByRole("heading", { level: 2, name: "Variables" });
-    await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(await screen.findByRole("button", { name: "Deploy api.example.com" }));
 
     // The refusal names the startup check, which the Configuration step shows.
@@ -393,8 +397,6 @@ describe("another platform's configuration", () => {
 
     await user.click(within(panel).getByRole("checkbox", { name: "Use what it proposes" }));
     expect(within(panel).queryByRole("alert")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    await screen.findByRole("heading", { level: 2, name: "Variables" });
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(await screen.findByRole("button", { name: "Deploy api.example.com" }));
     await waitFor(() => {

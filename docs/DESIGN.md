@@ -572,6 +572,22 @@ Page (from 1024px):                          Dialog (lg, 720px):
   notice, announced) and moves focus to it (`onMissing`) instead of moving on. A disabled button
   does not say why.
 - A step fits in about one screen; its title is an `h2`.
+- **A step with nothing to ask is passed over** (New application, checklist M-12): Continue and
+  Back skip it, the stepper still lists it, done, and opens it on request, and the last step says
+  what was passed over. What decides is in `stepAsks` (`features/new-app/wizard.ts`), pure and
+  tested: configuration asks when the type was not detected (or more than one was), when
+  another platform proposes settings, when this server cannot deploy it as it is, or when
+  something needs a fix; variables ask when one is required and has no value; a database asks
+  when the project names one. Nothing is passed over on a guess: before the inspection arrives
+  every step asks. The server step on a fleet is passed over when the one server that can take
+  it is the one on screen. The budget, counted in clicks from the Applications list and
+  measured by `e2e/click-budget.spec.ts`: a public repository to its first build in 4 (New
+  application, Inspect, Continue, Deploy), a recipe in 3 (From a recipe, its card, Deploy).
+- **A recipe is one step with its own Deploy** (`setup`: where it answers and the variables it
+  cannot run without), then the job followed on the last step. What the recipe cannot run
+  without is in front and blocks Deploy, said in a sentence that leads to the field; everything
+  it brings with it is folded. A button that only opens a page is never called Deploy: it says
+  where it starts ("From a recipe").
 
 ### T6 File editor: `FileEditorPage`
 

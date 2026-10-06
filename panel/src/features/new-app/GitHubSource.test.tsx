@@ -154,10 +154,10 @@ describe("the new-app wizard, from GitHub", () => {
 
     await user.type(screen.getByLabelText("Domain"), "storefront.example.com");
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    await screen.findByRole("heading", { level: 2, name: "Configuration" });
-    await user.click(screen.getByRole("button", { name: "Continue" }));
-    await screen.findByRole("heading", { level: 2, name: "Variables" });
-    await user.click(screen.getByRole("button", { name: "Continue" }));
+    // One type detected and nothing declared: configuration and variables have nothing to ask,
+    // so the address is followed by the deploy itself (checklist M-12).
+    await screen.findByRole("heading", { level: 2, name: "Deploy" });
+    expect(screen.queryByRole("heading", { level: 2, name: "Configuration" })).not.toBeInTheDocument();
     await user.click(await screen.findByRole("button", { name: "Deploy storefront.example.com" }));
     await waitFor(() => {
       expect(backend.callsTo("POST /api/apps")).toHaveLength(1);

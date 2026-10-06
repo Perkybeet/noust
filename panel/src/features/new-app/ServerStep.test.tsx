@@ -66,6 +66,18 @@ describe("the New application wizard on a fleet", () => {
     });
   });
 
+  it("does not ask when there is only one server it could be (the others cannot take it), and says so on the stepper", { timeout: 30_000 }, async () => {
+    backend([DB1]);
+    renderConsole("/apps/new");
+    await screen.findByRole("heading", { level: 1, name: "New application" });
+    await waitFor(() => {
+      expect(step()).toContain("Source");
+    });
+    expect(screen.queryByRole("radiogroup", { name: "Server" })).toBeNull();
+    // Still there to open: the step is listed, done, and shows who cannot take it.
+    expect(within(screen.getByRole("list", { name: "Steps" })).getByRole("button", { name: /Server/ })).toBeInTheDocument();
+  });
+
   it("is not there on a lone server", { timeout: 30_000 }, async () => {
     backend([]);
     renderConsole("/apps/new");
