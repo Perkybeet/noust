@@ -80,6 +80,7 @@ COMMAND_MODULES: dict[str, str] = {
     "recipe": "noust.cli.commands.recipe",
     "releases": "noust.cli.commands.releases",
     "rollback": "noust.cli.commands.backup",
+    "runtime": "noust.cli.commands.runtime",
     "server": "noust.cli.commands.server",
     "service": "noust.cli.commands.service",
     "sessions": "noust.cli.commands.sessions",

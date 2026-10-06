@@ -23,6 +23,17 @@ AREAS = (
 )
 
 
+@pytest.fixture(autouse=True)
+def _empty_areas(monkeypatch):
+    """
+    Blank every area's fragments: the lanes fill them, and these tests are
+    about the mechanism (the pairs, ``incomplete``, ``apply_v14``), on empty ones.
+    """
+    for area in AREAS:
+        monkeypatch.setattr(schema_v14, f"{area}_SQL", "")
+        monkeypatch.setattr(schema_v14, f"{area}_COLUMNS", [])
+
+
 def _run_script(cursor: sqlite3.Cursor, script: str) -> None:
     """Run a fragment the way the store's runner does, statement by statement."""
     for statement in script.split(";"):
