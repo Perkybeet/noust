@@ -28,7 +28,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from noust.core.exceptions import NoustError, ValidationError
+from noust.core.exceptions import CancelRefused, NoustError, ValidationError
 from noust.core.store import JobRecord, get_store
 from noust.deployers.lifecycle import (
     NOTHING_NEW_HINT,
@@ -47,8 +47,10 @@ from noust.web.jobs import (
     cert_create_job,
     delete_app_job,
     get_job_manager,
+    is_cancellable,
     rollback_app_job,
     update_app_job,
+    visible_state,
 )
 from noust.web.pydantic_compat import iso_offset_validator
 
@@ -139,8 +141,35 @@ class JobResponse(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
     actor: str | None = None
     deployment_id: int | None = None
+    state: str = Field(
+        default="",
+        description="queued, running, succeeded, failed or cancelled: the five states of the queue",
+    )
+    queue_position: int | None = Field(
+        default=None, description="Where it stands among the jobs that wait; 1 starts next"
+    )
+    waiting_for: str | None = Field(
+        default=None, description="What a queued job waits for, in one sentence"
+    )
+    cancellable: bool = Field(
+        default=False,
+        description="Cancelling it now would be accepted: it waits, or it builds and has not "
+        "started to activate its release",
+    )
+    cancel_requested: bool = Field(default=False, description="It was asked to stop and still runs")
 
     _iso_timestamps = iso_offset_validator("created_at", "started_at", "completed_at")
+
+
+class QueueResponse(BaseModel):
+    """What runs, what waits, and the limits that decide it."""
+
+    running: list[JobResponse]
+    queued: list[JobResponse]
+    builds_running: int = Field(description="How many of the running jobs build an application")
+    max_concurrent_builds: int = Field(description="deploy.max_concurrent_builds")
+    queue_limit: int = Field(description="deploy.queue_limit: builds that may wait")
+    builds_queued: int = Field(description="How many of the waiting jobs build an application")
 
 
 class JobListResponse(BaseModel):
@@ -163,6 +192,10 @@ class JobActionResponse(BaseModel):
 
     message: str
     job_id: str | None = None
+    state: str | None = Field(
+        default=None,
+        description="cancelled: it never started; cancelling: it runs and was asked to stop",
+    )
 
 
 class CleanupResponse(BaseModel):
@@ -210,7 +243,11 @@ def _to_response(job: Job) -> JobResponse:
         The API model.
     """
     data = job.to_dict()
-    return JobResponse(deployment_id=_deployment_id_of(data.get("result")), **data)
+    return JobResponse(
+        deployment_id=_deployment_id_of(data.get("result")),
+        cancellable=is_cancellable(job),
+        **data,
+    )
 
 
 def _from_record(record: JobRecord) -> JobResponse:
@@ -238,12 +275,26 @@ def _from_record(record: JobRecord) -> JobResponse:
         if isinstance(parsed, dict):
             result = parsed
 
+    # What the queue says about a job is in this process's memory, not in the
+    # store: a job that is still waiting or running here is asked.
+    live = get_job_manager().get_job(record.id)
+    queue = (
+        {
+            "queue_position": live.queue_position,
+            "waiting_for": live.waiting_for,
+            "cancellable": is_cancellable(live),
+            "cancel_requested": live.cancel_requested_by is not None,
+        }
+        if live is not None
+        else {}
+    )
     return JobResponse(
         id=record.id,
         type=record.type,
         name=record.name,
         description=record.description,
         status=record.status,
+        state=visible_state(record.status),
         progress=record.progress,
         total_steps=record.total_steps,
         current_step="",
@@ -256,6 +307,7 @@ def _from_record(record: JobRecord) -> JobResponse:
         logs=[],
         metadata={"domain": record.domain} if record.domain else {},
         actor=record.actor,
+        **queue,
     )
 
 
@@ -351,6 +403,34 @@ def list_active_jobs(session: Annotated[dict, Depends(get_current_session)]) -> 
     )
 
 
+@router.get("/queue", response_model=QueueResponse)
+def get_queue(session: Annotated[dict, Depends(get_current_session)]) -> QueueResponse:
+    """
+    Show what is building and what is waiting to.
+
+    Builds of different applications run at the same time up to
+    ``deploy.max_concurrent_builds``; one application builds one thing at a
+    time, and the requests that arrive meanwhile wait here in order (a push
+    during a deploy is queued, not refused). The queue holds
+    ``deploy.queue_limit`` builds; the next is refused with 429.
+
+    Args:
+        session: The authenticated session.
+
+    Returns:
+        The running jobs, the waiting ones in the order they start, and the limits.
+    """
+    snapshot = get_job_manager().queue()
+    return QueueResponse(
+        running=[_to_response(job) for job in snapshot.running],
+        queued=[_to_response(job) for job in snapshot.queued],
+        builds_running=snapshot.builds_running,
+        max_concurrent_builds=snapshot.max_concurrent_builds,
+        queue_limit=snapshot.queue_limit,
+        builds_queued=snapshot.builds_queued,
+    )
+
+
 @router.post("/update", response_model=JobCreatedResponse, status_code=202)
 def create_update_job(
     request: UpdateRequest, session: Annotated[dict, Depends(get_current_session)]
@@ -385,6 +465,7 @@ def create_update_job(
                     "hint": NOTHING_NEW_HINT,
                 },
             )
+    joined: list[str] = []
     job = get_job_manager().create_job(
         job_type=JobType.UPDATE,
         name=f"Update {domain}",
@@ -393,7 +474,16 @@ def create_update_job(
         kwargs={"domain": domain},
         metadata={"domain": domain},
         actor=actor_label(session),
+        # An update that waits already builds the branch as it is when its turn
+        # comes: asking for another is the same request.
+        coalesce_key=f"update:{domain}",
+        note=f"{actor_label(session)} asked for the update again: merged into this one",
+        on_merge=lambda waiting: joined.append(waiting.id),
     )
+    if joined:
+        return _queued(
+            "An update of this application is already waiting; this request joined it", job
+        )
     return _queued("Update job created", job)
 
 
@@ -660,29 +750,43 @@ def cancel_job(
     job_id: str, session: Annotated[dict, Depends(get_current_session)]
 ) -> JobActionResponse:
     """
-    Cancel a job that has not started yet.
+    Cancel a job: take it out of the queue, or stop the build that runs.
+
+    A job that waits is cancelled at once and never starts. A deploy or an
+    update that is building is stopped: its build's unit is stopped, the
+    release it was making is removed, the deployment is recorded as cancelled
+    and what served before is never touched; the application's lock is
+    released and the queue moves on. From the moment its release starts to be
+    activated it is too late (409 ``cancel_refused``): the activation finishes
+    or puts back what served by itself.
 
     Args:
         job_id: Job identifier.
         session: The authenticated session.
 
     Returns:
-        The action outcome.
+        The action outcome: ``cancelled`` for a job that had not started,
+        ``cancelling`` for one that runs and was asked to stop.
 
     Raises:
-        HTTPException: 404 when the job is unknown, 409 when it has already
-            started or finished.
+        HTTPException: 404 when the job is unknown.
+        CancelRefused: 409 when it has finished, cannot be interrupted, or its
+            release is already being activated.
     """
     validated = _validated_job_id(job_id)
     manager = get_job_manager()
 
-    if manager.get_job(validated) is None:
-        raise HTTPException(status_code=404, detail=f"Job not found: {validated}")
+    try:
+        outcome = manager.cancel(validated, actor=actor_label(session))
+    except CancelRefused as refused:
+        if refused.reason == "unknown":
+            raise HTTPException(status_code=404, detail=f"Job not found: {validated}") from None
+        raise
 
-    if not manager.cancel_job(validated):
-        raise HTTPException(
-            status_code=409,
-            detail="Cannot cancel this job: it is already running or finished",
-        )
-
-    return JobActionResponse(message="Job cancelled", job_id=validated)
+    if outcome.state == "cancelled":
+        return JobActionResponse(message="Job cancelled", job_id=validated, state=outcome.state)
+    return JobActionResponse(
+        message="Cancelling: the build stops at once and its release is removed",
+        job_id=validated,
+        state=outcome.state,
+    )

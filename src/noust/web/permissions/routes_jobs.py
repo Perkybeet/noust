@@ -15,6 +15,7 @@ from noust.web.permissions import Permission
 ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/jobs"): Permission.APPS_READ,
     ("GET", "/api/jobs/active"): Permission.APPS_READ,
+    ("GET", "/api/jobs/queue"): Permission.APPS_READ,
     ("POST", "/api/jobs/update"): Permission.APPS_DEPLOY,
     ("POST", "/api/jobs/rollback"): Permission.APPS_DEPLOY,
     ("POST", "/api/jobs/delete"): Permission.APPS_MANAGE,

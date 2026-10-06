@@ -19,11 +19,12 @@ panel and the CLI now perform the same operations through the same code.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
-import queue
 import sqlite3
 import threading
+import time
 import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -32,13 +33,18 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, TextIO
 
+from noust.core import cancellation, delivery
+from noust.core.applock import AppBusyError, app_lock
 from noust.core.audit import Actor
 from noust.core.audit import bind as bind_audit_context
 from noust.core.audit import record as record_audit
 from noust.core.exceptions import (
     BackupError,
+    CancelRefused,
+    DeploymentCancelled,
     DeploymentError,
     NoustError,
+    QueueFullError,
     RollbackError,
 )
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, get_fs
@@ -46,10 +52,6 @@ from noust.core.redact import Scrubber, app_secret_values, scrubber_for, secret_
 from noust.core.store import DeploymentTrigger, JobRecord, NoustStore, get_store
 
 logger = logging.getLogger(__name__)
-
-#: How many jobs may run at the same time. Deploys are IO and CPU heavy and
-#: they compete with the panel itself for the machine.
-MAX_CONCURRENT_JOBS = 3
 
 #: Only the last N log entries of a job are serialised, so a chatty build does
 #: not turn every poll of the jobs API into a megabyte of JSON.
@@ -146,6 +148,130 @@ class JobType(str, Enum):
     CUSTOM = "custom"
 
 
+#: What an operator reads: the five states of a deployment's life. A job's
+#: ``status`` keeps the words clients already depend on (``pending`` for what
+#: waits, ``completed`` for what worked); this is the vocabulary of the queue.
+_VISIBLE_STATES = {
+    JobStatus.PENDING: "queued",
+    JobStatus.RUNNING: "running",
+    JobStatus.COMPLETED: "succeeded",
+    JobStatus.FAILED: "failed",
+    JobStatus.CANCELLED: "cancelled",
+}
+
+
+def visible_state(status: JobStatus | str) -> str:
+    """
+    Name a job's status the way the queue shows it.
+
+    Args:
+        status: A job's status.
+
+    Returns:
+        ``queued``, ``running``, ``succeeded``, ``failed`` or ``cancelled``.
+    """
+    return _VISIBLE_STATES[JobStatus(status)]
+
+
+#: Job types that build an application. They are the ones that may overlap, up
+#: to ``deploy.max_concurrent_builds`` (and never two on one application);
+#: every other job runs alone, as every job did before 3.4, because a restore,
+#: an operating system update or a certificate round trip is not something to
+#: run beside a build.
+BUILD_JOB_TYPES = frozenset({JobType.DEPLOY, JobType.UPDATE})
+
+#: Job types that hold their application's lock for the whole run, taken by the
+#: queue rather than by the job: a push that arrives while a terminal's update
+#: runs waits for it instead of failing. The value is the operation the lock
+#: records, which is also what ``noust deploy cancel`` addresses.
+LOCKED_JOB_OPERATIONS = {JobType.DEPLOY: "deploy", JobType.UPDATE: "update"}
+
+#: Seconds a build waits before it looks again for the application's lock, when
+#: another process (a terminal's update) holds it.
+LOCK_RETRY_SECONDS = 2.0
+
+#: Seconds a build waits for that lock before it fails saying who held it. An
+#: operation that long is stuck or forgotten, and a queue that waits for ever
+#: hides it.
+LOCK_WAIT_SECONDS = 3600.0
+
+#: Seconds the dispatcher sleeps when nothing can start, at most: what bounds
+#: noticing a lock that was released, a deferral that expired or a job another
+#: process cancelled.
+DISPATCH_POLL_SECONDS = 1.0
+
+#: Seconds between looks at the store for jobs cancelled from another process.
+EXTERNAL_SYNC_SECONDS = 1.0
+
+
+@dataclass
+class _Entry:
+    """
+    A job waiting for its turn, or running on a thread of its own.
+
+    Attributes:
+        job_id: The job.
+        func: What it runs.
+        args: Its positional arguments.
+        kwargs: Its keyword arguments; what a coalesced request refreshes.
+        sequence: Order of arrival: the queue is first in, first out.
+        state: ``queued`` or ``running``.
+        not_before: Monotonic time before which it is not started again, after
+            being deferred because another process held the application.
+        coalesce_key: What makes another request the same one.
+    """
+
+    job_id: str
+    func: Callable[..., Any]
+    args: tuple[Any, ...]
+    kwargs: dict[str, Any]
+    sequence: int
+    state: str = "queued"
+    not_before: float = 0.0
+    coalesce_key: str | None = None
+
+
+@dataclass(frozen=True)
+class CancelOutcome:
+    """
+    What cancelling a job did.
+
+    Attributes:
+        job_id: The job.
+        state: ``cancelled`` when it had not started and never will, or
+            ``cancelling`` when it runs and was asked to stop at the next safe
+            point (it ends as cancelled, or finishes if it passed that point).
+        request: For a job that runs, what the request was addressed to, which
+            is what whoever asked follows to learn how it ended.
+    """
+
+    job_id: str
+    state: str
+    request: cancellation.CancelResult | None = None
+
+
+@dataclass(frozen=True)
+class QueueSnapshot:
+    """
+    What is running and what is waiting, with the limits that decide it.
+
+    Attributes:
+        running: The jobs that run now, oldest first.
+        queued: The jobs that wait, in the order they will start.
+        builds_running: How many of the running jobs build an application.
+        max_concurrent_builds: How many may.
+        queue_limit: How many builds may wait before the next is refused.
+        builds_queued: How many of the waiting jobs build an application.
+    """
+
+    running: tuple[Job, ...]
+    queued: tuple[Job, ...]
+    builds_running: int
+    max_concurrent_builds: int
+    queue_limit: int
+    builds_queued: int
+
+
 @dataclass
 class JobLogEntry:
     """
@@ -202,6 +328,10 @@ class Job:
         actor: Who queued the job - a session id prefix, an API token name,
             or ``master`` - never a secret. None for a job the system queued
             on its own, such as a webhook-triggered deploy.
+        queue_position: Where it stands among the jobs that wait (1 starts
+            next); None once it runs.
+        waiting_for: What a waiting job waits for, in one sentence.
+        cancel_requested_by: Who asked it to stop, while it runs.
         scrubber: Removes the secrets of what the job works on from every
             log line and from the error, before either is kept anywhere.
             Log lines and errors carry raw tool output, and a job's log file,
@@ -224,6 +354,13 @@ class Job:
     logs: list[JobLogEntry] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
     actor: str | None = None
+    queue_position: int | None = None
+    waiting_for: str | None = None
+    cancel_requested_by: str | None = None
+    # What holds the application when another process does, and since when
+    # the job has been waiting for it: what the queue works from, not shown.
+    holder: str | None = field(default=None, repr=False, compare=False)
+    waiting_since: float | None = field(default=None, repr=False, compare=False)
     scrubber: Scrubber = field(default_factory=Scrubber, repr=False, compare=False)
 
     def to_dict(self) -> dict[str, Any]:
@@ -250,6 +387,10 @@ class Job:
             "logs": [log.to_dict() for log in self.logs[-MAX_SERIALISED_LOGS:]],
             "metadata": self.metadata,
             "actor": self.actor,
+            "state": visible_state(self.status),
+            "queue_position": self.queue_position,
+            "waiting_for": self.waiting_for,
+            "cancel_requested": self.cancel_requested_by is not None,
         }
 
     def add_log(self, message: str, level: str = "info", step: int | None = None) -> None:
@@ -395,8 +536,17 @@ class JobContext:
 
 class JobManager:
     """
-    Runs queued jobs on a worker thread, at most :data:`MAX_CONCURRENT_JOBS` at
-    a time, and notifies subscribers of every state change.
+    Queues jobs and runs them, one per application and one at a time unless
+    they build, and notifies subscribers of every state change.
+
+    A job that builds an application (:data:`BUILD_JOB_TYPES`) waits in a
+    first-in, first-out queue and runs when its application is free and fewer
+    than ``deploy.max_concurrent_builds`` builds run; two builds of one
+    application never overlap, and a push that arrives while its application
+    builds waits instead of failing. Any other job runs alone, exactly as every
+    job did before builds could overlap. The queue is bounded
+    (``deploy.queue_limit``): the request that does not fit is refused, not
+    lost silently.
     """
 
     _instance: JobManager | None = None
@@ -418,17 +568,19 @@ class JobManager:
         return cls._instance
 
     def __init__(self) -> None:
-        """Initialise the queue and start the worker, once per process."""
+        """Initialise the queue and start the dispatcher, once per process."""
         if self._initialized:
             return
 
         self._jobs: dict[str, Job] = {}
-        self._job_queue: queue.Queue[
-            tuple[str, Callable[..., Any], tuple[Any, ...], dict[str, Any]]
-        ] = queue.Queue()
-        self._max_concurrent = MAX_CONCURRENT_JOBS
-        self._running_count = 0
-        self._lock = threading.Lock()
+        # Every job that waits or runs, in the order it arrived.
+        self._entries: list[_Entry] = []
+        # Jobs registered but not yet in the queue, counted against its limit.
+        self._staged = 0
+        self._sequence = 0
+        # Guards the entries; the dispatcher sleeps on it between changes.
+        self._cond = threading.Condition()
+        self._last_external_sync = 0.0
         # Serialises recording a job: the request thread that queues it and
         # the worker that starts it notify at once, and the snapshot each one
         # writes must be taken and stored as one step, or the older snapshot
@@ -460,6 +612,8 @@ class JobManager:
         """
         if cls._instance is not None:
             cls._instance._shutdown = True
+            with cls._instance._cond:
+                cls._instance._cond.notify_all()
         cls._instance = None
 
     def _fail_interrupted_jobs(self) -> None:
@@ -569,31 +723,241 @@ class JobManager:
                         logger.warning("Could not record how to recover %s: %s", job.id, exc)
 
     def _start_worker(self) -> None:
-        """Start the background worker thread if it is not already running."""
+        """Start the dispatcher thread if it is not already running."""
         if self._worker_thread is None or not self._worker_thread.is_alive():
             self._shutdown = False
-            self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
+            self._worker_thread = threading.Thread(
+                target=self._dispatch_loop, name="noust-jobs", daemon=True
+            )
             self._worker_thread.start()
 
-    def _worker_loop(self) -> None:
-        """Pull jobs off the queue and execute them until shutdown."""
+    def _dispatch_loop(self) -> None:
+        """Start each job when its turn comes, until shutdown."""
         while not self._shutdown:
-            try:
-                job_id, func, args, kwargs = self._job_queue.get(timeout=1.0)
-            except queue.Empty:
-                continue
-
-            with self._lock:
-                if self._running_count >= self._max_concurrent:
-                    self._job_queue.put((job_id, func, args, kwargs))
+            self._sync_external_cancellations()
+            with self._cond:
+                entry = self._pick_runnable()
+                if entry is None:
+                    self._cond.wait(timeout=DISPATCH_POLL_SECONDS)
                     continue
-                self._running_count += 1
+                # Marked before the lock is released, so the next look sees it
+                # running: its application and its slot are taken.
+                entry.state = "running"
+                changed = self._refresh_queue_info()
+            self._start(entry)
+            for job in changed:
+                self._notify_subscribers(job)
 
+    def _start(self, entry: _Entry) -> None:
+        """
+        Give a job a thread of its own.
+
+        Args:
+            entry: The job, already marked running.
+        """
+        thread = threading.Thread(
+            target=self._run_entry, args=(entry,), name=f"noust-job-{entry.job_id}", daemon=True
+        )
+        try:
+            thread.start()
+        except RuntimeError as exc:
+            # No thread to run it on: it waits for the next look, which is
+            # better than a dispatcher that died and a queue that never moves.
+            logger.error("Could not start job %s: %s", entry.job_id, exc)
+            with self._cond:
+                entry.state = "queued"
+                entry.not_before = time.monotonic() + LOCK_RETRY_SECONDS
+
+    def _pick_runnable(self) -> _Entry | None:
+        """
+        Choose the job that starts now, if one can.
+
+        First in, first out, with three rules on top. Two jobs of one
+        application never overlap, and a job held up by its application does
+        not hold up the others. Builds overlap up to the server's limit.
+        Anything else runs alone: it waits for everything running to finish,
+        and holds up what is behind it, so a restore is never starved by a
+        stream of builds and never runs beside one. The caller holds the lock.
+
+        Returns:
+            The entry to start, or None.
+        """
+        now = time.monotonic()
+        running = [entry for entry in self._entries if entry.state == "running"]
+        if any(not self._is_build(entry) for entry in running):
+            return None
+        busy = {domain for entry in running if (domain := self._domain_of(entry)) is not None}
+        limit = delivery.current().max_concurrent_builds
+        held: set[str] = set()
+        for entry in self._entries:
+            if entry.state != "queued":
+                continue
+            domain = self._domain_of(entry)
+            builds = self._is_build(entry)
+            held_up = entry.not_before > now or (
+                domain is not None and (domain in busy or domain in held)
+            )
+            if held_up:
+                if domain is not None:
+                    held.add(domain)
+                if not builds:
+                    return None
+                continue
+            if builds:
+                return entry if len(running) < limit else None
+            return entry if not running else None
+        return None
+
+    def _is_build(self, entry: _Entry) -> bool:
+        """
+        Tell whether a job builds an application.
+
+        Args:
+            entry: The job's entry.
+
+        Returns:
+            True for a deploy or an update.
+        """
+        job = self._jobs.get(entry.job_id)
+        return job is not None and job.type in BUILD_JOB_TYPES
+
+    def _domain_of(self, entry: _Entry) -> str | None:
+        """
+        Name the application a job works on.
+
+        Args:
+            entry: The job's entry.
+
+        Returns:
+            The domain, from the job's metadata or its arguments; None for a
+            job that is about the server.
+        """
+        job = self._jobs.get(entry.job_id)
+        return _lock_domain(job, entry.kwargs) if job is not None else None
+
+    def _run_entry(self, entry: _Entry) -> None:
+        """
+        Run a job on this thread and let the queue move on.
+
+        Args:
+            entry: The job, marked running by the dispatcher.
+        """
+        finished = True
+        try:
+            finished = self._execute_job(entry.job_id, entry.func, entry.args, entry.kwargs)
+        finally:
+            with self._cond:
+                if finished:
+                    if entry in self._entries:
+                        self._entries.remove(entry)
+                else:
+                    # Deferred: another process holds the application. It
+                    # keeps its place in the queue and looks again shortly.
+                    entry.state = "queued"
+                    entry.not_before = time.monotonic() + LOCK_RETRY_SECONDS
+                changed = self._refresh_queue_info()
+                self._cond.notify_all()
+            for job in changed:
+                self._notify_subscribers(job)
+
+    def _sync_external_cancellations(self) -> None:
+        """
+        Cancel the waiting jobs another process cancelled.
+
+        ``noust deploy cancel`` runs in a terminal, not in this process: for a
+        job that has not started, all it can do is write ``cancelled`` in the
+        store, and this is where the queue reads it back.
+        """
+        now = time.monotonic()
+        if now - self._last_external_sync < EXTERNAL_SYNC_SECONDS:
+            return
+        self._last_external_sync = now
+        with self._cond:
+            waiting = [entry.job_id for entry in self._entries if entry.state == "queued"]
+        for job_id in waiting:
             try:
-                self._execute_job(job_id, func, args, kwargs)
-            finally:
-                with self._lock:
-                    self._running_count -= 1
+                record = get_store().get_job(job_id)
+            except _RECORDING_ERRORS as exc:
+                logger.debug("Could not look for a cancellation of job %s: %s", job_id, exc)
+                return
+            if record is not None and record.status == JobStatus.CANCELLED.value:
+                self._cancel_waiting(job_id, actor=None, announce=False)
+
+    def _refresh_queue_info(self) -> list[Job]:
+        """
+        Work out where each waiting job stands, and why it waits.
+
+        The caller holds the lock.
+
+        Returns:
+            The jobs whose answer changed, to be notified once the lock is
+            released.
+        """
+        running = [entry for entry in self._entries if entry.state == "running"]
+        limit = delivery.current().max_concurrent_builds
+        changed: list[Job] = []
+        position = 0
+        waiting: set[str] = set()
+        for entry in self._entries:
+            job = self._jobs.get(entry.job_id)
+            if job is None or entry.state != "queued":
+                continue
+            position += 1
+            waiting.add(job.id)
+            answer = (position, self._why_waiting(entry, running, limit))
+            if (job.queue_position, job.waiting_for) != answer:
+                job.queue_position, job.waiting_for = answer
+                changed.append(job)
+        # What started, was cancelled or ended no longer waits.
+        for job in self._jobs.values():
+            if job.id not in waiting and (job.queue_position or job.waiting_for):
+                job.queue_position, job.waiting_for = None, None
+                changed.append(job)
+        return changed
+
+    def _why_waiting(self, entry: _Entry, running: list[_Entry], limit: int) -> str | None:
+        """
+        Say what a waiting job waits for.
+
+        Args:
+            entry: The waiting job.
+            running: What runs now.
+            limit: How many builds may run.
+
+        Returns:
+            One sentence, or None when it starts at the next look.
+        """
+        job = self._jobs.get(entry.job_id)
+        if job is not None and job.holder is not None:
+            return job.holder
+        domain = self._domain_of(entry)
+        for other in running:
+            if domain is not None and self._domain_of(other) == domain:
+                found = self._jobs.get(other.job_id)
+                if found is not None:
+                    return f"the {found.type.value} of {domain} that is running (job {found.id})"
+        if not self._is_build(entry):
+            return "the jobs that are running now" if running else None
+        if any(not self._is_build(other) for other in running):
+            return "the job that is running now"
+        builds = len(running)
+        if builds >= limit:
+            return f"a free build slot ({builds} of {limit} are building)"
+        earlier = next(
+            (
+                self._jobs[other.job_id]
+                for other in self._entries
+                if other.sequence < entry.sequence
+                and other.state == "queued"
+                and domain is not None
+                and self._domain_of(other) == domain
+                and other.job_id in self._jobs
+            ),
+            None,
+        )
+        if earlier is not None:
+            return f"the earlier {earlier.type.value} of {domain} (job {earlier.id})"
+        return None
 
     def _execute_job(
         self,
@@ -601,25 +965,102 @@ class JobManager:
         func: Callable[..., Any],
         args: tuple[Any, ...],
         kwargs: dict[str, Any],
-    ) -> None:
+    ) -> bool:
         """
         Run one job and record its outcome.
+
+        A deploy or an update takes its application's lock here, before it is
+        marked running, and holds it for the whole run (the operation inside
+        takes it again, which in one thread is the same lock). When another
+        process holds it (an update typed in a terminal) the job is not
+        started: it stays queued and this returns False.
 
         Args:
             job_id: Identifier of the queued job.
             func: The job function.
             args: Positional arguments for the function.
             kwargs: Keyword arguments for the function.
+
+        Returns:
+            False when the job was put off because its application is busy
+            with an operation of another process; True when it ran, or was not
+            there to run.
         """
         job = self._jobs.get(job_id)
-        if not job:
-            return
+        if not job or job.status is JobStatus.CANCELLED:
+            return True
 
+        domain = _lock_domain(job, kwargs)
+        operation = LOCKED_JOB_OPERATIONS.get(job.type)
+        with contextlib.ExitStack() as held:
+            if operation is not None and domain is not None:
+                try:
+                    held.enter_context(app_lock(domain, operation))
+                except AppBusyError as busy:
+                    return self._defer(job, busy)
+            self._run_job(job, func, args, kwargs)
+        return True
+
+    def _defer(self, job: Job, busy: AppBusyError) -> bool:
+        """
+        Keep a job queued because another process holds its application.
+
+        Said once, in the job's own log and in what the queue shows, not every
+        time it looks again; and given up on, with the holder named, when it
+        has waited longer than anything legitimate runs.
+
+        Args:
+            job: The job that could not start.
+            busy: The refusal, naming what holds the application.
+
+        Returns:
+            False while it keeps waiting; True when it gave up and failed.
+        """
+        now = time.monotonic()
+        if job.waiting_since is None:
+            job.waiting_since = now
+            holder = busy.holder
+            job.holder = (
+                f"the {holder.operation} running on {busy.domain} since {holder.started_at} "
+                f"(pid {holder.pid})"
+                if holder is not None
+                else f"another operation running on {busy.domain}"
+            )
+            job.add_log(f"Waiting for {job.holder}", "warning")
+            self._notify_subscribers(job)
+            return False
+        if now - job.waiting_since < LOCK_WAIT_SECONDS:
+            return False
+        job.holder = None
+        job.status = JobStatus.FAILED
+        job.error = job.scrubber.scrub(_error_text(busy))
+        job.add_log(f"Job failed: {busy}", "error")
+        job.completed_at = datetime.now()
+        self._notify_subscribers(job)
+        return True
+
+    def _run_job(
+        self,
+        job: Job,
+        func: Callable[..., Any],
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ) -> None:
+        """
+        Run a job's function and record how it ended.
+
+        Args:
+            job: The job.
+            func: The job function.
+            args: Positional arguments for the function.
+            kwargs: Keyword arguments for the function.
+        """
         domain = job.metadata.get("domain")
         job.scrubber = scrubber_for(domain if isinstance(domain, str) else None)
         job.scrubber.add(_argument_secrets(kwargs))
         job.status = JobStatus.RUNNING
         job.started_at = datetime.now()
+        job.holder = None
         job.add_log("Job started", "info")
         self._notify_subscribers(job)
 
@@ -637,9 +1078,19 @@ class JobManager:
             job.status = JobStatus.COMPLETED
             job.progress = job.total_steps
             job.add_log("Job completed successfully", "success")
+        except DeploymentCancelled as cancelled:
+            # An operator's decision, not a failure: nothing that served was
+            # touched, and the history row says it was cancelled.
+            job.status = JobStatus.CANCELLED
+            job.result = {
+                "domain": job.metadata.get("domain"),
+                "status": "cancelled",
+                "cancelled_by": cancelled.cancelled_by,
+            }
+            job.add_log(f"Job cancelled: {cancelled.message}", "warning")
         # This is the worker's error boundary: a job function is arbitrary
         # product code and a crash here must mark the job failed, never kill
-        # the only worker thread.
+        # the thread that runs it.
         except Exception as exc:
             domain = job.metadata.get("domain")
             if isinstance(domain, str) and domain:
@@ -691,9 +1142,22 @@ class JobManager:
         metadata: dict[str, Any] | None = None,
         total_steps: int = 100,
         actor: str | None = None,
+        *,
+        coalesce_key: str | None = None,
+        merge: Mapping[str, Any] | None = None,
+        note: str | None = None,
+        on_merge: Callable[[Job], None] | None = None,
     ) -> Job:
         """
-        Create and queue a background job.
+        Create and queue a background job, or fold the request into an identical one.
+
+        A request that is the same as one still waiting in the queue is not
+        queued a second time: with a ``coalesce_key`` equal to a waiting job's,
+        the waiting job is returned instead, after ``merge`` replaced what the
+        newer request knows better (the tag a release announced, the commit a
+        push named). A push is news that the branch moved, and the update that
+        waits will build the branch as it is when its turn comes, so the last
+        request wins and none is lost.
 
         Args:
             job_type: Type of job.
@@ -702,13 +1166,25 @@ class JobManager:
             func: Function to execute. It must accept a ``job_context`` keyword.
             args: Positional arguments for the function.
             kwargs: Keyword arguments for the function.
-            metadata: Additional job metadata.
+            metadata: Additional job metadata; for a request merged into a
+                waiting job, what is added to that job's.
             total_steps: Denominator for progress reporting.
             actor: Who queued the job, as recorded by the endpoint that
                 called this - see :attr:`Job.actor`.
+            coalesce_key: What makes another request the same one, such as
+                ``update:shop.example.com``.
+            merge: Keyword arguments that replace the waiting job's.
+            note: What is said in the waiting job's log when a request is
+                merged into it.
+            on_merge: Called with the waiting job when the request was merged
+                into it, for a caller that tells its own caller which.
 
         Returns:
-            The queued job.
+            The queued job, or the waiting one the request was merged into.
+
+        Raises:
+            QueueFullError: The job builds an application and
+                ``deploy.queue_limit`` builds already wait.
         """
         job_id = str(uuid.uuid4())[:8]
 
@@ -721,19 +1197,248 @@ class JobManager:
             metadata=metadata or {},
             actor=actor,
         )
+        call_kwargs = kwargs or {}
 
-        self._jobs[job_id] = job
-        self._open_log(job_id)
+        with self._cond:
+            if coalesce_key is not None:
+                waiting = next(
+                    (
+                        entry
+                        for entry in self._entries
+                        if entry.state == "queued" and entry.coalesce_key == coalesce_key
+                    ),
+                    None,
+                )
+                if waiting is not None:
+                    merged = self._coalesce(waiting, metadata or {}, merge or {}, note)
+                    self._cond.notify_all()
+                else:
+                    merged = None
+            else:
+                merged = None
+            if merged is None:
+                if job_type in BUILD_JOB_TYPES:
+                    self._require_room()
+                self._jobs[job_id] = job
+                self._staged += 1
+                self._open_log(job_id)
+        if merged is not None:
+            self._notify_subscribers(merged)
+            if on_merge is not None:
+                on_merge(merged)
+            return merged
+
         record_audit(
             "job.queue",
             actor=Actor.from_label(actor) if actor else None,
             target=f"job:{job_id}",
             details={"type": job_type.value, "name": name, "correlation": f"job-{job_id}"},
         )
-        self._job_queue.put((job_id, func, args, kwargs or {}))
+        with self._cond:
+            self._staged -= 1
+            self._sequence += 1
+            self._entries.append(
+                _Entry(
+                    job_id=job_id,
+                    func=func,
+                    args=args,
+                    kwargs=call_kwargs,
+                    sequence=self._sequence,
+                    coalesce_key=coalesce_key,
+                )
+            )
+            changed = self._refresh_queue_info()
+            self._cond.notify_all()
         self._notify_subscribers(job)
+        for other in changed:
+            if other is not job:
+                self._notify_subscribers(other)
 
         return job
+
+    def _require_room(self) -> None:
+        """
+        Refuse a build the queue has no room for. The caller holds the lock.
+
+        Raises:
+            QueueFullError: ``deploy.queue_limit`` builds already wait.
+        """
+        limit = delivery.current().queue_limit
+        waiting = self._staged + sum(
+            1 for entry in self._entries if entry.state == "queued" and self._is_build(entry)
+        )
+        if waiting >= limit:
+            raise QueueFullError(
+                f"The deploy queue is full: {waiting} requests are waiting",
+                details="Builds run a few at a time and the rest wait their turn. Wait for the "
+                "queue to shrink, cancel what is not needed ('noust deploy queue' lists it), "
+                "or raise the limit: noust config set deploy.queue_limit <number>.",
+                limit=limit,
+            )
+
+    def _coalesce(
+        self,
+        waiting: _Entry,
+        metadata: Mapping[str, Any],
+        merge: Mapping[str, Any],
+        note: str | None,
+    ) -> Job:
+        """
+        Fold a request into the identical one that is still waiting.
+
+        The caller holds the lock.
+
+        Args:
+            waiting: The queued job.
+            metadata: What the newer request knows about itself.
+            merge: Keyword arguments that replace the waiting job's.
+            note: What the waiting job's log says about it.
+
+        Returns:
+            The waiting job.
+        """
+        job = self._jobs[waiting.job_id]
+        waiting.kwargs.update(merge)
+        job.metadata.update(metadata)
+        job.metadata["merged_requests"] = int(job.metadata.get("merged_requests", 0)) + 1
+        job.add_log(
+            note or "Another request for the same work arrived while this one waited: merged",
+            "info",
+        )
+        return job
+
+    def cancel(self, job_id: str, *, actor: str | None = None) -> CancelOutcome:
+        """
+        Cancel a job: take it out of the queue, or ask the build that runs to stop.
+
+        A job that waits is cancelled at once and never starts. A deploy or an
+        update that runs is stopped through the application's cancellation
+        (:mod:`noust.core.cancellation`): its build is killed, the release it
+        was making removed, and what served before is not touched; once the
+        release is being activated it is too late, and the request is refused.
+        Any other running job is halfway through changing the system, and there
+        is no safe generic point to stop it.
+
+        Args:
+            job_id: The identifier.
+            actor: Who asked, as the audit trail names them.
+
+        Returns:
+            What happened: ``cancelled``, or ``cancelling`` for a job that runs.
+
+        Raises:
+            CancelRefused: The job is unknown, has finished, or cannot be
+                interrupted now.
+        """
+        job = self._jobs.get(job_id)
+        if job is None:
+            raise CancelRefused(
+                f"Job not found: {job_id}",
+                "It may have finished long ago and been cleaned up.",
+                reason="unknown",
+            )
+        if job.status in FINISHED_STATUSES:
+            raise CancelRefused(
+                f"The job already ended as {visible_state(job.status)}",
+                "There is nothing to cancel.",
+                reason="finished",
+            )
+        if job.status is JobStatus.PENDING:
+            if not self._cancel_waiting(job_id, actor=actor, announce=True):
+                # It started between the look and the cancel: it runs now.
+                return self.cancel(job_id, actor=actor)
+            return CancelOutcome(job_id, "cancelled")
+
+        domain = _lock_domain(job, {})
+        if job.type not in BUILD_JOB_TYPES or domain is None:
+            raise CancelRefused(
+                f"The {job.type.value} job is running and cannot be stopped safely",
+                "Only a deploy or an update can be cancelled while it runs: the others are "
+                "halfway through changing the system. Wait for it to finish.",
+                reason="unsupported",
+            )
+        request = cancellation.request_cancel(domain, by=actor)
+        job.cancel_requested_by = actor or "an operator"
+        job.add_log(f"Cancellation requested by {job.cancel_requested_by}", "warning")
+        record_audit(
+            "job.cancel",
+            actor=Actor.from_label(actor) if actor else None,
+            target=f"job:{job_id}",
+            details={"type": job.type.value, "state": "running", "domain": domain},
+        )
+        self._notify_subscribers(job)
+        return CancelOutcome(job_id, "cancelling", request)
+
+    def _cancel_waiting(self, job_id: str, *, actor: str | None, announce: bool) -> bool:
+        """
+        Cancel a job that has not started.
+
+        Args:
+            job_id: The identifier.
+            actor: Who asked.
+            announce: Whether to record it in the audit trail; False for a
+                cancellation another process already recorded.
+
+        Returns:
+            True when the job moved to cancelled; False when it was already
+            running (or not there), which the caller deals with.
+        """
+        with self._cond:
+            job = self._jobs.get(job_id)
+            entry = next((e for e in self._entries if e.job_id == job_id), None)
+            if job is None or job.status is not JobStatus.PENDING:
+                return False
+            if entry is not None:
+                if entry.state != "queued":
+                    return False
+                self._entries.remove(entry)
+            job.status = JobStatus.CANCELLED
+            job.holder = None
+            job.completed_at = datetime.now()
+            job.add_log(f"Job cancelled{f' by {actor}' if actor else ''}", "warning")
+            changed = self._refresh_queue_info()
+            self._cond.notify_all()
+        if announce:
+            record_audit(
+                "job.cancel",
+                actor=Actor.from_label(actor) if actor else None,
+                target=f"job:{job_id}",
+                details={"type": job.type.value, "state": "queued"},
+            )
+        self._notify_subscribers(job)
+        for other in changed:
+            if other is not job:
+                self._notify_subscribers(other)
+        return True
+
+    def queue(self) -> QueueSnapshot:
+        """
+        Describe what runs and what waits.
+
+        Returns:
+            The running jobs, the waiting ones in the order they will start,
+            and the limits that decide it.
+        """
+        with self._cond:
+            running = tuple(
+                self._jobs[entry.job_id]
+                for entry in self._entries
+                if entry.state == "running" and entry.job_id in self._jobs
+            )
+            queued = tuple(
+                self._jobs[entry.job_id]
+                for entry in self._entries
+                if entry.state == "queued" and entry.job_id in self._jobs
+            )
+        settings = delivery.current()
+        return QueueSnapshot(
+            running=running,
+            queued=queued,
+            builds_running=sum(1 for job in running if job.type in BUILD_JOB_TYPES),
+            max_concurrent_builds=settings.max_concurrent_builds,
+            queue_limit=settings.queue_limit,
+            builds_queued=sum(1 for job in queued if job.type in BUILD_JOB_TYPES),
+        )
 
     def get_job(self, job_id: str) -> Job | None:
         """
@@ -773,27 +1478,24 @@ class JobManager:
             if job.status in (JobStatus.PENDING, JobStatus.RUNNING)
         ]
 
-    def cancel_job(self, job_id: str) -> bool:
+    def cancel_job(self, job_id: str, *, actor: str | None = None) -> bool:
         """
-        Cancel a job that has not started yet.
+        Cancel a job, whether it waits or runs.
 
-        A running job is not interrupted: it is halfway through changing the
-        system, and there is no safe generic point to stop it.
+        The yes-or-no form of :meth:`cancel`, for callers that have nothing to
+        say about a refusal.
 
         Args:
             job_id: The identifier.
+            actor: Who asked.
 
         Returns:
-            True when the job moved to cancelled.
+            True when the job was cancelled or was asked to stop.
         """
-        job = self._jobs.get(job_id)
-        if not job or job.status != JobStatus.PENDING:
+        try:
+            self.cancel(job_id, actor=actor)
+        except CancelRefused:
             return False
-
-        job.status = JobStatus.CANCELLED
-        job.completed_at = datetime.now()
-        job.add_log("Job cancelled", "warning")
-        self._notify_subscribers(job)
         return True
 
     def subscribe(self, job_id: str, callback: Callable[[Job], None]) -> None:
@@ -1038,6 +1740,120 @@ class JobManager:
             self._close_log(job_id)
 
         return len(to_remove)
+
+
+def _lock_domain(job: Job, kwargs: Mapping[str, Any]) -> str | None:
+    """
+    Name the application a job works on, as the application's lock names it.
+
+    Args:
+        job: The job.
+        kwargs: Its keyword arguments, which name the domain before the job
+            has said so itself.
+
+    Returns:
+        The lower-cased domain, or None for a job about the server.
+    """
+    domain = job.metadata.get("domain") or kwargs.get("domain")
+    if isinstance(domain, str) and domain.strip():
+        return domain.strip().lower()
+    return None
+
+
+def is_cancellable(job: Job) -> bool:
+    """
+    Tell whether cancelling a job would be accepted now.
+
+    Args:
+        job: The job.
+
+    Returns:
+        True for a job that waits, and for a deploy or an update that builds
+        and has not started to activate its release.
+    """
+    if job.status is JobStatus.PENDING:
+        return True
+    if job.status is not JobStatus.RUNNING or job.type not in BUILD_JOB_TYPES:
+        return False
+    domain = _lock_domain(job, {})
+    if domain is None or job.cancel_requested_by is not None:
+        return False
+    token = cancellation.token_of(domain)
+    # No token yet: the operation has not opened its window, and a request
+    # now is adopted when it does.
+    return token is None or (token.supported and not token.committed)
+
+
+def cancel_recorded_job(
+    job_id: str, *, actor: str | None = None, store: NoustStore | None = None
+) -> CancelOutcome:
+    """
+    Cancel a job from a process that is not the one running the queue.
+
+    ``noust deploy cancel`` runs in a terminal; the console's queue lives in
+    another process. A job that waits is marked cancelled in the store, which
+    the queue reads back within a second and never starts; one that builds is
+    asked to stop through the application's cancellation, which the process
+    running it finds in the store (:mod:`noust.core.cancellation`). The
+    console's own endpoint cancels in memory (:meth:`JobManager.cancel`); both
+    end in the same states.
+
+    Args:
+        job_id: The job.
+        actor: Who asked, as the audit trail names them.
+        store: The store; defaults to the process-wide one.
+
+    Returns:
+        ``cancelled`` for a job that had not started, ``cancelling`` for one
+        that was asked to stop.
+
+    Raises:
+        CancelRefused: The job is unknown, has ended, cannot be interrupted, or
+            its release is already being activated.
+    """
+    target = store if store is not None else get_store()
+    record = target.get_job(job_id)
+    if record is None:
+        raise CancelRefused(
+            f"Job not found: {job_id}",
+            "It may have finished long ago and been cleaned up: 'noust deploy queue' lists "
+            "what is running and waiting.",
+            reason="unknown",
+        )
+    status = JobStatus(record.status)
+    if status in FINISHED_STATUSES:
+        raise CancelRefused(
+            f"The job already ended as {visible_state(status)}",
+            "There is nothing to cancel.",
+            reason="finished",
+        )
+    who = Actor.from_label(actor) if actor else None
+    if status is JobStatus.PENDING:
+        target.update_job(
+            job_id, status=JobStatus.CANCELLED.value, finished_at=datetime.now().isoformat()
+        )
+        record_audit(
+            "job.cancel",
+            actor=who,
+            target=f"job:{job_id}",
+            details={"type": record.type, "state": "queued"},
+        )
+        return CancelOutcome(job_id, "cancelled")
+    if record.type not in {kind.value for kind in BUILD_JOB_TYPES} or not record.domain:
+        raise CancelRefused(
+            f"The {record.type} job is running and cannot be stopped safely",
+            "Only a deploy or an update can be cancelled while it runs: the others are "
+            "halfway through changing the system. Wait for it to finish.",
+            reason="unsupported",
+        )
+    request = cancellation.request_cancel(record.domain, by=actor, store=target)
+    record_audit(
+        "job.cancel",
+        actor=who,
+        target=f"job:{job_id}",
+        details={"type": record.type, "state": "running", "domain": record.domain},
+    )
+    return CancelOutcome(job_id, "cancelling", request)
 
 
 def _argument_secrets(kwargs: Mapping[str, Any]) -> list[str]:

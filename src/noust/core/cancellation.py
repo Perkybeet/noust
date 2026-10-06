@@ -340,7 +340,31 @@ def _adopt_pending(token: CancelToken, store: NoustStore) -> None:
         logger.warning("Could not read a cancel request for %s: %s", token.domain, exc)
         return
     if pending is not None and pending.outcome is None:
-        token.request(pending.requested_by)
+        _accept(token, pending, store)
+
+
+def _accept(token: CancelToken, request: delivery_store.CancelRequest, store: NoustStore) -> None:
+    """
+    Honour a request another process made, or answer it at once if it cannot be.
+
+    A request that can no longer be honoured (the release is being activated)
+    or never could be (an in-place build) is answered the moment it is seen, so
+    whoever asked does not wait for the operation to end to be told.
+
+    Args:
+        token: The operation's token.
+        request: The request, not yet answered.
+        store: The store.
+    """
+    if token.request(request.requested_by):
+        return
+    outcome = delivery_store.TOO_LATE if token.committed else delivery_store.UNSUPPORTED
+    try:
+        delivery_store.decide(
+            token.domain, token.holder.pid, token.holder.started_at, outcome, store=store
+        )
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        logger.warning("Could not answer a cancel request for %s: %s", token.domain, exc)
 
 
 def _watch(token: CancelToken, store: NoustStore, stop: threading.Event) -> None:
@@ -353,7 +377,7 @@ def _watch(token: CancelToken, store: NoustStore, stop: threading.Event) -> None
         stop: Set when the operation ends.
     """
     while not stop.wait(POLL_INTERVAL):
-        if token.requested or token.committed:
+        if token.requested:
             continue
         try:
             request = delivery_store.request_for(
@@ -364,7 +388,7 @@ def _watch(token: CancelToken, store: NoustStore, stop: threading.Event) -> None
             logger.debug("Could not look for a cancel request for %s: %s", token.domain, exc)
             continue
         if request is not None and request.outcome is None:
-            token.request(request.requested_by)
+            _accept(token, request, store)
 
 
 def _decide(token: CancelToken, store: NoustStore) -> None:

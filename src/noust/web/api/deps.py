@@ -52,10 +52,12 @@ from noust.core.accounts import AccountNotFoundError, AuthenticationFailed
 from noust.core.applock import AppBusyError
 from noust.core.ens.incident import IncidentLockdownError
 from noust.core.exceptions import (
+    CancelRefused,
     ConfigError,
     ConfirmationRequired,
     DatabaseExistsError,
     DatabaseNotFoundError,
+    DeploymentCancelled,
     DomainConflictError,
     DomainError,
     FleetUnavailableError,
@@ -64,6 +66,7 @@ from noust.core.exceptions import (
     NodeRefusedError,
     NodeUnreachableError,
     NoustError,
+    QueueFullError,
     SchemaChangedError,
     SecurityError,
     SourceError,
@@ -126,6 +129,11 @@ _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
     (DatabaseExistsError, 409),
     (DomainConflictError, 409),
     (AppBusyError, 409),
+    # Nothing to cancel, or too late to: a state of the deployment, not a fault.
+    (CancelRefused, 409),
+    (DeploymentCancelled, 409),
+    # The deploy queue has no room: try again when it has.
+    (QueueFullError, 429),
     # Going back past a schema change waits for the operator's yes.
     (SchemaChangedError, 409),
     (SecurityError, 400),
@@ -179,6 +187,11 @@ _CODE_BY_ERROR: tuple[tuple[type[NoustError], str], ...] = (
     # Every way back past a schema change refuses in these words: the console
     # opens one dialog for a rollback, a release, a backup and a restore.
     (SchemaChangedError, "schema_changed"),
+    # The console branches on these: a button that finds nothing to cancel, a
+    # request that waits for the queue to shrink.
+    (CancelRefused, "cancel_refused"),
+    (DeploymentCancelled, "deployment_cancelled"),
+    (QueueFullError, "queue_full"),
     # A change that costs something waits for the operator's yes; the
     # console lists every warning before asking.
     (ConfirmationRequired, "confirmation_required"),
@@ -327,7 +340,9 @@ def error_response(exc: NoustError) -> JSONResponse:
     if isinstance(exc, ConfirmationRequired):
         # Every warning, not only the one the message leads with.
         content["warnings"] = list(exc.warnings)
-    return JSONResponse(status_code=status_for(exc), content=content)
+    # A full queue says when to ask again: builds take minutes, not seconds.
+    headers = {"Retry-After": "30"} if isinstance(exc, QueueFullError) else None
+    return JSONResponse(status_code=status_for(exc), content=content, headers=headers)
 
 
 class NoustErrorRoute(APIRoute):
