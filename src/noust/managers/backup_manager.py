@@ -110,6 +110,7 @@ from noust.deployers.releases import (
     ReleaseManager,
 )
 from noust.managers.app_identity import service_account_for
+from noust.managers.docker_volumes import docker_archive_argv
 from noust.managers.service_manager import ServiceManager
 from noust.managers.source_manager import SourceError, extract_archive, git_tree_owner
 from noust.managers.stack_databases import (
@@ -3529,23 +3530,7 @@ class BackupManager:
 
             target = destination / filename
             result = self._exec(
-                [
-                    "docker",
-                    "run",
-                    "--rm",
-                    "-v",
-                    f"{vol_name}:/data:ro",
-                    "-v",
-                    f"{destination}:/backup",
-                    "alpine",
-                    "tar",
-                    "czf",
-                    f"/backup/{filename}",
-                    "-C",
-                    "/data",
-                    ".",
-                ],
-                timeout=_DOCKER_TIMEOUT,
+                docker_archive_argv(vol_name, destination, filename), timeout=_DOCKER_TIMEOUT
             )
 
             if not result.success:
@@ -3568,6 +3553,24 @@ class BackupManager:
             self.logger.debug(f"Backed up volume: {vol_name}")
 
         return volume_backups
+
+    def docker_volumes(self, domain: str) -> list[str]:
+        """
+        Name the named Docker volumes of an application's Compose stack.
+
+        The one answer to "which volumes does this stack have": an application
+        backup carries them, and a volume backup policy (:mod:`noust.managers.volume_backups`)
+        backs each up on its own.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            The volume names Docker has for the stack; empty when it is not a
+            Compose stack or declares none.
+        """
+        app_name = validate_app_name(domain_to_app_name(domain))
+        return self._discover_docker_volumes(self._app_path(domain, app_name), domain)
 
     def _discover_docker_volumes(self, app_path: Path, domain: str | None = None) -> list[str]:
         """

@@ -38,7 +38,7 @@ import json
 import logging
 import re
 import secrets
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -47,6 +47,7 @@ from typing import Any
 from noust.core.exceptions import (
     BackupError,
     DatabaseBackupError,
+    DatabaseError,
     DatabaseNotFoundError,
     NoustError,
     ValidationError,
@@ -74,8 +75,20 @@ from noust.managers.database.backup_records import (
     now,
 )
 from noust.managers.database.backup_verify import check_dump, restore_test
-from noust.managers.database.base import BackupInfo, RestoreOutcome, backup_format, format_size
+from noust.managers.database.base import (
+    BackupInfo,
+    BaseDatabaseManager,
+    RestoreOutcome,
+    backup_format,
+    format_size,
+)
 from noust.managers.database.instances import engine_of
+from noust.managers.database.scope import (
+    ALL_DATABASES,
+    SCOPE_ALL,
+    SCOPE_DATABASE,
+    Exclusions,
+)
 from noust.managers.database.service import DatabaseService
 from noust.managers.retention import select_expired
 
@@ -537,10 +550,30 @@ class DatabaseBackups:
             The view; ``policy`` is None when the database has none.
         """
         manager = self.service.manager(engine)
-        name = manager.validate_database_name(database)
+        name = self.policy_name(manager, database)
         return self._view_of(
             self.records.policy(manager.ENGINE_NAME, name), manager.ENGINE_NAME, name
         )
+
+    @staticmethod
+    def policy_name(manager: BaseDatabaseManager, database: str) -> str:
+        """
+        Name what a policy is stored under.
+
+        Args:
+            manager: The engine.
+            database: A database, or :data:`ALL_DATABASES` for the policy that
+                covers every one of them.
+
+        Returns:
+            The database's validated name, or :data:`ALL_DATABASES`.
+
+        Raises:
+            ValidationError: When the name is not one the engine accepts.
+        """
+        if database == ALL_DATABASES:
+            return ALL_DATABASES
+        return manager.validate_database_name(database)
 
     def list_policies(self, engine: str | None = None) -> list[PolicyView]:
         """
@@ -571,13 +604,23 @@ class DatabaseBackups:
         Returns:
             ``{"engine", "database"}`` per database without an enabled policy.
         """
-        covered = {(p.engine, p.db_name) for p in self.records.policies() if p.enabled}
+        policies = [p for p in self.records.policies() if p.enabled]
+        covered = {(p.engine, p.db_name) for p in policies}
+        # A policy for all of an engine's databases covers each one it does not
+        # leave out, the ones created after it too.
+        everything = {
+            p.engine: Exclusions.from_json(p.exclusions).databases
+            for p in policies
+            if p.scope == SCOPE_ALL
+        }
         # One snapshot per Redis instance: the host's, and each container's.
         redis_covered = {key for key, _ in covered if engine_of(key) == "redis"}
         missing: list[dict[str, str]] = []
         redis_listed: set[str] = set()
         for view in self.service.list_databases(engine):
             if view.missing or (view.engine, view.name) in covered:
+                continue
+            if view.engine in everything and view.name not in everything[view.engine]:
                 continue
             if engine_of(view.engine) == "redis":
                 if view.engine in redis_covered or view.engine in redis_listed:
@@ -659,6 +702,7 @@ class DatabaseBackups:
         dump_format: str | None = None,
         verify_restore: bool = False,
         enabled: bool = True,
+        exclusions: Exclusions | None = None,
     ) -> PolicyView:
         """
         Create or replace a database's backup policy, and its timer.
@@ -669,7 +713,10 @@ class DatabaseBackups:
 
         Args:
             engine: The engine.
-            database: The database, which must exist.
+            database: The database, which must exist; or
+                :data:`~noust.managers.database.scope.ALL_DATABASES` for a
+                policy that covers every database of the engine, the ones
+                created later included.
             schedule: An alias (``hourly``, ``daily``, ``weekly``,
                 ``monthly``) or a systemd calendar expression.
             retention_count: Scheduled dumps to keep locally; None for no limit
@@ -684,6 +731,8 @@ class DatabaseBackups:
                 it restores. Not available for Redis.
             enabled: Whether the timer runs. A disabled policy keeps its
                 settings and has no timer.
+            exclusions: What the dumps leave out: databases (all-databases
+                policies only), PostgreSQL schemas, tables or collections.
 
         Returns:
             The policy as stored, with its timer's state.
@@ -696,12 +745,22 @@ class DatabaseBackups:
         """
         manager = self.service.running(engine)
         engine_name = manager.ENGINE_NAME
-        name = manager.validate_database_name(database)
-        if not manager.database_exists(name):
+        name = self.policy_name(manager, database)
+        scope = SCOPE_ALL if name == ALL_DATABASES else SCOPE_DATABASE
+        if scope == SCOPE_ALL and manager.engine_type == "redis":
+            raise ValidationError(
+                "A Redis policy already covers the whole instance",
+                details="A snapshot is every slot at once: give the policy any database of the "
+                "instance, such as 0.",
+                field="database",
+            )
+        if scope == SCOPE_DATABASE and not manager.database_exists(name):
             raise DatabaseNotFoundError(
                 f"Database '{name}' does not exist",
                 details=f"List them with: noust db list --engine {engine_name}",
             )
+        left_out = exclusions or Exclusions()
+        left_out.check_for(manager.engine_type, scope=scope)
         calendar = validate_calendar(schedule)
         count = _limit(retention_count, MAX_RETENTION_COUNT, "retention_count")
         days = _limit(retention_days, MAX_RETENTION_DAYS, "retention_days")
@@ -736,6 +795,8 @@ class DatabaseBackups:
                 destinations=checked,
                 dump_format=dump_format,
                 verify_restore=verify_restore,
+                scope=scope,
+                exclusions=left_out.to_json(),
                 enabled=enabled,
             )
         )
@@ -748,6 +809,8 @@ class DatabaseBackups:
             destinations=[entry["name"] for entry in checked],
             verify_restore=verify_restore,
             enabled=enabled,
+            scope=scope,
+            exclusions=left_out.to_json(),
         )
         return self.get_policy(engine_name, name)
 
@@ -766,7 +829,7 @@ class DatabaseBackups:
             BackupError: When the timer's unit cannot be named.
         """
         manager = self.service.manager(engine)
-        name = manager.validate_database_name(database)
+        name = self.policy_name(manager, database)
         self.scheduler.remove_database_timer(manager.ENGINE_NAME, name)
         removed = self.records.delete_policy(manager.ENGINE_NAME, name)
         if removed:
@@ -824,6 +887,7 @@ class DatabaseBackups:
         compress: bool = True,
         dump_format: str | None = None,
         verify: bool = True,
+        exclusions: Exclusions | None = None,
     ) -> DumpView:
         """
         Take a dump, record it and check it.
@@ -839,6 +903,7 @@ class DatabaseBackups:
             compress: gzip the dump where the engine does not compress it.
             dump_format: PostgreSQL's dump format.
             verify: Check it after taking it.
+            exclusions: Schemas, tables or collections to leave out.
 
         Returns:
             The dump, with its record.
@@ -847,7 +912,9 @@ class DatabaseBackups:
             DatabaseBackupError: When the dump fails or does not verify.
         """
         manager = self.service.manager(engine)
-        info = self.service.dump(engine, database, compress=compress, dump_format=dump_format)
+        info = self.service.dump(
+            engine, database, compress=compress, dump_format=dump_format, exclusions=exclusions
+        )
         try:
             digest = file_sha256(info.path)
         except OSError as exc:
@@ -1358,6 +1425,8 @@ class DatabaseBackups:
         drop_existing: bool,
         safety_backup: bool,
         new_name: str | None,
+        *,
+        options: Mapping[str, Any] | None = None,
     ) -> RestoreOutcome:
         """
         Restore a file through the service and record the safety copy it took.
@@ -1373,6 +1442,8 @@ class DatabaseBackups:
             drop_existing: Drop and recreate the target before loading.
             safety_backup: Dump the target first when nothing is dropped.
             new_name: Restore into a new database of this name instead.
+            options: What the engine's loader is asked beyond that (an import's
+                ``keep_owners``); the engine ignores what it has no use for.
 
         Returns:
             What the service did.
@@ -1408,6 +1479,7 @@ class DatabaseBackups:
                 safety_backup=safety_backup,
                 new_name=new_name,
                 on_safety_copy=taken,
+                options=options,
             )
         except Exception:
             # A failure the restore handled (and said so): not interrupted.
@@ -1529,9 +1601,16 @@ class DatabaseBackups:
         the dump is still taken, with no retention and no destinations:
         skipping every backup because a row is missing is the worse outcome.
 
+        The policy that covers all of an engine's databases
+        (:data:`~noust.managers.database.scope.ALL_DATABASES`) does this for
+        each database the engine holds now, one after the other, leaving out
+        the ones its exclusions name and the ones that have a policy of their
+        own. One database failing does not stop the next: every one is dumped,
+        and the run fails at the end, naming each that did not go through.
+
         Args:
             engine: The engine.
-            database: The database.
+            database: The database, or ``*`` for the all-databases policy.
             notify: Announce a failure (and, when the operator switched it on,
                 the success) through the notifier. A console job leaves this
                 off: the job manager announces its failure.
@@ -1540,17 +1619,22 @@ class DatabaseBackups:
         Returns:
             ``dump`` (the dump as :meth:`DumpView.to_dict` describes it),
             ``restore_test``, ``destinations`` (``{"ok": ...}`` each),
-            ``local_deleted`` and ``policy_missing``.
+            ``local_deleted`` and ``policy_missing``. For the all-databases
+            policy: ``databases`` (each database's own result, or its
+            ``{"ok": False, "error": ...}``) and ``skipped``.
 
         Raises:
             DatabaseBackupError: When the dump fails or does not verify.
-            BackupError: When at least one destination could not be sent it;
-                the dump is kept either way.
+            BackupError: When at least one destination could not be sent it,
+                or any database of an all-databases run failed; what was
+                dumped is kept either way.
         """
         # Not ``running()``: an engine that is down is a failed run to announce, and the
         # dump below is what finds it out, inside the block that announces.
         manager = self.service.manager(engine)
         engine_name = manager.ENGINE_NAME
+        if database == ALL_DATABASES:
+            return self._run_all(manager, notify=notify, on_step=on_step)
         name = manager.validate_database_name(database)
         policy = self.records.policy(engine_name, name)
         if policy is None:
@@ -1559,6 +1643,124 @@ class DatabaseBackups:
                 "retention and no destinations. Save the policy again with: "
                 "noust db backup-schedule set"
             )
+        return self._run_one(engine_name, name, policy, notify=notify, on_step=on_step)
+
+    def _run_all(
+        self,
+        manager: BaseDatabaseManager,
+        *,
+        notify: bool,
+        on_step: Callable[[str], None] | None,
+    ) -> dict[str, Any]:
+        """
+        Run the all-databases policy: every database the engine holds, one by one.
+
+        Args:
+            manager: The engine.
+            notify: See :meth:`run_policy`.
+            on_step: See :meth:`run_policy`.
+
+        Returns:
+            See :meth:`run_policy`.
+
+        Raises:
+            BackupError: When any database could not be dumped or sent.
+        """
+        engine_name = manager.ENGINE_NAME
+        policy = self.records.policy(engine_name, ALL_DATABASES)
+        log = self.service.logger
+        if policy is None:
+            log.warning(
+                f"No all-databases policy is stored for {engine_name}; dumping every database "
+                "with no retention and no destinations. Save the policy again with: "
+                "noust db backup-schedule set --all"
+            )
+        left_out = Exclusions.from_json(policy.exclusions if policy else None)
+        own = {p.db_name for p in self.records.policies(engine_name) if p.scope == SCOPE_DATABASE}
+        result: dict[str, Any] = {
+            "engine": engine_name,
+            "database": ALL_DATABASES,
+            "policy_missing": policy is None,
+            "databases": {},
+            "skipped": [],
+        }
+        try:
+            held = [info.name for info in manager.list_databases()]
+        except DatabaseError as exc:
+            self._finish(engine_name, ALL_DATABASES, ok=False, error=str(exc), dump=None)
+            raise
+        failures: list[tuple[str, str]] = []
+        dumped: list[str] = []
+        for name in held:
+            if name in left_out.databases:
+                result["skipped"].append({"database": name, "reason": "excluded"})
+                continue
+            if name in own:
+                result["skipped"].append({"database": name, "reason": "has its own policy"})
+                continue
+            try:
+                result["databases"][name] = {
+                    "ok": True,
+                    **self._run_one(
+                        engine_name, name, policy, notify=notify, on_step=on_step, record=False
+                    ),
+                }
+                dumped.append(name)
+            except NoustError as exc:
+                result["databases"][name] = {"ok": False, "error": str(exc)}
+                failures.append((name, str(exc)))
+        if not dumped and not failures:
+            log.warning(
+                f"There is no database of {engine_name} for the all-databases policy to dump"
+            )
+        if failures:
+            error = BackupError(
+                f"{len(failures)} of {len(dumped) + len(failures)} {engine_name} databases "
+                "were not backed up: " + ", ".join(name for name, _ in failures),
+                details="What was dumped was kept.\n"
+                + "\n".join(f"{name}: {text}" for name, text in failures),
+            )
+            self._finish(engine_name, ALL_DATABASES, ok=False, error=str(error), dump=None)
+            raise error
+        self._finish(
+            engine_name,
+            ALL_DATABASES,
+            ok=True,
+            error=None,
+            dump=f"{len(dumped)} databases" if dumped else None,
+        )
+        return result
+
+    def _run_one(
+        self,
+        engine_name: str,
+        name: str,
+        policy: BackupPolicy | None,
+        *,
+        notify: bool,
+        on_step: Callable[[str], None] | None,
+        record: bool = True,
+    ) -> dict[str, Any]:
+        """
+        Dump, check, send and prune one database under a policy.
+
+        Args:
+            engine_name: Canonical engine name.
+            name: The database.
+            policy: The policy that governs it: its own, or the all-databases
+                one; None to dump with no retention and no destinations.
+            notify: See :meth:`run_policy`.
+            on_step: See :meth:`run_policy`.
+            record: Note how the run ended on the policy row of this database.
+                An all-databases run notes it once, on its own row.
+
+        Returns:
+            See :meth:`run_policy`.
+
+        Raises:
+            DatabaseBackupError: When the dump fails or does not verify.
+            BackupError: When a destination could not be sent it.
+        """
 
         def step(text: str) -> None:
             self.service.logger.info(text)
@@ -1568,6 +1770,10 @@ class DatabaseBackups:
         def announce(build: Callable[..., Any], *args: Any) -> None:
             if notify:
                 deliver(lambda ctx: build(engine_name, name, *args, ctx))
+
+        def finish(*, ok: bool, error: str | None, dump: Any) -> None:
+            if record:
+                self._finish(engine_name, name, ok=ok, error=error, dump=dump)
 
         result: dict[str, Any] = {
             "engine": engine_name,
@@ -1584,6 +1790,7 @@ class DatabaseBackups:
                 name,
                 origin="scheduled",
                 dump_format=policy.dump_format if policy else None,
+                exclusions=Exclusions.from_json(policy.exclusions if policy else None).per_dump(),
             )
             result["dump"] = view.to_dict()
             if policy and policy.verify_restore:
@@ -1597,7 +1804,7 @@ class DatabaseBackups:
                     )
                 result["restore_test"] = view.record.restore_test_status if view.record else None
         except NoustError as exc:
-            self._finish(engine_name, name, ok=False, error=str(exc), dump=result.get("dump"))
+            finish(ok=False, error=str(exc), dump=result.get("dump"))
             announce(compose_database_backup_failed, str(exc))
             raise
 
@@ -1621,7 +1828,7 @@ class DatabaseBackups:
                     failures.append((target, str(exc)))
                     announce(compose_database_backup_upload_failed, target, str(exc))
             step("Applying local retention")
-            result["local_deleted"] = self._apply_local_retention(policy)
+            result["local_deleted"] = self._apply_local_retention(policy, name)
 
         if failures:
             error = BackupError(
@@ -1630,9 +1837,9 @@ class DatabaseBackups:
                 details="The local dump was kept.\n"
                 + "\n".join(f"{target}: {text}" for target, text in failures),
             )
-            self._finish(engine_name, name, ok=False, error=str(error), dump=view.name)
+            finish(ok=False, error=str(error), dump=view.name)
             raise error
-        self._finish(engine_name, name, ok=True, error=None, dump=view.name)
+        finish(ok=True, error=None, dump=view.name)
         if notify:
             sent = tuple(result["destinations"])
             deliver(
@@ -1658,15 +1865,19 @@ class DatabaseBackups:
         name = dump.get("name") if isinstance(dump, dict) else dump
         self.records.record_run(engine, database, ok=ok, error=error, dump=name)
 
-    def _apply_local_retention(self, policy: BackupPolicy) -> list[str]:
+    def _apply_local_retention(
+        self, policy: BackupPolicy, database: str | None = None
+    ) -> list[str]:
         """
-        Delete this policy's own scheduled dumps beyond its limits.
+        Delete a database's scheduled dumps beyond a policy's limits.
 
         Only dumps a schedule made are ever considered: one taken by hand and
         the safety copy of a restore are not in the list, whatever their age.
 
         Args:
             policy: The policy.
+            database: The database whose dumps are pruned. The policy's own
+                when None; an all-databases policy prunes each in turn.
 
         Returns:
             The file names deleted.
@@ -1675,7 +1886,7 @@ class DatabaseBackups:
             return []
         by_name = {view.name: view for view in self.list_dumps(policy.engine)}
         candidates: list[tuple[str, datetime]] = []
-        for record in self.records.dumps(policy.engine, policy.db_name):
+        for record in self.records.dumps(policy.engine, database or policy.db_name):
             view = by_name.get(record.file_name)
             if view is None:
                 # The file is gone: forget the row so the table does not grow.

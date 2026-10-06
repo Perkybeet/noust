@@ -82,6 +82,8 @@ COMMAND_MODULES: dict[str, str] = {
     "releases": "noust.cli.commands.releases",
     "rollback": "noust.cli.commands.backup",
     "runtime": "noust.cli.commands.runtime",
+    "restore-server": "noust.cli.commands.restore_server",
+    "self-backup": "noust.cli.commands.self_backup",
     "server": "noust.cli.commands.server",
     "service": "noust.cli.commands.service",
     "sessions": "noust.cli.commands.sessions",

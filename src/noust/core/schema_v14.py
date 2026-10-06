@@ -140,8 +140,59 @@ DATABASES_SQL = ""
 DATABASES_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the backups lane: volume backups and the backup of Noust itself.
-BACKUPS_SQL = ""
-BACKUPS_COLUMNS: list[tuple[str, str, str]] = []
+#
+# volume_backup_policies: what an application's data directories and Docker
+#   volumes are backed up with (one row per application, keyed by domain like
+#   backup_schedules): the targets, the calendar, retention, the destinations
+#   and how consistent the copy must be. The archives themselves are files
+#   with a signed sidecar, as application backups are.
+# self_backup_schedule: the one schedule of Noust's own state bundle (the
+#   singleton row has id 1): calendar, retention, destinations, last outcome.
+# database_backup_policies.scope / exclusions: a policy that covers every
+#   database of an engine, and what it leaves out (databases, schemas, tables
+#   or collections), as a JSON object.
+BACKUPS_SQL = """
+CREATE TABLE IF NOT EXISTS volume_backup_policies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_domain TEXT NOT NULL UNIQUE,
+    targets TEXT NOT NULL DEFAULT '[]',
+    extra_paths TEXT NOT NULL DEFAULT '[]',
+    schedule TEXT NOT NULL,
+    retention_count INTEGER,
+    retention_days INTEGER,
+    destinations TEXT NOT NULL DEFAULT '[]',
+    consistency TEXT NOT NULL DEFAULT 'live',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    last_run_at TEXT,
+    last_status TEXT,
+    last_error TEXT,
+    last_backup TEXT,
+    last_success_at TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS self_backup_schedule (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    schedule TEXT NOT NULL,
+    retention_count INTEGER,
+    retention_days INTEGER,
+    destinations TEXT NOT NULL DEFAULT '[]',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    last_run_at TEXT,
+    last_status TEXT,
+    last_error TEXT,
+    last_file TEXT,
+    last_success_at TEXT,
+    last_verified_at TEXT,
+    last_verify_status TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+"""
+BACKUPS_COLUMNS: list[tuple[str, str, str]] = [
+    ("database_backup_policies", "scope", "TEXT NOT NULL DEFAULT 'database'"),
+    ("database_backup_policies", "exclusions", "TEXT NOT NULL DEFAULT '{}'"),
+]
 
 # Owned by the access lane: the console's exposure and guided enrollment.
 #

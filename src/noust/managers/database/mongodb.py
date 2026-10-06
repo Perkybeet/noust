@@ -71,6 +71,27 @@ from noust.managers.database.registry import DatabaseRegistry
 #: A database name mongorestore reads literally in ``--nsInclude``/``--nsTo``.
 _LITERAL_NAMESPACE = re.compile(r"[A-Za-z0-9_-]+")
 
+
+def _is_archive(path: Path) -> bool:
+    """
+    Tell a ``mongodump --archive`` file from a tarball of a dump tree.
+
+    By what the file says it holds, not by its name: a dump brought from
+    another provider is named whatever its owner chose.
+
+    Args:
+        path: The dump.
+
+    Returns:
+        True when its first bytes are an archive's prelude, gzipped or not.
+    """
+    try:
+        read_prelude(path)
+    except (ArchiveError, OSError):
+        return False
+    return True
+
+
 #: Roles MongoDB ships. A deployment may define its own, which are accepted as
 #: long as the name is a plain identifier.
 BUILT_IN_ROLES = frozenset(
@@ -962,7 +983,8 @@ class MongoDBManager(BaseDatabaseManager):
             database: Database name.
             output_path: Custom destination for the tarball.
             compress: Compress the dumped BSON files.
-            **kwargs: Unused.
+            **kwargs: ``exclude_tables`` names collections to leave out
+                (``mongodump --excludeCollection``).
 
         Returns:
             Information about the backup.
@@ -975,11 +997,12 @@ class MongoDBManager(BaseDatabaseManager):
         if not self.database_exists(database):
             raise DatabaseNotFoundError(f"Database '{database}' does not exist")
 
+        excluded = [f"--excludeCollection={name}" for name in kwargs.get("exclude_tables", ())]
         if self.instance is not None:
             # mongodump writes its tree inside the container, where Noust
             # cannot tar it: one archive on stdout reaches the host instead.
             return self._dump_to_file(
-                ["mongodump", "--archive", "--db", database],
+                ["mongodump", "--archive", "--db", database, *excluded],
                 self._backup_path(database, output_path, compress, suffix=".archive"),
                 database=database,
                 compress=compress,
@@ -991,7 +1014,7 @@ class MongoDBManager(BaseDatabaseManager):
             tempfile.TemporaryDirectory(prefix="wasm-mongodump-") as workdir,
             self._tool_credentials() as credentials,
         ):
-            argv = ["mongodump", *credentials, "--db", database, "--out", workdir]
+            argv = ["mongodump", *credentials, "--db", database, "--out", workdir, *excluded]
             if compress:
                 argv.append("--gzip")
 
@@ -1040,7 +1063,9 @@ class MongoDBManager(BaseDatabaseManager):
             DatabaseBackupError: When the archive cannot be extracted or
                 mongorestore fails.
         """
-        if self.instance is not None:
+        if self.instance is not None or _is_archive(backup_path):
+            # A ``mongodump --archive`` file, whoever took it: a container's
+            # dump, or a dump brought from another server or provider.
             self._load_archive(database, backup_path)
             return
         with tempfile.TemporaryDirectory(prefix="wasm-mongorestore-") as workdir:
@@ -1106,7 +1131,9 @@ class MongoDBManager(BaseDatabaseManager):
             DatabaseBackupError: When the archive cannot be read or aimed, or
                 the restore fails.
         """
-        if self.instance is not None and Path(backup_path).exists():
+        if Path(backup_path).exists() and (
+            self.instance is not None or _is_archive(Path(backup_path))
+        ):
             self._archive_source(self.validate_database_name(database), Path(backup_path))
         return super().restore(
             database,
@@ -1192,8 +1219,17 @@ class MongoDBManager(BaseDatabaseManager):
         argv = ["mongorestore", "--archive", "--nsInclude", f"{source}.*"]
         if source != database:
             argv += ["--nsFrom", f"{source}.*", "--nsTo", f"{database}.*"]
-        with self._staged_backup(backup_path, f"mongodb-restore-{database}.archive") as staged:
-            result = self._exec(argv, stdin_path=staged, timeout=restore_timeout(staged))
+        # On the host the tool signs in with the 0600 config file; in a
+        # container the client script does it and there are no arguments.
+        with (
+            self._tool_credentials() as credentials,
+            self._staged_backup(backup_path, f"mongodb-restore-{database}.archive") as staged,
+        ):
+            result = self._exec(
+                [argv[0], *credentials, *argv[1:]],
+                stdin_path=staged,
+                timeout=restore_timeout(staged),
+            )
         if not result.success:
             raise DatabaseBackupError(
                 f"Failed to restore database '{database}'",

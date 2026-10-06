@@ -1586,6 +1586,22 @@ def backup(ctx: click.Context) -> None:
     _finish(_list_backups(logger=state.logger, json_output=state.json_output))
 
 
+def _attach_volume_commands() -> None:
+    """
+    Add ``noust backup volumes``: an application's data, backed up on its own.
+
+    They live in :mod:`noust.cli.commands.backup_volumes`, which does not
+    import this module at load time, so the order the two are imported in
+    never matters.
+    """
+    from noust.cli.commands import backup_volumes
+
+    backup_volumes.register(backup)
+
+
+_attach_volume_commands()
+
+
 @backup.command("create")
 @click.argument("domain")
 @click.option("-m", "--description", default="", help="Note to store with the backup.")
