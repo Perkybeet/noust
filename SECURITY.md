@@ -7,13 +7,18 @@ vulnerability in every one of them. Reports are welcome and handled as described
 
 | Version | Security fixes |
 |---|---|
-| 3.1.x | Yes |
-| 3.0.x | Yes, until 3.2.0 is released |
-| 2.x (WASM) and earlier | No: upgrade to 3.x (`docs/UPGRADING-3.0.md`) |
+| 3.3.x | Yes |
+| 3.2.x | Yes, until 3.4.0 is released |
+| 3.1.x and earlier, WASM 2.x included | No: upgrade to a supported line (`docs/UPGRADING-3.0.md` from 2.x) |
 
 Fixes are released as a patch version of each supported line, published to PyPI, the openSUSE
 Build Service repositories (Debian, Ubuntu, Fedora, openSUSE) and the container image
 `ghcr.io/perkybeet/noust` at the same time.
+
+The two newest minor versions are supported. This table is kept by the release script
+(`scripts/release.py`): releasing a new minor version adds its line as supported, keeps the
+previous line until the minor version after the new one is released, and retires the line before
+that. CI fails when the table does not list the version being released as supported.
 
 ## Reporting a vulnerability
 
