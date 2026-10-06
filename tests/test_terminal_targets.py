@@ -215,7 +215,7 @@ class TestAnApplicationOnThisServer:
     def test_a_static_site_has_nothing_to_open_a_terminal_in(self, store, root):
         app = add_app(store, root, app_type="static", is_static=True)
 
-        with pytest.raises(DeploymentError, match="static"):
+        with pytest.raises(ValidationError, match="static"):
             plan_app_terminal(app.domain, service=None, shell_name=None, runner=FakeRunner())
 
     def test_an_application_that_does_not_exist_is_not_found(self, store):

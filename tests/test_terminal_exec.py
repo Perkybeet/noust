@@ -11,7 +11,7 @@ from typing import Any
 import pytest
 
 from noust.core import audit
-from noust.core.exceptions import DeploymentError, ValidationError
+from noust.core.exceptions import ValidationError
 from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore
 from noust.terminal import execution, targets
@@ -159,7 +159,7 @@ class TestRunningACommand:
     def test_a_static_site_has_nothing_to_run_a_command_in(self, store, tmp_path):
         add_app(store, tmp_path, app_type="static", is_static=True)
 
-        with pytest.raises(DeploymentError, match="static"):
+        with pytest.raises(ValidationError, match="static"):
             run_exec("shop.example.com", ["ls"], on_line=Lines(), runner=FakeRunner())
 
     def test_an_empty_command_is_refused_before_anything_runs(self, store, tmp_path):

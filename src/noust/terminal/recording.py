@@ -4,8 +4,8 @@
 """
 What was typed and what was printed, kept for the audit.
 
-Dokploy's terminal gave a root shell to anyone the console let in and left no
-trace of it. A session here leaves two: the audit trail records who opened it,
+A shell in the browser is an open door to the application's secrets, so it must
+not be one that leaves no trace. A session here leaves two: the audit trail records who opened it,
 on what and for how long (``terminal.start`` and ``terminal.end``), and a
 recording keeps the session itself, so "what happened in that shell" has an
 answer a year later.

@@ -310,10 +310,12 @@ def _host_app_plan(app: App, shell: str | None, *, interactive: bool) -> Session
     from noust.managers.app_identity import service_account
 
     if app.is_static or app.app_type == "static":
-        raise DeploymentError(
+        # A request that does not apply to this application, not a fault of the server.
+        raise ValidationError(
             f"{app.domain} is a static site: it has no process to open a terminal in",
             details="The web server serves its files directly. Its files are in "
             f"{code_path_for(app)}.",
+            field="domain",
         )
     user, group = service_account(app)
     code = code_path_for(app)
