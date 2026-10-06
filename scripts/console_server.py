@@ -506,6 +506,10 @@ def write_config(
         "service_group": "www-data",
         "ssl": {"enabled": True, "provider": "certbot", "email": ssl_email},
         "backup": {"directory": str(sandbox.backup_dir), "max_per_app": 10},
+        # The terminal's root shell on the server is off on a real machine until an
+        # administrator turns it on; here it is on, so the console's E2E can open it. What
+        # opens is the fake runner's shell that echoes (see ConsoleRunner), not a real one.
+        "terminal": {"server": {"enabled": True}},
     }
     if central_role is not None:
         config["central"] = {"role": central_role}
@@ -2098,6 +2102,9 @@ def make_runner(
             # What the modelled machine has installed. MongoDB and Docker are
             # deliberately absent, so the console shows an engine to install.
             self.only_knows(*INSTALLED_PROGRAMS, *SERVER_PROGRAMS)
+            # A terminal opened in the console talks to a shell that echoes what is typed and
+            # ends on `exit`, not to a real one: see FakeRunner.pty.
+            self.pty_echo = True
             # Per-instance copies: the Databases page can create and drop
             # databases, and a stateless dict would have `create_database`
             # succeed and then have its own follow-up `get_database_info`
@@ -2136,6 +2143,11 @@ def make_runner(
             server = _SERVER_HOST.answer(args) if _SERVER_HOST is not None else None
             if server is not None:
                 return server
+            # A one-off command runs in the application's sandbox, which wraps it in a
+            # systemd-run call: the model answers the program inside, for the two it knows.
+            inner = getattr(self, "_inner_argv", None)
+            if program == "systemd-run" and inner and inner[0] in ("echo", "false"):
+                return self._lookup(inner, record=False)
             with lock:
                 if program == "systemctl":
                     return self._systemctl(args)
@@ -2166,6 +2178,12 @@ def make_runner(
                 )
             if "--version" in args and program in CLIENT_VERSIONS:
                 return ok(args, CLIENT_VERSIONS[program])
+            if program == "echo":
+                # What a one-off command printed (POST /api/apps/{domain}/exec): the console's
+                # E2E runs `echo` and `false`, the two programs the model needs to answer.
+                return ok(args, " ".join(args[1:]) + "\n")
+            if program == "false":
+                return CommandResult(args, 1, "", "")
             if program == "pg_dump":
                 return ok(args, _PG_DUMP_BYTES)
             if program == "pg_restore" and "--list" in args:

@@ -34,6 +34,8 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "app-environment", path: "/apps/blog.example.org/environment" },
   { name: "app-domains", path: "/apps/shop.example.net/domains" },
   { name: "app-diagnose", path: "/apps/clientes.example.com/diagnose" },
+  // 3.4: a shell as the application's account, and a command run once.
+  { name: "app-terminal", path: "/apps/tienda.example.org/terminal" },
   { name: "app-settings", path: "/apps/shop.example.net/settings" },
   // 3.1: each subsection of an app's settings is a URL of its own.
   { name: "app-settings-deploys", path: "/apps/tienda.example.org/settings/deploys" },
@@ -77,6 +79,7 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "server-storage", path: "/server/storage" },
   { name: "server-logs", path: "/server/logs" },
   { name: "server-system", path: "/server/system" },
+  { name: "server-terminal", path: "/server/terminal" },
   { name: "settings", path: "/settings" },
   { name: "settings-security", path: "/settings/security" },
   { name: "settings-notifications", path: "/settings/notifications" },
