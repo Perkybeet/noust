@@ -113,6 +113,11 @@ class DeploymentOut(BaseModel):
         hooks: What the deploy hooks ran, in order.
         warnings: Why a successful deployment carries warnings (deployed with
             warnings: a ``post_deploy`` hook failed once it served).
+        cancelled: An operator cancelled it while it was building. Its status is
+            ``failed`` (the column cannot say anything else on a store from
+            before 3.4) but nothing went wrong and nothing that served was touched.
+        cancelled_at: When it was cancelled.
+        cancelled_by: Who cancelled it.
     """
 
     id: int
@@ -136,8 +141,11 @@ class DeploymentOut(BaseModel):
     schema_changed_between: list[int] = Field(default_factory=list)
     hooks: list[DeploymentHookRun] = Field(default_factory=list)
     warnings: str | None = None
+    cancelled: bool = False
+    cancelled_at: str | None = None
+    cancelled_by: str | None = None
 
-    _iso_timestamps = iso_offset_validator("started_at", "finished_at")
+    _iso_timestamps = iso_offset_validator("started_at", "finished_at", "cancelled_at")
 
 
 class DeploymentListResponse(BaseModel):
@@ -235,6 +243,9 @@ def _to_out(
         schema_changed_between=(schema_changes or {}).get(record.id, []),
         hooks=_hook_runs(record.hooks),
         warnings=record.warnings,
+        cancelled=record.cancelled,
+        cancelled_at=record.cancelled_at,
+        cancelled_by=record.cancelled_by,
     )
 
 

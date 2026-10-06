@@ -937,6 +937,18 @@ def _check_last_deployment(ctx: _Context) -> ProbeResult:
         evidence_lines.append(f"error={record.error}")
     evidence = "\n".join(evidence_lines)
 
+    if record.cancelled:
+        who = f" by {record.cancelled_by}" if record.cancelled_by else ""
+        return (
+            Check(
+                "last_deployment",
+                "ok",
+                f"The last deployment was cancelled{who}; what served before still serves",
+                evidence,
+            ),
+            {"failed": False},
+        )
+
     if record.status == DeploymentStatus.FAILED.value:
         summary = "The last deployment failed"
         if record.error:

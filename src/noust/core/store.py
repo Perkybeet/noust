@@ -3842,15 +3842,18 @@ class NoustStore:
                 in (naive local time): ``datetime.now().replace(hour=0, ...)``.
 
         Returns:
-            Status to number of deployments, only for statuses that occur.
+            Status to number of deployments, only for statuses that occur. A
+            deployment an operator cancelled counts as ``cancelled``, not as
+            the ``failed`` its row says: nothing went wrong.
         """
         with self._transaction() as cursor:
             cursor.execute(
-                "SELECT status, COUNT(*) AS n FROM deployments WHERE started_at >= ? "
-                "GROUP BY status",
+                "SELECT CASE WHEN cancelled_at IS NOT NULL THEN 'cancelled' ELSE status END "
+                "AS outcome, COUNT(*) AS n FROM deployments WHERE started_at >= ? "
+                "GROUP BY outcome",
                 (since,),
             )
-            return {row["status"]: int(row["n"]) for row in cursor.fetchall()}
+            return {row["outcome"]: int(row["n"]) for row in cursor.fetchall()}
 
     def get_latest_deployments(self, domains: Iterable[str]) -> dict[str, DeploymentRecord]:
         """
@@ -3880,7 +3883,7 @@ class NoustStore:
         query = f"""
             SELECT id, domain, status, triggered_by, git_commit, git_branch,
                    started_at, finished_at, duration_s, log_path, error,
-                   job_id, release_id, commit_message
+                   job_id, release_id, commit_message, cancelled_at, cancelled_by
             FROM (
                 SELECT *, ROW_NUMBER() OVER (
                     PARTITION BY domain ORDER BY started_at DESC, id DESC

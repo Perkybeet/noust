@@ -777,6 +777,39 @@ def test_the_queue_holds_the_application_s_lock_so_a_request_in_this_process_is_
 
 
 # ---------------------------------------------------------------------------
+# A console that restarts
+# ---------------------------------------------------------------------------
+
+
+def test_a_restart_marks_what_waited_and_what_ran_as_interrupted_and_starts_none_of_it(
+    manager: JobManager, store: NoustStore, log: list[str]
+) -> None:
+    """The queue lives in memory, as the jobs always did: the store is told the truth at start-up."""
+    from noust.web.jobs import INTERRUPTED_REASON
+
+    running, waiting_work = Work("running", log), Work("waiting", log)
+    one = queue_work(manager, running, A)
+    assert running.started.wait(5)
+    two = queue_work(manager, waiting_work, A)
+    assert wait_until(
+        lambda: (record := store.get_job(two.id)) is not None and record.status == "pending"
+    )
+
+    JobManager.reset_instance()
+    JobManager()
+
+    for job in (one, two):
+        record = store.get_job(job.id)
+        assert record is not None
+        assert (record.status, record.error) == ("failed", INTERRUPTED_REASON)
+    finish(running)
+    time.sleep(0.3)
+    assert not waiting_work.started.is_set(), (
+        "what waited is not run by the console that comes back"
+    )
+
+
+# ---------------------------------------------------------------------------
 # What the queue says
 # ---------------------------------------------------------------------------
 

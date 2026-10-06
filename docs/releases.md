@@ -837,3 +837,9 @@ migration, with its command, exit code, duration and the end of its output), `sc
 successful deployment went live with warnings: a `post_deploy` hook failed). Older rows have
 none of them. An adopted stack's history starts with one row, the adoption, at the commit that
 was checked out. See [Hooks and schema-aware rollback](#hooks-and-schema-aware-rollback).
+
+Since 3.4 a deployment an operator cancelled while it built ends with the status `failed` and
+says so with `cancelled`, `cancelled_at` and `cancelled_by` (the status column cannot hold a
+new value on a store from before 3.4): the overview does not count it as a failure and does not
+list the application as needing attention, `noust diagnose` does not blame it, and a
+notification channel is not told it failed. See [Cancelling a deployment](#cancelling-a-deployment).
