@@ -141,6 +141,13 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/apps/{domain}/databases/link", RESOURCE, _APP, _BODY_DATABASE),
     _rule("/api/apps/{domain}/databases/{engine}/{name}/**", RESOURCE, _APP, _DATABASE),
     _rule("/api/apps/{domain}/**", RESOURCE, _APP),
+    # --- the terminal ---------------------------------------------------------
+    # What is open is listed and ended per application (the handler filters); what a
+    # session left is the audit's, which is the server's.
+    _rule("/api/terminal/status", OPEN),
+    _rule("/api/terminal/sessions", SCOPED),
+    _rule("/api/terminal/sessions/{session_id}", SCOPED),
+    _rule("/api/terminal/recordings/**", INSTANCE),
     # --- sites, domains, certificates ----------------------------------------
     _rule("/api/sites", SCOPED),
     _rule("/api/sites/templates", OPEN),

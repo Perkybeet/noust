@@ -427,6 +427,8 @@ class TestEveryRouteIsHeldToTheScope:
             "GET /api/backup-schedules",
             "GET /api/deployments",
             "GET /api/jobs",
+            "GET /api/terminal/sessions",
+            "DELETE /api/terminal/sessions/{session_id}",
             "GET /api/jobs/active",
             "GET /api/jobs/queue",
             "GET /api/recipes/installed",

@@ -69,6 +69,7 @@ MAX_INPUT_CHARS = 64 * 1024
 #: Why a session ended, besides what the terminal itself says
 #: (``exited``, ``idle``, ``limit``, ``closed``).
 END_KILLED = "killed"
+END_REVOKED = "revoked"
 END_DISCONNECTED = "disconnected"
 END_SHUTDOWN = "shutdown"
 
@@ -77,7 +78,11 @@ _READ_SLICE = 0.5
 
 
 class TerminalLimitError(NoustError):
-    """Too many terminals are open, or this kind of terminal is not allowed here."""
+    """Too many terminals are open: a limit of this server is reached."""
+
+
+class TerminalDisabledError(NoustError):
+    """This kind of terminal is switched off here, or the profile keeps it off."""
 
 
 class TerminalGone(NoustError):
@@ -180,6 +185,9 @@ class TerminalSession:
         self.actor = actor
         self._on_end = on_end
         self._lock = threading.Lock()
+        # Held while a message is handed to the connection, so what is sent and
+        # what is replayed after a takeover keep their order.
+        self._delivery = threading.Lock()
         self._sink: Sink | None = None
         self._backlog: collections.deque[dict[str, Any]] = collections.deque()
         self._backlog_bytes = 0
@@ -258,7 +266,7 @@ class TerminalSession:
             True when output was lost while nobody was attached (the backlog
             overflowed), so the screen the person has may be missing some.
         """
-        with self._lock:
+        with self._delivery, self._lock:
             previous = self._sink
             self._sink = None
             self._detached_at = None
@@ -269,7 +277,9 @@ class TerminalSession:
             if previous is not None:
                 self._say(previous, {"type": "error", "message": "Taken over by another window"})
             for message in backlog:
-                sink(message)
+                if not self._say(sink, message):
+                    self._keep(message)
+                    continue
             self._sink = sink
         return lost
 
@@ -289,40 +299,64 @@ class TerminalSession:
                 self._detached_at = time.monotonic()
 
     @staticmethod
-    def _say(sink: Sink, message: dict[str, Any]) -> None:
+    def _say(sink: Sink, message: dict[str, Any]) -> bool:
         """
         Deliver a message, whatever the receiver's state.
 
         Args:
-            sink: The receiver.
+            sink: The receiver. It raises ``RuntimeError`` when its connection
+                is gone and ``TimeoutError`` when it did not take the message
+                in time.
             message: What to say.
+
+        Returns:
+            Whether it was taken.
         """
         try:
             sink(message)
-        except RuntimeError as exc:
-            # The receiver's loop is closed: its connection is gone and the
-            # next look at the session will detach it.
-            logger.debug("A terminal's connection is gone: %s", exc)
+        except (RuntimeError, TimeoutError) as exc:
+            logger.debug("A terminal's connection did not take a message: %s", exc)
+            return False
+        return True
+
+    def _keep(self, message: dict[str, Any]) -> None:
+        """
+        Keep a message for the connection that comes back. The caller holds the lock.
+
+        Args:
+            message: What to keep; the oldest output goes first when there is
+                too much.
+        """
+        size = len(message.get("data", "")) if message["type"] == "output" else 0
+        self._backlog.append(message)
+        self._backlog_bytes += size
+        while self._backlog_bytes > BACKLOG_BYTES and self._backlog:
+            dropped = self._backlog.popleft()
+            self._backlog_bytes -= len(dropped.get("data", ""))
+            self._lost = True
 
     def _deliver(self, message: dict[str, Any]) -> None:
         """
         Send to the connection, or keep it for the one that comes back.
 
+        The connection may take its time (a browser that cannot keep up makes
+        this wait, and the program with it, which is the flow control a
+        terminal has): so it is called without the lock the keyboard needs.
+
         Args:
             message: What to say.
         """
-        with self._lock:
-            sink = self._sink
-            if sink is not None:
-                self._say(sink, message)
+        with self._delivery:
+            with self._lock:
+                sink = self._sink
+            if sink is not None and self._say(sink, message):
                 return
-            size = len(message.get("data", "")) if message["type"] == "output" else 0
-            self._backlog.append(message)
-            self._backlog_bytes += size
-            while self._backlog_bytes > BACKLOG_BYTES and self._backlog:
-                dropped = self._backlog.popleft()
-                self._backlog_bytes -= len(dropped.get("data", ""))
-                self._lost = True
+            with self._lock:
+                if sink is not None and self._sink is sink:
+                    # It did not answer: from here on, nobody is attached.
+                    self._sink = None
+                    self._detached_at = time.monotonic()
+                self._keep(message)
 
     # -- what the person does ---------------------------------------------------
 
@@ -525,16 +559,17 @@ class SessionRegistry:
             The settings the answer was read from.
 
         Raises:
-            TerminalLimitError: Terminals are off, the server's shell is not
-                allowed, or the limits are reached.
+            TerminalDisabledError: Terminals are off, or the server's shell is
+                not allowed.
+            TerminalLimitError: The limits are reached.
         """
         settings = self._settings()
         if kind == KIND_SERVER:
             refusal = settings.server_refusal()
             if refusal is not None:
-                raise TerminalLimitError(refusal[0], details=refusal[1])
+                raise TerminalDisabledError(refusal[0], details=refusal[1])
         elif not settings.enabled:
-            raise TerminalLimitError(
+            raise TerminalDisabledError(
                 "Terminals are turned off on this server",
                 details="An administrator turns them on with: noust config set terminal.enabled true",
             )
@@ -569,7 +604,8 @@ class SessionRegistry:
             The session, not yet started: call :meth:`TerminalSession.start`.
 
         Raises:
-            TerminalLimitError: A limit is reached, or the kind is not allowed.
+            TerminalDisabledError: This kind of terminal is not allowed here.
+            TerminalLimitError: A limit is reached.
             DeploymentError: The session could not be recorded; no session
                 that could not be audited is opened.
         """
@@ -600,6 +636,7 @@ class SessionRegistry:
                 details=f"The recording could not be created: {exc}. "
                 "Every terminal is kept in the audit trail, so none opens without one.",
             ) from exc
+        opened = False
         try:
             handle = runner.pty(
                 list(plan.argv),
@@ -611,9 +648,11 @@ class SessionRegistry:
                 max_seconds=settings.max_seconds,
                 idle_seconds=settings.idle_seconds,
             )
-        except BaseException:
-            recorder.close(reason="not opened", exit_code=None, interrupted=True)
-            raise
+            opened = True
+        finally:
+            if not opened:
+                # Whatever stopped it, the recording made for it is closed and says so.
+                recorder.close(reason="not opened", exit_code=None, interrupted=True)
         session = TerminalSession(grant, plan, handle, recorder, actor=actor, on_end=self._forget)
         with self._lock:
             self._sessions[session.id] = session
@@ -787,11 +826,13 @@ __all__ = [
     "DETACH_GRACE_SECONDS",
     "END_DISCONNECTED",
     "END_KILLED",
+    "END_REVOKED",
     "END_SHUTDOWN",
     "KIND_APP",
     "KIND_SERVER",
     "SessionInfo",
     "SessionRegistry",
+    "TerminalDisabledError",
     "TerminalGone",
     "TerminalLimitError",
     "TerminalSession",

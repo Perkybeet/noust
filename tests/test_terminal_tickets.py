@@ -317,3 +317,23 @@ class TestMintingAndRedeeming:
     def test_an_unknown_kind_is_a_programming_error(self):
         with pytest.raises(ValueError):
             mint(TicketStore(), kind="database")
+
+
+class TestComingBack:
+    def test_a_ticket_to_resume_names_the_session_it_goes_back_to(self):
+        store = TicketStore()
+        ticket, grant = mint(store, resume="0123456789abcdef")
+
+        assert grant.session_id == "0123456789abcdef"
+        assert grant.resume == "0123456789abcdef"
+        assert redeem(store, ticket).resume == "0123456789abcdef"
+
+    def test_a_new_terminal_has_nothing_to_resume(self):
+        _ticket, grant = mint(TicketStore())
+
+        assert grant.resume is None
+
+    @pytest.mark.parametrize("bad", ["", "../../etc", "0123456789ABCDEF", "short", "g" * 16])
+    def test_something_that_is_not_a_session_id_is_refused(self, bad):
+        with pytest.raises(ValueError):
+            mint(TicketStore(), resume=bad)

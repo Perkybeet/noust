@@ -17,6 +17,9 @@ A front end over :mod:`noust.core.audit`, the same log the console writes and
 - ``ship`` and ``prune`` do from a timer what the console's worker does
   continuously, for a server that does not run the console.
 - ``events`` prints the catalog, the table ``docs/ENS.md`` includes.
+- ``recordings`` and ``recording`` list and show what a console terminal
+  session left: who typed what in which shell, kept for the audit
+  (:mod:`noust.terminal.recording`).
 """
 
 from __future__ import annotations
@@ -441,6 +444,116 @@ def events_command(ctx: Context, markdown: bool) -> None:
             )
         ],
     )
+
+
+@cli.command("recordings", read_only=True)
+@click.option("-n", "--limit", default=50, show_default=True, help="Most recordings shown.")
+@click.option("--app", "domain", help="Only the sessions in this application.")
+@click.option("--actor", help="Only the sessions of this person, as the Actor column shows them.")
+@click.option(
+    "--kind", type=click.Choice(["app", "server"]), help="Only an application's or the server's."
+)
+@json_option("Print the recordings as JSON.")
+@pass_context
+def recordings_command(
+    ctx: Context, limit: int, domain: str | None, actor: str | None, kind: str | None
+) -> None:
+    """List the recordings of terminal sessions, newest first."""
+    from noust.terminal import recording
+
+    found = _read(
+        lambda: recording.list_recordings(domain=domain, actor=actor, kind=kind, limit=limit)
+    )
+    if ctx.json_output:
+        click.echo(json.dumps({"recordings": [info.to_dict() for info in found]}, indent=2))
+        return
+    if not found:
+        ctx.logger.info("No terminal sessions are recorded.")
+        return
+    ctx.logger.table(
+        ["Recording", "Who", "Where", "Account", "Seconds", "Ended", "Status"],
+        [
+            [
+                info.id,
+                str(info.meta.get("actor", "-")),
+                str(info.meta.get("label", "-")),
+                str(info.meta.get("account", "-")),
+                str(round(float(info.meta.get("duration") or 0))),
+                str(info.meta.get("end_reason") or "-"),
+                info.status,
+            ]
+            for info in found
+        ],
+    )
+
+
+@cli.command("recording", read_only=True)
+@click.argument("recording_id")
+@click.option(
+    "--format",
+    "output",
+    type=click.Choice(["text", "cast"]),
+    default="text",
+    show_default=True,
+    help="text: what was printed and typed, with the programs' escape sequences removed. "
+    "cast: the asciicast file, which any asciinema player plays.",
+)
+@click.option("--no-input", is_flag=True, help="With --format text, leave out what was typed.")
+@json_option("Print the recording, its events and its verdict as JSON.")
+@pass_context
+def recording_command(ctx: Context, recording_id: str, output: str, no_input: bool) -> None:
+    """
+    Show one recorded terminal session.
+
+    The text is safe to print: a program's escape sequences are removed, because
+    printed as they are they would be obeyed by your own terminal. Whether the
+    recording still matches the digest the audit trail recorded is said first.
+    Reading it is itself recorded.
+    """
+    from noust.terminal import recording
+
+    found = _read(lambda: recording.read_recording(recording_id))
+    record(
+        "terminal.recording.read",
+        actor=audit_trail.cli_actor(),
+        target=f"recording:{recording_id}",
+        details={
+            "domain": found.info.meta.get("domain"),
+            "opened_by": found.info.meta.get("actor"),
+        },
+    )
+    if ctx.json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "recording": found.info.to_dict(),
+                    "intact": found.intact,
+                    "header": found.header,
+                    "events": [list(event) for event in found.events],
+                },
+                indent=2,
+            )
+        )
+        return
+    if output == "cast":
+        cast = recording.recordings_dir() / f"{recording_id}.cast"
+        click.echo(cast.read_text(encoding="utf-8"), nl=False)
+        return
+    meta = found.info.meta
+    ctx.logger.key_value("Recording", found.info.id)
+    ctx.logger.key_value("Who", str(meta.get("actor", "-")))
+    ctx.logger.key_value("Where", f"{meta.get('label', '-')} as {meta.get('account', '-')}")
+    ctx.logger.key_value("Status", found.info.status)
+    if found.intact is None:
+        ctx.logger.key_value("Integrity", "the session is still open")
+    elif found.intact:
+        ctx.logger.key_value("Integrity", "intact: it matches the digest on record")
+    else:
+        ctx.logger.warning(
+            "This recording does NOT match the digest the audit trail recorded: it was changed."
+        )
+    click.echo()
+    click.echo(recording.transcript(found, with_input=not no_input))
 
 
 @cli.command("status", read_only=True)

@@ -70,6 +70,9 @@ from noust.web.api.system import router as system_router
 from noust.web.api.teams import flat_router as teams_flat_router
 from noust.web.api.teams import move_router as teams_move_router
 from noust.web.api.teams import router as teams_router
+from noust.web.api.terminal import apps_router as terminal_apps_router
+from noust.web.api.terminal import router as terminal_router
+from noust.web.api.terminal import server_router as terminal_server_router
 from noust.web.api.timeline import router as timeline_router
 from noust.web.api.volume_backups import router as volume_backups_router
 from noust.web.api.zero_downtime import router as zero_downtime_router
@@ -184,6 +187,11 @@ router.include_router(identity_router, prefix="/apps", tags=["Applications"])
 router.include_router(app_stack_router, prefix="/apps", tags=["Applications"])
 # app_hooks.py owns only paths under "/{domain}/hooks".
 router.include_router(app_hooks_router, prefix="/apps", tags=["Applications"])
+# terminal.py owns "/{domain}/terminal" and "/{domain}/exec" under "/apps", the one
+# "/terminal" under "/server", and everything under "/terminal".
+router.include_router(terminal_apps_router, prefix="/apps", tags=["Terminal"])
+router.include_router(terminal_server_router, prefix="/server", tags=["Terminal"])
+router.include_router(terminal_router, prefix="/terminal", tags=["Terminal"])
 # deploy_keys.py owns only paths under "/{domain}/deploy-key", and its second
 # router the whole of "/deploy-keys".
 router.include_router(app_deploy_key_router, prefix="/apps", tags=["Applications"])

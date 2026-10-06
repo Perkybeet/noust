@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import re
 import secrets
 import threading
 import time
@@ -91,6 +92,8 @@ class TerminalGrant:
         actor: Who that is, as the audit trail names them.
         client_ip: Where the minting call came from.
         expires_at: ``time.time()`` after which it is worth nothing.
+        resume: The session to go back to, when the ticket is for a connection
+            that dropped and not for a new terminal.
     """
 
     session_id: str
@@ -104,6 +107,11 @@ class TerminalGrant:
     actor: str
     client_ip: str
     expires_at: float
+    resume: str | None = None
+
+
+#: What a session's identifier looks like: sixteen hexadecimal digits.
+_SESSION_ID = re.compile(r"[0-9a-f]{16}")
 
 
 def _digest(ticket: str) -> str:
@@ -155,6 +163,7 @@ class TicketStore:
         sid: str,
         actor: str,
         client_ip: str,
+        resume: str | None = None,
     ) -> tuple[str, TerminalGrant]:
         """
         Issue a ticket for one terminal.
@@ -169,6 +178,7 @@ class TicketStore:
             sid: The minting credential's ``sid``.
             actor: Who it is, for the audit trail.
             client_ip: Where the call came from.
+            resume: The session to go back to, for a connection that dropped.
 
         Returns:
             The ticket value, which is shown once, and what it authorises.
@@ -179,10 +189,12 @@ class TicketStore:
         """
         if kind not in KINDS:
             raise ValueError(f"Unknown terminal kind {kind!r}")
+        if resume is not None and not _SESSION_ID.fullmatch(resume):
+            raise ValueError(f"Not a session id: {resume!r}")
         now = self._clock()
         ticket = secrets.token_urlsafe(32)
         grant = TerminalGrant(
-            session_id=secrets.token_hex(8),
+            session_id=resume or secrets.token_hex(8),
             kind=kind,
             domain=domain,
             service=service,
@@ -193,6 +205,7 @@ class TicketStore:
             actor=actor,
             client_ip=client_ip,
             expires_at=now + self._ttl,
+            resume=resume,
         )
         with self._lock:
             self._forget_expired(now)

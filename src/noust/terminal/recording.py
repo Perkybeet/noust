@@ -88,6 +88,10 @@ _CONTROL_SEQUENCES = re.compile(
 _CONTROL_CHARACTERS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
 
 
+class RecordingNotFound(NoustError):
+    """There is no recording with that id."""
+
+
 def recordings_dir() -> Path:
     """
     Where recordings are kept.
@@ -585,8 +589,8 @@ def read_recording(recording_id: str, directory: Path | None = None) -> Recordin
 
     Raises:
         ValidationError: The id is not one a recording has.
-        NoustError: There is no such recording, or it is too large to return
-            whole or damaged.
+        RecordingNotFound: There is no such recording.
+        NoustError: It is too large to return whole, or damaged.
     """
     if not RECORDING_ID.fullmatch(recording_id):
         raise ValidationError(
@@ -598,7 +602,7 @@ def read_recording(recording_id: str, directory: Path | None = None) -> Recordin
     cast = base / f"{recording_id}.cast"
     sidecar = base / f"{recording_id}.json"
     if cast.is_symlink() or not cast.is_file():
-        raise NoustError(
+        raise RecordingNotFound(
             f"No recording {recording_id}",
             details="List them with: noust audit recordings",
         )

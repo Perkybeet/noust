@@ -846,6 +846,11 @@ async def lifespan(app: FastAPI):
         jobs.unsubscribe_all(app_states)
         jobs.unsubscribe_all(notify_jobs)
         stop_witnessing()
+        # Every open terminal ends, with its recording closed and on record,
+        # before the processes are stopped under it.
+        from noust.terminal.sessions import shutdown_sessions
+
+        await asyncio.to_thread(shutdown_sessions)
         stop_child_processes()
         close_fleet_tunnels()
         manager.purge_expired_sessions()

@@ -32,6 +32,7 @@ from noust.terminal.sessions import (
     END_DISCONNECTED,
     MAX_INPUT_CHARS,
     SessionRegistry,
+    TerminalDisabledError,
     TerminalGone,
     TerminalLimitError,
     reset_registry,
@@ -352,11 +353,11 @@ class TestTheLimits:
     def test_terminals_can_be_turned_off(self, store, runner):
         registry = SessionRegistry(settings=lambda: settings(enabled=False), runner=lambda: runner)
 
-        with pytest.raises(TerminalLimitError, match="turned off"):
+        with pytest.raises(TerminalDisabledError, match="turned off"):
             open_session(registry)
 
     def test_the_servers_shell_is_off_until_it_is_turned_on(self, registry):
-        with pytest.raises(TerminalLimitError) as refused:
+        with pytest.raises(TerminalDisabledError) as refused:
             open_session(registry, kind="server", target=SERVER_TARGET)
 
         assert "off" in str(refused.value)
@@ -368,7 +369,7 @@ class TestTheLimits:
         )
 
         open_session(registry, kind="server", target=SERVER_TARGET)  # the server's own switch
-        with pytest.raises(TerminalLimitError):
+        with pytest.raises(TerminalDisabledError):
             open_session(registry)
         registry.shutdown()
 
@@ -376,7 +377,7 @@ class TestTheLimits:
         refused = SessionRegistry(
             settings=lambda: settings(server_enabled=True, ens=True), runner=lambda: runner
         )
-        with pytest.raises(TerminalLimitError, match="ENS"):
+        with pytest.raises(TerminalDisabledError, match="ENS"):
             open_session(refused, kind="server", target=SERVER_TARGET)
 
         forced = SessionRegistry(
@@ -388,7 +389,7 @@ class TestTheLimits:
 
     def test_the_room_can_be_asked_before_a_ticket_is_minted(self, registry):
         assert registry.check_room("maria", kind="app").enabled is True
-        with pytest.raises(TerminalLimitError):
+        with pytest.raises(TerminalDisabledError):
             registry.check_room("maria", kind="server")
 
     def test_input_is_a_paste_not_a_flood(self, registry):
@@ -574,7 +575,9 @@ class TestWhenTheConnectionDrops:
         with pytest.raises(TerminalGone):
             registry.resumable(session.id, sid="session-1", actor="maria")
 
-    def test_a_connection_that_is_gone_does_not_stop_the_reader(self, registry, runner):
+    def test_a_connection_that_is_gone_detaches_the_session_and_loses_nothing(
+        self, registry, runner
+    ):
         calls: list[int] = []
 
         def broken(message: dict[str, Any]) -> None:
@@ -584,10 +587,47 @@ class TestWhenTheConnectionDrops:
         session = registry.open(grant(), plan(), actor=person())
         session.start(broken)
         runner.ptys[0].feed("a")
+        assert wait_for(lambda: session.attached is False)
         runner.ptys[0].feed("b")
+        time.sleep(0.3)
 
-        assert wait_for(lambda: len(calls) >= 2)
         assert not session.ended
+        assert len(calls) == 1  # it is not tried again until somebody attaches
+        again = Listener()
+        session.attach(again)
+        assert again.text == "ab"
+
+    def test_a_connection_that_does_not_answer_in_time_is_treated_as_gone(self, registry, runner):
+        def stuck(message: dict[str, Any]) -> None:
+            raise TimeoutError("the browser is not reading")
+
+        session = registry.open(grant(), plan(), actor=person())
+        session.start(stuck)
+        runner.ptys[0].feed("kept")
+
+        assert wait_for(lambda: session.attached is False)
+        again = Listener()
+        session.attach(again)
+        assert again.text == "kept"
+
+    def test_the_keyboard_is_not_held_up_by_a_slow_connection(self, registry, runner):
+        release = threading.Event()
+        started = threading.Event()
+
+        def slow(message: dict[str, Any]) -> None:
+            started.set()
+            release.wait(5)
+
+        session = registry.open(grant(), plan(), actor=person())
+        session.start(slow)
+        runner.ptys[0].feed("output the browser cannot keep up with")
+        assert started.wait(5)
+
+        before = time.monotonic()
+        session.write("\x03")  # Ctrl+C while the output is stuck
+        assert time.monotonic() - before < 1
+        assert runner.ptys[0].written == [b"\x03"]
+        release.set()
 
 
 class TestEndingThem:

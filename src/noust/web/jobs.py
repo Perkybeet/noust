@@ -151,6 +151,8 @@ class JobType(str, Enum):
     NODE_ENROLL = "node_enroll"
     # Noust updating itself (noust.managers.self_update).
     SELF_UPDATE = "self_update"
+    # A command run once in an application, as its own account (noust.terminal.execution).
+    APP_EXEC = "app_exec"
     CUSTOM = "custom"
 
 
@@ -2770,6 +2772,69 @@ def cert_create_job(
     covered = manager.certificate_domains(domain, domains, include_www)
     context.update("Certificate created", 100)
     return {"domain": domain, "domains": covered, "status": "certificate_created"}
+
+
+def exec_app_job(
+    domain: str,
+    argv: list[str],
+    service: str | None = None,
+    timeout: int = 300,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Run one command in an application and keep what it prints as the job's log.
+
+    The command runs as the application's own account in its sandbox, or in a
+    container of its stack (:mod:`noust.terminal.execution`); each line it prints
+    is a line of the log, scrubbed of the application's known secrets. A command
+    that exits with anything but 0, or that did not finish in time, is a failed
+    job: the log says how, and the result keeps its status.
+
+    Args:
+        domain: The application.
+        argv: The program and its arguments, as they are given to it.
+        service: The Compose service, for a stack.
+        timeout: Seconds it may run.
+        job_context: Injected by the job manager.
+
+    Returns:
+        ``exit_code``, ``duration``, ``output_bytes``, ``output_cut`` and ``target``.
+
+    Raises:
+        DeploymentError: The command failed, ran out of time or of memory.
+    """
+    from noust.terminal.execution import run_exec
+
+    context = _require_context(job_context)
+    context.set_metadata("domain", domain)
+    context.update(f"Running a command in {domain}", 5)
+    outcome = run_exec(domain, argv, service=service, timeout=timeout, on_line=context.log)
+    summary = {
+        "exit_code": outcome.exit_code,
+        "duration": outcome.duration,
+        "output_bytes": outcome.output_bytes,
+        "output_cut": outcome.output_cut,
+        "target": outcome.target,
+    }
+    context.set_result(summary)
+    if outcome.timed_out:
+        raise DeploymentError(
+            f"The command did not finish within {timeout} seconds, and was stopped",
+            details="Give it more time (up to terminal.exec.max_seconds), or run it in a terminal. "
+            "In a container, Docker leaves the process it started running there.",
+        )
+    if outcome.out_of_memory:
+        raise DeploymentError(
+            "The command was killed for using more memory than the application may",
+            details="Raise the application's memory limit, or run it where there is more.",
+        )
+    if outcome.exit_code != 0:
+        raise DeploymentError(
+            f"The command exited with status {outcome.exit_code}",
+            details="What it printed is in this job's log.",
+        )
+    context.update("Command finished", 100)
+    return summary
 
 
 def cert_renew_job(
