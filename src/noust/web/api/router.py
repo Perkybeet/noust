@@ -59,6 +59,7 @@ from noust.web.api.services import router as services_router
 from noust.web.api.sites import router as sites_router
 from noust.web.api.system import router as system_router
 from noust.web.api.timeline import router as timeline_router
+from noust.web.api.volume_backups import router as volume_backups_router
 from noust.web.api.zero_downtime import router as zero_downtime_router
 from noust.web.auth import require_auth
 
@@ -129,6 +130,7 @@ router.include_router(backups_router, prefix="/backups", tags=["Backups"])
 router.include_router(
     backup_schedules_router, prefix="/backup-schedules", tags=["Backup Schedules"]
 )
+router.include_router(volume_backups_router, prefix="/volume-backups", tags=["Volume Backups"])
 router.include_router(databases_router, prefix="/databases", tags=["Databases"])
 router.include_router(databases_apps_router, prefix="/apps", tags=["Databases"])
 router.include_router(cron_router, prefix="/cron", tags=["Cron Jobs"])

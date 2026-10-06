@@ -101,6 +101,16 @@ _DESCRIPTION_PREFIX = "Noust backup timer for "
 #: called ``db-postgresql-shop`` would otherwise be taken for a database.
 _DATABASE_DESCRIPTION_PREFIX = "Noust database backup timer for "
 
+#: The same for the timers of an application's data (``noust backup volumes``) and
+#: of Noust's own state (``noust self-backup``): neither is an application's
+#: schedule, so :meth:`BackupScheduler.list_schedules` neither shows nor adopts them.
+_VOLUME_DESCRIPTION_PREFIX = "Noust volume backup timer for "
+_SELF_DESCRIPTION_PREFIX = "Noust self-backup timer for "
+
+#: The unit of Noust's own state backup. An application's units are named after
+#: its domain, which always has a dot and so a dash: this name has none.
+SELF_BACKUP_UNIT = f"{paths.BACKUP_UNIT_PREFIX}self"
+
 #: The ``OnCalendar`` expression inside systemd's ``TimersCalendar`` property,
 #: which prints as ``{ OnCalendar=*-*-* 02:00:00 ; next_elapse=... }``.
 _ON_CALENDAR = re.compile(r"OnCalendar=([^;}]+)")
@@ -520,9 +530,16 @@ class BackupScheduler:
                         schedule_info["on_calendar"] = match.group(1).strip()
 
                 description = properties.get("Description", "")
-                if description.startswith(_DATABASE_DESCRIPTION_PREFIX):
-                    # A database's timer (see install_database_timer): the
-                    # databases' own listing shows it, not this one.
+                if description.startswith(
+                    (
+                        _DATABASE_DESCRIPTION_PREFIX,
+                        _VOLUME_DESCRIPTION_PREFIX,
+                        _SELF_DESCRIPTION_PREFIX,
+                    )
+                ):
+                    # A database's, a volume policy's or Noust's own timer (see
+                    # install_database_timer, install_volume_timer): their own
+                    # listings show them, not this one.
                     continue
                 if description.startswith(_DESCRIPTION_PREFIX):
                     schedule_info["domain"] = description[len(_DESCRIPTION_PREFIX) :]
@@ -693,21 +710,21 @@ class BackupScheduler:
             ) from exc
         return unit, self._unit_path(f"{unit}.timer"), self._unit_path(f"{unit}.service")
 
-    def _is_ours(self, path: Path) -> bool:
+    def _is_ours(self, path: Path, prefix: str = _DATABASE_DESCRIPTION_PREFIX) -> bool:
         """
-        Tell a database timer Noust wrote from any other unit of the same name.
+        Tell a timer Noust wrote for one purpose from any other unit of the same name.
 
         Args:
             path: A timer unit file.
+            prefix: The description every timer of this kind carries.
 
         Returns:
-            True when it does not exist or carries a database timer's own
-            description.
+            True when it does not exist or carries that description.
         """
         if not path.is_file():
             return True
         try:
-            return _DATABASE_DESCRIPTION_PREFIX in path.read_text(encoding="utf-8")
+            return prefix in path.read_text(encoding="utf-8")
         except OSError:
             return False
 
@@ -828,6 +845,242 @@ class BackupScheduler:
             "next_run": next_run if next_run and next_run != "n/a" else None,
             "last_run": last_run if last_run and last_run != "n/a" else None,
         }
+
+    # -- timers for what is not an application's own schedule ---------------
+
+    def _install_unit_pair(
+        self,
+        unit: str,
+        prefix: str,
+        what: str,
+        timer_template: str,
+        service_template: str,
+        calendar: str,
+        **values: str,
+    ) -> None:
+        """
+        Write, enable and start the timer and service of one scheduled job.
+
+        Args:
+            unit: The unit name without its suffix.
+            prefix: The description its timer carries, which says it is ours.
+            what: What the job is, for the errors.
+            timer_template: The timer's template.
+            service_template: The service's template.
+            calendar: The validated ``OnCalendar`` expression.
+            **values: What the templates are given besides the calendar.
+
+        Raises:
+            BackupError: When the name cannot be a unit's, the timer name
+                belongs to something that is not this kind of timer, a unit
+                cannot be written or the timer cannot be enabled.
+        """
+        try:
+            validate_service_name(unit)
+        except NoustError as exc:
+            raise BackupError(
+                f"Cannot schedule {what}",
+                details=f"{exc}. A unit file is generated from these values, so they are "
+                "restricted to characters that cannot become a systemd directive.",
+            ) from exc
+        timer_path = self._unit_path(f"{unit}.timer")
+        service_path = self._unit_path(f"{unit}.service")
+        if not self._is_ours(timer_path, prefix):
+            raise BackupError(
+                f"{timer_path.name} exists and is not a timer Noust wrote for {what}",
+                details="Another timer already has this name; remove it or rename the "
+                "application that owns it before scheduling this.",
+            )
+        self._write_unit(timer_path, self._render(timer_template, schedule=calendar, **values))
+        self._write_unit(
+            service_path,
+            self._render(
+                service_template, noust=find_noust_executable() or "/usr/bin/noust", **values
+            ),
+        )
+        self._systemctl("daemon-reload")
+        result = self._systemctl("enable", "--now", f"{unit}.timer")
+        if not result.success:
+            raise BackupError(
+                f"Failed to enable timer: {unit}.timer",
+                details=result.stderr.strip() or "Check 'systemctl status' for details.",
+            )
+        self.logger.info(f"Created schedule: {unit} ({calendar})")
+
+    def _remove_unit_pair(self, unit: str, prefix: str) -> bool:
+        """
+        Stop and remove a scheduled job's timer and service, when Noust wrote them.
+
+        Args:
+            unit: The unit name without its suffix.
+            prefix: The description its timer carries.
+
+        Returns:
+            True when a timer was there to remove.
+        """
+        timer_path = self._unit_path(f"{unit}.timer")
+        service_path = self._unit_path(f"{unit}.service")
+        if not timer_path.is_file() or not self._is_ours(timer_path, prefix):
+            return False
+        self._systemctl("stop", f"{unit}.timer")
+        self._systemctl("disable", f"{unit}.timer")
+        for path in (timer_path, service_path):
+            try:
+                self.fs.remove(path)
+            except OSError as exc:
+                self.logger.warning(f"Could not remove {path}: {exc}")
+        self._systemctl("daemon-reload")
+        self.logger.info(f"Removed schedule: {unit}")
+        return True
+
+    def _unit_state(self, unit: str) -> dict[str, Any]:
+        """
+        Ask systemd about one timer.
+
+        Args:
+            unit: The unit name without its suffix.
+
+        Returns:
+            ``installed``, ``next_run`` and ``last_run``, as
+            :meth:`database_timer_state` says them.
+        """
+        result = self._systemctl(
+            "show",
+            f"{unit}.timer",
+            "--property=LoadState,NextElapseUSecRealtime,LastTriggerUSec",
+        )
+        properties: dict[str, str] = {}
+        if result.success:
+            for line in result.stdout.splitlines():
+                key, separator, value = line.partition("=")
+                if separator:
+                    properties[key] = value.strip()
+        next_run = properties.get("NextElapseUSecRealtime", "")
+        last_run = properties.get("LastTriggerUSec", "")
+        return {
+            "installed": properties.get("LoadState") == "loaded",
+            "next_run": next_run if next_run and next_run != "n/a" else None,
+            "last_run": last_run if last_run and last_run != "n/a" else None,
+        }
+
+    @staticmethod
+    def volume_timer_name(domain: str) -> str:
+        """
+        Name the timer unit of an application's volume backup policy.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            ``noust-backup-vol-<app name>``.
+        """
+        return f"{paths.BACKUP_UNIT_PREFIX}vol-{domain_to_app_name(domain)}"
+
+    def install_volume_timer(self, domain: str, schedule: str) -> str:
+        """
+        Create or replace the timer that runs an application's volume backup policy.
+
+        The service runs ``noust backup volumes run DOMAIN``, which reads the
+        rest (targets, retention, destinations) from the store, so changing a
+        policy only rewrites the calendar.
+
+        Args:
+            domain: The application's domain.
+            schedule: An alias of :data:`SCHEDULE_ALIASES` or a calendar expression.
+
+        Returns:
+            The timer's unit name.
+
+        Raises:
+            BackupError: When a value is unusable or the timer cannot be made.
+        """
+        require_server_role("Volume backups")
+        calendar = validate_calendar(schedule)
+        try:
+            domain = validate_domain(domain)
+        except NoustError as exc:
+            raise BackupError(
+                "Cannot schedule backups for this application", details=str(exc)
+            ) from exc
+        unit = self.volume_timer_name(domain)
+        self._install_unit_pair(
+            unit,
+            _VOLUME_DESCRIPTION_PREFIX,
+            "this application's data",
+            "volume-backup-timer.j2",
+            "volume-backup-service.j2",
+            calendar,
+            target=domain,
+            domain=domain,
+        )
+        return unit
+
+    def remove_volume_timer(self, domain: str) -> bool:
+        """
+        Remove the timer of an application's volume backup policy.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            True when a timer was there to remove.
+        """
+        return self._remove_unit_pair(self.volume_timer_name(domain), _VOLUME_DESCRIPTION_PREFIX)
+
+    def volume_timer_state(self, domain: str) -> dict[str, Any]:
+        """
+        Ask systemd about an application's volume backup timer.
+
+        Args:
+            domain: The application's domain.
+
+        Returns:
+            ``installed``, ``next_run`` and ``last_run``.
+        """
+        return self._unit_state(self.volume_timer_name(domain))
+
+    def install_self_backup_timer(self, schedule: str) -> str:
+        """
+        Create or replace the timer that backs up Noust's own state.
+
+        Args:
+            schedule: An alias of :data:`SCHEDULE_ALIASES` or a calendar expression.
+
+        Returns:
+            The timer's unit name.
+
+        Raises:
+            BackupError: When the calendar is unusable or the timer cannot be made.
+        """
+        calendar = validate_calendar(schedule)
+        self._install_unit_pair(
+            SELF_BACKUP_UNIT,
+            _SELF_DESCRIPTION_PREFIX,
+            "Noust's own state",
+            "self-backup-timer.j2",
+            "self-backup-service.j2",
+            calendar,
+            target="this server",
+        )
+        return SELF_BACKUP_UNIT
+
+    def remove_self_backup_timer(self) -> bool:
+        """
+        Remove the timer that backs up Noust's own state.
+
+        Returns:
+            True when a timer was there to remove.
+        """
+        return self._remove_unit_pair(SELF_BACKUP_UNIT, _SELF_DESCRIPTION_PREFIX)
+
+    def self_backup_timer_state(self) -> dict[str, Any]:
+        """
+        Ask systemd about the timer of Noust's own state backup.
+
+        Returns:
+            ``installed``, ``next_run`` and ``last_run``.
+        """
+        return self._unit_state(SELF_BACKUP_UNIT)
 
     def _render(self, template_name: str, **values: str) -> str:
         """
