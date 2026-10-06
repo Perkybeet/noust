@@ -45,20 +45,14 @@ def run_script(cursor: sqlite3.Cursor, script: str) -> None:
 
 def test_the_fragment_creates_one_table_and_applies_twice(monkeypatch: pytest.MonkeyPatch) -> None:
     # This is about the access fragment alone, over a database with the one older table it
-    # may alter: another area's tables, columns and triggers are tested by that area.
-    for area in (
-        "TEAMS",
-        "BUILD",
-        "CONTAINER",
-        "RECIPES",
-        "DELIVERY",
-        "SOURCES",
-        "DATABASES",
-        "BACKUPS",
-        "NOTIFY",
-    ):
-        monkeypatch.setattr(schema_v14, f"{area}_SQL", "")
-        monkeypatch.setattr(schema_v14, f"{area}_COLUMNS", [])
+    # may alter: another area's tables, columns and triggers are tested by that area, and
+    # they alter tables (`deployments`, `apps`...) this database does not have. Every other
+    # area is emptied by name, so a fragment added later does not have to be listed here.
+    for name in list(vars(schema_v14)):
+        if name.endswith("_SQL") and name != "ACCESS_SQL":
+            monkeypatch.setattr(schema_v14, name, "")
+        elif name.endswith("_COLUMNS") and name != "ACCESS_COLUMNS":
+            monkeypatch.setattr(schema_v14, name, [])
     connection = sqlite3.connect(":memory:")
     cursor = connection.cursor()
     cursor.execute("CREATE TABLE apps (id INTEGER PRIMARY KEY, domain TEXT)")

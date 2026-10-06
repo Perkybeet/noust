@@ -14,7 +14,11 @@ up, and each is checked here against the code as it is:
   :mod:`noust.web.permissions.scopes`, and every route no rule names fails;
 - no router reads applications, databases, sites, backup schedules or their
   history from the store directly: it asks the
-  :class:`~noust.core.teams.scoped.ScopedStore`, which filters in SQL.
+  :class:`~noust.core.teams.scoped.ScopedStore`, which filters in SQL;
+- every table another area of the release adds for something an application or
+  a database owns (a build block, a deploy key, a database open to the network,
+  a volume backup policy) says how a team's scope reaches it, and the routes it
+  names are classified as it says.
 
 Each guard carries the places that are allowed to break it, with the reason, and
 fails both when a new one appears and when a listed one goes away.
@@ -31,6 +35,7 @@ from typing import Any
 import pytest
 
 import noust
+from noust.core import schema_v14
 from noust.core.accounts import AuthPolicy
 from noust.core.store import NoustStore
 from noust.core.teams import ScopedStore
@@ -347,7 +352,9 @@ class TestEveryRouteIsHeldToTheScope:
     def test_a_route_that_names_a_resource_is_checked_against_it(self, served: Any) -> None:
         # A parameter that identifies a resource must be one the rule checks: a path with
         # {domain} that is "open" would answer any team member about any application.
-        names_a_resource = re.compile(r"\{(domain|engine|name|deployment_id|job_id|team)\}")
+        names_a_resource = re.compile(
+            r"\{(domain|engine|name|database|deployment_id|job_id|team)\}"
+        )
         loose = []
         for method, template, _route in served_routes(served):
             if permission_for_route(method, template) == PUBLIC:
@@ -415,6 +422,8 @@ class TestEveryRouteIsHeldToTheScope:
             "GET /api/certs",
             "GET /api/databases/databases",
             "POST /api/databases/databases",
+            "GET /api/databases/public",
+            "GET /api/deploy-keys",
             "GET /api/backup-schedules",
             "GET /api/deployments",
             "GET /api/jobs",
@@ -426,3 +435,207 @@ class TestEveryRouteIsHeldToTheScope:
             "GET /api/environments",
             "GET /events",
         }
+
+
+#: Columns that say a row belongs to an application, a database or a repository built by one.
+OWNER_COLUMNS = frozenset({"app_id", "app_domain", "domain", "db_name", "database", "repository"})
+
+#: The fragment of the teams themselves: its tables are the model, not something it owns.
+TEAMS_FRAGMENT = "TEAMS"
+
+#: How a team's scope reaches what each table of the 3.4 fragments holds for an application or a
+#: database: ``(method, route, how the route is classified)``. Each route must be served and must
+#: be classified as said, so a route that drifts to "open" or loses its resource fails here.
+OWNED_TABLES: dict[str, tuple[tuple[str, str, str], ...]] = {
+    # An application's own routes: another team's reads as absent before the handler runs.
+    "app_build": (
+        ("GET", "/api/apps/{domain}/build", RESOURCE),
+        ("PUT", "/api/apps/{domain}/build", RESOURCE),
+        ("DELETE", "/api/apps/{domain}/build", RESOURCE),
+    ),
+    "app_container": (
+        ("GET", "/api/apps/{domain}/container", RESOURCE),
+        ("PUT", "/api/apps/{domain}/container", RESOURCE),
+    ),
+    "app_recipes": (
+        ("GET", "/api/recipes/installed", SCOPED),
+        ("GET", "/api/recipes/installed/{domain}", RESOURCE),
+        ("POST", "/api/recipes/installed/{domain}/update", RESOURCE),
+    ),
+    # Asked to stop through the job, which is the application's.
+    "delivery_cancel_requests": (("POST", "/api/jobs/{job_id}/cancel", RESOURCE),),
+    "deployments": (
+        ("GET", "/api/deployments", SCOPED),
+        ("GET", "/api/deployments/{deployment_id}", RESOURCE),
+    ),
+    # A key is found by repository: listed by the repositories the caller's applications are built
+    # from, and changed through the application that is.
+    "deploy_keys": (
+        ("GET", "/api/deploy-keys", SCOPED),
+        ("GET", "/api/apps/{domain}/deploy-key", RESOURCE),
+        ("POST", "/api/apps/{domain}/deploy-key", RESOURCE),
+        ("POST", "/api/apps/{domain}/deploy-key/rotate", RESOURCE),
+        ("GET", "/api/apps/{domain}/git-credential", RESOURCE),
+        ("PUT", "/api/apps/{domain}/git-credential", RESOURCE),
+    ),
+    "deploy_key_repositories": (
+        ("GET", "/api/deploy-keys", SCOPED),
+        ("DELETE", "/api/apps/{domain}/deploy-key", RESOURCE),
+    ),
+    # A port, an account on the engine and a firewall rule: opening is the server's; seeing,
+    # reading and closing one are its database's owner's.
+    "database_exposures": (
+        ("GET", "/api/databases/public", SCOPED),
+        ("POST", "/api/databases/public", INSTANCE),
+        ("POST", "/api/databases/public/plan", INSTANCE),
+        ("GET", "/api/databases/public/{engine}/{database}", RESOURCE),
+        ("POST", "/api/databases/public/{engine}/{database}/reveal", RESOURCE),
+        ("DELETE", "/api/databases/public/{engine}/{database}", RESOURCE),
+    ),
+    # Each writes a root timer and names a destination the server owns: the server's.
+    "volume_backup_policies": (
+        ("GET", "/api/volume-backups/policies", INSTANCE),
+        ("GET", "/api/volume-backups/policies/{domain}", INSTANCE),
+        ("PUT", "/api/volume-backups/policies/{domain}", INSTANCE),
+        ("DELETE", "/api/volume-backups/policies/{domain}", INSTANCE),
+        ("POST", "/api/volume-backups/policies/{domain}/run", INSTANCE),
+    ),
+    "database_backup_policies": (
+        ("GET", "/api/databases/backup-policies", INSTANCE),
+        ("PUT", "/api/databases/backup-policies/{engine}/{database}", INSTANCE),
+        ("POST", "/api/databases/backup-policies/{engine}/{database}/run", INSTANCE),
+    ),
+    "self_backup_schedule": (
+        ("GET", "/api/self-backup", INSTANCE),
+        ("PUT", "/api/self-backup/schedule", INSTANCE),
+    ),
+}
+
+#: Tables with a column that looks like an owner and is not one, and why.
+NOT_OWNED: dict[str, str] = {
+    "console_exposure": "the name the console itself is published on: the server's, not an application's",
+}
+
+#: Prefixes whose routes belong to what the tables above hold. None of them may be "open": a route
+#: under one that forgot to say who it is about would answer every team about every other.
+OWNED_PREFIXES = (
+    "/api/deploy-keys",
+    "/api/databases/public",
+    "/api/databases/backup-policies",
+    "/api/databases/backups",
+    "/api/databases/imports",
+    "/api/volume-backups",
+    "/api/self-backup",
+    "/api/backups",
+    "/api/backup-destinations",
+    "/api/recipes/installed",
+)
+
+
+def fragment_tables() -> dict[str, set[str]]:
+    """
+    Read the tables the 3.4 fragments create, and the columns each declares.
+
+    Returns:
+        ``{table: columns}`` for every ``CREATE TABLE`` of a fragment other
+        than the teams' own.
+    """
+    found: dict[str, set[str]] = {}
+    for name in vars(schema_v14):
+        if not name.endswith("_SQL") or name.removesuffix("_SQL") == TEAMS_FRAGMENT:
+            continue
+        for table, body in re.findall(
+            r"CREATE TABLE IF NOT EXISTS (\w+) \((.*?)\n\);", getattr(schema_v14, name), re.S
+        ):
+            found[table] = {
+                line.split()[0]
+                for line in body.splitlines()
+                if line.startswith("    ") and not line.startswith("     ")
+            }
+    return found
+
+
+def fragment_altered_tables() -> set[str]:
+    """
+    Returns:
+        The tables a fragment other than the teams' own adds columns to.
+    """
+    return {
+        table
+        for name in vars(schema_v14)
+        if name.endswith("_COLUMNS") and name.removesuffix("_COLUMNS") != TEAMS_FRAGMENT
+        for table, _column, _definition in getattr(schema_v14, name)
+    }
+
+
+class TestEveryResourceAnotherAreaAddedSaysHowATeamReachesIt:
+    def test_the_scanner_finds_the_tables_it_is_about(self) -> None:
+        tables = fragment_tables()
+
+        assert tables["app_build"] == {"app_id", "document", "applied", "updated_by", "updated_at"}
+        assert "db_name" in tables["database_exposures"]
+        assert "app_domain" in tables["volume_backup_policies"]
+        assert "teams" not in tables
+        assert {"deployments", "database_backup_policies"} <= fragment_altered_tables()
+
+    def test_a_table_that_names_an_application_or_a_database_is_accounted_for(self) -> None:
+        owned = {t for t, columns in fragment_tables().items() if columns & OWNER_COLUMNS}
+        owned |= fragment_altered_tables()
+
+        unaccounted = sorted(owned - OWNED_TABLES.keys() - NOT_OWNED.keys())
+
+        assert not unaccounted, (
+            "These tables hold rows that belong to an application or a database and no entry of "
+            "OWNED_TABLES says how a team's scope reaches them. Reach them through a route "
+            "whose rule in noust.web.permissions.scopes names the resource (a path with "
+            "{domain}), through a list the handler filters, or make the route the server's, "
+            "then list them here with those routes:\n" + "\n".join(unaccounted)
+        )
+
+    def test_the_lists_hold_no_table_that_is_gone(self) -> None:
+        known = fragment_tables().keys() | fragment_altered_tables()
+
+        gone = sorted((OWNED_TABLES.keys() | NOT_OWNED.keys()) - known)
+
+        assert not gone, f"No fragment creates or alters these any more; remove them: {gone}"
+
+    def test_a_table_is_not_owned_and_not_owned_at_once(self) -> None:
+        assert not OWNED_TABLES.keys() & NOT_OWNED.keys()
+
+    def test_every_way_in_is_served_and_classified_as_declared(self, served: Any) -> None:
+        classified = {
+            (method, template): rule
+            for method, template, _route in served_routes(served)
+            if (rule := rule_for(method, template)) is not None
+        }
+        wrong = []
+        for table, ways in OWNED_TABLES.items():
+            for method, template, scoping in ways:
+                rule = classified.get((method, template))
+                if rule is None:
+                    wrong.append(f"{table}: {method} {template} is not a route of the console")
+                elif rule.scoping != scoping:
+                    wrong.append(f"{table}: {method} {template} is {rule.scoping}, not {scoping}")
+        assert not wrong, "\n".join(wrong)
+
+    def test_nothing_under_what_these_tables_hold_is_open(self, served: Any) -> None:
+        open_routes = sorted(
+            f"{method} {template}"
+            for method, template, _route in served_routes(served)
+            if any(template == p or template.startswith(p + "/") for p in OWNED_PREFIXES)
+            and (rule := rule_for(method, template)) is not None
+            and rule.scoping == OPEN
+        )
+        assert not open_routes, (
+            "These routes sit under the resources of an application or a database and say "
+            "nothing about whose they are:\n" + "\n".join(open_routes)
+        )
+
+    def test_the_prefixes_still_have_routes(self, served: Any) -> None:
+        templates = [template for _method, template, _route in served_routes(served)]
+        empty = [
+            prefix
+            for prefix in OWNED_PREFIXES
+            if not any(t == prefix or t.startswith(prefix + "/") for t in templates)
+        ]
+        assert not empty, f"No route is served under these any more; remove them: {empty}"
