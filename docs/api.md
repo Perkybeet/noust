@@ -827,6 +827,13 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/databases/public/{engine}/{database}` | GET `databases.read`; DELETE `databases.manage`, sudo | Whether a database is public and how; make it private again (undoes all of it) |
 | `/api/databases/public/{engine}/{database}/reveal` | POST `secrets.reveal`, sudo | The connection details with the account's password |
 | `/api/databases/provisioning/choices` | GET `databases.read` | Each engine, the version that runs and the versions a database can be created on (`installed`, `installable`, `unavailable`) |
+| `/api/databases/instances` | GET `databases.read`; POST `databases.manage`, sudo | The engines Noust runs itself in containers beside the host's (`name`, `key`, `reference`, `host_port`, `memory_limit_mb`, `state`, `status`) and the memory they hold; make one (`{name, engine, version, memory_mb, port}`, a job): the official image pinned by digest, on 127.0.0.1 only |
+| `/api/databases/instances/catalog` | GET `databases.read` | What can be run as an instance: each engine, its versions and the digest pinned for each |
+| `/api/databases/instances/plan` | POST `databases.read` | What making an instance would do; changes nothing |
+| `/api/databases/instances/{name}` | GET `databases.read`; DELETE `databases.manage`, sudo | Describe one; remove it with its data (`?confirm=true`, a job; refused while an application uses it) |
+| `/api/databases/instances/{name}/start`, `.../stop` | POST `apps.operate` | Start it (a job that returns once the engine answers) and stop it; its data stays |
+| `/api/databases/instances/{name}/upgrade` | POST `databases.manage`, sudo | Move it to the newest image of its version (`?backup=false` skips the dumps taken first; a job); a failed gate puts the previous image back |
+| `/api/databases/instances/{name}/remove-plan` | GET `databases.read` | What removing it deletes and what stops it |
 | `/api/apps/{domain}/deploy-key` | GET `apps.read`; POST `apps.manage`; DELETE `apps.manage`, sudo | The key the repository is reached with; make one (or assign `{key}`); take the repository off it |
 | `/api/apps/{domain}/deploy-key/import` | POST `apps.manage`, sudo | Use a private key you have (`{private_key, name}`) |
 | `/api/apps/{domain}/deploy-key/rotate` | POST `apps.manage`; DELETE `apps.manage` | Make the key that replaces it, keeping the old working; give the rotation up |

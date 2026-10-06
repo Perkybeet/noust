@@ -670,7 +670,11 @@ and restoring over it takes a safety copy first. Passwords never appear in a com
 database ports open beyond the machine are reported (`noust db exposure`).
 
 The engine and its version are a choice, not an accident (`noust db provision shop -e postgresql
---version 17 --install`; `noust db choices` lists what the server can be given). And when a
+--version 17 --install`; `noust db choices` lists what the server can be given). The host's engine
+stays the primary one; for another version beside it, or an engine the host does not have, Noust
+runs it itself from the engine's official image pinned by digest, on 127.0.0.1 only and held to a
+memory limit (`noust db instance create pg16 --engine postgresql --version 16 --memory 512m`), and
+it is then `postgresql@pg16` wherever an engine is named. And when a
 desktop client has to connect from your computer, `noust db public open shop -e postgresql --from
 203.0.113.7` makes that one database reachable on a port you choose, on purpose and with every
 consequence shown first: a proxy forwards the port (the engine is not reconfigured), an account of

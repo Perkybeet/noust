@@ -2012,6 +2012,10 @@ def deploy_app_job(
             env_var=database.get("env_var"),
             extra_vars=bool(database.get("extra_vars")),
             env=settings["env_vars"],
+            # What the request named, so a version the host does not run is made on the
+            # instance that runs it, as the request was checked to be.
+            version=database.get("version"),
+            instance=database.get("instance"),
         )
         context.add_secret_env(new_database.values)
         database_options = new_database.configure_options(env_secret_marks)

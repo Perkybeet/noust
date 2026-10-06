@@ -733,9 +733,15 @@ def _engines(*, json_output: bool, logger: Logger) -> int:
             marker = "*" if item["running"] else " "
             owner = f", {item['app']}" if item["app"] else ""
             limited = ", limited access" if item["access"] == "limited" else ""
+            made = (
+                f", instance {item['managed']} {item.get('version') or ''}".rstrip()
+                + f", {item['memory_limit_mb']} MB"
+                if item.get("managed")
+                else ""
+            )
             click.echo(
                 f"  [{marker}] {item['name']:<40} {item['display_name']} "
-                f"(container {item['container']}, port {item['port']}{owner}{limited})"
+                f"(container {item['container']}, port {item['port']}{owner}{limited}{made})"
             )
 
     click.echo("")
@@ -1502,6 +1508,7 @@ def _provision(
     logger: Logger,
     version: str | None = None,
     install: bool = False,
+    instance: str | None = None,
 ) -> int:
     """
     Create a database and an account for an application, and link them.
@@ -1517,6 +1524,7 @@ def _provision(
         version: The version of the engine, such as ``17``; the installed one
             when omitted.
         install: Install the engine, in that version, when it is missing.
+        instance: The instance Noust runs to make the database on.
 
     Returns:
         Process exit code.
@@ -1532,6 +1540,7 @@ def _provision(
             version=version,
             install=install,
             install_hint="add --install",
+            instance=instance,
         )
     except NoustError as e:
         return _fail(logger, e)
@@ -1562,7 +1571,11 @@ def _choices(*, json_output: bool, logger: Logger) -> int:
     for entry in entries:
         versions = ", ".join(
             f"{item['version']}"
-            + {"installed": " (installed)", "installable": ""}.get(item["state"], " (n/a)")
+            + {
+                "installed": " (installed)",
+                "installable": "",
+                "instance": f" (instance {item.get('instance')})",
+            }.get(item["state"], " (n/a)")
             for item in entry["versions"]
         )
         status = (
@@ -2690,6 +2703,14 @@ def links(ctx: Context, domain: str) -> None:
     help="Install the engine, in --version, first when it is not installed: the same as "
     "'noust db install'.",
 )
+@click.option(
+    "--instance",
+    "instance",
+    metavar="NAME",
+    help="Make it on this instance Noust runs ('noust db instance list') instead of the host's "
+    "engine. One is also chosen by itself when --version is what an instance runs and the "
+    "host does not.",
+)
 @pass_context
 def provision(
     ctx: Context,
@@ -2701,13 +2722,15 @@ def provision(
     no_restart: bool,
     version: str | None,
     install: bool,
+    instance: str | None,
 ) -> None:
     """
     Create a database and an account for an application, and link them.
 
     The engine is the one installed, unless --version asks for another: one
     that is not installed is installed first only with --install, and a version
-    other than the one that runs is refused with what runs.
+    other than the one that runs is refused with what runs, unless an instance
+    Noust runs has it (or --instance names one).
     """
     _exit(
         _provision(
@@ -2720,6 +2743,7 @@ def provision(
             logger=ctx.logger,
             version=version,
             install=install,
+            instance=instance,
         )
     )
 
@@ -2997,3 +3021,18 @@ def _attach_public_commands() -> None:
 
 
 _attach_public_commands()
+
+
+def _attach_instance_commands() -> None:
+    """
+    Add ``instance``: engines Noust runs itself, in containers, beside the host's.
+
+    It lives in :mod:`noust.cli.commands.db_instances`, which imports this module
+    only at call time, like the backup, data and public commands.
+    """
+    from noust.cli.commands import db_instances
+
+    db_instances.register(cli)
+
+
+_attach_instance_commands()
