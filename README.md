@@ -858,6 +858,7 @@ completions`. `wasm` runs the same program throughout 3.x.
 | `static` | `index.html`, and no project manifest | Served by the web server from `public`, `dist`, `build`, `www`, `html` or the root | Yes |
 | `monorepo` | `turbo.json`, pnpm workspaces and at least two apps under `apps/` | pnpm; one unit and one subdomain per workspace | In place |
 | `docker-compose` | A compose file (`docker-compose.prod.yml` first) | `docker compose` v2 under a systemd unit, nginx in front of published ports; hooks, relay, database copy | In place |
+| `container` | A `Dockerfile` or `Containerfile` with no compose file; `--image` for a registry; `--builder railpack` for any other language | A compose file Noust writes, one container on 127.0.0.1 under a systemd unit, nginx in front; one image per release | Images |
 
 Detection tries the most specific type first: monorepo, Docker Compose, Next.js, PHP, Vite,
 Python, Node.js, static. When nothing matches, Noust falls back to Node.js and says so; pass
@@ -927,6 +928,7 @@ is.
 - [docs/databases.md](docs/databases.md): databases on the host and in containers, credentials, detected links, versions and settings
 - [docs/CHANGELOG-3.2.md](docs/CHANGELOG-3.2.md): what changed in 3.2
 - [docs/UPGRADING-3.2.md](docs/UPGRADING-3.2.md): upgrading a 3.1 server or fleet to 3.2, and rolling back
+- [docs/containers.md](docs/containers.md): container applications: a Dockerfile, an image from a registry or Railpack, releases that are images, instant rollback
 - [docs/compose.md](docs/compose.md): Docker Compose projects: `noust.yaml`, hooks, the relay, adopting a stack, database copies, tags
 - [docs/CHANGELOG-3.1.md](docs/CHANGELOG-3.1.md): what changed in 3.1
 - [docs/UPGRADING-3.1.md](docs/UPGRADING-3.1.md): upgrading a 3.0 server or fleet to 3.1, and rolling back

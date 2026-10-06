@@ -45,6 +45,8 @@ StepReporter: TypeAlias = Callable[[str], None]
 #: - ``python`` (50): requirements.txt / pyproject.toml.
 #: - ``nodejs`` (40): the fallback for any remaining package.json.
 #: - ``static`` (10): plain index.html, only when nothing else claimed it.
+#: - ``container`` (5): a Dockerfile or Containerfile, only when nothing that knows the
+#:   project's framework (or its compose file) claimed it.
 DEFAULT_DETECTION_PRIORITY = 50
 
 

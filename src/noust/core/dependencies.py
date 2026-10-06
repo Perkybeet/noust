@@ -634,10 +634,10 @@ class DependencyChecker:
                             f"Use --pm to specify one, or install {required_pm}."
                         )
 
-        elif app_type == "docker-compose":
+        elif app_type in ("docker-compose", "container"):
             # Need Docker and Docker Compose
             if not self.check_command("docker"):
-                missing.append("docker: Docker is required for docker-compose deployments")
+                missing.append(f"docker: Docker is required for {app_type} deployments")
             else:
                 # Verify Docker daemon is running
                 result = self.runner.run(["docker", "info"], timeout=PROBE_TIMEOUT)

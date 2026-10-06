@@ -1422,6 +1422,36 @@ def _report_unit_state(logger: Logger, unit: str) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _run_railpack(logger: Logger, *, force: bool) -> int:
+    """
+    Install the pinned, checksum-verified Railpack release.
+
+    Args:
+        logger: Logger of the command.
+        force: Install it again even when that version is already there.
+
+    Returns:
+        Exit code.
+
+    Raises:
+        NoustError: The download, its checksum or the install failed.
+    """
+    from noust.core.store import get_store
+    from noust.managers.railpack import RailpackInstaller
+
+    logger.header("Railpack")
+    installer = RailpackInstaller(
+        logger=logger, work_dir=get_store().db_path.parent / "downloads" / "railpack"
+    )
+    outcome = installer.install(force=force)
+    if outcome.changed:
+        logger.info(
+            "Container applications built with --builder railpack need no Dockerfile now: "
+            "noust create --type container --builder railpack -d DOMAIN -s REPOSITORY"
+        )
+    return 0
+
+
 def handle_setup(args: Namespace) -> int:
     """
     Dispatch a setup action parsed by argparse.
@@ -1460,6 +1490,8 @@ def handle_setup(args: Namespace) -> int:
             )
         if action == "doctor":
             return _run_doctor(logger)
+        if action == "railpack":
+            return _run_railpack(logger, force=getattr(args, "force", False))
     except NoustError as e:
         logger.error(str(e), details=e.details or "")
         return 1
@@ -1578,3 +1610,22 @@ def doctor(ctx: Context) -> None:
     Exits non-zero when something deployments depend on is missing.
     """
     _exit(_run_doctor(ctx.logger))
+
+
+@cli.command("railpack")
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Install the pinned release again even when this version is already installed.",
+)
+@global_flags
+@pass_context
+def railpack(ctx: Context, force: bool) -> None:
+    """
+    Install Railpack, so container applications can be built without a Dockerfile.
+
+    Downloads the one release this version of Noust pins, over HTTPS, checks it
+    against the SHA-256 that release publishes, and installs it at
+    /usr/local/bin/railpack. Nothing that fails its checksum is installed.
+    """
+    _exit(_run_railpack(ctx.logger, force=force))

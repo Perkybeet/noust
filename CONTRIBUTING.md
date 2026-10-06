@@ -94,6 +94,10 @@ src/noust/
     domains.py      the one "names an app answers on": store, site, certificate, DNS check
     compose_relay.py  zero-downtime for Compose: a twin of each web service while it is recreated
     compose_adopt.py  `noust app adopt`: register a stack that already runs, touching nothing
+    container.py    `--type container`: a Dockerfile, a registry image or Railpack, run as a compose
+                    file Noust writes (helpers/container_compose.py), one image per release
+                    (helpers/container_image.py builds, pulls and prunes them), settings in
+                    core/container_store.py, changed through helpers/container_settings.py
     helpers/        layout.py (which layout, where .env lives), health_gate.py, release_build.py,
                     project_file.py (noust.yaml), hooks.py (which hooks run), site.py (the one
                     writer and deleter of an app's site), compose_ports.py (the one port reader)

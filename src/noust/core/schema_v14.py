@@ -28,8 +28,45 @@ TEAMS_COLUMNS: list[tuple[str, str, str]] = []
 BUILD_SQL = ""
 BUILD_COLUMNS: list[tuple[str, str, str]] = []
 
-# Owned by the container lane: applications that run as a container.
-CONTAINER_SQL = ""
+# Owned by the container lane: what a container application is built from and
+# how it runs. One row per application, in a table of its own so that the
+# full-row write of a redeploy (``apps`` is rewritten whole) cannot touch it,
+# and removed with the application. Nothing secret is stored here: a registry
+# account's password and a build secret live in the secret store, and the row
+# holds the name they are kept under.
+#
+# method: how the image comes to exist (dockerfile, railpack, image).
+# image: the registry reference (image method only).
+# dockerfile, context, target: the Dockerfile, the build context directory and
+#   the stage, relative to the repository.
+# build_args: JSON object of non-secret build arguments.
+# build_secrets: JSON list of the ids of the secrets a build mounts.
+# container_port: where the process listens inside the container.
+# volumes: JSON list of container paths kept in named volumes.
+# registry_*: the account the image (or a private base image) is pulled with.
+# digest: the digest the last deployment of a registry image resolved.
+CONTAINER_SQL = """
+CREATE TABLE IF NOT EXISTS app_container (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    method TEXT NOT NULL DEFAULT 'dockerfile'
+        CHECK (method IN ('dockerfile', 'railpack', 'image')),
+    image TEXT,
+    dockerfile TEXT,
+    context TEXT NOT NULL DEFAULT '.',
+    target TEXT,
+    build_args TEXT,
+    build_secrets TEXT,
+    container_port INTEGER,
+    volumes TEXT,
+    restart_policy TEXT NOT NULL DEFAULT 'unless-stopped',
+    registry_server TEXT,
+    registry_username TEXT,
+    registry_secret TEXT,
+    digest TEXT,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+"""
 CONTAINER_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the recipes lane: what a recipe installed and where.

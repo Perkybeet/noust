@@ -40,6 +40,19 @@ def cursor():
     conn.close()
 
 
+@pytest.fixture(autouse=True)
+def unfilled_areas(monkeypatch):
+    """
+    Every area as the foundation left it: empty.
+
+    These tests are about the fragment machinery, not about what any lane put in
+    its own fragment (each lane's tests cover that), so they run over empty ones.
+    """
+    for area in AREAS:
+        monkeypatch.setattr(schema_v14, f"{area}_SQL", "")
+        monkeypatch.setattr(schema_v14, f"{area}_COLUMNS", [])
+
+
 def _declare(monkeypatch, area: str = "TEAMS") -> None:
     monkeypatch.setattr(
         schema_v14,

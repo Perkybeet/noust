@@ -17,6 +17,8 @@ Usage:
     .venv/bin/python tests/integration/run.py --keep
     .venv/bin/python tests/integration/run.py --scenario node_app_update
     .venv/bin/python tests/integration/run.py --scenario compose
+    .venv/bin/python tests/integration/run.py --scenario container
+    .venv/bin/python tests/integration/run.py --scenario railpack   (optional, needs the network)
     .venv/bin/python tests/integration/run.py --scenario proggest   (optional, slow)
 
 Requires Docker (tested against Docker 29) with a working systemd-in-Docker
@@ -7890,6 +7892,326 @@ def random_container_name() -> str:
     return f"noust-it-{secrets.token_hex(4)}"
 
 
+# ---------------------------------------------------------------------------
+# 3.4: container applications (a Dockerfile, an image from a registry, Railpack)
+# ---------------------------------------------------------------------------
+
+CONTAINER_DOMAIN = "ctr.test"
+CONTAINER_PORT = 18210
+CONTAINER_REPO = "/root/fixtures/ctr-app"
+CONTAINER_URL = "git://127.0.0.1/ctr-app"
+CONTAINER_IMAGES = "noust-ctr-test"
+CONTAINER_BASE = "nginx:alpine"
+
+CONTAINER_REGISTRY_DOMAIN = "ctr-image.test"
+CONTAINER_REGISTRY_PORT = 18211
+CONTAINER_REGISTRY_IMAGES = "noust-ctr-image-test"
+
+CONTAINER_RAILPACK_DOMAIN = "ctr-rp.test"
+CONTAINER_RAILPACK_PORT = 18212
+CONTAINER_RAILPACK_REPO = "/root/fixtures/ctr-railpack"
+CONTAINER_RAILPACK_URL = "git://127.0.0.1/ctr-railpack"
+
+#: Seconds a way back may take: it recreates one container from an image already on the host.
+CONTAINER_ROLLBACK_SECONDS = 45
+
+
+def container_dockerfile(extra: str = "") -> str:
+    """A printf-ready Dockerfile of the nginx fixture, with a line of ``extra`` before EXPOSE."""
+    return f"FROM {CONTAINER_BASE}\\nCOPY html /usr/share/nginx/html\\n{extra}EXPOSE 80\\n"
+
+
+def container_images(sc: Scenario, repository: str) -> list[str]:
+    """The tags of an application's images, as the container's own Docker lists them."""
+    listed = sc.run(
+        f"docker image ls --format '{{{{.Repository}}}}:{{{{.Tag}}}}' {repository}",
+        timeout=30,
+        check=False,
+        label=f"docker image ls {repository}",
+    )
+    return sorted(line for line in listed.stdout.split() if line)
+
+
+def container_clean(sc: Scenario, domain: str, repository: str) -> None:
+    """Remove an application, then anything of it that is left, whatever the scenario did."""
+    compose_clean(sc, domain)
+    sc.run(
+        f"docker image ls -q {repository} | xargs -r docker image rm -f; true",
+        timeout=60,
+        check=False,
+        label=f"cleanup: the images of {repository}",
+    )
+
+
+@scenario("container_app_dockerfile_update_rollback_and_failed_update")
+def scenario_container_dockerfile(sc: Scenario) -> None:
+    """
+    A Dockerfile in a repository is a container application, with a release per image.
+
+    Deployed with ``--type container``: the site answers through nginx and the container is
+    published on loopback only. An update builds a second image and serves it; going back is
+    instant (no build: the image of the first release is still there); an update whose container
+    cannot start puts the one that served back and says so. Deleting the application takes every
+    image with it.
+    """
+    require_cli(sc, "app container", what="container applications")
+    require_docker(sc)
+    pull_images(sc, CONTAINER_BASE)
+    sc.run(
+        f"rm -rf {CONTAINER_REPO} && mkdir -p {CONTAINER_REPO}/html && cd {CONTAINER_REPO} && "
+        f"printf 'ctr v1' > html/index.html && printf '{container_dockerfile()}' > Dockerfile && "
+        f"git init -q -b main && {GIT_IDENTITY} && git add -A && git commit -q -m 'v1'",
+        timeout=30,
+        label="(fixture repo) a Dockerfile that serves one page with nginx",
+    )
+    sc.run(
+        f"noust create -d {CONTAINER_DOMAIN} -s {CONTAINER_URL} -t container "
+        f"-p {CONTAINER_PORT} --no-ssl",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"noust create -d {CONTAINER_DOMAIN} -s {CONTAINER_URL} -t container",
+    )
+    try:
+        wait_served(sc, CONTAINER_DOMAIN, "ctr v1")
+
+        # The container is reached through nginx, never from the network.
+        published = sc.run(
+            f"docker port $(docker ps -q -f label=io.noust.app={CONTAINER_DOMAIN} | head -1)",
+            timeout=15,
+            label="docker port <the container>",
+        ).stdout
+        sc.check(
+            f"127.0.0.1:{CONTAINER_PORT}" in published and "0.0.0.0" not in published,  # noqa: S104 - the check that it is not bound
+            f"the container is published beyond loopback: {published!r}",
+        )
+
+        shown = json_of(
+            sc.run(
+                f"noust app container show {CONTAINER_DOMAIN} --json",
+                timeout=30,
+                label=f"noust app container show {CONTAINER_DOMAIN} --json",
+            ),
+            "app container show",
+        )
+        sc.check(shown["method"] == "dockerfile", f"the method: {shown['method']!r}")
+        sc.check(shown["container_port"] == 80, f"the port the Dockerfile exposes: {shown!r}")
+
+        commit_to(sc, CONTAINER_REPO, "printf 'ctr v2' > html/index.html", "v2")
+        sc.run(
+            f"noust update {CONTAINER_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust update {CONTAINER_DOMAIN}",
+        )
+        wait_served(sc, CONTAINER_DOMAIN, "ctr v2")
+        releases = json_of(
+            sc.run(
+                f"noust releases list {CONTAINER_DOMAIN} --json",
+                timeout=30,
+                label=f"noust releases list {CONTAINER_DOMAIN} --json",
+            ),
+            "releases list",
+        )["items"]
+        sc.check(
+            len(releases) == 2 and [r["active"] for r in releases] == [True, False],
+            f"two releases, the newest serving: {releases!r}",
+        )
+        sc.check(
+            len(container_images(sc, CONTAINER_IMAGES)) == 2,
+            "each release must have its own image on the host",
+        )
+
+        # Instant: nothing is built, the first release's image is what runs again.
+        started = time.monotonic()
+        sc.run(
+            f"noust releases rollback {CONTAINER_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust releases rollback {CONTAINER_DOMAIN}",
+        )
+        took = time.monotonic() - started
+        wait_served(sc, CONTAINER_DOMAIN, "ctr v1")
+        sc.check(
+            took < CONTAINER_ROLLBACK_SECONDS,
+            f"going back took {took:.0f}s: it recreates one container from an image on the host",
+        )
+
+        # nginx refuses to start on a broken configuration: the container exits.
+        broken = container_dockerfile("RUN echo broken > /etc/nginx/conf.d/broken.conf\\n")
+        commit_to(
+            sc,
+            CONTAINER_REPO,
+            f"printf 'ctr v3' > html/index.html && printf '{broken}' > Dockerfile",
+            "v3: nginx cannot start",
+        )
+        update = sc.run(
+            f"noust update {CONTAINER_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            check=False,
+            label=f"noust update {CONTAINER_DOMAIN}",
+        )
+        output = update.stdout + update.stderr
+        sc.check(update.returncode != 0, "an update whose container does not start must fail")
+        sc.check(
+            "did not pass its health check" in output and "running again" in output,
+            f"the update did not say it went back: {output!r}",
+        )
+        body = curl_host(sc, CONTAINER_DOMAIN)
+        sc.check("ctr v1" in body, f"what served before is not serving again: {body!r}")
+        after = json_of(
+            sc.run(
+                f"noust releases list {CONTAINER_DOMAIN} --json",
+                timeout=30,
+                label=f"noust releases list {CONTAINER_DOMAIN} --json",
+            ),
+            "releases list",
+        )["items"]
+        statuses = [release["status"] for release in after]
+        sc.check(
+            statuses.count("failed") == 1,
+            f"the release that did not answer must be recorded as failed: {statuses!r}",
+        )
+
+        sc.run(
+            f"noust delete {CONTAINER_DOMAIN} -f",
+            timeout=180,
+            label=f"noust delete {CONTAINER_DOMAIN} -f",
+        )
+        left = container_images(sc, CONTAINER_IMAGES)
+        sc.check(not left, f"images of a deleted application were left on the host: {left!r}")
+    finally:
+        container_clean(sc, CONTAINER_DOMAIN, CONTAINER_IMAGES)
+
+
+@scenario("container_app_from_a_registry_image")
+def scenario_container_registry(sc: Scenario) -> None:
+    """
+    An image from a registry is deployed with no source, and an update pulls it again.
+
+    ``noust create --image``: no repository, no Dockerfile. The image is named for the release
+    on the host, so going back never needs the registry. The restart policy set afterwards
+    reaches the container with the next update. Skipped, saying why, when the registry cannot be
+    reached from the harness container.
+    """
+    require_cli(sc, "app container", what="container applications")
+    require_docker(sc)
+    pull_images(sc, CONTAINER_BASE)
+    sc.run(
+        f"noust create -d {CONTAINER_REGISTRY_DOMAIN} --image {CONTAINER_BASE} "
+        f"-p {CONTAINER_REGISTRY_PORT} --no-ssl",
+        timeout=DEPLOY_TIMEOUT,
+        label=f"noust create -d {CONTAINER_REGISTRY_DOMAIN} --image {CONTAINER_BASE}",
+    )
+    try:
+        wait_served(sc, CONTAINER_REGISTRY_DOMAIN, "Welcome to nginx!")
+        shown = json_of(
+            sc.run(
+                f"noust app container show {CONTAINER_REGISTRY_DOMAIN} --json",
+                timeout=30,
+                label=f"noust app container show {CONTAINER_REGISTRY_DOMAIN} --json",
+            ),
+            "app container show",
+        )
+        sc.check(shown["method"] == "image" and shown["image"] == CONTAINER_BASE, f"{shown!r}")
+        sc.check(
+            str(shown.get("digest") or "").startswith("sha256:"),
+            f"the digest the pull resolved was not recorded: {shown!r}",
+        )
+        sc.check(shown["container_port"] == 80, f"the port the image exposes: {shown!r}")
+
+        sc.run(
+            f"noust app container set {CONTAINER_REGISTRY_DOMAIN} --restart always",
+            timeout=30,
+            label=f"noust app container set {CONTAINER_REGISTRY_DOMAIN} --restart always",
+        )
+        update = sc.run(
+            f"noust update {CONTAINER_REGISTRY_DOMAIN}",
+            timeout=DEPLOY_TIMEOUT,
+            label=f"noust update {CONTAINER_REGISTRY_DOMAIN}",
+        )
+        sc.check("Pulling the image again" in update.stdout + update.stderr, "no pull on update")
+        wait_served(sc, CONTAINER_REGISTRY_DOMAIN, "Welcome to nginx!")
+        policy = sc.run(
+            "docker inspect -f '{{.HostConfig.RestartPolicy.Name}}' "
+            f"$(docker ps -q -f label=io.noust.app={CONTAINER_REGISTRY_DOMAIN} | head -1)",
+            timeout=15,
+            label="the container's restart policy",
+        ).stdout.strip()
+        sc.check(policy == "always", f"the restart policy did not reach the container: {policy!r}")
+        sc.check(
+            len(container_images(sc, CONTAINER_REGISTRY_IMAGES)) == 2,
+            "each pull must leave its release's image on the host",
+        )
+    finally:
+        container_clean(sc, CONTAINER_REGISTRY_DOMAIN, CONTAINER_REGISTRY_IMAGES)
+
+
+@scenario("container_app_built_by_railpack")
+def scenario_container_railpack(sc: Scenario) -> None:
+    """
+    A repository with no Dockerfile is built by Railpack, installed by ``noust setup railpack``.
+
+    The install is the pinned release, checked against its published SHA-256. The build pulls
+    Railpack's BuildKit frontend and its base images, so it needs the network of the machine:
+    when the release or an image cannot be fetched the scenario is skipped, never passed.
+    """
+    require_cli(sc, "setup railpack", what="Railpack builds")
+    require_docker(sc)
+    installed = sc.run(
+        "noust setup railpack",
+        timeout=300,
+        check=False,
+        label="noust setup railpack",
+    )
+    if installed.returncode != 0:
+        raise ScenarioSkipped(
+            "Railpack could not be installed here (no network to its release?): "
+            f"{(installed.stdout + installed.stderr).strip()[-300:]}"
+        )
+    sc.run(
+        "railpack --version",
+        timeout=30,
+        label="railpack --version",
+    )
+    sc.run(
+        f"rm -rf {CONTAINER_RAILPACK_REPO} && mkdir -p {CONTAINER_RAILPACK_REPO} && "
+        f"cd {CONTAINER_RAILPACK_REPO} && "
+        'printf \'{"name":"rp","version":"1.0.0","scripts":{"start":"node server.js"}}\' '
+        "> package.json && "
+        "printf \"require('http').createServer((q, r) => r.end('railpack v1'))"
+        '.listen(process.env.PORT || 3000);\\n" > server.js && '
+        f"git init -q -b main && {GIT_IDENTITY} && git add -A && git commit -q -m 'v1'",
+        timeout=30,
+        label="(fixture repo) a Node server and no Dockerfile",
+    )
+    created = sc.run(
+        f"noust create -d {CONTAINER_RAILPACK_DOMAIN} -s {CONTAINER_RAILPACK_URL} -t container "
+        f"--builder railpack -p {CONTAINER_RAILPACK_PORT} --no-ssl",
+        timeout=1800,
+        check=False,
+        label=f"noust create -d {CONTAINER_RAILPACK_DOMAIN} --builder railpack",
+    )
+    output = created.stdout + created.stderr
+    try:
+        if created.returncode != 0 and any(
+            hint in output for hint in ("railpack-frontend", "ghcr.io", "mise", "no such host")
+        ):
+            raise ScenarioSkipped(
+                "Railpack's frontend or base images could not be pulled here: "
+                f"{output.strip()[-300:]}"
+            )
+        sc.check(created.returncode == 0, f"the Railpack build failed: {output[-600:]!r}")
+        wait_served(sc, CONTAINER_RAILPACK_DOMAIN, "railpack v1")
+        shown = json_of(
+            sc.run(
+                f"noust app container show {CONTAINER_RAILPACK_DOMAIN} --json",
+                timeout=30,
+                label=f"noust app container show {CONTAINER_RAILPACK_DOMAIN} --json",
+            ),
+            "app container show",
+        )
+        sc.check(shown["method"] == "railpack", f"the method: {shown['method']!r}")
+    finally:
+        container_clean(sc, CONTAINER_RAILPACK_DOMAIN, "noust-ctr-rp-test")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -7959,8 +8281,12 @@ def parse_args() -> argparse.Namespace:
 
 #: Scenarios that run only when a --scenario pattern holds their key, never in the default
 #: suite nor matched by a broader pattern such as "compose": they are slow and need something
-#: outside this repository (Proggest's checkout).
-OPTIONAL_SCENARIOS = {"proggest_compose_stack": "proggest"}
+#: outside this repository (Proggest's checkout, the network that has Railpack's images).
+OPTIONAL_SCENARIOS = {
+    "proggest_compose_stack": "proggest",
+    # Pulls Railpack's BuildKit frontend and its base images: minutes and the network.
+    "container_app_built_by_railpack": "railpack",
+}
 
 
 def selected_scenarios(names: list[str] | None) -> list[tuple[str, ScenarioFn]]:

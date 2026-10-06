@@ -117,7 +117,32 @@ class AppType(str, Enum):
     STATIC = "static"
     MONOREPO = "monorepo"
     DOCKER_COMPOSE = "docker-compose"
+    #: An image from a registry, a Dockerfile or Railpack, run as a Compose
+    #: project Noust writes itself (3.4).
+    CONTAINER = "container"
     UNKNOWN = "unknown"
+
+
+#: The application types that run as a Docker Compose project under the compose
+#: unit: a stack the repository describes, and a container Noust describes.
+COMPOSE_BACKED_TYPES = frozenset({AppType.DOCKER_COMPOSE.value, AppType.CONTAINER.value})
+
+
+def is_compose_backed(app_type: str | None) -> bool:
+    """
+    Tell whether an application type runs as a Docker Compose project.
+
+    The one answer to "is this judged by its containers": the unit of such an
+    application starts them once and stays active, so what the unit says is
+    not what a process does.
+
+    Args:
+        app_type: The type recorded on the application.
+
+    Returns:
+        True for ``docker-compose`` and ``container``.
+    """
+    return app_type in COMPOSE_BACKED_TYPES
 
 
 class AppStatus(str, Enum):

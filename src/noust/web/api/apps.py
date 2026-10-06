@@ -75,6 +75,7 @@ from noust.recipes.deploy import refuse_conflicts
 from noust.validators.environment import EnvironmentValidationError
 from noust.validators.port import find_available_port, validate_port
 from noust.validators.source import validate_source
+from noust.web.api.app_container import ContainerSettingsRequest, request_to_changes
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import (
     JobAcceptedResponse,
@@ -360,6 +361,13 @@ class CreateAppRequest(BaseModel):
         default=None,
         description="GitHub App installation that clones this application's repository, "
         "as the repository list returned it; kept for every later update",
+    )
+    container: ContainerSettingsRequest | None = Field(
+        default=None,
+        description="A container application: how its image is made (a Dockerfile, Railpack, "
+        "or an image from a registry in container.image, which then needs no source) and how "
+        "it runs. The registry account's password and the build secrets are kept in the secret "
+        "store and never shown again. Giving it makes app_type container",
     )
     database: NewAppDatabaseRequest | None = Field(
         default=None,
@@ -909,6 +917,48 @@ def _check_initial_health(path: str | None, expect: str | None, timeout: int | N
             raise
 
 
+def _new_container_settings(
+    domain: str, request: ContainerSettingsRequest | None, source: str | None
+) -> dict[str, Any]:
+    """
+    Turn the container settings of a creation request into what the deploy job takes.
+
+    Args:
+        domain: The new application's domain.
+        request: What the client gave, or None for a repository with a Dockerfile.
+        source: The request's source, which an image from a registry has none of.
+
+    Returns:
+        The validated settings as a mapping; their secrets are already in the
+        secret store.
+
+    Raises:
+        ValidationError: The settings are not valid, an image was given a
+            source, or a build was given none.
+    """
+    from dataclasses import asdict
+
+    from noust.deployers.helpers.container_settings import settings_for_new_app
+
+    body = request if request is not None else ContainerSettingsRequest()
+    changes = request_to_changes(body)
+    method = changes.get("method") or ("image" if changes.get("image") else "dockerfile")
+    changes["method"] = method
+    if method == "image" and source:
+        raise ValidationError(
+            "An image from a registry has no source",
+            details="Give the image in container.image and leave source out.",
+            field="source",
+        )
+    if method != "image" and not source:
+        raise ValidationError(
+            "A source is required",
+            details="Give the repository to build in source, or an image in container.image.",
+            field="source",
+        )
+    return asdict(settings_for_new_app(domain, changes))
+
+
 @router.post("", response_model=JobAcceptedResponse, status_code=202)
 def create_app(
     body: CreateAppRequest,
@@ -946,6 +996,20 @@ def create_app(
     """
     domain = strict_domain(body.domain)
     recipe = get_recipe(body.recipe) if body.recipe is not None else None
+    container = body.container
+    if recipe is not None and container is not None:
+        raise ValidationError(
+            "A recipe and container settings cannot be given together",
+            details="A recipe brings its own source, type and settings.",
+            field="container",
+        )
+    if recipe is None and container is not None:
+        if body.app_type not in ("auto", "container"):
+            raise ValidationError(
+                f"Container settings do not apply to a {body.app_type} application",
+                details="Leave app_type on auto or container, or remove container.",
+                field="container",
+            )
     if recipe is not None:
         refuse_conflicts(source=body.source, app_type=body.app_type)
         if not recipe.available:
@@ -953,13 +1017,16 @@ def create_app(
                 f"{recipe.title} is not available in this release",
                 details=recipe.unavailable_reason or "See GET /api/recipes",
             )
-    elif not body.source:
+    elif not body.source and not (container is not None and container.image):
         raise ValidationError(
-            "A source is required", details="Give source, or a recipe from GET /api/recipes."
+            "A source is required",
+            details="Give source, an image in container.image, or a recipe from GET /api/recipes.",
         )
-    else:
+    elif body.source:
         _require_local_source_privilege(request, session, body.source)
     app_type = recipe.app_type if recipe is not None else body.app_type
+    if container is not None:
+        app_type = "container"
     if body.database is not None and (recipe is not None or app_type in OWN_DATABASE_TYPES):
         raise ValidationError(
             "A database cannot be created with "
@@ -999,6 +1066,12 @@ def create_app(
             "or omit it to detect automatically from the project's lock file.",
         )
 
+    # Last of the checks, because it writes: the registry password and the
+    # build secrets go to the secret store, and only their names are queued.
+    container_settings = (
+        _new_container_settings(domain, container, body.source) if app_type == "container" else None
+    )
+
     job = get_job_manager().create_job(
         job_type=JobType.DEPLOY,
         name=f"Deploy {domain}",
@@ -1010,8 +1083,9 @@ def create_app(
         func=deploy_app_job,
         kwargs={
             "domain": domain,
-            "source": body.source or "",
+            "source": body.source or (container_settings or {}).get("image") or "",
             "app_type": app_type,
+            **({"container": container_settings} if container_settings is not None else {}),
             "recipe": recipe.name if recipe is not None else None,
             "port": port,
             "branch": body.branch,
@@ -1467,6 +1541,15 @@ def get_app_logs(
     """
     validated = strict_domain(domain)
     app_name = domain_to_app_name(validated)
+    app = get_store().get_app(validated)
+
+    if app is not None and app.app_type == "container":
+        # What the container printed, with its secrets masked: the unit only
+        # ran 'docker compose up' once and says nothing of the application.
+        from noust.deployers.docker_compose import stack_deployer
+
+        output = stack_deployer(app).logs(lines=lines)
+        return AppLogsResponse(domain=validated, logs=output or "No logs available", lines=lines)
 
     logs = ServiceManager(verbose=False).logs(app_name, lines=lines) or "No logs available"
 
@@ -1860,7 +1943,7 @@ def _release_app_or_error(domain: str) -> App:
             place: it has no releases until it is migrated.
     """
     app = _env_app(domain)
-    if app.layout != RELEASES:
+    if app.layout != RELEASES and app.app_type != "container":
         raise HTTPException(
             status_code=409,
             detail=f"{app.domain} is deployed in place and has no releases. Migrate it to "
