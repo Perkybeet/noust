@@ -149,6 +149,32 @@ class TestExecutionSeam:
             "only the runner spawns processes, asyncio included",
         )
 
+    def test_only_the_runner_opens_a_terminal(self):
+        """
+        A pseudo-terminal is a way of running a process, so it is opened where
+        the others are: with the deadline, the idle limit, the sandbox and the
+        cleanup of the process group that ``CommandRunner.pty`` gives it.
+        ``os.openpty``, ``os.forkpty`` and the ``pty`` module are the other
+        spellings of "run something a person types into".
+        """
+        offenders = set()
+        for path in python_files():
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    names = [alias.name for alias in node.names]
+                elif isinstance(node, ast.ImportFrom):
+                    names = [node.module or ""]
+                elif isinstance(node, ast.Call):
+                    name = getattr(node.func, "attr", None) or getattr(node.func, "id", None)
+                    names = ["pty"] if name in {"openpty", "forkpty"} else []
+                else:
+                    continue
+                if any(name == "pty" or name.startswith("pty.") for name in names):
+                    offenders.add(relative(path))
+
+        check_ratchet(offenders, self.SUBPROCESS_ALLOWED, "only the runner opens a terminal")
+
     def test_no_shell_execution_anywhere(self):
         """
         A shell is never involved.
