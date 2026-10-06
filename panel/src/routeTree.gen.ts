@@ -25,7 +25,9 @@ import { Route as ConsoleAppsDomainRouteImport } from "./routes/_console/apps/$d
 import { Route as ConsoleAppsNewRouteImport } from "./routes/_console/apps/new"
 import { Route as ConsoleBackupsIndexRouteImport } from "./routes/_console/backups/index"
 import { Route as ConsoleBackupsDestinationsRouteImport } from "./routes/_console/backups/destinations"
+import { Route as ConsoleBackupsNoustRouteImport } from "./routes/_console/backups/noust"
 import { Route as ConsoleBackupsSchedulesRouteImport } from "./routes/_console/backups/schedules"
+import { Route as ConsoleBackupsVolumesRouteImport } from "./routes/_console/backups/volumes"
 import { Route as ConsoleDatabasesIndexRouteImport } from "./routes/_console/databases/index"
 import { Route as ConsoleDatabasesEnginesRouteImport } from "./routes/_console/databases/engines"
 import { Route as ConsoleDomainsIndexRouteImport } from "./routes/_console/domains/index"
@@ -174,9 +176,19 @@ const ConsoleBackupsDestinationsRoute =
     path: "/backups/destinations",
     getParentRoute: () => ConsoleRoute,
   } as any)
+const ConsoleBackupsNoustRoute = ConsoleBackupsNoustRouteImport.update({
+  id: "/backups/noust",
+  path: "/backups/noust",
+  getParentRoute: () => ConsoleRoute,
+} as any)
 const ConsoleBackupsSchedulesRoute = ConsoleBackupsSchedulesRouteImport.update({
   id: "/backups/schedules",
   path: "/backups/schedules",
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleBackupsVolumesRoute = ConsoleBackupsVolumesRouteImport.update({
+  id: "/backups/volumes",
+  path: "/backups/volumes",
   getParentRoute: () => ConsoleRoute,
 } as any)
 const ConsoleDatabasesIndexRoute = ConsoleDatabasesIndexRouteImport.update({
@@ -566,7 +578,9 @@ export interface FileRoutesByFullPath {
   "/apps/$domain": typeof ConsoleAppsDomainRouteWithChildren
   "/apps/new": typeof ConsoleAppsNewRoute
   "/backups/destinations": typeof ConsoleBackupsDestinationsRoute
+  "/backups/noust": typeof ConsoleBackupsNoustRoute
   "/backups/schedules": typeof ConsoleBackupsSchedulesRoute
+  "/backups/volumes": typeof ConsoleBackupsVolumesRoute
   "/databases/engines": typeof ConsoleDatabasesEnginesRoute
   "/fleet/activity": typeof ConsoleFleetActivityRoute
   "/fleet/apps": typeof ConsoleFleetAppsRoute
@@ -647,7 +661,9 @@ export interface FileRoutesByTo {
   "/": typeof ConsoleIndexRoute
   "/apps/new": typeof ConsoleAppsNewRoute
   "/backups/destinations": typeof ConsoleBackupsDestinationsRoute
+  "/backups/noust": typeof ConsoleBackupsNoustRoute
   "/backups/schedules": typeof ConsoleBackupsSchedulesRoute
+  "/backups/volumes": typeof ConsoleBackupsVolumesRoute
   "/databases/engines": typeof ConsoleDatabasesEnginesRoute
   "/fleet/activity": typeof ConsoleFleetActivityRoute
   "/fleet/apps": typeof ConsoleFleetAppsRoute
@@ -731,7 +747,9 @@ export interface FileRoutesById {
   "/_console/apps/$domain": typeof ConsoleAppsDomainRouteWithChildren
   "/_console/apps/new": typeof ConsoleAppsNewRoute
   "/_console/backups/destinations": typeof ConsoleBackupsDestinationsRoute
+  "/_console/backups/noust": typeof ConsoleBackupsNoustRoute
   "/_console/backups/schedules": typeof ConsoleBackupsSchedulesRoute
+  "/_console/backups/volumes": typeof ConsoleBackupsVolumesRoute
   "/_console/databases/engines": typeof ConsoleDatabasesEnginesRoute
   "/_console/fleet/activity": typeof ConsoleFleetActivityRoute
   "/_console/fleet/apps": typeof ConsoleFleetAppsRoute
@@ -818,7 +836,9 @@ export interface FileRouteTypes {
     | "/apps/$domain"
     | "/apps/new"
     | "/backups/destinations"
+    | "/backups/noust"
     | "/backups/schedules"
+    | "/backups/volumes"
     | "/databases/engines"
     | "/fleet/activity"
     | "/fleet/apps"
@@ -899,7 +919,9 @@ export interface FileRouteTypes {
     | "/"
     | "/apps/new"
     | "/backups/destinations"
+    | "/backups/noust"
     | "/backups/schedules"
+    | "/backups/volumes"
     | "/databases/engines"
     | "/fleet/activity"
     | "/fleet/apps"
@@ -982,7 +1004,9 @@ export interface FileRouteTypes {
     | "/_console/apps/$domain"
     | "/_console/apps/new"
     | "/_console/backups/destinations"
+    | "/_console/backups/noust"
     | "/_console/backups/schedules"
+    | "/_console/backups/volumes"
     | "/_console/databases/engines"
     | "/_console/fleet/activity"
     | "/_console/fleet/apps"
@@ -1176,11 +1200,25 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleBackupsDestinationsRouteImport
       parentRoute: typeof ConsoleRoute
     }
+    "/_console/backups/noust": {
+      id: "/_console/backups/noust"
+      path: "/backups/noust"
+      fullPath: "/backups/noust"
+      preLoaderRoute: typeof ConsoleBackupsNoustRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
     "/_console/backups/schedules": {
       id: "/_console/backups/schedules"
       path: "/backups/schedules"
       fullPath: "/backups/schedules"
       preLoaderRoute: typeof ConsoleBackupsSchedulesRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/backups/volumes": {
+      id: "/_console/backups/volumes"
+      path: "/backups/volumes"
+      fullPath: "/backups/volumes"
+      preLoaderRoute: typeof ConsoleBackupsVolumesRouteImport
       parentRoute: typeof ConsoleRoute
     }
     "/_console/databases/": {
@@ -1856,7 +1894,9 @@ interface ConsoleRouteChildren {
   ConsoleAppsDomainRoute: typeof ConsoleAppsDomainRouteWithChildren
   ConsoleAppsNewRoute: typeof ConsoleAppsNewRoute
   ConsoleBackupsDestinationsRoute: typeof ConsoleBackupsDestinationsRoute
+  ConsoleBackupsNoustRoute: typeof ConsoleBackupsNoustRoute
   ConsoleBackupsSchedulesRoute: typeof ConsoleBackupsSchedulesRoute
+  ConsoleBackupsVolumesRoute: typeof ConsoleBackupsVolumesRoute
   ConsoleDatabasesEnginesRoute: typeof ConsoleDatabasesEnginesRoute
   ConsoleServicesNameRoute: typeof ConsoleServicesNameRoute
   ConsoleAppsIndexRoute: typeof ConsoleAppsIndexRoute
@@ -1884,7 +1924,9 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleAppsDomainRoute: ConsoleAppsDomainRouteWithChildren,
   ConsoleAppsNewRoute: ConsoleAppsNewRoute,
   ConsoleBackupsDestinationsRoute: ConsoleBackupsDestinationsRoute,
+  ConsoleBackupsNoustRoute: ConsoleBackupsNoustRoute,
   ConsoleBackupsSchedulesRoute: ConsoleBackupsSchedulesRoute,
+  ConsoleBackupsVolumesRoute: ConsoleBackupsVolumesRoute,
   ConsoleDatabasesEnginesRoute: ConsoleDatabasesEnginesRoute,
   ConsoleServicesNameRoute: ConsoleServicesNameRoute,
   ConsoleAppsIndexRoute: ConsoleAppsIndexRoute,
