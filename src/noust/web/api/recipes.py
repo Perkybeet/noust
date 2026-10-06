@@ -564,7 +564,16 @@ def get_recipe_detail(
     return RecipeOut(**_summary(recipe.to_dict()))
 
 
-@router.get("/{name}/logo")
+@router.get(
+    "/{name}/logo",
+    response_class=Response,
+    responses={
+        200: {
+            "description": "The recipe's logo, an SVG",
+            "content": {"image/svg+xml": {"schema": {"type": "string"}}},
+        }
+    },
+)
 def get_recipe_logo(name: str, session: Annotated[dict, Depends(get_current_session)]) -> Response:
     """
     Serve a recipe's logo.

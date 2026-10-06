@@ -89,9 +89,12 @@ health gate and the instant return to what served. What it adds:
   from `postgres.url` the application never had) is refused before anything is touched: services
   are provisioned when a recipe is installed.
 - **Digests.** The Compose deployer goes back to a previous image by its name, and an image pinned
-  by digest has no name to go back to. When a Docker recipe's new version fails its gate, the files
-  the stack ran with are written back and the unit restarted behind the same gate, and the error
-  says whether the previous version answers again.
+  by digest has no name to go back to. When a Docker recipe's new version fails, the files the
+  stack ran with are written back, in the application and in the recipe's own source directory;
+  and when the containers had been recreated, the unit is restarted from them behind the same
+  gate, and the error says whether the previous version answers again. An update refused before
+  the deployer (another operation running, a database copy that failed) touches nothing of the
+  application.
 
 A recipe has a `version` (the application's) and a `revision` (the recipe's own, for a fix to the
 recipe with the same application version). The catalogue is ahead when the version is newer, or

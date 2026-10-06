@@ -500,20 +500,98 @@ def test_when_even_the_previous_version_does_not_answer_the_error_carries_the_ev
     assert "connection refused on 8123" in failure.value.details
 
 
-def test_a_stack_the_deployer_already_put_back_is_not_put_back_twice(
+def failing_update(
+    store: NoustStore, lifecycle: Lifecycle, monkeypatch: pytest.MonkeyPatch, error: Exception
+) -> tuple[Any, Path]:
+    """An installed stack at 1.0.0 whose update to 1.3.0 raises ``error``."""
+    old = stack(store, "1.0.0")
+    app = store.get_app(DOMAIN)
+    assert app is not None
+    app_directory = Path(app.app_path)
+    app_directory.mkdir(parents=True)
+    (app_directory / COMPOSE_FILE).write_text("the new version's file, copied by the update")
+    new_text = compose_document().replace("1.2.3", "1.3.0")
+    catalogue(monkeypatch, demo=compose_recipe(name="demo", version="1.3.0", compose=new_text))
+    lifecycle.fail_with = error
+    return old, app_directory
+
+
+def test_a_rollback_the_deployer_did_puts_the_files_back_and_restarts_nothing(
     recipe_store: NoustStore, lifecycle: Lifecycle, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """RolledBackError: what served is serving; the files are the deployer's business."""
-    stack(recipe_store, "1.0.0")
-    catalogue(monkeypatch, demo=compose_recipe(name="demo", version="1.3.0"))
-    lifecycle.fail_with = RolledBackError("rolled back", details="")
+    """RolledBackError: the previous containers serve; the compose file is still the new one."""
+    old, app_directory = failing_update(
+        recipe_store, lifecycle, monkeypatch, RolledBackError("rolled back", details="x")
+    )
 
-    with pytest.raises(RolledBackError):
+    with pytest.raises(RolledBackError) as failure:
         update_recipe(DOMAIN, store=recipe_store)
 
+    assert (app_directory / COMPOSE_FILE).read_text() == old.compose
+    assert (recipe_source_dir(APP, recipe_store) / COMPOSE_FILE).read_text() == old.compose
     assert lifecycle.gates == 0
+    assert "files of the previous version were put back" in failure.value.details
     installed = get_installed(DOMAIN, store=recipe_store)
     assert installed is not None and installed.version == "1.0.0"
+
+
+def test_a_hook_that_failed_before_anything_was_recreated_restores_files_and_restarts_nothing(
+    recipe_store: NoustStore, lifecycle: Lifecycle, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """pre_deploy runs before the containers are touched: no restart for it."""
+    from noust.deployers.helpers.hooks import HookFailedError
+
+    # A hook's failure carries the hook and what the phase ran; this one needs neither.
+    hook_failed = HookFailedError.__new__(HookFailedError)
+    DeploymentError.__init__(hook_failed, "a hook failed", details="exit 1")
+    old, app_directory = failing_update(recipe_store, lifecycle, monkeypatch, hook_failed)
+
+    with pytest.raises(HookFailedError):
+        update_recipe(DOMAIN, store=recipe_store)
+
+    assert (app_directory / COMPOSE_FILE).read_text() == old.compose
+    assert lifecycle.gates == 0
+
+
+def test_a_docker_failure_while_recreating_restarts_the_previous_version(
+    recipe_store: NoustStore, lifecycle: Lifecycle, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Compose failed halfway: the stack is in an unknown state, so it is brought up from the files."""
+    from noust.core.exceptions import DockerError
+
+    old, app_directory = failing_update(
+        recipe_store,
+        lifecycle,
+        monkeypatch,
+        DockerError("Failed to update containers", "pull failed"),
+    )
+
+    with pytest.raises(DockerError) as failure:
+        update_recipe(DOMAIN, store=recipe_store)
+
+    assert (app_directory / COMPOSE_FILE).read_text() == old.compose
+    assert lifecycle.gates == 1
+    assert "previous version is running again" in failure.value.details
+
+
+def test_an_update_refused_before_the_deployer_touches_only_the_recipes_own_directory(
+    recipe_store: NoustStore, lifecycle: Lifecycle, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Another operation, a failed backup: the application's files and containers are not ours to touch."""
+    from noust.core.applock import AppBusyError
+
+    old, app_directory = failing_update(
+        recipe_store, lifecycle, monkeypatch, AppBusyError(DOMAIN, "update", None)
+    )
+
+    with pytest.raises(AppBusyError):
+        update_recipe(DOMAIN, store=recipe_store)
+
+    assert (
+        app_directory / COMPOSE_FILE
+    ).read_text() == "the new version's file, copied by the update"
+    assert (recipe_source_dir(APP, recipe_store) / COMPOSE_FILE).read_text() == old.compose
+    assert lifecycle.gates == 0
 
 
 def test_force_deploys_the_catalogues_version_again(

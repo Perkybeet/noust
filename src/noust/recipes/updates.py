@@ -33,11 +33,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from noust.central import require_server_role
-from noust.core.exceptions import DeploymentError, NoustError, RolledBackError
-from noust.core.fs import get_fs
+from noust.core.exceptions import DeploymentError, DockerError, NoustError, RolledBackError
+from noust.core.fs import FileSystem, get_fs
 from noust.core.logger import Logger
-from noust.core.store import App, DeploymentTrigger, NoustStore, get_store
+from noust.core.store import DeploymentTrigger, NoustStore, get_store
 from noust.core.utils import domain_to_app_name
+from noust.deployers.helpers.hooks import HookFailedError
 from noust.recipes import Recipe, RecipeError, RecipeNotFoundError, get_recipe
 from noust.recipes.deploy import (
     prepare_source,
@@ -362,7 +363,7 @@ def update_recipe(
             verbose=verbose,
         )
     except NoustError as failure:
-        if recipe.kind == "compose" and snapshot and not isinstance(failure, RolledBackError):
+        if recipe.kind == "compose" and snapshot:
             _put_stack_back(
                 domain, app_name, snapshot, failure, store=store, log=log, gate=health_gate_for
             )
@@ -403,7 +404,7 @@ def _refuse_new_requirements(recipe: Recipe, existing: Mapping[str, str]) -> Non
                 "installed version did not use",
                 details="Noust provisions a recipe's services when it installs it. Install "
                 "this version on a new domain and move your data, or provision the service "
-                f"and set {variable.name} yourself: noust env set.",
+                f"and give {variable.name} its value in the application's environment.",
             )
 
 
@@ -438,17 +439,28 @@ def _put_stack_back(
     *,
     store: NoustStore,
     log: Logger,
-    gate: Callable[[App, NoustStore, Logger], HealthGate],
+    gate: Callable[..., HealthGate],
 ) -> None:
     """
     Run the previous version of a Compose stack again, after the new one failed.
 
     The deployer goes back by image name, and an image pinned by digest has
     no name to go back to, so a stack that failed its gate is left running
-    the new containers on the new file. This writes the files the stack ran
-    with back, in the source directory (so the next ``noust update`` starts
-    from them) and in the application, and restarts the unit behind the same
-    health gate. What happened is added to the error the operator reads.
+    the new containers on the new file. This undoes what the update wrote, as
+    far as the update got:
+
+    - the recipe's own source directory always goes back to what it held, so
+      the next ``noust update`` does not start from a version that failed;
+    - when the update reached the deployer (it raised a deployment or a Docker
+      error), the application's own files go back too, which is what a later
+      restart of the unit would read;
+    - and when that error is one that follows a recreation of the containers
+      (not a hook, which runs before it, and not a rollback the deployer already
+      did), the unit is restarted from those files behind the same health gate.
+
+    An application that is busy with another operation, a backup that failed
+    and anything refused before the deployer is left alone. What happened is
+    added to the error the operator reads.
 
     Args:
         domain: The application's domain.
@@ -459,23 +471,39 @@ def _put_stack_back(
         log: Where progress is reported.
         gate: :func:`noust.deployers.lifecycle.health_gate_for`.
     """
-    app = store.get_app(domain)
-    if app is None:
-        return
     fs = get_fs()
-    log.warning("The new version failed; putting the previous one back")
     directory = recipe_source_dir(app_name, store)
-    for path, text in snapshot.items():
-        for root in (directory, Path(app.app_path)):
-            target = root / path
-            fs.make_dir(target.parent, parents=True)
-            fs.write_text(target, text)
-    healthy, evidence = gate(app, store, log).restart_and_probe()
-    outcome = (
-        "The previous version is running again and answering."
-        if healthy
-        else "The previous version was put back but is not answering either:\n" + evidence
-    )
+    _write_files(fs, directory, snapshot)
+    reached = isinstance(failure, DeploymentError | DockerError)
+    app = store.get_app(domain)
+    if not reached or app is None:
+        return
+    log.warning("The new version failed; putting the previous one back")
+    _write_files(fs, Path(app.app_path), snapshot)
+    recreated = not isinstance(failure, RolledBackError | HookFailedError)
+    if not recreated:
+        outcome = "The files of the previous version were put back in the application."
+    else:
+        healthy, evidence = gate(app, store, log).restart_and_probe()
+        outcome = (
+            "The previous version is running again and answering."
+            if healthy
+            else "The previous version was put back but is not answering either:\n" + evidence
+        )
     failure.details = f"{failure.details}\n\n{outcome}".strip()
-    if not isinstance(failure, DeploymentError):
-        log.warning(outcome)
+    log.warning(outcome)
+
+
+def _write_files(fs: FileSystem, root: Path, files: Mapping[str, str]) -> None:
+    """
+    Write files under a directory, making what they need.
+
+    Args:
+        fs: The filesystem seam.
+        root: The directory.
+        files: Path inside it to text.
+    """
+    for path, text in files.items():
+        target = root / path
+        fs.make_dir(target.parent, parents=True)
+        fs.write_text(target, text)

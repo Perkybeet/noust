@@ -260,6 +260,52 @@ def github_tag_exists(repository_url: str, ref: str) -> str | None:
         return None
 
 
+def npm_version_integrity(package: str, version: str) -> str | None:
+    """
+    Read the integrity npm publishes for one version of a package.
+
+    Args:
+        package: The package name.
+        version: An exact version.
+
+    Returns:
+        The ``sha512-...`` integrity string, or None when npm has no such version.
+    """
+    request = urllib.request.Request(f"https://registry.npmjs.org/{package}/{version}")
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return str(json.load(response).get("dist", {}).get("integrity") or "")
+    except urllib.error.HTTPError:
+        return None
+
+
+def check_npm_pins(recipe: Any, problems: list[str]) -> dict[str, str | None]:
+    """
+    Check the npm packages a template source's ``package.json`` pins.
+
+    Args:
+        recipe: The recipe, whose assets are read.
+        problems: Where a version npm does not have is reported.
+
+    Returns:
+        Package to the integrity npm publishes for the pinned version.
+    """
+    from noust.recipes import read_asset
+
+    found: dict[str, str | None] = {}
+    for asset in (recipe.source.files if recipe.source is not None else {}).values():
+        if not asset.endswith("package.json"):
+            continue
+        for package, version in (
+            json.loads(read_asset(recipe.name, asset)).get("dependencies", {}).items()
+        ):
+            integrity = npm_version_integrity(package, version)
+            found[f"{package}@{version}"] = integrity
+            if not integrity:
+                problems.append(f"npm has no {package}@{version}")
+    return found
+
+
 def check_recipe(name: str) -> dict[str, Any]:
     """
     Read every pin of a recipe and compare it with what the recipe says.
@@ -321,6 +367,8 @@ def check_recipe(name: str) -> dict[str, Any]:
         report["source"] = {"git": source.url, "ref": source.ref, "commit": commit}
         if commit is None:
             report["problems"].append(f"{source.url}: tag {source.ref} not found on GitHub")
+    elif source is not None and source.kind == "template":
+        report["source"] = {"npm": check_npm_pins(recipe, report["problems"])}
     elif source is not None and source.kind == "archive" and source.sha256:
         found = archive_sha256(source.url)
         report["source"] = {"archive": source.url, "recorded": source.sha256, "found": found}

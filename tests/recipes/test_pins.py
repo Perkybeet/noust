@@ -152,6 +152,19 @@ def test_check_exits_non_zero_and_writes_the_evidence(
     assert pins.main(["check", "memos"]) == 0
 
 
+def test_the_npm_version_a_template_pins_must_exist(
+    pins: ModuleType, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """n8n is a package.json that depends on one version of one package."""
+    monkeypatch.setattr(pins, "npm_version_integrity", lambda package, version: "sha512-abc")
+    held = pins.check_recipe("n8n")
+    assert held["problems"] == []
+    assert held["source"] == {"npm": {f"n8n@{get_recipe('n8n').version}": "sha512-abc"}}
+
+    monkeypatch.setattr(pins, "npm_version_integrity", lambda package, version: None)
+    assert pins.check_recipe("n8n")["problems"] == [f"npm has no n8n@{get_recipe('n8n').version}"]
+
+
 def test_only_https_archives_are_read(pins: ModuleType) -> None:
     """No file:// and no http://."""
     with pytest.raises(ValueError, match="https"):
