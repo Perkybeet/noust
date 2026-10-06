@@ -340,6 +340,19 @@ decided in the data layer, not in the routes.
   job was queued for (`create_job(..., ownership=...)`), else the default. Never insert into `apps`,
   `sites`, `databases` or `backup_schedules` around `create_*`, and never write `project_id` or
   `environment_id` anywhere but a move (`TeamStore.move_app_to`).
+- **A manager that lists applications around what a request names reads through `ScopedStore`** too
+  (the deploy keys do: `DeployKeyManager._visible`). Its scope is the ambient one, the request's inside
+  a request and the instance's in the CLI and in a job, so one implementation serves both without
+  showing a team another team's applications. A route whose body can ask for something the server owns
+  (`install: true` installs a package as root) calls `web.api.scope.require_instance_scope`. A change
+  to something shared by repository (rotating a deploy key that reaches another team's repositories)
+  is refused in the manager, not the route, whoever calls it.
+- **A table another area adds for what an application or a database owns says how a team reaches it.**
+  A column named `app_id`, `app_domain`, `domain`, `db_name`, `database` or `repository` in a
+  `schema_v14.py` fragment (or an `ALTER` of an existing table) must be listed in `OWNED_TABLES` of
+  `tests/test_scope_architecture.py` with the routes that reach it and how each is classified: a
+  resource under `/api/apps/{domain}`, a list the handler filters, or the server's. A table of a
+  server-wide thing (the console's own name) goes in `NOT_OWNED` with the reason.
 - **Team roles never reach the machine** (`web/permissions/team_roles.py`); a permission that is about
   the server is never added to `TENANT_PERMISSIONS`.
 

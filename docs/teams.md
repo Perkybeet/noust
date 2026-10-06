@@ -129,10 +129,59 @@ role's decision, not a team's.
 Anything that is about the whole server is closed to an account that does not see every team, and
 answers `403` with `"error": "instance_scope_required"`: the server's own pages (`/api/server`,
 `/api/system/processes`, `/api/services`, `/api/cron`, `/api/monitor`, `/api/metrics`, the
-overview and timeline), backups and their destinations, certificates in bulk, the GitHub App, the
-fleet and every node, an adopted Compose stack and an import of an exported application. These
-are what 3.4 does not yet filter by team; the pages come to a team member as each is filtered.
-Database engines, users and dumps are also the server's; the databases a team owns are its own.
+overview and timeline), backups and their destinations (database dumps, data volumes and Noust's
+own backup, with the policies that schedule them: each writes a root timer and names a destination
+the server owns), certificates in bulk, the GitHub App, the fleet and every node, an adopted
+Compose stack, an import of an exported application and the install of a recipe (create the
+application through `POST /api/apps` with a recipe instead). These are what 3.4 does not yet
+filter by team; the pages come to a team member as each is filtered. Database engines, users,
+imports and dumps are also the server's; the databases a team owns are its own.
+
+Three more are the server's though the route around them is a team's:
+
+- **Opening a database to the network** (`POST /api/databases/public`, and its plan) opens a port,
+  makes an account on the engine and edits the firewall, whoever's database it is. A team member
+  sees which of its own databases are open, reads how to connect, reveals the account's password
+  and closes one; opening is the administrator's.
+- **Installing an engine** as part of creating a database (`install: true` on `POST
+  /api/apps/{domain}/databases`) is a package install as root, like the engines' own install
+  route, and is refused the same way. Which engines and versions are on offer
+  (`GET /api/databases/provisioning/choices`) is a catalogue anyone may read.
+- **The host keys Noust pinned** the first time it reached each code host
+  (`/api/deploy-keys/hosts`) are the server's own trust in the network.
+
+## What an application carries with it
+
+An application's build block (`/api/apps/{domain}/build`), its container settings (`/container`),
+the recipe it was installed from (`/api/recipes/installed/{domain}`), its deploy key and its git
+credential are reached through the application. Another team's reads as absent (`404`, the body of
+one that does not exist) for every method, before sudo mode or the handler, and the permission is
+checked in the application's own team. `GET /api/recipes/installed` lists the installs of the
+applications you see.
+
+A table another area adds for something an application or a database owns has to say how the scope
+reaches it: `tests/test_scope_architecture.py` fails until it does.
+
+## Deploy keys and repositories
+
+A deploy key and an application's https credential belong to a **repository**, not to a team:
+git, a fetch in the cache and a webhook know the repository's address and nothing else. So two
+applications built from the same URL use the same key whichever team they are in, and so does any
+application that names a repository the server's own key (`noust setup ssh`) can read. That is a
+consequence of teams sharing a host, as in the first section, and no filter changes it.
+
+What a team member is shown of that is limited to its own applications:
+
+- `GET /api/deploy-keys` lists the keys that reach a repository one of its applications is built
+  from, and each one names only those repositories and those applications. A key that reaches
+  another team's repositories alone does not exist for it.
+- An application's `shared_with` names only the applications the member sees.
+- Assigning an existing key (`POST /api/apps/{domain}/deploy-key` with `key`) needs a key the
+  member was shown. Another team's key, named by guessing, is answered as a key that does not exist.
+- Rotating a key (`POST` and `DELETE /api/apps/{domain}/deploy-key/rotate`) replaces it for every
+  repository it reaches, so a member is refused when the key also reaches a repository none of its
+  applications is built from; an administrator of the server rotates it. The member can take the
+  repository off the shared key and generate one of its own.
 
 ## Audit
 
