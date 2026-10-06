@@ -54,6 +54,7 @@ from noust.web.api.passkeys import router as passkeys_router
 from noust.web.api.previews import router as previews_router
 from noust.web.api.recipes import router as recipes_router
 from noust.web.api.sandbox import router as sandbox_router
+from noust.web.api.self_backup import router as self_backup_router
 from noust.web.api.server import router as server_router
 from noust.web.api.services import router as services_router
 from noust.web.api.sites import router as sites_router
@@ -131,6 +132,7 @@ router.include_router(
     backup_schedules_router, prefix="/backup-schedules", tags=["Backup Schedules"]
 )
 router.include_router(volume_backups_router, prefix="/volume-backups", tags=["Volume Backups"])
+router.include_router(self_backup_router, prefix="/self-backup", tags=["Self Backup"])
 router.include_router(databases_router, prefix="/databases", tags=["Databases"])
 router.include_router(databases_apps_router, prefix="/apps", tags=["Databases"])
 router.include_router(cron_router, prefix="/cron", tags=["Cron Jobs"])

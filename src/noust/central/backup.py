@@ -197,6 +197,9 @@ def _snapshot(source: Path, destination: Path) -> None:
     writer = sqlite3.connect(destination)
     try:
         reader.backup(writer)
+        # The snapshot inherits the source's write-ahead mode; in the rollback
+        # mode it is one file, whole, with no -wal or -shm to travel beside it.
+        writer.execute("PRAGMA journal_mode=DELETE")
     finally:
         writer.close()
         reader.close()
@@ -209,6 +212,7 @@ def _copy_tree(
     manifest: dict[str, Any],
     exclude: set[Path],
     fs: FileSystem,
+    skip_files: frozenset[str] = frozenset(),
 ) -> None:
     """
     Copy one directory into the staging tree, recording every file.
@@ -220,6 +224,8 @@ def _copy_tree(
         manifest: Filled with ``files`` and ``skipped``.
         exclude: Directories never entered (the output, the backups).
         fs: The filesystem seam.
+        skip_files: File names never copied, wherever they are (history that
+            regenerates, which a backup of Noust's own state leaves out).
     """
     for directory, dirnames, filenames in os.walk(source, followlinks=False):
         current = Path(directory)
@@ -241,6 +247,9 @@ def _copy_tree(
             full = current / name
             relative = (Path(label) / relative_dir / name).as_posix()
             if name.endswith(SQLITE_COMPANIONS):
+                continue
+            if name in skip_files:
+                manifest["skipped"].append({"path": relative, "reason": "excluded"})
                 continue
             mode = full.lstat().st_mode
             if stat.S_ISLNK(mode):

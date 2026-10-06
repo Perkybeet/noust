@@ -49,6 +49,7 @@ started on it.
 
 from __future__ import annotations
 
+import functools
 import json
 import logging
 import os
@@ -2324,8 +2325,8 @@ class VolumeBackupManager:
                     }
                     failures.append((name, str(exc)))
                     announce(
-                        lambda name=name, exc=exc: compose_backup_upload_failed(
-                            domain, name, str(exc), context
+                        functools.partial(
+                            compose_backup_upload_failed, domain, name, str(exc), context
                         )
                     )
         if policy:
