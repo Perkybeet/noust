@@ -190,7 +190,9 @@ used, with their default in the code, so a file that lacks them behaves as docum
 | `notifications.channels.webhook.webhook_url` | empty | The generic endpoint notifications are posted to (a secret: it is a capability URL). |
 | `notifications.channels.webhook.secret` | empty | Signs every delivery with HMAC-SHA256 in `X-Noust-Signature` when set (a secret). |
 | `notifications.channels.slack.webhook_url` | empty | A Slack incoming webhook (a secret). |
-| `notifications.channels.discord.webhook_url` | empty | A Discord webhook (a secret). |
+| `notifications.channels.discord.webhook_url` | empty | A Discord webhook (a secret). The message is one embed (state colour, facts, timestamp, a link to the console when `web.public_url` is set); if Discord refuses it, the alert is sent once more as plain text. |
+| `notifications.channels.discord.mention_role_id` | empty | A Discord role to ping when a **critical** event arrives (a deploy, restore, backup, unit or node that failed; a certificate that expired; an application not answering). Only a failure pings; warnings, successes and the test message never do. The id is 17 to 20 digits: Developer Mode, right-click the role, Copy ID. |
+| `notifications.channels.discord.mention_user_id` | empty | A Discord user to ping in the same cases, in addition to the role. |
 | `notifications.channels.telegram.bot_token` | empty | The bot's token (a secret). |
 | `notifications.channels.telegram.chat_id` | empty | The chat: an integer id (a group's is negative) or `@channelname`. |
 | `notifications.channels.email.enabled` | `false` | Send notifications by email, through the `monitor.smtp.*` account to `monitor.email_recipients`. |

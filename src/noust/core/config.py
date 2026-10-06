@@ -218,7 +218,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
             # when set; the receiver verifies it with the same value.
             "webhook": {"webhook_url": "", "secret": ""},
             "slack": {"webhook_url": ""},
-            "discord": {"webhook_url": ""},
+            # "mention_role_id" and "mention_user_id" name whom Discord pings
+            # when a critical event (a failure) arrives; empty pings nobody.
+            # Ids, not secrets: they are shown in the settings.
+            "discord": {"webhook_url": "", "mention_role_id": "", "mention_user_id": ""},
             "telegram": {"bot_token": "", "chat_id": ""},
             # Email reuses the monitor's SMTP account (monitor.smtp.*).
             "email": {"enabled": False},
@@ -904,6 +907,33 @@ def _validate_telegram_chat_id(value: Any) -> str:
         ) from exc
 
 
+def _validate_discord_id(key: str, what: str) -> Callable[[Any], str]:
+    """
+    Build the rule for a key that holds a Discord role or user id.
+
+    Args:
+        key: The dotted key, for the message.
+        what: What the id names (``role``, ``user``).
+
+    Returns:
+        A validator accepting an id (stripped) or nothing, which turns the
+        mention off.
+    """
+
+    def validate(value: Any) -> str:
+        from noust.validators.discord import validate_discord_id
+
+        text = "" if value is None else str(value).strip()
+        if not text:
+            return ""
+        try:
+            return validate_discord_id(text, f"a Discord {what} id")
+        except ValueError as exc:
+            raise ConfigError(f"{key} is not a Discord {what} id", details=str(exc)) from exc
+
+    return validate
+
+
 def _validate_notification_language(value: Any) -> str:
     """
     Accept the language Noust's own notification texts are rendered in.
@@ -1187,6 +1217,12 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "monitor.smtp.from_address": _validate_optional_email("monitor.smtp.from_address"),
     "monitor.email_recipients": _validate_email_list("monitor.email_recipients"),
     "notifications.channels.telegram.chat_id": _validate_telegram_chat_id,
+    "notifications.channels.discord.mention_role_id": _validate_discord_id(
+        "notifications.channels.discord.mention_role_id", "role"
+    ),
+    "notifications.channels.discord.mention_user_id": _validate_discord_id(
+        "notifications.channels.discord.mention_user_id", "user"
+    ),
     "notifications.language": _validate_notification_language,
     "server.name": _validate_server_name,
 }
