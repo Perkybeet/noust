@@ -84,7 +84,7 @@ exist. The utility name is the token's with `color-` dropped (`--text-muted` is 
 | `--surface` | `#ffffff` / `#171717` | Cards, tables |
 | `--surface-raised` | `#ffffff` / `#1f1f1f` | Everything that floats: menus, popovers, dialogs, drawers, toasts; info notices |
 | `--surface-hover` | `#f2f2f2` / `#222222` | Hover on a row or a control |
-| `--surface-active` | `#ebebeb` / `#2a2a2a` | Pressed; the current navigation item |
+| `--surface-active` | `#ebebeb` / `#2a2a2a` | Pressed; the current navigation item's fill (with its bar, below) |
 | `--border` | `#e3e3e3` / `#2a2a2a` | Hairlines that separate content |
 | `--border-strong` | `#898989` / `#6e6e6e` | The boundary of a control (3:1) |
 | `--text` | `#161616` / `#ededed` | Content |
@@ -141,6 +141,13 @@ Rules:
   state word take the state colour.
 - **C-9** Work in progress is amber: the spinner, the deploying and queued glyphs, a progress bar.
 - **C-10** The hull violet of the logo (`#7b61ff`) is the brand, not a UI colour.
+- **C-11** The current navigation item is told by more than its fill. `--surface-active` is
+  1.1 to 1.3:1 against the ground, which is not a way to tell where you are (WCAG 1.4.11, and
+  the complaint Coolify's users made of their selected item), so the item also has a 2px bar at
+  its start drawn in `--text`: achromatic, 3:1 or more against the ground, a hovered item and the
+  active fill in both themes (`tokens.test.ts`), and a shape as well as a colour. The bar is in
+  the DOM only on the current item (`data-nav-indicator`), so a test and a screen reader's
+  `aria-current` agree on it.
 
 ### 2.2 Data and charts
 

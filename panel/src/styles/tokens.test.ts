@@ -48,6 +48,18 @@ const UI_PAIRS: [string, string][] = [
 ];
 
 /**
+ * The mark of the current navigation item (the bar at its start): drawn in `text`, against what
+ * it sits on and what its neighbours are (the sidebar's ground, a hovered item, the active
+ * item's own fill). 3:1 (WCAG 1.4.11). The active fill alone cannot carry this: it is 1.1 to 1.3
+ * against the ground, which is why the item also has a mark that is not a fill (owner request,
+ * 3.4, checklist M-59).
+ */
+const NAV_INDICATOR_PAIRS: [string, string][] = ["bg", "surface-hover", "surface-active"].map((ground): [string, string] => [
+  "text",
+  ground,
+]);
+
+/**
  * The border of a tinted block (a Notice, a failed job): decorative, since the block also
  * carries a glyph and words (WCAG 1.4.11 does not ask for 3:1), but it must be seen against
  * both the soft ground it bounds and the surface around it.
@@ -131,6 +143,18 @@ describe("design tokens", () => {
       expect(contrastRatio(colour(theme, fg), colour(theme, bg))).toBeGreaterThanOrEqual(3);
     },
   );
+
+  it.each(THEMES.flatMap((theme) => NAV_INDICATOR_PAIRS.map(([fg, bg]) => [fg, bg, theme] as const)))(
+    "the current navigation item's mark (%s) stands out from %s by 3:1 in %s",
+    (fg, bg, theme) => {
+      expect(contrastRatio(colour(theme, fg), colour(theme, bg))).toBeGreaterThanOrEqual(3);
+    },
+  );
+
+  it.each(THEMES)("explains why the active item needs a mark: its fill alone is under 3:1 against the ground in %s", (theme) => {
+    // If this ever starts passing at 3:1, the mark is no longer needed and this test says so.
+    expect(contrastRatio(colour(theme, "surface-active"), colour(theme, "bg"))).toBeLessThan(3);
+  });
 
   it.each(THEMES)("keeps every surface and text colour achromatic in %s", (theme) => {
     const achromatic = [
