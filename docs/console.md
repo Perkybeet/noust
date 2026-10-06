@@ -570,9 +570,21 @@ Two-key sequences are typed one after the other within about a second. They do n
 you type in a field or while a dialog is open. Inside a log viewer, `Ctrl F` / `Cmd F`
 focuses its search; `Enter` and `Shift Enter` step through matches.
 
-The **command palette** searches pages (including each Settings section), applications with
-their state, and actions: new application, change theme, keyboard shortcuts, sign out. Arrow
-keys or `Ctrl N` / `Ctrl P` move, `Enter` runs, `Esc` closes.
+The **command palette** searches anything the console lists, by any name it answers to: pages
+and each Settings section; applications (domain, name and type, with their state); databases;
+sites (by every name they answer on); certificates (by every name they cover, with the time
+left); services; the other servers; the newest deployments (by application, commit or
+message); and actions, the ones that create something first: new application, new application
+from a recipe, import an application, adopt a stack, new database, add a server, then change
+theme, keyboard shortcuts and sign out. It reads its lists the first time it is opened, only
+the ones your account may read, and reads them again after a job ends. Arrow keys or
+`Ctrl N` / `Ctrl P` move, `Enter` runs, `Esc` closes.
+
+Every list of more than 20 rows is paged: 20, 50, 100 or all rows to a page, chosen under the
+list, remembered for that list in the browser, with "Showing 21–40 of 57". An application's
+page keeps its daily verbs in its header: Restart, Stop or Start (by its state) and Roll back
+beside Update, and on a phone as icons that keep their names; Diagnose and Delete are in
+More actions.
 
 ## Sudo mode
 
