@@ -169,6 +169,7 @@ export function AppsTable({ apps, deploys, metrics, caption, loading = false, sk
       {...(rowActions ? { rowActions: (row: Row) => rowActions(row.app) } : {})}
       defaultSort={{ column: "domain", direction: "ascending" }}
       mobile="cards"
+      pagination="apps"
       {...(className !== undefined ? { className } : {})}
     />
   );

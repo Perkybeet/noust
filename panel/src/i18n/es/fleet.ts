@@ -315,8 +315,6 @@ export const fleet: Catalog<typeof en> = {
     count: { one: "{count} aplicación", other: "{count} aplicaciones" },
     countFiltered: "{shown} de {total} aplicaciones",
     empty: "Ningún servidor tiene aún una aplicación.",
-    shownOf: "Se muestran {shown} de {total}",
-    showMore: { one: "Ver {count} más", other: "Ver {count} más" },
     newApplication: "Nueva aplicación",
     update: "Actualizar aplicaciones",
     noType: "Tipo desconocido",

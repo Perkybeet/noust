@@ -170,6 +170,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
     content = (
       <DataTable
         mobile="cards"
+        pagination="sites"
         caption={needle === "" ? t("domains.sitesTab.tableCaption") : t("domains.sitesTab.tableCaptionFiltered")}
         columns={columns}
         rows={shown}

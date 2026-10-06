@@ -809,12 +809,19 @@ const COLUMNS: Column<SampleApp>[] = [
   },
 ];
 
+/** Fifty-seven applications: three pages at 20 to a page, two at 50, one from 100 up. */
+const PAGED_APPS: SampleApp[] = Array.from({ length: 57 }, (_, index) => {
+  const base = SAMPLE_APPS[index % SAMPLE_APPS.length] ?? SAMPLE_APPS[0];
+  if (base === undefined) throw new Error("no sample application");
+  return { ...base, domain: `app-${String(index + 1).padStart(2, "0")}.${base.domain}` };
+});
+
 function Tables() {
   return (
     <Section
       id="table"
       title="Data table"
-      description="Dense where the operator works. Sortable columns announce their order; rows open with a click or Enter and arrow keys move between them. Numbers align right in tabular mono."
+      description="Dense where the operator works. Sortable columns announce their order; rows open with a click or Enter and arrow keys move between them. Numbers align right in tabular mono. Past 20 rows a list is paged, 20, 50, 100 or all, and the choice is kept for that list."
     >
       <DataTable
         caption="Applications"
@@ -834,6 +841,16 @@ function Tables() {
           </Menu>
         )}
       />
+      <div className="flex flex-col">
+        <DataTable
+          caption="Applications, paged"
+          columns={COLUMNS.slice(0, 3)}
+          rows={PAGED_APPS}
+          getRowId={(row) => row.domain}
+          mobile="cards"
+          pagination="gallery-applications"
+        />
+      </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <DataTable caption="Applications, loading" columns={COLUMNS.slice(0, 3)} rows={[]} getRowId={(row) => row.domain} loading />
         <DataTable

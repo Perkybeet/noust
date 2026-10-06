@@ -710,10 +710,19 @@ state is the URL) by default; `Tabs` only where a URL makes no sense. Eight tabs
 
 **`DataTable`** (`mobile` `"scroll" | "cards"`, column `card` `"title" | "status" | "meta" |
 "control" | "hidden"`, `density`, `layout` `"auto" | "fixed"`, `rowActions`, `onRowActivate`,
-`skeletonRows`). Rows of like things. Lists of a T1 page use `mobile="cards"`; a selection
+`skeletonRows`, `pagination`). Rows of like things. Lists of a T1 page use `mobile="cards"`; a selection
 checkbox is `card: "control"` (its own slot, never on the meta line), and an empty meta value
 is left out of the card rather than drawn as a dash. `layout="fixed"` for values with no
-natural length (an audit event): the columns keep their widths and cells truncate. See 6.8.
+natural length (an audit event): the columns keep their widths and cells truncate.
+`pagination="apps"` names the list and turns on paging for it: see **`TablePagination`** and 6.8.
+
+**`TablePagination`** (`total`, `page`, `pageSize`, `onPageChange`, `onPageSizeChange`), with
+`usePageSize(list)` and `pageWindow`. Under a list of more than 20 rows: "Showing 21-40 of
+57", how many to a page (20, 50, 100 or all) in a compact `Select`, and previous and next.
+`DataTable` draws it itself when it is given a `pagination` id; the size is the operator's,
+remembered per list in `localStorage` (`noust.pageSize.<list>`), so applications and
+databases are chosen apart and every table of one list agrees. Not for a list the server pages
+(Activity's "Load more", the audit trail's keyset): those say how many are loaded instead.
 
 **`EmptyCell`** (`reason`). A table cell with nothing in it: an en dash on screen and the reason
 for screen readers. Never a bare "-".
@@ -957,7 +966,12 @@ drawer.
 - Density per D-2; truncation is a last resort, with the full value in a tooltip, and system
   values are truncated in mono.
 - Headers are 12px, 500, `text-muted`, sortable with `aria-sort`.
-- Pagination at about 20 rows or "Load more"; virtualise only beyond 100.
+- Paging is the operator's: 20 rows to a page to start with, 50, 100 or all on request, kept
+  per list, with "Showing X-Y of Z" and a page-size control that is always where the rows are
+  (`DataTable pagination`, `TablePagination`). A list of 20 or fewer draws none. A list the
+  server pages uses "Load more" and says how many are loaded; virtualise only beyond 100. The
+  last page is never padded: a grid with an incomplete last row makes people think there is no
+  more.
 - On a phone, card rows (`mobile="cards"`) with the actions in view.
 
 ### 6.9 Filters and search

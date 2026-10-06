@@ -5,7 +5,9 @@ import type { KeyboardEvent, MouseEvent, ReactNode } from "react";
 import { useT } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { EmptyCell } from "./EmptyCell";
+import { usePageSize } from "./pageSize";
 import { Skeleton } from "./Skeleton";
+import { TablePagination, pageWindow } from "./TablePagination";
 import { SM_UP, useMediaQuery } from "./useMediaQuery";
 
 export type SortDirection = "ascending" | "descending";
@@ -76,8 +78,19 @@ export interface DataTableProps<T> {
    * whose values have no natural bound (an audit event's detail, a command line).
    */
   layout?: "auto" | "fixed";
+  /**
+   * Turns on paging for a list, under the name the list is remembered by (`"apps"`,
+   * `"databases"`): the operator chooses 20, 50, 100 or all rows to a page, the choice is kept
+   * for that list in the browser, and under the rows it says "Showing 21-40 of 57". Nothing is
+   * drawn for a list of 20 rows or fewer. Give the whole list: paging, like sorting, is done
+   * here; a list the server pages (`Load more`, a keyset) does not use this.
+   */
+  pagination?: string;
   className?: string;
 }
+
+/** The smallest page size: a list this short has nothing to page, so no control is drawn. */
+const SMALLEST_PAGE = 20;
 
 const HIDE: Record<NonNullable<Column<unknown>["hideBelow"]>, string> = {
   sm: "hidden sm:table-cell",
@@ -115,6 +128,7 @@ export function DataTable<T>({
   density = "comfortable",
   mobile = "scroll",
   layout = "auto",
+  pagination,
   className,
 }: DataTableProps<T>) {
   const t = useT();
@@ -123,6 +137,9 @@ export function DataTable<T>({
   const [internalSort, setInternalSort] = useState<SortState | null>(defaultSort);
   const activeSort = sort !== undefined ? sort : internalSort;
   const [focusedRow, setFocusedRow] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  // A hook cannot be skipped: without paging the (empty) id reads nothing that is used.
+  const [pageSize, setPageSize] = usePageSize(pagination ?? "");
   const bodyRef = useRef<HTMLTableSectionElement>(null);
 
   const sorted = useMemo(() => {
@@ -134,15 +151,36 @@ export function DataTable<T>({
     return [...rows].sort((a, b) => factor * compare(value(a), value(b)));
   }, [rows, columns, activeSort]);
 
+  // Paging comes after sorting: the order is the whole list's, and a page is a slice of it.
+  const paged = pagination !== undefined && !loading && sorted.length > SMALLEST_PAGE;
+  const shown = pageWindow(sorted.length, paged ? pageSize : "all", page);
+  const visible = paged ? sorted.slice(shown.from - 1, shown.to) : sorted;
+
   const toggleSort = (column: Column<T>): void => {
     const direction: SortDirection =
       activeSort?.column === column.id && activeSort.direction === "ascending" ? "descending" : "ascending";
     const next = { column: column.id, direction };
     if (sort === undefined) setInternalSort(next);
+    // A new order starts at its beginning, as it does everywhere else.
+    setPage(0);
     onSortChange?.(next);
   };
 
-  const primaryIds = sorted.map(getRowId);
+  const footer = paged ? (
+    <TablePagination
+      className="mt-3"
+      total={sorted.length}
+      page={shown.page}
+      pageSize={pageSize}
+      onPageChange={setPage}
+      onPageSizeChange={(size) => {
+        setPage(0);
+        setPageSize(size);
+      }}
+    />
+  ) : null;
+
+  const primaryIds = visible.map(getRowId);
   const tabbableRow = focusedRow !== null && primaryIds.includes(focusedRow) ? focusedRow : primaryIds[0];
 
   const moveFocus = (event: KeyboardEvent<HTMLTableSectionElement>): void => {
@@ -173,10 +211,10 @@ export function DataTable<T>({
   };
 
   if (mobile === "cards" && !wide) {
-    return (
+    const cards = (
       <CardRows
         columns={columns}
-        rows={sorted}
+        rows={visible}
         getRowId={getRowId}
         caption={caption}
         {...(onRowActivate ? { onRowActivate } : {})}
@@ -187,12 +225,20 @@ export function DataTable<T>({
         {...(className !== undefined ? { className } : {})}
       />
     );
+    return pagination === undefined ? (
+      cards
+    ) : (
+      <>
+        {cards}
+        {footer}
+      </>
+    );
   }
 
   const cellHeight = density === "compact" ? "h-9" : "h-11";
   const hasInteractive = Boolean(onRowActivate) || Boolean(rowActions) || columns.some((c) => c.sortValue);
 
-  return (
+  const table = (
     <div
       role="region"
       aria-labelledby={captionId}
@@ -284,7 +330,7 @@ export function DataTable<T>({
             </tr>
           ) : null}
           {!loading
-            ? sorted.map((row) => {
+            ? visible.map((row) => {
                 const id = getRowId(row);
                 return (
                   // A click anywhere on the row is a pointer convenience; keyboard users reach
@@ -337,6 +383,15 @@ export function DataTable<T>({
         </tbody>
       </table>
     </div>
+  );
+
+  return pagination === undefined ? (
+    table
+  ) : (
+    <>
+      {table}
+      {footer}
+    </>
   );
 }
 

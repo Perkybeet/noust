@@ -273,6 +273,7 @@ export function CertificatesPage({ search, onSearchChange }: CertificatesPagePro
     content = (
       <DataTable
         mobile="cards"
+        pagination="certificates"
         caption={filtered ? t("domains.certificatesTab.tableCaptionFiltered") : t("domains.certificatesTab.tableCaption")}
         columns={columns}
         rows={shown}

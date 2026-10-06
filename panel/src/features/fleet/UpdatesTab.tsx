@@ -213,6 +213,7 @@ export function UpdatesTab({ search, onSearchChange }: UpdatesTabProps) {
         loading={view.isPending}
         skeletonRows={3}
         mobile="cards"
+        pagination="fleet-updates"
         empty={
           <EmptyState
             variant="inline"

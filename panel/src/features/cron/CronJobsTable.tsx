@@ -93,6 +93,7 @@ export function CronJobsTable({ jobs, caption, loading = false, empty, onRowActi
   return (
     <DataTable
       mobile="cards"
+      pagination="cron"
       columns={columns}
       rows={jobs}
       getRowId={(row) => row.name}

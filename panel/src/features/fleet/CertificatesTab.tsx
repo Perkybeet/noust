@@ -199,6 +199,7 @@ export function CertificatesTab({ search, onSearchChange }: CertificatesTabProps
         loading={view.isPending}
         skeletonRows={5}
         mobile="cards"
+        pagination="fleet-certificates"
         empty={
           rows.length === 0 && view.data !== undefined ? (
             <EmptyState variant="inline" title={t("fleet.certificates.empty")} />

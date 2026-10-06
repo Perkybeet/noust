@@ -331,8 +331,6 @@ export const fleet = {
     count: { one: "{count} application", other: "{count} applications" },
     countFiltered: "{shown} of {total} applications",
     empty: "No server has an application yet.",
-    shownOf: "Showing {shown} of {total}",
-    showMore: { one: "Show {count} more", other: "Show {count} more" },
     newApplication: "New application",
     update: "Update applications",
     noType: "Type not known",
