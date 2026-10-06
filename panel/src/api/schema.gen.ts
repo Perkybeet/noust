@@ -3755,6 +3755,325 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/oidc/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Callback
+         * @description Take the provider's answer: verify it, admit the person, hand over a ticket.
+         *
+         *     A guess at the answer (an unknown or replayed state, another browser's
+         *     cookie, a token that does not verify) is counted against the address like a
+         *     wrong password and audited; a provider that is down, or a person the policy
+         *     does not admit, is audited but not counted.
+         *
+         *     Args:
+         *         request: The request, from the provider's redirect.
+         *         code: The authorization code.
+         *         state: The state the sign-in began with.
+         *         error: The provider's error code, when it refused.
+         *
+         *     Returns:
+         *         A redirect to the sign-in page carrying the ticket, or the reason.
+         */
+        get: operations["callback_api_auth_oidc_callback_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/oidc/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete
+         * @description Finish a sign-in a provider vouched for, as an account's sign-in finishes.
+         *
+         *     An account with a second factor is answered the step it owes
+         *     (``login.second_factor``), to be finished at
+         *     ``POST /api/auth/login/second-factor`` or with a passkey; one without is
+         *     signed in, its session fit only to enrol one. The ticket is single use, and
+         *     only the browser that began the sign-in, from the address that received the
+         *     answer, can collect it.
+         *
+         *     Args:
+         *         request: The request.
+         *         response: Used to set the session cookies and clear the sign-in's.
+         *         body: The ticket.
+         *
+         *     Returns:
+         *         The login result and where to go.
+         *
+         *     Raises:
+         *         HTTPException: 401 ``sign_in_expired`` when there is nothing to
+         *             collect (unknown, spent, expired, another browser or address, or
+         *             the account can no longer sign in). 429 ``locked_out``.
+         */
+        post: operations["complete_api_auth_oidc_complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/oidc/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Providers
+         * @description List the configured providers, secrets left out.
+         *
+         *     Args:
+         *         request: The request, for the callback address it implies.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The providers.
+         */
+        get: operations["list_providers_api_auth_oidc_config_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/oidc/config/{provider}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Provider
+         * @description Add a provider or change one, in sudo mode: it decides who may sign in.
+         *
+         *     Args:
+         *         provider: The provider's name.
+         *         request: The request.
+         *         body: The settings to set.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The provider as it is now.
+         *
+         *     Raises:
+         *         ValidationError: When a setting is refused; nothing is written.
+         */
+        put: operations["put_provider_api_auth_oidc_config__provider__put"];
+        post?: never;
+        /**
+         * Delete Provider
+         * @description Remove a provider and its client secret, in sudo mode.
+         *
+         *     Accounts keep their links and their other ways in; one that had no password
+         *     can no longer sign in until it is given one (``noust user invite``).
+         *
+         *     Args:
+         *         provider: The provider's name.
+         *         request: The request.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         A confirmation.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such provider.
+         */
+        delete: operations["delete_provider_api_auth_oidc_config__provider__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/oidc/config/{provider}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try Provider
+         * @description Look at a provider the way a sign-in would: discovery, keys, secret, callback.
+         *
+         *     Signs nobody in and writes nothing. A provider that cannot be reached is a
+         *     failed check, not an error.
+         *
+         *     Args:
+         *         provider: The provider's name.
+         *         request: The request, for the callback address.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         Each check and whether all passed.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such provider.
+         */
+        post: operations["try_provider_api_auth_oidc_config__provider__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/oidc/identities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Identities
+         * @description List the people at providers that are linked to accounts.
+         *
+         *     Args:
+         *         username: Only this account's.
+         *         _session: The authenticated payload.
+         *
+         *     Returns:
+         *         The links.
+         */
+        get: operations["list_identities_api_auth_oidc_identities_get"];
+        put?: never;
+        /**
+         * Link Identity
+         * @description Link an account to a person at a provider by hand, in sudo mode.
+         *
+         *     Args:
+         *         request: The request.
+         *         body: The provider, the account and the provider's id for the person.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         The link.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the provider does not exist.
+         *         OidcError: ``already_linked`` when that person is linked already.
+         *         AccountNotFoundError: When there is no such account.
+         */
+        post: operations["link_identity_api_auth_oidc_identities_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/oidc/identities/{identity_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unlink Identity
+         * @description Cut a link between an account and a person at a provider, in sudo mode.
+         *
+         *     Args:
+         *         identity_id: The link's id.
+         *         request: The request.
+         *         session: The authenticated payload, in sudo mode.
+         *
+         *     Returns:
+         *         A confirmation.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such link.
+         */
+        delete: operations["unlink_identity_api_auth_oidc_identities__identity_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/oidc/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Choices
+         * @description Name the providers the sign-in page offers. Anonymous: it shows buttons.
+         *
+         *     Args:
+         *         response: Used to keep the answer out of caches.
+         *
+         *     Returns:
+         *         The name and label of each enabled provider, nothing else of them.
+         */
+        get: operations["list_choices_api_auth_oidc_providers_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/auth/oidc/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Start
+         * @description Begin a sign-in: remember it and send the browser to the provider.
+         *
+         *     Anonymous, and it writes only a short-lived record of the sign-in; the
+         *     provider is chosen from those configured, never from the request. Whatever
+         *     goes wrong, the browser lands on the sign-in page with a one-word reason.
+         *
+         *     Args:
+         *         request: The request.
+         *         provider: The provider's name.
+         *         next: The console page to go to afterwards; reduced to a path of this console.
+         *
+         *     Returns:
+         *         A redirect to the provider, setting the cookie that ties the answer to
+         *         this browser, or to the sign-in page.
+         */
+        get: operations["start_api_auth_oidc_start_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/passkeys": {
         parameters: {
             query?: never;
@@ -7982,6 +8301,266 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/instances": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Instances
+         * @description List the instances Noust runs, and the memory they hold.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Every instance, by name, and the memory budget.
+         */
+        get: operations["list_instances_api_databases_instances_get"];
+        put?: never;
+        /**
+         * Create Instance
+         * @description Queue making an instance, with sudo mode.
+         *
+         *     It is planned first, so a request that could not succeed is refused here
+         *     rather than failing in the job. The job pulls the image, writes the
+         *     instance's files and unit, starts it, and returns once its engine accepts
+         *     the superuser Noust generated; whatever fails is undone.
+         *
+         *     Args:
+         *         request: What to make.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["create_instance_api_databases_instances_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Instance Catalog
+         * @description List what Noust can run as an instance: each engine, and its versions with their digests.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The engines, in the order the console offers them.
+         */
+        get: operations["instance_catalog_api_databases_instances_catalog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Instance
+         * @description Say what making an instance would do. Changes nothing.
+         *
+         *     A request that could not succeed (Docker missing, no memory limit, a port or
+         *     a name that is taken, a version the catalog lacks, more memory than the
+         *     server has left) is refused here, with the reason.
+         *
+         *     Args:
+         *         request: What to make.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan.
+         */
+        post: operations["plan_instance_api_databases_instances_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Instance
+         * @description Describe one instance.
+         *
+         *     Args:
+         *         name: Its name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The instance.
+         */
+        get: operations["get_instance_api_databases_instances__name__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove Instance
+         * @description Queue removing an instance, its container and its data, with sudo mode.
+         *
+         *     Without ``confirm`` nothing is changed and the answer is a 400
+         *     ``confirmation_required`` carrying what is deleted. Applications that use it
+         *     and databases made public on it stop the removal, whatever is confirmed.
+         *
+         *     Args:
+         *         name: Its name.
+         *         session: The authenticated, elevated session.
+         *         confirm: The operator accepted that its data goes.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ConfirmationRequired: ``confirm`` is false.
+         *         ValidationError: Something uses it.
+         */
+        delete: operations["remove_instance_api_databases_instances__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/{name}/remove-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Plan Remove Instance
+         * @description Say what removing an instance would delete, and what stops it. Changes nothing.
+         *
+         *     Args:
+         *         name: Its name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan.
+         */
+        get: operations["plan_remove_instance_api_databases_instances__name__remove_plan_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/{name}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Instance
+         * @description Queue starting an instance; the job returns once its engine answers.
+         *
+         *     Args:
+         *         name: Its name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["start_instance_api_databases_instances__name__start_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/{name}/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Stop Instance
+         * @description Stop an instance. Its data stays; the applications that use it lose their database.
+         *
+         *     Args:
+         *         name: Its name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The action's outcome.
+         */
+        post: operations["stop_instance_api_databases_instances__name__stop_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/{name}/upgrade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upgrade Instance
+         * @description Queue moving an instance to the newest image of its version, with sudo mode.
+         *
+         *     The tag does not change (PostgreSQL 17 stays 17); what moves is the build the
+         *     registry serves for it. A dump of every database is taken first (a failed
+         *     dump stops it), the instance must become healthy and accept its superuser,
+         *     and when it does not the previous image is put back.
+         *
+         *     Args:
+         *         name: Its name.
+         *         session: The authenticated, elevated session.
+         *         backup: Dump every database first; on by default.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["upgrade_instance_api_databases_instances__name__upgrade_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/provisioning/choices": {
         parameters: {
             query?: never;
@@ -8031,6 +8610,8 @@ export interface paths {
          *         session: The authenticated session.
          *         domain: The application's domain.
          *         engine: The engine.
+         *         version: The version the database is wanted on.
+         *         instance: The instance Noust runs to make it on.
          *
          *     Returns:
          *         The plan.
@@ -14251,7 +14832,23 @@ export interface paths {
         delete: operations["delete_project_api_teams__team__projects__project__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Rename Project
+         * @description Rename a project. Its slug, which commands and links name it by, stays.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         body: The new name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The project.
+         *
+         *     Raises:
+         *         TeamNotFoundError: 404 when there is no such project.
+         */
+        patch: operations["rename_project_api_teams__team__projects__project__patch"];
         trace?: never;
     };
     "/api/teams/{team}/projects/{project}/environments": {
@@ -14328,7 +14925,24 @@ export interface paths {
         delete: operations["delete_environment_api_teams__team__projects__project__environments__environment__delete"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Rename Environment
+         * @description Rename an environment. Its slug, which commands and links name it by, stays.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         environment: The environment's slug.
+         *         body: The new name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The environment.
+         *
+         *     Raises:
+         *         TeamNotFoundError: 404 when there is no such environment.
+         */
+        patch: operations["rename_environment_api_teams__team__projects__project__environments__environment__patch"];
         trace?: never;
     };
     "/api/timeline": {
@@ -17187,6 +17801,26 @@ export interface components {
             seq?: number | null;
         };
         /**
+         * BudgetResponse
+         * @description How the server's memory is divided among the instances.
+         *
+         *     Attributes:
+         *         server_mb: The server's memory; 0 when the system does not say.
+         *         allocatable_mb: The share the limits of all instances may add up to.
+         *         allocated_mb: What they add up to.
+         *         available_mb: What is left to give another.
+         */
+        BudgetResponse: {
+            /** Allocatable Mb */
+            allocatable_mb: number;
+            /** Allocated Mb */
+            allocated_mb: number;
+            /** Available Mb */
+            available_mb: number;
+            /** Server Mb */
+            server_mb: number;
+        };
+        /**
          * BundleResponse
          * @description One bundle of Noust's own state on this server.
          *
@@ -17285,6 +17919,38 @@ export interface components {
             updates: boolean;
         };
         /**
+         * CatalogEntryResponse
+         * @description One engine Noust can run as an instance.
+         *
+         *     Attributes:
+         *         flavour: What to give as ``engine``.
+         *         engine: The manager that speaks it.
+         *         display_name: Its name for a person.
+         *         image: The official image's repository.
+         *         container_port: Where it listens inside its container.
+         *         min_memory_mb: The least memory it starts and answers in.
+         *         default_memory_mb: What an interface may suggest.
+         *         versions: What is offered, oldest first.
+         */
+        CatalogEntryResponse: {
+            /** Container Port */
+            container_port: number;
+            /** Default Memory Mb */
+            default_memory_mb: number;
+            /** Display Name */
+            display_name: string;
+            /** Engine */
+            engine: string;
+            /** Flavour */
+            flavour: string;
+            /** Image */
+            image: string;
+            /** Min Memory Mb */
+            min_memory_mb: number;
+            /** Versions */
+            versions: components["schemas"]["CatalogVersionResponse"][];
+        };
+        /**
          * CatalogEvent
          * @description One event the audit log can record.
          *
@@ -17308,18 +17974,18 @@ export interface components {
             severity: number;
         };
         /**
-         * CatalogResponse
-         * @description Response for ``GET /api/audit/events``.
-         *
-         *     Attributes:
-         *         categories: Every category, in display order.
-         *         events: Every event.
+         * CatalogVersionResponse
+         * @description One version Noust offers: its tag, the digest pinned and when support ends.
          */
-        CatalogResponse: {
-            /** Categories */
-            categories: string[];
-            /** Events */
-            events: components["schemas"]["CatalogEvent"][];
+        CatalogVersionResponse: {
+            /** Default */
+            default: boolean;
+            /** Digest */
+            digest: string;
+            /** End Of Life */
+            end_of_life?: string | null;
+            /** Version */
+            version: string;
         };
         /**
          * CategoryListOut
@@ -17663,6 +18329,23 @@ export interface components {
             summary: string;
         };
         /**
+         * CheckInfo
+         * @description One thing looked at when a provider is tested.
+         *
+         *     Attributes:
+         *         name: What.
+         *         ok: Whether it is right.
+         *         detail: What was found, or what is wrong.
+         */
+        CheckInfo: {
+            /** Detail */
+            detail: string;
+            /** Name */
+            name: string;
+            /** Ok */
+            ok: boolean;
+        };
+        /**
          * ChecksOut
          * @description Every check, and when they ran.
          */
@@ -17674,15 +18357,34 @@ export interface components {
             counts: components["schemas"]["CheckCountsOut"];
         };
         /**
+         * ChoiceInstanceResponse
+         * @description An instance Noust runs that a database can be made on.
+         *
+         *     Attributes:
+         *         name: The instance's name, what ``instance`` takes.
+         *         key: The key it is addressed by as an engine (``postgresql@pg17``).
+         *         version: The version it runs.
+         */
+        ChoiceInstanceResponse: {
+            /** Key */
+            key: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+        };
+        /**
          * ChoiceVersionResponse
          * @description One version of an engine a database can be created on.
          *
          *     Attributes:
          *         version: The version (a PostgreSQL major, a MariaDB release).
          *         state: ``installed`` (it is the one that runs), ``installable`` (it can
-         *             be installed now) or ``unavailable`` (it cannot be had: another
-         *             version of the engine, or another flavour, is installed).
+         *             be installed now), ``instance`` (an instance Noust runs has it: its
+         *             name is in ``instance``) or ``unavailable`` (it cannot be had:
+         *             another version of the engine, or another flavour, is installed).
          *         default: Whether it is what installs when no version is chosen.
+         *         instance: The instance that runs it, when ``state`` is ``instance``.
          */
         ChoiceVersionResponse: {
             /**
@@ -17690,6 +18392,8 @@ export interface components {
              * @default false
              */
             default: boolean;
+            /** Instance */
+            instance?: string | null;
             /** State */
             state: string;
             /** Version */
@@ -17825,6 +18529,45 @@ export interface components {
             primary_key?: number | null;
             /** Type */
             type: string;
+        };
+        /**
+         * CompleteRequest
+         * @description The console collecting the ticket of a sign-in the provider vouched for.
+         *
+         *     Attributes:
+         *         ticket: The single-use ticket the sign-in page was sent to.
+         *         bearer: Also return the session token in the body, for clients
+         *             without a cookie jar.
+         */
+        CompleteRequest: {
+            /**
+             * Bearer
+             * @default false
+             */
+            bearer: boolean;
+            /** Ticket */
+            ticket: string;
+        };
+        /**
+         * CompleteResponse
+         * @description What collecting a ticket gives: where the sign-in stands, and where to go.
+         *
+         *     Attributes:
+         *         login: Exactly what ``POST /api/auth/login`` answers: a session, with
+         *             ``mfa_required`` when the account still has to enrol a second
+         *             factor, or ``second_factor`` when it has one to present first.
+         *         next: The console page the person was going to.
+         *         provider: The provider's name.
+         *         label: Its button label, for "signed in with ...".
+         */
+        CompleteResponse: {
+            /** Label */
+            label: string;
+            login: components["schemas"]["LoginResponse"];
+            /** Next */
+            next: string;
+            /** Provider */
+            provider: string;
         };
         /**
          * ComposeExceptionModel
@@ -18986,6 +19729,10 @@ export interface components {
          *         username: The account Noust provisioned for it.
          *         engine_version: The engine's version.
          *         last_backup: When its newest dump was taken.
+         *         team: The slug of the team it belongs to; None for one an engine holds
+         *             that Noust never recorded, which belongs to nobody.
+         *         project: The slug of its project.
+         *         environment: The slug of its environment.
          */
         DatabaseInfoResponse: {
             /** App */
@@ -19000,6 +19747,8 @@ export interface components {
             engine: string;
             /** Engine Version */
             engine_version?: string | null;
+            /** Environment */
+            environment?: string | null;
             /** Keys */
             keys?: number | null;
             /** Last Backup */
@@ -19013,10 +19762,14 @@ export interface components {
             name: string;
             /** Owner */
             owner?: string | null;
+            /** Project */
+            project?: string | null;
             /** Size */
             size?: string | null;
             /** Tables */
             tables?: number | null;
+            /** Team */
+            team?: string | null;
             /**
              * Tracked
              * @default false
@@ -19935,6 +20688,9 @@ export interface components {
          *         installable: It can be installed now.
          *         reason: Why not, or what is installed, as one sentence.
          *         versions: The versions on offer, oldest first.
+         *         instances: The instances Noust runs of this flavour that are ready.
+         *         instance_versions: The versions an instance of this flavour could be
+         *             made in (``POST /api/databases/instances``).
          */
         EngineChoiceResponse: {
             /** Display Name */
@@ -19947,6 +20703,10 @@ export interface components {
             installable: boolean;
             /** Installed */
             installed: boolean;
+            /** Instance Versions */
+            instance_versions?: string[];
+            /** Instances */
+            instances?: components["schemas"]["ChoiceInstanceResponse"][];
             /** Reason */
             reason?: string | null;
             /** Running Version */
@@ -20020,6 +20780,11 @@ export interface components {
          *             application's).
          *         access: ``full``, or ``limited`` when the credentials the container
          *             carries only let Noust in as the application's own account.
+         *         managed: The name of the instance Noust runs this container as, when it
+         *             is one (``name`` is then ``<engine>@<managed>``): an instance is
+         *             Noust's to start, stop, upgrade and remove, and its image is pinned.
+         *         pinned_version: The version a managed instance was made with.
+         *         memory_limit_mb: A managed instance's memory limit.
          */
         EngineInfo: {
             /** Access */
@@ -20045,8 +20810,14 @@ export interface components {
              * @default host
              */
             kind: string;
+            /** Managed */
+            managed?: string | null;
+            /** Memory Limit Mb */
+            memory_limit_mb?: number | null;
             /** Name */
             name: string;
+            /** Pinned Version */
+            pinned_version?: string | null;
             /** Port */
             port: number;
             /** Project */
@@ -21954,6 +22725,58 @@ export interface components {
             keep_against_cloud_init: boolean;
         };
         /**
+         * IdentitiesResponse
+         * @description The links between accounts and people at providers.
+         *
+         *     Attributes:
+         *         identities: Each link, oldest first.
+         */
+        IdentitiesResponse: {
+            /** Identities */
+            identities: components["schemas"]["IdentityInfo"][];
+        };
+        /**
+         * IdentityInfo
+         * @description A person at a provider, linked to an account.
+         *
+         *     Attributes:
+         *         id: Store id, to unlink it.
+         *         account: The account's name.
+         *         provider: The provider it was linked through.
+         *         issuer: The provider's issuer.
+         *         subject: The provider's id for the person.
+         *         email: The address the provider last gave; a label, never a key.
+         *         mapped_role: The role a group mapping last gave.
+         *         created_at: When it was linked, UNIX seconds.
+         *         created_by: Who or what linked it.
+         *         last_login_at: Its last sign-in.
+         *         last_login_ip: From where.
+         */
+        IdentityInfo: {
+            /** Account */
+            account: string;
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Email */
+            email?: string | null;
+            /** Id */
+            id: number;
+            /** Issuer */
+            issuer: string;
+            /** Last Login At */
+            last_login_at?: number | null;
+            /** Last Login Ip */
+            last_login_ip?: string | null;
+            /** Mapped Role */
+            mapped_role?: string | null;
+            /** Provider */
+            provider: string;
+            /** Subject */
+            subject: string;
+        };
+        /**
          * IdentityOut
          * @description What the machine is called and what it runs.
          */
@@ -22271,6 +23094,131 @@ export interface components {
             recipe: string;
             /** Update Available */
             update_available: boolean;
+        };
+        /**
+         * InstanceListResponse
+         * @description Every instance Noust runs, and the memory they hold.
+         */
+        InstanceListResponse: {
+            budget: components["schemas"]["BudgetResponse"];
+            /** Instances */
+            instances: components["schemas"]["InstanceResponse"][];
+        };
+        /**
+         * InstanceRequest
+         * @description An instance to make.
+         *
+         *     Attributes:
+         *         name: What to call it: lower-case letters, digits and single dashes,
+         *             starting with a letter, up to 24 characters. It is the part of its
+         *             key after the ``@`` (``postgresql@pg16``).
+         *         engine: What to run: ``postgresql``, ``mysql``, ``mariadb``, ``redis``,
+         *             ``valkey`` or ``mongodb`` (``GET /api/databases/instances/catalog``).
+         *         version: Its version, such as ``16`` or ``8.4``; the catalog's default
+         *             when omitted. The image is pinned by tag and digest.
+         *         memory_mb: Its memory limit in megabytes: mandatory, enforced on the
+         *             container and used to size the engine's own caches.
+         *         port: The port on 127.0.0.1 it is published on; a free one just above
+         *             the engine's own when omitted.
+         */
+        InstanceRequest: {
+            /** Engine */
+            engine: string;
+            /** Memory Mb */
+            memory_mb?: number | null;
+            /** Name */
+            name: string;
+            /** Port */
+            port?: number | null;
+            /** Version */
+            version?: string | null;
+        };
+        /**
+         * InstanceResponse
+         * @description An instance Noust runs.
+         *
+         *     Attributes:
+         *         name: Its name.
+         *         key: What it is addressed by wherever an engine is named.
+         *         engine: The manager that speaks it.
+         *         flavour: What it runs.
+         *         display_name: The flavour for a person.
+         *         version: The version it was made with.
+         *         image: The image's repository.
+         *         digest: The digest it runs; ``previous_digest`` is what ran before the
+         *             last upgrade.
+         *         reference: The image reference its container is started from.
+         *         host_port: The port on 127.0.0.1.
+         *         address: Always ``127.0.0.1``: it is reached through an SSH tunnel, or
+         *             made public one database at a time (``/api/databases/public``).
+         *         memory_limit_mb: Its memory limit.
+         *         state: ``creating``, ``ready``, ``upgrading`` or ``removing``: how far
+         *             the last change got.
+         *         running: Its container runs.
+         *         status: ``running``, ``stopped`` (it has no container) or Docker's own
+         *             word.
+         *         unit: The systemd unit that runs it.
+         *         container: Its container's name.
+         *         volume: The Docker volume that holds its data.
+         *         directory: The directory that holds its Compose file and its
+         *             environment file, which only root can read.
+         *         end_of_life: When its version's upstream support ends, where the project
+         *             publishes it; ``support`` is ``supported``, ``ending_soon``,
+         *             ``ended`` or ``unknown``.
+         */
+        InstanceResponse: {
+            /** Address */
+            address: string;
+            /** Container */
+            container: string;
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Digest */
+            digest: string;
+            /** Directory */
+            directory: string;
+            /** Display Name */
+            display_name: string;
+            /** End Of Life */
+            end_of_life?: string | null;
+            /** Engine */
+            engine: string;
+            /** Flavour */
+            flavour: string;
+            /** Host Port */
+            host_port: number;
+            /** Image */
+            image: string;
+            /** Key */
+            key: string;
+            /** Memory Limit Mb */
+            memory_limit_mb: number;
+            /** Name */
+            name: string;
+            /** Previous Digest */
+            previous_digest?: string | null;
+            /** Reference */
+            reference: string;
+            /** Running */
+            running: boolean;
+            /** State */
+            state: string;
+            /** Status */
+            status: string;
+            /** Support */
+            support?: string | null;
+            /** Unit */
+            unit: string;
+            /** Updated At */
+            updated_at: string;
+            /** Upgraded At */
+            upgraded_at?: string | null;
+            /** Version */
+            version: string;
+            /** Volume */
+            volume: string;
         };
         /**
          * InterfaceAddress
@@ -22987,49 +23935,6 @@ export interface components {
             units: string[];
         };
         /**
-         * LinkRequest
-         * @description Request to link an existing database to an application.
-         *
-         *     Attributes:
-         *         username: The account to sign in as. Noust must know its password;
-         *             when omitted, the provisioned account, or a new one for the
-         *             application made the database's owner.
-         */
-        LinkRequest: {
-            /**
-             * Database
-             * @description Database name
-             */
-            database: string;
-            /**
-             * Engine
-             * @description Database engine
-             */
-            engine: string;
-            /**
-             * Env Var
-             * @description Variable to write
-             */
-            env_var?: string | null;
-            /**
-             * Extra Vars
-             * @description Also write the DB_* variables
-             * @default false
-             */
-            extra_vars: boolean;
-            /**
-             * Restart
-             * @description Restart the application behind its gate
-             * @default true
-             */
-            restart: boolean;
-            /**
-             * Username
-             * @description Account to sign in as
-             */
-            username?: string | null;
-        };
-        /**
          * LinkResponse
          * @description One database an application uses.
          *
@@ -23408,6 +24313,26 @@ export interface components {
             organization?: string | null;
             /** Origin */
             origin: string;
+        };
+        /**
+         * Mapping
+         * @description One line of a provider's group mapping.
+         *
+         *     Attributes:
+         *         group: The group, as the provider's claim spells it.
+         *         role: The instance role it gives (``viewer``, ``operator`` or ``admin``).
+         *         team: The team it puts the person in.
+         *         team_role: Their role there.
+         */
+        Mapping: {
+            /** Group */
+            group: string;
+            /** Role */
+            role?: string | null;
+            /** Team */
+            team?: string | null;
+            /** Team Role */
+            team_role?: string | null;
         };
         /**
          * MemberListResponse
@@ -23861,6 +24786,10 @@ export interface components {
          *             runs is refused with what runs, and an engine that is not
          *             installed is refused with how to install it (``GET
          *             /api/databases/provisioning/choices``) before anything is queued.
+         *         instance: The name of an instance Noust runs (``GET
+         *             /api/databases/instances``) to make the database on, instead of the
+         *             host's engine. One is also chosen by itself when ``version`` is the
+         *             one an instance runs and the host does not.
          */
         NewAppDatabaseRequest: {
             /**
@@ -23879,6 +24808,11 @@ export interface components {
              * @default false
              */
             extra_vars: boolean;
+            /**
+             * Instance
+             * @description Make it on this instance Noust runs
+             */
+            instance?: string | null;
             /**
              * Name
              * @description Database name
@@ -24497,6 +25431,39 @@ export interface components {
             total: number;
         };
         /**
+         * PlanResponse
+         * @description What making an instance would do. Nothing was changed.
+         *
+         *     Attributes:
+         *         warnings: What the operator should know before going ahead.
+         */
+        PlanResponse: {
+            /** Digest */
+            digest: string;
+            /** Display Name */
+            display_name: string;
+            /** Engine */
+            engine: string;
+            /** Flavour */
+            flavour: string;
+            /** Host Port */
+            host_port: number;
+            /** Image */
+            image: string;
+            /** Key */
+            key: string;
+            /** Memory Limit Mb */
+            memory_limit_mb: number;
+            /** Name */
+            name: string;
+            /** Reference */
+            reference: string;
+            /** Version */
+            version: string;
+            /** Warnings */
+            warnings: string[];
+        };
+        /**
          * PlatformProposalResponse
          * @description What another platform's configuration says, in Noust's terms.
          */
@@ -25064,6 +26031,208 @@ export interface components {
             reason: string;
         };
         /**
+         * ProviderChoice
+         * @description One way to sign in, as the sign-in page offers it.
+         *
+         *     Attributes:
+         *         name: The provider's short name, for ``/start?provider=``.
+         *         label: What the button says after "Sign in with".
+         */
+        ProviderChoice: {
+            /** Label */
+            label: string;
+            /** Name */
+            name: string;
+        };
+        /**
+         * ProviderChoices
+         * @description The ways to sign in besides an account's password.
+         *
+         *     Attributes:
+         *         providers: Every enabled provider.
+         */
+        ProviderChoices: {
+            /** Providers */
+            providers: components["schemas"]["ProviderChoice"][];
+        };
+        /**
+         * ProviderInfo
+         * @description A configured provider, with no secret in it.
+         *
+         *     Attributes:
+         *         name: Its short name.
+         *         label: What the button says after "Sign in with".
+         *         issuer: Its issuer, as its tokens write it.
+         *         client_id: The client Noust is registered as.
+         *         client_secret_set: Whether a client secret is stored (never its value).
+         *         scopes: Space separated.
+         *         enabled: Whether the sign-in page offers it.
+         *         require_email_verified: Whether the e-mail must be verified.
+         *         assume_email_verified: Whether an e-mail the provider says nothing
+         *             about counts as verified.
+         *         clock_skew_seconds: Tolerated clock difference.
+         *         provisioning: ``off``, ``invite`` or ``auto``.
+         *         default_role: The role of an account a first sign-in creates.
+         *         default_team: The team it joins instead of the default one.
+         *         default_team_role: Its role there.
+         *         link_by_email: Whether a first sign-in links by verified e-mail.
+         *         allowed_domains: When not empty, the e-mail domains allowed.
+         *         require_amr: When not empty, the methods one of which the provider must have used.
+         *         groups_claim: Where the token lists groups.
+         *         group_sync: Whether groups decide roles and teams.
+         *         group_mappings: What each group means.
+         *         redirect_uri: The callback address to register with the provider.
+         *         created_at: When it was configured, UNIX seconds.
+         *         created_by: Who configured it.
+         *         updated_at: Last change, UNIX seconds.
+         *         updated_by: Who made it.
+         */
+        ProviderInfo: {
+            /** Allowed Domains */
+            allowed_domains: string[];
+            /** Assume Email Verified */
+            assume_email_verified: boolean;
+            /** Client Id */
+            client_id: string;
+            /** Client Secret Set */
+            client_secret_set: boolean;
+            /** Clock Skew Seconds */
+            clock_skew_seconds: number;
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Default Role */
+            default_role: string;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Enabled */
+            enabled: boolean;
+            /** Group Mappings */
+            group_mappings: components["schemas"]["Mapping"][];
+            /** Group Sync */
+            group_sync: boolean;
+            /** Groups Claim */
+            groups_claim: string;
+            /** Issuer */
+            issuer: string;
+            /** Label */
+            label: string;
+            /** Link By Email */
+            link_by_email: boolean;
+            /** Name */
+            name: string;
+            /** Provisioning */
+            provisioning: string;
+            /** Redirect Uri */
+            redirect_uri: string;
+            /** Require Amr */
+            require_amr: string[];
+            /** Require Email Verified */
+            require_email_verified: boolean;
+            /** Scopes */
+            scopes: string;
+            /** Updated At */
+            updated_at: number;
+            /** Updated By */
+            updated_by?: string | null;
+        };
+        /**
+         * ProviderSettings
+         * @description What to set on a provider; whatever is left out keeps its value.
+         *
+         *     An empty string clears a setting that can be empty (``default_team``,
+         *     ``default_team_role``, ``redirect_uri``).
+         *
+         *     Attributes:
+         *         label: What the button says after "Sign in with".
+         *         issuer: The issuer URL, exactly as the provider's tokens write it.
+         *         client_id: The client id.
+         *         client_secret: The client secret to store; never returned.
+         *         clear_secret: Forget the stored secret (a public client).
+         *         scopes: Space separated; ``openid`` is always asked.
+         *         enabled: Whether the sign-in page offers it.
+         *         require_email_verified: Refuse a sign-in whose e-mail is not verified.
+         *         assume_email_verified: Count an e-mail the provider says nothing about
+         *             as verified (a directory the organisation controls).
+         *         clock_skew_seconds: Tolerated clock difference, up to 300.
+         *         provisioning: ``off``, ``invite`` or ``auto``.
+         *         default_role: ``viewer``, ``operator`` or ``admin``.
+         *         default_team: The team a created account joins.
+         *         default_team_role: Its role there.
+         *         link_by_email: Link a first sign-in to the account of its verified e-mail.
+         *         allowed_domains: Only these e-mail domains.
+         *         require_amr: The provider must have used one of these methods.
+         *         groups_claim: Where the token lists groups.
+         *         group_sync: Let groups decide roles and teams.
+         *         group_mappings: What each group means.
+         *         redirect_uri: The callback address, when it cannot be worked out.
+         */
+        ProviderSettings: {
+            /** Allowed Domains */
+            allowed_domains?: string[] | null;
+            /** Assume Email Verified */
+            assume_email_verified?: boolean | null;
+            /**
+             * Clear Secret
+             * @default false
+             */
+            clear_secret: boolean;
+            /** Client Id */
+            client_id?: string | null;
+            /** Client Secret */
+            client_secret?: string | null;
+            /** Clock Skew Seconds */
+            clock_skew_seconds?: number | null;
+            /** Default Role */
+            default_role?: string | null;
+            /** Default Team */
+            default_team?: string | null;
+            /** Default Team Role */
+            default_team_role?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Group Mappings */
+            group_mappings?: components["schemas"]["Mapping"][] | null;
+            /** Group Sync */
+            group_sync?: boolean | null;
+            /** Groups Claim */
+            groups_claim?: string | null;
+            /** Issuer */
+            issuer?: string | null;
+            /** Label */
+            label?: string | null;
+            /** Link By Email */
+            link_by_email?: boolean | null;
+            /** Provisioning */
+            provisioning?: string | null;
+            /** Redirect Uri */
+            redirect_uri?: string | null;
+            /** Require Amr */
+            require_amr?: string[] | null;
+            /** Require Email Verified */
+            require_email_verified?: boolean | null;
+            /** Scopes */
+            scopes?: string | null;
+        };
+        /**
+         * ProvidersResponse
+         * @description Every configured provider.
+         *
+         *     Attributes:
+         *         providers: The providers, by name.
+         *         redirect_uri: The callback address to register with each provider
+         *             that has no address of its own.
+         */
+        ProvidersResponse: {
+            /** Providers */
+            providers: components["schemas"]["ProviderInfo"][];
+            /** Redirect Uri */
+            redirect_uri: string;
+        };
+        /**
          * ProvisionRequest
          * @description Request to create a database for an application and link it.
          *
@@ -25081,6 +26250,10 @@ export interface components {
          *         install: Install the engine, in that version, first when it is not
          *             installed. Needs sudo mode and ``databases.manage``, like the
          *             install itself.
+         *         instance: The name of an instance Noust runs (``GET
+         *             /api/databases/instances``) to make the database on, instead of the
+         *             host's engine. One is also chosen by itself when the version asked
+         *             for is the one an instance runs and the host does not.
          */
         ProvisionRequest: {
             /**
@@ -25105,6 +26278,11 @@ export interface components {
              * @default false
              */
             install: boolean;
+            /**
+             * Instance
+             * @description Make it on this instance Noust runs
+             */
+            instance?: string | null;
             /**
              * Name
              * @description Database name
@@ -25133,6 +26311,8 @@ export interface components {
          *         running_version: The version of the installed engine.
          *         will_install: The engine is not installed, and creating the database
          *             with ``install`` would install it in that version first.
+         *         instance: The name of the instance Noust runs that the database would
+         *             be made on (``engine`` is then its key), or None for the host's.
          */
         ProvisioningPlanResponse: {
             /** Database */
@@ -25147,6 +26327,8 @@ export interface components {
             env_vars: string[];
             /** Installed */
             installed: boolean;
+            /** Instance */
+            instance?: string | null;
             /** Running */
             running: boolean;
             /** Running Version */
@@ -26402,8 +27584,42 @@ export interface components {
             user: string;
         };
         /**
+         * RemovePlanResponse
+         * @description What removing an instance would delete, and what stops it.
+         *
+         *     Attributes:
+         *         databases: What it holds now.
+         *         blockers: What stops the removal: applications that use it, databases
+         *             made public on it. Nothing is removed while any is listed.
+         *         warnings: What the operator accepts by confirming.
+         */
+        RemovePlanResponse: {
+            /** Blockers */
+            blockers: string[];
+            /** Databases */
+            databases: string[];
+            /** Name */
+            name: string;
+            /** Warnings */
+            warnings: string[];
+        };
+        /**
+         * RemovedResponse
+         * @description A confirmation that something was removed.
+         *
+         *     Attributes:
+         *         success: Always true.
+         *         removed: What it was.
+         */
+        RemovedResponse: {
+            /** Removed */
+            removed: string;
+            /** Success */
+            success: boolean;
+        };
+        /**
          * RenameTeamRequest
-         * @description Request to rename a team.
+         * @description Request to rename a team, a project or an environment.
          */
         RenameTeamRequest: {
             /**
@@ -28277,6 +29493,10 @@ export interface components {
          *         app: Domain of the application the file serves, when one records it.
          *         site_name: The file in the sites directory, which is not the domain
          *             for a site the operator named (``proggest`` for ``proggest.es``).
+         *         team: The slug of the team it belongs to; None for a file the store
+         *             never recorded, which belongs to nobody.
+         *         project: The slug of its project.
+         *         environment: The slug of its environment.
          */
         SiteInfo: {
             /** App */
@@ -28285,6 +29505,8 @@ export interface components {
             config_path: string;
             /** Enabled */
             enabled: boolean;
+            /** Environment */
+            environment?: string | null;
             /**
              * Has Ssl
              * @default false
@@ -28297,6 +29519,8 @@ export interface components {
              * @default false
              */
             noust_managed: boolean;
+            /** Project */
+            project?: string | null;
             /**
              * Server Names
              * @default []
@@ -28307,6 +29531,8 @@ export interface components {
              * @default
              */
             site_name: string;
+            /** Team */
+            team?: string | null;
             /** Webserver */
             webserver: string;
         };
@@ -29647,6 +30873,20 @@ export interface components {
         TestDestinationResponse: {
             /** Entries */
             entries?: string[];
+            /** Ok */
+            ok: boolean;
+        };
+        /**
+         * TestResponse
+         * @description A provider looked at the way a sign-in would, without signing anybody in.
+         *
+         *     Attributes:
+         *         ok: Whether every check passed.
+         *         checks: Each thing looked at.
+         */
+        TestResponse: {
+            /** Checks */
+            checks: components["schemas"]["CheckInfo"][];
             /** Ok */
             ok: boolean;
         };
@@ -31368,6 +32608,20 @@ export interface components {
             warnings: string[];
         };
         /**
+         * CatalogResponse
+         * @description Response for ``GET /api/audit/events``.
+         *
+         *     Attributes:
+         *         categories: Every category, in display order.
+         *         events: Every event.
+         */
+        noust__web__api__audit__CatalogResponse: {
+            /** Categories */
+            categories: string[];
+            /** Events */
+            events: components["schemas"]["CatalogEvent"][];
+        };
+        /**
          * ScheduleDestination
          * @description One remote destination a schedule pushes its backups to.
          */
@@ -31724,6 +32978,57 @@ export interface components {
             firewalled?: components["schemas"]["ExposedPortResponse"][];
         };
         /**
+         * CatalogResponse
+         * @description What Noust can run as an instance.
+         */
+        noust__web__api__databases__instances__CatalogResponse: {
+            /** Engines */
+            engines: components["schemas"]["CatalogEntryResponse"][];
+        };
+        /**
+         * LinkRequest
+         * @description Request to link an existing database to an application.
+         *
+         *     Attributes:
+         *         username: The account to sign in as. Noust must know its password;
+         *             when omitted, the provisioned account, or a new one for the
+         *             application made the database's owner.
+         */
+        noust__web__api__databases__links__LinkRequest: {
+            /**
+             * Database
+             * @description Database name
+             */
+            database: string;
+            /**
+             * Engine
+             * @description Database engine
+             */
+            engine: string;
+            /**
+             * Env Var
+             * @description Variable to write
+             */
+            env_var?: string | null;
+            /**
+             * Extra Vars
+             * @description Also write the DB_* variables
+             * @default false
+             */
+            extra_vars: boolean;
+            /**
+             * Restart
+             * @description Restart the application behind its gate
+             * @default true
+             */
+            restart: boolean;
+            /**
+             * Username
+             * @description Account to sign in as
+             */
+            username?: string | null;
+        };
+        /**
          * ExposureResponse
          * @description A database that is reachable from the network.
          *
@@ -31816,6 +33121,23 @@ export interface components {
             processes: components["schemas"]["ProcessEntry"][];
             /** Total */
             total: number;
+        };
+        /**
+         * LinkRequest
+         * @description A link to make by hand.
+         *
+         *     Attributes:
+         *         provider: The provider.
+         *         username: The account.
+         *         subject: The provider's id (``sub``) for the person.
+         */
+        noust__web__api__oidc__LinkRequest: {
+            /** Provider */
+            provider: string;
+            /** Subject */
+            subject: string;
+            /** Username */
+            username: string;
         };
         /**
          * OverviewResponse
@@ -32771,7 +34093,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["LinkRequest"];
+                "application/json": components["schemas"]["noust__web__api__databases__links__LinkRequest"];
             };
         };
         responses: {
@@ -34962,7 +36284,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CatalogResponse"];
+                    "application/json": components["schemas"]["noust__web__api__audit__CatalogResponse"];
                 };
             };
         };
@@ -35872,6 +37194,332 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["SuccessResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    callback_api_auth_oidc_callback_get: {
+        parameters: {
+            query?: {
+                code?: string | null;
+                state?: string | null;
+                error?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            303: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_api_auth_oidc_complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CompleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompleteResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_providers_api_auth_oidc_config_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProvidersResponse"];
+                };
+            };
+        };
+    };
+    put_provider_api_auth_oidc_config__provider__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderSettings"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_provider_api_auth_oidc_config__provider__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemovedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    try_provider_api_auth_oidc_config__provider__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_identities_api_auth_oidc_identities_get: {
+        parameters: {
+            query?: {
+                username?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentitiesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    link_identity_api_auth_oidc_identities_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["noust__web__api__oidc__LinkRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IdentityInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unlink_identity_api_auth_oidc_identities__identity_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                identity_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemovedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_choices_api_auth_oidc_providers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderChoices"];
+                };
+            };
+        };
+    };
+    start_api_auth_oidc_start_get: {
+        parameters: {
+            query: {
+                provider: string;
+                next?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
@@ -40574,6 +42222,304 @@ export interface operations {
             };
         };
     };
+    list_instances_api_databases_instances_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceListResponse"];
+                };
+            };
+        };
+    };
+    create_instance_api_databases_instances_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstanceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    instance_catalog_api_databases_instances_catalog_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__databases__instances__CatalogResponse"];
+                };
+            };
+        };
+    };
+    plan_instance_api_databases_instances_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InstanceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_instance_api_databases_instances__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstanceResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_instance_api_databases_instances__name__delete: {
+        parameters: {
+            query?: {
+                /** @description Accept that its data is deleted */
+                confirm?: boolean;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_remove_instance_api_databases_instances__name__remove_plan_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemovePlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_instance_api_databases_instances__name__start_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stop_instance_api_databases_instances__name__stop_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upgrade_instance_api_databases_instances__name__upgrade_post: {
+        parameters: {
+            query?: {
+                /** @description Dump every database first */
+                backup?: boolean;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     provisioning_choices_api_databases_provisioning_choices_get: {
         parameters: {
             query?: never;
@@ -40603,6 +42549,8 @@ export interface operations {
                 engine: string;
                 /** @description The version the database is wanted on */
                 version?: string | null;
+                /** @description The instance Noust runs to make the database on */
+                instance?: string | null;
             };
             header?: never;
             path?: never;
@@ -47000,6 +48948,42 @@ export interface operations {
             };
         };
     };
+    rename_project_api_teams__team__projects__project__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameTeamRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_project_environments_api_teams__team__projects__project__environments_get: {
         parameters: {
             query?: never;
@@ -47088,6 +49072,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["noust__web__api__teams__ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_environment_api_teams__team__projects__project__environments__environment__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+                environment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameTeamRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvironmentOut"];
                 };
             };
             /** @description Validation Error */

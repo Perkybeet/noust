@@ -33,7 +33,7 @@ from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
 from noust.core.store import get_store
-from noust.core.teams import ownership_target, scoped_store
+from noust.core.teams import TeamStore, ownership_target, scoped_store
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.site_topology import TopologyProbe, default_probe, include_reader
@@ -103,6 +103,10 @@ class SiteInfo(BaseModel):
         app: Domain of the application the file serves, when one records it.
         site_name: The file in the sites directory, which is not the domain
             for a site the operator named (``proggest`` for ``proggest.es``).
+        team: The slug of the team it belongs to; None for a file the store
+            never recorded, which belongs to nobody.
+        project: The slug of its project.
+        environment: The slug of its environment.
     """
 
     name: str
@@ -114,6 +118,9 @@ class SiteInfo(BaseModel):
     noust_managed: bool = False
     app: str | None = None
     site_name: str = ""
+    team: str | None = None
+    project: str | None = None
+    environment: str | None = None
 
 
 class SiteListResponse(BaseModel):
@@ -695,17 +702,38 @@ def _manager_cached(cache: _ManagerCache, webserver: str | None) -> WebServerMan
     return cache.setdefault(name, manager)
 
 
-def _site_info(row: SiteRow) -> SiteInfo:
+def _owners_of_sites() -> dict[str, tuple[str | None, str | None, str | None]]:
+    """
+    Returns:
+        ``(team, project, environment)`` slugs by domain, for the sites the
+        caller sees: read once for a whole list, so naming where fifty sites
+        live is one query and not fifty.
+    """
+    labels = TeamStore().owner_labels()
+    return {
+        site.domain: labels.of(site.project_id, site.environment_id)
+        for site in scoped_store().list_sites()
+    }
+
+
+def _site_info(
+    row: SiteRow,
+    owners: dict[str, tuple[str | None, str | None, str | None]] | None = None,
+) -> SiteInfo:
     """
     Describe a site row the way the API reports it.
 
     Args:
         row: The row :func:`~noust.managers.webserver.list_all_sites` built.
+        owners: Where each recorded site lives, by domain; read when omitted.
 
     Returns:
         The API record; one translation, so the list and the detail of a site
         cannot say different things.
     """
+    team, project, environment = (owners if owners is not None else _owners_of_sites()).get(
+        row.domain, (None, None, None)
+    )
     return SiteInfo(
         name=row.domain,
         webserver=row.webserver,
@@ -716,6 +744,9 @@ def _site_info(row: SiteRow) -> SiteInfo:
         noust_managed=row.noust_managed,
         app=row.app,
         site_name=row.name,
+        team=team,
+        project=project,
+        environment=environment,
     )
 
 
@@ -754,7 +785,8 @@ def list_sites(session: Annotated[dict, Depends(get_current_session)]) -> SiteLi
     webserver, manager = _manager_for(None)
     cache: _ManagerCache = {webserver: manager}
 
-    sites = [_site_info(row) for row in _site_rows(cache)]
+    owners = _owners_of_sites()
+    sites = [_site_info(row, owners) for row in _site_rows(cache)]
 
     return SiteListResponse(sites=sites, total=len(sites), webserver=webserver)
 

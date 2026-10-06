@@ -4,6 +4,8 @@
  */
 
 import type { BackupPolicy, Database } from "../../api/queries/databases";
+import { ownerSearch } from "../teams/search";
+import type { OwnerSearch } from "../teams/search";
 import { databaseId, databaseProtection } from "./protection";
 
 /** "Needs attention": a database whose backups are missing, failing or paused. */
@@ -11,7 +13,7 @@ export const BACKUP_FILTERS = ["attention"] as const;
 
 export type BackupFilter = (typeof BACKUP_FILTERS)[number];
 
-export interface DatabasesSearch {
+export interface DatabasesSearch extends OwnerSearch {
   /** Free text matched against the name, the engine and the applications using it. */
   q?: string;
   engine?: string;
@@ -43,11 +45,12 @@ export function validateDatabasesSearch(search: Record<string, unknown>): Databa
     // An engine, or an instance of one in a container (`postgresql@proggest.postgres`).
     ...(engine !== undefined && /^[a-z]+(@[a-z0-9_.-]+)?$/.test(engine) ? { engine } : {}),
     ...(backups !== undefined && (BACKUP_FILTERS as readonly string[]).includes(backups) ? { backups: backups as BackupFilter } : {}),
+    ...ownerSearch(search),
   };
 }
 
 export function isFiltered(search: DatabasesSearch): boolean {
-  return search.q !== undefined || search.engine !== undefined || search.backups !== undefined;
+  return search.q !== undefined || search.engine !== undefined || search.backups !== undefined || search.project !== undefined || search.environment !== undefined;
 }
 
 /** The databases a search keeps, in their original order. */

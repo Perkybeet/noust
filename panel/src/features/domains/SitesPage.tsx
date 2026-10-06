@@ -23,6 +23,7 @@ import { StatusPill } from "../../components/ui/StatusPill";
 import { TextLink } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
+import { ownerColumns, useOwnerScope } from "../teams/ownership";
 import { CreateSiteDialog } from "./CreateSiteDialog";
 import { DomainsListPage } from "./DomainsListPage";
 import { truncatedNames } from "./names";
@@ -89,11 +90,16 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<SiteEntry | null>(null);
 
-  const all = sites.data?.sites ?? [];
+  const everything = sites.data?.sites ?? [];
+  // The team the operator works in narrows the list, and the project and environment filters narrow it further.
+  const owner = useOwnerScope(everything, search);
+  const all = owner.inTeam;
   const webserver = sites.data?.webserver ?? "nginx";
   const needle = (search.q ?? "").toLowerCase();
-  const shown = needle === "" ? all : all.filter((site) => site.name.includes(needle) || site.server_names.some((name) => name.includes(needle)));
-  const empty = sites.data !== undefined && all.length === 0;
+  const narrowed = owner.shown;
+  const shown = needle === "" ? narrowed : narrowed.filter((site) => site.name.includes(needle) || site.server_names.some((name) => name.includes(needle)));
+  const filtered = needle !== "" || owner.filtered;
+  const empty = sites.data !== undefined && everything.length === 0;
   const open = (site: SiteEntry): void => {
     void navigate({ to: "/domains/sites/$site", params: { site: site.name } });
   };
@@ -110,6 +116,7 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
     },
     { id: "tls", header: t("domains.sitesTab.servesColumn"), width: "w-32", cell: (site) => <Tls secure={site.has_ssl} />, sortValue: (site) => (site.has_ssl ? 0 : 1) },
     { id: "names", header: t("domains.sitesTab.namesColumn"), hideBelow: "md", card: "hidden", cell: (site) => <ServedNames names={site.server_names} /> },
+    ...ownerColumns<SiteEntry>(t, owner.scope, owner.labels),
     {
       id: "writtenBy",
       header: t("domains.sitesTab.writtenByColumn"),
@@ -171,11 +178,11 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
       <DataTable
         mobile="cards"
         pagination="sites"
-        caption={needle === "" ? t("domains.sitesTab.tableCaption") : t("domains.sitesTab.tableCaptionFiltered")}
+        caption={filtered ? t("domains.sitesTab.tableCaptionFiltered") : t("domains.sitesTab.tableCaption")}
         columns={columns}
         rows={shown}
         getRowId={(site) => `${site.webserver}:${site.name}`}
-        loading={sites.isPending}
+        loading={sites.isPending || owner.loading}
         onRowActivate={open}
         empty={
           <EmptyState
@@ -232,16 +239,16 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
                 label={t("domains.sitesTab.filterAriaLabel")}
                 search={{
                   value: search.q ?? "",
-                  onChange: (value) => onSearchChange(value === "" ? {} : { q: value }, { replace: true }),
+                  onChange: (value) => onSearchChange({ ...(value === "" ? {} : { q: value }), ...(search.project !== undefined ? { project: search.project } : {}), ...(search.environment !== undefined ? { environment: search.environment } : {}) }, { replace: true }),
                   label: t("domains.sitesTab.filterByNameAriaLabel"),
                   placeholder: t("domains.filterByNamePlaceholder"),
                 }}
+                filters={owner.filters(search, (patch) => onSearchChange({ ...(search.q !== undefined ? { q: search.q } : {}), ...(patch.project !== undefined ? { project: patch.project } : {}), ...(patch.environment !== undefined ? { environment: patch.environment } : {}) }))}
                 {...(sites.data !== undefined
                   ? {
-                      count:
-                        needle === ""
-                          ? t("domains.sitesTab.count", { count: all.length, webserver })
-                          : t("domains.sitesTab.countFiltered", { shown: shown.length, total: all.length }),
+                      count: !filtered
+                        ? t("domains.sitesTab.count", { count: all.length, webserver })
+                        : t("domains.sitesTab.countFiltered", { shown: shown.length, total: all.length }),
                     }
                   : {})}
               />

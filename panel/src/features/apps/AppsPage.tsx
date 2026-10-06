@@ -15,6 +15,7 @@ import { Select } from "../../components/ui/Select";
 import { STATUS } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
+import { useOwnerScope } from "../teams/ownership";
 import { AppRowActions } from "./AppRowActions";
 import { AppsTable } from "./AppsTable";
 import { latestDeployByDomain, recentDeploysQuery, useLatestMetrics, useTypeName } from "./data";
@@ -80,9 +81,12 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
   const typeName = useTypeName();
 
   const all = useMemo(() => apps.data?.apps ?? [], [apps.data]);
-  const shown = useMemo(() => filterApps(all, search), [all, search]);
+  // The team the operator works in narrows the list, and the project and environment filters narrow it further.
+  const owner = useOwnerScope(all, search);
+  const orgLoading = owner.loading;
+  const shown = useMemo(() => filterApps(owner.shown, search), [owner.shown, search]);
   const latest = useMemo(() => latestDeployByDomain(deploys.data?.items ?? []), [deploys.data]);
-  const types = useMemo(() => appTypes(all), [all]);
+  const types = useMemo(() => appTypes(owner.inTeam), [owner.inTeam]);
   useStateTransitions(apps.data?.apps);
 
   const set = (patch: SearchPatch, replace = false): void => {
@@ -91,6 +95,8 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
     if (next.q) clean.q = next.q;
     if (next.state) clean.state = next.state;
     if (next.type) clean.type = next.type;
+    if (next.project) clean.project = next.project;
+    if (next.environment) clean.environment = next.environment;
     onSearchChange(clean, { replace });
   };
   const clear = (): void => {
@@ -103,8 +109,8 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
     apps.data === undefined
       ? ""
       : filtered
-        ? t("apps.page.countFiltered", { shown: shown.length, total: all.length })
-        : t("apps.page.count", { count: all.length });
+        ? t("apps.page.countFiltered", { shown: shown.length, total: owner.inTeam.length })
+        : t("apps.page.count", { count: owner.inTeam.length });
 
   const header = {
     title: t("apps.page.title"),
@@ -168,6 +174,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
                 options={[{ value: ALL, label: t("apps.page.everyType") }, ...types.map((type) => ({ value: type, label: typeName(type) ?? type }))]}
                 className="min-w-36"
               />
+              {owner.filters(search, (patch) => set({ project: patch.project, environment: patch.environment }))}
             </>
           }
           count={count}
@@ -188,10 +195,11 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
     >
       <AppsTable
         apps={shown}
+        owner={{ scope: owner.scope, labels: owner.labels }}
         deploys={latest}
         metrics={metrics}
         caption={filtered ? t("apps.page.captionFiltered") : t("apps.page.caption")}
-        loading={apps.isPending}
+        loading={apps.isPending || orgLoading}
         skeletonRows={SKELETON_ROWS}
         rowActions={(app) => <AppRowActions app={app} />}
         empty={

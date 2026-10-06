@@ -8,6 +8,8 @@ export const WIZARD_STARTS = ["recipe", "import", "adopt"] as const;
 
 export type WizardStart = (typeof WIZARD_STARTS)[number];
 
+import { slugParam } from "../teams/search";
+
 export interface NewAppSearch {
   /**
    * Opens the wizard on a way in: the Applications page's "From a recipe" and the command
@@ -15,6 +17,13 @@ export interface NewAppSearch {
    * without the click that would choose them.
    */
   start?: WizardStart | undefined;
+  /**
+   * Where it goes (a project's page starts it on that project): the team, project and environment
+   * by their short names. Only asked about where there is more than one place to choose.
+   */
+  team?: string | undefined;
+  project?: string | undefined;
+  environment?: string | undefined;
 }
 
 /** `value` as a start the wizard knows, or undefined: a stale or invented link opens the default. */
@@ -27,5 +36,10 @@ export function wizardStart(value: unknown): WizardStart | undefined {
  * keeps the keys a route's validation does not name, so only an explicit undefined replaces one.
  */
 export function validateNewAppSearch(search: Record<string, unknown>): NewAppSearch {
-  return { start: wizardStart(search["start"]) };
+  return {
+    start: wizardStart(search["start"]),
+    team: slugParam(search["team"]),
+    project: slugParam(search["project"]),
+    environment: slugParam(search["environment"]),
+  };
 }

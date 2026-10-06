@@ -4497,6 +4497,35 @@
         "title": "BrokenLinkOut",
         "type": "object"
       },
+      "BudgetResponse": {
+        "description": "How the server's memory is divided among the instances.\n\nAttributes:\n    server_mb: The server's memory; 0 when the system does not say.\n    allocatable_mb: The share the limits of all instances may add up to.\n    allocated_mb: What they add up to.\n    available_mb: What is left to give another.",
+        "properties": {
+          "allocatable_mb": {
+            "title": "Allocatable Mb",
+            "type": "integer"
+          },
+          "allocated_mb": {
+            "title": "Allocated Mb",
+            "type": "integer"
+          },
+          "available_mb": {
+            "title": "Available Mb",
+            "type": "integer"
+          },
+          "server_mb": {
+            "title": "Server Mb",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "server_mb",
+          "allocatable_mb",
+          "allocated_mb",
+          "available_mb"
+        ],
+        "title": "BudgetResponse",
+        "type": "object"
+      },
       "BundleResponse": {
         "description": "One bundle of Noust's own state on this server.\n\nAttributes:\n    name: The file's name, which every other call names it by.\n    size: Bytes.\n    created_at: When it was taken, with its UTC offset.\n    host: The server that took it.\n    kind: ``manual``, ``scheduled`` or ``pre-restore``.\n    scheduled: A schedule took it: the only kind its retention deletes.\n    sha256: Its digest, from its sidecar.\n    remote_copies: Where it was sent.\n    sidecar_mac: What the sidecar's MAC says.",
         "properties": {
@@ -4704,6 +4733,58 @@
         "title": "CapabilitiesOut",
         "type": "object"
       },
+      "CatalogEntryResponse": {
+        "description": "One engine Noust can run as an instance.\n\nAttributes:\n    flavour: What to give as ``engine``.\n    engine: The manager that speaks it.\n    display_name: Its name for a person.\n    image: The official image's repository.\n    container_port: Where it listens inside its container.\n    min_memory_mb: The least memory it starts and answers in.\n    default_memory_mb: What an interface may suggest.\n    versions: What is offered, oldest first.",
+        "properties": {
+          "container_port": {
+            "title": "Container Port",
+            "type": "integer"
+          },
+          "default_memory_mb": {
+            "title": "Default Memory Mb",
+            "type": "integer"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "flavour": {
+            "title": "Flavour",
+            "type": "string"
+          },
+          "image": {
+            "title": "Image",
+            "type": "string"
+          },
+          "min_memory_mb": {
+            "title": "Min Memory Mb",
+            "type": "integer"
+          },
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogVersionResponse"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "flavour",
+          "engine",
+          "display_name",
+          "image",
+          "container_port",
+          "min_memory_mb",
+          "default_memory_mb",
+          "versions"
+        ],
+        "title": "CatalogEntryResponse",
+        "type": "object"
+      },
       "CatalogEvent": {
         "description": "One event the audit log can record.\n\nAttributes:\n    name: The event name.\n    category: Its category.\n    severity: Syslog severity of a successful occurrence.\n    sensitive_read: It records someone reading something secret.\n    description: What it means.",
         "properties": {
@@ -4738,29 +4819,39 @@
         "title": "CatalogEvent",
         "type": "object"
       },
-      "CatalogResponse": {
-        "description": "Response for ``GET /api/audit/events``.\n\nAttributes:\n    categories: Every category, in display order.\n    events: Every event.",
+      "CatalogVersionResponse": {
+        "description": "One version Noust offers: its tag, the digest pinned and when support ends.",
         "properties": {
-          "categories": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Categories",
-            "type": "array"
+          "default": {
+            "title": "Default",
+            "type": "boolean"
           },
-          "events": {
-            "items": {
-              "$ref": "#/components/schemas/CatalogEvent"
-            },
-            "title": "Events",
-            "type": "array"
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "end_of_life": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Of Life"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
           }
         },
         "required": [
-          "categories",
-          "events"
+          "version",
+          "digest",
+          "default"
         ],
-        "title": "CatalogResponse",
+        "title": "CatalogVersionResponse",
         "type": "object"
       },
       "CategoryListOut": {
@@ -5350,6 +5441,30 @@
         "title": "CheckFixOut",
         "type": "object"
       },
+      "CheckInfo": {
+        "description": "One thing looked at when a provider is tested.\n\nAttributes:\n    name: What.\n    ok: Whether it is right.\n    detail: What was found, or what is wrong.",
+        "properties": {
+          "detail": {
+            "title": "Detail",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name",
+          "ok",
+          "detail"
+        ],
+        "title": "CheckInfo",
+        "type": "object"
+      },
       "ChecksOut": {
         "description": "Every check, and when they ran.",
         "properties": {
@@ -5376,13 +5491,48 @@
         "title": "ChecksOut",
         "type": "object"
       },
+      "ChoiceInstanceResponse": {
+        "description": "An instance Noust runs that a database can be made on.\n\nAttributes:\n    name: The instance's name, what ``instance`` takes.\n    key: The key it is addressed by as an engine (``postgresql@pg17``).\n    version: The version it runs.",
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "key",
+          "version"
+        ],
+        "title": "ChoiceInstanceResponse",
+        "type": "object"
+      },
       "ChoiceVersionResponse": {
-        "description": "One version of an engine a database can be created on.\n\nAttributes:\n    version: The version (a PostgreSQL major, a MariaDB release).\n    state: ``installed`` (it is the one that runs), ``installable`` (it can\n        be installed now) or ``unavailable`` (it cannot be had: another\n        version of the engine, or another flavour, is installed).\n    default: Whether it is what installs when no version is chosen.",
+        "description": "One version of an engine a database can be created on.\n\nAttributes:\n    version: The version (a PostgreSQL major, a MariaDB release).\n    state: ``installed`` (it is the one that runs), ``installable`` (it can\n        be installed now), ``instance`` (an instance Noust runs has it: its\n        name is in ``instance``) or ``unavailable`` (it cannot be had:\n        another version of the engine, or another flavour, is installed).\n    default: Whether it is what installs when no version is chosen.\n    instance: The instance that runs it, when ``state`` is ``instance``.",
         "properties": {
           "default": {
             "default": false,
             "title": "Default",
             "type": "boolean"
+          },
+          "instance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instance"
           },
           "state": {
             "title": "State",
@@ -5652,6 +5802,54 @@
           "kind"
         ],
         "title": "ColumnResponse",
+        "type": "object"
+      },
+      "CompleteRequest": {
+        "description": "The console collecting the ticket of a sign-in the provider vouched for.\n\nAttributes:\n    ticket: The single-use ticket the sign-in page was sent to.\n    bearer: Also return the session token in the body, for clients\n        without a cookie jar.",
+        "properties": {
+          "bearer": {
+            "default": false,
+            "title": "Bearer",
+            "type": "boolean"
+          },
+          "ticket": {
+            "maxLength": 128,
+            "title": "Ticket",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ticket"
+        ],
+        "title": "CompleteRequest",
+        "type": "object"
+      },
+      "CompleteResponse": {
+        "description": "What collecting a ticket gives: where the sign-in stands, and where to go.\n\nAttributes:\n    login: Exactly what ``POST /api/auth/login`` answers: a session, with\n        ``mfa_required`` when the account still has to enrol a second\n        factor, or ``second_factor`` when it has one to present first.\n    next: The console page the person was going to.\n    provider: The provider's name.\n    label: Its button label, for \"signed in with ...\".",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "login": {
+            "$ref": "#/components/schemas/LoginResponse"
+          },
+          "next": {
+            "title": "Next",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "login",
+          "next",
+          "provider",
+          "label"
+        ],
+        "title": "CompleteResponse",
         "type": "object"
       },
       "ComposeExceptionModel": {
@@ -7746,7 +7944,7 @@
         "type": "object"
       },
       "DatabaseInfoResponse": {
-        "description": "One database, as the engine and the store together describe it.\n\nAttributes:\n    owner: The owning role or account. Null for engines with no such\n        concept: MySQL/MariaDB and Redis have none, and MongoDB grants\n        roles to users rather than owning a database with one.\n    tables: Tables or collections; null when the listing does not count\n        them.\n    keys: Keys in a Redis slot.\n    tracked: Recorded by Noust: backed up with its application, linkable.\n    missing: Recorded by Noust but gone from the engine.\n    unverified: Recorded by Noust, on an engine that could not be read.\n    app: The application it belongs to, whose backups include it.\n    apps: Every application linked to it.\n    detected_apps: Applications whose environment names it, without a\n        recorded link.\n    username: The account Noust provisioned for it.\n    engine_version: The engine's version.\n    last_backup: When its newest dump was taken.",
+        "description": "One database, as the engine and the store together describe it.\n\nAttributes:\n    owner: The owning role or account. Null for engines with no such\n        concept: MySQL/MariaDB and Redis have none, and MongoDB grants\n        roles to users rather than owning a database with one.\n    tables: Tables or collections; null when the listing does not count\n        them.\n    keys: Keys in a Redis slot.\n    tracked: Recorded by Noust: backed up with its application, linkable.\n    missing: Recorded by Noust but gone from the engine.\n    unverified: Recorded by Noust, on an engine that could not be read.\n    app: The application it belongs to, whose backups include it.\n    apps: Every application linked to it.\n    detected_apps: Applications whose environment names it, without a\n        recorded link.\n    username: The account Noust provisioned for it.\n    engine_version: The engine's version.\n    last_backup: When its newest dump was taken.\n    team: The slug of the team it belongs to; None for one an engine holds\n        that Noust never recorded, which belongs to nobody.\n    project: The slug of its project.\n    environment: The slug of its environment.",
         "properties": {
           "app": {
             "anyOf": [
@@ -7799,6 +7997,17 @@
             ],
             "title": "Engine Version"
           },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment"
+          },
           "keys": {
             "anyOf": [
               {
@@ -7841,6 +8050,17 @@
             ],
             "title": "Owner"
           },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project"
+          },
           "size": {
             "anyOf": [
               {
@@ -7862,6 +8082,17 @@
               }
             ],
             "title": "Tables"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
           },
           "tracked": {
             "default": false,
@@ -9581,7 +9812,7 @@
         "type": "object"
       },
       "EngineChoiceResponse": {
-        "description": "One engine a database can be created on, and its versions.\n\nAttributes:\n    flavour: ``postgresql``, ``mysql``, ``mariadb``, ``redis``, ``valkey``\n        or ``mongodb``; what ``engine`` takes in ``POST\n        /api/apps/{domain}/databases`` besides the engine's own name.\n    engine: The manager that runs it.\n    display_name: How it is named to a person.\n    installed: This flavour is the one installed.\n    running_version: The version that runs, when installed.\n    installable: It can be installed now.\n    reason: Why not, or what is installed, as one sentence.\n    versions: The versions on offer, oldest first.",
+        "description": "One engine a database can be created on, and its versions.\n\nAttributes:\n    flavour: ``postgresql``, ``mysql``, ``mariadb``, ``redis``, ``valkey``\n        or ``mongodb``; what ``engine`` takes in ``POST\n        /api/apps/{domain}/databases`` besides the engine's own name.\n    engine: The manager that runs it.\n    display_name: How it is named to a person.\n    installed: This flavour is the one installed.\n    running_version: The version that runs, when installed.\n    installable: It can be installed now.\n    reason: Why not, or what is installed, as one sentence.\n    versions: The versions on offer, oldest first.\n    instances: The instances Noust runs of this flavour that are ready.\n    instance_versions: The versions an instance of this flavour could be\n        made in (``POST /api/databases/instances``).",
         "properties": {
           "display_name": {
             "title": "Display Name",
@@ -9602,6 +9833,20 @@
           "installed": {
             "title": "Installed",
             "type": "boolean"
+          },
+          "instance_versions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Instance Versions",
+            "type": "array"
+          },
+          "instances": {
+            "items": {
+              "$ref": "#/components/schemas/ChoiceInstanceResponse"
+            },
+            "title": "Instances",
+            "type": "array"
           },
           "reason": {
             "anyOf": [
@@ -9730,7 +9975,7 @@
         "type": "object"
       },
       "EngineInfo": {
-        "description": "A database engine and whether it is usable on this host.\n\nAttributes:\n    engine_type: The engine it is (``postgresql``, ``mysql``, ``redis``,\n        ``mongodb``): ``name`` for the server's own, and for a container\n        the part of its instance key before the ``@``. Absent from a\n        server older than 3.3.1.\n    port: The port the server listens on when it runs, its default\n        otherwise.\n    service: The systemd unit it runs as on this server.\n    capabilities: What the engine can do; the console draws its tabs\n        from these instead of testing engine names.\n    support: Upstream support for the installed version.\n    warnings: What the operator must know about the installation.\n    stored_account: Noust signs in with an account the operator stores\n        (``PUT .../credentials``); PostgreSQL and MongoDB do not, nor\n        does a container.\n    kind: ``host`` for the server's own engine, ``container`` for one\n        Docker runs; ``name`` is then its instance key\n        (``postgresql@project.service``).\n    container: The container's name.\n    project: Its Compose project.\n    service: Its Compose service.\n    image: The image it runs.\n    app: The application it belongs to (its Compose project is the\n        application's).\n    access: ``full``, or ``limited`` when the credentials the container\n        carries only let Noust in as the application's own account.",
+        "description": "A database engine and whether it is usable on this host.\n\nAttributes:\n    engine_type: The engine it is (``postgresql``, ``mysql``, ``redis``,\n        ``mongodb``): ``name`` for the server's own, and for a container\n        the part of its instance key before the ``@``. Absent from a\n        server older than 3.3.1.\n    port: The port the server listens on when it runs, its default\n        otherwise.\n    service: The systemd unit it runs as on this server.\n    capabilities: What the engine can do; the console draws its tabs\n        from these instead of testing engine names.\n    support: Upstream support for the installed version.\n    warnings: What the operator must know about the installation.\n    stored_account: Noust signs in with an account the operator stores\n        (``PUT .../credentials``); PostgreSQL and MongoDB do not, nor\n        does a container.\n    kind: ``host`` for the server's own engine, ``container`` for one\n        Docker runs; ``name`` is then its instance key\n        (``postgresql@project.service``).\n    container: The container's name.\n    project: Its Compose project.\n    service: Its Compose service.\n    image: The image it runs.\n    app: The application it belongs to (its Compose project is the\n        application's).\n    access: ``full``, or ``limited`` when the credentials the container\n        carries only let Noust in as the application's own account.\n    managed: The name of the instance Noust runs this container as, when it\n        is one (``name`` is then ``<engine>@<managed>``): an instance is\n        Noust's to start, stop, upgrade and remove, and its image is pinned.\n    pinned_version: The version a managed instance was made with.\n    memory_limit_mb: A managed instance's memory limit.",
         "properties": {
           "access": {
             "anyOf": [
@@ -9818,9 +10063,42 @@
             "title": "Kind",
             "type": "string"
           },
+          "managed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managed"
+          },
+          "memory_limit_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Limit Mb"
+          },
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "pinned_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pinned Version"
           },
           "port": {
             "title": "Port",
@@ -13449,6 +13727,117 @@
         "title": "HostnameRequest",
         "type": "object"
       },
+      "IdentitiesResponse": {
+        "description": "The links between accounts and people at providers.\n\nAttributes:\n    identities: Each link, oldest first.",
+        "properties": {
+          "identities": {
+            "items": {
+              "$ref": "#/components/schemas/IdentityInfo"
+            },
+            "title": "Identities",
+            "type": "array"
+          }
+        },
+        "required": [
+          "identities"
+        ],
+        "title": "IdentitiesResponse",
+        "type": "object"
+      },
+      "IdentityInfo": {
+        "description": "A person at a provider, linked to an account.\n\nAttributes:\n    id: Store id, to unlink it.\n    account: The account's name.\n    provider: The provider it was linked through.\n    issuer: The provider's issuer.\n    subject: The provider's id for the person.\n    email: The address the provider last gave; a label, never a key.\n    mapped_role: The role a group mapping last gave.\n    created_at: When it was linked, UNIX seconds.\n    created_by: Who or what linked it.\n    last_login_at: Its last sign-in.\n    last_login_ip: From where.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "issuer": {
+            "title": "Issuer",
+            "type": "string"
+          },
+          "last_login_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login At"
+          },
+          "last_login_ip": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Login Ip"
+          },
+          "mapped_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mapped Role"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "subject": {
+            "title": "Subject",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "account",
+          "provider",
+          "issuer",
+          "subject",
+          "created_at"
+        ],
+        "title": "IdentityInfo",
+        "type": "object"
+      },
       "IdentityOut": {
         "description": "What the machine is called and what it runs.",
         "properties": {
@@ -14080,6 +14469,255 @@
           "update_available"
         ],
         "title": "InstalledRecipeOut",
+        "type": "object"
+      },
+      "InstanceListResponse": {
+        "description": "Every instance Noust runs, and the memory they hold.",
+        "properties": {
+          "budget": {
+            "$ref": "#/components/schemas/BudgetResponse"
+          },
+          "instances": {
+            "items": {
+              "$ref": "#/components/schemas/InstanceResponse"
+            },
+            "title": "Instances",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instances",
+          "budget"
+        ],
+        "title": "InstanceListResponse",
+        "type": "object"
+      },
+      "InstanceRequest": {
+        "description": "An instance to make.\n\nAttributes:\n    name: What to call it: lower-case letters, digits and single dashes,\n        starting with a letter, up to 24 characters. It is the part of its\n        key after the ``@`` (``postgresql@pg16``).\n    engine: What to run: ``postgresql``, ``mysql``, ``mariadb``, ``redis``,\n        ``valkey`` or ``mongodb`` (``GET /api/databases/instances/catalog``).\n    version: Its version, such as ``16`` or ``8.4``; the catalog's default\n        when omitted. The image is pinned by tag and digest.\n    memory_mb: Its memory limit in megabytes: mandatory, enforced on the\n        container and used to size the engine's own caches.\n    port: The port on 127.0.0.1 it is published on; a free one just above\n        the engine's own when omitted.",
+        "properties": {
+          "engine": {
+            "maxLength": 32,
+            "title": "Engine",
+            "type": "string"
+          },
+          "memory_mb": {
+            "anyOf": [
+              {
+                "maximum": 4194304.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Mb"
+          },
+          "name": {
+            "maxLength": 24,
+            "title": "Name",
+            "type": "string"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "maximum": 65535.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "name",
+          "engine"
+        ],
+        "title": "InstanceRequest",
+        "type": "object"
+      },
+      "InstanceResponse": {
+        "description": "An instance Noust runs.\n\nAttributes:\n    name: Its name.\n    key: What it is addressed by wherever an engine is named.\n    engine: The manager that speaks it.\n    flavour: What it runs.\n    display_name: The flavour for a person.\n    version: The version it was made with.\n    image: The image's repository.\n    digest: The digest it runs; ``previous_digest`` is what ran before the\n        last upgrade.\n    reference: The image reference its container is started from.\n    host_port: The port on 127.0.0.1.\n    address: Always ``127.0.0.1``: it is reached through an SSH tunnel, or\n        made public one database at a time (``/api/databases/public``).\n    memory_limit_mb: Its memory limit.\n    state: ``creating``, ``ready``, ``upgrading`` or ``removing``: how far\n        the last change got.\n    running: Its container runs.\n    status: ``running``, ``stopped`` (it has no container) or Docker's own\n        word.\n    unit: The systemd unit that runs it.\n    container: Its container's name.\n    volume: The Docker volume that holds its data.\n    directory: The directory that holds its Compose file and its\n        environment file, which only root can read.\n    end_of_life: When its version's upstream support ends, where the project\n        publishes it; ``support`` is ``supported``, ``ending_soon``,\n        ``ended`` or ``unknown``.",
+        "properties": {
+          "address": {
+            "title": "Address",
+            "type": "string"
+          },
+          "container": {
+            "title": "Container",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "directory": {
+            "title": "Directory",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "end_of_life": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Of Life"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "flavour": {
+            "title": "Flavour",
+            "type": "string"
+          },
+          "host_port": {
+            "title": "Host Port",
+            "type": "integer"
+          },
+          "image": {
+            "title": "Image",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "memory_limit_mb": {
+            "title": "Memory Limit Mb",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "previous_digest": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Digest"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "support": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "upgraded_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upgraded At"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "volume": {
+            "title": "Volume",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "key",
+          "engine",
+          "flavour",
+          "display_name",
+          "version",
+          "image",
+          "digest",
+          "reference",
+          "host_port",
+          "address",
+          "memory_limit_mb",
+          "state",
+          "running",
+          "status",
+          "unit",
+          "container",
+          "volume",
+          "directory",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "InstanceResponse",
         "type": "object"
       },
       "InterfaceAddress": {
@@ -15478,63 +16116,6 @@
         "title": "LimitsResponse",
         "type": "object"
       },
-      "LinkRequest": {
-        "description": "Request to link an existing database to an application.\n\nAttributes:\n    username: The account to sign in as. Noust must know its password;\n        when omitted, the provisioned account, or a new one for the\n        application made the database's owner.",
-        "properties": {
-          "database": {
-            "description": "Database name",
-            "title": "Database",
-            "type": "string"
-          },
-          "engine": {
-            "description": "Database engine",
-            "title": "Engine",
-            "type": "string"
-          },
-          "env_var": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Variable to write",
-            "title": "Env Var"
-          },
-          "extra_vars": {
-            "default": false,
-            "description": "Also write the DB_* variables",
-            "title": "Extra Vars",
-            "type": "boolean"
-          },
-          "restart": {
-            "default": true,
-            "description": "Restart the application behind its gate",
-            "title": "Restart",
-            "type": "boolean"
-          },
-          "username": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Account to sign in as",
-            "title": "Username"
-          }
-        },
-        "required": [
-          "engine",
-          "database"
-        ],
-        "title": "LinkRequest",
-        "type": "object"
-      },
       "LinkResponse": {
         "description": "One database an application uses.\n\nAttributes:\n    url: The connection string with the password masked, or null when\n        the engine is down or the variable is not known (a database\n        provisioned before 3.1 has no recorded variable).\n    exists: Whether the database is still on the engine.",
         "properties": {
@@ -16271,6 +16852,54 @@
           "origin"
         ],
         "title": "ManifestRequest",
+        "type": "object"
+      },
+      "Mapping": {
+        "description": "One line of a provider's group mapping.\n\nAttributes:\n    group: The group, as the provider's claim spells it.\n    role: The instance role it gives (``viewer``, ``operator`` or ``admin``).\n    team: The team it puts the person in.\n    team_role: Their role there.",
+        "properties": {
+          "group": {
+            "maxLength": 256,
+            "title": "Group",
+            "type": "string"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
+          },
+          "team_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team Role"
+          }
+        },
+        "required": [
+          "group"
+        ],
+        "title": "Mapping",
         "type": "object"
       },
       "MemberListResponse": {
@@ -17097,7 +17726,7 @@
         "type": "object"
       },
       "NewAppDatabaseRequest": {
-        "description": "A database to create with a new application, before its first build.\n\nAttributes:\n    engine: The engine (``GET /api/databases/engines``), installed and\n        running.\n    name: The database; derived from the application when omitted\n        (``<app>_db``), a slot number for Redis (0 by default).\n    env_var: The variable; ``DATABASE_URL``, or ``REDIS_URL`` for Redis.\n    extra_vars: Also write ``DB_HOST``, ``DB_PORT``, ``DB_NAME``,\n        ``DB_USER`` and ``DB_PASSWORD``.\n    version: The version of the engine the database is for, such as ``17``.\n        Checked when the request arrives: one other than the version that\n        runs is refused with what runs, and an engine that is not\n        installed is refused with how to install it (``GET\n        /api/databases/provisioning/choices``) before anything is queued.",
+        "description": "A database to create with a new application, before its first build.\n\nAttributes:\n    engine: The engine (``GET /api/databases/engines``), installed and\n        running.\n    name: The database; derived from the application when omitted\n        (``<app>_db``), a slot number for Redis (0 by default).\n    env_var: The variable; ``DATABASE_URL``, or ``REDIS_URL`` for Redis.\n    extra_vars: Also write ``DB_HOST``, ``DB_PORT``, ``DB_NAME``,\n        ``DB_USER`` and ``DB_PASSWORD``.\n    version: The version of the engine the database is for, such as ``17``.\n        Checked when the request arrives: one other than the version that\n        runs is refused with what runs, and an engine that is not\n        installed is refused with how to install it (``GET\n        /api/databases/provisioning/choices``) before anything is queued.\n    instance: The name of an instance Noust runs (``GET\n        /api/databases/instances``) to make the database on, instead of the\n        host's engine. One is also chosen by itself when ``version`` is the\n        one an instance runs and the host does not.",
         "properties": {
           "engine": {
             "description": "Database engine",
@@ -17121,6 +17750,19 @@
             "description": "Also write the DB_* variables",
             "title": "Extra Vars",
             "type": "boolean"
+          },
+          "instance": {
+            "anyOf": [
+              {
+                "maxLength": 24,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Make it on this instance Noust runs",
+            "title": "Instance"
           },
           "name": {
             "anyOf": [
@@ -18274,6 +18916,78 @@
           "total"
         ],
         "title": "PinnedHostsResponse",
+        "type": "object"
+      },
+      "PlanResponse": {
+        "description": "What making an instance would do. Nothing was changed.\n\nAttributes:\n    warnings: What the operator should know before going ahead.",
+        "properties": {
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "engine": {
+            "title": "Engine",
+            "type": "string"
+          },
+          "flavour": {
+            "title": "Flavour",
+            "type": "string"
+          },
+          "host_port": {
+            "title": "Host Port",
+            "type": "integer"
+          },
+          "image": {
+            "title": "Image",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "memory_limit_mb": {
+            "title": "Memory Limit Mb",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "reference": {
+            "title": "Reference",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "key",
+          "flavour",
+          "engine",
+          "display_name",
+          "version",
+          "image",
+          "digest",
+          "reference",
+          "host_port",
+          "memory_limit_mb",
+          "warnings"
+        ],
+        "title": "PlanResponse",
         "type": "object"
       },
       "PlatformProposalResponse": {
@@ -19446,8 +20160,485 @@
         "title": "ProtectedPortOut",
         "type": "object"
       },
+      "ProviderChoice": {
+        "description": "One way to sign in, as the sign-in page offers it.\n\nAttributes:\n    name: The provider's short name, for ``/start?provider=``.\n    label: What the button says after \"Sign in with\".",
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "label"
+        ],
+        "title": "ProviderChoice",
+        "type": "object"
+      },
+      "ProviderChoices": {
+        "description": "The ways to sign in besides an account's password.\n\nAttributes:\n    providers: Every enabled provider.",
+        "properties": {
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderChoice"
+            },
+            "title": "Providers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "providers"
+        ],
+        "title": "ProviderChoices",
+        "type": "object"
+      },
+      "ProviderInfo": {
+        "description": "A configured provider, with no secret in it.\n\nAttributes:\n    name: Its short name.\n    label: What the button says after \"Sign in with\".\n    issuer: Its issuer, as its tokens write it.\n    client_id: The client Noust is registered as.\n    client_secret_set: Whether a client secret is stored (never its value).\n    scopes: Space separated.\n    enabled: Whether the sign-in page offers it.\n    require_email_verified: Whether the e-mail must be verified.\n    assume_email_verified: Whether an e-mail the provider says nothing\n        about counts as verified.\n    clock_skew_seconds: Tolerated clock difference.\n    provisioning: ``off``, ``invite`` or ``auto``.\n    default_role: The role of an account a first sign-in creates.\n    default_team: The team it joins instead of the default one.\n    default_team_role: Its role there.\n    link_by_email: Whether a first sign-in links by verified e-mail.\n    allowed_domains: When not empty, the e-mail domains allowed.\n    require_amr: When not empty, the methods one of which the provider must have used.\n    groups_claim: Where the token lists groups.\n    group_sync: Whether groups decide roles and teams.\n    group_mappings: What each group means.\n    redirect_uri: The callback address to register with the provider.\n    created_at: When it was configured, UNIX seconds.\n    created_by: Who configured it.\n    updated_at: Last change, UNIX seconds.\n    updated_by: Who made it.",
+        "properties": {
+          "allowed_domains": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Domains",
+            "type": "array"
+          },
+          "assume_email_verified": {
+            "title": "Assume Email Verified",
+            "type": "boolean"
+          },
+          "client_id": {
+            "title": "Client Id",
+            "type": "string"
+          },
+          "client_secret_set": {
+            "title": "Client Secret Set",
+            "type": "boolean"
+          },
+          "clock_skew_seconds": {
+            "title": "Clock Skew Seconds",
+            "type": "integer"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "default_role": {
+            "title": "Default Role",
+            "type": "string"
+          },
+          "default_team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team"
+          },
+          "default_team_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team Role"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "group_mappings": {
+            "items": {
+              "$ref": "#/components/schemas/Mapping"
+            },
+            "title": "Group Mappings",
+            "type": "array"
+          },
+          "group_sync": {
+            "title": "Group Sync",
+            "type": "boolean"
+          },
+          "groups_claim": {
+            "title": "Groups Claim",
+            "type": "string"
+          },
+          "issuer": {
+            "title": "Issuer",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "link_by_email": {
+            "title": "Link By Email",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "provisioning": {
+            "title": "Provisioning",
+            "type": "string"
+          },
+          "redirect_uri": {
+            "title": "Redirect Uri",
+            "type": "string"
+          },
+          "require_amr": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Require Amr",
+            "type": "array"
+          },
+          "require_email_verified": {
+            "title": "Require Email Verified",
+            "type": "boolean"
+          },
+          "scopes": {
+            "title": "Scopes",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "number"
+          },
+          "updated_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated By"
+          }
+        },
+        "required": [
+          "name",
+          "label",
+          "issuer",
+          "client_id",
+          "client_secret_set",
+          "scopes",
+          "enabled",
+          "require_email_verified",
+          "assume_email_verified",
+          "clock_skew_seconds",
+          "provisioning",
+          "default_role",
+          "link_by_email",
+          "allowed_domains",
+          "require_amr",
+          "groups_claim",
+          "group_sync",
+          "group_mappings",
+          "redirect_uri",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ProviderInfo",
+        "type": "object"
+      },
+      "ProviderSettings": {
+        "description": "What to set on a provider; whatever is left out keeps its value.\n\nAn empty string clears a setting that can be empty (``default_team``,\n``default_team_role``, ``redirect_uri``).\n\nAttributes:\n    label: What the button says after \"Sign in with\".\n    issuer: The issuer URL, exactly as the provider's tokens write it.\n    client_id: The client id.\n    client_secret: The client secret to store; never returned.\n    clear_secret: Forget the stored secret (a public client).\n    scopes: Space separated; ``openid`` is always asked.\n    enabled: Whether the sign-in page offers it.\n    require_email_verified: Refuse a sign-in whose e-mail is not verified.\n    assume_email_verified: Count an e-mail the provider says nothing about\n        as verified (a directory the organisation controls).\n    clock_skew_seconds: Tolerated clock difference, up to 300.\n    provisioning: ``off``, ``invite`` or ``auto``.\n    default_role: ``viewer``, ``operator`` or ``admin``.\n    default_team: The team a created account joins.\n    default_team_role: Its role there.\n    link_by_email: Link a first sign-in to the account of its verified e-mail.\n    allowed_domains: Only these e-mail domains.\n    require_amr: The provider must have used one of these methods.\n    groups_claim: Where the token lists groups.\n    group_sync: Let groups decide roles and teams.\n    group_mappings: What each group means.\n    redirect_uri: The callback address, when it cannot be worked out.",
+        "properties": {
+          "allowed_domains": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Allowed Domains"
+          },
+          "assume_email_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assume Email Verified"
+          },
+          "clear_secret": {
+            "default": false,
+            "title": "Clear Secret",
+            "type": "boolean"
+          },
+          "client_id": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Id"
+          },
+          "client_secret": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Secret"
+          },
+          "clock_skew_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clock Skew Seconds"
+          },
+          "default_role": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Role"
+          },
+          "default_team": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team"
+          },
+          "default_team_role": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Team Role"
+          },
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled"
+          },
+          "group_mappings": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Mapping"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Mappings"
+          },
+          "group_sync": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Group Sync"
+          },
+          "groups_claim": {
+            "anyOf": [
+              {
+                "maxLength": 128,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Groups Claim"
+          },
+          "issuer": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "link_by_email": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link By Email"
+          },
+          "provisioning": {
+            "anyOf": [
+              {
+                "maxLength": 16,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provisioning"
+          },
+          "redirect_uri": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redirect Uri"
+          },
+          "require_amr": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Require Amr"
+          },
+          "require_email_verified": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Require Email Verified"
+          },
+          "scopes": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scopes"
+          }
+        },
+        "title": "ProviderSettings",
+        "type": "object"
+      },
+      "ProvidersResponse": {
+        "description": "Every configured provider.\n\nAttributes:\n    providers: The providers, by name.\n    redirect_uri: The callback address to register with each provider\n        that has no address of its own.",
+        "properties": {
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderInfo"
+            },
+            "title": "Providers",
+            "type": "array"
+          },
+          "redirect_uri": {
+            "title": "Redirect Uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "providers",
+          "redirect_uri"
+        ],
+        "title": "ProvidersResponse",
+        "type": "object"
+      },
       "ProvisionRequest": {
-        "description": "Request to create a database for an application and link it.\n\nAttributes:\n    name: The database; derived from the application when omitted\n        (``<app>_db``), a slot number for Redis (0 by default).\n    env_var: The variable; ``DATABASE_URL``, or ``REDIS_URL`` for Redis.\n    extra_vars: Also write ``DB_HOST``, ``DB_PORT``, ``DB_NAME``,\n        ``DB_USER`` and ``DB_PASSWORD``.\n    restart: Restart the application on the new variables.\n    version: The version of the engine the database is for, such as ``17``\n        or ``11.4``; the installed one when omitted. A version other than\n        the one that runs is refused with what runs and what could be\n        installed (``GET /api/databases/provisioning/choices``).\n    install: Install the engine, in that version, first when it is not\n        installed. Needs sudo mode and ``databases.manage``, like the\n        install itself.",
+        "description": "Request to create a database for an application and link it.\n\nAttributes:\n    name: The database; derived from the application when omitted\n        (``<app>_db``), a slot number for Redis (0 by default).\n    env_var: The variable; ``DATABASE_URL``, or ``REDIS_URL`` for Redis.\n    extra_vars: Also write ``DB_HOST``, ``DB_PORT``, ``DB_NAME``,\n        ``DB_USER`` and ``DB_PASSWORD``.\n    restart: Restart the application on the new variables.\n    version: The version of the engine the database is for, such as ``17``\n        or ``11.4``; the installed one when omitted. A version other than\n        the one that runs is refused with what runs and what could be\n        installed (``GET /api/databases/provisioning/choices``).\n    install: Install the engine, in that version, first when it is not\n        installed. Needs sudo mode and ``databases.manage``, like the\n        install itself.\n    instance: The name of an instance Noust runs (``GET\n        /api/databases/instances``) to make the database on, instead of the\n        host's engine. One is also chosen by itself when the version asked\n        for is the one an instance runs and the host does not.",
         "properties": {
           "engine": {
             "description": "Database engine",
@@ -19477,6 +20668,19 @@
             "description": "Install the engine in that version if it is missing",
             "title": "Install",
             "type": "boolean"
+          },
+          "instance": {
+            "anyOf": [
+              {
+                "maxLength": 24,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Make it on this instance Noust runs",
+            "title": "Instance"
           },
           "name": {
             "anyOf": [
@@ -19517,7 +20721,7 @@
         "type": "object"
       },
       "ProvisioningPlanResponse": {
-        "description": "What creating a database for an application would write.\n\nAttributes:\n    url: The connection string, password masked.\n    database_exists: A database of that name is already on the engine.\n    version: The version asked for, when one was.\n    running_version: The version of the installed engine.\n    will_install: The engine is not installed, and creating the database\n        with ``install`` would install it in that version first.",
+        "description": "What creating a database for an application would write.\n\nAttributes:\n    url: The connection string, password masked.\n    database_exists: A database of that name is already on the engine.\n    version: The version asked for, when one was.\n    running_version: The version of the installed engine.\n    will_install: The engine is not installed, and creating the database\n        with ``install`` would install it in that version first.\n    instance: The name of the instance Noust runs that the database would\n        be made on (``engine`` is then its key), or None for the host's.",
         "properties": {
           "database": {
             "title": "Database",
@@ -19545,6 +20749,17 @@
           "installed": {
             "title": "Installed",
             "type": "boolean"
+          },
+          "instance": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instance"
           },
           "running": {
             "title": "Running",
@@ -21944,8 +23159,65 @@
         "title": "RemoveKeyRequest",
         "type": "object"
       },
+      "RemovePlanResponse": {
+        "description": "What removing an instance would delete, and what stops it.\n\nAttributes:\n    databases: What it holds now.\n    blockers: What stops the removal: applications that use it, databases\n        made public on it. Nothing is removed while any is listed.\n    warnings: What the operator accepts by confirming.",
+        "properties": {
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "databases": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Databases",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "databases",
+          "blockers",
+          "warnings"
+        ],
+        "title": "RemovePlanResponse",
+        "type": "object"
+      },
+      "RemovedResponse": {
+        "description": "A confirmation that something was removed.\n\nAttributes:\n    success: Always true.\n    removed: What it was.",
+        "properties": {
+          "removed": {
+            "title": "Removed",
+            "type": "string"
+          },
+          "success": {
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success",
+          "removed"
+        ],
+        "title": "RemovedResponse",
+        "type": "object"
+      },
       "RenameTeamRequest": {
-        "description": "Request to rename a team.",
+        "description": "Request to rename a team, a project or an environment.",
         "properties": {
           "name": {
             "description": "The new display name",
@@ -25271,7 +26543,7 @@
         "type": "object"
       },
       "SiteInfo": {
-        "description": "A configured virtual host.\n\nAttributes:\n    name: The domain the site is addressed by: its application's, else\n        the file's name. What every ``/api/sites/{domain}`` route takes.\n    webserver: Web server serving it.\n    enabled: Whether the site is enabled.\n    config_path: Absolute path of the configuration file.\n    has_ssl: Whether the configuration carries TLS directives.\n    server_names: Every name the configuration answers on - the primary\n        domain and its aliases - read from the file's own directives.\n        Empty when the configuration cannot be read.\n    noust_managed: Whether Noust wrote the file (it carries Noust's\n        marker). False for a site the operator wrote, which a deploy\n        never rewrites.\n    app: Domain of the application the file serves, when one records it.\n    site_name: The file in the sites directory, which is not the domain\n        for a site the operator named (``proggest`` for ``proggest.es``).",
+        "description": "A configured virtual host.\n\nAttributes:\n    name: The domain the site is addressed by: its application's, else\n        the file's name. What every ``/api/sites/{domain}`` route takes.\n    webserver: Web server serving it.\n    enabled: Whether the site is enabled.\n    config_path: Absolute path of the configuration file.\n    has_ssl: Whether the configuration carries TLS directives.\n    server_names: Every name the configuration answers on - the primary\n        domain and its aliases - read from the file's own directives.\n        Empty when the configuration cannot be read.\n    noust_managed: Whether Noust wrote the file (it carries Noust's\n        marker). False for a site the operator wrote, which a deploy\n        never rewrites.\n    app: Domain of the application the file serves, when one records it.\n    site_name: The file in the sites directory, which is not the domain\n        for a site the operator named (``proggest`` for ``proggest.es``).\n    team: The slug of the team it belongs to; None for a file the store\n        never recorded, which belongs to nobody.\n    project: The slug of its project.\n    environment: The slug of its environment.",
         "properties": {
           "app": {
             "anyOf": [
@@ -25292,6 +26564,17 @@
             "title": "Enabled",
             "type": "boolean"
           },
+          "environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Environment"
+          },
           "has_ssl": {
             "default": false,
             "title": "Has Ssl",
@@ -25306,6 +26589,17 @@
             "title": "Noust Managed",
             "type": "boolean"
           },
+          "project": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Project"
+          },
           "server_names": {
             "default": [],
             "items": {
@@ -25318,6 +26612,17 @@
             "default": "",
             "title": "Site Name",
             "type": "string"
+          },
+          "team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Team"
           },
           "webserver": {
             "title": "Webserver",
@@ -28287,6 +29592,28 @@
           "ok"
         ],
         "title": "TestDestinationResponse",
+        "type": "object"
+      },
+      "TestResponse": {
+        "description": "A provider looked at the way a sign-in would, without signing anybody in.\n\nAttributes:\n    ok: Whether every check passed.\n    checks: Each thing looked at.",
+        "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/CheckInfo"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ok",
+          "checks"
+        ],
+        "title": "TestResponse",
         "type": "object"
       },
       "TestSiteConfigRequest": {
@@ -31807,6 +33134,31 @@
         "title": "AdoptResponse",
         "type": "object"
       },
+      "noust__web__api__audit__CatalogResponse": {
+        "description": "Response for ``GET /api/audit/events``.\n\nAttributes:\n    categories: Every category, in display order.\n    events: Every event.",
+        "properties": {
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogEvent"
+            },
+            "title": "Events",
+            "type": "array"
+          }
+        },
+        "required": [
+          "categories",
+          "events"
+        ],
+        "title": "CatalogResponse",
+        "type": "object"
+      },
       "noust__web__api__backup_schedules__ScheduleDestination": {
         "description": "One remote destination a schedule pushes its backups to.",
         "properties": {
@@ -32330,6 +33682,80 @@
         "title": "ExposureResponse",
         "type": "object"
       },
+      "noust__web__api__databases__instances__CatalogResponse": {
+        "description": "What Noust can run as an instance.",
+        "properties": {
+          "engines": {
+            "items": {
+              "$ref": "#/components/schemas/CatalogEntryResponse"
+            },
+            "title": "Engines",
+            "type": "array"
+          }
+        },
+        "required": [
+          "engines"
+        ],
+        "title": "CatalogResponse",
+        "type": "object"
+      },
+      "noust__web__api__databases__links__LinkRequest": {
+        "description": "Request to link an existing database to an application.\n\nAttributes:\n    username: The account to sign in as. Noust must know its password;\n        when omitted, the provisioned account, or a new one for the\n        application made the database's owner.",
+        "properties": {
+          "database": {
+            "description": "Database name",
+            "title": "Database",
+            "type": "string"
+          },
+          "engine": {
+            "description": "Database engine",
+            "title": "Engine",
+            "type": "string"
+          },
+          "env_var": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Variable to write",
+            "title": "Env Var"
+          },
+          "extra_vars": {
+            "default": false,
+            "description": "Also write the DB_* variables",
+            "title": "Extra Vars",
+            "type": "boolean"
+          },
+          "restart": {
+            "default": true,
+            "description": "Restart the application behind its gate",
+            "title": "Restart",
+            "type": "boolean"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Account to sign in as",
+            "title": "Username"
+          }
+        },
+        "required": [
+          "engine",
+          "database"
+        ],
+        "title": "LinkRequest",
+        "type": "object"
+      },
       "noust__web__api__databases__public__ExposureResponse": {
         "description": "A database that is reachable from the network.\n\nAttributes:\n    state: ``opening``, ``exposed`` or ``closing`` (a closing one was\n        interrupted or could not be fully undone: close it again).\n    listening: The proxy's port is open now.\n    remote_user: The account made for it; its password is only shown once,\n        or by ``POST .../reveal``.",
         "properties": {
@@ -32491,6 +33917,33 @@
           "processes"
         ],
         "title": "ProcessListResponse",
+        "type": "object"
+      },
+      "noust__web__api__oidc__LinkRequest": {
+        "description": "A link to make by hand.\n\nAttributes:\n    provider: The provider.\n    username: The account.\n    subject: The provider's id (``sub``) for the person.",
+        "properties": {
+          "provider": {
+            "maxLength": 32,
+            "title": "Provider",
+            "type": "string"
+          },
+          "subject": {
+            "maxLength": 255,
+            "title": "Subject",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 64,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "username",
+          "subject"
+        ],
+        "title": "LinkRequest",
         "type": "object"
       },
       "noust__web__api__overview__OverviewResponse": {
@@ -34047,7 +35500,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/LinkRequest"
+                "$ref": "#/components/schemas/noust__web__api__databases__links__LinkRequest"
               }
             }
           },
@@ -37550,7 +39003,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CatalogResponse"
+                  "$ref": "#/components/schemas/noust__web__api__audit__CatalogResponse"
                 }
               }
             },
@@ -38815,6 +40268,510 @@
           "Authentication"
         ],
         "x-noust-permission": "self"
+      }
+    },
+    "/api/auth/oidc/callback": {
+      "get": {
+        "description": "Take the provider's answer: verify it, admit the person, hand over a ticket.\n\nA guess at the answer (an unknown or replayed state, another browser's\ncookie, a token that does not verify) is counted against the address like a\nwrong password and audited; a provider that is down, or a person the policy\ndoes not admit, is audited but not counted.\n\nArgs:\n    request: The request, from the provider's redirect.\n    code: The authorization code.\n    state: The state the sign-in began with.\n    error: The provider's error code, when it refused.\n\nReturns:\n    A redirect to the sign-in page carrying the ticket, or the reason.",
+        "operationId": "callback_api_auth_oidc_callback_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "code",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 8192,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            }
+          },
+          {
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "in": "query",
+            "name": "error",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Error"
+            }
+          }
+        ],
+        "responses": {
+          "303": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Callback",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/auth/oidc/complete": {
+      "post": {
+        "description": "Finish a sign-in a provider vouched for, as an account's sign-in finishes.\n\nAn account with a second factor is answered the step it owes\n(``login.second_factor``), to be finished at\n``POST /api/auth/login/second-factor`` or with a passkey; one without is\nsigned in, its session fit only to enrol one. The ticket is single use, and\nonly the browser that began the sign-in, from the address that received the\nanswer, can collect it.\n\nArgs:\n    request: The request.\n    response: Used to set the session cookies and clear the sign-in's.\n    body: The ticket.\n\nReturns:\n    The login result and where to go.\n\nRaises:\n    HTTPException: 401 ``sign_in_expired`` when there is nothing to\n        collect (unknown, spent, expired, another browser or address, or\n        the account can no longer sign in). 429 ``locked_out``.",
+        "operationId": "complete_api_auth_oidc_complete_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompleteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Complete",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/auth/oidc/config": {
+      "get": {
+        "description": "List the configured providers, secrets left out.\n\nArgs:\n    request: The request, for the callback address it implies.\n    _session: The authenticated payload.\n\nReturns:\n    The providers.",
+        "operationId": "list_providers_api_auth_oidc_config_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvidersResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Providers",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.read"
+      }
+    },
+    "/api/auth/oidc/config/{provider}": {
+      "delete": {
+        "description": "Remove a provider and its client secret, in sudo mode.\n\nAccounts keep their links and their other ways in; one that had no password\ncan no longer sign in until it is given one (``noust user invite``).\n\nArgs:\n    provider: The provider's name.\n    request: The request.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    A confirmation.\n\nRaises:\n    HTTPException: 404 when there is no such provider.",
+        "operationId": "delete_provider_api_auth_oidc_config__provider__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Provider",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      },
+      "put": {
+        "description": "Add a provider or change one, in sudo mode: it decides who may sign in.\n\nArgs:\n    provider: The provider's name.\n    request: The request.\n    body: The settings to set.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    The provider as it is now.\n\nRaises:\n    ValidationError: When a setting is refused; nothing is written.",
+        "operationId": "put_provider_api_auth_oidc_config__provider__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProviderSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Provider",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/auth/oidc/config/{provider}/test": {
+      "post": {
+        "description": "Look at a provider the way a sign-in would: discovery, keys, secret, callback.\n\nSigns nobody in and writes nothing. A provider that cannot be reached is a\nfailed check, not an error.\n\nArgs:\n    provider: The provider's name.\n    request: The request, for the callback address.\n    _session: The authenticated payload.\n\nReturns:\n    Each check and whether all passed.\n\nRaises:\n    HTTPException: 404 when there is no such provider.",
+        "operationId": "try_provider_api_auth_oidc_config__provider__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "title": "Provider",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Try Provider",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage"
+      }
+    },
+    "/api/auth/oidc/identities": {
+      "get": {
+        "description": "List the people at providers that are linked to accounts.\n\nArgs:\n    username: Only this account's.\n    _session: The authenticated payload.\n\nReturns:\n    The links.",
+        "operationId": "list_identities_api_auth_oidc_identities_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "username",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Username"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentitiesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Identities",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.read"
+      },
+      "post": {
+        "description": "Link an account to a person at a provider by hand, in sudo mode.\n\nArgs:\n    request: The request.\n    body: The provider, the account and the provider's id for the person.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    The link.\n\nRaises:\n    HTTPException: 404 when the provider does not exist.\n    OidcError: ``already_linked`` when that person is linked already.\n    AccountNotFoundError: When there is no such account.",
+        "operationId": "link_identity_api_auth_oidc_identities_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/noust__web__api__oidc__LinkRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IdentityInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Link Identity",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/auth/oidc/identities/{identity_id}": {
+      "delete": {
+        "description": "Cut a link between an account and a person at a provider, in sudo mode.\n\nArgs:\n    identity_id: The link's id.\n    request: The request.\n    session: The authenticated payload, in sudo mode.\n\nReturns:\n    A confirmation.\n\nRaises:\n    HTTPException: 404 when there is no such link.",
+        "operationId": "unlink_identity_api_auth_oidc_identities__identity_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "identity_id",
+            "required": true,
+            "schema": {
+              "title": "Identity Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Unlink Identity",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "accounts.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/auth/oidc/providers": {
+      "get": {
+        "description": "Name the providers the sign-in page offers. Anonymous: it shows buttons.\n\nArgs:\n    response: Used to keep the answer out of caches.\n\nReturns:\n    The name and label of each enabled provider, nothing else of them.",
+        "operationId": "list_choices_api_auth_oidc_providers_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderChoices"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Choices",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "public"
+      }
+    },
+    "/api/auth/oidc/start": {
+      "get": {
+        "description": "Begin a sign-in: remember it and send the browser to the provider.\n\nAnonymous, and it writes only a short-lived record of the sign-in; the\nprovider is chosen from those configured, never from the request. Whatever\ngoes wrong, the browser lands on the sign-in page with a one-word reason.\n\nArgs:\n    request: The request.\n    provider: The provider's name.\n    next: The console page to go to afterwards; reduced to a path of this console.\n\nReturns:\n    A redirect to the provider, setting the cookie that ties the answer to\n    this browser, or to the sign-in page.",
+        "operationId": "start_api_auth_oidc_start_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "provider",
+            "required": true,
+            "schema": {
+              "maxLength": 32,
+              "title": "Provider",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "next",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 512,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Next"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start",
+        "tags": [
+          "Single sign-on"
+        ],
+        "x-noust-permission": "public"
       }
     },
     "/api/auth/passkeys": {
@@ -46212,6 +48169,425 @@
         "x-noust-permission": "databases.manage"
       }
     },
+    "/api/databases/instances": {
+      "get": {
+        "description": "List the instances Noust runs, and the memory they hold.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Every instance, by name, and the memory budget.",
+        "operationId": "list_instances_api_databases_instances_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Instances",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      },
+      "post": {
+        "description": "Queue making an instance, with sudo mode.\n\nIt is planned first, so a request that could not succeed is refused here\nrather than failing in the job. The job pulls the image, writes the\ninstance's files and unit, starts it, and returns once its engine accepts\nthe superuser Noust generated; whatever fails is undone.\n\nArgs:\n    request: What to make.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.",
+        "operationId": "create_instance_api_databases_instances_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Instance",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/instances/catalog": {
+      "get": {
+        "description": "List what Noust can run as an instance: each engine, and its versions with their digests.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The engines, in the order the console offers them.",
+        "operationId": "instance_catalog_api_databases_instances_catalog_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__databases__instances__CatalogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Instance Catalog",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/instances/plan": {
+      "post": {
+        "description": "Say what making an instance would do. Changes nothing.\n\nA request that could not succeed (Docker missing, no memory limit, a port or\na name that is taken, a version the catalog lacks, more memory than the\nserver has left) is refused here, with the reason.\n\nArgs:\n    request: What to make.\n    session: The authenticated session.\n\nReturns:\n    The plan.",
+        "operationId": "plan_instance_api_databases_instances_plan_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InstanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Instance",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/instances/{name}": {
+      "delete": {
+        "description": "Queue removing an instance, its container and its data, with sudo mode.\n\nWithout ``confirm`` nothing is changed and the answer is a 400\n``confirmation_required`` carrying what is deleted. Applications that use it\nand databases made public on it stop the removal, whatever is confirmed.\n\nArgs:\n    name: Its name.\n    session: The authenticated, elevated session.\n    confirm: The operator accepted that its data goes.\n\nReturns:\n    The queued job.\n\nRaises:\n    ConfirmationRequired: ``confirm`` is false.\n    ValidationError: Something uses it.",
+        "operationId": "remove_instance_api_databases_instances__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Accept that its data is deleted",
+            "in": "query",
+            "name": "confirm",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Accept that its data is deleted",
+              "title": "Confirm",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Instance",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      },
+      "get": {
+        "description": "Describe one instance.\n\nArgs:\n    name: Its name.\n    session: The authenticated session.\n\nReturns:\n    The instance.",
+        "operationId": "get_instance_api_databases_instances__name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstanceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Instance",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/instances/{name}/remove-plan": {
+      "get": {
+        "description": "Say what removing an instance would delete, and what stops it. Changes nothing.\n\nArgs:\n    name: Its name.\n    session: The authenticated session.\n\nReturns:\n    The plan.",
+        "operationId": "plan_remove_instance_api_databases_instances__name__remove_plan_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemovePlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Remove Instance",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      }
+    },
+    "/api/databases/instances/{name}/start": {
+      "post": {
+        "description": "Queue starting an instance; the job returns once its engine answers.\n\nArgs:\n    name: Its name.\n    session: The authenticated session.\n\nReturns:\n    The queued job.",
+        "operationId": "start_instance_api_databases_instances__name__start_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Instance",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "apps.operate"
+      }
+    },
+    "/api/databases/instances/{name}/stop": {
+      "post": {
+        "description": "Stop an instance. Its data stays; the applications that use it lose their database.\n\nArgs:\n    name: Its name.\n    session: The authenticated session.\n\nReturns:\n    The action's outcome.",
+        "operationId": "stop_instance_api_databases_instances__name__stop_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__databases__common__ActionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stop Instance",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "apps.operate"
+      }
+    },
+    "/api/databases/instances/{name}/upgrade": {
+      "post": {
+        "description": "Queue moving an instance to the newest image of its version, with sudo mode.\n\nThe tag does not change (PostgreSQL 17 stays 17); what moves is the build the\nregistry serves for it. A dump of every database is taken first (a failed\ndump stops it), the instance must become healthy and accept its superuser,\nand when it does not the previous image is put back.\n\nArgs:\n    name: Its name.\n    session: The authenticated, elevated session.\n    backup: Dump every database first; on by default.\n\nReturns:\n    The queued job.",
+        "operationId": "upgrade_instance_api_databases_instances__name__upgrade_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Dump every database first",
+            "in": "query",
+            "name": "backup",
+            "required": false,
+            "schema": {
+              "default": true,
+              "description": "Dump every database first",
+              "title": "Backup",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Upgrade Instance",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
     "/api/databases/provisioning/choices": {
       "get": {
         "description": "List the engines and versions a database can be created on.\n\nFor the new-database choice: each flavour says whether it is installed and\nin which version, and each version whether it is the one that runs,\ncould be installed now, or cannot be had. Nothing is changed.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    One entry per flavour, in the install catalog's order.",
@@ -46237,7 +48613,7 @@
     },
     "/api/databases/provisioning/plan": {
       "get": {
-        "description": "Say what creating a database for an application would write.\n\nFor the New-application wizard's Database step, before the application\nexists: nothing is created. Once it is deployed, ``POST\n/api/apps/{domain}/databases`` creates the database and links it.\n\nArgs:\n    session: The authenticated session.\n    domain: The application's domain.\n    engine: The engine.\n\nReturns:\n    The plan.",
+        "description": "Say what creating a database for an application would write.\n\nFor the New-application wizard's Database step, before the application\nexists: nothing is created. Once it is deployed, ``POST\n/api/apps/{domain}/databases`` creates the database and links it.\n\nArgs:\n    session: The authenticated session.\n    domain: The application's domain.\n    engine: The engine.\n    version: The version the database is wanted on.\n    instance: The instance Noust runs to make it on.\n\nReturns:\n    The plan.",
         "operationId": "provisioning_plan_api_databases_provisioning_plan_get",
         "parameters": [
           {
@@ -46279,6 +48655,25 @@
               ],
               "description": "The version the database is wanted on",
               "title": "Version"
+            }
+          },
+          {
+            "description": "The instance Noust runs to make the database on",
+            "in": "query",
+            "name": "instance",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 24,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The instance Noust runs to make the database on",
+              "title": "Instance"
             }
           }
         ],
@@ -55811,6 +58206,67 @@
         ],
         "x-noust-permission": "teams.manage",
         "x-noust-requires-elevation": true
+      },
+      "patch": {
+        "description": "Rename a project. Its slug, which commands and links name it by, stays.\n\nArgs:\n    team: The team's slug.\n    project: The project's slug.\n    body: The new name.\n    session: The authenticated session.\n\nReturns:\n    The project.\n\nRaises:\n    TeamNotFoundError: 404 when there is no such project.",
+        "operationId": "rename_project_api_teams__team__projects__project__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameTeamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rename Project",
+        "tags": [
+          "Teams"
+        ],
+        "x-noust-permission": "teams.manage"
       }
     },
     "/api/teams/{team}/projects/{project}/environments": {
@@ -55988,6 +58444,76 @@
         ],
         "x-noust-permission": "teams.manage",
         "x-noust-requires-elevation": true
+      },
+      "patch": {
+        "description": "Rename an environment. Its slug, which commands and links name it by, stays.\n\nArgs:\n    team: The team's slug.\n    project: The project's slug.\n    environment: The environment's slug.\n    body: The new name.\n    session: The authenticated session.\n\nReturns:\n    The environment.\n\nRaises:\n    TeamNotFoundError: 404 when there is no such environment.",
+        "operationId": "rename_environment_api_teams__team__projects__project__environments__environment__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "team",
+            "required": true,
+            "schema": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "environment",
+            "required": true,
+            "schema": {
+              "title": "Environment",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameTeamRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rename Environment",
+        "tags": [
+          "Teams"
+        ],
+        "x-noust-permission": "teams.manage"
       }
     },
     "/api/timeline": {

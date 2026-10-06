@@ -1006,7 +1006,12 @@ drawer.
 
 `FilterBar`: the search box (`type="search"`, `/` focuses it, its value in the URL's `q`),
 filters as `Select` or `SegmentedControl`, the count ("3 of 17 applications") at the right. A
-filter that empties the table shows "No matches" with "Clear filters".
+filter that empties the table shows "No matches" with "Clear filters". A list of resources that live in a
+project (applications, databases, sites) adds a Project and an Environment filter and the same
+two columns, **only where there is more than one place to tell apart**: one team with one project
+and one environment draws none of it, so a server nobody organised looks as it always did
+(`features/teams/ownership.tsx`). The team the operator works in narrows the list before any
+filter does; the switcher in the top bar says which.
 
 ### 6.10 Charts on a page
 
@@ -1043,8 +1048,8 @@ at most one action. Success is said sparingly: only when it is not evident from 
 `Ctrl/Cmd K` opens the command palette, which finds anything the console lists, by any name
 it answers to (checklist M-23): pages and settings sections; applications (domain, name, type
 as a person says it); databases; sites; certificates; services; servers; the newest
-deployments (by application, commit or message); and the create commands (New application,
-from a recipe, import, adopt, New database, Add a server). Each result is in its group, with
+deployments (by application, commit or message); teams and projects; and the create commands
+(New application, from a recipe, import, adopt, New database, New project, New team, Add a server). Each result is in its group, with
 what tells two of one name apart beside it (a type, a time left). Its lists are the console's
 own, read when it is first opened and only those the account may read, and a finished job
 marks them stale (`applyServerEvent`); nothing is read until it is opened. `g` then a letter

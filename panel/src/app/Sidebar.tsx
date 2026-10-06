@@ -10,6 +10,7 @@ import { Logo } from "../components/brand/Logo";
 import { Mono } from "../components/ui/Mono";
 import { StatusGlyph, stateTextClass } from "../components/ui/StatusPill";
 import { isLocalOnlyPath, useCentral } from "../features/central/central";
+import { useOrganization } from "../features/teams/useOrganization";
 import { useT } from "../i18n";
 import { cx } from "../lib/cx";
 import { NODE_STATE, nodeStatus, useHasFleet, useReturnServer, useServerList } from "../nodes/servers";
@@ -99,6 +100,9 @@ export function SidebarNav({ onNavigate, className }: { onNavigate?: () => void;
   const servers = useServerList();
   const { role } = useCentral();
   const serverId = useId();
+  const org = useOrganization();
+  // Projects are offered where there is something to organise, or someone who may start.
+  const organised = org.available && (org.teamsMatter || org.scope.showProject || org.scope.showEnvironment || org.can("teams.manage"));
 
   // Whose destinations these are: the server on screen, or, from the fleet's and the
   // central's pages, the server the operator came from (null: none, a hub with no server yet).
@@ -108,7 +112,9 @@ export function SidebarNav({ onNavigate, className }: { onNavigate?: () => void;
   // A hub deploys nothing of its own: its overview and deployment pages only redirect to the
   // fleet, so they are not offered for it. A node's pages (/n/<server>/) are that node's.
   const offered = (item: NavItem) =>
-    target !== null && (role !== "hub" || target.node !== null || (item.to !== "/" && !isLocalOnlyPath(item.to)));
+    target !== null &&
+    (item.when !== "organised" || organised) &&
+    (role !== "hub" || target.node !== null || (item.to !== "/" && !isLocalOnlyPath(item.to)));
   const groups = NAV_GROUPS.map((group) => group.filter(offered)).filter((group) => group.length > 0);
   const record = target?.node === null || target === null ? undefined : servers.nodes.find((candidate) => candidate.name === target.node);
   const trouble = record === undefined ? null : NODE_STATE[nodeStatus(record)];

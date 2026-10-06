@@ -257,6 +257,30 @@ class TestProjectsAndEnvironments:
             "production"
         }
 
+    def test_a_project_and_an_environment_are_renamed(
+        self, cli: CliRunner, store: NoustStore
+    ) -> None:
+        run(cli, "team", "create", "Acme", "--slug", "acme")
+        run(cli, "project", "create", "Mobile", "--team", "acme")
+        run(cli, "environment", "create", "Staging", "--team", "acme", "--project", "mobile")
+
+        run(cli, "project", "rename", "mobile", "Mobile app", "--team", "acme")
+        run(
+            cli,
+            "environment",
+            "rename",
+            "staging",
+            "Pre-production",
+            "--team",
+            "acme",
+            "--project",
+            "mobile",
+        )
+
+        teams = TeamStore(store)
+        assert teams.require_project("acme", "mobile").name == "Mobile app"
+        assert teams.require_environment("acme", "mobile", "staging").name == "Pre-production"
+
     def test_the_last_environment_stays(self, cli: CliRunner) -> None:
         run(cli, "team", "create", "Acme", "--slug", "acme")
 

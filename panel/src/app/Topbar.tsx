@@ -12,6 +12,7 @@ import { Kbd } from "../components/ui/Kbd";
 import { Mono } from "../components/ui/Mono";
 import { Popover } from "../components/ui/Popover";
 import { useSignOut } from "../features/auth/useSignOut";
+import { TeamSwitcher } from "../features/teams/TeamSwitcher";
 import { ServerSelector } from "../nodes/ServerSelector";
 import { useReturnServer } from "../nodes/servers";
 import { useConsoleContext } from "../nodes/useNode";
@@ -142,6 +143,7 @@ export function Topbar({ onOpenPalette, onOpenShortcuts, onOpenNav, searchTrigge
 
       <ServerSelector />
       <BackToServer />
+      <TeamSwitcher />
 
       <MachineStrip className="flex-1" />
 

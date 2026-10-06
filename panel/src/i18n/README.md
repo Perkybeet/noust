@@ -137,3 +137,8 @@ Spanish docs and of most developer tools): "Comprueba la conexión", not "Compru
 | deploy key, SSH key, host key | clave de despliegue, clave SSH, clave de host | An SSH key is a "clave", never a "llave": "llave de acceso" is the passkey |
 | deploy queue, place in line, waiting for | cola de despliegues, lugar de la cola, esperando a | What waits its turn. What the queue itself says it waits for (`waiting_for`) is the system's phrase and stays as it came |
 | Cancel (a job), Stop the build | Cancelar, Detener compilación | Cancel takes a job out of the queue or stops it; "Stop build" is what the dialog's button says of a build that runs |
+| team | equipo | A boundary of who sees and who may act, never of where code runs (`teams` namespace) |
+| project | proyecto | Groups applications, databases and sites of one piece of work |
+| environment (of a project) | entorno | A stage of a project: production, staging. An application's "Environment" tab is its variables, also "entorno": the page says which |
+| team role: viewer, operator, administrator, owner | lector, operador, administrador, propietario | The server's own roles keep "lector", "operador", "administrador" |
+| Move (an application) | Mover | To another project or environment; it takes its sites and databases and restarts nothing |

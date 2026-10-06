@@ -340,6 +340,72 @@ class TestProjectsAndEnvironments:
         assert response.status_code == 409
         assert "still holds 1 application" in response.json()["detail"]
 
+    def test_an_owner_renames_a_project_and_an_environment(self, world: World) -> None:
+        world.client.post(
+            "/api/teams/acme/projects", json={"name": "Mobile"}, headers=world.as_("carla")
+        )
+        world.client.post(
+            "/api/teams/acme/projects/mobile/environments",
+            json={"name": "Staging"},
+            headers=world.as_("carla"),
+        )
+
+        project = world.client.patch(
+            "/api/teams/acme/projects/mobile",
+            json={"name": "Mobile app"},
+            headers=world.as_("carla"),
+        )
+        environment = world.client.patch(
+            "/api/teams/acme/projects/mobile/environments/staging",
+            json={"name": "Pre-production"},
+            headers=world.as_("carla"),
+        )
+
+        assert project.status_code == environment.status_code == 200
+        assert (project.json()["slug"], project.json()["name"]) == ("mobile", "Mobile app")
+        assert (environment.json()["slug"], environment.json()["name"]) == (
+            "staging",
+            "Pre-production",
+        )
+        listed = world.client.get("/api/teams/acme/projects", headers=world.as_("alice")).json()[
+            "projects"
+        ]
+        assert {p["slug"]: p["name"] for p in listed}["mobile"] == "Mobile app"
+
+    def test_renaming_is_the_owners_and_not_a_plain_admins_or_another_teams(
+        self, world: World
+    ) -> None:
+        plain = world.client.patch(
+            "/api/teams/acme/projects/default", json={"name": "Mine"}, headers=world.as_("alice")
+        )
+        other = world.client.patch(
+            "/api/teams/globex/projects/default",
+            json={"name": "Mine"},
+            headers=world.as_("carla"),
+        )
+        missing = world.client.patch(
+            "/api/teams/nowhere/projects/default",
+            json={"name": "Mine"},
+            headers=world.as_("carla"),
+        )
+
+        assert plain.status_code == 403
+        assert other.status_code == missing.status_code
+        assert other.json()["error"] == missing.json()["error"]
+        assert world.teams.require_project("globex", "default").name != "Mine"
+
+    def test_renaming_something_that_is_not_there_is_not_found(self, world: World) -> None:
+        project = world.client.patch(
+            "/api/teams/acme/projects/nope", json={"name": "Mine"}, headers=world.as_("carla")
+        )
+        environment = world.client.patch(
+            "/api/teams/acme/projects/default/environments/nope",
+            json={"name": "Mine"},
+            headers=world.as_("carla"),
+        )
+
+        assert project.status_code == environment.status_code == 404
+
     def test_nobody_creates_in_the_projects_of_a_team_it_is_not_in(self, world: World) -> None:
         # Whoever is asked, a team of someone else answers as a team that is not there.
         for who in ("alice", "carla"):
@@ -508,11 +574,53 @@ class TestMovingAnApplication:
             "team.member.add",
             "team.member.remove",
             "project.create",
+            "project.update",
             "project.delete",
             "environment.create",
+            "environment.update",
             "environment.delete",
         ):
             assert event in EVENTS, event
+
+
+class TestTheListsSayWhereEachRowLives:
+    def test_a_site_says_its_team_project_and_environment(self, world: World) -> None:
+        sites = world.client.get("/api/sites", headers=world.as_("admin")).json()["sites"]
+
+        by_name = {s["name"]: s for s in sites}
+        assert (
+            by_name[ACME]["team"],
+            by_name[ACME]["project"],
+            by_name[ACME]["environment"],
+        ) == ("acme", "default", "production")
+        assert by_name[GLOBEX]["team"] == "globex"
+
+    def test_a_database_says_where_it_lives(
+        self, world: World, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from noust.managers.database.service import DatabaseListing, DatabaseService, DatabaseView
+
+        monkeypatch.setattr(
+            DatabaseService,
+            "listing",
+            lambda self, engine=None: DatabaseListing(
+                [
+                    DatabaseView(name="shop_db", engine="postgresql", tracked=True),
+                    DatabaseView(name="orphan", engine="postgresql"),
+                ],
+                [],
+            ),
+        )
+
+        rows = world.client.get("/api/databases/databases", headers=world.as_("admin")).json()[
+            "databases"
+        ]
+
+        by_name = {d["name"]: d for d in rows}
+        assert (by_name["shop_db"]["team"], by_name["shop_db"]["project"]) == ("acme", "default")
+        assert by_name["shop_db"]["environment"] == "production"
+        # What an engine holds and the store never recorded belongs to nobody.
+        assert by_name["orphan"]["team"] is None
 
 
 class TestTheListFiltersOfTheApi:

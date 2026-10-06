@@ -72,6 +72,13 @@ const SERVER_TEXT: readonly { page: string; text: RegExp; origin: string }[] = [
   // A recipe's name is the product's, marked as such on its card; its heading wraps the marked
   // span, so the page's text still holds the name, which here reads like "Open {name}".
   { page: "/apps/new (recipe)", text: /^Open WebUI$/, origin: "a recipe's name" },
+  // core/teams: the default team, project and environment are named "Default" and "default",
+  // and the pages of teams and projects show names as the operator (or the server) gave them.
+  ...["projects", "project", "teams", "team", "team-members", "team-settings"].map((page) => ({
+    page,
+    text: /^[Dd]efault$/,
+    origin: "the name of the default team and project",
+  })),
 ];
 
 /**

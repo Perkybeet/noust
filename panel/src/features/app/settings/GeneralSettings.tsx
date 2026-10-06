@@ -3,11 +3,15 @@ import { KeyValueList } from "../../../components/page/KeyValueList";
 import type { KeyValueItem } from "../../../components/page/KeyValueList";
 import { Section } from "../../../components/page/Section";
 import { Card } from "../../../components/ui/Card";
+import { Button } from "../../../components/ui/Button";
 import { Mono } from "../../../components/ui/Mono";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import { hasUnit } from "../../apps/AppRowActions";
 import { useTypeName } from "../../apps/data";
+import { useMoveApp } from "../../teams/MoveAppDialog";
+import { ownerOf } from "../../teams/organization";
+import { useOrganization } from "../../teams/useOrganization";
 import { sourceLink } from "../SourceLink";
 import { BranchActions } from "./BranchPin";
 import { FollowTagsActions } from "./FollowTags";
@@ -24,6 +28,8 @@ export function GeneralSettings() {
   const t = useT();
   const app = useSettingsApp();
   const typeName = useTypeName();
+  const org = useOrganization();
+  const move = useMoveApp(app);
   useSubsectionTitle("appSettings.nav.general", app.domain);
   const unit = hasUnit(app);
   const argv = app.build_command ?? [];
@@ -34,8 +40,30 @@ export function GeneralSettings() {
 
   const fact = (label: string, value: KeyValueItem["value"], extra: Omit<KeyValueItem, "label" | "value"> = {}): KeyValueItem => ({ label, value, ...extra });
   const prose = { mono: false, copy: false } as const;
+  // Where it lives, only where that tells one place from another: a server nobody organised has one.
+  const place = ownerOf(app);
+  const where =
+    org.available && place.team !== null && place.project !== null && place.environment !== null && (org.teamsMatter || org.scope.where || move.available)
+      ? [
+          fact(
+            t("teams.move.fact"),
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2">
+              <span>
+                {[org.labels.team(place.team), org.labels.project(place.team, place.project), org.labels.environment(place.team, place.project, place.environment)].join(" / ")}
+              </span>
+              {move.available ? (
+                <Button size="sm" variant="ghost" onClick={move.open}>
+                  {t("teams.move.action")}
+                </Button>
+              ) : null}
+            </span>,
+            { ...prose, copy: false },
+          ),
+        ]
+      : [];
   const items: KeyValueItem[] = [
     fact(t("appSettings.general.type"), typeName(app.app_type) ?? app.app_type ?? null, prose),
+    ...where,
     ...(unit ? [fact(t("appSettings.general.port"), app.port ?? null)] : []),
     fact(t("appSettings.general.source"), sourceLink(app.source ?? null), { mono: true, copy: app.source ?? false }),
     app.branch
@@ -99,6 +127,7 @@ export function GeneralSettings() {
       {isComposeStack(app) && app.port !== null && app.port !== undefined ? <WorkerCard app={app} /> : null}
       {unit ? <IdentityCard domain={app.domain} /> : null}
       <CommandHint command={`noust app branch ${app.domain} <branch>`} label={t("appSettings.fromTerminal")} />
+      {move.dialog}
     </Section>
   );
 }

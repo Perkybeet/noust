@@ -4,6 +4,9 @@
  * the whole of it, heavy imports included.
  */
 
+import { ownerSearch } from "../teams/search";
+import type { OwnerSearch } from "../teams/search";
+
 export type CertificateFilter = "attention";
 
 export interface CertificatesSearch {
@@ -21,7 +24,7 @@ export interface CertificatesSearch {
   tab?: "sites" | "certificates";
 }
 
-export interface SitesSearch {
+export interface SitesSearch extends OwnerSearch {
   q?: string;
 }
 
@@ -43,5 +46,5 @@ export function validateCertificatesSearch(search: Record<string, unknown>): Cer
 
 export function validateSitesSearch(search: Record<string, unknown>): SitesSearch {
   const q = text(search["q"]);
-  return q !== undefined ? { q } : {};
+  return { ...(q !== undefined ? { q } : {}), ...ownerSearch(search) };
 }

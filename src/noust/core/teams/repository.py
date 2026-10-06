@@ -487,6 +487,29 @@ class TeamStore:
             ) from exc
         return self.require_project(owner.slug, chosen)
 
+    def rename_project(self, team: str, slug: str, name: str) -> Project:
+        """
+        Change a project's display name; its slug, which commands and URLs
+        name it by, stays.
+
+        Args:
+            team: The team's slug.
+            slug: The project's slug.
+            name: The new name; the old one stays when it is empty.
+
+        Returns:
+            The project.
+
+        Raises:
+            TeamNotFoundError: When there is no such project.
+            ValidationError: When the name is too long or unprintable.
+        """
+        project = self.require_project(team, slug)
+        display = clean_name(name, fallback=project.name)
+        with self.store._transaction() as cursor:
+            cursor.execute("UPDATE projects SET name = ? WHERE id = ?", (display, project.id))
+        return self.require_project(project.team, project.slug)
+
     def delete_project(self, team: str, slug: str) -> Project:
         """
         Delete a project that holds nothing, with its environments.
@@ -651,6 +674,33 @@ class TeamStore:
                 field="slug",
             ) from exc
         return self.require_environment(owner.team, owner.slug, chosen)
+
+    def rename_environment(
+        self, team: str, project: str, slug: str, name: str
+    ) -> ProjectEnvironment:
+        """
+        Change an environment's display name; its slug stays.
+
+        Args:
+            team: The team's slug.
+            project: The project's slug.
+            slug: The environment's slug.
+            name: The new name; the old one stays when it is empty.
+
+        Returns:
+            The environment.
+
+        Raises:
+            TeamNotFoundError: When there is no such environment.
+            ValidationError: When the name is too long or unprintable.
+        """
+        environment = self.require_environment(team, project, slug)
+        display = clean_name(name, fallback=environment.name)
+        with self.store._transaction() as cursor:
+            cursor.execute(
+                "UPDATE environments SET name = ? WHERE id = ?", (display, environment.id)
+            )
+        return self.require_environment(environment.team, environment.project, environment.slug)
 
     def delete_environment(self, team: str, project: str, slug: str) -> ProjectEnvironment:
         """

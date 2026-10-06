@@ -22,6 +22,7 @@ import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { reportActionError } from "../apps/useAppActions";
+import { useOwnerScope } from "../teams/ownership";
 import { DatabasesTable } from "./DatabasesTable";
 import { ListingProblemsNotice } from "./EngineAccess";
 import { can, engineName, instanceLabel, isContainer, sortInstances } from "./engines";
@@ -136,10 +137,13 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
     return () => window.clearTimeout(timer);
   }, [listed]);
 
-  const all = useMemo(() => list.data?.databases ?? [], [list.data]);
+  const everything = useMemo(() => list.data?.databases ?? [], [list.data]);
+  // The team the operator works in narrows the list, and the project and environment filters narrow it further.
+  const owner = useOwnerScope(everything, search);
+  const all = owner.inTeam;
   const byPolicy = useMemo(() => policiesById(policies.data), [policies.data]);
   const newest = useMemo(() => newestDumps(dumps.data?.backups), [dumps.data]);
-  const shown = useMemo(() => filterDatabases(all, search, byPolicy), [all, search, byPolicy]);
+  const shown = useMemo(() => filterDatabases(owner.shown, search, byPolicy), [owner.shown, search, byPolicy]);
   // The server's own engines, then each instance in a container, named by where it runs so two
   // PostgreSQLs are told apart.
   const engineOptions = useMemo(
@@ -153,6 +157,8 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
     if (next.q) clean.q = next.q;
     if (next.engine) clean.engine = next.engine;
     if (next.backups) clean.backups = next.backups;
+    if (next.project) clean.project = next.project;
+    if (next.environment) clean.environment = next.environment;
     onSearchChange(clean, { replace });
   };
   const clear = (): void => onSearchChange({});
@@ -162,8 +168,8 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   useEffect(() => {
     if (!opening) return;
     openCreate();
-    const { q, engine, backups } = search;
-    onSearchChange({ ...(q ? { q } : {}), ...(engine ? { engine } : {}), ...(backups ? { backups } : {}) }, { replace: true });
+    const { q, engine, backups, project, environment } = search;
+    onSearchChange({ ...(q ? { q } : {}), ...(engine ? { engine } : {}), ...(backups ? { backups } : {}), ...(project ? { project } : {}), ...(environment ? { environment } : {}) }, { replace: true });
     // Once per arrival: what it reads is what it was opened with.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [opening]);
@@ -241,6 +247,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
             ]}
             className="min-w-40"
           />
+          {owner.filters(search, (patch) => set({ project: patch.project, environment: patch.environment }))}
         </>
       }
       {...(count !== undefined ? { count } : {})}
@@ -262,7 +269,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
   // open-port check reads the firewall and can take seconds, and rows the operator can already
   // use are worth a notice that moves them once.
   const settling = (policies.isPending || exposure.isPending) && list.data !== undefined && !settleExpired;
-  const loading = list.isPending || settling;
+  const loading = list.isPending || settling || owner.loading;
 
   if (!loading && all.length === 0 && problems.length > 0) {
     return (
@@ -313,6 +320,7 @@ export function DatabasesPage({ search, onSearchChange }: DatabasesPageProps) {
         key={loading ? "placeholder" : "rows"}
         loading={loading}
         databases={loading ? [] : shown}
+        owner={{ scope: owner.scope, labels: owner.labels }}
         engines={engines.data?.engines}
         policies={byPolicy}
         dumps={newest}

@@ -70,6 +70,8 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/fleet/servers", "/fleet/servers"],
   ["/fleet/updates", "/fleet/updates"],
   ["/integrations/github/callback", "/integrations/github/callback"],
+  ["/projects", "/projects"],
+  ["/projects/$team/$project", "/projects/acme/web"],
   ["/server", "/server"],
   ["/server/logs", "/server/logs"],
   ["/server/security", "/server/security"],
@@ -95,6 +97,10 @@ const PAGES: readonly (readonly [route: string, address: string])[] = [
   ["/settings/security", "/settings/security"],
   ["/settings/servers", "/settings/servers"],
   ["/settings/tokens", "/settings/tokens"],
+  ["/teams", "/teams"],
+  ["/teams/$team", "/teams/acme"],
+  ["/teams/$team/members", "/teams/acme/members"],
+  ["/teams/$team/settings", "/teams/acme/settings"],
 ];
 
 /** Routes outside the console's shell: before there is a session there is no page to wait on. */
@@ -117,6 +123,7 @@ const NOTHING_LEFT_TO_WAIT_FOR: Readonly<Record<string, string>> = {
   "/apps/$domain/settings/delete": "the danger zone of the application the layout read",
   "/apps/$domain/settings/export": "an action on the application the layout read",
   "/apps/$domain/settings/resources": "a form of the application the layout read; the machine's core count only refines a hint",
+  "/teams/$team/settings": "a form of the team the layout read",
 };
 
 /**
@@ -143,7 +150,10 @@ const APP = {
  * mounted and its own pending state is what is on screen, not the layout's. The key of an
  * answer is a path, with the query parameters the request must carry.
  */
+const TEAM = { id: 2, slug: "acme", name: "Acme Corp", role: "owner", created_at: 1_790_100_000, resources: {}, members: 1, projects: 1 };
+
 const BEHIND_A_LAYOUT: readonly (readonly [route: string, answers: Readonly<Record<string, unknown>>])[] = [
+  ["/teams/$team", { "/api/teams/acme": TEAM }],
   [
     "/apps/$domain",
     {
