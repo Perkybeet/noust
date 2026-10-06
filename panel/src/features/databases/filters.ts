@@ -16,6 +16,11 @@ export interface DatabasesSearch {
   q?: string;
   engine?: string;
   backups?: BackupFilter;
+  /**
+   * Opens the New database dialog on arrival (the command palette's "New database"). It is not
+   * a filter and is dropped as soon as it has been used, so it never stays in the address.
+   */
+  new?: true;
 }
 
 function text(value: unknown): string | undefined {
@@ -33,6 +38,7 @@ export function validateDatabasesSearch(search: Record<string, unknown>): Databa
   const engine = text(search["engine"]);
   const backups = text(search["backups"]);
   return {
+    ...(search["new"] === true || search["new"] === "true" || search["new"] === 1 ? { new: true as const } : {}),
     ...(q !== undefined ? { q } : {}),
     // An engine, or an instance of one in a container (`postgresql@proggest.postgres`).
     ...(engine !== undefined && /^[a-z]+(@[a-z0-9_.-]+)?$/.test(engine) ? { engine } : {}),

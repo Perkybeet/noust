@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { Box, Keyboard, Landmark, LogOut, Monitor, Moon, Network, Plus, Server, Sun } from "lucide-react";
+import { BookOpen, Box, Database, FileUp, Keyboard, Landmark, LogOut, Monitor, Moon, Network, Plus, Server, Sun, Unplug } from "lucide-react";
 import { useMemo } from "react";
 
-import { appsQuery } from "../api/queries/apps";
+import { appTypesQuery, appsQuery } from "../api/queries/apps";
 import { sessionQuery } from "../api/queries/auth";
 import { appStatus } from "../components/page/status";
+import { typeName } from "../features/apps/data";
 import { useSignOut } from "../features/auth/useSignOut";
 import { field, fleetViewQuery, originOf } from "../features/fleet/data";
 import { useT } from "../i18n";
@@ -16,6 +17,9 @@ import { useHasFleet, useServerList } from "../nodes/servers";
 import { useConsoleContext, useNode, useSwitchNode } from "../nodes/useNode";
 import type { Command } from "./CommandPalette";
 import { FLEET_ITEM, FLEET_TABS, NAV_GROUPS, SETTINGS_ITEM, SETTINGS_TABS } from "./nav";
+import { resourceCommands } from "./resourceCommands";
+import type { NavTarget } from "./resourceCommands";
+import { useResourceIndex } from "./useResourceIndex";
 import { useTheme } from "./theme";
 import type { ThemeChoice } from "./theme";
 
@@ -28,8 +32,10 @@ const THEME_ACTION_LABEL: Record<ThemeChoice, PlainKey> = {
 };
 
 /**
- * What the palette can do: every page, every application (loaded when the palette opens), the
- * other servers and contexts, and the actions that are not a page. On the fleet's pages the
+ * What the palette can do: every page and every settings section; every application, database,
+ * site, certificate, service and recent deployment of the server on screen (read when the
+ * palette opens, through the console's own queries: `useResourceIndex`); the other servers and
+ * contexts; and the actions, the ones that create something first. On the fleet's pages the
  * applications are every server's, each named with its server and opening there.
  */
 export function useConsoleCommands(open: boolean, openShortcuts: () => void): Command[] {
@@ -41,7 +47,9 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
   const hasFleet = useHasFleet();
   const onFleet = context.kind === "fleet";
   const { data: apps } = useQuery({ ...appsQuery(), enabled: open && !onFleet });
+  const { data: types } = useQuery({ ...appTypesQuery(), enabled: open && !onFleet, retry: false });
   const { data: fleetApps } = useQuery({ ...fleetViewQuery("apps"), enabled: open && onFleet });
+  const index = useResourceIndex(open, !onFleet);
   const { node } = useNode();
   const switchNode = useSwitchNode();
   const { nodes, hostname } = useServerList();
@@ -50,6 +58,13 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
   return useMemo(() => {
     const go = (to: string, params?: Record<string, string>) => () => {
       void navigate({ to, ...(params ? { params: params as never } : {}) });
+    };
+    const openPage = (target: NavTarget): void => {
+      void navigate({
+        to: target.to,
+        ...(target.params ? { params: target.params as never } : {}),
+        ...(target.search ? { search: target.search as never } : {}),
+      });
     };
 
     const pages: Command[] = [...NAV_GROUPS.flat(), FLEET_ITEM, SETTINGS_ITEM].map((item) => {
@@ -72,7 +87,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
       if (tab.permission !== undefined && !(permissions?.includes(tab.permission) ?? false)) continue;
       pages.push({
         id: `page:${tab.to}`,
-        group: "Pages",
+        group: "Settings",
         label: t(tab.command),
         icon: settingsIcon,
         kind: "navigate",
@@ -117,17 +132,27 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
             },
           ];
         })
-      : (apps?.apps ?? []).map((app) => ({
-          id: `app:${app.domain}`,
-          group: "Applications",
-          label: app.domain,
-          icon: <Box />,
-          keywords: [app.name, app.app_type ?? ""].join(" "),
-          status: appStatus(app.status).state,
-          kind: "navigate",
-          run: go("/apps/$domain", { domain: app.domain }),
-        }));
+      : (apps?.apps ?? []).map((app) => {
+          // "Next.js" for `nextjs`: found by either, shown as the one a person reads.
+          const typeLabel = app.app_type ? typeName(types?.types ?? [], app.app_type) : null;
+          return {
+            id: `app:${app.domain}`,
+            group: "Applications",
+            label: app.domain,
+            ...(typeLabel !== null ? { detail: typeLabel } : {}),
+            icon: <Box />,
+            keywords: [app.name, app.app_type ?? ""].join(" "),
+            status: appStatus(app.status).state,
+            kind: "navigate",
+            run: go("/apps/$domain", { domain: app.domain }),
+          };
+        });
 
+    const resources = resourceCommands(index, { t, navigate: openPage });
+
+    const startWizard = (start: "recipe" | "import" | "adopt") => () => {
+      void navigate({ to: "/apps/new", search: { start } as never });
+    };
     const actions: Command[] = [
       {
         id: "action:new-app",
@@ -137,6 +162,45 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
         keywords: t("shell.commands.newApplicationKeywords"),
         kind: "navigate",
         run: go("/apps/new"),
+      },
+      // The wizard's other ways in: the same page, started on the step that is the way.
+      {
+        id: "action:new-from-recipe",
+        group: "Actions",
+        label: t("shell.commands.newFromRecipe"),
+        icon: <BookOpen />,
+        keywords: t("shell.commands.newFromRecipeKeywords"),
+        kind: "navigate",
+        run: startWizard("recipe"),
+      },
+      {
+        id: "action:import-app",
+        group: "Actions",
+        label: t("shell.commands.importApplication"),
+        icon: <FileUp />,
+        keywords: t("shell.commands.importApplicationKeywords"),
+        kind: "navigate",
+        run: startWizard("import"),
+      },
+      {
+        id: "action:adopt-stack",
+        group: "Actions",
+        label: t("shell.commands.adoptStack"),
+        icon: <Unplug />,
+        keywords: t("shell.commands.adoptStackKeywords"),
+        kind: "navigate",
+        run: startWizard("adopt"),
+      },
+      {
+        id: "action:new-database",
+        group: "Actions",
+        label: t("shell.commands.newDatabase"),
+        icon: <Database />,
+        keywords: t("shell.commands.newDatabaseKeywords"),
+        kind: "navigate",
+        run: () => {
+          void navigate({ to: "/databases", search: { new: true } as never });
+        },
       },
       {
         id: "action:add-server",
@@ -202,7 +266,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
               ? [
                   {
                     id: "server:all",
-                    group: "Actions" as const,
+                    group: "Servers" as const,
                     label: t("fleet.selector.viewAll"),
                     icon: <Network />,
                     keywords: t("fleet.selector.keywords"),
@@ -219,7 +283,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
               ? [
                   {
                     id: "server:central",
-                    group: "Actions" as const,
+                    group: "Servers" as const,
                     label: t("fleet.selector.viewCentral", { name: thisServerName }),
                     icon: <Landmark />,
                     keywords: t("fleet.selector.keywords"),
@@ -236,7 +300,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
               ? [
                   {
                     id: "server:this",
-                    group: "Actions" as const,
+                    group: "Servers" as const,
                     label: t("fleet.selector.switchToThisServer", { name: thisServerName }),
                     icon: <Server />,
                     keywords: t("fleet.selector.keywords"),
@@ -249,7 +313,7 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
               .filter((candidate) => context.kind !== "server" || candidate.name !== node)
               .map((candidate) => ({
                 id: `server:${candidate.name}`,
-                group: "Actions" as const,
+                group: "Servers" as const,
                 label: t("fleet.selector.switchTo", { name: candidate.name }),
                 icon: <Server />,
                 keywords: t("fleet.selector.keywords"),
@@ -258,6 +322,6 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
               })),
           ];
 
-    return [...pages, ...applications, ...servers, ...actions];
-  }, [apps, fleetApps, onFleet, navigate, theme, setTheme, openShortcuts, signOut, t, node, nodes, hostname, switchNode, hasFleet, context.kind, permissions]);
+    return [...pages, ...applications, ...resources, ...servers, ...actions];
+  }, [apps, types, index, fleetApps, onFleet, navigate, theme, setTheme, openShortcuts, signOut, t, node, nodes, hostname, switchNode, hasFleet, context.kind, permissions]);
 }

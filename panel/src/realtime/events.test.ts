@@ -3,7 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { configureApi } from "../api/client";
 import { appKeys } from "../api/queries/apps";
+import { certKeys } from "../api/queries/certs";
+import { databaseKeys } from "../api/queries/databases";
 import { jobKeys } from "../api/queries/jobs";
+import { serviceKeys } from "../api/queries/services";
+import { siteKeys } from "../api/queries/sites";
 import { systemKeys } from "../api/queries/system";
 import { toast } from "../components/ui/toast";
 import { ANONYMOUS, FakeEventSource, MACHINE, fakeBackend, json } from "../test/fakes";
@@ -54,6 +58,22 @@ describe("applyServerEvent", () => {
     client.setQueryData(appKeys.detail("shop.example.com"), { domain: "shop.example.com" });
     applyServerEvent(client, "job", { id: "j1", status: "completed", metadata: { domain: "shop.example.com" } });
     expect(client.getQueryState(appKeys.detail("shop.example.com"))?.isInvalidated).toBe(true);
+  });
+
+  it("marks the lists the command palette indexes stale when a job ends, because it created or removed something", () => {
+    const client = new QueryClient();
+    const lists = [databaseKeys.list(null), siteKeys.all, certKeys.all, serviceKeys.list(true)];
+    for (const key of lists) client.setQueryData(key, { items: [] });
+
+    // Not while it runs: nothing it did is on disk yet, and a refetch would show the old picture.
+    applyServerEvent(client, "job", { id: "j1", status: "running", metadata: { domain: "shop.example.com" } });
+    for (const key of lists) expect(client.getQueryState(key)?.isInvalidated, JSON.stringify(key)).toBe(false);
+
+    for (const status of ["completed", "failed", "cancelled"]) {
+      for (const key of lists) client.setQueryData(key, { items: [] });
+      applyServerEvent(client, "job", { id: `j-${status}`, status, metadata: { domain: "shop.example.com" } });
+      for (const key of lists) expect(client.getQueryState(key)?.isInvalidated, `${status} ${JSON.stringify(key)}`).toBe(true);
+    }
   });
 
   it("shows a notice in the system's words, as an error when something failed", () => {

@@ -24,6 +24,31 @@ function listRegion(): HTMLElement {
   return screen.getByRole("region", { name: "Databases" });
 }
 
+describe("the databases list, opened to create one", () => {
+  /** The page behind the dialog is inert while it is open, so there is no heading to wait for. */
+  function createdAt(path: string) {
+    screenWidth(1440);
+    fakeBackend(databaseRoutes());
+    return renderConsole(path);
+  }
+
+  it("opens the New database dialog when the link says so (the palette's create command), once", async () => {
+    const { location, user } = createdAt("/databases?new=true");
+    const dialog = await screen.findByRole("dialog", { name: "New database" });
+    // The link is spent: going back, or reloading, does not ask the same question again.
+    await waitFor(() => expect(location().search).toEqual({}));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(dialog).not.toBeInTheDocument());
+    expect(screen.queryByRole("dialog", { name: "New database" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the filters it was given when it opens the dialog", async () => {
+    const { location } = createdAt("/databases?engine=postgresql&new=true");
+    await screen.findByRole("dialog", { name: "New database" });
+    await waitFor(() => expect(location().search).toEqual({ engine: "postgresql" }));
+  });
+});
+
 describe("the databases list", () => {
   it("lists each database with whether it is backed up, its engine, who uses it and its newest dump", async () => {
     const { table } = await listAt();

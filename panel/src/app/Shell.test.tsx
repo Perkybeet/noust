@@ -69,7 +69,7 @@ describe("keyboard", () => {
   it("opens the palette with Ctrl+K, filters, and opens the page with Enter", async () => {
     const { user, location } = await shellAt("/apps");
     await user.keyboard("{Control>}k{/Control}");
-    const input = await screen.findByRole("combobox", { name: "Search pages, applications and actions" });
+    const input = await screen.findByRole("combobox", { name: "Search apps, databases, domains, servers, settings and actions" });
     await user.type(input, "datab");
     await user.keyboard("{Enter}");
     await screen.findByRole("heading", { level: 1, name: "Databases" });
@@ -96,7 +96,7 @@ describe("keyboard", () => {
     if (!trigger) throw new Error("No search trigger");
     await user.click(trigger);
     // Named: the applications page has comboboxes of its own (its filters).
-    const palette = { name: "Search pages, applications and actions" };
+    const palette = { name: "Search apps, databases, domains, servers, settings and actions" };
     await screen.findByRole("combobox", palette);
     await user.keyboard("{Escape}");
     await waitFor(() => {

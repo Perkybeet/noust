@@ -1035,7 +1035,15 @@ at most one action. Success is said sparingly: only when it is not evident from 
 
 ### 6.13 Keyboard and real time
 
-`Ctrl/Cmd K` opens the command palette; `g` then a letter goes to a section; `/` focuses the
+`Ctrl/Cmd K` opens the command palette, which finds anything the console lists, by any name
+it answers to (checklist M-23): pages and settings sections; applications (domain, name, type
+as a person says it); databases; sites; certificates; services; servers; the newest
+deployments (by application, commit or message); and the create commands (New application,
+from a recipe, import, adopt, New database, Add a server). Each result is in its group, with
+what tells two of one name apart beside it (a type, a time left). Its lists are the console's
+own, read when it is first opened and only those the account may read, and a finished job
+marks them stale (`applyServerEvent`); nothing is read until it is opened. `g` then a letter
+goes to a section; `/` focuses the
 page's search; `?` lists the shortcuts. No single-key shortcut acts unless the focus is in a
 list or table. Every shortcut is in the shortcuts dialog and in its control's tooltip. A live
 stream's state ("Live", "Reconnecting") uses a `StatusGlyph` and a word; numbers that change
