@@ -72,6 +72,9 @@ const SERVER_TEXT: readonly { page: string; text: RegExp; origin: string }[] = [
   // A recipe's name is the product's, marked as such on its card; its heading wraps the marked
   // span, so the page's text still holds the name, which here reads like "Open {name}".
   { page: "/apps/new (recipe)", text: /^Open WebUI$/, origin: "a recipe's name" },
+  { page: "catalog", text: /^Open WebUI$/, origin: "a recipe's name" },
+  // The deployer registry's display name of a type, which the application's header shows as the server wrote it.
+  { page: "container settings", text: /^Container$/, origin: "deployers/container.py DISPLAY_NAME" },
 ];
 
 /**

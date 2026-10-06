@@ -229,7 +229,7 @@ export function RecipeDetailPage({ name }: { name: string }) {
                   {recipe.tags.length > 0 ? (
                     <ul aria-label={t("catalog.card.tags")} className="flex flex-wrap gap-1.5">
                       {recipe.tags.map((tag) => (
-                        <li key={tag}>
+                        <li key={tag} translate="no">
                           <Badge>{tag}</Badge>
                         </li>
                       ))}

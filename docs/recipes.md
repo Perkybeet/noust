@@ -50,6 +50,15 @@ stack of pinned images behind nginx, deployed by the Compose deployer. A native 
 pinned source (a git tag, or an archive and its checksum) built by one of Noust's deployers and run
 by a systemd unit.
 
+### In the console
+
+The console's **Catalog** page (`/catalog`, `g` `c`) is this catalogue: a card per recipe with its
+logo, slogan, category, tags, version and the date it changed, search and the category, tag and kind
+filters (the API's own, kept in the address), and paging at 20, 50, 100 or all. **Details** opens
+a recipe's page; **Use** opens the new-application wizard on that recipe, with the variables it
+cannot run without in front. **Installed** is `noust recipe outdated` with an **Update** that queues
+`noust recipe update` as a job. See [console.md](console.md#catalog).
+
 ### What a Docker recipe never does
 
 Its Compose document is read through a closed schema, the way a repository's file would be, and a

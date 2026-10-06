@@ -23,7 +23,7 @@ import type { Page } from "@playwright/test";
 
 import { expect, expectNoA11yViolations, settle, signIn, test } from "./fixtures";
 
-const ROUTES = ["/", "/apps", "/apps/shop.example.net", "/apps/shop.example.net/settings", "/backups", "/domains", "/settings"];
+const ROUTES = ["/", "/apps", "/apps/shop.example.net", "/apps/shop.example.net/settings", "/apps/shop.example.net/settings/build", "/backups", "/catalog", "/catalog/vaultwarden", "/domains", "/settings"];
 
 /**
  * Views that still show more than one primary button, and how many: the debt wave 2 pays by

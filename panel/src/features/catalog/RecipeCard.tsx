@@ -99,7 +99,7 @@ export function RecipeCard({ recipe, opening = false, disabled = false, onChoose
         {shown.length > 0 ? (
           <ul aria-label={t("catalog.card.tags")} className="flex flex-wrap items-center gap-1.5">
             {shown.map((tag) => (
-              <li key={tag} className="text-12 text-fg-muted">
+              <li key={tag} translate="no" className="text-12 text-fg-muted">
                 <span aria-hidden="true">#</span>
                 {tag}
               </li>
