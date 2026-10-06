@@ -572,7 +572,7 @@ class TestSchemaV12Migration:
 
         store = NoustStore(db_path, fs=RecordingFileSystem())
 
-        assert _raw_max_version(db_path) == SCHEMA_VERSION == 13
+        assert _raw_max_version(db_path) == SCHEMA_VERSION == 14
         assert store.get_app("v8.example.com") is not None
 
     def test_the_fresh_schema_and_the_migration_agree_on_every_table(self, fresh, tmp_path):
@@ -640,6 +640,132 @@ class TestSchemaV13Migration:
             store._migrate_v12_to_v13(cursor)
 
         assert {table: _raw_columns(db_path, table) for table in _raw_tables(db_path)} == before
+
+
+class TestSchemaV14Migration:
+    """Schema v14: one fragment per 3.4 area, empty until each lane fills its own."""
+
+    # What a lane would add: a table, an index on it and a column on an older table.
+    SQL = """
+    CREATE TABLE IF NOT EXISTS v14_probe (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
+    CREATE INDEX IF NOT EXISTS idx_v14_probe_name ON v14_probe(name);
+    """
+    COLUMNS = [("apps", "v14_probe_column", "TEXT")]
+
+    def _fill_an_area(self, monkeypatch):
+        monkeypatch.setattr(store_module.schema_v14, "TEAMS_SQL", self.SQL)
+        monkeypatch.setattr(store_module.schema_v14, "TEAMS_COLUMNS", self.COLUMNS)
+
+    def _downgrade_to_v13(self, db_path):
+        conn = sqlite3.connect(db_path)
+        try:
+            # A fresh store records one row, the current version: stamp it as v13.
+            conn.execute("UPDATE schema_version SET version = 13 WHERE version > 13")
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_a_fresh_store_is_at_v14(self, fresh, tmp_path):
+        db_path = tmp_path / "noust.db"
+
+        NoustStore(db_path, fs=RecordingFileSystem())
+
+        assert _raw_max_version(db_path) == SCHEMA_VERSION == store_module.schema_v14.VERSION == 14
+
+    def test_a_v13_store_climbs_to_v14_and_keeps_its_rows(self, fresh, tmp_path):
+        db_path = tmp_path / "noust.db"
+        store = NoustStore(db_path, fs=RecordingFileSystem())
+        store.create_app(App(domain="shop.example.com", app_type="nextjs", app_path="/opt/shop"))
+        NoustStore.reset_instance()
+        self._downgrade_to_v13(db_path)
+        assert _raw_max_version(db_path) == 13
+
+        store = NoustStore(db_path, fs=RecordingFileSystem())
+
+        assert _raw_max_version(db_path) == 14
+        assert store.get_app("shop.example.com") is not None
+
+    def test_the_climb_from_v13_applies_what_an_area_declares(self, fresh, tmp_path, monkeypatch):
+        db_path = tmp_path / "noust.db"
+        NoustStore(db_path, fs=RecordingFileSystem())
+        NoustStore.reset_instance()
+        self._downgrade_to_v13(db_path)
+        self._fill_an_area(monkeypatch)
+
+        NoustStore(db_path, fs=RecordingFileSystem())
+
+        assert _raw_max_version(db_path) == 14
+        assert "v14_probe" in _raw_tables(db_path)
+        assert "v14_probe_column" in _raw_columns(db_path, "apps")
+
+    def test_a_fresh_store_creates_what_an_area_declares(self, fresh, tmp_path, monkeypatch):
+        self._fill_an_area(monkeypatch)
+        db_path = tmp_path / "noust.db"
+
+        NoustStore(db_path, fs=RecordingFileSystem())
+
+        assert "v14_probe" in _raw_tables(db_path)
+        assert "v14_probe_column" in _raw_columns(db_path, "apps")
+
+    def test_the_v14_step_is_idempotent(self, fresh, tmp_path, monkeypatch):
+        db_path = tmp_path / "noust.db"
+        store = NoustStore(db_path, fs=RecordingFileSystem())
+        self._fill_an_area(monkeypatch)
+        with store._ddl_transaction() as cursor:
+            store._migrate_v13_to_v14(cursor)
+        before = {table: _raw_columns(db_path, table) for table in _raw_tables(db_path)}
+
+        with store._ddl_transaction() as cursor:
+            store._migrate_v13_to_v14(cursor)
+
+        assert {table: _raw_columns(db_path, table) for table in _raw_tables(db_path)} == before
+
+
+class TestAStoreStampedV14WithoutItsTables:
+    """A build of 3.4 that stamped 14 before every area had its fragment."""
+
+    def test_the_missing_tables_columns_and_indexes_are_added_on_open(
+        self, fresh, tmp_path, monkeypatch
+    ):
+        db_path = tmp_path / "noust.db"
+        NoustStore(db_path, fs=RecordingFileSystem())
+        NoustStore.reset_instance()
+        assert _raw_max_version(db_path) == 14
+        # The fragment arrives after the store was stamped: the version row alone
+        # would say there is nothing to climb.
+        monkeypatch.setattr(
+            store_module.schema_v14,
+            "BACKUPS_SQL",
+            """
+            CREATE TABLE IF NOT EXISTS v14_late (id INTEGER PRIMARY KEY, kind TEXT);
+            CREATE INDEX IF NOT EXISTS idx_v14_late_kind ON v14_late(kind);
+            """,
+        )
+        monkeypatch.setattr(
+            store_module.schema_v14, "BACKUPS_COLUMNS", [("apps", "v14_late_column", "TEXT")]
+        )
+
+        NoustStore(db_path, fs=RecordingFileSystem())
+
+        assert "v14_late" in _raw_tables(db_path)
+        assert "v14_late_column" in _raw_columns(db_path, "apps")
+        conn = sqlite3.connect(db_path)
+        try:
+            indexes = {row[0] for row in conn.execute("SELECT name FROM sqlite_master")}
+        finally:
+            conn.close()
+        assert "idx_v14_late_kind" in indexes
+        assert _raw_max_version(db_path) == 14
+
+    def test_a_complete_v14_store_is_left_alone(self, fresh, tmp_path, caplog):
+        db_path = tmp_path / "noust.db"
+        NoustStore(db_path, fs=RecordingFileSystem())
+        NoustStore.reset_instance()
+
+        with caplog.at_level("WARNING"):
+            NoustStore(db_path, fs=RecordingFileSystem())
+
+        assert "without all of v14's tables" not in caplog.text
 
 
 class TestV13Setters:

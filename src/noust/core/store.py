@@ -36,7 +36,7 @@ from pathlib import Path
 from typing import Any, NoReturn, Optional, TypeVar
 from urllib.parse import quote
 
-from noust.core import paths, schema_v12, schema_v13
+from noust.core import paths, schema_v12, schema_v13, schema_v14
 from noust.core.exceptions import DomainConflictError, DomainError, NoustError, ValidationError
 from noust.core.fs import (
     SECRET_DIR_MODE,
@@ -1074,7 +1074,7 @@ def _decode_object(raw: Any) -> dict[str, Any]:
 
 
 # Schema version for migrations
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 
 _DEPLOYMENT_STATUSES_SQL = ", ".join(f"'{status.value}'" for status in DeploymentStatus)
 _DEPLOYMENT_TRIGGERS_SQL = ", ".join(f"'{trigger.value}'" for trigger in DeploymentTrigger)
@@ -1872,11 +1872,16 @@ class NoustStore:
                 # The climb to v13 alters v12's tables (build_sandbox): a store an
                 # intermediate 3.1 build stamped 12 without them is completed first.
                 self._complete_v12()
+            if current >= schema_v13.VERSION:
+                # The same for the climb to v14, which may alter v13's tables.
+                self._complete_v13()
             self._run_migrations(current)
         elif current >= schema_v12.VERSION:
             self._complete_v12()
             if current >= schema_v13.VERSION:
                 self._complete_v13()
+            if current >= schema_v14.VERSION:
+                self._complete_v14()
 
     def _schema_version(self) -> int | None:
         """
@@ -1970,6 +1975,20 @@ class NoustStore:
         with self._ddl_transaction() as ddl:
             schema_v13.apply_v13(ddl, _run_script)
 
+    def _complete_v14(self) -> None:
+        """
+        Add what a v14 store lacks of v14, when it lacks anything.
+
+        The same guard as :meth:`_complete_v13`, for a build of 3.4 that
+        stamped v14 before every area had its fragment.
+        """
+        cursor = self._get_connection().cursor()
+        if not schema_v14.incomplete(cursor):
+            return
+        logger.warning("The store is at v14 without all of v14's tables; adding them")
+        with self._ddl_transaction() as ddl:
+            schema_v14.apply_v14(ddl, _run_script)
+
     def _create_fresh_schema(self) -> bool:
         """
         Create every table at the current version, for a database that has none.
@@ -1993,6 +2012,7 @@ class NoustStore:
             # v12 is one function for fresh and upgraded stores alike.
             schema_v12.apply_v12(cursor, _run_script)
             schema_v13.apply_v13(cursor, _run_script)
+            schema_v14.apply_v14(cursor, _run_script)
             cursor.execute("INSERT INTO schema_version (version) VALUES (?)", (SCHEMA_VERSION,))
         return True
 
@@ -2046,6 +2066,7 @@ class NoustStore:
             11: self._migrate_v10_to_v11,
             12: self._migrate_v11_to_v12,
             13: self._migrate_v12_to_v13,
+            14: self._migrate_v13_to_v14,
         }
 
         for version in range(from_version + 1, SCHEMA_VERSION + 1):
@@ -2248,6 +2269,18 @@ class NoustStore:
             cursor: Cursor the migration runs on.
         """
         schema_v13.apply_v13(cursor, _run_script)
+
+    def _migrate_v13_to_v14(self, cursor: sqlite3.Cursor) -> None:
+        """
+        Add everything Noust 3.4 stores (schema v14).
+
+        The tables and columns live in :mod:`noust.core.schema_v14`, one
+        fragment per area of the release.
+
+        Args:
+            cursor: Cursor the migration runs on.
+        """
+        schema_v14.apply_v14(cursor, _run_script)
 
     # =========================================================================
     # Application CRUD
