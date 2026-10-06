@@ -93,6 +93,7 @@ como `ens-medium` (falla hacia lo estricto). Cambiarlo queda en la auditoría.
 | Verificación de copias (`backup.verify_days`) | 7 días | 7 días como máximo, no desactivable | mp.info.6.r1 |
 | Certificado de la consola | cualquiera | del operador (el autofirmado es un fallo en `ens check`) | mp.com.2.r1, mp.com.3.r2 |
 | Lista de acceso a la consola (`web.ip_whitelist`, `NOUST_ALLOW_IP`) | opcional | explícita si escucha fuera de loopback | mp.com.1, op.acc.4.5 |
+| Publicar la consola en un nombre público (`noust console expose`) | permitido, con segundo factor en todas las cuentas | rechazado salvo `--force-ens` con confirmación y una lista de IP (queda auditado) | mp.com.1, op.acc.4.5 |
 
 Ajustes de seguridad relacionados que no dependen del perfil:
 

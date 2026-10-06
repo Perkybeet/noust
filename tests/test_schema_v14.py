@@ -24,8 +24,14 @@ AREAS = (
 
 
 @pytest.fixture(autouse=True)
-def no_area_declares_anything(monkeypatch):
-    """The mechanism is tested on its own: what each lane declares is that lane's to test."""
+def mechanism_only(monkeypatch):
+    """
+    Empty every area's fragment: these tests are about the mechanism.
+
+    What a lane writes in its own fragment is tested by that lane, against the real
+    fragment (the console's exposure, ``tests/test_console_exposure_store.py``), so a
+    lane filling its pair cannot break the tests of the helpers that gather them.
+    """
     for area in AREAS:
         monkeypatch.setattr(schema_v14, f"{area}_SQL", "")
         monkeypatch.setattr(schema_v14, f"{area}_COLUMNS", [])
@@ -46,6 +52,19 @@ def cursor():
     cur.execute("CREATE TABLE apps (id INTEGER PRIMARY KEY, domain TEXT)")
     yield cur
     conn.close()
+
+
+@pytest.fixture(autouse=True)
+def unfilled_areas(monkeypatch):
+    """
+    Every area as the foundation left it: empty.
+
+    These tests are about the fragment machinery, not about what any lane put in
+    its own fragment (each lane's tests cover that), so they run over empty ones.
+    """
+    for area in AREAS:
+        monkeypatch.setattr(schema_v14, f"{area}_SQL", "")
+        monkeypatch.setattr(schema_v14, f"{area}_COLUMNS", [])
 
 
 def _declare(monkeypatch, area: str = "TEAMS") -> None:

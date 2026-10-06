@@ -59,7 +59,7 @@ import sys
 import time
 from argparse import ArgumentParser, Namespace
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
@@ -1970,6 +1970,39 @@ class ConsoleService:
     port: int
 
 
+def _keeping_published_console(options: StartOptions) -> StartOptions:
+    """
+    Keep the trusted proxy a published console depends on when its unit is written again.
+
+    ``noust console expose`` makes the service believe nginx's forwarding
+    headers with ``--trusted-proxy``. Anything that writes the unit afterwards
+    (``noust web enable`` with other options, a server becoming a node) is given
+    options that do not name it, and without it every client is the loopback
+    address and no cookie is ``Secure``: the exposure would keep answering and
+    stop being safe. This is the one place the unit is written, so this is where
+    it is kept.
+
+    Args:
+        options: What the caller asked the unit to be.
+
+    Returns:
+        The same options, with the exposure's proxy added when one is recorded
+        and they do not already trust it.
+    """
+    import sqlite3
+
+    from noust.core.console_exposure_store import ConsoleExposureStore
+
+    try:
+        state = ConsoleExposureStore().get()
+    except (NoustError, sqlite3.Error) as exc:
+        log.debug("Could not read whether the console is published: %s", exc)
+        return options
+    if state is None or state.proxy_added is None or state.proxy_added in options.trusted_proxy:
+        return options
+    return replace(options, trusted_proxy=(*options.trusted_proxy, state.proxy_added))
+
+
 def _install_and_start(
     options: StartOptions,
     config: SecurityConfig,
@@ -2003,7 +2036,7 @@ def _install_and_start(
             PATH, or the service does not come up (the journal in the details).
     """
     host = config.host
-    exec_start = _service_exec_start(options)
+    exec_start = _service_exec_start(_keeping_published_console(options))
 
     if options.self_signed:
         if dry_run:
@@ -2225,6 +2258,104 @@ def enable_loopback_service(
         dry_run=dry_run,
         issue_token=issue_token or not master_token_exists(config),
     )
+
+
+def change_trusted_proxies(
+    *,
+    add: Sequence[str] = (),
+    remove: Sequence[str] = (),
+    verbose: bool = False,
+) -> bool:
+    """
+    Add or remove peers whose forwarding headers the console service believes.
+
+    A console behind nginx must read the client's address and the scheme from
+    ``X-Forwarded-For`` and ``X-Forwarded-Proto`` (the rate limit, the lockout,
+    the ``Secure`` cookie and the passkey origin all depend on them), and it
+    believes those headers only from a peer it was started with
+    ``--trusted-proxy``. This rewrites the service's ``ExecStart`` with the
+    change and keeps every other option it has; the new unit applies from the
+    console's next restart, which is the caller's to make (a console cannot
+    restart itself in the middle of the request that asked).
+
+    Args:
+        add: Peers to trust, such as ``127.0.0.1``.
+        remove: Peers to stop trusting.
+        verbose: Whether to log verbosely.
+
+    Returns:
+        True when the unit was rewritten; False when it already said this.
+
+    Raises:
+        ServiceError: When the console is not a service of Noust's (a background
+            console, or WASM's unit that has not been migrated), or its unit has no
+            ``ExecStart``.
+    """
+    if _installed_web_unit() == LEGACY_WEB_UNIT:
+        raise ServiceError(
+            f"The console still runs as WASM's {LEGACY_WEB_UNIT}.service",
+            details="Move this server onto Noust's names first: noust migrate-from-wasm.",
+        )
+    unit = _service_unit_path()
+    if not unit.is_file():
+        raise ServiceError(
+            "The console does not run as a service on this server",
+            details="Make it one first: noust web enable. A console started with "
+            "'noust web start' cannot be published.",
+        )
+    exec_start = _unit_exec_start(unit.read_text(encoding="utf-8"))
+    if exec_start is None:
+        raise ServiceError(
+            f"{unit} has no ExecStart line",
+            details="Write it again with: noust web enable",
+        )
+    options = options_from_argv(shlex.split(exec_start))
+    wanted = [peer for peer in options.trusted_proxy if peer not in remove]
+    wanted += [peer for peer in add if peer not in wanted]
+    if tuple(wanted) == options.trusted_proxy:
+        return False
+    changed = replace(options, trusted_proxy=tuple(wanted))
+    _service_manager(verbose).install_unit(
+        WEB_UNIT, WEB_UNIT_TEMPLATE, {"exec_start": _service_exec_start(changed)}
+    )
+    return True
+
+
+def restart_console_service(verbose: bool = False) -> None:
+    """
+    Restart the console service and wait until it serves again.
+
+    The unit is read for the address it binds, so the wait is on the right port
+    whatever ``noust web enable`` was given.
+
+    Args:
+        verbose: Whether to log verbosely.
+
+    Raises:
+        ServiceError: When the service is not installed, or does not come back
+            (the journal is in the details).
+    """
+    unit = _service_unit_path()
+    if not unit.is_file():
+        raise ServiceError(
+            "The console does not run as a service on this server",
+            details="Make it one first: noust web enable.",
+        )
+    exec_start = _unit_exec_start(unit.read_text(encoding="utf-8"))
+    options = options_from_argv(shlex.split(exec_start or ""))
+    manager = _service_manager(verbose)
+    manager.restart(_installed_web_unit())
+    _wait_until_serving(manager, normalize_host(options.host), options.port)
+
+
+def console_service_port() -> tuple[int, str]:
+    """
+    Say where the console service listens on loopback, and over which scheme.
+
+    Returns:
+        The port and ``http`` or ``https`` (the console terminating TLS itself).
+    """
+    return _console_upstream(None)
 
 
 #: How long a background console may take to exit after SIGTERM.

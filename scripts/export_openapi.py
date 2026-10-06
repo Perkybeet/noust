@@ -15,12 +15,13 @@ listening anywhere.
 instead of hand-maintained ones that drift from what the server actually
 returns.
 
-The served schema's ``info.version`` is the running release; the exported
-one carries :data:`EXPORTED_VERSION` instead. The committed file describes the
-shape of the API, which is what ``--check`` compares, and a version stamp in
-it would make ``--check`` fail on every release bump (``scripts/release.py``
-changes the version, not the API) and disagree between a development install
-and a release build of the very same code.
+The served schema's ``info.version`` is the API's version (``1``) and
+``info.x-noust-version`` the running release; the exported file keeps the first
+and carries :data:`EXPORTED_VERSION` in place of the second. The checked-in file
+describes the shape of the API, which is what ``--check`` compares, and a
+release stamp in it would make ``--check`` fail on every release bump
+(``scripts/release.py`` changes the version, not the API) and disagree between
+a development install and a release build of the very same code.
 
 Usage:
     scripts/export_openapi.py            Write panel/openapi.json.
@@ -40,8 +41,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUTPUT = ROOT / "panel" / "openapi.json"
 
-#: What the exported file says in ``info.version``. Not a version on purpose:
-#: see the module docstring.
+#: What the exported file says in ``info.x-noust-version``. Not a version on
+#: purpose: see the module docstring.
 EXPORTED_VERSION = "unversioned"
 
 
@@ -56,7 +57,7 @@ def _build_schema() -> dict[str, Any]:
 
     Returns:
         The OpenAPI document as ``GET /api/openapi.json`` serves it, except
-        for ``info.version``, which is :data:`EXPORTED_VERSION`.
+        for ``info.x-noust-version``, which is :data:`EXPORTED_VERSION`.
     """
     from noust.web.auth import SecurityConfig
     from noust.web.server import create_app
@@ -67,7 +68,7 @@ def _build_schema() -> dict[str, Any]:
         # A copy: app.openapi() caches the document it returns, and the
         # placeholder must not leak into what this process would serve.
         schema = dict(app.openapi())
-        schema["info"] = {**schema["info"], "version": EXPORTED_VERSION}
+        schema["info"] = {**schema["info"], "x-noust-version": EXPORTED_VERSION}
         return schema
 
 

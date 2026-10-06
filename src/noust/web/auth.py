@@ -95,6 +95,7 @@ from noust.web.permissions.roles import (
     permissions_for_role,
     permissions_for_scope,
 )
+from noust.web.versioning import canonical_api_path
 
 logger = logging.getLogger(__name__)
 
@@ -5053,6 +5054,8 @@ def required_scope(method: str, path: str) -> str:
     proxied = _NODE_PROXY_PATH.match(path)
     if proxied is not None:
         path = proxied.group(1)
+    # /api/v1/... is the same route as /api/..., on this server and on a node.
+    path = canonical_api_path(path)
     verb = method.upper()
     if verb in SAFE_METHODS:
         return "read"

@@ -88,12 +88,15 @@ from noust.web.auth import (
 )
 from noust.web.permissions import ALL_PERMISSIONS
 from noust.web.pydantic_compat import dump_model
+from noust.web.versioning import API_PREFIX
 
 #: Requests under this prefix are the JSON API and answer in the contract this
 #: module defines. Everything else - server-rendered pages, the webhook
 #: surface mounted at the application root - keeps whatever shape it already
-#: had; reshaping it would change a response nobody asked to change.
-API_PATH_PREFIX = "/api"
+#: had; reshaping it would change a response nobody asked to change. The
+#: versioned address (``/api/v1``) is rewritten to this one before any of it
+#: runs (:class:`~noust.web.versioning.ApiVersionMiddleware`).
+API_PATH_PREFIX = API_PREFIX
 
 #: ``error`` value for a bare ``HTTPException``, keyed by its status code. A
 #: status this table does not name falls back to :func:`_default_error_for_status`.

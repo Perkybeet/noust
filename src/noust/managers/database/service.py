@@ -189,9 +189,10 @@ class _CredentialOverlay:
 
 
 #: Application types whose deployers provision their own databases (from the
-#: repository's compose file): a database asked for with their first deploy is
+#: repository's compose file), or run where the host's databases are not
+#: reachable (a container): a database asked for with their first deploy is
 #: refused rather than created and never written into their environment.
-OWN_DATABASE_TYPES = frozenset({"monorepo", "docker-compose"})
+OWN_DATABASE_TYPES = frozenset({"monorepo", "docker-compose", "container"})
 
 #: The profile a new application account gets when a link creates it.
 LINK_PROFILE = "owner"

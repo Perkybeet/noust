@@ -9,6 +9,11 @@ source of truth and everything else is derived from it: the noust packages,
 the transitional wasm/wasm-cli packages that carry users of the old name over,
 and the container image.
 
+SECURITY.md is held to the same rule: its table of supported versions must list
+the release's major.minor line as supported, and ``--check`` fails when it does
+not. A release of a new minor version adds its line, keeps the previous one
+until the minor version after it is released, and retires the one before.
+
 Usage:
     scripts/release.py --check          Verify every file agrees. Used by CI.
     scripts/release.py 1.0.0            Set the version everywhere.
@@ -54,6 +59,16 @@ TRANSITIONAL_ENTRY = (
 )
 
 TRANSITIONAL_DIR = "packaging/transitional/wasm"
+
+#: The policy that says which versions get security fixes.
+SECURITY_FILE = "SECURITY.md"
+
+#: One line of its table: ``| 3.3.x | Yes |``, or ``| 3.2.x | Yes, until 3.4.0 is
+#: released |``. The row for everything older (``| 3.1.x and earlier ... |``) has
+#: text after the ``x`` and is not one of these.
+_LINE_ROW = re.compile(r"^\| (\d+)\.(\d+)\.x \| ([^|]*?) \|[ \t]*$", re.MULTILINE)
+_EARLIER_ROW = re.compile(r"^(\| )(\d+)\.(\d+)(\.x and earlier)", re.MULTILINE)
+_UNTIL = re.compile(r"Yes, until (\d+\.\d+\.\d+) is released")
 
 
 @dataclass(frozen=True)
@@ -237,6 +252,143 @@ def _top_debian_entry(path: str) -> tuple[str, str] | None:
     return (match.group(1), match.group(2)) if match else None
 
 
+def _numbers(version: str) -> tuple[int, int, int]:
+    """
+    Args:
+        version: A version that starts ``X.Y.Z``; what follows (``rc1``) is
+            not part of the comparison.
+
+    Returns:
+        Its three numbers, to compare versions the way people read them.
+
+    Raises:
+        ValueError: When it does not start with three numbers.
+    """
+    found = re.match(r"(\d+)\.(\d+)\.(\d+)", version)
+    if found is None:
+        raise ValueError(f"{version!r} does not start with X.Y.Z")
+    return int(found.group(1)), int(found.group(2)), int(found.group(3))
+
+
+def security_problem(version: str) -> str | None:
+    """
+    Check that SECURITY.md lists a version's line as supported.
+
+    Args:
+        version: The version being released, ``X.Y.Z``.
+
+    Returns:
+        What is wrong, or None when the table lists ``X.Y.x`` as supported.
+    """
+    file = ROOT / SECURITY_FILE
+    if not file.exists():
+        return f"{SECURITY_FILE}: missing"
+    try:
+        major, minor, _ = _numbers(version)
+    except ValueError as exc:
+        return f"{SECURITY_FILE}: cannot tell which line {version!r} belongs to ({exc})"
+    for row in _LINE_ROW.finditer(file.read_text(encoding="utf-8")):
+        if (int(row.group(1)), int(row.group(2))) != (major, minor):
+            continue
+        note = row.group(3).strip()
+        if not note.startswith("Yes"):
+            return f"{SECURITY_FILE}: lists {major}.{minor}.x as not supported ({note!r})"
+        until = _UNTIL.fullmatch(note)
+        if until is not None and _numbers(version) >= _numbers(until.group(1)):
+            return (
+                f"{SECURITY_FILE}: says {major}.{minor}.x is supported until {until.group(1)} "
+                f"is released, and {version} is not before it"
+            )
+        return None
+    return (
+        f"{SECURITY_FILE}: does not list {major}.{minor}.x as supported; add the row "
+        f"'| {major}.{minor}.x | Yes |' to its table (scripts/release.py {version} does it)"
+    )
+
+
+def advance_security(text: str, version: str) -> str:
+    """
+    Bring SECURITY.md's table of supported versions to a new release.
+
+    A release of a line the table already lists changes nothing. A release of
+    a new line adds it as supported; the line that was the newest stays
+    supported until the minor version after the new one is released; the lines
+    that were still supported before it are retired, and the row for everything
+    older moves up to cover them.
+
+    Args:
+        text: SECURITY.md as it is.
+        version: The version being released, ``X.Y.Z``.
+
+    Returns:
+        The text with the table advanced, unchanged for a patch release.
+
+    Raises:
+        ValueError: When the table's rows are not one block, which is the only
+            shape this knows how to rewrite without damaging what is around it.
+    """
+    major, minor, _ = _numbers(version)
+    rows = list(_LINE_ROW.finditer(text))
+    if any((int(row.group(1)), int(row.group(2))) == (major, minor) for row in rows):
+        return text
+    supported = [row for row in rows if row.group(3).strip().startswith("Yes")]
+    others = [row.group(0) for row in rows if row not in supported]
+
+    if rows:
+        start, end = rows[0].start(), rows[-1].end()
+        if "\n".join(row.group(0) for row in rows) != text[start:end]:
+            raise ValueError(
+                f"the rows of the supported-versions table in {SECURITY_FILE} are split"
+            )
+    else:
+        raise ValueError(
+            f"{SECURITY_FILE} has no supported-versions table to add {major}.{minor}.x to"
+        )
+
+    lines = [f"| {major}.{minor}.x | Yes |"]
+    if supported:
+        newest = supported[0]
+        lines.append(
+            f"| {newest.group(1)}.{newest.group(2)}.x | "
+            f"Yes, until {major}.{minor + 1}.0 is released |"
+        )
+    lines.extend(others)
+    advanced = text[:start] + "\n".join(lines) + text[end:]
+
+    retired = [(int(row.group(1)), int(row.group(2))) for row in supported[1:]]
+    if retired:
+        top = max(retired)
+
+        def move_up(row: re.Match[str]) -> str:
+            current = (int(row.group(2)), int(row.group(3)))
+            shown = max(current, top)
+            return f"{row.group(1)}{shown[0]}.{shown[1]}{row.group(4)}"
+
+        advanced = _EARLIER_ROW.sub(move_up, advanced, count=1)
+    return advanced
+
+
+def _advanced_security(version: str) -> str | None:
+    """
+    Work out SECURITY.md for a release, without writing it.
+
+    Args:
+        version: The version being released.
+
+    Returns:
+        The new text, or None when the file is missing or already right.
+
+    Raises:
+        ValueError: As :func:`advance_security`.
+    """
+    file = ROOT / SECURITY_FILE
+    if not file.exists():
+        return None
+    text = file.read_text(encoding="utf-8")
+    advanced = advance_security(text, version)
+    return None if advanced == text else advanced
+
+
 def check() -> int:
     """
     Verify that every packaging file agrees with pyproject.toml.
@@ -267,6 +419,10 @@ def check() -> int:
             problems.append(f"{path}: missing")
         elif f"- {expected}-1" not in spec.read_text(encoding="utf-8"):
             problems.append(f"{path}: no %changelog entry for {expected}")
+
+    problem = security_problem(expected)
+    if problem is not None:
+        problems.append(problem)
 
     tag = _current_tag()
     if tag and tag.lstrip("v") != expected:
@@ -381,6 +537,14 @@ def bump(version: str, entries: list[str]) -> int:
         print(f"Version must look like X.Y.Z, got {version!r}")
         return 1
 
+    # Worked out before anything is written: a table this cannot rewrite must
+    # not leave a release half made.
+    try:
+        security = _advanced_security(version)
+    except ValueError as exc:
+        print(str(exc))
+        return 1
+
     pyproject = ROOT / "pyproject.toml"
     text = pyproject.read_text(encoding="utf-8")
     updated, count = re.subn(
@@ -394,6 +558,10 @@ def bump(version: str, entries: list[str]) -> int:
     for site in SITES:
         if site.write(version):
             print(f"  updated {site.label}")
+
+    if security is not None:
+        (ROOT / SECURITY_FILE).write_text(security, encoding="utf-8")
+        print(f"  updated {SECURITY_FILE}")
 
     if entries:
         _write_changelogs(version, entries)

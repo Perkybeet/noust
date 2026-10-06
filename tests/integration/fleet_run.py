@@ -63,6 +63,7 @@ import hmac
 import importlib.util
 import json
 import re
+import secrets
 import struct
 import subprocess
 import sys
@@ -763,6 +764,148 @@ def scenario_enrollment(env: FleetEnv) -> None:
         show_info.get("allow_shell") is not True,
         f"a fleet node must never allow a shell: {show_info!r}",
     )
+
+
+# ---------------------------------------------------------------------------
+# Scenario 1b: enrollment with a credential used once.
+# ---------------------------------------------------------------------------
+
+#: The sshd drop-in that lets root log in with a password while this scenario runs. It is
+#: named to sort first: sshd keeps the first value it reads of a setting.
+PASSWORD_LOGIN_FILE = "/etc/ssh/sshd_config.d/01-enroll-test.conf"
+
+
+@fleet_scenario("enroll_with_a_credential")
+def scenario_enroll_with_a_credential(env: FleetEnv) -> None:
+    """`noust fleet enroll` does the manual join from the central, with a password it does not keep.
+
+    The node accepts one root password for the duration of the scenario. The central is given
+    the node's address and, on standard input, that password; it must refuse a host key that
+    is not the one confirmed, then enroll the real one: the same ``noust-tunnel`` account, the
+    same restricted key, the same token, the same pin as the manual join of scenario 1. And the
+    password must be in no file, no log and no audit event of the central afterwards.
+    """
+    central, node = env.central, env.node
+    password = f"Enroll-once-{secrets.token_hex(12)}"
+    sshd_before = node.run(
+        f"test -e {PASSWORD_LOGIN_FILE}; echo $?", timeout=15, label="no password login yet"
+    ).stdout.strip()
+    node.check(sshd_before == "1", "an earlier run left the password-login drop-in")
+    try:
+        docker_exec(
+            node.container,
+            f"printf 'PermitRootLogin yes\\nPasswordAuthentication yes\\n' > {PASSWORD_LOGIN_FILE} "
+            "&& systemctl reload ssh",
+            timeout=30,
+        )
+        run_stdin(node, "chpasswd", f"root:{password}\n", label="chpasswd (root's password)")
+        fingerprint = (
+            node.run(
+                "ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub",
+                label="the node's own host key fingerprint, as its operator reads it",
+            )
+            .stdout.split()[1]
+            .strip()
+        )
+        node.check(fingerprint.startswith("SHA256:"), f"unexpected fingerprint: {fingerprint!r}")
+
+        # A clean slate on the central: scenario 1's manual enrollment is removed.
+        central.run(
+            f"noust node remove {env.node_name} -f",
+            timeout=60,
+            label=f"noust node remove {env.node_name} -f",
+        )
+
+        # The host key that answers is not the one confirmed: nothing is sent, nothing registered.
+        wrong = run_stdin(
+            central,
+            f"noust fleet enroll {env.node_name} --host {NODE_NAME} --password-stdin "
+            f"--host-key-fingerprint SHA256:{'A' * 43}",
+            f"{password}\n",
+            timeout=60,
+            check=False,
+            label="noust fleet enroll with a fingerprint that is not the node's",
+        )
+        central.check(wrong.returncode != 0, "enrolled against a host key that was not confirmed")
+        central.check(
+            "not the one you confirmed" in wrong.stdout + wrong.stderr,
+            f"the refusal does not say the key differs: {wrong.stdout}{wrong.stderr}",
+        )
+        listed = central.run("noust node list --json", label="noust node list --json").stdout
+        central.check(env.node_name not in listed, "a refused enrollment registered the node")
+
+        # The real thing. --replace-token: the node still holds the token scenario 1 issued.
+        enrolled = run_stdin(
+            central,
+            f"noust fleet enroll {env.node_name} --host {NODE_NAME} --password-stdin "
+            f"--host-key-fingerprint {fingerprint} --replace-token --json",
+            f"{password}\n",
+            timeout=900,
+            label="noust fleet enroll --password-stdin --json",
+        )
+        record = as_json(
+            subprocess.CompletedProcess(
+                enrolled.args, enrolled.returncode, enrolled.stdout.strip().splitlines()[-1], ""
+            ),
+            what="noust fleet enroll --json",
+        )
+        central.check(
+            record.get("status") == "reachable" and record.get("ssh_user") == TUNNEL_USER,
+            f"the node is not reachable as the tunnel account: {record!r}",
+        )
+        env.node_console_port = int(record["console_port"])
+        env.node_host_key = str(record["host_key"])
+
+        # It is the manual join's result, and the node is reachable through the tunnel.
+        tested = as_json(
+            central.run(
+                f"noust node test {env.node_name} --json",
+                label=f"noust node test {env.node_name} --json",
+            ),
+            what="noust node test --json",
+        )
+        central.check(tested.get("reachable") is True, f"noust node test failed: {tested!r}")
+        keys = node.run(f"cat {TUNNEL_KEYS_FILE}", label="the tunnel account's key file").stdout
+        node.check(
+            "restrict,port-forwarding,permitopen=" in keys and 'command="/usr/bin/false"' in keys,
+            f"the central's key is not restricted: {keys!r}",
+        )
+        shell = node.run(f"getent passwd {TUNNEL_USER}", label="the tunnel account").stdout
+        node.check(shell.strip().endswith("nologin"), f"the tunnel account has a shell: {shell!r}")
+
+        # The credential is nowhere: not in a file, not in the journal, not in the audit trail.
+        leaked = docker_exec_stdin(
+            central.container,
+            "pw=$(cat); printf '%s\\n' \"$pw\" | grep -rIlF -f - --exclude-dir=proc "
+            "--exclude-dir=sys /etc /var /root /run /tmp /dev/shm 2>/dev/null; "
+            "journalctl --no-pager -o cat 2>/dev/null "
+            "| grep -cF -f <(printf '%s\\n' \"$pw\"); true",
+            f"{password}\n",
+            timeout=120,
+            check=False,
+        )
+        central.evidence.append(
+            "$ grep -rIlF <the password> /etc /var /root /run /tmp /dev/shm; journalctl | grep -cF\n"
+            + leaked.stdout.strip()
+        )
+        lines = [line for line in leaked.stdout.splitlines() if line.strip()]
+        central.check(
+            lines == ["0"],
+            f"the one-time password was found on the central: {leaked.stdout!r}",
+        )
+        audit = central.run(
+            "noust audit list --action fleet.enroll.finish --json -n 5",
+            label="the audit trail of the enrollment",
+        ).stdout
+        central.check("fleet.enroll.finish" in audit, f"no audit event of the enrollment: {audit}")
+        central.check(password not in audit, "the audit trail holds the password")
+    finally:
+        node.run(
+            f"rm -f {PASSWORD_LOGIN_FILE}; passwd -l root; systemctl reload ssh",
+            timeout=30,
+            check=False,
+            label="the node stops accepting a root password again",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1787,8 +1930,12 @@ def scenario_central_image(env: FleetEnv) -> None:
     dist_dir = PACKAGING_CONTAINER_DIR / "dist"
     dist_dir.mkdir(exist_ok=True)
     dest = dist_dir / wheel_name
+    installer_dest = dist_dir / "install.sh"
     created_dist_dir = not any(dist_dir.iterdir())
     dest.write_bytes(env.wheel.read_bytes())
+    # The release workflow copies the installer into the context beside the wheel: a central
+    # sends it to a server that has no Noust yet (noust.fleet.enroll).
+    installer_dest.write_bytes((REPO_ROOT / "packaging" / "install.sh").read_bytes())
 
     try:
         print(f"[setup] building {CENTRAL_IMAGE_TAG} from packaging/container/Dockerfile")
@@ -1810,8 +1957,29 @@ def scenario_central_image(env: FleetEnv) -> None:
             raise HarnessError(
                 f"building the central image failed:\n{build.stdout}\n{build.stderr}"
             )
+        carried = subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--entrypoint",
+                "/bin/sh",
+                CENTRAL_IMAGE_TAG,
+                "-c",
+                "sha256sum /usr/share/noust/install.sh",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        expected = hashlib.sha256((REPO_ROOT / "packaging" / "install.sh").read_bytes()).hexdigest()
+        env.central.check(
+            carried.stdout.startswith(expected),
+            f"the central image does not carry the installer it was built with: {carried.stdout!r}",
+        )
     finally:
         dest.unlink(missing_ok=True)
+        installer_dest.unlink(missing_ok=True)
         if created_dist_dir:
             try:
                 dist_dir.rmdir()

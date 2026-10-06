@@ -45,7 +45,7 @@ import hashlib
 import json
 import sqlite3
 import time
-from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -286,6 +286,19 @@ ROUTE_RULES: dict[tuple[str, str], ApprovalRule] = {
     ("DELETE", "/api/nodes/{node}"): ApprovalRule(
         "fleet.node.remove", KIND_INFRASTRUCTURE, "Removing a server from this central."
     ),
+    # Opening the root-equivalent console to the internet, even behind a second factor.
+    ("POST", "/api/console/exposure"): ApprovalRule(
+        "console.expose",
+        KIND_INFRASTRUCTURE,
+        "Publishing the console on a name of its own over TLS.",
+    ),
+    # Guided enrollment installs Noust on a server and adds it, with a credential
+    # for that server the person who decides never sees (ONE_TIME_FIELDS).
+    ("POST", "/api/fleet/enroll"): ApprovalRule(
+        "fleet.node.enroll",
+        KIND_INFRASTRUCTURE,
+        "Enrolling a server in this central: installing Noust on it and adding it.",
+    ),
     # A row edit is a write through the console's own database session, the
     # same power as SQL that writes.
     ("POST", "/api/databases/databases/{engine}/{name}/rows"): ApprovalRule(
@@ -298,6 +311,30 @@ ROUTE_RULES: dict[tuple[str, str], ApprovalRule] = {
         "db.rows.write", KIND_INFRASTRUCTURE, "Deleting rows of a database."
     ),
 }
+
+#: Fields a call carries to be used once and never kept: a credential for another
+#: machine. They are left out of the call's fingerprint and of what the person
+#: who decides reads, because a fingerprint of a body that holds a password is
+#: a stored, checkable hash of it, and an approval is not the place a password
+#: is kept. What is approved is everything else about the call.
+ONE_TIME_FIELDS: dict[tuple[str, str], tuple[str, ...]] = {
+    ("POST", "/api/fleet/enroll"): ("password", "private_key", "passphrase"),
+}
+
+
+def one_time_fields(method: str, template: str) -> tuple[str, ...]:
+    """
+    Name the body fields of a route that are used once and never kept.
+
+    Args:
+        method: The HTTP method.
+        template: The route's path template.
+
+    Returns:
+        The top-level field names; empty for a route that has none.
+    """
+    return ONE_TIME_FIELDS.get((method.upper(), template), ())
+
 
 #: ``root_equivalent`` routes that change nothing: checking a candidate unit.
 EXEMPT_ROUTES = frozenset({("POST", "/api/services/verify")})
@@ -555,7 +592,11 @@ def _redact(value: Any, depth: int = 0) -> Any:
 
 
 def snapshot(
-    method: str, path: str, query: Sequence[tuple[str, str]], body: bytes
+    method: str,
+    path: str,
+    query: Sequence[tuple[str, str]],
+    body: bytes,
+    omit: Collection[str] = (),
 ) -> tuple[str, dict[str, Any]]:
     """
     Fingerprint one call, and describe it for the person who decides.
@@ -565,6 +606,8 @@ def snapshot(
         path: The concrete path, such as ``/api/services/shop/config``.
         query: The query string's pairs, in any order.
         body: The body as received.
+        omit: Top-level fields of a JSON body to leave out of both the
+            fingerprint and the display copy (:func:`one_time_fields`).
 
     Returns:
         The SHA-256 of the canonical call (JSON bodies by content, so key
@@ -581,6 +624,8 @@ def snapshot(
             is_json = True
         except (UnicodeDecodeError, ValueError):
             parsed = None
+    if omit and isinstance(parsed, Mapping):
+        parsed = {key: value for key, value in parsed.items() if key not in omit}
     canonical_body = (
         json.dumps(parsed, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         if is_json

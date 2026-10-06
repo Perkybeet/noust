@@ -22,11 +22,24 @@ markdown-escaped with a backslash, which Discord does honour; an excerpt sits
 in a code block whose own fence is replaced so its content cannot close it.
 Quiet states (ok, progress, info) suppress the notification sound
 (``flags: 4096``).
+
+The one thing that can ping is a :class:`Mention` the operator configured
+(a role and/or a user id), and only for a critical notification (state
+``failed``). The ping is in the message ``content``, the only place Discord
+honours a mention, never in the embed, and ``allowed_mentions`` then lists
+exactly those ids: nothing anyone else wrote can ride on it.
+
+:func:`render_plain` is the same message as plain text in ``content``, for when
+Discord refuses the embed: an alert must not be lost to a formatting quirk.
+It fits the 2000 characters a message may have the way the embed fits its
+budget, keeping the headline and the link and giving up the oldest log lines
+first.
 """
 
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Any
 
 from noust.core.notifications.model import STATE_COLORS, Excerpt, Fact, Notification
@@ -37,6 +50,7 @@ from noust.core.notifications.render.common import (
     omitted_marker,
     with_pinned_marker,
 )
+from noust.validators.discord import validate_discord_id
 
 TITLE_LIMIT = 256
 DESCRIPTION_LIMIT = 4096
@@ -51,10 +65,72 @@ EMBED_BUDGET = 5800
 SUPPRESS_NOTIFICATIONS = 1 << 12
 EXCERPT_LINES = 12
 EXCERPT_CHARS = 1200
+#: What a message's own text may have, and what the fallback aims for.
+CONTENT_LIMIT = 2000
+CONTENT_BUDGET = 1900
+#: The headline written beside a mention, for a phone that shows only ``content``.
+LEAD_LIMIT = 200
+PLAIN_EXCERPT_LINES = 10
+PLAIN_EXCERPT_CHARS = 800
 
 _ZWSP = "\u200b"
 _MASS_MENTION = re.compile(r"@(everyone|here)", re.IGNORECASE)
 _MARKDOWN = re.compile(r"([\\*_~`|\[\]])")
+
+
+@dataclass(frozen=True)
+class Mention:
+    """
+    Whom a critical notification pings.
+
+    Attributes:
+        role_id: A role's id, or empty for none.
+        user_id: A user's id, or empty for none.
+
+    Raises:
+        ValueError: On construction, for an id that is not, in full, a Discord
+            id. An id is never put into a message unless it is one, so what
+            lands in ``content`` cannot be anything but a mention of that id.
+    """
+
+    role_id: str = ""
+    user_id: str = ""
+
+    def __post_init__(self) -> None:
+        """Refuse an id that is not one."""
+        if self.role_id:
+            validate_discord_id(self.role_id, "a Discord role id")
+        if self.user_id:
+            validate_discord_id(self.user_id, "a Discord user id")
+
+    def __bool__(self) -> bool:
+        """True when someone is named."""
+        return bool(self.role_id or self.user_id)
+
+    def tokens(self) -> str:
+        """
+        Returns:
+            The mentions as Discord reads them: ``<@&role> <@user>``.
+        """
+        parts = []
+        if self.role_id:
+            parts.append(f"<@&{self.role_id}>")
+        if self.user_id:
+            parts.append(f"<@{self.user_id}>")
+        return " ".join(parts)
+
+    def allowed(self) -> dict[str, Any]:
+        """
+        Returns:
+            ``allowed_mentions`` that parses nothing and lets exactly these
+            ids notify.
+        """
+        allowed: dict[str, Any] = {"parse": []}
+        if self.role_id:
+            allowed["roles"] = [self.role_id]
+        if self.user_id:
+            allowed["users"] = [self.user_id]
+        return allowed
 
 
 def defuse(text: str) -> str:
@@ -199,12 +275,40 @@ def _size(embed: dict[str, Any]) -> int:
     )
 
 
-def render(n: Notification) -> dict[str, Any]:
+def _pinged(n: Notification, mention: Mention | None) -> Mention | None:
+    """
+    Args:
+        n: The notification.
+        mention: Whom the operator named, if anyone.
+
+    Returns:
+        The mention when this notification is critical and someone is named,
+        otherwise None: nothing else pings.
+    """
+    return mention if mention and n.critical else None
+
+
+def _lead(n: Notification, ping: Mention) -> str:
+    """
+    Args:
+        n: A critical notification.
+        ping: Whom it pings.
+
+    Returns:
+        The mentions and, beside them, what happened: a phone that shows only
+        ``content`` still says more than a name.
+    """
+    headline = clip(markdown(f"{n.glyph} {n.headline}"), LEAD_LIMIT)
+    return f"{ping.tokens()} {headline}"
+
+
+def render(n: Notification, *, mention: Mention | None = None) -> dict[str, Any]:
     """
     Render a notification as a webhook body.
 
     Args:
         n: The notification.
+        mention: Whom to ping if it is critical; nobody by default.
 
     Returns:
         The JSON body.
@@ -218,6 +322,79 @@ def render(n: Notification) -> dict[str, Any]:
         excerpt_chars=EXCERPT_CHARS,
     )
     payload: dict[str, Any] = {"embeds": [embed], "allowed_mentions": {"parse": []}}
+    ping = _pinged(n, mention)
+    if ping is not None:
+        payload["content"] = _lead(n, ping)
+        payload["allowed_mentions"] = ping.allowed()
+    if not n.loud:
+        payload["flags"] = SUPPRESS_NOTIFICATIONS
+    return payload
+
+
+def _text(
+    n: Notification,
+    excerpt: Excerpt | None,
+    facts: tuple[Fact, ...],
+    cap: int,
+    lead: str,
+) -> str:
+    """
+    Build the plain-text message.
+
+    Args:
+        n: The notification.
+        excerpt: The excerpt to show, or None.
+        facts: The facts to show, the server first.
+        cap: The longest a fact's value may be.
+        lead: The mentions to start with, or an empty string.
+
+    Returns:
+        The headline, the link, the description and the facts as Discord
+        markdown. The link is on the second line, so cutting the end can
+        never take it.
+    """
+    headline = clip(markdown(f"{n.glyph} {n.headline}"), TITLE_LIMIT)
+    lines = [f"{lead}**{headline}**"]
+    link = n.console_link
+    if link is not None and http_url(link.url):
+        # Angle brackets keep Discord from adding a second, larger preview.
+        lines.append(f"<{link.url}>")
+    description = _description(n, excerpt)
+    if description:
+        lines.extend(["", description])
+    rows = [_field(fact, cap) for fact in facts]
+    if rows:
+        lines.append("")
+        lines.extend(f"**{row['name']}:** {row['value']}" for row in rows)
+    return "\n".join(lines)
+
+
+def render_plain(n: Notification, *, mention: Mention | None = None) -> dict[str, Any]:
+    """
+    Render a notification as plain text in ``content``, without an embed.
+
+    Args:
+        n: The notification.
+        mention: Whom to ping if it is critical; nobody by default.
+
+    Returns:
+        The JSON body: ``content`` of at most :data:`CONTENT_LIMIT` characters
+        and the same ``allowed_mentions`` and ``flags`` as :func:`render`.
+    """
+    ping = _pinged(n, mention)
+    lead = f"{ping.tokens()} " if ping is not None else ""
+    content = fit(
+        n,
+        lambda excerpt, facts, cap: _text(n, excerpt, facts, cap, lead),
+        len,
+        CONTENT_BUDGET,
+        excerpt_lines=PLAIN_EXCERPT_LINES,
+        excerpt_chars=PLAIN_EXCERPT_CHARS,
+    )
+    payload: dict[str, Any] = {
+        "content": clip(content, CONTENT_LIMIT),
+        "allowed_mentions": ping.allowed() if ping is not None else {"parse": []},
+    }
     if not n.loud:
         payload["flags"] = SUPPRESS_NOTIFICATIONS
     return payload

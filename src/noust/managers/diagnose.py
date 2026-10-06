@@ -56,6 +56,7 @@ from noust.core.store import (
     DeploymentStatus,
     NoustStore,
     get_store,
+    is_compose_backed,
     runs_as_instances,
 )
 from noust.core.utils import domain_to_app_name
@@ -522,7 +523,7 @@ def _check_unit(ctx: _Context) -> ProbeResult:
     # A Compose unit runs `docker compose up -d` once and stays active:
     # "exited" is its running state; the containers are checked on their own.
     compose_up = (
-        ctx.app is not None and ctx.app.app_type == "docker-compose" and sub_state == "exited"
+        ctx.app is not None and is_compose_backed(ctx.app.app_type) and sub_state == "exited"
     )
     if active_state == "active" and (sub_state == "running" or compose_up):
         status: CheckStatus = "ok"

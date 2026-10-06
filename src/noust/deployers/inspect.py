@@ -64,6 +64,7 @@ from pathlib import Path, PurePosixPath
 from noust.core.exceptions import DeploymentError
 from noust.core.runner import CommandCancelled, cancellable, get_runner
 from noust.deployers.base import BaseDeployer
+from noust.deployers.container import RAILPACK_STACKS, ContainerDeployer
 from noust.deployers.docker_compose import COMPOSE_FILE_PRIORITY
 from noust.deployers.helpers.env_manager import (
     URL_CREDENTIALS,
@@ -127,18 +128,9 @@ _PLACEHOLDER_DOMAIN = "wasm-inspect.invalid"
 #: ``PRIVATE`` alone, not just their compounds.
 SECRET_NAME_MARKERS: tuple[str, ...] = ("SECRET", "KEY", "TOKEN", "PASSWORD", "PASS", "PRIVATE")
 
-#: Root files of stacks Noust has no deployer for, and what they are called.
-_UNSUPPORTED_STACKS: tuple[tuple[str, str], ...] = (
-    ("go.mod", "Go"),
-    ("Cargo.toml", "Rust"),
-    ("composer.json", "PHP"),
-    ("Gemfile", "Ruby"),
-    ("pom.xml", "Java (Maven)"),
-    ("build.gradle", "Java (Gradle)"),
-    ("build.gradle.kts", "Kotlin (Gradle)"),
-    ("mix.exs", "Elixir"),
-    ("deno.json", "Deno"),
-)
+#: Root files of stacks Noust has no deployer of its own for, and what they are
+#: called. A container (a Dockerfile, or Railpack) is how they are deployed.
+_UNSUPPORTED_STACKS: tuple[tuple[str, str], ...] = RAILPACK_STACKS
 
 #: Framework dependencies NodeJSDeployer.detect turns away and nothing else
 #: deploys.
@@ -151,11 +143,6 @@ _DOCKERFILES = ("Dockerfile", "Containerfile")
 
 #: Directories never worth naming as "a project lives here".
 _NOT_PROJECTS = frozenset({"node_modules", ".git", "vendor", ".venv", "venv", "__pycache__"})
-
-#: The smallest compose file that deploys a Dockerfile.
-_COMPOSE_EXAMPLE = "\n".join(
-    ["services:", "  app:", "    build: .", "    ports:", '      - "3000:3000"']
-)
 
 
 def _looks_secret(name: str) -> bool:
@@ -334,6 +321,8 @@ def sparse_patterns() -> list[str]:
     """
     _import_deployers()
     root: set[str] = set(COMPOSE_FILE_PRIORITY) | set(_ALSO_READ_AT_ROOT) | set(PLATFORM_FILES)
+    # What decides whether Railpack can build a repository nothing else deploys.
+    root.update(marker for marker, _ in RAILPACK_STACKS)
     for deployer_class in DeployerRegistry.in_detection_order():
         root.update(deployer_class.DETECTION_FILES)
         root.update(getattr(deployer_class, "FRAMEWORK_CONFIG_FILES", ()))
@@ -568,6 +557,10 @@ def _describe(
         DeploymentError: Nothing matches; the error carries the verdict.
     """
     matched = _matching_types(checkout)
+    if not matched and ContainerDeployer.builds_with_railpack(checkout, get_runner()):
+        # No deployer of Noust's knows it, but Railpack is installed here and
+        # builds it into a container.
+        matched = [ContainerDeployer]
     if not matched:
         verdict = _unmatched_verdict(checkout, listing)
         raise DeploymentError(verdict.summary, details=verdict.suggestion or "")
@@ -612,7 +605,8 @@ def _describe(
         resolved_branch = branch or repo_info.get("branch") or ""
         commit = repo_info.get("commit") or ""
 
-    verdict = _matched_verdict(matched)
+    verdict = _matched_verdict(matched, checkout)
+    port = ContainerDeployer.inspected_port(checkout) if winner is ContainerDeployer else None
     return SourceInspection(
         app_type=winner.APP_TYPE,
         detected_types=[deployer_class.APP_TYPE for deployer_class in matched],
@@ -620,7 +614,7 @@ def _describe(
         install_command=install_command,
         build_command=build_command,
         start_command=start_command,
-        default_port=winner.DEFAULT_PORT,
+        default_port=port or winner.DEFAULT_PORT,
         env_keys=env_keys,
         branch=resolved_branch,
         commit=commit,
@@ -634,12 +628,13 @@ def _describe(
 # Verdicts ------------------------------------------------------------------
 
 
-def _matched_verdict(matched: list[type[AppDeployer]]) -> Verdict:
+def _matched_verdict(matched: list[type[AppDeployer]], checkout: Path) -> Verdict:
     """
     Judge a source that matched: can this server deploy it as it is?
 
     Args:
         matched: The matching types, most specific first.
+        checkout: The files inspected, for what says how a container is built.
 
     Returns:
         Compatible unless a program the chosen type declares it needs
@@ -659,7 +654,11 @@ def _matched_verdict(matched: list[type[AppDeployer]]) -> Verdict:
             ),
             suggestion="Install what it needs with `noust setup init`, then deploy it.",
         )
-    summary = f"Noust can deploy this as {winner.DISPLAY_NAME}."
+    summary = (
+        ContainerDeployer.inspection_note(checkout)
+        if winner is ContainerDeployer
+        else f"Noust can deploy this as {winner.DISPLAY_NAME}."
+    )
     others = [deployer_class.DISPLAY_NAME for deployer_class in matched[1:]]
     if others:
         summary += (
@@ -684,11 +683,7 @@ def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
         An incompatible verdict with a suggestion.
     """
     root_files = {name for name in listing if "/" not in name}
-    container_route = (
-        "Build it into a container instead: add a Dockerfile, and a compose.yaml next to "
-        f"it that builds it:\n\n{_COMPOSE_EXAMPLE}\n\nwith the port it listens on, then "
-        "deploy it as Docker Compose."
-    )
+    container_route = _container_route()
 
     if "turbo.json" in root_files:
         return _near_miss_monorepo(checkout, listing)
@@ -697,11 +692,10 @@ def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
     if dockerfile:
         return Verdict(
             compatible=False,
-            summary=f"The repository has a {dockerfile} but no Compose file.",
+            summary=f"The repository has a {dockerfile}, but it could not be read as one.",
             suggestion=(
-                "Noust runs containers through Docker Compose. Commit a compose.yaml next "
-                f"to the {dockerfile} that builds it:\n\n{_COMPOSE_EXAMPLE}\n\nwith the "
-                "port the image listens on, then deploy it as Docker Compose."
+                f"Deploy it as a container: noust create --type container. Check the {dockerfile} "
+                "is a file, not a link, and is committed on this branch."
             ),
         )
 
@@ -747,6 +741,27 @@ def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
             f"{', '.join(examples)}, or a package.json with a start script). Check the "
             "branch, or choose a type explicitly instead of relying on auto-detection."
         ),
+    )
+
+
+def _container_route() -> str:
+    """
+    Say how a repository nothing here deploys can be deployed as a container.
+
+    Returns:
+        The suggestion: a Dockerfile, or Railpack, which says which of them
+        this server has.
+    """
+    if get_runner().exists("railpack"):
+        return (
+            "Deploy it as a container, which Railpack builds without a Dockerfile (it is "
+            "installed here): noust create --type container --builder railpack. Or add a "
+            "Dockerfile and deploy it with --type container."
+        )
+    return (
+        "Deploy it as a container: add a Dockerfile to the repository and deploy it with "
+        "--type container. Without a Dockerfile, install Railpack (noust setup railpack), "
+        "which builds it into a container by itself: --type container --builder railpack."
     )
 
 

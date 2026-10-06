@@ -220,6 +220,7 @@ EVENTS: dict[str, EventSpec] = {
             "apps.identity": "An application's own system account was given or taken away.",
             "apps.headless": "A Compose stack that publishes no port was recorded as a worker.",
             "apps.hooks": "An application's deploy hooks were set or cleared.",
+            "apps.container": "A container application's image, build or runtime settings were changed.",
             "apps.adopt": "A Docker Compose stack that already ran was registered as it is.",
             "apps.reclaim": "A Compose stack running outside its unit was handed back to it.",
             "hooks.deploy": "A deploy webhook delivery was handled.",
@@ -331,6 +332,18 @@ EVENTS: dict[str, EventSpec] = {
         CRITICAL,
         {
             "incident.lockdown": "The console was locked down for an incident.",
+        },
+    ),
+    # The console's reach, and how a server joins a fleet (3.4).
+    **_events(
+        "change",
+        NOTICE,
+        {
+            "console.expose": "The console was published on a public name over TLS.",
+            "console.unexpose": "The console was taken off its public name.",
+            "fleet.enroll.start": "A server's enrollment from this central began, with a credential used once.",
+            "fleet.enroll.finish": "A guided enrollment ended: the server joined, or it did not.",
+            "fleet.enroll.hostkey": "An address was asked for its SSH host key, for the operator to confirm.",
         },
     ),
     # Sensitive reads: someone saw something secret.

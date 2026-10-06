@@ -141,6 +141,9 @@ class JobType(str, Enum):
     DATABASE = "database"
     # A central's bulk action over several nodes (noust.web.fleet_jobs).
     FLEET = "fleet"
+    # A server enrolled from the console: Noust installed on it, this central
+    # authorized there and the join completed (noust.fleet.enroll).
+    NODE_ENROLL = "node_enroll"
     # Noust updating itself (noust.managers.self_update).
     SELF_UPDATE = "self_update"
     CUSTOM = "custom"
@@ -1128,6 +1131,7 @@ def deploy_app_job(
     health_expect: str | None = None,
     health_timeout: int | None = None,
     database: dict[str, Any] | None = None,
+    container: dict[str, Any] | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
     """
@@ -1192,6 +1196,9 @@ def deploy_app_job(
             takes them. Its variables are written, marked secret, with
             ``env_vars``; it is linked once the application exists, and kept
             (the error says how to drop it) when the deploy fails.
+        container: A container application's settings (see
+            :class:`~noust.core.container_store.ContainerSettings`), whose
+            secrets are already in the secret store.
         job_context: Injected by the job manager.
 
     Returns:
@@ -1263,6 +1270,8 @@ def deploy_app_job(
         database_options = new_database.configure_options(env_secret_marks)
 
     deployer = get_deployer(app_type, verbose=False)
+    # Passed only when given, so every other type is configured as it always was.
+    container_options: dict[str, Any] = {} if container is None else {"container": container}
     deployer.configure(
         domain=domain,
         port=port,
@@ -1283,6 +1292,7 @@ def deploy_app_job(
         resource_limits_given=True,
         package_manager=package_manager or "auto",
         preview_parent=preview_parent,
+        **container_options,
         **database_options,
     )
 

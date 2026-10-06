@@ -101,7 +101,7 @@ BUILD_GROUP = "noust-build"
 
 #: Application types whose builds do not go through the sandbox: a compose
 #: stack builds inside the Docker daemon.
-UNSUPPORTED_TYPES = frozenset({"docker-compose"})
+UNSUPPORTED_TYPES = frozenset({"docker-compose", "container"})
 
 #: Application types a deploy runs no code for: a static site is copied and
 #: served, with nothing to install, build or hook, so there is nothing for the
@@ -759,8 +759,9 @@ def refuse_unsupported(app: App) -> None:
     if (app.app_type or "") in UNSUPPORTED_TYPES:
         raise ValidationError(
             f"{app.domain} is a {app.app_type} application, whose builds do not run in the sandbox",
-            details="A compose stack builds inside the Docker daemon, guarded by the compose "
-            "file check: noust app sandbox compose-exception shows what it allows.",
+            details="A compose stack or a container application builds inside the Docker "
+            "daemon, guarded by the compose file check: noust app sandbox compose-exception "
+            "shows what it allows.",
         )
 
 
@@ -783,6 +784,10 @@ def sandbox_warning(app: App, state: SandboxState | None = None) -> str | None:
     """
     if (app.app_type or "") == "docker-compose":
         return _compose_warning(app)
+    if (app.app_type or "") in UNSUPPORTED_TYPES:
+        # A container application's compose file is the one Noust writes: there
+        # is no repository file to be root, and its build is the daemon's.
+        return None
     if (app.app_type or "") in NOTHING_TO_BUILD_TYPES:
         return None
     state = state or get_state(app.domain)

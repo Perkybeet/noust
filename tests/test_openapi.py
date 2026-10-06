@@ -156,31 +156,41 @@ class TestTheSchemaCarriesTheRealVersion:
     """
     The reported defect: ``info.version`` was the literal ``1.0.0`` whatever
     release was running, so the schema an operator fetched from their panel
-    named a version that never existed.
+    named a version that never existed. Since 3.4 ``info.version`` is the
+    API's own version, the one a compatibility promise is made against, and
+    the release that serves it is ``info.x-noust-version``.
     """
 
-    def test_the_served_schema_names_the_running_release(self, app: FastAPI) -> None:
+    def test_the_served_schema_names_the_api_and_the_running_release(self, app: FastAPI) -> None:
         from noust import __version__
+        from noust.web.versioning import API_VERSION
 
-        assert app.openapi()["info"]["version"] == __version__
+        info = app.openapi()["info"]
+
+        assert info["version"] == API_VERSION
+        assert info["x-noust-version"] == __version__
 
     def test_the_export_does_not_depend_on_the_installed_version(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """
-        A committed file stamped with the version would go stale on every
+        A checked-in file stamped with the release would go stale on every
         release bump, and would differ between a development install and a
         release build of the same API, so ``--check`` could never pass for
-        both. The export writes a placeholder instead.
+        both. The export writes a placeholder for the release and keeps the
+        API's version, which only changes when the API does.
         """
+        from noust.web.versioning import API_VERSION
         from scripts.export_openapi import EXPORTED_VERSION, export_openapi
 
         first = export_openapi(tmp_path / "a.json")
-        monkeypatch.setattr("noust.web.server.__version__", "99.0.0.dev7")
+        monkeypatch.setattr("noust.web.api.openapi.__version__", "99.0.0.dev7")
         second = export_openapi(tmp_path / "b.json")
 
         assert first.read_bytes() == second.read_bytes()
-        assert json.loads(first.read_text())["info"]["version"] == EXPORTED_VERSION
+        info = json.loads(first.read_text())["info"]
+        assert info["version"] == API_VERSION
+        assert info["x-noust-version"] == EXPORTED_VERSION
 
 
 class TestExportIsDeterministic:

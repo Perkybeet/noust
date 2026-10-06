@@ -30,6 +30,11 @@ they are deployed in place, as before; asking for `--layout releases` explicitly
 rather than a silent downgrade. Their updates still pass the health gate and go back to what
 was serving when they fail it; see [Docker Compose and monorepo applications](#docker-compose-and-monorepo-applications).
 
+A container application (`--type container`) has releases of its own kind: each one is an image
+named `noust-<app>:<release>`, not a directory. `noust releases list`, `rollback` and `keep` and
+the releases API work on them as described here, and going back recreates the container from
+the image that is already on the host. See [containers.md](containers.md#releases-every-deployment-is-an-image).
+
 A Docker Compose stack that already ran before Noust (`noust app adopt`) is registered in
 place at the directory it runs from, which can be outside the apps directory (`/opt/proggest`,
 say). Noust never converts, cleans or deletes such a directory on its own; see
