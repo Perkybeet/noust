@@ -206,6 +206,88 @@ report them: `active`, `superseded`, `rolled_back`, `failed`, `built`. `active` 
 - `noust rollback` restores a backup archive, taking a safety backup of the current state
   first. It is the recovery tool for data and for in-place applications. See `noust backup`.
 
+## Zero downtime by default
+
+Activating a release by swapping `current` and restarting the unit leaves the application
+without a process for as long as it takes to start. Since 3.4 an application **created** on the
+releases layout that serves HTTP through a port behind nginx (Node.js, Next.js, Python, Vite)
+avoids that from its first deployment: once the first release answers, it is turned into the
+two instances of blue/green (`noust app zero-downtime DOMAIN on`, the same code, undone whole
+when a step fails). Every update after it starts the new release on the idle colour, asks the
+health gate on that instance's own port, switches nginx's upstream with `nginx -t` and a
+reload, lets the old instance drain and stops it. A release that does not answer is stopped;
+the old one never stopped serving, so there is nothing to put back.
+
+- **Applications that exist keep how they update.** Nothing is converted behind an operator's
+  back, a migration onto releases included. `noust health` lists the ones that could
+  ("Updates") and `noust diagnose` names the command.
+- **It never fails the deployment it follows.** An application whose site has routes of its
+  own, whose next port is taken or that Apache serves stays as the single unit it was created
+  as, and the log says why and how to try again.
+- **Turning it off for the server**: `deploy.zero_downtime: false`. The drain
+  (`deploy.drain_seconds`, 10 by default) is recorded for the application and changes with
+  `noust app zero-downtime DOMAIN on --drain N`. The application must tolerate two copies
+  running for a few seconds.
+- **Static sites and PHP applications need none of it.** A static site has no process:
+  activating a release is one rename of `current` over the old link, so every request resolves
+  it to the old release before and the new one after, never to nothing, and nothing is
+  restarted or reloaded. A PHP application is the same rename plus a graceful reload of PHP-FPM
+  (the requests in flight finish on the old workers), never a stop or a restart. Tests hold
+  both claims to the code. A Docker Compose stack keeps its relay, which stays opt-in.
+- **Rollback, migration and limits that restart** pass the same health gate in either mode and
+  put back what served before when it fails.
+
+## Cancelling a deployment
+
+```bash
+noust deploy queue                       # what builds and what waits
+noust deploy cancel shop.example.com     # stop the build of an application
+noust deploy cancel a1b2c3d4             # or name the job
+noust deploy cancel shop.example.com --all   # also what waits for it
+```
+
+An operator can stop a deploy or an update **until its release starts to be activated**: the
+fetch, the install and the build run in a transient systemd unit, which is stopped (the build's
+whole process tree with it); the half-built release is removed; the deployment is recorded as
+cancelled, with who cancelled it (its status stays `failed`, `cancelled` says why); the
+application's lock is released and the queue moves on. What served before is never touched,
+because a release builds beside it and `current` has not moved. It works on a deployment started
+anywhere: the console (`POST /api/jobs/{id}/cancel`), a webhook, another terminal. The request is
+addressed to the operation that holds the application's lock, and a terminal is told how it
+ended (cancelled, too late, or finished first).
+
+What cannot be cancelled, and says so: a release that is **already being activated** (it
+finishes, or puts back what served by itself; roll back afterwards if it is not what you want),
+a migration, a restore or a deletion (they are halfway through changing the system), a build in
+place (it runs in the tree that serves: stopping it would leave the application broken) and a
+Docker Compose build (it runs inside the Docker daemon). A migration declared in a deploy hook
+is never interrupted either: a cancellation arriving while it runs takes effect before the next
+step.
+
+## The deploy queue
+
+Two operations used to refuse each other with "busy": a push that arrived while an update ran
+failed, and was lost. Now:
+
+- **A push or a deploy request during a build waits its turn**, in order. The console's
+  Jobs page and `noust deploy queue` show each request as `queued`, `running`, `succeeded`,
+  `failed` or `cancelled`, with its place in the line and what it waits for.
+- **Requests that are the same request are one**: several pushes while an application builds
+  are one update that builds the branch as it is when its turn comes (the last push wins; for
+  an application that follows tags, the newest tag announced).
+- **Builds of different applications overlap**, up to `deploy.max_concurrent_builds` (2).
+  One application never builds two things at once; anything that is not a build (a restore, an
+  operating system update, a certificate) runs alone, in order, as it always did.
+- **The queue is bounded**: with `deploy.queue_limit` (25) builds waiting, the next is refused
+  with `429 queue_full` (webhooks answer 429 too, and the application's delivery log says why,
+  so the forge retries).
+- **A terminal's update does not make the console's queue fail**: a build waits for an
+  operation another process holds, says what it waits for, and gives up (naming it) only after
+  an hour.
+- The queue lives in the console's memory, as the jobs always did: a restart of the console
+  marks what was queued or running as interrupted ([api.md](api.md#conventions)), and the next
+  push queues its update again.
+
 ## Rebuilding a deployment's commit
 
 Update pulls the head of the branch. To deploy exactly the commit an earlier deployment was
@@ -760,3 +842,9 @@ migration, with its command, exit code, duration and the end of its output), `sc
 successful deployment went live with warnings: a `post_deploy` hook failed). Older rows have
 none of them. An adopted stack's history starts with one row, the adoption, at the commit that
 was checked out. See [Hooks and schema-aware rollback](#hooks-and-schema-aware-rollback).
+
+Since 3.4 a deployment an operator cancelled while it built ends with the status `failed` and
+says so with `cancelled`, `cancelled_at` and `cancelled_by` (the status column cannot hold a
+new value on a store from before 3.4): the overview does not count it as a failure and does not
+list the application as needing attention, `noust diagnose` does not blame it, and a
+notification channel is not told it failed. See [Cancelling a deployment](#cancelling-a-deployment).

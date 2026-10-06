@@ -227,6 +227,10 @@ class StatusReporter:
             self._status(app, target, deployment, "success", "Deployed")
         elif event.kind is DeployEventKind.ROLLED_BACK:
             self._status(app, target, deployment, "failure", "rolled back")
+        elif event.cancelled:
+            # Not a failure: it never ran. GitHub's own state for a
+            # deployment that is not in effect.
+            self._status(app, target, deployment, "inactive", "Cancelled")
         else:
             self._status(app, target, deployment, "failure", _describe_failure(event.error))
         self._deployments.pop(key, None)
@@ -292,7 +296,7 @@ class StatusReporter:
             app: The App.
             target: Where to report.
             deployment: GitHub's deployment id.
-            state: ``in_progress``, ``success`` or ``failure``.
+            state: ``in_progress``, ``success``, ``failure`` or ``inactive``.
             description: Shown next to the state on GitHub.
         """
         body: dict[str, Any] = {

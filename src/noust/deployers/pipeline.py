@@ -21,6 +21,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from noust.core import cancellation
 from noust.core.logger import Logger
 
 
@@ -81,10 +82,15 @@ def run_pipeline(steps: list[DeployStep], logger: Logger) -> None:
             continue
 
         logger.step(index, total, step.title, step.icon)
-        # The step is recorded before it runs, not after: a step that fails
-        # halfway has already created part of what it undoes.
-        completed.append(step)
         try:
+            # Between steps, where a cancellation stops a deployment cleanly:
+            # what ran is undone as if the next step had failed, and the next
+            # step, which never started, has nothing to undo: it is recorded
+            # only after the checkpoint.
+            cancellation.checkpoint()
+            # Recorded before it runs, not after: a step that fails halfway
+            # has already created part of what it undoes.
+            completed.append(step)
             step.run()
         except BaseException as exc:
             _undo(completed, logger)

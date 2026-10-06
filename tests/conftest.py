@@ -368,6 +368,26 @@ def fresh_upstream_answers() -> Iterator[None]:
     forget()
 
 
+@pytest.fixture(autouse=True)
+def delivery_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Keep zero downtime by default out of the tests that are not about it.
+
+    A new application that can run twice converts to blue and green right
+    after its first deployment answered; the tests of every deployer, recipe
+    and job build new applications on fakes that know nothing of instances.
+    A test about the default patches ``noust.core.delivery.current`` itself.
+
+    Args:
+        monkeypatch: Patching helper, scoped to the test.
+    """
+    from noust.core import delivery
+
+    monkeypatch.setattr(
+        delivery, "current", lambda **_kwargs: delivery.DeliverySettings(zero_downtime=False)
+    )
+
+
 @pytest.fixture
 def unsearchable(monkeypatch: pytest.MonkeyPatch) -> Callable[[Path], None]:
     """

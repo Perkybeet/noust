@@ -31,7 +31,7 @@ from typing import Literal
 from noust.core.app_state import RUNNING, RUNNING_UNMANAGED, STATIC, resolve_states
 from noust.core.config import Config
 from noust.core.exceptions import NoustError
-from noust.core.store import WebServer, get_store
+from noust.core.store import App, WebServer, get_store
 from noust.managers.apache_manager import ApacheManager
 from noust.managers.cert_manager import CertificateInfo, CertManager
 from noust.managers.nginx_manager import NginxManager
@@ -91,6 +91,8 @@ class HealthReport:
             not asked for.
         builds: Whether every application builds in the sandbox (backlog 44).
         audit: Whether the audit trail records (ENS G05).
+        updates: How many applications update without a cut, and which could
+            and do not yet. Always informational: a suggestion, not a problem.
     """
 
     disk: HealthCheck | None
@@ -104,6 +106,7 @@ class HealthReport:
     hardening: HealthCheck | None = None
     builds: HealthCheck | None = None
     audit: HealthCheck | None = None
+    updates: HealthCheck | None = None
 
     @property
     def checks(self) -> list[HealthCheck]:
@@ -118,6 +121,7 @@ class HealthReport:
                 self.certificates,
                 self.memory,
                 self.builds,
+                self.updates,
                 self.audit,
                 self.hardening,
             )
@@ -462,6 +466,42 @@ def _check_builds(warnings: list[str]) -> HealthCheck:
     )
 
 
+def _check_updates() -> HealthCheck | None:
+    """
+    Say which applications could update without a cut and do not.
+
+    A new application that can run twice starts that way (3.4); one deployed
+    before keeps restarting in place on every update until the operator turns
+    it on, and this is where the server says which and how. Never a warning:
+    restarting in place is a working way to update.
+
+    Returns:
+        The check, or None when no application could use the mode (static
+        sites and the like) so there is nothing to say.
+    """
+    from noust.deployers.bluegreen import could_update_without_downtime
+
+    try:
+        apps = [app for app in get_store().list_apps() if isinstance(app, App)]
+    except (NoustError, sqlite3.Error) as exc:
+        return HealthCheck("Updates", f"Could not check: {exc}", "info")
+    running = [app for app in apps if app.zero_downtime and app.app_type != "docker-compose"]
+    could = [app.domain for app in apps if could_update_without_downtime(app)]
+    if not running and not could:
+        return None
+    if not could:
+        return HealthCheck(
+            "Updates", f"{len(running)} application(s) update without downtime", "ok"
+        )
+    shown = ", ".join(could[:3]) + (f" and {len(could) - 3} more" if len(could) > 3 else "")
+    return HealthCheck(
+        "Updates",
+        f"{len(running)} update without downtime; {shown} restart on every update and could "
+        f"avoid it: noust app zero-downtime {could[0]} on",
+        "info",
+    )
+
+
 def _check_audit(issues: list[str], warnings: list[str]) -> HealthCheck:
     """
     Report whether the audit trail records, from :func:`noust.core.audit.health`.
@@ -561,6 +601,7 @@ def collect_health_report(
     certificates = _check_certificates(verbose, issues, warnings)
     memory = _check_memory(issues, warnings)
     builds = _check_builds(warnings)
+    updates = _check_updates()
     audit_check = _check_audit(issues, warnings)
     hardening_check = _check_hardening(hardening, warnings)
 
@@ -575,5 +616,6 @@ def collect_health_report(
         warnings=warnings,
         hardening=hardening_check,
         builds=builds,
+        updates=updates,
         audit=audit_check,
     )

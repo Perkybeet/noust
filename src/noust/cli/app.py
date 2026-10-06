@@ -99,6 +99,12 @@ WEBAPP_COMMANDS: dict[str, str] = dict.fromkeys(
     "noust.cli.commands.webapp",
 )
 
+#: What ``noust deploy`` does besides being ``noust create``: its own verbs.
+#: ``noust deploy -d shop.example.com ...`` is the old spelling of ``create``
+#: and always will be; ``noust deploy cancel`` and ``noust deploy queue`` are
+#: commands of their own (:mod:`noust.cli.commands.deploy`).
+DEPLOY_VERBS: tuple[str, ...] = ("cancel", "queue")
+
 #: Alternative spellings, kept because they are in muscle memory, scripts and
 #: the published documentation. Removing one is a breaking change.
 ALIASES: dict[str, str] = {
@@ -498,6 +504,13 @@ class LazyGroup(click.Group):
     ) -> tuple[str | None, click.Command | None, list[str]]:
         # Report the name the user typed, not the one it resolves to, so an
         # error message quotes what they actually wrote.
+        if len(args) >= 2 and args[0] == "deploy" and args[1] in DEPLOY_VERBS:
+            # Everything else after 'deploy' is 'create' with another name.
+            from noust.central import refuse_command_on_hub
+
+            refuse_command_on_hub("create", ctx)
+            verbs = importlib.import_module("noust.cli.commands.deploy").cli
+            return "deploy", verbs, args[1:]
         _, command, remaining = super().resolve_command(ctx, args)
         if command is not None and command.name:
             # One check for every command a hub central does not have, here

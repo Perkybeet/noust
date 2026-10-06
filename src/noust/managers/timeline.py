@@ -702,11 +702,11 @@ class TimelineBuilder:
                     at=began,
                     source=SOURCE_DEPLOYMENTS,
                     kind="deployment",
-                    level=_status_level(row.status),
+                    level=_status_level("cancelled" if row.cancelled else row.status),
                     text=row.commit_message or row.git_commit or "",
                     app=row.domain,
                     actor=row.triggered_by,
-                    status=row.status,
+                    status="cancelled" if row.cancelled else row.status,
                     ref=str(row.id) if row.id is not None else None,
                     details={
                         key: value

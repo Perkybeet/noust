@@ -310,6 +310,7 @@ def _deploys(store: Any, moment: datetime) -> dict[str, Any]:
         "succeeded": counts.get("success", 0),
         "failed": counts.get("failed", 0),
         "rolled_back": counts.get("rolled_back", 0),
+        "cancelled": counts.get("cancelled", 0),
         "running": counts.get("running", 0) + counts.get("queued", 0),
         "finished": sum(finished.values()),
         "last_at": to_iso_offset(last.finished_at or last.started_at) if last else None,
@@ -749,7 +750,11 @@ def _add_deployments(store: Any, domains: set[str], add: Callable[..., None]) ->
         log.warning("The attention list could not read the deployments: %s", exc)
         return
     for domain, deployment in latest.items():
-        if deployment.status not in ("failed", "rolled_back"):
+        if deployment.status not in ("failed", "rolled_back") or getattr(
+            deployment, "cancelled", False
+        ):
+            # A cancelled deployment is an operator's decision, not a failure:
+            # what served before still serves.
             continue
         failed = deployment.status == "failed"
         add(

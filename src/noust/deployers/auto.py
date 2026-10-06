@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from noust.central import require_server_role
+from noust.core import cancellation
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import DeploymentError
@@ -265,13 +266,14 @@ class AutoDeployer(AppDeployer):
                 or its type cannot use the layout required of it.
         """
         releases = ReleaseManager(self.app_path, fs=self._fs, logger=self.logger)
-        staged = stage_release(
-            self.source,
-            self.branch,
-            releases=releases,
-            source_manager=self.source_manager,
-            logger=self.logger,
-        )
+        with cancellation.interruptible("fetching the source"):
+            staged = stage_release(
+                self.source,
+                self.branch,
+                releases=releases,
+                source_manager=self.source_manager,
+                logger=self.logger,
+            )
         try:
             deployer_class = self._detect(staged.path)
         except DeploymentError:
@@ -380,8 +382,16 @@ class AutoDeployer(AppDeployer):
             )
         # Taken before detection fetches anything; the deployer chosen takes
         # it again, which within this thread is the same lock.
-        with app_lock(self.domain, "deploy"):
-            return self.resolve().deploy()
+        with app_lock(self.domain, "deploy"), cancellation.operation_window(self.domain, "deploy"):
+            chosen = self.resolve()
+            if not getattr(chosen, "SUPPORTS_RELEASES", False):
+                # A monorepo or a Compose stack is built by tools of its own,
+                # with no point at which a build can be stopped safely.
+                cancellation.restrict(
+                    f"{getattr(chosen, 'APP_TYPE', 'this type')} applications are built by "
+                    "their own tools, which cannot be interrupted safely"
+                )
+            return chosen.deploy()
 
 
 DeployerRegistry.register(AutoDeployer)

@@ -138,6 +138,71 @@ class SchemaChangedError(DeploymentError):
         self.deployments = deployments
 
 
+class DeploymentCancelled(DeploymentError):
+    """
+    Raised when an operator cancelled a deployment while it was being built.
+
+    Not a failure of the build: nothing that served before was touched, the
+    half-built release is removed, and the history row says "cancelled" rather
+    than carrying an error. Code that has to tell a cancellation from a real
+    failure asks :func:`noust.core.cancellation.is_cancellation`, which also
+    finds it behind an error that wrapped it.
+
+    Attributes:
+        cancelled_by: Who asked for it, when it is known.
+    """
+
+    def __init__(self, message: str, details: str = "", *, cancelled_by: str | None = None):
+        """
+        Args:
+            message: What was cancelled.
+            details: What was left as it was.
+            cancelled_by: Who asked for the cancellation.
+        """
+        super().__init__(message, details)
+        self.cancelled_by = cancelled_by
+
+
+class CancelRefused(NoustError):
+    """
+    Raised when there is no deployment that can be cancelled just now.
+
+    Attributes:
+        reason: ``idle`` (nothing is running), ``unsupported`` (what runs
+            cannot be interrupted safely) or ``too_late`` (the release is
+            already being activated and finishes, or rolls itself back).
+    """
+
+    def __init__(self, message: str, details: str = "", *, reason: str = "idle"):
+        """
+        Args:
+            message: Why nothing was cancelled.
+            details: What to do instead.
+            reason: One of ``idle``, ``unsupported`` or ``too_late``.
+        """
+        super().__init__(message, details)
+        self.reason = reason
+
+
+class QueueFullError(NoustError):
+    """
+    Raised when the deploy queue is full and a new request cannot wait in it.
+
+    Attributes:
+        limit: How many requests the queue holds.
+    """
+
+    def __init__(self, message: str, details: str = "", *, limit: int = 0):
+        """
+        Args:
+            message: What was refused.
+            details: How to go on.
+            limit: The queue's size (``deploy.queue_limit``).
+        """
+        super().__init__(message, details)
+        self.limit = limit
+
+
 class BuildError(DeploymentError):
     """Raised when application build fails."""
 

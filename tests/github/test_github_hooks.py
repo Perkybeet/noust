@@ -28,6 +28,7 @@ from noust.core.forge_events import Forge, PullRequestAction, PullRequestEvent
 from noust.core.store import App, NoustStore
 from noust.integrations.github import app as github_app
 from noust.web.api import github_hooks
+from noust.web.api import hooks as hooks_module
 from noust.web.auth import SecurityConfig
 from noust.web.server import create_app as build_app
 from tests.github.fakes import INSTALLATION_ID
@@ -131,7 +132,7 @@ def queued(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
             captured.append(kwargs)
             return type("Job", (), {"id": f"job-{len(captured)}"})()
 
-    monkeypatch.setattr(github_hooks, "get_job_manager", lambda: Jobs())
+    monkeypatch.setattr(hooks_module, "get_job_manager", lambda: Jobs())
     return captured
 
 
@@ -324,7 +325,7 @@ def test_a_push_updates_exactly_the_applications_that_follow_it(
     assert job["metadata"]["trigger"] == "webhook"
     assert job["metadata"]["commit"] == "c0ffee"
     assert job["actor"] == "webhook"
-    assert job["func"] is github_hooks.webhook_update_job
+    assert job["func"] is hooks_module.webhook_update_job
 
 
 def test_a_push_through_the_app_is_kept_in_each_applications_delivery_log(

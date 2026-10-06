@@ -72,10 +72,17 @@ from the CLI, a browser console and a JSON API.
 - **A distribution package.** Installed with `apt`, `dnf` or `zypper`, or from PyPI.
 - **Atomic deploys with instant rollback.** Each deploy builds in its own directory, is
   activated behind a health check, rolls back by itself when it does not answer, and any
-  release still on disk can be reactivated in seconds. Blue/green activation, opt-in per
-  application, keeps the old version serving until the new one answers; a Docker Compose
-  stack gets the same through a relay. A repository's `noust.yaml` runs its migrations before
-  anything serves the new version, and stops the deploy when they fail.
+  release still on disk can be reactivated in seconds. From 3.4 a new application that runs a
+  process behind nginx starts as two instances (blue and green): the next release starts
+  beside the old one and nginx switches only once it answers; static and PHP sites already
+  switch with one atomic rename, and a Docker Compose stack gets the same through a relay,
+  which stays opt-in. A repository's `noust.yaml` runs its migrations before anything serves
+  the new version, and stops the deploy when they fail.
+- **A deploy queue.** A push that arrives while an application builds waits its turn instead
+  of failing, and several pushes are one update. Builds of different applications overlap up
+  to a limit you set, `noust deploy queue` shows the line, and `noust deploy cancel` stops a
+  build that has not started to activate, removing the half-built release and touching nothing
+  that serves.
 - **Per-application resource limits** with cgroups: memory, CPU and tasks.
 - **Builds without root.** Dependencies install and build as an unprivileged account in a
   systemd sandbox that cannot read the rest of the machine, and every application created from
@@ -96,8 +103,7 @@ from the CLI, a browser console and a JSON API.
   runs as an account of its own, so one cannot read another's tree, but they share the kernel
   and the machine; those from before keep the shared service account until `noust app identity
   migrate`. Deploy only code you trust, as you would on any server you administer.
-- **Zero-downtime by default.** Activating a release restarts the unit, unless blue/green (or,
-  for a Compose stack, the relay) is turned on for the application. There is no web terminal.
+- **A web terminal.** There is none: the console does not open a shell on the server.
 
 ---
 
@@ -385,8 +391,9 @@ network.
 noust app zero-downtime shop.example.com on
 ```
 
-Opt-in per application. The application runs as two instances of one systemd template unit,
-each on its own port and release, behind an nginx upstream. An activation starts the idle
+On by default for applications created from 3.4 (`deploy.zero_downtime`); opt-in for the
+ones from before, with the command above. The application runs as two instances of one systemd
+template unit, each on its own port and release, behind an nginx upstream. An activation starts the idle
 instance on the new release, passes the health gate on its port, moves the upstream with
 `nginx -t` and a reload, and stops the old instance after a drain (10 seconds by default). A
 failed gate stops the new instance; the old one never stopped. Only for applications on

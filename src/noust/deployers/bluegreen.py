@@ -25,11 +25,17 @@ A release that fails the gate is stopped; the old instance never stopped
 serving, so there is nothing to undo in nginx. An upstream nginx refuses is
 put back before anything reloads.
 
-The mode is opt-in and explicit (:func:`set_zero_downtime`), and only for
-what can run twice side by side: a process on the release layout, behind
-nginx. Turning it on and off are themselves switches without a cut, and
-either is undone whole when a step fails. Every operation here runs under
-the application's lock; :class:`BlueGreen` expects its caller to hold it.
+The mode is explicit (:func:`set_zero_downtime`), and only for what can run
+twice side by side: a process on the release layout, behind nginx. A new
+application that qualifies starts in it by default
+(:func:`adopt_for_new_app`, ``deploy.zero_downtime``); one that already exists
+keeps restarting in place until the operator turns it on. Static sites and PHP
+applications never need it: they have no process to start twice, and
+activating a release is one atomic rename of ``current`` (and, for PHP, a
+graceful FPM reload that lets the requests in flight finish), so they already
+update without a cut. Turning it on and off are themselves switches without a
+cut, and either is undone whole when a step fails. Every operation here runs
+under the application's lock; :class:`BlueGreen` expects its caller to hold it.
 """
 
 from __future__ import annotations
@@ -42,6 +48,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from noust.central import require_server_role
+from noust.core import delivery
 from noust.core.applock import app_lock
 from noust.core.exceptions import (
     DeploymentError,
@@ -1717,6 +1724,96 @@ def set_zero_downtime(
             drain_seconds=drain if drain is not None else DEFAULT_DRAIN_SECONDS,
             changed=True,
         )
+
+
+def could_update_without_downtime(app: App, *, store: NoustStore | None = None) -> bool:
+    """
+    Tell whether an application restarts in place on every update but could run twice.
+
+    The question behind ``noust health`` and ``noust diagnose`` suggesting
+    ``noust app zero-downtime DOMAIN on``: the application is not in the mode,
+    is not a Compose stack (whose relay is its own opt-in), and passes the
+    mode's eligibility. Nothing is probed on the machine: whether a port is
+    free is the switch's question, asked when it is made.
+
+    Args:
+        app: The application.
+        store: The store; defaults to the process-wide one.
+
+    Returns:
+        True when turning the mode on would be accepted as far as the row says.
+    """
+    if app.zero_downtime or app.app_type == AppType.DOCKER_COMPOSE.value or app.preview_parent:
+        return False
+    try:
+        check_eligible(app, store=store if store is not None else get_store())
+    except ValidationError:
+        return False
+    return True
+
+
+def adopt_for_new_app(
+    domain: str,
+    *,
+    logger: Logger,
+    store: NoustStore | None = None,
+    engine: Callable[[App, Logger], BlueGreen] | None = None,
+) -> ModeChange | None:
+    """
+    Start a new application in zero-downtime mode, when it can run twice.
+
+    From 3.4 an application created on the releases layout whose type serves
+    HTTP through a port behind nginx updates without a cut by default
+    (``deploy.zero_downtime``): the next release starts beside the one that
+    serves on the other colour, answers the health gate there, and only then
+    does nginx switch to it. It is the existing mode, switched on right after
+    the first deployment answered, through the same code an operator's
+    ``noust app zero-downtime DOMAIN on`` uses, so there is one way in.
+
+    Nothing here ever changes an application that already exists (those keep
+    how they update until the operator says otherwise), a preview, or a Compose
+    stack, whose relay is its own opt-in. And it never fails the deployment
+    that called it: the application answers as the single unit it is, and the
+    log says why it was not converted and how to try again.
+
+    Args:
+        domain: The application, deployed a moment ago.
+        logger: Where the steps and the reason for not converting are reported.
+        store: The store; defaults to the process-wide one.
+        engine: Builds the engine for the application; the deployer passes one
+            over its own managers, and a rehearsal or a test replaces it.
+
+    Returns:
+        What was done, or None when the application stays a single unit.
+    """
+    settings = delivery.current()
+    if not settings.zero_downtime:
+        return None
+    target = store if store is not None else get_store()
+    app = target.get_app(domain)
+    if app is None or app.zero_downtime or app.preview_parent:
+        return None
+    if app.app_type == AppType.DOCKER_COMPOSE.value:
+        return None
+    try:
+        check_eligible(app, store=target, port_free=is_port_available)
+    except ValidationError as exc:
+        logger.info(f"Updates of {domain} restart it in place: {exc.message}")
+        return None
+    try:
+        return set_zero_downtime(
+            domain,
+            True,
+            drain_seconds=settings.drain_seconds,
+            logger=logger,
+            engine=engine,
+        )
+    except NoustError as exc:
+        logger.warning(
+            f"{domain} answers, but could not start in zero-downtime mode: {exc.message}. "
+            f"Its updates restart it in place until: noust app zero-downtime {domain} on"
+        )
+        return None
 
 
 def _set_relay(app: App, enabled: bool, drain: int | None, log: Logger) -> ModeChange:
