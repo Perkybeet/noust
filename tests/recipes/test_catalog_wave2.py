@@ -14,14 +14,17 @@ published, and no secret is written in the document.
 from __future__ import annotations
 
 import re
+import tempfile
+from pathlib import Path
 from typing import Any
 
 import pytest
 import yaml
 
 from noust.managers.database.instances import image_engine
+from noust.managers.stack_databases import declared_databases
 from noust.managers.stack_databases import image_engine as dumpable_engine
-from noust.recipes import get_recipe, list_recipes
+from noust.recipes import get_recipe, list_recipes, read_asset
 from noust.recipes.model import Recipe
 
 #: The recipes this wave added, which run an application with databases of its own.
@@ -32,6 +35,7 @@ STACKS = {
     "forgejo",
     "ghost",
     "gitea",
+    "immich",
     "keycloak",
     "listmonk",
     "matomo",
@@ -42,10 +46,17 @@ STACKS = {
     "nocodb",
     "paperless-ngx",
     "plausible",
+    "rocketchat",
+    "twenty",
 }
 #: The recipes this wave added that are a single container or keep data in a file.
-SINGLES = {"gotify", "healthchecks"}
-WAVE_TWO = STACKS | SINGLES
+SINGLES = {"gotify", "healthchecks", "searxng"}
+#: Static applications that keep nothing on the server: no volume, no copy to make.
+STATELESS = {"cyberchef"}
+WAVE_TWO = STACKS | SINGLES | STATELESS
+#: Databases with no accounts: a MongoDB replica set needs a key file to have any, and this
+#: stack has one member that nothing outside its network can reach.
+WITHOUT_ACCOUNTS = {"rocketchat"}
 
 #: Where each engine keeps its data, for the volume a stack must mount there.
 DATA_DIRECTORIES = {
@@ -101,6 +112,12 @@ def compose_recipes() -> list[Recipe]:
     return [recipe for recipe in installable() if recipe.kind == "compose"]
 
 
+def test_the_catalogue_reaches_the_credibility_floor_of_forty_installable_recipes() -> None:
+    """Checklist D-01: 40 to 60 curated recipes, of which this wave is a part."""
+    assert len(installable()) >= 40
+    assert WAVE_TWO <= {recipe.name for recipe in installable()}
+
+
 @pytest.mark.parametrize("name", sorted(WAVE_TWO))
 def test_a_recipe_of_the_wave_is_a_pinned_docker_recipe_with_everything_a_card_shows(
     name: str,
@@ -130,12 +147,25 @@ def test_every_database_of_a_stack_keeps_its_data_in_a_named_volume(recipe: Reci
         assert expected in mounts(service).values(), (recipe.name, service_name)
 
 
+def declared_dumps(recipe: Recipe) -> list[Any]:
+    """The databases the recipe's own noust.yaml declares for Noust to dump."""
+    if "noust.yaml" not in recipe.files:
+        return []
+    with tempfile.TemporaryDirectory() as directory:
+        text = read_asset(recipe.name, recipe.files["noust.yaml"])
+        (Path(directory) / "noust.yaml").write_text(text)
+        declared = declared_databases(Path(directory))
+    assert isinstance(declared, tuple)
+    return list(declared)
+
+
 @pytest.mark.parametrize("name", sorted(STACKS))
 def test_a_database_of_a_stack_is_one_noust_dumps_before_an_update(name: str) -> None:
-    """The official image, with the account and the database named in its environment."""
+    """Either the official image, with account and database in its environment, or declared."""
     recipe = get_recipe(name)
+    services = services_of(recipe)
     databases = 0
-    for service_name, service in services_of(recipe).items():
+    for service_name, service in services.items():
         engine = image_engine(service["image"])
         if engine is None or engine.flavour not in DATA_DIRECTORIES:
             continue
@@ -147,9 +177,24 @@ def test_a_database_of_a_stack_is_one_noust_dumps_before_an_update(name: str) ->
         elif engine.flavour in ("mysql", "mariadb"):
             prefix = "MARIADB_" if engine.flavour == "mariadb" else "MYSQL_"
             assert environment.get(prefix + "USER") and environment.get(prefix + "DATABASE")
-        elif engine.flavour == "mongo":
+        elif engine.flavour == "mongo" and name not in WITHOUT_ACCOUNTS:
             assert environment.get("MONGO_INITDB_ROOT_USERNAME"), service_name
+    for declared in declared_dumps(recipe):
+        databases += 1
+        assert declared.service in services, (name, declared.service)
+        assert mounts(services[declared.service]), (name, declared.service)
     assert databases >= 1, name
+
+
+def test_a_database_image_noust_does_not_recognise_is_declared_for_the_dump() -> None:
+    """Immich's PostgreSQL carries the vector extensions: its recipe declares it in noust.yaml."""
+    recipe = get_recipe("immich")
+    image = services_of(recipe)["database"]["image"]
+
+    assert image_engine(image) is None
+    assert [(d.service, d.engine, d.database, d.user) for d in declared_dumps(recipe)] == [
+        ("database", "postgres", "immich", "postgres")
+    ]
 
 
 @pytest.mark.parametrize("name", sorted(STACKS))
@@ -195,7 +240,7 @@ def test_no_credential_is_written_in_a_document(recipe: Recipe) -> None:
             assert "${" in value, (recipe.name, service_name, key)
 
 
-@pytest.mark.parametrize("name", sorted(WAVE_TWO))
+@pytest.mark.parametrize("name", sorted(WAVE_TWO - STATELESS))
 def test_the_secrets_of_a_recipe_are_generated_and_marked_secret(name: str) -> None:
     """A generated password, hex or base64 is a secret, so it is masked wherever it is shown."""
     recipe = get_recipe(name)
@@ -212,7 +257,7 @@ def test_the_secrets_of_a_recipe_are_generated_and_marked_secret(name: str) -> N
     assert "PORT" not in names
 
 
-@pytest.mark.parametrize("name", sorted(WAVE_TWO))
+@pytest.mark.parametrize("name", sorted(WAVE_TWO - STATELESS))
 def test_a_recipe_says_where_its_data_is_and_that_it_needs_a_copy(name: str) -> None:
     """Notes name a Docker volume of this application, as the contribution rules ask."""
     recipe = get_recipe(name)

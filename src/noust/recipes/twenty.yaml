@@ -1,0 +1,125 @@
+# Twenty from the image the project publishes on Docker Hub, with the stack of its own
+# packages/twenty-docker/docker-compose.yml (twenty/v2.45.0 tag) and .env.example: a
+# server, a worker (the same image with `yarn worker:prod`, which leaves the migrations
+# and the cron registration to the server), PostgreSQL and a Redis-compatible store
+# started with --maxmemory-policy noeviction (Valkey, the BSD-licensed fork, takes the
+# flag), PG_DATABASE_URL, SERVER_URL, REDIS_URL, ENCRYPTION_KEY (a random 32-byte value:
+# `openssl rand -base64 32`) and STORAGE_TYPE=local with the server and the worker sharing
+# the .local-storage volume. The image runs as user 1000 and listens on 3000; /healthz is
+# the project's own health check and needs no login.
+#
+# Twenty has no way to create its first account from the environment: the first person to
+# sign up makes the workspace and becomes its administrator, which the first note says. The
+# application is AGPL-3.0 (its LICENSE file): the few files marked "@license Enterprise" are
+# under a commercial licence.
+# Pinned to the release tag of the image (2.45.6, the newest) and the digest Docker Hub serves.
+schema: 2
+name: twenty
+kind: compose
+title: Twenty
+slogan: An open source CRM for modern teams, a self-hosted alternative to Salesforce.
+description: "Customer relationship management with objects and fields you define, views, workflows, e-mail and calendar sync. Runs a server and a worker with their own PostgreSQL and Valkey. The first person to sign up creates the workspace and becomes its administrator, so do it right after installing."
+category: business
+tags: [crm, sales, contacts, workflows]
+logo: logo.svg
+version: "2.45.6"
+revision: 1
+updated: 2026-10-06
+homepage: https://twenty.com
+docs: https://docs.twenty.com
+repository: https://github.com/twentyhq/twenty
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 2 GB of memory
+port: 3000
+variables:
+  SERVER_URL:
+    from: url
+    description: The address people use; Twenty builds its links and its OAuth callbacks from it.
+  ENCRYPTION_KEY:
+    generate: base64_32
+    description: Encrypts the tokens Twenty stores for connected accounts. Losing it makes them unreadable.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /healthz
+  expect: "200"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    server:
+      image: twentycrm/twenty:v2.45.6@sha256:dca6d82985901468b391c0335aa8f0519a52b9809709e66f2de1dbff04351e53
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      environment:
+        NODE_PORT: "3000"
+        PG_DATABASE_URL: "postgres://twenty:${DB_PASSWORD}@db:5432/twenty"
+        SERVER_URL: "${SERVER_URL}"
+        REDIS_URL: "redis://redis:6379"
+        STORAGE_TYPE: local
+        ENCRYPTION_KEY: "${ENCRYPTION_KEY}"
+      volumes:
+        - twenty-storage:/app/packages/twenty-server/.local-storage
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+    worker:
+      image: twentycrm/twenty:v2.45.6@sha256:dca6d82985901468b391c0335aa8f0519a52b9809709e66f2de1dbff04351e53
+      restart: unless-stopped
+      command: ["yarn", "worker:prod"]
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      environment:
+        PG_DATABASE_URL: "postgres://twenty:${DB_PASSWORD}@db:5432/twenty"
+        SERVER_URL: "${SERVER_URL}"
+        REDIS_URL: "redis://redis:6379"
+        DISABLE_DB_MIGRATIONS: "true"
+        DISABLE_CRON_JOBS_REGISTRATION: "true"
+        STORAGE_TYPE: local
+        ENCRYPTION_KEY: "${ENCRYPTION_KEY}"
+      volumes:
+        - twenty-storage:/app/packages/twenty-server/.local-storage
+    db:
+      image: postgres:16.15-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: twenty
+        POSTGRES_DB: twenty
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U twenty -d twenty"]
+        interval: 5s
+        timeout: 5s
+        retries: 20
+        start_period: 20s
+      volumes:
+        - twenty-db:/var/lib/postgresql/data
+    redis:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      restart: unless-stopped
+      command: ["valkey-server", "--maxmemory-policy", "noeviction"]
+      healthcheck:
+        test: ["CMD", "valkey-cli", "ping"]
+        interval: 5s
+        timeout: 5s
+        retries: 10
+      volumes:
+        - twenty-redis:/data
+  volumes:
+    twenty-storage:
+    twenty-db:
+    twenty-redis:
+notes:
+  - "Open {{ url }} now and sign up: the first person to do it creates the workspace and becomes its administrator."
+  - "Your contacts, companies and settings are in the PostgreSQL of this stack (Docker volume twenty-db, dumped by Noust before every update); attachments are in the volume twenty-storage. Back up both before updating. Keep ENCRYPTION_KEY (noust env show {{ domain }} --unmask): without it the connected accounts' tokens cannot be read from a restore."
+  - "Connecting Google or Microsoft accounts and sending e-mail need credentials of your own; the project's documentation lists the settings, which you add to the application's environment."

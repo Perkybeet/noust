@@ -1,0 +1,39 @@
+# CyberChef from the image GCHQ publishes on ghcr.io, as the project's README documents
+# it ("With Docker", option 2: the pre-built image, which listens on 8080). It is a static
+# web application: every operation runs in the visitor's browser, and nothing is stored on
+# the server, so the stack has no volume. The image runs as user 101 under nginx.
+#
+# Pinned to the release tag and the digest ghcr.io serves for it.
+schema: 2
+name: cyberchef
+kind: compose
+title: CyberChef
+slogan: The cyber swiss army knife for encoding, encryption and data analysis.
+description: "A web app for carrying out simple and complex operations on data: encodings, hashes, encryption, compression, parsing and much more, in the browser. Nothing you paste is sent to the server. It has no sign-in and keeps no data."
+category: utilities
+tags: [encoding, crypto, forensics, tools]
+logo: logo.svg
+version: "11.5.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://gchq.github.io/CyberChef/
+docs: https://github.com/gchq/CyberChef/wiki
+repository: https://github.com/gchq/CyberChef
+license: Apache-2.0
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8280
+health:
+  path: /
+  expect: "200"
+compose: |
+  services:
+    cyberchef:
+      image: ghcr.io/gchq/cyberchef:11.5.0@sha256:f04a39926344faf8e4cbbc8c92fb125d2b466f9be62db09aff23c7c406101a51
+      restart: unless-stopped
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+notes:
+  - "Open {{ url }}: there is nothing to sign in to, and nothing to configure. Every operation runs in the browser, so what people paste never reaches this server."
+  - "There is no data to back up: the application is static, and updating it only replaces the image."

@@ -1,0 +1,65 @@
+# SearXNG from the image the project publishes on Docker Hub, configured as its
+# container documentation (docs/admin/installation-docker.rst) and its server settings page
+# (docs/admin/settings/settings_server.rst) describe: SEARXNG_BASE_URL, SEARXNG_SECRET (the
+# default secret_key makes it refuse to start), SEARXNG_LIMITER and SEARXNG_PUBLIC_INSTANCE,
+# the two volumes the image exposes (/etc/searxng for settings.yml, which the image writes
+# on its first start, and /var/cache/searxng) and the image's port 8080. /healthz answers
+# without any setting. The limiter (bot protection) needs a Valkey the project's own file
+# adds; for a private instance it is left off, as the project's defaults have it.
+#
+# SearXNG has no releases: the project publishes a build per commit, tagged with the date
+# and the short commit (2026.10.4-d48c4b555 is the tip of its master branch today), and the
+# same image as latest. This recipe pins that build by tag and by digest, which is a fixed
+# image, not a floating tag; the version is the date.
+schema: 2
+name: searxng
+kind: compose
+title: SearXNG
+slogan: A privacy-respecting metasearch engine that aggregates results from many sources.
+description: "Search the web through dozens of engines without tracking or profiling, with no account. It has no sign-in: whoever reaches it can search through your server, so keep it to people you trust or put it behind access control. The project has no releases; the recipe pins a dated build."
+category: search
+tags: [search, metasearch, privacy, engine]
+logo: logo.svg
+version: "2026.10.4"
+revision: 1
+updated: 2026-10-06
+homepage: https://docs.searxng.org
+docs: https://docs.searxng.org
+repository: https://github.com/searxng/searxng
+license: AGPL-3.0-or-later
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8888
+variables:
+  SEARXNG_BASE_URL:
+    from: url
+    description: The address people use; SearXNG builds its links and its search plugin from it.
+  SEARXNG_SECRET:
+    generate: hex32
+    description: Used for cryptography; the default value is refused. Changing it invalidates the sessions.
+health:
+  path: /healthz
+  expect: "200"
+  timeout: 90
+compose: |
+  services:
+    searxng:
+      image: searxng/searxng:2026.10.4-d48c4b555@sha256:76b0bf285aca014c7191fc4d9234c4bfb358624ac33d8883833d496c059ec072
+      restart: unless-stopped
+      environment:
+        SEARXNG_BASE_URL: "${SEARXNG_BASE_URL}/"
+        SEARXNG_SECRET: "${SEARXNG_SECRET}"
+        SEARXNG_LIMITER: "false"
+        SEARXNG_PUBLIC_INSTANCE: "false"
+      volumes:
+        - searxng-config:/etc/searxng
+        - searxng-cache:/var/cache/searxng
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+  volumes:
+    searxng-config:
+    searxng-cache:
+notes:
+  - "Open {{ url }}: there is nothing to sign in to. Anyone who can reach it can search through your server, which counts against your server's address with the engines it asks; share the address only with people you trust."
+  - "Its settings file (settings.yml) is in the Docker volume searxng-config of this application: edit it there to choose engines and results, then noust restart {{ domain }}. Back it up before updating."

@@ -1,0 +1,5 @@
+# How nginx proxies this application. Photos and videos are uploaded from the apps, in files of any size, and the page holds a WebSocket.
+max_body_size: 50g
+routes:
+  - path: /
+    read_timeout: 600
