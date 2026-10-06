@@ -17,7 +17,7 @@ export const overview: Catalog<typeof en> = {
   },
   quickActions: {
     renewCertificates: "Renovar certificados",
-    checkUpdates: "Buscar actualizaciones",
+    checkUpdates: "Buscar actualizaciones del sistema",
     backUp: "Hacer una copia de seguridad",
     activity: "Toda la actividad",
     addServer: "Añadir un servidor",
@@ -79,7 +79,7 @@ export const overview: Catalog<typeof en> = {
       aria: "Disco: {percent} libre, {used} de {total} en uso",
     },
     updates: {
-      label: "Actualizaciones del SO",
+      label: "Actualizaciones del sistema",
       pending: { one: "{count} pendiente", other: "{count} pendientes" },
       upToDate: "Al día",
       notChecked: "Sin comprobar",

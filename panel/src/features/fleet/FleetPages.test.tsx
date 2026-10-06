@@ -146,7 +146,7 @@ describe("the fleet's views", () => {
     expect(screen.getByText(/1 without a backup/)).toBeInTheDocument();
 
     await act(() => router.navigate({ to: "/fleet/updates" }));
-    const updates = await rows("Updates of every server");
+    const updates = await rows("Noust and system updates of every server");
     expect(within(await rowOf(updates, "web-2")).getByText("3 for security")).toBeInTheDocument();
     expect(within(await rowOf(updates, "db-1")).getByText("Update available")).toBeInTheDocument();
     expect(within(await rowOf(updates, "old-1")).getByText("Package index behind")).toBeInTheDocument();

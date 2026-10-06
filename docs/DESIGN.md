@@ -1046,6 +1046,15 @@ every few seconds are never live regions.
   elsewhere), Revoke (invalidates a credential), Drop (SQL only), Discard (unsaved changes),
   Enable / Disable (reversible), Start / Stop / Restart (a service's life), Roll back (to an
   earlier version), Save (persists) / Apply (persists and runs).
+- **The verbs of an application do not collide** (checklist M-32). Each word means one thing:
+  **Update** pulls the source and builds a new release; **Deploy** is the wizard's last button,
+  which creates the application and builds its first; **Restart** starts the same release again
+  (no build); **Stop** and **Start** are the service, with no build; **Roll back** goes to an
+  earlier release. A button that only opens a page is never called Deploy ("New application",
+  "From a recipe"). Two other things are called updates and are named by what they update:
+  **System updates** (the operating system's packages: Server, Overview, the fleet's "Noust
+  and system updates") and **Update Noust** (Noust itself). Never a bare "Updates" for either.
+  `i18n/verbs.test.ts` holds the words in both languages.
 - **Empty states**: the title says what this place is and what is missing ("No applications
   yet"); one or two sentences say the next step; the action is an imperative of one or two
   words; the command, when the CLI has one.

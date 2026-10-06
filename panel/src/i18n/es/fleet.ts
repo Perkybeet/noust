@@ -67,7 +67,7 @@ export const fleet: Catalog<typeof en> = {
     apps: "Aplicaciones",
     certificates: "Certificados",
     backups: "Copias",
-    updates: "Actualizaciones",
+    updates: "Actualizaciones de Noust y del sistema",
     activity: "Actividad",
     command: {
       summary: "Resumen de la flota",
@@ -75,7 +75,7 @@ export const fleet: Catalog<typeof en> = {
       apps: "Aplicaciones de todos los servidores",
       certificates: "Certificados de todos los servidores",
       backups: "Copias de seguridad de todos los servidores",
-      updates: "Actualizaciones de todos los servidores",
+      updates: "Actualizaciones de Noust y del sistema de todos los servidores",
       activity: "Actividad de todos los servidores",
     },
     keywords: {
@@ -229,7 +229,7 @@ export const fleet: Catalog<typeof en> = {
       certificatesExpiring: { one: "{count} por caducar", other: "{count} por caducar" },
       certificatesNone: "Ninguno por caducar",
       certificatesDetail: "Caducan en 30 días",
-      updates: "Actualizaciones",
+      updates: "Actualizaciones de Noust",
       updatesAvailable: { one: "{count} por actualizar", other: "{count} por actualizar" },
       updatesNone: "Todo Noust al día",
       reboots: { one: "{count} espera un reinicio", other: "{count} esperan un reinicio" },
@@ -365,7 +365,7 @@ export const fleet: Catalog<typeof en> = {
     unscheduled: "Sin programación",
   },
   updates: {
-    caption: "Actualizaciones de todos los servidores",
+    caption: "Actualizaciones de Noust y del sistema de todos los servidores",
     filterLabel: "Filtrar servidores",
     searchLabel: "Buscar servidores",
     searchPlaceholder: "Nombre o versión",

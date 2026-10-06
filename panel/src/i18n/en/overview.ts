@@ -15,7 +15,7 @@ export const overview = {
   },
   quickActions: {
     renewCertificates: "Renew certificates",
-    checkUpdates: "Check for updates",
+    checkUpdates: "Check for system updates",
     backUp: "Back up an application",
     activity: "All activity",
     addServer: "Add a server",
@@ -77,7 +77,7 @@ export const overview = {
       aria: "Disk: {percent} free, {used} of {total} used",
     },
     updates: {
-      label: "OS updates",
+      label: "System updates",
       pending: { one: "{count} pending", other: "{count} pending" },
       upToDate: "Up to date",
       notChecked: "Not checked yet",

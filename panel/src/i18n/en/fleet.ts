@@ -74,7 +74,7 @@ export const fleet = {
     apps: "Applications",
     certificates: "Certificates",
     backups: "Backups",
-    updates: "Updates",
+    updates: "Noust and system updates",
     activity: "Activity",
     command: {
       summary: "Fleet summary",
@@ -82,7 +82,7 @@ export const fleet = {
       apps: "Applications on every server",
       certificates: "Certificates on every server",
       backups: "Backups on every server",
-      updates: "Updates on every server",
+      updates: "Noust and system updates on every server",
       activity: "Activity on every server",
     },
     keywords: {
@@ -239,7 +239,7 @@ export const fleet = {
       certificatesExpiring: { one: "{count} expiring", other: "{count} expiring" },
       certificatesNone: "None expiring",
       certificatesDetail: "Due within 30 days",
-      updates: "Updates",
+      updates: "Noust updates",
       updatesAvailable: { one: "{count} to update", other: "{count} to update" },
       updatesNone: "Every Noust up to date",
       reboots: { one: "{count} waits for a restart", other: "{count} wait for a restart" },
@@ -381,7 +381,7 @@ export const fleet = {
     unscheduled: "No schedule",
   },
   updates: {
-    caption: "Updates of every server",
+    caption: "Noust and system updates of every server",
     filterLabel: "Filter servers",
     searchLabel: "Search servers",
     searchPlaceholder: "Name or version",
