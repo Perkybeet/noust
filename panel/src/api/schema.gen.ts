@@ -167,7 +167,7 @@ export interface paths {
         };
         /**
          * List Apps
-         * @description List every deployed application.
+         * @description List the deployed applications the caller sees.
          *
          *     Every application's service record, webhook flag and last deployment
          *     come from one store query each, and every application's systemd status
@@ -177,9 +177,13 @@ export interface paths {
          *
          *     Args:
          *         session: The authenticated session.
+         *         team: Only this team's applications.
+         *         project: Only the projects with this slug.
+         *         environment: Only the environments with this slug.
          *
          *     Returns:
-         *         The applications, each with the live state of its service.
+         *         The applications, each with the live state of its service. A team
+         *         member sees its teams' applications only.
          */
         get: operations["list_apps_api_apps_get"];
         put?: never;
@@ -515,6 +519,125 @@ export interface paths {
         patch: operations["update_app_branch_api_apps__domain__branch_patch"];
         trace?: never;
     };
+    "/api/apps/{domain}/build": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Build
+         * @description Show the build block the next deployment of an application uses. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The block and where it comes from.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_app_build_api_apps__domain__build_get"];
+        /**
+         * Put App Build
+         * @description Set the operator's build block, replacing the repository's noust.yaml whole.
+         *
+         *     The block is validated before anything is stored; a refusal names the
+         *     field (``build.base_directory``). Its commands run in the build sandbox and
+         *     as the application's unit, so this needs sudo mode. It takes effect on the
+         *     next deployment or update, which also writes the unit again when the start
+         *     command, the directory or the runtime changed.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The block.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The block now in force.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The block is not valid, or sets what the application's
+         *             type cannot do (400, with the field).
+         */
+        put: operations["put_app_build_api_apps__domain__build_put"];
+        post?: never;
+        /**
+         * Delete App Build
+         * @description Remove the operator's build block, so the repository's noust.yaml applies again.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The block now in force.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        delete: operations["delete_app_build_api_apps__domain__build_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/container": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Container
+         * @description Show how a container application is built and run. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The settings, without the registry's password.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: It is not a container application (400).
+         */
+        get: operations["get_app_container_api_apps__domain__container_get"];
+        /**
+         * Put App Container
+         * @description Change how a container application is built and run.
+         *
+         *     What the request names changes and the rest stays. The change is checked
+         *     whole before anything is written, and takes effect with the next
+         *     deployment of the application.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: What to change.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The settings now.
+         *
+         *     Raises:
+         *         ValidationError: A value is not valid (400, with the field), or the
+         *             change moves between an image and a repository.
+         *         AppBusyError: Another operation is running on the application (409).
+         */
+        put: operations["put_app_container_api_apps__domain__container_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/databases": {
         parameters: {
             query?: never;
@@ -539,9 +662,15 @@ export interface paths {
          * Provision App Database
          * @description Queue creating a database for an application and linking it.
          *
+         *     The engine and version are resolved before the job is queued, so a version
+         *     this server cannot be given, or is not running, is refused here with what
+         *     runs and what could be installed. Installing the engine as part of it is
+         *     the install's own action: sudo mode and ``databases.manage``.
+         *
          *     Args:
          *         domain: The application.
          *         request: What to create.
+         *         http_request: The request, for the elevation check's audit record.
          *         session: The authenticated session.
          *
          *     Returns:
@@ -639,6 +768,192 @@ export interface paths {
          *         The connection string.
          */
         post: operations["reveal_app_database_url_api_apps__domain__databases__engine___name__url_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/deploy-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Deploy Key
+         * @description Show what an application's repository is reached with. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its deploy key, when it has one, and the server-wide key it falls back to.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_deploy_key_api_apps__domain__deploy_key_get"];
+        put?: never;
+        /**
+         * Create Deploy Key
+         * @description Make an ed25519 key for the application's repository, or assign an existing one.
+         *
+         *     The public half in the answer is what to add at the code host. The private
+         *     half stays on the server and is never returned.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: A name for the new key, or the name of one that exists.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The application's deploy key.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The application has no git repository, already has a
+         *             key, or the name is taken (400).
+         */
+        post: operations["create_deploy_key_api_apps__domain__deploy_key_post"];
+        /**
+         * Delete Deploy Key
+         * @description Take the repository off its deploy key; the key is deleted when nothing else uses it.
+         *
+         *     The code host still trusts the public key until it is removed there.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The application's deploy key, which is null now.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        delete: operations["delete_deploy_key_api_apps__domain__deploy_key_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/deploy-key/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Deploy Key
+         * @description Use a private key the operator has as the application's deploy key.
+         *
+         *     A secret travels in, so this needs sudo mode. The public half is derived
+         *     from the key by ssh-keygen, and a key with a passphrase is refused.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The key.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The application's deploy key.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The key is not valid or has a passphrase (400).
+         */
+        post: operations["import_deploy_key_api_apps__domain__deploy_key_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/deploy-key/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Rotation
+         * @description Make the key that will replace the application's, keeping the old one working.
+         *
+         *     The new public key is in ``key.pending``. Add it at the code host, keeping
+         *     the old one there; the first clone or fetch the host answers with it (or
+         *     ``POST .../deploy-key/test``) makes it the key and removes the old one.
+         *     Asking again while one waits returns the same key.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The application's deploy key, with its waiting key.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The application has no deploy key (400).
+         */
+        post: operations["start_rotation_api_apps__domain__deploy_key_rotate_post"];
+        /**
+         * Cancel Rotation
+         * @description Give up a rotation; the old key was never replaced.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The application's deploy key, with nothing waiting.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        delete: operations["cancel_rotation_api_apps__domain__deploy_key_rotate_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/deploy-key/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Deploy Key
+         * @description Ask the repository for its branches with the key, as a deploy would.
+         *
+         *     A waiting key that the code host accepts becomes the key here, by the same
+         *     path a deploy takes.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What the repository answered.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         SourceError: The repository cannot be read; git's own words are in the
+         *             error (a refused key, a host key that changed).
+         */
+        post: operations["test_deploy_key_api_apps__domain__deploy_key_test_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1060,6 +1375,70 @@ export interface paths {
         patch: operations["update_app_follow_tags_api_apps__domain__follow_tags_patch"];
         trace?: never;
     };
+    "/api/apps/{domain}/git-credential": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Git Credential
+         * @description Say whether an application's repository has an https credential. Changes nothing.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Whether one is stored and the user it signs in as; never the token.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_git_credential_api_apps__domain__git_credential_get"];
+        /**
+         * Put Git Credential
+         * @description Keep the user and token git signs in to the repository with, replacing any.
+         *
+         *     A secret travels in, so this needs sudo mode. It is stored in the secret
+         *     store, not in the application's source URL.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The user and the token.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The credential as the API shows it: no token.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The application has no git repository, or a value is
+         *             not acceptable (400).
+         */
+        put: operations["put_git_credential_api_apps__domain__git_credential_put"];
+        post?: never;
+        /**
+         * Delete Git Credential
+         * @description Forget the https credential of an application's repository.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The credential, which is not configured now.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        delete: operations["delete_git_credential_api_apps__domain__git_credential_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/headless": {
         parameters: {
             query?: never;
@@ -1453,6 +1832,49 @@ export interface paths {
         get: operations["get_migration_plan_api_apps__domain__migrate_plan_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move App
+         * @description Move an application, with its sites, databases and backup schedule, to
+         *     another project or environment.
+         *
+         *     The application must be one the principal sees and may manage, and so must
+         *     be the place it moves to: a principal cannot hand an application to a team
+         *     it has no part in.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         body: Where to; what is left out stays as it is.
+         *         request: The incoming request, for the permission check's audit record.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         Where it is now, and what moved.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the request names no destination.
+         *         ResourceNotFoundError: 404 when the application is not one the principal
+         *             sees.
+         *         TeamNotFoundError: 404 when the team, project or environment does not
+         *             exist or is not one the principal sees.
+         *         PermissionDenied: 403 when the principal may not manage applications
+         *             in the team it moves to.
+         */
+        post: operations["move_app_api_apps__domain__move_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4276,7 +4698,8 @@ export interface paths {
          *         session: The authenticated session.
          *
          *     Returns:
-         *         The schedules, merging what systemd reports with each one's store row.
+         *         The schedules, merging what systemd reports with each one's store row;
+         *         a team member sees those of its teams' applications.
          */
         get: operations["list_schedules_api_backup_schedules_get"];
         put?: never;
@@ -5322,6 +5745,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/console/exposure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Exposure
+         * @description Say whether the console is published, where, and whether it is still in place.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         ``exposed``, the recorded exposure when there is one, ``ens_allows``
+         *         (whether the ENS profile lets it be published) and ``problems``.
+         */
+        get: operations["get_exposure_api_console_exposure_get"];
+        put?: never;
+        /**
+         * Expose Console
+         * @description Publish the console on a name of its own, over TLS.
+         *
+         *     The checks run before the job is queued, so a refusal is the response and
+         *     not a failed job: the ENS profile, an account without a second factor, a
+         *     name that is an application's or does not point at this server.
+         *
+         *     Args:
+         *         body: The name and who may connect.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["expose_console_api_console_exposure_post"];
+        /**
+         * Unexpose Console
+         * @description Take the console off its public name, removing exactly what publishing made.
+         *
+         *     Args:
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        delete: operations["unexpose_console_api_console_exposure_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/console/exposure/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview Exposure
+         * @description Run every check publishing runs and say what it would do, changing nothing.
+         *
+         *     Args:
+         *         body: The same request publishing takes.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The steps. A refusal (the ENS profile, an account without a second
+         *         factor, a name that does not point here) is the error's own message.
+         */
+        post: operations["preview_exposure_api_console_exposure_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cron": {
         parameters: {
             query?: never;
@@ -5618,7 +6121,8 @@ export interface paths {
          *
          *     Args:
          *         engine: The engine.
-         *         database: The database, which must exist.
+         *         database: The database, which must exist, or ``*`` for the policy that
+         *             covers every database of the engine.
          *         request: The policy.
          *         session: The authenticated, elevated session.
          *
@@ -6189,11 +6693,15 @@ export interface paths {
          *     Args:
          *         engine: Engine to restrict the listing to.
          *         session: The authenticated session.
+         *         team: Only this team's databases.
+         *         project: Only the projects with this slug.
+         *         environment: Only the environments with this slug.
          *
          *     Returns:
          *         Every database the running engines report, the tracked ones they
          *         no longer have (``missing``), and the engines that could not be read
-         *         (``problems``).
+         *         (``problems``). A team member sees the databases its teams own: one an
+         *         engine holds that Noust never recorded belongs to nobody.
          */
         get: operations["list_databases_api_databases_databases_get"];
         put?: never;
@@ -6201,8 +6709,12 @@ export interface paths {
          * Create Database
          * @description Create a database and record it in the store.
          *
+         *     It belongs to the application it is created for, and to the project the
+         *     request names when it has none.
+         *
          *     Args:
          *         request: The create request.
+         *         http_request: The incoming request, for the audit record of a refusal.
          *         session: The authenticated session.
          *
          *     Returns:
@@ -6210,6 +6722,7 @@ export interface paths {
          *
          *     Raises:
          *         DatabaseExistsError: When the database already exists.
+         *         ValidationError: 400 when the application is not one the caller sees.
          */
         post: operations["create_database_api_databases_databases_post"];
         delete?: never;
@@ -7278,6 +7791,227 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Dump
+         * @description Queue importing a dump, with sudo mode.
+         *
+         *     What is checked here is checked before the job exists, so a mistake is an
+         *     answer and not a failed job: the upload is finished (or the path is in an
+         *     allowed folder), the engine is running and the database name is valid.
+         *
+         *     Args:
+         *         request: The engine, the database, the dump and the options.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job; its result says what the file was and what was done.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an unfinished upload, a path outside the
+         *             allowed folders or an unusable name.
+         *         DatabaseEngineError: When the engine is not running.
+         */
+        post: operations["import_dump_api_databases_imports_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/imports/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inspect Dump
+         * @description Say what a dump is and whether an engine can load it. Changes nothing.
+         *
+         *     Args:
+         *         request: An upload or a server path, and optionally an engine.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The format and, with an engine, whether it loads.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a path outside the folders dumps are read from.
+         */
+        post: operations["inspect_dump_api_databases_imports_inspect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/imports/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start Upload
+         * @description Start an upload. Nothing is sent yet.
+         *
+         *     Args:
+         *         request: The file's name and size, and its digest if known.
+         *         session: The authenticated session, which owns the upload.
+         *
+         *     Returns:
+         *         The upload, with the offset to start at and the most a chunk may carry.
+         *
+         *     Raises:
+         *         ValidationError: 400 for a name that is not a dump's.
+         *         UploadTooLargeError: 400 for a size past the limit or the disk.
+         */
+        post: operations["start_upload_api_databases_imports_uploads_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/imports/uploads/{upload_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Upload Status
+         * @description Say how much of an upload the server holds, which is where to resume.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The upload.
+         *
+         *     Raises:
+         *         ValidationError: 400 when there is no such upload.
+         */
+        get: operations["upload_status_api_databases_imports_uploads__upload_id__get"];
+        /**
+         * Send Chunk
+         * @description Add the next chunk of an upload.
+         *
+         *     The body is the raw bytes of the chunk. A chunk at an offset other than the
+         *     one the server holds is refused with 409 and the offset to resume from.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         request: The request, whose body is the chunk.
+         *         offset: Where the chunk starts.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The upload, with the new offset.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an unknown or finished upload.
+         */
+        put: operations["send_chunk_api_databases_imports_uploads__upload_id__put"];
+        post?: never;
+        /**
+         * Discard Upload
+         * @description Throw an upload away.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The outcome.
+         *
+         *     Raises:
+         *         ValidationError: 400 when there is no such upload.
+         */
+        delete: operations["discard_upload_api_databases_imports_uploads__upload_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/imports/uploads/{upload_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete Upload
+         * @description Close an upload: every byte is in, the digest matches, and say what it is.
+         *
+         *     Args:
+         *         upload_id: The upload.
+         *         session: The authenticated session; only the one that started it.
+         *
+         *     Returns:
+         *         The finished upload, with the format of the file.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the digest does not match (the data is
+         *             discarded) or the upload is unknown.
+         */
+        post: operations["complete_upload_api_databases_imports_uploads__upload_id__complete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/provisioning/choices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Provisioning Choices
+         * @description List the engines and versions a database can be created on.
+         *
+         *     For the new-database choice: each flavour says whether it is installed and
+         *     in which version, and each version whether it is the one that runs,
+         *     could be installed now, or cannot be had. Nothing is changed.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         One entry per flavour, in the install catalog's order.
+         */
+        get: operations["provisioning_choices_api_databases_provisioning_choices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/provisioning/plan": {
         parameters: {
             query?: never;
@@ -7304,6 +8038,158 @@ export interface paths {
         get: operations["provisioning_plan_api_databases_provisioning_plan_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/public": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Public
+         * @description List the databases that are reachable from the network.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Every exposure, with whether its port listens now. A team member sees
+         *         those of the databases its teams own: a port is a fact about the host,
+         *         but whose database it forwards to is not for another team to read.
+         */
+        get: operations["list_public_api_databases_public_get"];
+        put?: never;
+        /**
+         * Open Public
+         * @description Make a database reachable from the network: a public port, an account, the firewall.
+         *
+         *     Sudo mode. Without ``confirm`` nothing is changed and the answer is a 400
+         *     ``confirmation_required`` carrying every warning; with it, the port, the account of its own, the TLS
+         *     requirement and the firewall rule are made, in that order, and undone if
+         *     one fails. The account's password is in the answer, this once.
+         *
+         *     Args:
+         *         request: What to open and how, and the confirmation.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The exposure and how to connect.
+         */
+        post: operations["open_public_api_databases_public_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/public/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Public
+         * @description Say what making a database reachable would do and what it asks the operator to accept.
+         *
+         *     Changes nothing, and is what the console shows before it asks for sudo
+         *     mode. A request that could not succeed (the ENS profile, an engine without
+         *     a password, a port that is taken, TLS the engine cannot require) is
+         *     refused here, with the reason.
+         *
+         *     Args:
+         *         request: What to open and how.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan.
+         */
+        post: operations["plan_public_api_databases_public_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/public/{engine}/{database}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Public
+         * @description Say whether a database is reachable from the network, and how.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         database: The database.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         ``public`` and, when it is, the exposure and the connection with the
+         *         password masked.
+         */
+        get: operations["get_public_api_databases_public__engine___database__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Close Public
+         * @description Make a database private again: undo everything making it public did.
+         *
+         *     Sudo mode. Removes what the record says was made and nothing else; one
+         *     step that cannot be done now leaves the record ``closing`` and is named in
+         *     the error, and running this again finishes it. Connections that are open
+         *     end with the proxy.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         database: The database.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was removed.
+         */
+        delete: operations["close_public_api_databases_public__engine___database__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/public/{engine}/{database}/reveal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reveal Public
+         * @description Show how to connect, with the account's password, again.
+         *
+         *     Sudo mode, and audited as a password shown.
+         *
+         *     Args:
+         *         engine: The engine.
+         *         database: The database.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The connection details with the password.
+         */
+        post: operations["reveal_public_api_databases_public__engine___database__reveal_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -7607,6 +8493,89 @@ export interface paths {
          */
         post: operations["reveal_password_api_databases_users__engine___username__password_reveal_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/deploy-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Deploy Keys
+         * @description List every deploy key and the applications it reaches.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The keys, by name.
+         */
+        get: operations["list_deploy_keys_api_deploy_keys_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/deploy-keys/hosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Pinned Hosts
+         * @description List the SSH host keys Noust pinned the first time it reached each code host.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The pinned keys.
+         */
+        get: operations["list_pinned_hosts_api_deploy_keys_hosts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/deploy-keys/hosts/{host}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Forget Pinned Host
+         * @description Forget a pinned host key, so the next connection pins the one the host shows now.
+         *
+         *     The one deliberate way to accept a host key that changed: the operator is
+         *     expected to have compared its fingerprint with the code host's published
+         *     ones. Sudo mode.
+         *
+         *     Args:
+         *         host: The host, or ``host:port``.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         Whether a key was removed.
+         */
+        delete: operations["forget_pinned_host_api_deploy_keys_hosts__host__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -7945,6 +8914,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/environments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Environments
+         * @description List every environment the principal sees, whatever its project.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         team: Only this team's environments.
+         *         project: Only the projects with this slug.
+         *
+         *     Returns:
+         *         The environments.
+         */
+        get: operations["list_environments_api_environments_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/fleet/actions": {
         parameters: {
             query?: never;
@@ -8103,6 +9100,61 @@ export interface paths {
         get: operations["fleet_certificates_api_fleet_certificates_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/enroll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enroll Server
+         * @description Enroll a server: install Noust if needed, authorize this central, join it.
+         *
+         *     Args:
+         *         body: The server, the confirmed host key, and the credential to use once.
+         *         session: The authenticated session in sudo mode.
+         *
+         *     Returns:
+         *         The queued job; its log streams the installer.
+         */
+        post: operations["enroll_server_api_fleet_enroll_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/fleet/enroll/host-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Scan Host Key
+         * @description Ask an address for its ed25519 host key, to be confirmed before anything is sent.
+         *
+         *     Args:
+         *         body: The address.
+         *         session: The authenticated session, of ``admin`` scope.
+         *
+         *     Returns:
+         *         The key's fingerprint. Nothing is trusted by this; the enrollment
+         *         connects to the fingerprint that comes back with it.
+         */
+        post: operations["scan_host_key_api_fleet_enroll_host_key_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8693,6 +9745,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/jobs/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Queue
+         * @description Show what is building and what is waiting to.
+         *
+         *     Builds of different applications run at the same time up to
+         *     ``deploy.max_concurrent_builds``; one application builds one thing at a
+         *     time, and the requests that arrive meanwhile wait here in order (a push
+         *     during a deploy is queued, not refused). The queue holds
+         *     ``deploy.queue_limit`` builds; the next is refused with 429.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The running jobs, the waiting ones in the order they start, and the limits.
+         */
+        get: operations["get_queue_api_jobs_queue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/jobs/rollback": {
         parameters: {
             query?: never;
@@ -8803,18 +9887,28 @@ export interface paths {
         put?: never;
         /**
          * Cancel Job
-         * @description Cancel a job that has not started yet.
+         * @description Cancel a job: take it out of the queue, or stop the build that runs.
+         *
+         *     A job that waits is cancelled at once and never starts. A deploy or an
+         *     update that is building is stopped: its build's unit is stopped, the
+         *     release it was making is removed, the deployment is recorded as cancelled
+         *     and what served before is never touched; the application's lock is
+         *     released and the queue moves on. From the moment its release starts to be
+         *     activated it is too late (409 ``cancel_refused``): the activation finishes
+         *     or puts back what served by itself.
          *
          *     Args:
          *         job_id: Job identifier.
          *         session: The authenticated session.
          *
          *     Returns:
-         *         The action outcome.
+         *         The action outcome: ``cancelled`` for a job that had not started,
+         *         ``cancelling`` for one that runs and was asked to stop.
          *
          *     Raises:
-         *         HTTPException: 404 when the job is unknown, 409 when it has already
-         *             started or finished.
+         *         HTTPException: 404 when the job is unknown.
+         *         CancelRefused: 409 when it has finished, cannot be interrupted, or its
+         *             release is already being activated.
          */
         post: operations["cancel_job_api_jobs__job_id__cancel_post"];
         delete?: never;
@@ -9588,6 +10682,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Projects
+         * @description List every project the principal sees, whatever its team.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         team: Only this team's projects.
+         *
+         *     Returns:
+         *         The projects, with their environments.
+         */
+        get: operations["list_projects_api_projects_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/recipes": {
         parameters: {
             query?: never;
@@ -9597,17 +10718,146 @@ export interface paths {
         };
         /**
          * Get Recipes
-         * @description List the recipes, the ones this release can deploy first.
+         * @description List the recipes, the ones this release can deploy first, and search them.
+         *
+         *     Every filter given must hold. ``q`` matches the name, title, slogan,
+         *     description, category and tags, and each of its words must be found.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         q: Words to look for.
+         *         category: One category of the closed list.
+         *         tag: One tag.
+         *         kind: ``native`` or ``compose``.
+         *
+         *     Returns:
+         *         The matching recipes, with whether each is available and why not.
+         *
+         *     Raises:
+         *         RecipeError: ``category`` or ``kind`` is not one of the closed lists (400).
+         */
+        get: operations["get_recipes_api_recipes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recipes/categories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Recipe Categories
+         * @description Count the recipes of each category.
          *
          *     Args:
          *         session: The authenticated session.
          *
          *     Returns:
-         *         Every recipe, with whether it is available and why not.
+         *         Every category that holds a recipe, with how many.
          */
-        get: operations["get_recipes_api_recipes_get"];
+        get: operations["get_recipe_categories_api_recipes_categories_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recipes/installed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Installed Recipes
+         * @description List the applications installed from a recipe, and whether each is behind.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         One entry per application, with the version it runs, the catalogue's
+         *         and what changed in between.
+         */
+        get: operations["get_installed_recipes_api_recipes_installed_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recipes/installed/{domain}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Installed Recipe
+         * @description Say which recipe an application was installed from and whether it is behind.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its version, the catalogue's and what changed in between.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application was not installed from a recipe.
+         */
+        get: operations["get_installed_recipe_api_recipes_installed__domain__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recipes/installed/{domain}/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Update Installed Recipe
+         * @description Queue the update of an application to its recipe's current version.
+         *
+         *     The job runs :func:`noust.recipes.updates.update_recipe`, which hands the
+         *     new version to the one update (``noust update``): backup, build, health
+         *     gate, and the previous version back when the gate fails.
+         *
+         *     Args:
+         *         domain: The application's domain.
+         *         session: The authenticated session.
+         *         body: Values for the variables the new version asks for, or force.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application was not installed from a
+         *             recipe, 409 when it already runs the catalogue's version.
+         */
+        post: operations["update_installed_recipe_api_recipes_installed__domain__update_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -9638,6 +10888,273 @@ export interface paths {
         get: operations["get_recipe_detail_api_recipes__name__get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recipes/{name}/install": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Install Recipe
+         * @description Queue the installation of a recipe on a domain.
+         *
+         *     The same deployment ``POST /api/apps`` with ``recipe`` queues, with what a
+         *     recipe needs said up front: a ``required`` variable nobody gave is a 400
+         *     naming every missing one, before a job exists and before anything is
+         *     provisioned.
+         *
+         *     Args:
+         *         name: The recipe.
+         *         body: The domain, the variables and the deployment options.
+         *         request: The incoming request, for the audit record of a refusal.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         HTTPException: 404 when no recipe has that name, 409 when the domain
+         *             is already deployed.
+         *         RecipeError: The recipe is not available, or a required variable has
+         *             no value (400).
+         */
+        post: operations["install_recipe_api_recipes__name__install_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/recipes/{name}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Recipe Logo
+         * @description Serve a recipe's logo.
+         *
+         *     The file is validated when the recipe loads (no script, no style, no link:
+         *     :mod:`noust.recipes.logos`), so it needs nothing the console's CSP forbids,
+         *     wherever it is shown, and it is sent ``nosniff``.
+         *
+         *     Args:
+         *         name: The recipe.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The SVG.
+         *
+         *     Raises:
+         *         HTTPException: 404 when no recipe has that name, or it has no logo.
+         */
+        get: operations["get_recipe_logo_api_recipes__name__logo_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/self-backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Overview
+         * @description List the bundles on this server and show the schedule.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The bundles, newest first, and the schedule with its timer.
+         */
+        get: operations["overview_api_self_backup_get"];
+        put?: never;
+        /**
+         * Create Bundle
+         * @description Queue taking a bundle now, under the given passphrase or the stored one.
+         *
+         *     Args:
+         *         request: The passphrase, optionally.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job; its result is the bundle.
+         *
+         *     Raises:
+         *         ValidationError: 400 when no passphrase is given and none is stored.
+         */
+        post: operations["create_bundle_api_self_backup_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/self-backup/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Schedule
+         * @description Queue a run of the schedule: a bundle, its proof, the sends and retention.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ValidationError: 400 when no passphrase is stored.
+         */
+        post: operations["run_schedule_api_self_backup_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/self-backup/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Schedule
+         * @description Create or replace the schedule, and its timer, with sudo mode.
+         *
+         *     Args:
+         *         request: The schedule.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The schedule as stored; the passphrase is not in it.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an unknown destination, an unusable value, or
+         *             no passphrase while none is stored.
+         */
+        put: operations["set_schedule_api_self_backup_schedule_put"];
+        post?: never;
+        /**
+         * Remove Schedule
+         * @description Remove the schedule and its timer. The bundles and the stored passphrase stay.
+         *
+         *     Args:
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The outcome; ``success`` is false when there was no schedule.
+         */
+        delete: operations["remove_schedule_api_self_backup_schedule_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/self-backup/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Bundle
+         * @description Delete a bundle from this server, with sudo mode. Copies on destinations stay.
+         *
+         *     Args:
+         *         name: The bundle's name.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The outcome.
+         */
+        delete: operations["delete_bundle_api_self_backup__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/self-backup/{name}/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push Bundle
+         * @description Queue sending a bundle to a destination.
+         *
+         *     Args:
+         *         name: The bundle's name.
+         *         request: The destination.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["push_bundle_api_self_backup__name__push_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/self-backup/{name}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Bundle
+         * @description Queue proving a bundle restorable: its digests, its store's integrity, its schema.
+         *
+         *     Args:
+         *         name: The bundle's name.
+         *         request: The passphrase, optionally.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job; its result is the report.
+         */
+        post: operations["verify_bundle_api_self_backup__name__verify_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -11613,6 +13130,7 @@ export interface paths {
          *
          *     Args:
          *         data: The create request.
+         *         request: The incoming request, for the audit record of a refusal.
          *         session: The authenticated session.
          *
          *     Returns:
@@ -12368,6 +13886,451 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Teams
+         * @description List the teams the principal sees.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Every team for a principal that sees them all, otherwise its own.
+         */
+        get: operations["list_teams_api_teams_get"];
+        put?: never;
+        /**
+         * Create Team
+         * @description Create a team, with a default project and its production environment.
+         *
+         *     Only a principal that sees every team may: a team is created by whoever
+         *     administers the server, then handed to its owners.
+         *
+         *     Args:
+         *         body: The team's name and, optionally, its slug.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The team.
+         *
+         *     Raises:
+         *         TeamConflictError: 409 when the slug is taken.
+         */
+        post: operations["create_team_api_teams_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/active": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Choose Active Team
+         * @description Choose the team the principal works in.
+         *
+         *     It is where a new application, database or site goes when the request does
+         *     not name a project, and what the console opens on. It narrows nothing: the
+         *     principal still sees every team it belongs to.
+         *
+         *     Args:
+         *         body: The team's slug, or null to stop preferring one.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         What :func:`my_teams` answers, after the change.
+         *
+         *     Raises:
+         *         ValidationError: 400 when the principal is not an account, which has
+         *             nowhere to remember it.
+         *         TeamNotFoundError: 404 when the team does not exist or is not one the
+         *             principal sees.
+         */
+        put: operations["choose_active_team_api_teams_active_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Teams
+         * @description Say which teams the principal belongs to and which one it works in.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its teams with its role in each, its active team and whether it sees
+         *         them all.
+         */
+        get: operations["my_teams_api_teams_mine_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Team Roles
+         * @description Say what each role of a team may do.
+         *
+         *     The instance role is the floor (what the account holds everywhere in the
+         *     teams it sees); a team role raises it inside that team.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The four roles with their permissions, and what each permission means.
+         */
+        get: operations["list_team_roles_api_teams_roles_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/{team}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Team
+         * @description Read a team, with what it holds.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The team.
+         *
+         *     Raises:
+         *         TeamNotFoundError: 404 when there is no such team.
+         */
+        get: operations["get_team_api_teams__team__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Team
+         * @description Delete a team that holds nothing.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         TeamConflictError: 409 for the default team, or one that still holds
+         *             applications, sites, databases or backup schedules.
+         */
+        delete: operations["delete_team_api_teams__team__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename Team
+         * @description Rename a team.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         body: The new name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The team.
+         *
+         *     Raises:
+         *         TeamNotFoundError: 404 when there is no such team.
+         */
+        patch: operations["rename_team_api_teams__team__patch"];
+        trace?: never;
+    };
+    "/api/teams/{team}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Members
+         * @description List a team's members.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The members, strongest role first.
+         */
+        get: operations["list_members_api_teams__team__members_get"];
+        put?: never;
+        /**
+         * Add Member
+         * @description Add an account to a team, or change its role there.
+         *
+         *     Only accounts that exist: a new person is invited by a security officer
+         *     (``POST /api/auth/invitations`` with ``team``), because creating a
+         *     credential is the security role's decision, not a team's.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         body: The account and its role.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The membership.
+         *
+         *     Raises:
+         *         TeamNotFoundError: 404 when the account does not exist.
+         *         ValidationError: 400 for an unknown role, or a security or auditor
+         *             account, which never joins a team.
+         *         TeamConflictError: 409 when it would demote the team's last owner.
+         */
+        post: operations["add_member_api_teams__team__members_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/{team}/members/{username}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove Member
+         * @description Take an account out of a team.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         username: The member.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         TeamNotFoundError: 404 when the account is not a member.
+         *         TeamConflictError: 409 when it is the team's last owner.
+         */
+        delete: operations["remove_member_api_teams__team__members__username__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Set Member Role
+         * @description Change a member's role in a team.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         username: The member.
+         *         body: The new role.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The membership.
+         *
+         *     Raises:
+         *         TeamNotFoundError: 404 when the account is not a member.
+         *         TeamConflictError: 409 when it would demote the team's last owner.
+         */
+        patch: operations["set_member_role_api_teams__team__members__username__patch"];
+        trace?: never;
+    };
+    "/api/teams/{team}/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Team Projects
+         * @description List a team's projects.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its projects, with their environments.
+         */
+        get: operations["list_team_projects_api_teams__team__projects_get"];
+        put?: never;
+        /**
+         * Create Project
+         * @description Create a project in a team, with its production environment.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         body: The project's name and, optionally, its slug.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The project.
+         *
+         *     Raises:
+         *         TeamConflictError: 409 when the team already has it.
+         */
+        post: operations["create_project_api_teams__team__projects_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/{team}/projects/{project}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Project
+         * @description Delete a project that holds nothing.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         TeamConflictError: 409 for the default project, or one that still
+         *             holds resources.
+         */
+        delete: operations["delete_project_api_teams__team__projects__project__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/{team}/projects/{project}/environments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Project Environments
+         * @description List a project's environments.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its environments.
+         */
+        get: operations["list_project_environments_api_teams__team__projects__project__environments_get"];
+        put?: never;
+        /**
+         * Create Environment
+         * @description Create an environment in a project.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         body: The environment's name and, optionally, its slug.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The environment.
+         *
+         *     Raises:
+         *         TeamConflictError: 409 when the project already has it.
+         */
+        post: operations["create_environment_api_teams__team__projects__project__environments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/teams/{team}/projects/{project}/environments/{environment}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Delete Environment
+         * @description Delete an environment that holds nothing.
+         *
+         *     Args:
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         environment: The environment's slug.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         What was done.
+         *
+         *     Raises:
+         *         TeamConflictError: 409 for the last environment of a project, or one
+         *             that still holds resources.
+         */
+        delete: operations["delete_environment_api_teams__team__projects__project__environments__environment__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/timeline": {
         parameters: {
             query?: never;
@@ -12399,6 +14362,372 @@ export interface paths {
         get: operations["read_timeline_api_timeline_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/volume-backups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Backups
+         * @description List the data backups on this server, newest first.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         domain: Only this application's.
+         *         target: Only this target's.
+         *
+         *     Returns:
+         *         The backups whose archive is present.
+         */
+        get: operations["list_backups_api_volume_backups_get"];
+        put?: never;
+        /**
+         * Create Backup
+         * @description Queue backing an application's data up now.
+         *
+         *     Args:
+         *         request: The application, the targets and how still to keep the data.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job; its result lists the backups.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an unknown target or consistency mode.
+         */
+        post: operations["create_backup_api_volume_backups_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/volume-backups/policies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Policies
+         * @description List every application's data backup policy.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The policies with their timers' state.
+         */
+        get: operations["list_policies_api_volume_backups_policies_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/volume-backups/policies/{domain}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Policy
+         * @description Read one application's data backup policy.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The policy; ``configured`` is false when it has none.
+         */
+        get: operations["get_policy_api_volume_backups_policies__domain__get"];
+        /**
+         * Set Policy
+         * @description Create or replace an application's data backup policy, and its timer.
+         *
+         *     Sudo mode: the policy is a root timer, and its retention decides which
+         *     backups are thrown away.
+         *
+         *     Args:
+         *         domain: The application.
+         *         request: The policy.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The policy as stored.
+         *
+         *     Raises:
+         *         ValidationError: 400 for an unknown destination, target or an unusable value.
+         */
+        put: operations["set_policy_api_volume_backups_policies__domain__put"];
+        post?: never;
+        /**
+         * Remove Policy
+         * @description Remove an application's data backup policy and its timer. Its backups stay.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The outcome; ``success`` is false when there was no policy.
+         */
+        delete: operations["remove_policy_api_volume_backups_policies__domain__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/volume-backups/policies/{domain}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Policy
+         * @description Queue a run of an application's policy: the backup, its check, the sends and retention.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job; its result names the backups and what each destination said.
+         */
+        post: operations["run_policy_api_volume_backups_policies__domain__run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/volume-backups/remote/{domain}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Remote Backups
+         * @description List what a destination holds of an application's data, by target.
+         *
+         *     Args:
+         *         domain: The application.
+         *         destination: The destination.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Each target's folder to its archives, newest first.
+         */
+        get: operations["remote_backups_api_volume_backups_remote__domain__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/volume-backups/restore-remote": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Remote
+         * @description Queue restoring an application's data from a backup on a destination, with sudo mode.
+         *
+         *     Args:
+         *         request: The destination, the application and the archive.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["restore_remote_api_volume_backups_restore_remote_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/volume-backups/targets/{domain}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Targets
+         * @description List the data an application declares: its persistent paths and Compose volumes.
+         *
+         *     Args:
+         *         domain: The application.
+         *         session: The authenticated session.
+         *         path: Directories to consider besides what it declares.
+         *
+         *     Returns:
+         *         The targets, with whether each exists yet.
+         */
+        get: operations["list_targets_api_volume_backups_targets__domain__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/volume-backups/{backup_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Backup
+         * @description Read one data backup.
+         *
+         *     Args:
+         *         backup_id: The id.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The backup.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such backup.
+         */
+        get: operations["get_backup_api_volume_backups__backup_id__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Backup
+         * @description Delete a data backup from this server. Copies on destinations stay.
+         *
+         *     Args:
+         *         backup_id: The id.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The outcome.
+         *
+         *     Raises:
+         *         HTTPException: 404 when there is no such backup.
+         */
+        delete: operations["delete_backup_api_volume_backups__backup_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/volume-backups/{backup_id}/push": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push Backup
+         * @description Queue sending a data backup to a destination.
+         *
+         *     Args:
+         *         backup_id: The id.
+         *         request: The destination.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["push_backup_api_volume_backups__backup_id__push_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/volume-backups/{backup_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Backup
+         * @description Queue restoring an application's data from a backup, with sudo mode.
+         *
+         *     The data is replaced, not merged: the application is stopped, a safety copy
+         *     of what is there is taken, and the application is started and must pass its
+         *     health gate; when it does not, the previous data is put back.
+         *
+         *     Args:
+         *         backup_id: The id.
+         *         request: Whether to take the safety copy.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         */
+        post: operations["restore_backup_api_volume_backups__backup_id__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/volume-backups/{backup_id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Backup
+         * @description Queue checking a data backup.
+         *
+         *     Args:
+         *         backup_id: The id.
+         *         session: The authenticated session.
+         *         deep: Also extract it.
+         *
+         *     Returns:
+         *         The queued job; its result is the verdict.
+         */
+        post: operations["verify_backup_api_volume_backups__backup_id__verify_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -12887,14 +15216,15 @@ export interface components {
             plan: components["schemas"]["FleetPlanOut"];
         };
         /**
-         * ActionResponse
-         * @description Generic action outcome.
+         * ActiveTeamRequest
+         * @description Request to choose the team one works in.
          */
-        ActionResponse: {
-            /** Message */
-            message: string;
-            /** Success */
-            success: boolean;
+        ActiveTeamRequest: {
+            /**
+             * Team
+             * @description The team's slug, or null to stop preferring one
+             */
+            team?: string | null;
         };
         /**
          * ActivityEntry
@@ -12959,6 +15289,22 @@ export interface components {
             public_key: string;
             /** User */
             user: string;
+        };
+        /**
+         * AddMemberRequest
+         * @description Request to add an account to a team, or change its role there.
+         */
+        AddMemberRequest: {
+            /**
+             * Role
+             * @description viewer, operator, admin or owner
+             */
+            role: string;
+            /**
+             * Username
+             * @description The account's name
+             */
+            username: string;
         };
         /**
          * AnalysisOut
@@ -13117,6 +15463,84 @@ export interface components {
             success: boolean;
         };
         /**
+         * AppBuildRequest
+         * @description The operator's build block. A key left out is not set: the block replaces the repository's whole.
+         */
+        AppBuildRequest: {
+            /** Base Directory */
+            base_directory?: string | null;
+            /** Build */
+            build?: string | null;
+            /** Install */
+            install?: string | null;
+            /** Publish Directory */
+            publish_directory?: string | null;
+            /** Runtime */
+            runtime?: string | null;
+            /** Start */
+            start?: string | null;
+        };
+        /**
+         * AppBuildResponse
+         * @description The build block an application's next deployment uses, and where it comes from.
+         */
+        AppBuildResponse: {
+            /**
+             * Applied
+             * @description What the application's unit was last written from (command, directory, PATH and runtime), when a build block or a pinned runtime shaped it
+             */
+            applied?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Base Directory
+             * @description The subdirectory of the repository the project lives in
+             */
+            base_directory?: string | null;
+            /**
+             * Build
+             * @description Replaces the type's build command
+             */
+            build?: string | null;
+            /**
+             * Document
+             * @description The operator's document as stored, when there is one
+             */
+            document?: string | null;
+            /** Domain */
+            domain: string;
+            /**
+             * Install
+             * @description Replaces the type's install command
+             */
+            install?: string | null;
+            /**
+             * Publish Directory
+             * @description Where a static build leaves the files the web server serves
+             */
+            publish_directory?: string | null;
+            /**
+             * Repository Error
+             * @description Why the running code's noust.yaml is not valid, when it is not; the next deployment fails with it
+             */
+            repository_error?: string | null;
+            /**
+             * Runtime
+             * @description The pinned runtime, such as node@22
+             */
+            runtime?: string | null;
+            /**
+             * Source
+             * @description operator: the operator's own, replacing noust.yaml; repo: the noust.yaml of the code that runs now; none
+             */
+            source: string;
+            /**
+             * Start
+             * @description Replaces the type's start command; ${PORT} is the port
+             */
+            start?: string | null;
+        };
+        /**
          * AppDatabasesResponse
          * @description The databases an application uses.
          *
@@ -13128,6 +15552,41 @@ export interface components {
             databases: components["schemas"]["LinkResponse"][];
             /** Domain */
             domain: string;
+        };
+        /**
+         * AppDeployKeyResponse
+         * @description What an application's repository is reached with.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         repository: Its repository as ``host/owner/repo``; null when its source
+         *             is not a git repository.
+         *         source_is_ssh: Whether its source is an ssh URL, the only kind a deploy
+         *             key signs in to.
+         *         ssh_url: The ssh spelling to deploy from when the source is https.
+         *         key: Its deploy key; null when it is reached with the server-wide key.
+         *         shared_with: The other applications built from the same repository,
+         *             which use the same key.
+         *         server_key_fingerprint: The server-wide key ``noust setup ssh`` manages,
+         *             used for a repository with no key of its own.
+         *         warnings: What the operator should know.
+         */
+        AppDeployKeyResponse: {
+            /** Domain */
+            domain: string;
+            key?: components["schemas"]["DeployKeyResponse"] | null;
+            /** Repository */
+            repository?: string | null;
+            /** Server Key Fingerprint */
+            server_key_fingerprint?: string | null;
+            /** Shared With */
+            shared_with?: string[];
+            /** Source Is Ssh */
+            source_is_ssh: boolean;
+            /** Ssh Url */
+            ssh_url?: string | null;
+            /** Warnings */
+            warnings?: string[];
         };
         /**
          * AppDomain
@@ -13397,6 +15856,10 @@ export interface components {
          *         backup_before_update: Whether an update of a Docker Compose stack
          *             copies its databases first (on by default; meaningless for any
          *             other kind). Set through ``PATCH .../backup-before-update``.
+         *         team: The slug of the team it belongs to.
+         *         project: The slug of its project.
+         *         environment: The slug of its environment. Change them with
+         *             ``POST /api/apps/{domain}/move``.
          */
         AppInfo: {
             /** Active */
@@ -13418,6 +15881,8 @@ export interface components {
             domain: string;
             /** Enabled */
             enabled: boolean;
+            /** Environment */
+            environment?: string | null;
             /** Follow Tags */
             follow_tags?: string | null;
             /** Health Expect */
@@ -13449,6 +15914,8 @@ export interface components {
             port?: number | null;
             /** Preview Parent */
             preview_parent?: string | null;
+            /** Project */
+            project?: string | null;
             /** Run As */
             run_as?: string | null;
             /** Source */
@@ -13459,6 +15926,8 @@ export interface components {
             status: string;
             /** Tasks Max */
             tasks_max?: number | null;
+            /** Team */
+            team?: string | null;
             /** Unit */
             unit?: string | null;
             /** Uptime */
@@ -14410,6 +16879,12 @@ export interface components {
          *         destinations: Where each dump is sent.
          *         dump_format: PostgreSQL's format; null for the engine's default.
          *         verify_restore: Each dump is loaded into a temporary database.
+         *         scope: ``database`` for the one the policy is stored under, ``all`` for
+         *             the policy that covers every database of the engine (its database
+         *             is ``*``).
+         *         exclusions: What the dumps leave out: ``databases`` (``all`` policies),
+         *             ``schemas`` (PostgreSQL) and ``tables`` (tables, or MongoDB
+         *             collections).
          *         enabled: Whether the timer exists.
          *         last_run_at: When the policy last ran.
          *         last_status: ``ok`` or ``failed``; null before the first run.
@@ -14425,7 +16900,7 @@ export interface components {
             /** Database */
             database: string;
             /** Destinations */
-            destinations?: components["schemas"]["PolicyDestinationState"][];
+            destinations?: components["schemas"]["noust__web__api__databases__backups__PolicyDestinationState"][];
             /** Dump Format */
             dump_format?: string | null;
             /**
@@ -14435,6 +16910,10 @@ export interface components {
             enabled: boolean;
             /** Engine */
             engine: string;
+            /** Exclusions */
+            exclusions?: {
+                [key: string]: string[];
+            };
             /** Last Dump */
             last_dump?: string | null;
             /** Last Error */
@@ -14453,6 +16932,11 @@ export interface components {
             schedule?: string | null;
             /** Schedule Alias */
             schedule_alias?: string | null;
+            /**
+             * Scope
+             * @default database
+             */
+            scope: string;
             timer?: components["schemas"]["PolicyTimer"];
             /** Updated At */
             updated_at?: string | null;
@@ -14504,7 +16988,7 @@ export interface components {
             /** App Name */
             app_name: string;
             /** Destinations */
-            destinations?: components["schemas"]["ScheduleDestination"][];
+            destinations?: components["schemas"]["ScheduleDestination-Output"][];
             /** Domain */
             domain: string;
             /**
@@ -14703,6 +17187,52 @@ export interface components {
             seq?: number | null;
         };
         /**
+         * BundleResponse
+         * @description One bundle of Noust's own state on this server.
+         *
+         *     Attributes:
+         *         name: The file's name, which every other call names it by.
+         *         size: Bytes.
+         *         created_at: When it was taken, with its UTC offset.
+         *         host: The server that took it.
+         *         kind: ``manual``, ``scheduled`` or ``pre-restore``.
+         *         scheduled: A schedule took it: the only kind its retention deletes.
+         *         sha256: Its digest, from its sidecar.
+         *         remote_copies: Where it was sent.
+         *         sidecar_mac: What the sidecar's MAC says.
+         */
+        BundleResponse: {
+            /** Created At */
+            created_at?: string | null;
+            /** Host */
+            host?: string | null;
+            /**
+             * Kind
+             * @default manual
+             */
+            kind: string;
+            /** Name */
+            name: string;
+            /** Remote Copies */
+            remote_copies?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Scheduled
+             * @default false
+             */
+            scheduled: boolean;
+            /** Sha256 */
+            sha256?: string | null;
+            /**
+             * Sidecar Mac
+             * @default unsigned
+             */
+            sidecar_mac: string;
+            /** Size */
+            size: number;
+        };
+        /**
          * CancelOut
          * @description The result of cancelling.
          */
@@ -14790,6 +17320,28 @@ export interface components {
             categories: string[];
             /** Events */
             events: components["schemas"]["CatalogEvent"][];
+        };
+        /**
+         * CategoryListOut
+         * @description The categories that hold at least one recipe.
+         */
+        CategoryListOut: {
+            /** Items */
+            items: components["schemas"]["CategoryOut"][];
+        };
+        /**
+         * CategoryOut
+         * @description One category of the catalogue.
+         *
+         *     Attributes:
+         *         category: The category.
+         *         count: How many recipes it holds.
+         */
+        CategoryOut: {
+            /** Category */
+            category: string;
+            /** Count */
+            count: number;
         };
         /**
          * CentralInfo
@@ -15122,6 +17674,28 @@ export interface components {
             counts: components["schemas"]["CheckCountsOut"];
         };
         /**
+         * ChoiceVersionResponse
+         * @description One version of an engine a database can be created on.
+         *
+         *     Attributes:
+         *         version: The version (a PostgreSQL major, a MariaDB release).
+         *         state: ``installed`` (it is the one that runs), ``installable`` (it can
+         *             be installed now) or ``unavailable`` (it cannot be had: another
+         *             version of the engine, or another flavour, is installed).
+         *         default: Whether it is what installs when no version is chosen.
+         */
+        ChoiceVersionResponse: {
+            /**
+             * Default
+             * @default false
+             */
+            default: boolean;
+            /** State */
+            state: string;
+            /** Version */
+            version: string;
+        };
+        /**
          * CleanupPlanOut
          * @description What a cleanup would do.
          */
@@ -15391,6 +17965,35 @@ export interface components {
             username?: string | null;
         };
         /**
+         * ConnectionResponse
+         * @description How to connect to a public database.
+         *
+         *     Attributes:
+         *         password: The account's password; null when it is not being shown.
+         *         url: The connection string; the password is masked when not shown.
+         *         options: The query options that make a client use TLS.
+         */
+        ConnectionResponse: {
+            /** Database */
+            database: string;
+            /** Host */
+            host: string;
+            /** Options */
+            options?: {
+                [key: string]: string;
+            };
+            /** Password */
+            password?: string | null;
+            /** Port */
+            port: number;
+            /** Tls */
+            tls: string;
+            /** Url */
+            url: string;
+            /** Username */
+            username: string;
+        };
+        /**
          * ConnectionStringRequest
          * @description Request for a connection string.
          */
@@ -15451,6 +18054,159 @@ export interface components {
             type: string;
         };
         /**
+         * ContainerSettingsRequest
+         * @description The settings of a container application, for a new one or to change one.
+         *
+         *     Everything is optional. On a change, what is omitted stays as it is, and
+         *     ``clear`` names what goes back to its default.
+         */
+        ContainerSettingsRequest: {
+            /**
+             * Build Args
+             * @description Replaces the build arguments; none of them a secret
+             */
+            build_args?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Build Secrets
+             * @description Build secret id to its value, kept in the secret store; null removes one
+             */
+            build_secrets?: {
+                [key: string]: string | null;
+            } | null;
+            /**
+             * Clear
+             * @description Settings to reset: dockerfile, target, container_port, registry_server
+             */
+            clear?: string[];
+            /**
+             * Clear Registry
+             * @description Remove the registry account
+             * @default false
+             */
+            clear_registry: boolean;
+            /** Container Port */
+            container_port?: number | null;
+            /**
+             * Context
+             * @description Relative to the repository
+             */
+            context?: string | null;
+            /**
+             * Dockerfile
+             * @description Relative to the repository
+             */
+            dockerfile?: string | null;
+            /**
+             * Image
+             * @description name[:tag][@sha256:digest]
+             */
+            image?: string | null;
+            /**
+             * Method
+             * @description dockerfile, railpack or image. An existing application can change between dockerfile and railpack, never to or from image
+             */
+            method?: string | null;
+            /**
+             * Registry Password
+             * @description The registry account's password, kept in the secret store
+             */
+            registry_password?: string | null;
+            /** Registry Server */
+            registry_server?: string | null;
+            /** Registry Username */
+            registry_username?: string | null;
+            /** Restart Policy */
+            restart_policy?: string | null;
+            /** Target */
+            target?: string | null;
+            /**
+             * Volumes
+             * @description Replaces the volumes: absolute paths in the container
+             */
+            volumes?: string[] | null;
+        };
+        /**
+         * ContainerSettingsResponse
+         * @description How a container application is built and run.
+         */
+        ContainerSettingsResponse: {
+            /**
+             * Build Args
+             * @description Non-secret build arguments
+             */
+            build_args: {
+                [key: string]: string;
+            };
+            /**
+             * Build Secrets
+             * @description The ids of the secrets a build mounts; their values are never shown
+             */
+            build_secrets: string[];
+            /**
+             * Container Port
+             * @description Where the process listens inside the container
+             */
+            container_port: number;
+            /**
+             * Context
+             * @description The build context, relative to the repository
+             */
+            context: string;
+            /**
+             * Digest
+             * @description The digest the last deployment of a registry image resolved
+             */
+            digest?: string | null;
+            /**
+             * Dockerfile
+             * @description The Dockerfile, relative to the repository; null finds it
+             */
+            dockerfile?: string | null;
+            /** Domain */
+            domain: string;
+            /**
+             * Image
+             * @description The registry reference, for image
+             */
+            image?: string | null;
+            /**
+             * Method
+             * @description dockerfile, railpack or image
+             */
+            method: string;
+            /**
+             * Registry Password Set
+             * @description Whether a password is kept for the account; it is never shown
+             */
+            registry_password_set: boolean;
+            /**
+             * Registry Server
+             * @description The registry the account is for, when there is an account
+             */
+            registry_server?: string | null;
+            /** Registry Username */
+            registry_username?: string | null;
+            /**
+             * Release
+             * @description The release that serves, if any
+             */
+            release?: string | null;
+            /** Restart Policy */
+            restart_policy: string;
+            /**
+             * Target
+             * @description The stage of a multi-stage Dockerfile
+             */
+            target?: string | null;
+            /**
+             * Volumes
+             * @description Container paths kept in named volumes
+             */
+            volumes: string[];
+        };
+        /**
          * ConversionRequest
          * @description The ``code`` and ``state`` GitHub's callback carried.
          */
@@ -15509,6 +18265,8 @@ export interface components {
              * @description Docker Compose: profiles to activate
              */
             compose_profiles?: string[] | null;
+            /** @description A container application: how its image is made (a Dockerfile, Railpack, or an image from a registry in container.image, which then needs no source) and how it runs. The registry account's password and the build secrets are kept in the secret store and never shown again. Giving it makes app_type container */
+            container?: components["schemas"]["ContainerSettingsRequest"] | null;
             /**
              * Cpu Quota Percent
              * @description CPUQuota for the unit, in percent of one CPU (200 is two CPUs); 1 to 100 per CPU. Null: no limit
@@ -15528,6 +18286,11 @@ export interface components {
             env_vars?: {
                 [key: string]: string;
             };
+            /**
+             * Environment
+             * @description The environment it belongs to. Omitted: production
+             */
+            environment?: string | null;
             /**
              * Github Installation Id
              * @description GitHub App installation that clones this application's repository, as the repository list returned it; kept for every later update
@@ -15580,6 +18343,11 @@ export interface components {
              */
             port?: number | null;
             /**
+             * Project
+             * @description The project it belongs to. Omitted: the team's default
+             */
+            project?: string | null;
+            /**
              * Recipe
              * @description Deploy a known application from its recipe (GET /api/recipes): its source, type, database, variables and settings come from the recipe, and env_vars are applied over its variables. The job's result carries the recipe's notes
              */
@@ -15613,6 +18381,11 @@ export interface components {
              * @description TasksMax for the unit, processes and threads; at least 16. Null: no limit
              */
             tasks_max?: number | null;
+            /**
+             * Team
+             * @description The team it belongs to. Omitted: the one the caller works in (PUT /api/teams/active), its only team, or the default
+             */
+            team?: string | null;
             /**
              * Webserver
              * @description Web server to use
@@ -15702,7 +18475,12 @@ export interface components {
          * @description Request to create a database.
          *
          *     Attributes:
-         *         app: The application it belongs to, so its backups include it.
+         *         app: The application it belongs to, so its backups include it. It then
+         *             lives where the application does.
+         *         team: The team it belongs to when it has no application; omitted: the
+         *             one the caller works in.
+         *         project: Its project; omitted: the team's default.
+         *         environment: Its environment; omitted: production.
          */
         CreateDatabaseRequest: {
             /**
@@ -15721,6 +18499,11 @@ export interface components {
              */
             engine: string;
             /**
+             * Environment
+             * @description Environment it belongs to
+             */
+            environment?: string | null;
+            /**
              * Name
              * @description Database name
              */
@@ -15730,6 +18513,16 @@ export interface components {
              * @description Database owner
              */
             owner?: string | null;
+            /**
+             * Project
+             * @description Project it belongs to
+             */
+            project?: string | null;
+            /**
+             * Team
+             * @description Team, for a database with no application
+             */
+            team?: string | null;
         };
         /**
          * CreateDestinationRequest
@@ -15763,6 +18556,38 @@ export interface components {
             name: string;
         };
         /**
+         * CreateEnvironmentRequest
+         * @description Request to create an environment.
+         */
+        CreateEnvironmentRequest: {
+            /**
+             * Name
+             * @description Display name
+             */
+            name: string;
+            /**
+             * Slug
+             * @description Its slug; made from the name when omitted
+             */
+            slug?: string | null;
+        };
+        /**
+         * CreateProjectRequest
+         * @description Request to create a project.
+         */
+        CreateProjectRequest: {
+            /**
+             * Name
+             * @description Display name
+             */
+            name: string;
+            /**
+             * Slug
+             * @description Its slug; made from the name when omitted
+             */
+            slug?: string | null;
+        };
+        /**
          * CreateScheduleRequest
          * @description Request to schedule automatic backups for an application.
          */
@@ -15771,7 +18596,7 @@ export interface components {
              * Destinations
              * @description Remote destinations to push each backup to
              */
-            destinations?: components["schemas"]["ScheduleDestination"][];
+            destinations?: components["schemas"]["noust__web__api__backup_schedules__ScheduleDestination"][];
             /**
              * Domain
              * @description Domain of the app to back up
@@ -15845,6 +18670,9 @@ export interface components {
          *         port: Upstream port for the proxy template.
          *         ssl: Render the template with TLS directives.
          *         enable: Enable the site once written.
+         *         team: The team it belongs to; omitted: the one the caller works in.
+         *         project: Its project; omitted: the team's default.
+         *         environment: Its environment; omitted: production.
          */
         CreateSiteRequest: {
             /** Domain */
@@ -15854,16 +18682,22 @@ export interface components {
              * @default true
              */
             enable: boolean;
+            /** Environment */
+            environment?: string | null;
             /**
              * Port
              * @default 3000
              */
             port: number;
+            /** Project */
+            project?: string | null;
             /**
              * Ssl
              * @default false
              */
             ssl: boolean;
+            /** Team */
+            team?: string | null;
             /**
              * Template
              * @default proxy
@@ -15885,6 +18719,22 @@ export interface components {
             size_mb: number;
             /** Swappiness */
             swappiness?: number | null;
+        };
+        /**
+         * CreateTeamRequest
+         * @description Request to create a team.
+         */
+        CreateTeamRequest: {
+            /**
+             * Name
+             * @description Display name
+             */
+            name: string;
+            /**
+             * Slug
+             * @description Its slug; made from the name when omitted
+             */
+            slug?: string | null;
         };
         /**
          * CreateUserRequest
@@ -15943,6 +18793,35 @@ export interface components {
             password: string;
             /** Username */
             username: string;
+        };
+        /**
+         * CreateVolumeBackupRequest
+         * @description Request to back an application's data up now.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         targets: Keys to back up; empty is every target it declares.
+         *         extra_paths: Data directories to add.
+         *         consistency: ``live``, ``pause`` or ``stop``.
+         *         description: A note kept with each backup.
+         */
+        CreateVolumeBackupRequest: {
+            /**
+             * Consistency
+             * @default live
+             */
+            consistency: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Domain */
+            domain: string;
+            /** Extra Paths */
+            extra_paths?: string[];
+            /** Targets */
+            targets?: string[];
         };
         /**
          * CredentialBody
@@ -16308,6 +19187,110 @@ export interface components {
             schema: string;
         };
         /**
+         * DeployKeyCreateRequest
+         * @description Make a key for the application's repository, or assign one that exists.
+         *
+         *     Attributes:
+         *         name: The new key's name; the application's name by default.
+         *         key: The name of an existing key to assign instead of making one.
+         */
+        DeployKeyCreateRequest: {
+            /**
+             * Key
+             * @description Existing key to assign
+             */
+            key?: string | null;
+            /**
+             * Name
+             * @description Name of the new key
+             */
+            name?: string | null;
+        };
+        /**
+         * DeployKeyImportRequest
+         * @description A private key to use as the application's deploy key.
+         *
+         *     Attributes:
+         *         private_key: The key, in the OpenSSH or PEM format, with no passphrase.
+         *         name: The key's name; the application's name by default.
+         */
+        DeployKeyImportRequest: {
+            /** Name */
+            name?: string | null;
+            /**
+             * Private Key
+             * @description The whole private key file
+             */
+            private_key: string;
+        };
+        /**
+         * DeployKeyListResponse
+         * @description Every deploy key.
+         */
+        DeployKeyListResponse: {
+            /** Keys */
+            keys: components["schemas"]["DeployKeyResponse"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * DeployKeyResponse
+         * @description A deploy key. Never its private half.
+         *
+         *     Attributes:
+         *         name: The key's name.
+         *         origin: ``generated`` here, or ``imported``.
+         *         key_type: ``ssh-ed25519``, ``ssh-rsa``...
+         *         fingerprint: ``SHA256:...``, as ``ssh-keygen -l`` prints it.
+         *         public_key: The OpenSSH public key line to add at the code host.
+         *         created_at: When it was made or imported.
+         *         rotated_at: When a rotation last finished.
+         *         last_used_at: When git last reached a repository with it.
+         *         repositories: The repositories it reaches, as ``host/owner/repo``.
+         *         applications: The applications built from them.
+         *         pending: The new key while a rotation waits; null otherwise.
+         */
+        DeployKeyResponse: {
+            /** Applications */
+            applications?: string[];
+            /** Created At */
+            created_at: string;
+            /** Fingerprint */
+            fingerprint: string;
+            /** Key Type */
+            key_type: string;
+            /** Last Used At */
+            last_used_at?: string | null;
+            /** Name */
+            name: string;
+            /** Origin */
+            origin: string;
+            pending?: components["schemas"]["PendingKeyResponse"] | null;
+            /** Public Key */
+            public_key: string;
+            /** Repositories */
+            repositories?: string[];
+            /** Rotated At */
+            rotated_at?: string | null;
+        };
+        /**
+         * DeployKeyTestResponse
+         * @description What the repository answered.
+         *
+         *     Attributes:
+         *         ok: Always true: a refusal is an error response with git's own words.
+         *         message: One sentence; it says when a waiting key became the key.
+         */
+        DeployKeyTestResponse: {
+            /** Message */
+            message: string;
+            /**
+             * Ok
+             * @default true
+             */
+            ok: boolean;
+        };
+        /**
          * DeploymentHookRun
          * @description One deploy hook, or Prisma's automatic migration, as a deployment ran it.
          */
@@ -16419,8 +19402,22 @@ export interface components {
          *         hooks: What the deploy hooks ran, in order.
          *         warnings: Why a successful deployment carries warnings (deployed with
          *             warnings: a ``post_deploy`` hook failed once it served).
+         *         cancelled: An operator cancelled it while it was building. Its status is
+         *             ``failed`` (the column cannot say anything else on a store from
+         *             before 3.4) but nothing went wrong and nothing that served was touched.
+         *         cancelled_at: When it was cancelled.
+         *         cancelled_by: Who cancelled it.
          */
         DeploymentOut: {
+            /**
+             * Cancelled
+             * @default false
+             */
+            cancelled: boolean;
+            /** Cancelled At */
+            cancelled_at?: string | null;
+            /** Cancelled By */
+            cancelled_by?: string | null;
             /** Commit Message */
             commit_message?: string | null;
             /** Domain */
@@ -16492,6 +19489,7 @@ export interface components {
          *         succeeded: Of those, finished well.
          *         failed: Of those, failed.
          *         rolled_back: Of those, undone.
+         *         cancelled: Of those, cancelled by an operator while they built.
          *         running: Still in progress.
          *         finished: Finished either way.
          *         last_at: When the newest one ended (or started).
@@ -16500,6 +19498,11 @@ export interface components {
          *         error: Why this could not be read.
          */
         DeploysFigure: {
+            /**
+             * Cancelled
+             * @default 0
+             */
+            cancelled: number;
             /** Error */
             error?: string | null;
             /**
@@ -16842,6 +19845,27 @@ export interface components {
             proto: string;
         };
         /**
+         * DumpFormatResponse
+         * @description What a file was found to be.
+         *
+         *     Attributes:
+         *         kind: ``pg-custom``, ``pg-tar``, ``sql``, ``tar-sql``, ``mongo-archive``,
+         *             ``mongo-tree`` or ``unknown``.
+         *         compression: ``none``, ``gzip``, ``bz2``, ``xz`` or ``zip`` around it.
+         *         description: One sentence to show.
+         *         engines: The engines that can load it.
+         */
+        DumpFormatResponse: {
+            /** Compression */
+            compression: string;
+            /** Description */
+            description: string;
+            /** Engines */
+            engines?: string[];
+            /** Kind */
+            kind: string;
+        };
+        /**
          * ElevateRequest
          * @description Confirmation presented to enter sudo mode.
          *
@@ -16895,6 +19919,48 @@ export interface components {
             distribution: components["schemas"]["DistributionResponse"];
             /** Flavours */
             flavours: components["schemas"]["FlavourChoiceResponse"][];
+        };
+        /**
+         * EngineChoiceResponse
+         * @description One engine a database can be created on, and its versions.
+         *
+         *     Attributes:
+         *         flavour: ``postgresql``, ``mysql``, ``mariadb``, ``redis``, ``valkey``
+         *             or ``mongodb``; what ``engine`` takes in ``POST
+         *             /api/apps/{domain}/databases`` besides the engine's own name.
+         *         engine: The manager that runs it.
+         *         display_name: How it is named to a person.
+         *         installed: This flavour is the one installed.
+         *         running_version: The version that runs, when installed.
+         *         installable: It can be installed now.
+         *         reason: Why not, or what is installed, as one sentence.
+         *         versions: The versions on offer, oldest first.
+         */
+        EngineChoiceResponse: {
+            /** Display Name */
+            display_name: string;
+            /** Engine */
+            engine: string;
+            /** Flavour */
+            flavour: string;
+            /** Installable */
+            installable: boolean;
+            /** Installed */
+            installed: boolean;
+            /** Reason */
+            reason?: string | null;
+            /** Running Version */
+            running_version?: string | null;
+            /** Versions */
+            versions: components["schemas"]["ChoiceVersionResponse"][];
+        };
+        /**
+         * EngineChoicesResponse
+         * @description The engines and versions a new database can be created on.
+         */
+        EngineChoicesResponse: {
+            /** Choices */
+            choices: components["schemas"]["EngineChoiceResponse"][];
         };
         /**
          * EngineCredentialsRequest
@@ -17246,6 +20312,69 @@ export interface components {
             warnings?: string[];
         };
         /**
+         * EnrollBody
+         * @description Body of ``POST /api/fleet/enroll``.
+         *
+         *     Attributes:
+         *         name: The name the server gets on this central.
+         *         host: Its address.
+         *         port: Where its sshd listens.
+         *         ssh_user: The account the credential is for.
+         *         host_key_fingerprint: The fingerprint the operator confirmed.
+         *         access: The ceiling the server sets for this central.
+         *         allow_host_access: Whether the central may also reach the host there.
+         *         install: Install Noust when it is missing.
+         *         replace_token: Revoke a token this central already holds there.
+         *         password: The account's password, used once. Never stored.
+         *         private_key: A private key instead, as text, used once. Never stored.
+         *         passphrase: The key's passphrase, when it has one.
+         */
+        EnrollBody: {
+            /**
+             * Access
+             * @default admin
+             * @enum {string}
+             */
+            access: "read" | "deploy" | "admin";
+            /**
+             * Allow Host Access
+             * @default false
+             */
+            allow_host_access: boolean;
+            /** Host */
+            host: string;
+            /** Host Key Fingerprint */
+            host_key_fingerprint: string;
+            /**
+             * Install
+             * @default true
+             */
+            install: boolean;
+            /** Name */
+            name: string;
+            /** Passphrase */
+            passphrase?: string | null;
+            /** Password */
+            password?: string | null;
+            /**
+             * Port
+             * @default 22
+             */
+            port: number;
+            /** Private Key */
+            private_key?: string | null;
+            /**
+             * Replace Token
+             * @default false
+             */
+            replace_token: boolean;
+            /**
+             * Ssh User
+             * @default root
+             */
+            ssh_user: string;
+        };
+        /**
          * EnsBaselineItem
          * @description One value the profile fixes.
          *
@@ -17412,6 +20541,45 @@ export interface components {
             reason: string;
             /** Secret */
             secret: boolean;
+        };
+        /**
+         * EnvironmentListResponse
+         * @description The environments a principal sees.
+         */
+        EnvironmentListResponse: {
+            /** Environments */
+            environments: components["schemas"]["EnvironmentOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * EnvironmentOut
+         * @description An environment.
+         *
+         *     Attributes:
+         *         id: Store id.
+         *         team: The team's slug.
+         *         project: The project's slug.
+         *         slug: Unique inside the project.
+         *         name: Display name.
+         *         created_at: When it was created, UNIX seconds.
+         *         created_by: Who created it.
+         */
+        EnvironmentOut: {
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Project */
+            project: string;
+            /** Slug */
+            slug: string;
+            /** Team */
+            team: string;
         };
         /**
          * EolOut
@@ -17809,6 +20977,34 @@ export interface components {
             enabled: boolean;
         };
         /**
+         * ExposeRequest
+         * @description Body of ``POST /api/console/exposure``.
+         *
+         *     Attributes:
+         *         domain: The public name, already pointing at this server.
+         *         allow_ips: Addresses and networks allowed to connect; empty allows everyone.
+         *         force_ens: Publish although the ENS profile is on. The caller confirmed
+         *             it in so many words; it needs an allow-list and is audited.
+         *         skip_dns_check: Do not require the name to resolve to this server's
+         *             addresses (a server behind NAT).
+         */
+        ExposeRequest: {
+            /** Allow Ips */
+            allow_ips?: string[];
+            /** Domain */
+            domain: string;
+            /**
+             * Force Ens
+             * @default false
+             */
+            force_ens: boolean;
+            /**
+             * Skip Dns Check
+             * @default false
+             */
+            skip_dns_check: boolean;
+        };
+        /**
          * ExposedPortResponse
          * @description A database port open beyond this machine, or one the firewall closes.
          *
@@ -17864,21 +21060,18 @@ export interface components {
             source: string;
         };
         /**
-         * ExposureResponse
-         * @description Every database port beyond this machine, and the ones the firewall closes.
+         * ExposurePlanResponse
+         * @description Response of ``POST /api/console/exposure/preview``.
          *
          *     Attributes:
-         *         exposed: The ports a stranger on the Internet can reach. This is the
-         *             list every alarm (the console's notice, the CLI's exit code) reads.
-         *         firewalled: Ports Docker publishes on every address that the firewall
-         *             keeps the Internet out of (``firewalled`` true, ``closed_by`` and
-         *             ``rule`` say how). Shown as information, never as a finding.
+         *         domain: The name, normalised.
+         *         steps: What publishing would do, in order. Every refusal raised instead.
          */
-        ExposureResponse: {
-            /** Exposed */
-            exposed: components["schemas"]["ExposedPortResponse"][];
-            /** Firewalled */
-            firewalled?: components["schemas"]["ExposedPortResponse"][];
+        ExposurePlanResponse: {
+            /** Domain */
+            domain: string;
+            /** Steps */
+            steps: string[];
         };
         /**
          * Fail2banInstallRequest
@@ -17933,6 +21126,29 @@ export interface components {
             protected_ports: components["schemas"]["ProtectedPortOut"][];
             /** Session Sources */
             session_sources: string[];
+        };
+        /**
+         * FirewallPlanResponse
+         * @description What the firewall would be told.
+         *
+         *     Attributes:
+         *         backend: ``ufw``, ``firewalld``, ``nftables`` or ``none``.
+         *         active: It filters traffic now.
+         *         manages: Noust changes it (ufw or firewalld, installed).
+         *         sources: Who the port is opened to.
+         *         port: The port.
+         */
+        FirewallPlanResponse: {
+            /** Active */
+            active: boolean;
+            /** Backend */
+            backend: string;
+            /** Manages */
+            manages: boolean;
+            /** Port */
+            port: number;
+            /** Sources */
+            sources: string[];
         };
         /**
          * FirewallStateOut
@@ -18342,6 +21558,64 @@ export interface components {
             message: string;
         };
         /**
+         * ForgottenHostResponse
+         * @description The outcome of forgetting a host key.
+         *
+         *     Attributes:
+         *         host: The host.
+         *         forgotten: Whether a key was removed.
+         */
+        ForgottenHostResponse: {
+            /** Forgotten */
+            forgotten: boolean;
+            /** Host */
+            host: string;
+        };
+        /**
+         * GitCredentialRequest
+         * @description The credential to keep.
+         *
+         *     Attributes:
+         *         username: The user to sign in as: for Bitbucket Cloud your username or
+         *             ``x-bitbucket-api-token-auth`` with an API token, ``x-token-auth``
+         *             with a repository or workspace access token.
+         *         secret: The token.
+         */
+        GitCredentialRequest: {
+            /** Secret */
+            secret: string;
+            /** Username */
+            username: string;
+        };
+        /**
+         * GitCredentialResponse
+         * @description What an application's repository is reached with over https. Never the token.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         repository: Its repository as ``host/owner/repo``; null when its source
+         *             is not a git repository.
+         *         host: The code host.
+         *         configured: Whether a credential is stored for the repository.
+         *         username: The user it signs in as, when one is stored.
+         *         source_is_https: Whether the application's source is an http(s) URL,
+         *             the only kind a credential signs in to.
+         */
+        GitCredentialResponse: {
+            /** Configured */
+            configured: boolean;
+            /** Domain */
+            domain: string;
+            /** Host */
+            host?: string | null;
+            /** Repository */
+            repository?: string | null;
+            /** Source Is Https */
+            source_is_https: boolean;
+            /** Username */
+            username?: string | null;
+        };
+        /**
          * GitHubStatusOut
          * @description The GitHub integration of this server.
          */
@@ -18604,6 +21878,43 @@ export interface components {
             workdir?: string | null;
         };
         /**
+         * HostKeyRequest
+         * @description Body of ``POST /api/fleet/enroll/host-key``.
+         *
+         *     Attributes:
+         *         host: The server's address or name.
+         *         port: Where its sshd listens.
+         */
+        HostKeyRequest: {
+            /** Host */
+            host: string;
+            /**
+             * Port
+             * @default 22
+             */
+            port: number;
+        };
+        /**
+         * HostKeyResponse
+         * @description What answered at the address.
+         *
+         *     Attributes:
+         *         host: The address that was asked.
+         *         port: Its port.
+         *         key_type: ``ssh-ed25519``.
+         *         fingerprint: ``SHA256:...``, as ``ssh-keygen -lf`` prints it.
+         */
+        HostKeyResponse: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Host */
+            host: string;
+            /** Key Type */
+            key_type: string;
+            /** Port */
+            port: number;
+        };
+        /**
          * HostnameOut
          * @description The names of the machine.
          */
@@ -18735,6 +22046,45 @@ export interface components {
             source?: string | null;
         };
         /**
+         * ImportRequest
+         * @description Request to import a dump.
+         *
+         *     Attributes:
+         *         engine: The engine.
+         *         database: The database to load into; created when it does not exist.
+         *         replace: Drop and recreate it first. A safety copy is taken before and
+         *             put back when the load fails.
+         *         keep_owners: PostgreSQL: keep the owners and privileges the dump names
+         *             instead of giving everything to the database's owner.
+         *         safety_backup: Dump the database first when it is loaded over rather
+         *             than replaced.
+         */
+        ImportRequest: {
+            /** Database */
+            database: string;
+            /** Engine */
+            engine: string;
+            /**
+             * Keep Owners
+             * @default false
+             */
+            keep_owners: boolean;
+            /** Path */
+            path?: string | null;
+            /**
+             * Replace
+             * @default false
+             */
+            replace: boolean;
+            /**
+             * Safety Backup
+             * @default true
+             */
+            safety_backup: boolean;
+            /** Upload Id */
+            upload_id?: string | null;
+        };
+        /**
          * IndexResponse
          * @description One index.
          */
@@ -18780,6 +22130,43 @@ export interface components {
             values?: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * InspectRequest
+         * @description Request to say what a dump is.
+         *
+         *     Attributes:
+         *         engine: An engine to judge it against; without one, only what it is.
+         */
+        InspectRequest: {
+            /** Engine */
+            engine?: string | null;
+            /** Path */
+            path?: string | null;
+            /** Upload Id */
+            upload_id?: string | null;
+        };
+        /**
+         * InspectResponse
+         * @description What a dump is, and whether an engine can load it.
+         *
+         *     Attributes:
+         *         format: What it is.
+         *         size: Bytes.
+         *         size_human: Bytes, readable.
+         *         loadable: Whether the engine can load it; null without an engine.
+         *         reason: Why not, in a sentence.
+         */
+        InspectResponse: {
+            format: components["schemas"]["DumpFormatResponse"];
+            /** Loadable */
+            loadable?: boolean | null;
+            /** Reason */
+            reason?: string | null;
+            /** Size */
+            size: number;
+            /** Size Human */
+            size_human: string;
         };
         /**
          * InspectSourceRequest
@@ -18835,6 +22222,55 @@ export interface components {
         InstallationRequest: {
             /** Installation Id */
             installation_id: number;
+        };
+        /**
+         * InstalledRecipeListOut
+         * @description Every application installed from a recipe.
+         */
+        InstalledRecipeListOut: {
+            /** Items */
+            items: components["schemas"]["InstalledRecipeOut"][];
+        };
+        /**
+         * InstalledRecipeOut
+         * @description An application installed from a recipe, against the catalogue.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         recipe: The recipe it was installed from.
+         *         kind: ``native`` or ``compose``.
+         *         installed_version: The version it runs.
+         *         installed_revision: The recipe's revision of that version.
+         *         latest_version: The catalogue's version; None when the recipe left it.
+         *         latest_revision: The catalogue's revision of it.
+         *         update_available: Whether the catalogue is ahead and can be deployed.
+         *         reason: Why it cannot be updated, when it cannot.
+         *         changes: What the versions in between changed.
+         */
+        InstalledRecipeOut: {
+            /**
+             * Changes
+             * @default []
+             */
+            changes: components["schemas"]["RecipeChangeOut"][];
+            /** Domain */
+            domain: string;
+            /** Installed Revision */
+            installed_revision: number;
+            /** Installed Version */
+            installed_version: string;
+            /** Kind */
+            kind: string;
+            /** Latest Revision */
+            latest_revision?: number | null;
+            /** Latest Version */
+            latest_version?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Recipe */
+            recipe: string;
+            /** Update Available */
+            update_available: boolean;
         };
         /**
          * InterfaceAddress
@@ -19035,6 +22471,9 @@ export interface components {
          *         display_name: Display name of a new account.
          *         person_ref: Person reference of a new account.
          *         expires_hours: How long the code is valid.
+         *         team: The team a new account joins, instead of the default one.
+         *         team_role: Its role there (``viewer``, ``operator``, ``admin`` or
+         *             ``owner``); ``viewer`` when only ``team`` is given.
          */
         InvitationCreate: {
             /** Display Name */
@@ -19048,6 +22487,10 @@ export interface components {
             person_ref?: string | null;
             /** Role */
             role?: string | null;
+            /** Team */
+            team?: string | null;
+            /** Team Role */
+            team_role?: string | null;
             /** Username */
             username: string;
         };
@@ -19166,6 +22609,11 @@ export interface components {
             job_id?: string | null;
             /** Message */
             message: string;
+            /**
+             * State
+             * @description cancelled: it never started; cancelling: it runs and was asked to stop
+             */
+            state?: string | null;
         };
         /**
          * JobCreatedResponse
@@ -19211,6 +22659,18 @@ export interface components {
         JobResponse: {
             /** Actor */
             actor?: string | null;
+            /**
+             * Cancel Requested
+             * @description It was asked to stop and still runs
+             * @default false
+             */
+            cancel_requested: boolean;
+            /**
+             * Cancellable
+             * @description Cancelling it now would be accepted: it waits, or it builds and has not started to activate its release
+             * @default false
+             */
+            cancellable: boolean;
             /** Completed At */
             completed_at?: string | null;
             /** Created At */
@@ -19237,18 +22697,34 @@ export interface components {
             name: string;
             /** Progress */
             progress: number;
+            /**
+             * Queue Position
+             * @description Where it stands among the jobs that wait; 1 starts next
+             */
+            queue_position?: number | null;
             /** Result */
             result?: {
                 [key: string]: unknown;
             } | null;
             /** Started At */
             started_at?: string | null;
+            /**
+             * State
+             * @description queued, running, succeeded, failed or cancelled: the five states of the queue
+             * @default
+             */
+            state: string;
             /** Status */
             status: string;
             /** Total Steps */
             total_steps: number;
             /** Type */
             type: string;
+            /**
+             * Waiting For
+             * @description What a queued job waits for, in one sentence
+             */
+            waiting_for?: string | null;
         };
         /**
          * JournalEntryOut
@@ -19934,6 +23410,39 @@ export interface components {
             origin: string;
         };
         /**
+         * MemberListResponse
+         * @description A team's members.
+         */
+        MemberListResponse: {
+            /** Members */
+            members: components["schemas"]["MemberOut"][];
+            /** Team */
+            team: string;
+        };
+        /**
+         * MemberOut
+         * @description One person's place in a team.
+         *
+         *     Attributes:
+         *         username: The account.
+         *         role: Its role in the team.
+         *         instance_role: Its role on the server, which is the floor of what it may do.
+         *         created_at: When it joined, UNIX seconds.
+         *         created_by: Who added it.
+         */
+        MemberOut: {
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Instance Role */
+            instance_role: string;
+            /** Role */
+            role: string;
+            /** Username */
+            username: string;
+        };
+        /**
          * MemoryInfo
          * @description Memory and swap usage.
          */
@@ -20148,6 +23657,24 @@ export interface components {
             warnings: string[];
         };
         /**
+         * MineResponse
+         * @description What the principal asking belongs to.
+         *
+         *     Attributes:
+         *         teams: Every team it sees, with its role in each (None where it sees
+         *             a team without belonging to it).
+         *         active: The slug of the team it works in, when it chose one.
+         *         sees_all: Whether no team is hidden from it.
+         */
+        MineResponse: {
+            /** Active */
+            active?: string | null;
+            /** Sees All */
+            sees_all: boolean;
+            /** Teams */
+            teams: components["schemas"]["TeamOut"][];
+        };
+        /**
          * MisplacedBackupsInfo
          * @description Noust backups found outside the backup directory, and how to bring them in.
          */
@@ -20259,6 +23786,57 @@ export interface components {
             used_bytes: number;
         };
         /**
+         * MoveAppRequest
+         * @description Request to move an application to another project or environment.
+         *
+         *     Whatever is left out stays as the application has it: moving to another
+         *     environment of the same project names the environment only; moving to
+         *     another project names the project (and the team, when it is another one).
+         */
+        MoveAppRequest: {
+            /**
+             * Environment
+             * @description The environment to move to
+             */
+            environment?: string | null;
+            /**
+             * Project
+             * @description The project to move to
+             */
+            project?: string | null;
+            /**
+             * Team
+             * @description The team, when it is another one
+             */
+            team?: string | null;
+        };
+        /**
+         * MoveAppResponse
+         * @description What moved.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         team: Where it is now.
+         *         project: Where it is now.
+         *         environment: Where it is now.
+         *         moved: Rows moved, by kind: the application, its sites, its databases and
+         *             its backup schedule move together.
+         */
+        MoveAppResponse: {
+            /** Domain */
+            domain: string;
+            /** Environment */
+            environment: string;
+            /** Moved */
+            moved: {
+                [key: string]: number;
+            };
+            /** Project */
+            project: string;
+            /** Team */
+            team: string;
+        };
+        /**
          * NetworkResponse
          * @description Response for the network listing.
          */
@@ -20278,6 +23856,11 @@ export interface components {
          *         env_var: The variable; ``DATABASE_URL``, or ``REDIS_URL`` for Redis.
          *         extra_vars: Also write ``DB_HOST``, ``DB_PORT``, ``DB_NAME``,
          *             ``DB_USER`` and ``DB_PASSWORD``.
+         *         version: The version of the engine the database is for, such as ``17``.
+         *             Checked when the request arrives: one other than the version that
+         *             runs is refused with what runs, and an engine that is not
+         *             installed is refused with how to install it (``GET
+         *             /api/databases/provisioning/choices``) before anything is queued.
          */
         NewAppDatabaseRequest: {
             /**
@@ -20301,6 +23884,11 @@ export interface components {
              * @description Database name
              */
             name?: string | null;
+            /**
+             * Version
+             * @description Version of the engine, such as 17
+             */
+            version?: string | null;
         };
         /**
          * NodeAddRequest
@@ -20608,53 +24196,6 @@ export interface components {
             pending: components["schemas"]["ChangeOut"][];
         };
         /**
-         * OverviewResponse
-         * @description Everything the Overview shows.
-         *
-         *     Attributes:
-         *         schema_version: The shape of this answer (``schema`` in the body).
-         *         generated_at: When it was collected (it may be a few seconds old).
-         *         server: Which server.
-         *         apps: Applications by state.
-         *         deploys: Deployments today.
-         *         certificates: Certificates expiring.
-         *         backups: Backups in the last 24 hours.
-         *         disk: The disk and its forecast.
-         *         updates: Pending operating system updates.
-         *         attention: What needs an operator, worst first.
-         *         attention_total: How many there are, if the list was cut.
-         *         activity: What happened lately, newest first.
-         *         history: Whether metrics history is being recorded.
-         *         spark: The last hour of CPU and memory, when asked for.
-         */
-        OverviewResponse: {
-            /** Activity */
-            activity?: components["schemas"]["ActivityEntry"][];
-            apps: components["schemas"]["AppsFigure"];
-            /** Attention */
-            attention?: components["schemas"]["AttentionItem"][];
-            /**
-             * Attention Total
-             * @default 0
-             */
-            attention_total: number;
-            backups: components["schemas"]["BackupsFigure"];
-            certificates: components["schemas"]["CertificatesFigure"];
-            deploys: components["schemas"]["DeploysFigure"];
-            disk: components["schemas"]["DiskFigure"];
-            /** Generated At */
-            generated_at: string;
-            history?: components["schemas"]["HistoryFigure"] | null;
-            /**
-             * Schema
-             * @default 1
-             */
-            schema: number;
-            server: components["schemas"]["ServerInfo"];
-            spark?: components["schemas"]["SparkFigure"] | null;
-            updates: components["schemas"]["UpdatesFigure"];
-        };
-        /**
          * OwnerPlanResponse
          * @description What fix-owner would change, or changed.
          *
@@ -20877,6 +24418,17 @@ export interface components {
             name: string;
         };
         /**
+         * PassphraseRequest
+         * @description A request that may bring its own passphrase.
+         *
+         *     Attributes:
+         *         passphrase: What the bundle is sealed under; the stored one when absent.
+         */
+        PassphraseRequest: {
+            /** Passphrase */
+            passphrase?: string | null;
+        };
+        /**
          * PasswordChange
          * @description An account holder changing their own password.
          *
@@ -20899,6 +24451,50 @@ export interface components {
             password: string;
             /** Username */
             username: string;
+        };
+        /**
+         * PendingKeyResponse
+         * @description The key a rotation waits to put in place.
+         *
+         *     Attributes:
+         *         fingerprint: ``SHA256:...``.
+         *         public_key: The OpenSSH public key line to add at the code host.
+         *         since: When the rotation started.
+         */
+        PendingKeyResponse: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Public Key */
+            public_key: string;
+            /** Since */
+            since: string;
+        };
+        /**
+         * PinnedHostResponse
+         * @description A host key Noust pinned the first time it reached a code host.
+         *
+         *     Attributes:
+         *         host: The host as ``known_hosts`` names it.
+         *         fingerprint: ``SHA256:...``.
+         *         key_type: ``ED25519``, ``RSA``...
+         */
+        PinnedHostResponse: {
+            /** Fingerprint */
+            fingerprint: string;
+            /** Host */
+            host: string;
+            /** Key Type */
+            key_type: string;
+        };
+        /**
+         * PinnedHostsResponse
+         * @description The pinned host keys.
+         */
+        PinnedHostsResponse: {
+            /** Hosts */
+            hosts: components["schemas"]["PinnedHostResponse"][];
+            /** Total */
+            total: number;
         };
         /**
          * PlatformProposalResponse
@@ -20950,53 +24546,6 @@ export interface components {
              * @description What has no equivalent, and what to do instead
              */
             warnings?: string[];
-        };
-        /**
-         * PolicyDestination
-         * @description One remote destination a policy sends its dumps to.
-         *
-         *     Attributes:
-         *         name: A destination created under ``/api/backup-destinations``, which
-         *             keeps its own encryption.
-         *         retention_count: This server's scheduled dumps of the database to keep
-         *             there; null for no limit.
-         *         retention_days: Maximum age in days of those; null for no limit.
-         */
-        PolicyDestination: {
-            /** Name */
-            name: string;
-            /** Retention Count */
-            retention_count?: number | null;
-            /** Retention Days */
-            retention_days?: number | null;
-        };
-        /**
-         * PolicyDestinationState
-         * @description A destination a policy names, and what it is now.
-         *
-         *     Attributes:
-         *         exists: Whether the destination is still configured. False means it was
-         *             removed by hand after the policy was saved and every upload fails
-         *             until the policy names another.
-         *         encrypted: Whether it wraps what it stores in rclone's crypt.
-         */
-        PolicyDestinationState: {
-            /**
-             * Encrypted
-             * @default false
-             */
-            encrypted: boolean;
-            /**
-             * Exists
-             * @default true
-             */
-            exists: boolean;
-            /** Name */
-            name: string;
-            /** Retention Count */
-            retention_count?: number | null;
-            /** Retention Days */
-            retention_days?: number | null;
         };
         /**
          * PolicyTimer
@@ -21090,7 +24639,7 @@ export interface components {
          *         number: The pull (merge) request number.
          *         branch: The branch it deploys.
          *         head_sha: The commit last deployed or asked for.
-         *         provider: ``github``, ``gitlab`` or ``gitea``.
+         *         provider: ``github``, ``gitlab``, ``gitea`` or ``bitbucket``.
          *         repository: ``owner/repo``.
          *         status: ``pending``, ``deploying``, ``ready``, ``failed`` or
          *             ``removing``.
@@ -21419,6 +24968,45 @@ export interface components {
             units: components["schemas"]["UnitProcessesOut"][];
         };
         /**
+         * ProjectListResponse
+         * @description The projects a principal sees.
+         */
+        ProjectListResponse: {
+            /** Projects */
+            projects: components["schemas"]["ProjectOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * ProjectOut
+         * @description A project.
+         *
+         *     Attributes:
+         *         id: Store id.
+         *         team: The team's slug.
+         *         slug: Unique inside the team.
+         *         name: Display name.
+         *         environments: Its environments' slugs.
+         *         created_at: When it was created, UNIX seconds.
+         *         created_by: Who created it.
+         */
+        ProjectOut: {
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Environments */
+            environments?: string[];
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Team */
+            team: string;
+        };
+        /**
          * ProofLoginOut
          * @description The SSH login that proves a pending change kept a way in.
          */
@@ -21486,6 +25074,13 @@ export interface components {
          *         extra_vars: Also write ``DB_HOST``, ``DB_PORT``, ``DB_NAME``,
          *             ``DB_USER`` and ``DB_PASSWORD``.
          *         restart: Restart the application on the new variables.
+         *         version: The version of the engine the database is for, such as ``17``
+         *             or ``11.4``; the installed one when omitted. A version other than
+         *             the one that runs is refused with what runs and what could be
+         *             installed (``GET /api/databases/provisioning/choices``).
+         *         install: Install the engine, in that version, first when it is not
+         *             installed. Needs sudo mode and ``databases.manage``, like the
+         *             install itself.
          */
         ProvisionRequest: {
             /**
@@ -21505,6 +25100,12 @@ export interface components {
              */
             extra_vars: boolean;
             /**
+             * Install
+             * @description Install the engine in that version if it is missing
+             * @default false
+             */
+            install: boolean;
+            /**
              * Name
              * @description Database name
              */
@@ -21515,6 +25116,11 @@ export interface components {
              * @default true
              */
             restart: boolean;
+            /**
+             * Version
+             * @description Version of the engine, such as 17
+             */
+            version?: string | null;
         };
         /**
          * ProvisioningPlanResponse
@@ -21523,6 +25129,10 @@ export interface components {
          *     Attributes:
          *         url: The connection string, password masked.
          *         database_exists: A database of that name is already on the engine.
+         *         version: The version asked for, when one was.
+         *         running_version: The version of the installed engine.
+         *         will_install: The engine is not installed, and creating the database
+         *             with ``install`` would install it in that version first.
          */
         ProvisioningPlanResponse: {
             /** Database */
@@ -21539,10 +25149,152 @@ export interface components {
             installed: boolean;
             /** Running */
             running: boolean;
+            /** Running Version */
+            running_version?: string | null;
             /** Url */
             url: string;
             /** Username */
             username: string;
+            /** Version */
+            version?: string | null;
+            /**
+             * Will Install
+             * @default false
+             */
+            will_install: boolean;
+        };
+        /**
+         * PublicClosedResponse
+         * @description A database made private again.
+         *
+         *     Attributes:
+         *         removed: What was taken away, in order.
+         *         already_private: The database was not public.
+         */
+        PublicClosedResponse: {
+            /** Already Private */
+            already_private: boolean;
+            /** Database */
+            database: string;
+            /** Engine */
+            engine: string;
+            /** Removed */
+            removed: string[];
+        };
+        /**
+         * PublicDetailResponse
+         * @description One database's exposure, and whether it is public at all.
+         *
+         *     Attributes:
+         *         public: Whether it is reachable from the network.
+         *         exposure: The record, when it is.
+         *         connection: How to connect, the password masked.
+         */
+        PublicDetailResponse: {
+            connection?: components["schemas"]["ConnectionResponse"] | null;
+            exposure?: components["schemas"]["noust__web__api__databases__public__ExposureResponse"] | null;
+            /** Public */
+            public: boolean;
+        };
+        /**
+         * PublicListResponse
+         * @description Every database that is reachable from the network.
+         */
+        PublicListResponse: {
+            /** Exposures */
+            exposures: components["schemas"]["noust__web__api__databases__public__ExposureResponse"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * PublicOpenedResponse
+         * @description A database made reachable. The password is in ``connection``, this once.
+         *
+         *     Attributes:
+         *         exposure: The record.
+         *         connection: How to connect, with the password.
+         *         warnings: What the operator accepted.
+         */
+        PublicOpenedResponse: {
+            connection: components["schemas"]["ConnectionResponse"];
+            exposure: components["schemas"]["noust__web__api__databases__public__ExposureResponse"];
+            /** Warnings */
+            warnings: string[];
+        };
+        /**
+         * PublicPlanResponse
+         * @description What making a database reachable would do. Nothing was changed.
+         *
+         *     Attributes:
+         *         warnings: What the operator accepts by confirming.
+         *         target: Where the proxy forwards to: the engine's own loopback port.
+         */
+        PublicPlanResponse: {
+            /** Bind Address */
+            bind_address: string;
+            /** Database */
+            database: string;
+            /** Engine */
+            engine: string;
+            firewall: components["schemas"]["FirewallPlanResponse"];
+            /** Port */
+            port: number;
+            /** Profile */
+            profile: string;
+            /** Remote User */
+            remote_user: string;
+            /** Sources */
+            sources: string[];
+            /** Target */
+            target: string;
+            /** Tls */
+            tls: string;
+            /** Unit */
+            unit: string;
+            /** Warnings */
+            warnings: string[];
+        };
+        /**
+         * PublicRequest
+         * @description What to make reachable, and how.
+         *
+         *     Attributes:
+         *         engine: The engine.
+         *         database: The database (a slot number for Redis).
+         *         port: The public port, 1024 to 65535; a free one near the engine's when omitted.
+         *         bind_address: Where to listen: ``0.0.0.0`` (every IPv4 address, the
+         *             default), ``::`` or one address of this server.
+         *         sources: Who may reach it: addresses or CIDRs; anyone when empty.
+         *         tls: ``required`` (the default where the engine can) or ``optional``,
+         *             which lets the password and the data cross the network in clear.
+         *         profile: What the account made for it may do: ``owner`` (the default),
+         *             ``read_write`` or ``read_only``.
+         *         confirm: The operator accepted every warning of the plan. Without it
+         *             nothing is changed and the warnings come back to be shown.
+         */
+        PublicRequest: {
+            /** Bind Address */
+            bind_address?: string | null;
+            /**
+             * Confirm
+             * @default false
+             */
+            confirm: boolean;
+            /** Database */
+            database: string;
+            /** Engine */
+            engine: string;
+            /** Port */
+            port?: number | null;
+            /**
+             * Profile
+             * @default owner
+             */
+            profile: string;
+            /** Sources */
+            sources?: string[];
+            /** Tls */
+            tls?: string | null;
         };
         /**
          * PushBackupRequest
@@ -21556,18 +25308,15 @@ export interface components {
             destination: string;
         };
         /**
-         * PushRequest
-         * @description Request to send a dump to a destination.
+         * PushVolumeBackupRequest
+         * @description Request to send a backup to a destination.
          *
          *     Attributes:
-         *         engine: The engine the dump belongs to.
          *         destination: A destination created under ``/api/backup-destinations``.
          */
-        PushRequest: {
+        PushVolumeBackupRequest: {
             /** Destination */
             destination: string;
-            /** Engine */
-            engine: string;
         };
         /**
          * QueryRequest
@@ -21681,6 +25430,36 @@ export interface components {
             truncated: boolean;
         };
         /**
+         * QueueResponse
+         * @description What runs, what waits, and the limits that decide it.
+         */
+        QueueResponse: {
+            /**
+             * Builds Queued
+             * @description How many of the waiting jobs build an application
+             */
+            builds_queued: number;
+            /**
+             * Builds Running
+             * @description How many of the running jobs build an application
+             */
+            builds_running: number;
+            /**
+             * Max Concurrent Builds
+             * @description deploy.max_concurrent_builds
+             */
+            max_concurrent_builds: number;
+            /**
+             * Queue Limit
+             * @description deploy.queue_limit: builds that may wait
+             */
+            queue_limit: number;
+            /** Queued */
+            queued: components["schemas"]["JobResponse"][];
+            /** Running */
+            running: components["schemas"]["JobResponse"][];
+        };
+        /**
          * ReasonModel
          * @description Why something is not being measured, and what to do about it.
          *
@@ -21751,12 +25530,44 @@ export interface components {
             since?: string | null;
         };
         /**
+         * RecipeBuildOut
+         * @description A native recipe's install, build and start commands.
+         */
+        RecipeBuildOut: {
+            /** Base Directory */
+            base_directory?: string | null;
+            /** Build */
+            build?: string | null;
+            /** Install */
+            install?: string | null;
+            /** Publish Directory */
+            publish_directory?: string | null;
+            /** Runtime */
+            runtime?: string | null;
+            /** Start */
+            start?: string | null;
+        };
+        /**
+         * RecipeChangeOut
+         * @description What a version of a recipe changed.
+         *
+         *     Attributes:
+         *         version: The version.
+         *         summary: One sentence.
+         */
+        RecipeChangeOut: {
+            /** Summary */
+            summary: string;
+            /** Version */
+            version: string;
+        };
+        /**
          * RecipeEnvOut
          * @description One variable a recipe sets.
          *
          *     Attributes:
          *         name: The variable.
-         *         generated: Whether Noust generates its value (a secret, a database
+         *         generated: Whether Noust gives its value (a secret, a database
          *             credential, the domain); either way ``env_vars`` overrides it.
          */
         RecipeEnvOut: {
@@ -21774,38 +25585,141 @@ export interface components {
             expect?: string | null;
             /** Path */
             path: string;
+            /** Timeout */
+            timeout?: number | null;
+        };
+        /**
+         * RecipeImageOut
+         * @description One image of a Compose recipe.
+         *
+         *     Attributes:
+         *         service: The Compose service.
+         *         repository: The image without tag or digest.
+         *         tag: The tag.
+         *         digest: The ``sha256:`` digest.
+         */
+        RecipeImageOut: {
+            /** Digest */
+            digest?: string | null;
+            /** Repository */
+            repository: string;
+            /** Service */
+            service: string;
+            /** Tag */
+            tag: string;
+        };
+        /**
+         * RecipeInstallRequest
+         * @description Request to install a recipe on a domain.
+         *
+         *     Attributes:
+         *         domain: The domain it is served on.
+         *         variables: Values for the recipe's variables: the ``required`` ones
+         *             must be among them, and any other overrides what the recipe sets.
+         *         port: The port to listen on; a free one near the recipe's when omitted.
+         *         ssl: Whether to obtain a certificate.
+         *         include_www: Also answer on ``www.<domain>``, as a redirect.
+         *         health_path: Path the first health gate probes, over the recipe's.
+         *         health_expect: Statuses the first health gate accepts, over the recipe's.
+         *         health_timeout: Seconds the first health gate waits.
+         */
+        RecipeInstallRequest: {
+            /** Domain */
+            domain: string;
+            /** Health Expect */
+            health_expect?: string | null;
+            /** Health Path */
+            health_path?: string | null;
+            /** Health Timeout */
+            health_timeout?: number | null;
+            /**
+             * Include Www
+             * @default false
+             */
+            include_www: boolean;
+            /** Port */
+            port?: number | null;
+            /**
+             * Ssl
+             * @default true
+             */
+            ssl: boolean;
+            /** Variables */
+            variables?: {
+                [key: string]: string;
+            };
         };
         /**
          * RecipeListOut
-         * @description The catalogue, the recipes this release can deploy first.
+         * @description The catalogue, or the part of it a search found.
+         *
+         *     Attributes:
+         *         items: The recipes, the ones this release can deploy first.
+         *         total: How many there are.
          */
         RecipeListOut: {
             /** Items */
             items: components["schemas"]["RecipeSummaryOut"][];
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
         };
         /**
          * RecipeOut
          * @description One recipe in full.
          *
          *     Attributes:
-         *         source: Where its code comes from; None when unavailable.
+         *         source: Where its code comes from; None for a Compose recipe or an
+         *             unavailable one.
          *         layout: ``releases`` or ``inplace``.
          *         port: Its default port, when it runs a process.
-         *         env: The variables it sets.
+         *         build: A native recipe's commands.
+         *         variables: Its variables and where each value comes from.
+         *         env: The variables, as the review step reads them.
+         *         images: A Compose recipe's images, as pinned.
+         *         public_ports: What a Compose recipe opens to the network.
          *         persistent_paths: What survives every release in ``shared/``.
          *         health: Its health check.
          *         notes: What the operator is told after the deploy, with ``{{ url }}``
          *             and the like still to be filled in.
+         *         changelog: What the latest versions changed.
          */
         RecipeOut: {
             /** App Type */
             app_type?: string | null;
+            /**
+             * Architectures
+             * @default []
+             */
+            architectures: string[];
             /** Available */
             available: boolean;
+            build?: components["schemas"]["RecipeBuildOut"] | null;
+            /**
+             * Category
+             * @default other
+             */
+            category: string;
+            /**
+             * Changelog
+             * @default []
+             */
+            changelog: components["schemas"]["RecipeChangeOut"][];
             /** Database */
             database?: string | null;
+            /**
+             * Dependencies
+             * @default []
+             */
+            dependencies: string[];
             /** Description */
             description: string;
+            /** Digest Verified */
+            digest_verified?: boolean | null;
+            /** Docs */
+            docs?: string | null;
             /**
              * Env
              * @default []
@@ -21815,10 +25729,26 @@ export interface components {
             /** Homepage */
             homepage: string;
             /**
+             * Images
+             * @default []
+             */
+            images: components["schemas"]["RecipeImageOut"][];
+            /**
+             * Kind
+             * @default native
+             */
+            kind: string;
+            /**
              * Layout
              * @default releases
              */
             layout: string;
+            /** License */
+            license?: string | null;
+            /** Logo */
+            logo?: string | null;
+            /** Min Noust */
+            min_noust?: string | null;
             /** Name */
             name: string;
             /**
@@ -21834,19 +25764,77 @@ export interface components {
             /** Port */
             port?: number | null;
             /**
+             * Public Ports
+             * @default []
+             */
+            public_ports: components["schemas"]["RecipePublicPortOut"][];
+            /** Repository */
+            repository?: string | null;
+            /**
              * Requires
              * @default []
              */
             requires: string[];
+            /**
+             * Revision
+             * @default 1
+             */
+            revision: number;
+            /**
+             * Runs In Docker
+             * @default false
+             */
+            runs_in_docker: boolean;
+            /**
+             * Schema Version
+             * @default 2
+             */
+            schema_version: number;
+            /**
+             * Slogan
+             * @default
+             */
+            slogan: string;
             source?: components["schemas"]["RecipeSourceOut"] | null;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
             /** Title */
             title: string;
             /** Unavailable Reason */
             unavailable_reason?: string | null;
+            /** Updated */
+            updated?: string | null;
+            /**
+             * Variables
+             * @default []
+             */
+            variables: components["schemas"]["RecipeVariableOut"][];
+            /** Version */
+            version?: string | null;
+        };
+        /**
+         * RecipePublicPortOut
+         * @description A port a Compose recipe opens to the network.
+         *
+         *     Attributes:
+         *         port: The port.
+         *         protocol: ``tcp`` or ``udp``.
+         *         purpose: What it is for.
+         */
+        RecipePublicPortOut: {
+            /** Port */
+            port: number;
+            /** Protocol */
+            protocol: string;
+            /** Purpose */
+            purpose: string;
         };
         /**
          * RecipeSourceOut
-         * @description Where a recipe's code comes from.
+         * @description Where a native recipe's code comes from.
          *
          *     Attributes:
          *         kind: ``git``, ``archive`` or ``template``.
@@ -21880,36 +25868,170 @@ export interface components {
          *     Attributes:
          *         name: What ``recipe`` takes in ``POST /api/apps``.
          *         title: What it is called.
-         *         description: One sentence.
+         *         slogan: One line for the catalogue card.
+         *         description: One or two sentences.
          *         homepage: The project's site.
+         *         docs: The project's documentation.
+         *         repository: The project's source code.
+         *         license: The project's licence.
+         *         min_noust: The oldest Noust that can install it, when it asks for one.
+         *         architectures: What it runs on; empty for any. Checked at install.
+         *         category: One of the closed list (``GET /api/recipes/categories``).
+         *         tags: Lower-case labels.
+         *         logo: Where the logo is served, or None.
+         *         version: The version of the application the recipe pins.
+         *         revision: The recipe's own revision of that version.
+         *         updated: When the recipe last changed (ISO date).
+         *         kind: ``native`` or ``compose``.
+         *         runs_in_docker: Whether it runs in containers.
          *         available: Whether this release can deploy it.
          *         unavailable_reason: Why not, when it cannot.
          *         app_type: The deployer that builds it; None when unavailable.
-         *         database: The database engine it is given, if any.
+         *         database: The SQL engine it is given, if any.
+         *         dependencies: The services it asks Noust to provide.
          *         requires: What the server needs, in words.
+         *         digest_verified: Compose: every image carries a digest read from its
+         *             registry. None for a native recipe.
+         *         schema_version: The format version the file is written in.
          */
         RecipeSummaryOut: {
             /** App Type */
             app_type?: string | null;
+            /**
+             * Architectures
+             * @default []
+             */
+            architectures: string[];
             /** Available */
             available: boolean;
+            /**
+             * Category
+             * @default other
+             */
+            category: string;
             /** Database */
             database?: string | null;
+            /**
+             * Dependencies
+             * @default []
+             */
+            dependencies: string[];
             /** Description */
             description: string;
+            /** Digest Verified */
+            digest_verified?: boolean | null;
+            /** Docs */
+            docs?: string | null;
             /** Homepage */
             homepage: string;
+            /**
+             * Kind
+             * @default native
+             */
+            kind: string;
+            /** License */
+            license?: string | null;
+            /** Logo */
+            logo?: string | null;
+            /** Min Noust */
+            min_noust?: string | null;
             /** Name */
             name: string;
+            /** Repository */
+            repository?: string | null;
             /**
              * Requires
              * @default []
              */
             requires: string[];
+            /**
+             * Revision
+             * @default 1
+             */
+            revision: number;
+            /**
+             * Runs In Docker
+             * @default false
+             */
+            runs_in_docker: boolean;
+            /**
+             * Schema Version
+             * @default 2
+             */
+            schema_version: number;
+            /**
+             * Slogan
+             * @default
+             */
+            slogan: string;
+            /**
+             * Tags
+             * @default []
+             */
+            tags: string[];
             /** Title */
             title: string;
             /** Unavailable Reason */
             unavailable_reason?: string | null;
+            /** Updated */
+            updated?: string | null;
+            /** Version */
+            version?: string | null;
+        };
+        /**
+         * RecipeUpdateRequest
+         * @description Request to update an installed recipe to the catalogue's version.
+         *
+         *     Attributes:
+         *         variables: Values for the variables the new version asks for.
+         *         force: Deploy the catalogue's version even when it is the one installed.
+         */
+        RecipeUpdateRequest: {
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** Variables */
+            variables?: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * RecipeVariableOut
+         * @description One variable of a recipe, with where its value comes from.
+         *
+         *     Attributes:
+         *         name: The environment variable.
+         *         origin: ``generated``, ``deployment``, ``provisioned``, ``composed``,
+         *             ``default`` or ``required``.
+         *         input: Whether the operator is asked for it at install.
+         *         required: Whether installation stops until it has a value.
+         *         secret: Whether its value must not be shown in clear.
+         *         description: What it is for.
+         *         default: Its value when the operator gives none; never a secret.
+         *         generate: The form it is generated in, when it is.
+         */
+        RecipeVariableOut: {
+            /** Default */
+            default?: string | null;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Generate */
+            generate?: string | null;
+            /** Input */
+            input: boolean;
+            /** Name */
+            name: string;
+            /** Origin */
+            origin: string;
+            /** Required */
+            required: boolean;
+            /** Secret */
+            secret: boolean;
         };
         /**
          * ReclaimRequest
@@ -22280,6 +26402,17 @@ export interface components {
             user: string;
         };
         /**
+         * RenameTeamRequest
+         * @description Request to rename a team.
+         */
+        RenameTeamRequest: {
+            /**
+             * Name
+             * @description The new display name
+             */
+            name: string;
+        };
+        /**
          * RenewCertRequest
          * @description Request to renew certificates.
          */
@@ -22401,37 +26534,14 @@ export interface components {
             target_domain?: string | null;
         };
         /**
-         * RestoreRemoteRequest
-         * @description Request to restore a dump that lives on a destination.
+         * RestoreVolumeBackupRequest
+         * @description Request to put an application's data back as a backup held it.
          *
          *     Attributes:
-         *         engine: The engine.
-         *         database: The database the dump is of, which names its folder on the
-         *             destination, and the target unless ``new_name`` is given.
-         *         destination: The destination it is on.
-         *         backup_name: The dump's file name there.
-         *         drop_existing: Drop and recreate the target before loading. A safety
-         *             copy is taken first whatever ``safety_backup`` says.
-         *         safety_backup: Dump the target before loading over it.
-         *         new_name: Restore into a new database of this name instead, leaving
-         *             the original untouched.
+         *         safety_backup: Archive what is there first. Turning it off leaves
+         *             nothing to go back to when the restore fails.
          */
-        RestoreRemoteRequest: {
-            /** Backup Name */
-            backup_name: string;
-            /** Database */
-            database: string;
-            /** Destination */
-            destination: string;
-            /**
-             * Drop Existing
-             * @default false
-             */
-            drop_existing: boolean;
-            /** Engine */
-            engine: string;
-            /** New Name */
-            new_name?: string | null;
+        RestoreVolumeBackupRequest: {
             /**
              * Safety Backup
              * @default true
@@ -23102,7 +27212,7 @@ export interface components {
          * ScheduleDestination
          * @description One remote destination a schedule pushes its backups to.
          */
-        ScheduleDestination: {
+        "ScheduleDestination-Output": {
             /**
              * Name
              * @description A backup destination created under /api/backup-destinations
@@ -23155,6 +27265,72 @@ export interface components {
             in_minutes?: number | null;
             /** Message */
             message?: string | null;
+        };
+        /**
+         * ScheduleResponse
+         * @description The schedule of Noust's own state backup, and how it is going.
+         *
+         *     Attributes:
+         *         configured: Whether there is one; when there is not the rest is empty.
+         *         schedule: The calendar expression.
+         *         retention_count: Scheduled bundles kept locally.
+         *         retention_days: Days a scheduled bundle is kept locally.
+         *         destinations: Where each bundle is sent, and whether each still exists
+         *             and is encrypted.
+         *         enabled: Whether the timer exists.
+         *         passphrase_stored: Whether a passphrase is kept for the timer; null
+         *             when the secret store is locked and cannot say.
+         *         timer: What systemd says of the timer.
+         *         last_run_at: When it last ran.
+         *         last_status: ``ok`` or ``failed``; null before the first run.
+         *         last_error: What the last failed run said, verbatim.
+         *         last_file: The last bundle it took.
+         *         last_success_at: When a run last went everywhere it was meant to.
+         *         last_verified_at: When a bundle was last proven restorable.
+         *         last_verify_status: ``ok`` or ``failed`` for that.
+         */
+        ScheduleResponse: {
+            /** Configured */
+            configured: boolean;
+            /** Created At */
+            created_at?: string | null;
+            /** Destinations */
+            destinations?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Last Error */
+            last_error?: string | null;
+            /** Last File */
+            last_file?: string | null;
+            /** Last Run At */
+            last_run_at?: string | null;
+            /** Last Status */
+            last_status?: string | null;
+            /** Last Success At */
+            last_success_at?: string | null;
+            /** Last Verified At */
+            last_verified_at?: string | null;
+            /** Last Verify Status */
+            last_verify_status?: string | null;
+            /** Passphrase Stored */
+            passphrase_stored?: boolean | null;
+            /** Retention Count */
+            retention_count?: number | null;
+            /** Retention Days */
+            retention_days?: number | null;
+            /** Schedule */
+            schedule?: string | null;
+            /** Timer */
+            timer?: {
+                [key: string]: unknown;
+            };
+            /** Updated At */
+            updated_at?: string | null;
         };
         /**
          * ScheduledPowerOut
@@ -23645,10 +27821,15 @@ export interface components {
          *         verify_restore: Load each dump into a temporary database and drop it
          *             as proof it restores. Not available for Redis.
          *         enabled: Whether the timer runs; a disabled policy keeps its settings.
+         *         exclude_databases: Databases an all-databases policy (stored under
+         *             ``*``) skips.
+         *         exclude_schemas: PostgreSQL schemas left out of every dump.
+         *         exclude_tables: Tables (PostgreSQL, MySQL, MariaDB) or collections
+         *             (MongoDB) left out of every dump.
          */
         SetPolicyRequest: {
             /** Destinations */
-            destinations?: components["schemas"]["PolicyDestination"][];
+            destinations?: components["schemas"]["noust__web__api__databases__backups__PolicyDestination"][];
             /** Dump Format */
             dump_format?: string | null;
             /**
@@ -23656,6 +27837,12 @@ export interface components {
              * @default true
              */
             enabled: boolean;
+            /** Exclude Databases */
+            exclude_databases?: string[];
+            /** Exclude Schemas */
+            exclude_schemas?: string[];
+            /** Exclude Tables */
+            exclude_tables?: string[];
             /**
              * Retention Count
              * @default 7
@@ -23697,6 +27884,105 @@ export interface components {
              * @description owner, read_write or read_only
              */
             profile: string;
+        };
+        /**
+         * SetRoleRequest
+         * @description Request to change a member's role in a team.
+         */
+        SetRoleRequest: {
+            /**
+             * Role
+             * @description viewer, operator, admin or owner
+             */
+            role: string;
+        };
+        /**
+         * SetScheduleRequest
+         * @description Request to create or replace the schedule.
+         *
+         *     Attributes:
+         *         schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd
+         *             ``OnCalendar`` expression.
+         *         retention_count: Scheduled bundles to keep locally.
+         *         retention_days: Days to keep a scheduled bundle locally.
+         *         destinations: Remote copies, each with its own retention.
+         *         passphrase: What bundles are sealed under; kept in the secret store
+         *             for the timer. Required while none is stored, optional after.
+         *         enabled: Whether the timer runs.
+         */
+        SetScheduleRequest: {
+            /** Destinations */
+            destinations?: components["schemas"]["noust__web__api__self_backup__ScheduleDestination"][];
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Passphrase */
+            passphrase?: string | null;
+            /**
+             * Retention Count
+             * @default 7
+             */
+            retention_count: number | null;
+            /**
+             * Retention Days
+             * @default 30
+             */
+            retention_days: number | null;
+            /**
+             * Schedule
+             * @default daily
+             */
+            schedule: string;
+        };
+        /**
+         * SetVolumePolicyRequest
+         * @description Request to create or replace an application's data backup policy.
+         *
+         *     Attributes:
+         *         schedule: ``hourly``, ``daily``, ``weekly``, ``monthly`` or a systemd
+         *             ``OnCalendar`` expression.
+         *         targets: Keys to back up; empty is every target the application declares.
+         *         extra_paths: Data directories to add, relative to where its data lives.
+         *         retention_count: Scheduled backups to keep locally per target.
+         *         retention_days: Days to keep a scheduled backup locally.
+         *         destinations: Remote copies, each with its own retention.
+         *         consistency: ``live``, ``pause`` (freeze it for the copy) or ``stop``.
+         *         enabled: Whether the timer runs; a disabled policy keeps its settings.
+         */
+        SetVolumePolicyRequest: {
+            /**
+             * Consistency
+             * @default live
+             */
+            consistency: string;
+            /** Destinations */
+            destinations?: components["schemas"]["noust__web__api__volume_backups__PolicyDestination"][];
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+            /** Extra Paths */
+            extra_paths?: string[];
+            /**
+             * Retention Count
+             * @default 7
+             */
+            retention_count: number | null;
+            /**
+             * Retention Days
+             * @default 30
+             */
+            retention_days: number | null;
+            /**
+             * Schedule
+             * @default daily
+             */
+            schedule: string;
+            /** Targets */
+            targets?: string[];
         };
         /**
          * ShowKeyResponse
@@ -25154,6 +29440,35 @@ export interface components {
             size_bytes?: number | null;
         };
         /**
+         * TargetResponse
+         * @description One piece of an application's data.
+         *
+         *     Attributes:
+         *         key: What a policy names it by (``path:uploads``, ``volume:shop_pgdata``).
+         *         kind: ``path`` or ``docker``.
+         *         source: The relative path under the data root, or the volume's name.
+         *         path: Where a path target is on the server.
+         *         exists: Whether there is something to back up now.
+         *         declared_by: Where it comes from.
+         *         slug: The target as a file name.
+         */
+        TargetResponse: {
+            /** Declared By */
+            declared_by: string;
+            /** Exists */
+            exists: boolean;
+            /** Key */
+            key: string;
+            /** Kind */
+            kind: string;
+            /** Path */
+            path?: string | null;
+            /** Slug */
+            slug: string;
+            /** Source */
+            source: string;
+        };
+        /**
          * TargetsIn
          * @description The servers an action runs on: by name, by label, or both.
          *
@@ -25168,6 +29483,107 @@ export interface components {
             };
             /** Nodes */
             nodes?: string[];
+        };
+        /**
+         * TeamDetailOut
+         * @description A team with what it holds.
+         *
+         *     Attributes:
+         *         resources: Applications, sites, databases and backup schedules in its
+         *             projects, by kind.
+         *         members: How many people belong to it.
+         *         projects: How many projects it has.
+         */
+        TeamDetailOut: {
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Id */
+            id: number;
+            /**
+             * Members
+             * @default 0
+             */
+            members: number;
+            /** Name */
+            name: string;
+            /**
+             * Projects
+             * @default 0
+             */
+            projects: number;
+            /** Resources */
+            resources?: {
+                [key: string]: number;
+            };
+            /** Role */
+            role?: string | null;
+            /** Slug */
+            slug: string;
+        };
+        /**
+         * TeamListResponse
+         * @description The teams a principal sees.
+         */
+        TeamListResponse: {
+            /** Teams */
+            teams: components["schemas"]["TeamOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * TeamOut
+         * @description A team, as the principal asking sees it.
+         *
+         *     Attributes:
+         *         id: Store id.
+         *         slug: Unique, typed in commands and URLs.
+         *         name: Display name.
+         *         role: The principal's role in it, or None when it sees it without
+         *             belonging to it (an administrator, an auditor).
+         *         created_at: When it was created, UNIX seconds.
+         *         created_by: Who created it.
+         */
+        TeamOut: {
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Role */
+            role?: string | null;
+            /** Slug */
+            slug: string;
+        };
+        /**
+         * TeamRoleOut
+         * @description One role of a team and what it holds there.
+         *
+         *     Attributes:
+         *         role: ``viewer``, ``operator``, ``admin`` or ``owner``.
+         *         permissions: The permissions it holds on the team's resources.
+         */
+        TeamRoleOut: {
+            /** Permissions */
+            permissions: string[];
+            /** Role */
+            role: string;
+        };
+        /**
+         * TeamRolesResponse
+         * @description What each role of a team holds, weakest first.
+         */
+        TeamRolesResponse: {
+            /** Descriptions */
+            descriptions: {
+                [key: string]: string;
+            };
+            /** Roles */
+            roles: components["schemas"]["TeamRoleOut"][];
         };
         /**
          * TelegramChatOut
@@ -26005,6 +30421,68 @@ export interface components {
             supported: boolean;
         };
         /**
+         * UploadResponse
+         * @description An upload.
+         *
+         *     Attributes:
+         *         id: What every later call names it by.
+         *         file_name: The name the client gave.
+         *         size: Bytes the client said the file has.
+         *         received: Bytes the server holds: the offset the next chunk starts at.
+         *         sha256: The digest the client declared, if any.
+         *         created_at: When it was started.
+         *         updated_at: When its last chunk arrived.
+         *         complete: Every byte is in and checked.
+         *         chunk_size: The most one chunk may carry.
+         *         format: What the file is, once it is complete.
+         */
+        UploadResponse: {
+            /**
+             * Chunk Size
+             * @default 16777216
+             */
+            chunk_size: number;
+            /**
+             * Complete
+             * @default false
+             */
+            complete: boolean;
+            /** Created At */
+            created_at: string;
+            /** File Name */
+            file_name: string;
+            format?: components["schemas"]["DumpFormatResponse"] | null;
+            /** Id */
+            id: string;
+            /** Received */
+            received: number;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Size */
+            size: number;
+            /** Updated At */
+            updated_at: string;
+        };
+        /**
+         * UploadStartRequest
+         * @description Request to start an upload.
+         *
+         *     Attributes:
+         *         file_name: The dump's name; it must end in .sql, .gz, .zip, .tar, .bz2,
+         *             .xz, .dump or .archive. Only its extension is read.
+         *         size: Its size in bytes, which the upload may not exceed.
+         *         sha256: The digest the finished file must have, when the client has
+         *             computed one; a mismatch discards the upload.
+         */
+        UploadStartRequest: {
+            /** File Name */
+            file_name: string;
+            /** Sha256 */
+            sha256?: string | null;
+            /** Size */
+            size: number;
+        };
+        /**
          * UserInfoResponse
          * @description One database user.
          *
@@ -26167,6 +30645,157 @@ export interface components {
             version: string;
         };
         /**
+         * VolumeBackupListResponse
+         * @description The data backups on this server, newest first.
+         */
+        VolumeBackupListResponse: {
+            /** Backups */
+            backups: components["schemas"]["VolumeBackupResponse"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * VolumeBackupResponse
+         * @description One data backup.
+         *
+         *     Attributes:
+         *         id: ``<application>.<target slug>_<YYYYMMDD>_<HHMMSS>``.
+         *         domain: The application.
+         *         target: The target's key.
+         *         kind: ``path`` or ``docker``.
+         *         created_at: When, with its UTC offset.
+         *         size_bytes: The archive's size.
+         *         checksum: Its SHA-256.
+         *         consistency: How still the data was kept.
+         *         tags: ``scheduled`` for a schedule's, ``safety`` for a restore's.
+         *         description: A note.
+         *         sqlite_files: SQLite databases snapshotted whole.
+         *         skipped: What was left out and why.
+         *         remote_copies: Where it was sent.
+         *         last_verified_at: When it was last checked.
+         *         verified_ok: That check's verdict; null before one.
+         */
+        VolumeBackupResponse: {
+            /** Checksum */
+            checksum?: string | null;
+            /**
+             * Consistency
+             * @default live
+             */
+            consistency: string;
+            /** Created At */
+            created_at: string;
+            /**
+             * Description
+             * @default
+             */
+            description: string;
+            /** Domain */
+            domain: string;
+            /** Id */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Last Verified At */
+            last_verified_at?: string | null;
+            /** Remote Copies */
+            remote_copies?: {
+                [key: string]: unknown;
+            }[];
+            /** Size Bytes */
+            size_bytes: number;
+            /** Skipped */
+            skipped?: {
+                [key: string]: string;
+            }[];
+            /** Sqlite Files */
+            sqlite_files?: string[];
+            /** Tags */
+            tags?: string[];
+            /** Target */
+            target: string;
+            /** Verified Ok */
+            verified_ok?: boolean | null;
+        };
+        /**
+         * VolumePolicyListResponse
+         * @description Every application's data backup policy.
+         */
+        VolumePolicyListResponse: {
+            /** Policies */
+            policies: components["schemas"]["VolumePolicyResponse"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * VolumePolicyResponse
+         * @description An application's data backup policy and how it is going.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         configured: Whether it has a policy; when it does not, the rest is empty.
+         *         schedule: The calendar expression.
+         *         targets: What is backed up; empty is everything the application declares.
+         *         extra_paths: Directories added to what it declares.
+         *         retention_count: Scheduled backups kept locally per target.
+         *         retention_days: Days a scheduled backup is kept locally.
+         *         destinations: Where each backup is sent.
+         *         consistency: ``live``, ``pause`` or ``stop``.
+         *         enabled: Whether the timer exists.
+         *         timer: What systemd says of the timer.
+         *         last_run_at: When the policy last ran.
+         *         last_status: ``ok`` or ``failed``; null before the first run.
+         *         last_error: What the last failed run said, verbatim.
+         *         last_backup: The last backup it took.
+         *         last_success_at: When a run last went everywhere it was meant to.
+         */
+        VolumePolicyResponse: {
+            /** Configured */
+            configured: boolean;
+            /**
+             * Consistency
+             * @default live
+             */
+            consistency: string;
+            /** Created At */
+            created_at?: string | null;
+            /** Destinations */
+            destinations?: components["schemas"]["noust__web__api__volume_backups__PolicyDestinationState"][];
+            /** Domain */
+            domain: string;
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Extra Paths */
+            extra_paths?: string[];
+            /** Last Backup */
+            last_backup?: string | null;
+            /** Last Error */
+            last_error?: string | null;
+            /** Last Run At */
+            last_run_at?: string | null;
+            /** Last Status */
+            last_status?: string | null;
+            /** Last Success At */
+            last_success_at?: string | null;
+            /** Retention Count */
+            retention_count?: number | null;
+            /** Retention Days */
+            retention_days?: number | null;
+            /** Schedule */
+            schedule?: string | null;
+            /** Targets */
+            targets?: string[];
+            /** Timer */
+            timer?: {
+                [key: string]: unknown;
+            };
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /**
          * WebConfig
          * @description Web interface configuration.
          */
@@ -26305,7 +30934,7 @@ export interface components {
          * @description The forge side of the setup.
          *
          *     Attributes:
-         *         forge: ``github``, ``gitlab`` or ``gitea``; None for another host.
+         *         forge: ``github``, ``gitlab``, ``gitea`` or ``bitbucket``; None for another host.
          *         host: The forge's host name; never a credential.
          *         repository: ``owner/repo``.
          *         settings_url: Where to add the webhook, when the forge is known.
@@ -26383,7 +31012,7 @@ export interface components {
          *         id: Row id; larger is newer.
          *         received_at: When it arrived (the last of a burst, for a folded row),
          *             with a UTC offset.
-         *         provider: ``github``, ``gitea``, ``gitlab`` or ``github-app``; None
+         *         provider: ``github``, ``gitea``, ``gitlab``, ``bitbucket`` or ``github-app``; None
          *             when no credential verified.
          *         event: The forge's name for the event.
          *         outcome: ``deploy_started``, ``preview_started``, ``ping``,
@@ -26739,6 +31368,21 @@ export interface components {
             warnings: string[];
         };
         /**
+         * ScheduleDestination
+         * @description One remote destination a schedule pushes its backups to.
+         */
+        noust__web__api__backup_schedules__ScheduleDestination: {
+            /**
+             * Name
+             * @description A backup destination created under /api/backup-destinations
+             */
+            name: string;
+            /** Retention Count */
+            retention_count?: number | null;
+            /** Retention Days */
+            retention_days?: number | null;
+        };
+        /**
          * BackupListResponse
          * @description Response for listing backups.
          */
@@ -26839,6 +31483,115 @@ export interface components {
              * @default true
              */
             verify: boolean;
+        };
+        /**
+         * PolicyDestination
+         * @description One remote destination a policy sends its dumps to.
+         *
+         *     Attributes:
+         *         name: A destination created under ``/api/backup-destinations``, which
+         *             keeps its own encryption.
+         *         retention_count: This server's scheduled dumps of the database to keep
+         *             there; null for no limit.
+         *         retention_days: Maximum age in days of those; null for no limit.
+         */
+        noust__web__api__databases__backups__PolicyDestination: {
+            /** Name */
+            name: string;
+            /** Retention Count */
+            retention_count?: number | null;
+            /** Retention Days */
+            retention_days?: number | null;
+        };
+        /**
+         * PolicyDestinationState
+         * @description A destination a policy names, and what it is now.
+         *
+         *     Attributes:
+         *         exists: Whether the destination is still configured. False means it was
+         *             removed by hand after the policy was saved and every upload fails
+         *             until the policy names another.
+         *         encrypted: Whether it wraps what it stores in rclone's crypt.
+         */
+        noust__web__api__databases__backups__PolicyDestinationState: {
+            /**
+             * Encrypted
+             * @default false
+             */
+            encrypted: boolean;
+            /**
+             * Exists
+             * @default true
+             */
+            exists: boolean;
+            /** Name */
+            name: string;
+            /** Retention Count */
+            retention_count?: number | null;
+            /** Retention Days */
+            retention_days?: number | null;
+        };
+        /**
+         * PushRequest
+         * @description Request to send a dump to a destination.
+         *
+         *     Attributes:
+         *         engine: The engine the dump belongs to.
+         *         destination: A destination created under ``/api/backup-destinations``.
+         */
+        noust__web__api__databases__backups__PushRequest: {
+            /** Destination */
+            destination: string;
+            /** Engine */
+            engine: string;
+        };
+        /**
+         * RestoreRemoteRequest
+         * @description Request to restore a dump that lives on a destination.
+         *
+         *     Attributes:
+         *         engine: The engine.
+         *         database: The database the dump is of, which names its folder on the
+         *             destination, and the target unless ``new_name`` is given.
+         *         destination: The destination it is on.
+         *         backup_name: The dump's file name there.
+         *         drop_existing: Drop and recreate the target before loading. A safety
+         *             copy is taken first whatever ``safety_backup`` says.
+         *         safety_backup: Dump the target before loading over it.
+         *         new_name: Restore into a new database of this name instead, leaving
+         *             the original untouched.
+         */
+        noust__web__api__databases__backups__RestoreRemoteRequest: {
+            /** Backup Name */
+            backup_name: string;
+            /** Database */
+            database: string;
+            /** Destination */
+            destination: string;
+            /**
+             * Drop Existing
+             * @default false
+             */
+            drop_existing: boolean;
+            /** Engine */
+            engine: string;
+            /** New Name */
+            new_name?: string | null;
+            /**
+             * Safety Backup
+             * @default true
+             */
+            safety_backup: boolean;
+        };
+        /**
+         * ActionResponse
+         * @description Generic action outcome.
+         */
+        noust__web__api__databases__common__ActionResponse: {
+            /** Message */
+            message: string;
+            /** Success */
+            success: boolean;
         };
         /**
          * AdoptRequest
@@ -26954,6 +31707,69 @@ export interface components {
             safety_backup: boolean;
         };
         /**
+         * ExposureResponse
+         * @description Every database port beyond this machine, and the ones the firewall closes.
+         *
+         *     Attributes:
+         *         exposed: The ports a stranger on the Internet can reach. This is the
+         *             list every alarm (the console's notice, the CLI's exit code) reads.
+         *         firewalled: Ports Docker publishes on every address that the firewall
+         *             keeps the Internet out of (``firewalled`` true, ``closed_by`` and
+         *             ``rule`` say how). Shown as information, never as a finding.
+         */
+        noust__web__api__databases__exposure__ExposureResponse: {
+            /** Exposed */
+            exposed: components["schemas"]["ExposedPortResponse"][];
+            /** Firewalled */
+            firewalled?: components["schemas"]["ExposedPortResponse"][];
+        };
+        /**
+         * ExposureResponse
+         * @description A database that is reachable from the network.
+         *
+         *     Attributes:
+         *         state: ``opening``, ``exposed`` or ``closing`` (a closing one was
+         *             interrupted or could not be fully undone: close it again).
+         *         listening: The proxy's port is open now.
+         *         remote_user: The account made for it; its password is only shown once,
+         *             or by ``POST .../reveal``.
+         */
+        noust__web__api__databases__public__ExposureResponse: {
+            /** Bind Address */
+            bind_address: string;
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Database */
+            database: string;
+            /** Engine */
+            engine: string;
+            /** Firewall */
+            firewall?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Listening
+             * @default false
+             */
+            listening: boolean;
+            /** Port */
+            port: number;
+            /** Profile */
+            profile: string;
+            /** Remote User */
+            remote_user: string;
+            /** Sources */
+            sources: string[];
+            /** State */
+            state: string;
+            /** Tls */
+            tls: string;
+            /** Unit */
+            unit: string;
+        };
+        /**
          * RollbackRequest
          * @description Going back to a deployment.
          */
@@ -27000,6 +31816,94 @@ export interface components {
             processes: components["schemas"]["ProcessEntry"][];
             /** Total */
             total: number;
+        };
+        /**
+         * OverviewResponse
+         * @description Everything the Overview shows.
+         *
+         *     Attributes:
+         *         schema_version: The shape of this answer (``schema`` in the body).
+         *         generated_at: When it was collected (it may be a few seconds old).
+         *         server: Which server.
+         *         apps: Applications by state.
+         *         deploys: Deployments today.
+         *         certificates: Certificates expiring.
+         *         backups: Backups in the last 24 hours.
+         *         disk: The disk and its forecast.
+         *         updates: Pending operating system updates.
+         *         attention: What needs an operator, worst first.
+         *         attention_total: How many there are, if the list was cut.
+         *         activity: What happened lately, newest first.
+         *         history: Whether metrics history is being recorded.
+         *         spark: The last hour of CPU and memory, when asked for.
+         */
+        noust__web__api__overview__OverviewResponse: {
+            /** Activity */
+            activity?: components["schemas"]["ActivityEntry"][];
+            apps: components["schemas"]["AppsFigure"];
+            /** Attention */
+            attention?: components["schemas"]["AttentionItem"][];
+            /**
+             * Attention Total
+             * @default 0
+             */
+            attention_total: number;
+            backups: components["schemas"]["BackupsFigure"];
+            certificates: components["schemas"]["CertificatesFigure"];
+            deploys: components["schemas"]["DeploysFigure"];
+            disk: components["schemas"]["DiskFigure"];
+            /** Generated At */
+            generated_at: string;
+            history?: components["schemas"]["HistoryFigure"] | null;
+            /**
+             * Schema
+             * @default 1
+             */
+            schema: number;
+            server: components["schemas"]["ServerInfo"];
+            spark?: components["schemas"]["SparkFigure"] | null;
+            updates: components["schemas"]["UpdatesFigure"];
+        };
+        /**
+         * OverviewResponse
+         * @description What there is, and how it is kept up.
+         *
+         *     Attributes:
+         *         bundles: The bundles on this server, newest first.
+         *         schedule: The schedule.
+         */
+        noust__web__api__self_backup__OverviewResponse: {
+            /** Bundles */
+            bundles: components["schemas"]["BundleResponse"][];
+            schedule: components["schemas"]["ScheduleResponse"];
+        };
+        /**
+         * PushRequest
+         * @description Request to send a bundle to a destination.
+         *
+         *     Attributes:
+         *         destination: A destination created under ``/api/backup-destinations``.
+         */
+        noust__web__api__self_backup__PushRequest: {
+            /** Destination */
+            destination: string;
+        };
+        /**
+         * ScheduleDestination
+         * @description One destination bundles are sent to.
+         *
+         *     Attributes:
+         *         name: A destination created under ``/api/backup-destinations``.
+         *         retention_count: This server's scheduled bundles to keep there.
+         *         retention_days: Maximum age in days of those.
+         */
+        noust__web__api__self_backup__ScheduleDestination: {
+            /** Name */
+            name: string;
+            /** Retention Count */
+            retention_count?: number | null;
+            /** Retention Days */
+            retention_days?: number | null;
         };
         /**
          * CheckOut
@@ -27050,6 +31954,84 @@ export interface components {
             processes: components["schemas"]["ProcessInfo"][];
             /** Total */
             total: number;
+        };
+        /**
+         * ActionResponse
+         * @description The answer to a change that has nothing else to say.
+         */
+        noust__web__api__teams__ActionResponse: {
+            /** Message */
+            message: string;
+        };
+        /**
+         * PolicyDestination
+         * @description One destination a policy sends its backups to.
+         *
+         *     Attributes:
+         *         name: A destination created under ``/api/backup-destinations``.
+         *         retention_count: This server's scheduled backups of a target to keep
+         *             there; null for no limit.
+         *         retention_days: Maximum age in days of those; null for no limit.
+         */
+        noust__web__api__volume_backups__PolicyDestination: {
+            /** Name */
+            name: string;
+            /** Retention Count */
+            retention_count?: number | null;
+            /** Retention Days */
+            retention_days?: number | null;
+        };
+        /**
+         * PolicyDestinationState
+         * @description A destination a policy names, and what it is now.
+         *
+         *     Attributes:
+         *         exists: Whether the destination is still configured.
+         *         encrypted: Whether it wraps what it stores in rclone's crypt.
+         */
+        noust__web__api__volume_backups__PolicyDestinationState: {
+            /**
+             * Encrypted
+             * @default false
+             */
+            encrypted: boolean;
+            /**
+             * Exists
+             * @default true
+             */
+            exists: boolean;
+            /** Name */
+            name: string;
+            /** Retention Count */
+            retention_count?: number | null;
+            /** Retention Days */
+            retention_days?: number | null;
+        };
+        /**
+         * RestoreRemoteRequest
+         * @description Request to restore data from a backup that lives on a destination.
+         *
+         *     Attributes:
+         *         destination: The destination.
+         *         domain: The application.
+         *         slug: The target's folder there (see ``/remote/{domain}``).
+         *         file_name: The archive's name there.
+         *         safety_backup: Archive what is there first.
+         */
+        noust__web__api__volume_backups__RestoreRemoteRequest: {
+            /** Destination */
+            destination: string;
+            /** Domain */
+            domain: string;
+            /** File Name */
+            file_name: string;
+            /**
+             * Safety Backup
+             * @default true
+             */
+            safety_backup: boolean;
+            /** Slug */
+            slug: string;
         };
     };
     responses: never;
@@ -27217,7 +32199,14 @@ export interface operations {
     };
     list_apps_api_apps_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only this team's applications */
+                team?: string | null;
+                /** @description Only this project's applications */
+                project?: string | null;
+                /** @description Only this environment's applications */
+                environment?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -27231,6 +32220,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AppListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -27533,6 +32531,169 @@ export interface operations {
             };
         };
     };
+    get_app_build_api_apps__domain__build_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppBuildResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_app_build_api_apps__domain__build_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppBuildRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppBuildResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_app_build_api_apps__domain__build_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppBuildResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_app_container_api_apps__domain__container_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContainerSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_app_container_api_apps__domain__container_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContainerSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContainerSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_app_databases_api_apps__domain__databases_get: {
         parameters: {
             query?: never;
@@ -27692,6 +32853,231 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConnectionUrlResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_deploy_key_api_apps__domain__deploy_key_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDeployKeyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_deploy_key_api_apps__domain__deploy_key_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeployKeyCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDeployKeyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_deploy_key_api_apps__domain__deploy_key_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDeployKeyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    import_deploy_key_api_apps__domain__deploy_key_import_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeployKeyImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDeployKeyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_rotation_api_apps__domain__deploy_key_rotate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDeployKeyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cancel_rotation_api_apps__domain__deploy_key_rotate_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppDeployKeyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_deploy_key_api_apps__domain__deploy_key_test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeployKeyTestResponse"];
                 };
             };
             /** @description Validation Error */
@@ -28092,6 +33478,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FollowTagsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_git_credential_api_apps__domain__git_credential_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitCredentialResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_git_credential_api_apps__domain__git_credential_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GitCredentialRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitCredentialResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_git_credential_api_apps__domain__git_credential_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitCredentialResponse"];
                 };
             };
             /** @description Validation Error */
@@ -28519,6 +34002,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MigrationPlanOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    move_app_api_apps__domain__move_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveAppRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MoveAppResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32355,6 +37873,114 @@ export interface operations {
             };
         };
     };
+    get_exposure_api_console_exposure_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    expose_console_api_console_exposure_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExposeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    unexpose_console_api_console_exposure_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    preview_exposure_api_console_exposure_preview_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExposeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExposurePlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_jobs_api_cron_get: {
         parameters: {
             query?: never;
@@ -32716,7 +38342,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActionResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -32941,7 +38567,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["RestoreRemoteRequest"];
+                "application/json": components["schemas"]["noust__web__api__databases__backups__RestoreRemoteRequest"];
             };
         };
         responses: {
@@ -33025,7 +38651,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActionResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33084,7 +38710,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["PushRequest"];
+                "application/json": components["schemas"]["noust__web__api__databases__backups__PushRequest"];
             };
         };
         responses: {
@@ -33231,7 +38857,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActionResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33364,7 +38990,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActionResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33383,6 +39009,12 @@ export interface operations {
             query?: {
                 /** @description Restrict to one engine */
                 engine?: string | null;
+                /** @description Only this team's databases */
+                team?: string | null;
+                /** @description Only this project's databases */
+                project?: string | null;
+                /** @description Only this environment's databases */
+                environment?: string | null;
             };
             header?: never;
             path?: never;
@@ -33602,7 +39234,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActionResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -33746,7 +39378,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActionResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34297,7 +39929,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActionResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34489,7 +40121,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActionResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34586,7 +40218,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActionResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34648,7 +40280,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActionResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34711,7 +40343,253 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ExposureResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__exposure__ExposureResponse"];
+                };
+            };
+        };
+    };
+    import_dump_api_databases_imports_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImportRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    inspect_dump_api_databases_imports_inspect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InspectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InspectResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    start_upload_api_databases_imports_uploads_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UploadStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_status_api_databases_imports_uploads__upload_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    send_chunk_api_databases_imports_uploads__upload_id__put: {
+        parameters: {
+            query: {
+                /** @description Where this chunk starts in the file */
+                offset: number;
+            };
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    discard_upload_api_databases_imports_uploads__upload_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    complete_upload_api_databases_imports_uploads__upload_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UploadResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    provisioning_choices_api_databases_provisioning_choices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EngineChoicesResponse"];
                 };
             };
         };
@@ -34723,6 +40601,8 @@ export interface operations {
                 domain: string;
                 /** @description The engine */
                 engine: string;
+                /** @description The version the database is wanted on */
+                version?: string | null;
             };
             header?: never;
             path?: never;
@@ -34737,6 +40617,188 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProvisioningPlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_public_api_databases_public_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicListResponse"];
+                };
+            };
+        };
+    };
+    open_public_api_databases_public_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicOpenedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_public_api_databases_public_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPlanResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_public_api_databases_public__engine___database__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                database: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicDetailResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    close_public_api_databases_public__engine___database__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                database: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicClosedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reveal_public_api_databases_public__engine___database__reveal_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                engine: string;
+                database: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34902,7 +40964,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActionResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -34935,7 +40997,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActionResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35000,7 +41062,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ActionResponse"];
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35069,6 +41131,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PasswordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_deploy_keys_api_deploy_keys_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeployKeyListResponse"];
+                };
+            };
+        };
+    };
+    list_pinned_hosts_api_deploy_keys_hosts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PinnedHostsResponse"];
+                };
+            };
+        };
+    };
+    forget_pinned_host_api_deploy_keys_hosts__host__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                host: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ForgottenHostResponse"];
                 };
             };
             /** @description Validation Error */
@@ -35444,6 +41577,40 @@ export interface operations {
             };
         };
     };
+    list_environments_api_environments_get: {
+        parameters: {
+            query?: {
+                /** @description Only this team's environments */
+                team?: string | null;
+                /** @description Only this project's environments */
+                project?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvironmentListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_actions_api_fleet_actions_get: {
         parameters: {
             query?: never;
@@ -35622,6 +41789,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FleetViewOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enroll_server_api_fleet_enroll_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrollBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    scan_host_key_api_fleet_enroll_host_key_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostKeyResponse"];
                 };
             };
             /** @description Validation Error */
@@ -36260,6 +42493,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_queue_api_jobs_queue_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QueueResponse"];
                 };
             };
         };
@@ -37057,7 +43310,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OverviewResponse"];
+                    "application/json": components["schemas"]["noust__web__api__overview__OverviewResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_projects_api_projects_get: {
+        parameters: {
+            query?: {
+                /** @description Only this team's projects */
+                team?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -37073,7 +43358,16 @@ export interface operations {
     };
     get_recipes_api_recipes_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Words to look for */
+                q?: string | null;
+                /** @description One category of the closed list */
+                category?: string | null;
+                /** @description One tag, exactly */
+                tag?: string | null;
+                /** @description native or compose */
+                kind?: string | null;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -37087,6 +43381,121 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecipeListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_recipe_categories_api_recipes_categories_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategoryListOut"];
+                };
+            };
+        };
+    };
+    get_installed_recipes_api_recipes_installed_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstalledRecipeListOut"];
+                };
+            };
+        };
+    };
+    get_installed_recipe_api_recipes_installed__domain__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstalledRecipeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_installed_recipe_api_recipes_installed__domain__update_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RecipeUpdateRequest"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -37109,6 +43518,299 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecipeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    install_recipe_api_recipes__name__install_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecipeInstallRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_recipe_logo_api_recipes__name__logo_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The recipe's logo, an SVG */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/svg+xml": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    overview_api_self_backup_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__self_backup__OverviewResponse"];
+                };
+            };
+        };
+    };
+    create_bundle_api_self_backup_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PassphraseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_schedule_api_self_backup_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+        };
+    };
+    set_schedule_api_self_backup_schedule_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetScheduleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScheduleResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_schedule_api_self_backup_schedule_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
+                };
+            };
+        };
+    };
+    delete_bundle_api_self_backup__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    push_bundle_api_self_backup__name__push_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["noust__web__api__self_backup__PushRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_bundle_api_self_backup__name__verify_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PassphraseRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
@@ -39843,6 +46545,562 @@ export interface operations {
             };
         };
     };
+    list_teams_api_teams_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamListResponse"];
+                };
+            };
+        };
+    };
+    create_team_api_teams_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTeamRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    choose_active_team_api_teams_active_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActiveTeamRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MineResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    my_teams_api_teams_mine_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MineResponse"];
+                };
+            };
+        };
+    };
+    list_team_roles_api_teams_roles_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamRolesResponse"];
+                };
+            };
+        };
+    };
+    get_team_api_teams__team__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamDetailOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_team_api_teams__team__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__teams__ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rename_team_api_teams__team__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RenameTeamRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_members_api_teams__team__members_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_member_api_teams__team__members_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_member_api_teams__team__members__username__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__teams__ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_member_role_api_teams__team__members__username__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                username: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_team_projects_api_teams__team__projects_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_project_api_teams__team__projects_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_project_api_teams__team__projects__project__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__teams__ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_project_environments_api_teams__team__projects__project__environments_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvironmentListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_environment_api_teams__team__projects__project__environments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateEnvironmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvironmentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_environment_api_teams__team__projects__project__environments__environment__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                team: string;
+                project: string;
+                environment: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__teams__ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_timeline_api_timeline_get: {
         parameters: {
             query: {
@@ -39868,6 +47126,492 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TimelineOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_backups_api_volume_backups_get: {
+        parameters: {
+            query?: {
+                /** @description Only this application's */
+                domain?: string | null;
+                /** @description Only this target's key */
+                target?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumeBackupListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_backup_api_volume_backups_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVolumeBackupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_policies_api_volume_backups_policies_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumePolicyListResponse"];
+                };
+            };
+        };
+    };
+    get_policy_api_volume_backups_policies__domain__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumePolicyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_policy_api_volume_backups_policies__domain__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetVolumePolicyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumePolicyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_policy_api_volume_backups_policies__domain__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_policy_api_volume_backups_policies__domain__run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remote_backups_api_volume_backups_remote__domain__get: {
+        parameters: {
+            query: {
+                /** @description A destination */
+                destination: string;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: {
+                            [key: string]: unknown;
+                        }[];
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_remote_api_volume_backups_restore_remote_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["noust__web__api__volume_backups__RestoreRemoteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_targets_api_volume_backups_targets__domain__get: {
+        parameters: {
+            query?: {
+                /** @description Also consider this directory */
+                path?: string[] | null;
+            };
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TargetResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_backup_api_volume_backups__backup_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                backup_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VolumeBackupResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_backup_api_volume_backups__backup_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                backup_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__databases__common__ActionResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    push_backup_api_volume_backups__backup_id__push_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                backup_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PushVolumeBackupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_backup_api_volume_backups__backup_id__restore_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                backup_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestoreVolumeBackupRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    verify_backup_api_volume_backups__backup_id__verify_post: {
+        parameters: {
+            query?: {
+                /** @description Also extract it as a restore would */
+                deep?: boolean;
+            };
+            header?: never;
+            path: {
+                backup_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
                 };
             };
             /** @description Validation Error */
