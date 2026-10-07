@@ -127,17 +127,25 @@ export function RecipeCard({ recipe, opening = false, disabled = false, onChoose
           </div>
         )}
         <div className="mt-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          {/* Each link is a 24px target on its own (WCAG 2.5.8): wrapped onto a second line, as in
+              Spanish inside the wizard's three columns, a 16px link has too little room around it. */}
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-12">
-            <ExternalLink href={recipe.homepage} inline unlinked="text">
+            <ExternalLink href={recipe.homepage} inline unlinked="text" className="min-h-6">
               {hostOf(recipe.homepage)}
             </ExternalLink>
             {docs !== null ? (
-              <ExternalLink href={docs} inline label={t("catalog.card.docsOf", { title: recipe.title })}>
+              <ExternalLink href={docs} inline label={t("catalog.card.docsOf", { title: recipe.title })} className="min-h-6">
                 {t("catalog.card.docs")}
               </ExternalLink>
             ) : null}
             {detail ? (
-              <TextLink to="/catalog/$name" params={{ name: recipe.name }} size="inline" aria-label={t("catalog.card.detailsOf", { title: recipe.title })}>
+              <TextLink
+                to="/catalog/$name"
+                params={{ name: recipe.name }}
+                size="inline"
+                className="inline-flex min-h-6 items-center"
+                aria-label={t("catalog.card.detailsOf", { title: recipe.title })}
+              >
                 {t("catalog.card.details")}
               </TextLink>
             ) : null}
