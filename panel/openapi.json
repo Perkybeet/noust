@@ -15470,6 +15470,18 @@
             ],
             "title": "Actor"
           },
+          "cancel_blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why a running job cannot be cancelled, when it cannot: activating (its release is being activated), builds_in_place (its application is rebuilt where it serves, or inside Docker) or unsupported (it is not a build, and is halfway through changing the system); null when it can be, or nothing is left to say",
+            "title": "Cancel Blocked Reason"
+          },
           "cancel_requested": {
             "default": false,
             "description": "It was asked to stop and still runs",

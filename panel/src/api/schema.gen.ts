@@ -23901,6 +23901,11 @@ export interface components {
             /** Actor */
             actor?: string | null;
             /**
+             * Cancel Blocked Reason
+             * @description Why a running job cannot be cancelled, when it cannot: activating (its release is being activated), builds_in_place (its application is rebuilt where it serves, or inside Docker) or unsupported (it is not a build, and is halfway through changing the system); null when it can be, or nothing is left to say
+             */
+            cancel_blocked_reason?: string | null;
+            /**
              * Cancel Requested
              * @description It was asked to stop and still runs
              * @default false

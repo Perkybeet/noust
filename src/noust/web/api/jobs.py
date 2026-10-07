@@ -45,10 +45,10 @@ from noust.web.jobs import (
     JobStatus,
     JobType,
     backup_app_job,
+    cancel_verdict,
     cert_create_job,
     delete_app_job,
     get_job_manager,
-    is_cancellable,
     rollback_app_job,
     update_app_job,
     visible_state,
@@ -157,6 +157,13 @@ class JobResponse(BaseModel):
         description="Cancelling it now would be accepted: it waits, or it builds and has not "
         "started to activate its release",
     )
+    cancel_blocked_reason: str | None = Field(
+        default=None,
+        description="Why a running job cannot be cancelled, when it cannot: activating (its "
+        "release is being activated), builds_in_place (its application is rebuilt where it "
+        "serves, or inside Docker) or unsupported (it is not a build, and is halfway through "
+        "changing the system); null when it can be, or nothing is left to say",
+    )
     cancel_requested: bool = Field(default=False, description="It was asked to stop and still runs")
 
     _iso_timestamps = iso_offset_validator("created_at", "started_at", "completed_at")
@@ -244,9 +251,11 @@ def _to_response(job: Job) -> JobResponse:
         The API model.
     """
     data = job.to_dict()
+    cancellable, blocked = cancel_verdict(job)
     return JobResponse(
         deployment_id=_deployment_id_of(data.get("result")),
-        cancellable=is_cancellable(job),
+        cancellable=cancellable,
+        cancel_blocked_reason=blocked,
         **data,
     )
 
@@ -302,7 +311,7 @@ def _from_record(record: JobRecord) -> JobResponse:
     if live is not None:
         response.queue_position = live.queue_position
         response.waiting_for = live.waiting_for
-        response.cancellable = is_cancellable(live)
+        response.cancellable, response.cancel_blocked_reason = cancel_verdict(live)
         response.cancel_requested = live.cancel_requested_by is not None
     return response
 

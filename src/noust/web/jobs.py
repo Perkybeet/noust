@@ -1785,6 +1785,59 @@ def _app_type_of(job: Job) -> str | None:
     return app_type if isinstance(app_type, str) else None
 
 
+#: Why a running job cannot be stopped, as a code the console words. A job that
+#: waits can always be taken out of the line, and one that was already asked to
+#: stop has nothing left to say.
+CANCEL_ACTIVATING = "activating"
+CANCEL_BUILDS_IN_PLACE = "builds_in_place"
+CANCEL_UNSUPPORTED = "unsupported"
+
+
+def cancel_verdict(job: Job) -> tuple[bool, str | None]:
+    """
+    Decide whether cancelling a job would be accepted now, and why not when it would not.
+
+    One decision for both answers, so the flag and the reason cannot disagree:
+    the console used to infer the reason from the kind of job and the layout of
+    its application, which it can only guess.
+
+    Args:
+        job: The job.
+
+    Returns:
+        Whether it can be cancelled, and the reason it cannot when that is
+        something to tell the operator: ``unsupported`` for a job that is not a
+        build (it is halfway through changing the system), ``builds_in_place``
+        for a build of an application rebuilt in the tree that serves or inside
+        Docker, ``activating`` for one that has started to activate its
+        release. None for a job that can be cancelled and for one that is not
+        running or is already stopping.
+    """
+    if job.status is JobStatus.PENDING:
+        return True, None
+    if job.status is not JobStatus.RUNNING:
+        return False, None
+    if job.type not in BUILD_JOB_TYPES:
+        return False, CANCEL_UNSUPPORTED
+    if job.cancel_requested_by is not None:
+        return False, None
+    domain = _lock_domain(job, {})
+    if domain is None:
+        return False, CANCEL_ACTIVATING
+    token = cancellation.token_of(domain)
+    if token is None:
+        # No window yet: the operation is starting, and a request now is
+        # adopted when it opens, if what it builds can be interrupted at all.
+        if cancellation.supports_cancel(domain, app_type=_app_type_of(job))[0]:
+            return True, None
+        return False, CANCEL_BUILDS_IN_PLACE
+    if not token.supported:
+        return False, CANCEL_BUILDS_IN_PLACE
+    if token.committed:
+        return False, CANCEL_ACTIVATING
+    return True, None
+
+
 def is_cancellable(job: Job) -> bool:
     """
     Tell whether cancelling a job would be accepted now.
@@ -1796,19 +1849,7 @@ def is_cancellable(job: Job) -> bool:
         True for a job that waits, and for a deploy or an update that builds
         and has not started to activate its release.
     """
-    if job.status is JobStatus.PENDING:
-        return True
-    if job.status is not JobStatus.RUNNING or job.type not in BUILD_JOB_TYPES:
-        return False
-    domain = _lock_domain(job, {})
-    if domain is None or job.cancel_requested_by is not None:
-        return False
-    token = cancellation.token_of(domain)
-    if token is None:
-        # No window yet: the operation is starting, and a request now is
-        # adopted when it opens, if what it builds can be interrupted at all.
-        return cancellation.supports_cancel(domain, app_type=_app_type_of(job))[0]
-    return token.supported and not token.committed
+    return cancel_verdict(job)[0]
 
 
 def _argument_secrets(kwargs: Mapping[str, Any]) -> list[str]:

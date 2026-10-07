@@ -305,6 +305,7 @@ def test_the_queue_endpoint_lists_what_runs_and_what_waits(
     assert (queued["state"], queued["queue_position"]) == ("queued", 1)
     assert "the deploy of" in queued["waiting_for"]
     assert queued["cancellable"] is True
+    assert queued["cancel_blocked_reason"] is None
     assert body["running"][0]["state"] == "running"
     assert (body["builds_running"], body["max_concurrent_builds"], body["queue_limit"]) == (
         1,
@@ -356,6 +357,7 @@ def test_a_building_job_is_cancelled_through_the_api_and_the_queue_moves_on(
     queue_work(manager, follow_up, DOMAIN)
     listed = admin.get(f"/api/jobs/{building.id}").json()
     assert listed["cancellable"] is True
+    assert listed["cancel_blocked_reason"] is None
 
     response = admin.post(f"/api/jobs/{building.id}/cancel")
 
@@ -396,8 +398,24 @@ def test_cancelling_after_the_release_started_to_activate_is_a_409_that_says_why
     assert body["error"] == "cancel_refused"
     assert "already being activated" in body["detail"]
     assert "activating release 7" in body["hint"]
-    assert admin.get(f"/api/jobs/{building.id}").json()["cancellable"] is False
+    blocked = admin.get(f"/api/jobs/{building.id}").json()
+    assert blocked["cancellable"] is False
+    assert blocked["cancel_blocked_reason"] == "activating"
     done.set()
+
+
+def test_a_build_in_place_says_it_cannot_be_stopped_because_it_builds_in_place(
+    admin: TestClient, manager: JobManager, seeded: App
+) -> None:
+    work = Work("in-place update", [])
+    job = queue_work(manager, work, DOMAIN, JobType.UPDATE)
+    assert work.started.wait(20)
+
+    body = admin.get(f"/api/jobs/{job.id}").json()
+
+    assert body["cancellable"] is False
+    assert body["cancel_blocked_reason"] == "builds_in_place"
+    work.release.set()
 
 
 def test_a_running_backup_cannot_be_cancelled_and_an_unknown_job_is_a_404(
@@ -413,8 +431,11 @@ def test_a_running_backup_cannot_be_cancelled_and_an_unknown_job_is_a_404(
     assert refused.status_code == 409
     assert refused.json()["error"] == "cancel_refused"
     assert unknown.status_code == 404
+    # The reason the 409 gives in words is also given as a code, for the console to word.
+    assert admin.get(f"/api/jobs/{job.id}").json()["cancel_blocked_reason"] == "unsupported"
     work.release.set()
     assert wait_until(lambda: job.status is JobStatus.COMPLETED)
+    assert admin.get(f"/api/jobs/{job.id}").json()["cancel_blocked_reason"] is None
     again = admin.post(f"/api/jobs/{job.id}/cancel")
     assert again.status_code == 409
     assert "already ended" in again.json()["detail"]
