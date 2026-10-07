@@ -240,7 +240,9 @@ export function ImportDumpDialog({ open, onOpenChange, engine: presetEngine, dat
     }
   }, [upload.phase, upload.uploadId, upload.fileName, upload.size]);
 
-  const inspection = useQuery({ ...dumpInspectionQuery(upload.uploadId ?? "", engine ?? ""), enabled: upload.phase === "done" && upload.uploadId !== null && engine !== null });
+  // Asked while the dump is being chosen only: once the import runs it consumes the upload, and
+  // asking again about a file that is gone would be an error nobody can act on.
+  const inspection = useQuery({ ...dumpInspectionQuery(upload.uploadId ?? "", engine ?? ""), enabled: upload.phase === "done" && upload.uploadId !== null && engine !== null && step === "dump" });
   const exists = engine !== null && database !== "" && (databases.data?.databases ?? []).some((item) => item.engine === engine && item.name === database && !item.missing);
   const family = engine === null ? "" : engineFamilyOf(engine);
   const choice = choices.find((item) => item.name === engine);

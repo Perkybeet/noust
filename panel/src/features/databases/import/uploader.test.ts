@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { ApiError } from "../../../api/client";
 import type { DumpUpload } from "../../../api/queries/dumpImport";
@@ -277,6 +277,16 @@ describe("sending a dump in chunks", () => {
     expect(uploader.snapshot.phase).toBe("cancelled");
     expect(server.discarded).toBe(true);
     expect(server.appends).toEqual([0, 4]);
+  });
+
+  it("asks the server once when it is cancelled again by the dialog closing", async () => {
+    const server = new FakeServer("a.sql", 12);
+    const discard = vi.fn(server.api().discard);
+    const uploader = new DumpUploader({ ...server.api(), discard }, { chunkBytes: CHUNK, sleep: () => Promise.resolve() });
+    await uploader.start(file("a.sql", 12));
+    await uploader.cancel();
+    await uploader.cancel();
+    expect(discard).toHaveBeenCalledTimes(1);
   });
 });
 

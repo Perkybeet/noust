@@ -214,6 +214,8 @@ export class DumpUploader {
 
   /** Stops sending and tells the server to throw the upload away. */
   async cancel(): Promise<void> {
+    // Already thrown away: asking the server again would only be told there is no such upload.
+    if (this.state.phase === "cancelled") return;
     this.controller?.abort();
     this.wake?.();
     const id = this.state.uploadId;
