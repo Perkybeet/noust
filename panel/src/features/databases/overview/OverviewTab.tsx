@@ -13,6 +13,7 @@ import { Section } from "../../../components/page/Section";
 import { StatTile } from "../../../components/page/StatTile";
 import { Button, buttonClassName } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { ChartSkeleton } from "../../../components/ui/Chart";
 import { EmptyState } from "../../../components/ui/EmptyState";
 import { Mono } from "../../../components/ui/Mono";
 import { Notice } from "../../../components/ui/Notice";
@@ -110,6 +111,10 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
   }
 
   const database = data.database;
+  // The charts' series come from the metrics, which can answer after the overview: for an engine
+  // that reports metrics the section's place is held by the frames of its two charts, or the
+  // cards under it would be pushed down by the charts' height when it arrived.
+  const awaitingSeries = metrics.isPending && can({ capabilities }, "metrics");
   const newest = newestDumps(dumps.data?.backups).values().next().value;
   const support = supportView(data.support);
   const supportWords = supportText(t, data.support);
@@ -169,7 +174,18 @@ export function OverviewTab({ engine, name }: { engine: string; name: string }) 
         />
       </div>
 
-      {chartMetrics.length > 0 ? (
+      {awaitingSeries ? (
+        <Section title={t("databases.overview.lastDay")} loading>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card padding="sm" as="div">
+              <ChartSkeleton title={t("databases.metrics.size")} height={120} />
+            </Card>
+            <Card padding="sm" as="div">
+              <ChartSkeleton title={t("databases.metrics.connections")} height={120} />
+            </Card>
+          </div>
+        </Section>
+      ) : chartMetrics.length > 0 ? (
         <Section title={t("databases.overview.lastDay")}>
         <div className="grid gap-4 lg:grid-cols-2">
           {series["size"] !== undefined ? (

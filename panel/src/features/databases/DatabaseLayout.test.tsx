@@ -29,6 +29,25 @@ describe("a database's page", () => {
     await expectNoAxeViolations(screen.getByRole("main"));
   });
 
+  it("holds the place of the last day's charts while the metrics are read, and not when the engine reports none", async () => {
+    await pageAt("/databases/postgresql/example_production", {
+      "GET /api/databases/databases/postgresql/example_production/metrics": () => new Promise<Response>(() => undefined),
+    });
+    // Its heading is there before the series are: the cards under it do not move when they arrive.
+    const heading = await screen.findByRole("heading", { level: 2, name: "The last 24 hours" });
+    expect(heading.closest("section")).toHaveAttribute("aria-busy", "true");
+    expect(heading.closest("section")?.querySelectorAll('[aria-busy="true"]').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("draws no last day for an engine that reports no metrics", async () => {
+    await pageAt("/databases/postgresql/example_production", {
+      "GET /api/databases/databases/postgresql/example_production/overview": () => json(200, { ...OVERVIEW, capabilities: ["dump", "sql"] }),
+      "GET /api/databases/databases/postgresql/example_production/metrics": () => new Promise<Response>(() => undefined),
+    });
+    await screen.findByText("Every day at 02:00");
+    expect(screen.queryByRole("heading", { level: 2, name: "The last 24 hours" })).not.toBeInTheDocument();
+  });
+
   it("draws Keys instead of Data for a Redis slot, and no Query tab", async () => {
     await pageAt("/databases/postgresql/example_production", {
       "GET /api/databases/databases/postgresql/example_production/overview": () => json(200, { ...OVERVIEW, capabilities: ["dump", "keys", "metrics"] }),
