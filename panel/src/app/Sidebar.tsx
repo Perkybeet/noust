@@ -8,6 +8,7 @@ import { sessionQuery } from "../api/queries/auth";
 import { machineQuery } from "../api/queries/system";
 import { Logo } from "../components/brand/Logo";
 import { Mono } from "../components/ui/Mono";
+import { Skeleton } from "../components/ui/Skeleton";
 import { StatusGlyph, stateTextClass } from "../components/ui/StatusPill";
 import { isLocalOnlyPath, useCentral } from "../features/central/central";
 import { useOrganization } from "../features/teams/useOrganization";
@@ -82,6 +83,29 @@ function NavLink({ item, failed, onNavigate, node }: NavLinkProps) {
   );
 }
 
+/**
+ * The destinations while the sidebar has not learned which there are: a row of the height of a
+ * link for each, in the groups they fall in. Only when it knows are the links drawn, so the
+ * Projects link, which a server offers once its teams are read, never pushes the rows under it
+ * down: what arrives is new, and nothing that was on screen moves.
+ */
+function NavPending({ groups }: { groups: readonly (readonly NavItem[])[] }) {
+  return (
+    <>
+      {groups.map((group) => (
+        <ul key={group[0]?.to} aria-hidden="true" className="flex flex-col gap-px">
+          {group.map((item) => (
+            <li key={item.to} className="flex h-control-md items-center gap-2.5 px-2">
+              <Skeleton className="size-icon-md shrink-0" />
+              <Skeleton className="h-3 w-24" />
+            </li>
+          ))}
+        </ul>
+      ))}
+    </>
+  );
+}
+
 /** A group's heading: what the destinations under it are about. */
 function GroupHeading({ id, children }: { id: string; children: ReactNode }) {
   return (
@@ -101,6 +125,9 @@ export function SidebarNav({ onNavigate, className }: { onNavigate?: () => void;
   const { role } = useCentral();
   const serverId = useId();
   const org = useOrganization();
+  // Whether Projects is offered is the server's answer, a moment after the shell is up: until
+  // then the destinations are held as a skeleton (see NavPending).
+  const settling = org.loading;
   // Projects are offered where there is something to organise, or someone who may start.
   const organised = org.available && (org.teamsMatter || org.scope.showProject || org.scope.showEnvironment || org.can("teams.manage"));
 
@@ -111,18 +138,26 @@ export function SidebarNav({ onNavigate, className }: { onNavigate?: () => void;
   const failures = useFailureCounts(onServer);
   // A hub deploys nothing of its own: its overview and deployment pages only redirect to the
   // fleet, so they are not offered for it. A node's pages (/n/<server>/) are that node's.
-  const offered = (item: NavItem) =>
-    target !== null &&
-    (item.when !== "organised" || organised) &&
-    (role !== "hub" || target.node !== null || (item.to !== "/" && !isLocalOnlyPath(item.to)));
-  const groups = NAV_GROUPS.map((group) => group.filter(offered)).filter((group) => group.length > 0);
+  const groupsFor = (withOrganised: boolean) =>
+    NAV_GROUPS.map((group) =>
+      group.filter(
+        (item) =>
+          target !== null &&
+          (item.when !== "organised" || withOrganised) &&
+          (role !== "hub" || target.node !== null || (item.to !== "/" && !isLocalOnlyPath(item.to))),
+      ),
+    ).filter((group) => group.length > 0);
+  const groups = groupsFor(organised);
+  // What the skeleton stands for never changes while it is shown, or its own rows would move:
+  // the destinations every server has. The links that depend on the teams come with the links.
+  const pending = groupsFor(false);
   const record = target?.node === null || target === null ? undefined : servers.nodes.find((candidate) => candidate.name === target.node);
   const trouble = record === undefined ? null : NODE_STATE[nodeStatus(record)];
   // Off a server's own pages, its destinations say which server they open.
   const linkNode = onServer ? undefined : (target?.node ?? null);
 
   return (
-    <nav aria-label={t("nav.landmarks.main")} className={cx("flex flex-col gap-5", className)}>
+    <nav aria-label={t("nav.landmarks.main")} aria-busy={settling ? true : undefined} className={cx("flex flex-col gap-5", className)}>
       {hasFleet ? (
         // Every server at once, apart from any one server's destinations below.
         <ul aria-label={t("nav.groups.fleet")} className="flex flex-col gap-px">
@@ -152,15 +187,19 @@ export function SidebarNav({ onNavigate, className }: { onNavigate?: () => void;
               ) : null}
             </GroupHeading>
           ) : null}
-          {groups.map((group) => (
-            <ul key={group[0]?.to} {...(hasFleet ? { "aria-labelledby": serverId } : {})} className="flex flex-col gap-px">
-              {group.map((item) => (
-                <li key={item.to}>
-                  <NavLink item={item} failed={failures[item.to]} onNavigate={onNavigate} node={linkNode} />
-                </li>
-              ))}
-            </ul>
-          ))}
+          {settling ? (
+            <NavPending groups={pending} />
+          ) : (
+            groups.map((group) => (
+              <ul key={group[0]?.to} {...(hasFleet ? { "aria-labelledby": serverId } : {})} className="flex flex-col gap-px">
+                {group.map((item) => (
+                  <li key={item.to}>
+                    <NavLink item={item} failed={failures[item.to]} onNavigate={onNavigate} node={linkNode} />
+                  </li>
+                ))}
+              </ul>
+            ))
+          )}
         </div>
       ) : null}
     </nav>

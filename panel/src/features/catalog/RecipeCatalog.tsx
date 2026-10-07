@@ -152,14 +152,24 @@ export function CatalogFilterBar({ search, onSearchChange, catalog }: CatalogFil
   );
 }
 
-/** The grid of cards while the first read is out: the shape of what arrives, so nothing moves. */
-function CatalogSkeleton() {
+/** Cards a skeleton draws at most, for a page of 50, 100 or all: more than the screen shows, so the footer stays out of it. */
+const SKELETON_CARDS_MAX = 24;
+
+/**
+ * The grid of cards while the first read is out: the shape of what arrives, so nothing moves. A
+ * page of the catalogue is a page of cards (twenty to start with), taller than the screen; a
+ * skeleton of six left what stands under the grid, the command hint, on screen until the cards
+ * pushed it out of it, which is a shift of the whole width.
+ *
+ * @param count How many cards the page will hold.
+ */
+function CatalogSkeleton({ count }: { count: number }) {
   const t = useT();
   return (
     <div aria-busy="true" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       <span className="sr-only">{t("newApp.recipes.loading")}</span>
-      {["a", "b", "c", "d", "e", "f"].map((key) => (
-        <Skeleton key={key} className="h-52" />
+      {Array.from({ length: count }, (_, index) => (
+        <Skeleton key={index} className="h-52" />
       ))}
     </div>
   );
@@ -202,7 +212,7 @@ export function CatalogResults({ catalog, search, onClear, onChoose, opening = n
     return found.isError ? (
       <ErrorBlock error={found.error} title={t("newApp.recipes.loadFailed")} onRetry={() => void found.refetch()} retrying={found.isFetching} />
     ) : (
-      <CatalogSkeleton />
+      <CatalogSkeleton count={paged ? (pageSize === "all" ? SKELETON_CARDS_MAX : Math.min(pageSize, SKELETON_CARDS_MAX)) : 6} />
     );
   }
   const items = found.data.items;

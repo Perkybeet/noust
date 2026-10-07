@@ -5,17 +5,22 @@
  * the rendered colours.
  */
 
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { expectNoAxeViolations } from "../test/axe";
 import { renderConsole } from "../test/console";
-import { fakeBackend, signedInRoutes } from "../test/fakes";
+import { teamsRoutes } from "../features/teams/testFixtures";
+import { fakeBackend, problem, signedInRoutes } from "../test/fakes";
 
 async function shellAt(path: string) {
   fakeBackend(signedInRoutes());
   const harness = renderConsole(path);
   await screen.findByRole("heading", { level: 1 });
+  // The destinations are held as a skeleton until the server's teams are read.
+  await waitFor(() => {
+    expect(screen.getByRole("navigation", { name: "Main" })).not.toHaveAttribute("aria-busy");
+  });
   return harness;
 }
 
@@ -46,5 +51,45 @@ describe("the sidebar's current item", () => {
     const bar = document.querySelector("[data-nav-indicator]");
     expect(bar).toHaveAttribute("aria-hidden", "true");
     await expectNoAxeViolations(screen.getByRole("navigation", { name: "Main" }));
+  });
+});
+
+describe("the sidebar while the server's teams are read", () => {
+  it("holds its destinations as a skeleton, so the Projects link that follows pushes nothing down", async () => {
+    const routes = teamsRoutes();
+    const mine = routes["GET /api/teams/mine"];
+    if (mine === undefined) throw new Error("the fixture has no teams route");
+    let answer: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    fakeBackend({
+      ...routes,
+      "GET /api/teams/mine": async (call) => {
+        await gate;
+        return mine(call);
+      },
+    });
+    renderConsole("/apps");
+    await screen.findByRole("heading", { level: 1 });
+    const nav = screen.getByRole("navigation", { name: "Main" });
+    expect(nav).toHaveAttribute("aria-busy", "true");
+    expect(within(nav).queryByRole("link")).not.toBeInTheDocument();
+    expect(nav.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
+
+    answer();
+    expect(await within(nav).findByRole("link", { name: "Projects" })).toBeInTheDocument();
+    expect(nav).not.toHaveAttribute("aria-busy");
+    expect(nav.querySelector('[data-slot="skeleton"]')).toBeNull();
+  });
+
+  it("draws the links at once on a server that does not answer for teams, and without Projects", async () => {
+    fakeBackend({ ...signedInRoutes(), "GET /api/teams/mine": () => problem(404, "notfound", "Not found", {}) });
+    renderConsole("/apps");
+    await screen.findByRole("heading", { level: 1 });
+    const nav = await screen.findByRole("navigation", { name: "Main" });
+    expect(await within(nav).findByRole("link", { name: /^Applications/ })).toBeInTheDocument();
+    expect(within(nav).queryByRole("link", { name: "Projects" })).not.toBeInTheDocument();
+    expect(nav).not.toHaveAttribute("aria-busy");
   });
 });

@@ -91,7 +91,7 @@ describe("the sidebar's Projects", () => {
   it("is not drawn for someone who only reads, on a server nobody organised: the sidebar is what it always was", async () => {
     await shellAt(ALONE, viewerSession());
     const nav = screen.getByRole("navigation", { name: "Main" });
-    await within(nav).findByRole("link", { name: "Applications" });
+    await within(nav).findByRole("link", { name: /^Applications/ });
     expect(within(nav).queryByRole("link", { name: "Projects" })).not.toBeInTheDocument();
   });
 });

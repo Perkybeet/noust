@@ -24,6 +24,18 @@ async function cardOf(title: string): Promise<HTMLElement> {
 }
 
 describe("the catalog page", () => {
+  it("holds a page of cards while the recipes are read, so the command hint under them does not move", async () => {
+    // A page of the catalogue is twenty cards: a skeleton of fewer left the hint on screen
+    // until the cards pushed it out of it.
+    catalogue({ "GET /api/recipes": () => new Promise<Response>(() => undefined) });
+    const busy = await waitFor(() => {
+      const grid = document.querySelector('[aria-busy="true"].grid');
+      if (grid === null) throw new Error("no skeleton yet");
+      return grid;
+    });
+    expect(busy.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(20);
+  });
+
   it("draws a card for each recipe with what the 3.4 schema says about it", { timeout: 20_000 }, async () => {
     const { harness } = catalogue();
     expect(await screen.findByRole("heading", { level: 1, name: "Catalog" })).toBeInTheDocument();
