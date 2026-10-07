@@ -4713,8 +4713,8 @@ class NoustStore:
                     now,
                 ),
             )
-        stored = self.get_preview_settings(settings.app_domain)
-        return _written(stored)
+            stored = self.get_preview_settings(settings.app_domain)
+            return _written(stored)
 
     def delete_preview_settings(self, app_domain: str) -> bool:
         """
@@ -4774,8 +4774,8 @@ class NoustStore:
                     preview.expires_at,
                 ),
             )
-        stored = self.get_preview(preview.parent_domain, preview.number)
-        return _written(stored)
+            stored = self.get_preview(preview.parent_domain, preview.number)
+            return _written(stored)
 
     #: The columns :meth:`update_preview` writes and compares.
     _PREVIEW_UPDATE_COLUMNS = frozenset({"status", "error", "comment_ref", "head_sha"})
@@ -4957,8 +4957,8 @@ class NoustStore:
                     now,
                 ),
             )
-        stored = self.get_backup_destination(destination.name)
-        return _written(stored)
+            stored = self.get_backup_destination(destination.name)
+            return _written(stored)
 
     def get_backup_destination(self, name: str) -> BackupDestinationRecord | None:
         """
@@ -5047,8 +5047,8 @@ class NoustStore:
                     environment_id,
                 ),
             )
-        stored = self.get_backup_schedule(schedule.app_domain)
-        return _written(stored)
+            stored = self.get_backup_schedule(schedule.app_domain)
+            return _written(stored)
 
     def get_backup_schedule(self, app_domain: str) -> BackupScheduleRecord | None:
         """
@@ -5126,8 +5126,8 @@ class NoustStore:
                     _utc_now(),
                 ),
             )
-        stored = self.get_github_app()
-        return _written(stored)
+            stored = self.get_github_app()
+            return _written(stored)
 
     def get_github_app(self) -> GitHubAppRecord | None:
         """

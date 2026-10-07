@@ -24,16 +24,22 @@ from noust.core.fs import (
     SECRET_MODE,
     DryRunFileSystem,
     RecordingFileSystem,
+    set_fs,
 )
 from noust.core.store import (
     SCHEMA_VERSION,
     App,
     AppStatus,
     AppType,
+    BackupDestinationRecord,
+    BackupScheduleRecord,
     Database,
     DatabaseEngine,
     DatabaseUser,
+    GitHubAppRecord,
     NoustStore,
+    PreviewRecord,
+    PreviewSettings,
     Service,
     Site,
     StoreError,
@@ -2268,6 +2274,86 @@ class TestStoreUnderADryRun:
         NoustStore(tmp_path / "lib" / "wasm.db", fs=dry)
 
         assert any("wasm.db" in line for line in dry.skipped)
+
+
+class TestARowReadBackUnderADryRun:
+    """A save returns the row it wrote, and a rehearsal then leaves no trace of it."""
+
+    @pytest.fixture
+    def real_store(self, fresh, tmp_path):
+        """
+        A store on disk, then a rehearsing filesystem for the test body.
+
+        Yields:
+            The store, whose database exists, as it does on a server that has
+            run any command once.
+        """
+        store = NoustStore(tmp_path / "noust.db", fs=RecordingFileSystem())
+        set_fs(DryRunFileSystem())
+        try:
+            yield store
+        finally:
+            set_fs(None)
+
+    def test_a_backup_schedule_is_returned_and_not_kept(self, real_store):
+        """The read-back is inside the transaction a rehearsal rolls back."""
+        schedule = BackupScheduleRecord(app_domain="shop.example.com", schedule="daily")
+
+        stored = real_store.save_backup_schedule(schedule)
+
+        assert stored.app_domain == "shop.example.com"
+        assert real_store.get_backup_schedule("shop.example.com") is None
+
+    def test_a_backup_destination_is_returned_and_not_kept(self, real_store):
+        """The same holds for a destination, whose rows live beside a secret file."""
+        stored = real_store.save_backup_destination(
+            BackupDestinationRecord(name="offsite", backend="s3")
+        )
+
+        assert stored.name == "offsite"
+        assert real_store.get_backup_destination("offsite") is None
+
+    def test_preview_settings_are_returned_and_not_kept(self, real_store):
+        """Rehearsing `preview enable` reports what it would store."""
+        stored = real_store.save_preview_settings(
+            PreviewSettings(app_domain="shop.example.com", base_domain="pr.example.com")
+        )
+
+        assert stored.base_domain == "pr.example.com"
+        assert real_store.get_preview_settings("shop.example.com") is None
+
+    def test_a_preview_is_returned_and_not_kept(self, real_store):
+        """A rehearsed webhook for a pull request records nothing."""
+        stored = real_store.save_preview(
+            PreviewRecord(
+                parent_domain="shop.example.com",
+                domain="pr-7.shop.example.com",
+                number=7,
+                branch="feature",
+                provider="github",
+                expires_at="2030-01-01T00:00:00+00:00",
+            )
+        )
+
+        assert stored.number == 7
+        assert real_store.get_preview("shop.example.com", 7) is None
+
+    def test_the_github_app_is_returned_and_not_kept(self, real_store):
+        """Rehearsing the GitHub App's registration does not record it."""
+        stored = real_store.save_github_app(GitHubAppRecord(app_id=42, slug="noust-demo"))
+
+        assert stored.app_id == 42
+        assert real_store.get_github_app() is None
+
+    def test_a_real_run_still_keeps_what_it_returns(self, fresh, tmp_path):
+        """Moving the read inside the transaction must not change a committed save."""
+        store = NoustStore(tmp_path / "noust.db", fs=RecordingFileSystem())
+
+        stored = store.save_backup_schedule(
+            BackupScheduleRecord(app_domain="shop.example.com", schedule="daily")
+        )
+
+        assert store.get_backup_schedule("shop.example.com") == stored
 
 
 class TestResolvingThePathChangesNothing:

@@ -41,6 +41,7 @@ import noust.managers.backup_scheduler as backup_scheduler_module
 from noust.core.exceptions import ValidationError
 from noust.core.fs import DryRunFileSystem, RecordingFileSystem, set_fs
 from noust.core.runner import FakeRunner, get_runner, set_runner
+from noust.core.store import NoustStore
 from noust.managers.backup_manager import (
     DATABASES_DIR,
     MANIFEST_NAME,
@@ -823,7 +824,27 @@ class TestRehearsalChangesNothing:
 
         assert (app_path / ".env").read_text() == "SECRET=live\n"
 
-    def test_schedule_delete_keeps_the_unit_files(self, runner, tmp_path, rehearsal):
+    @pytest.fixture
+    def store(self, tmp_path: Path) -> Iterator[NoustStore]:
+        """
+        A store this test owns, created before the rehearsal starts.
+
+        A schedule is a unit and a row, and the row goes through the store
+        singleton: without its own, a rehearsal reached whatever database an
+        earlier test on the same worker had left behind, or none at all (a
+        rehearsal does not create one), and passed or failed by test order.
+
+        Yields:
+            The store, on disk under the test's own directory.
+        """
+        NoustStore.reset_instance()
+        store = NoustStore(tmp_path / "store" / "noust.db")
+        try:
+            yield store
+        finally:
+            NoustStore.reset_instance()
+
+    def test_schedule_delete_keeps_the_unit_files(self, runner, tmp_path, rehearsal, store):
         """Removing a schedule unlinks two root-owned unit files; rehearse it."""
         scheduler = BackupScheduler(verbose=False, runner=runner)
         scheduler.SYSTEMD_DIR = tmp_path / "systemd"
@@ -839,8 +860,8 @@ class TestRehearsalChangesNothing:
         assert timer.is_file(), "the rehearsal deleted a systemd unit"
         assert service.is_file()
 
-    def test_schedule_create_writes_no_unit(self, runner, tmp_path, rehearsal):
-        """A rehearsed schedule leaves the systemd directory empty."""
+    def test_schedule_create_writes_no_unit(self, runner, tmp_path, rehearsal, store):
+        """A rehearsed schedule leaves the systemd directory and the store empty."""
         scheduler = BackupScheduler(verbose=False, runner=runner)
         scheduler.SYSTEMD_DIR = tmp_path / "systemd"
         scheduler.SYSTEMD_DIR.mkdir()
@@ -851,6 +872,7 @@ class TestRehearsalChangesNothing:
         )
 
         assert list(scheduler.SYSTEMD_DIR.iterdir()) == []
+        assert store.get_backup_schedule("shop.example.com") is None
 
     def test_the_filesystem_can_be_injected(self, runner, tmp_path):
         """Like the runner, the filesystem is a constructor argument."""
