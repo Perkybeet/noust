@@ -684,6 +684,47 @@ class TestHostKeys:
         path.write_text("[git.example.com]:2222 ssh-ed25519 AAAA\n")
         assert manager.forget_host("git.example.com:2222") is True
 
+    def test_a_host_is_forgotten_by_the_name_the_list_gives_it(
+        self, manager: DeployKeyManager, keygen: DeployKeyRunner
+    ) -> None:
+        """`ssh-keygen -l` spells a host on another port `[host]:port`: so must the way back."""
+        path = manager.known_hosts_path()
+        path.parent.mkdir(parents=True)
+        path.write_text("[git.example.com]:2222 ssh-ed25519 AAAA\ngithub.com ssh-ed25519 BBBB\n")
+        keygen.script(
+            ["ssh-keygen", "-l"],
+            stdout="256 SHA256:abc [git.example.com]:2222 (ED25519)\n",
+        )
+        (listed,) = manager.pinned_hosts()
+        assert listed.host == "[git.example.com]:2222"
+
+        assert manager.forget_host(listed.host) is True
+
+        assert path.read_text() == "github.com ssh-ed25519 BBBB\n"
+        (call,) = [c for c in keygen.calls if "-R" in c]
+        assert call[call.index("-R") + 1] == "[git.example.com]:2222"
+        (event,) = events("apps.deploy_key.host_forget")
+        assert event["details"]["host"] == "git.example.com:2222"
+
+    @pytest.mark.parametrize(
+        "host",
+        [
+            "[git.example.com]",
+            "[git.example.com]:",
+            "[git.example.com:2222]",
+            "[-oProxyCommand=x]:22",
+            "[a b]:22",
+            "[git.example.com]:22x",
+            "git.example.com]:22",
+            "[[git.example.com]]:22",
+        ],
+    )
+    def test_a_bracketed_host_still_has_to_be_a_host_and_a_port(
+        self, manager: DeployKeyManager, host: str
+    ) -> None:
+        with pytest.raises(ValidationError):
+            manager.forget_host(host)
+
     @pytest.mark.parametrize("host", ["", "-oProxyCommand=x", "a b", "host;rm", "*.com"])
     def test_a_host_is_a_name_never_an_option(self, manager: DeployKeyManager, host: str) -> None:
         with pytest.raises(ValidationError):

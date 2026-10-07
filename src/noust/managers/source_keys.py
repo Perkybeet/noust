@@ -107,6 +107,10 @@ _PRIVATE_HEADERS = (
 
 #: A host as ``known_hosts`` is asked about it: a name, or ``name:port``.
 _HOST = re.compile(r"[A-Za-z0-9][A-Za-z0-9.-]{0,252}(?::\d{1,5})?")
+#: How ``ssh-keygen -l`` names a host pinned on another port, which is how
+#: :meth:`DeployKeyManager.pinned_hosts` lists it: what a client got from the
+#: list has to be what it can send back to forget the host.
+_BRACKETED_HOST = re.compile(r"\[(?P<name>[A-Za-z0-9][A-Za-z0-9.-]{0,252})\]:(?P<port>\d{1,5})")
 
 Which = Literal["current", "pending"]
 
@@ -1222,7 +1226,8 @@ class DeployKeyManager:
         host's published one first.
 
         Args:
-            host: The host, or ``host:port``.
+            host: The host, ``host:port`` or ``[host]:port`` (the form
+                :meth:`pinned_hosts` lists a host on another port in).
 
         Returns:
             True when a key was removed.
@@ -1232,6 +1237,11 @@ class DeployKeyManager:
             SourceError: When ssh-keygen fails.
         """
         text = (host or "").strip()
+        bracketed = _BRACKETED_HOST.fullmatch(text)
+        if bracketed is not None:
+            # One spelling from here on, so the audit trail names a host the
+            # same way whichever form the operator typed.
+            text = f"{bracketed['name']}:{bracketed['port']}"
         if not _HOST.fullmatch(text):
             raise ValidationError(f"{host!r} is not a host name", field="host")
         path = self.known_hosts_path()

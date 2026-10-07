@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient
 
 from noust.core.runner import set_runner
 from noust.core.store import App, NoustStore
+from noust.managers.source_keys import DeployKeyManager
 from noust.web.auth import CSRF_HEADER_NAME, SecurityConfig
 from noust.web.server import create_app as build_app
 from noust.web.server import get_token_manager
@@ -308,3 +309,23 @@ class TestList:
 
     def test_a_host_that_is_an_option_is_refused(self, seeded: App, admin: TestClient) -> None:
         assert admin.delete("/api/deploy-keys/hosts/-oProxyCommand=x").status_code == 400
+
+    def test_a_host_is_forgotten_by_the_name_the_list_gave_it(
+        self, seeded: App, admin: TestClient, keygen: DeployKeyRunner
+    ) -> None:
+        """The list says `[host]:port` for a host on another port; the delete takes it back."""
+        manager = DeployKeyManager()
+        known_hosts = manager.known_hosts_path()
+        known_hosts.parent.mkdir(parents=True, exist_ok=True)
+        known_hosts.write_text("[git.example.com]:2222 ssh-ed25519 AAAA\n")
+        keygen.script(
+            ["ssh-keygen", "-l"], stdout="256 SHA256:abc [git.example.com]:2222 (ED25519)\n"
+        )
+        (listed,) = admin.get("/api/deploy-keys/hosts").json()["hosts"]
+        assert listed["host"] == "[git.example.com]:2222"
+
+        response = admin.delete(f"/api/deploy-keys/hosts/{listed['host']}")
+
+        assert response.status_code == 200, response.text
+        assert response.json() == {"host": "[git.example.com]:2222", "forgotten": True}
+        assert known_hosts.read_text() == ""
