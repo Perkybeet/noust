@@ -1,0 +1,96 @@
+# Rocket.Chat Community from the image the project publishes on Docker Hub, with the
+# MongoDB replica set it requires in the same stack. Settings are the project's own
+# (RocketChat/rocketchat-compose, compose.yml and compose.database.yml; the image's
+# environment): ROOT_URL, PORT and MONGO_URL with ?replicaSet=rs0. MongoDB runs with
+# --replSet rs0 and, as that repository's init container does, the replica set is
+# initiated once with rs.initiate: here the database's own health check does it, so no
+# one-shot container is needed. ADMIN_USERNAME, ADMIN_PASS, ADMIN_NAME and ADMIN_EMAIL
+# create the administrator at the first start when none exists (initialData.ts in the
+# source), and OVERWRITE_SETTING_Accounts_RegistrationForm=Disabled keeps sign-up closed
+# until the administrator opens it. The image runs as user rocketchat on 3000 and keeps
+# uploads in /app/uploads. The project's file adds a NATS container for a split into
+# microservices, which one application does not need.
+#
+# MongoDB has no accounts here: a replica set with authentication needs a key file shared
+# between members, and this stack has one member that nothing outside the stack's network
+# can reach (the project's example also starts it without a password). Pinned to the
+# release tag and the digest Docker Hub serves for it. Rocket.Chat's repository holds
+# MIT code and an "ee" directory under a commercial licence, which stays locked without a
+# licence key.
+schema: 2
+name: rocketchat
+kind: compose
+title: Rocket.Chat
+slogan: Open source team chat with channels, omnichannel and federation.
+description: "Team communication with channels, threads, video calls and an omnichannel desk for customers, with web, desktop and mobile apps. Community edition (MIT) with its own MongoDB replica set. Sign-up is closed; the administrator is created at install."
+category: communication
+tags: [chat, team, messaging, omnichannel]
+logo: logo.svg
+version: "8.9.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://www.rocket.chat
+docs: https://docs.rocket.chat
+repository: https://github.com/RocketChat/Rocket.Chat
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 2 GB of memory
+port: 3000
+variables:
+  ROOT_URL:
+    from: url
+    description: The address people use; Rocket.Chat builds its links and its WebSocket origin from it.
+  ADMIN_USERNAME:
+    default: admin
+    description: The administrator's user name. Rocket.Chat reads it only when it creates the first one.
+  ADMIN_EMAIL:
+    required: true
+    description: The administrator's e-mail address.
+  ADMIN_PASS:
+    generate: password32
+    description: The administrator's password. Rocket.Chat reads it only when it creates the first one.
+health:
+  path: /api/info
+  expect: "200"
+  timeout: 240
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    rocketchat:
+      image: rocketchat/rocket.chat:8.9.0@sha256:295f7b2c38fc3542024dc404f887eb2e13276b66e5854d31d86bcd069f6ce6dc
+      restart: unless-stopped
+      depends_on:
+        mongodb:
+          condition: service_healthy
+      environment:
+        ROOT_URL: "${ROOT_URL}"
+        PORT: "3000"
+        MONGO_URL: "mongodb://mongodb:27017/rocketchat?replicaSet=rs0"
+        ADMIN_USERNAME: "${ADMIN_USERNAME}"
+        ADMIN_EMAIL: "${ADMIN_EMAIL}"
+        ADMIN_PASS: "${ADMIN_PASS}"
+        OVERWRITE_SETTING_Accounts_RegistrationForm: Disabled
+      volumes:
+        - rocketchat-uploads:/app/uploads
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+    mongodb:
+      image: mongo:8.0.32@sha256:d0d926f94df099bff534b7ee5b5986458131a22489dfff8664509af0c1e2ca9c
+      restart: unless-stopped
+      command: ["--replSet", "rs0", "--bind_ip_all"]
+      healthcheck:
+        test: ["CMD-SHELL", "mongosh --quiet --eval \"try { rs.status().ok } catch (e) { rs.initiate({_id: 'rs0', members: [{_id: 0, host: 'mongodb:27017'}]}).ok }\" | grep -q 1"]
+        interval: 10s
+        timeout: 20s
+        retries: 12
+        start_period: 20s
+      volumes:
+        - rocketchat-db:/data/db
+  volumes:
+    rocketchat-uploads:
+    rocketchat-db:
+notes:
+  - "Sign in at {{ url }} as {{ vars.ADMIN_USERNAME }}; the password is ADMIN_PASS (noust env show {{ domain }} --unmask). The account is created once, at the first start: change the password in Rocket.Chat, not in the environment. Sign-up is closed: open it under Administration, Accounts, Registration."
+  - "Messages and users are in the MongoDB of this stack (Docker volume rocketchat-db, dumped by Noust before every update); uploaded files are in the volume rocketchat-uploads. Back up both before updating: files are not in the database dump."

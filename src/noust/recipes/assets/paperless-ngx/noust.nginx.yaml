@@ -1,0 +1,5 @@
+# How nginx proxies this application. Scans and PDFs are uploaded from the browser and the mobile apps.
+max_body_size: 500m
+routes:
+  - path: /
+    read_timeout: 300

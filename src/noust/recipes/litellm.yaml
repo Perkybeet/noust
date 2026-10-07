@@ -1,0 +1,98 @@
+# LiteLLM Proxy from the image the project publishes on ghcr.io (and mirrors at
+# docker.litellm.ai, with the same digest), with the PostgreSQL of its own docker-compose.yml
+# (v1.104.0 tag): DATABASE_URL, STORE_MODEL_IN_DB=True (models and keys added from the UI
+# live in the database), and the container health check on /health/liveliness (the gate asks /health/readiness, which also reports the database). The
+# settings come from its documentation and source: LITELLM_MASTER_KEY (must start with
+# sk-; it is the administrator's API key), LITELLM_SALT_KEY (encrypts the provider keys
+# stored in the database; set once and never changed), and UI_USERNAME and UI_PASSWORD
+# for the admin page (login_utils.py: the password falls back to the master key when
+# UI_PASSWORD is unset, so a separate one is generated here). The image runs as root,
+# listens on 4000 with its prisma engines offline in the image. The project's file also
+# starts Prometheus, which this recipe leaves out.
+#
+# LiteLLM's repository is MIT licensed apart from an "enterprise" directory under a
+# commercial licence that needs a key. Pinned to the release tag and the digest ghcr.io
+# serves for it.
+schema: 2
+name: litellm
+kind: compose
+title: LiteLLM
+slogan: "An LLM gateway: one OpenAI-compatible API in front of 100+ model providers."
+description: "Route, load-balance and budget calls to OpenAI, Bedrock, Azure, Ollama and a hundred more through one OpenAI-compatible API, with virtual keys, spend tracking and an admin page. Runs with its own PostgreSQL. Provider keys are added from the admin page."
+category: ai
+tags: [llm, gateway, proxy, openai]
+logo: logo.svg
+version: "1.104.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://www.litellm.ai
+docs: https://docs.litellm.ai
+repository: https://github.com/BerriAI/litellm
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 2 GB of memory
+port: 4000
+variables:
+  LITELLM_MASTER_KEY_RANDOM:
+    generate: password32
+    description: The random part of the master key.
+  LITELLM_MASTER_KEY:
+    value: "sk-${LITELLM_MASTER_KEY_RANDOM}"
+    description: The administrator's API key; it must start with sk-.
+  LITELLM_SALT_KEY:
+    generate: password32
+    description: "Encrypts the provider keys stored in the database. Set once: changing it makes them unreadable."
+  UI_USERNAME:
+    default: admin
+    description: The admin page's user name.
+  UI_PASSWORD:
+    generate: password32
+    description: The admin page's password.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /health/readiness
+  expect: "200"
+  timeout: 240
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    litellm:
+      image: ghcr.io/berriai/litellm:v1.104.0@sha256:625981c83410a3ea68eb0697590a57ec1d764d634514d54fa5db0591077ee839
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        DATABASE_URL: "postgresql://litellm:${DB_PASSWORD}@db:5432/litellm"
+        STORE_MODEL_IN_DB: "True"
+        LITELLM_MASTER_KEY: "${LITELLM_MASTER_KEY}"
+        LITELLM_SALT_KEY: "${LITELLM_SALT_KEY}"
+        UI_USERNAME: "${UI_USERNAME}"
+        UI_PASSWORD: "${UI_PASSWORD}"
+      ports:
+        - "127.0.0.1:${PORT}:4000"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: litellm
+        POSTGRES_DB: litellm
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U litellm -d litellm"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - litellm-db:/var/lib/postgresql/data
+  volumes:
+    litellm-db:
+notes:
+  - "The admin page is {{ url }}/ui: sign in as {{ vars.UI_USERNAME }} with UI_PASSWORD (noust env show {{ domain }} --unmask). Clients call {{ url }}/v1 with LITELLM_MASTER_KEY, or with virtual keys you create from the page."
+  - "Add the providers' API keys from the admin page (Models): they are stored encrypted in the database with LITELLM_SALT_KEY. Keep both values: without the salt key a restore cannot read them."
+  - "Your models, virtual keys and spend logs are in the PostgreSQL of this stack (Docker volume litellm-db, dumped by Noust before every update). Back it up before updating."

@@ -1,0 +1,5 @@
+# How nginx proxies this application. Flows and files are uploaded, and a flow's run streams its answer for as long as the model takes.
+max_body_size: 100m
+routes:
+  - path: /
+    read_timeout: 600

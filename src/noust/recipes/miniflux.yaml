@@ -1,0 +1,89 @@
+# Miniflux from its own image with the PostgreSQL it requires in the same stack,
+# as contrib/docker-compose/basic.yml of the 2.3.3 tag has them: the application
+# waits for the database's health check, RUN_MIGRATIONS=1 applies the schema and
+# CREATE_ADMIN=1 with ADMIN_USERNAME and ADMIN_PASSWORD creates the administrator
+# on the first start, so there is no sign-up page open to a first visitor. The
+# settings are the ones miniflux(1) lists: BASE_URL builds links and the cookie
+# path, HTTPS forces the secure flag on cookies. The image runs as user 65534,
+# listens on 8080 and answers GET /healthcheck without a login.
+#
+# The upstream example uses postgres:latest and a password written in the file;
+# here the database is pinned to a PostgreSQL 17 release and the password is
+# generated. The pins are the release tag and the digest ghcr.io serves for it.
+schema: 2
+name: miniflux
+kind: compose
+title: Miniflux
+slogan: A minimalist, opinionated feed reader.
+description: A fast, minimal RSS and Atom reader written in Go, with a keyboard-friendly interface, a Fever and Google Reader compatible API, and an integration for read-later services. Runs with its own PostgreSQL.
+category: productivity
+tags: [rss, feeds, reader, news]
+logo: logo.svg
+version: "2.3.3"
+revision: 1
+updated: 2026-10-06
+homepage: https://miniflux.app
+docs: https://miniflux.app/docs/
+repository: https://github.com/miniflux/v2
+license: Apache-2.0
+architectures: ["amd64", "arm", "arm64", "riscv64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8280
+variables:
+  BASE_URL:
+    from: url
+    description: The address people use; Miniflux builds its links and the path of its cookies from it.
+  HTTPS:
+    from: https
+    description: Whether the address is served over TLS, so cookies carry the secure flag.
+  ADMIN_USERNAME:
+    default: admin
+    description: The administrator's user name.
+  ADMIN_PASSWORD:
+    generate: password32
+    description: The administrator's password. Miniflux reads it only when it creates the account.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /healthcheck
+  expect: "200"
+compose: |
+  services:
+    miniflux:
+      image: ghcr.io/miniflux/miniflux:2.3.3@sha256:49d7b60987616387c306a8023087b31f2c9b7b21288b523026cb04058e8b6dbb
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        DATABASE_URL: "postgres://miniflux:${DB_PASSWORD}@db/miniflux?sslmode=disable"
+        RUN_MIGRATIONS: "1"
+        CREATE_ADMIN: "1"
+        ADMIN_USERNAME: "${ADMIN_USERNAME}"
+        ADMIN_PASSWORD: "${ADMIN_PASSWORD}"
+        BASE_URL: "${BASE_URL}"
+        HTTPS: "${HTTPS}"
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: miniflux
+        POSTGRES_DB: miniflux
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U miniflux -d miniflux"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - miniflux-db:/var/lib/postgresql/data
+  volumes:
+    miniflux-db:
+notes:
+  - "Sign in at {{ url }} as {{ vars.ADMIN_USERNAME }}; the password is ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The account is created once, on the first start: change the password in Miniflux, not in the environment."
+  - "Your feeds, entries and users are in the PostgreSQL of this stack (Docker volume miniflux-db). Noust dumps it before every update; back it up yourself as well."

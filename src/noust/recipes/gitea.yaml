@@ -1,0 +1,105 @@
+# Gitea from the rootless image, with the PostgreSQL its documentation uses in the
+# same stack, configured as "Installation with Docker (rootless)" and
+# "Installation with Docker" describe it (docs.gitea.com, version 28.0.0): volumes
+# for /var/lib/gitea (repositories and data) and /etc/gitea (app.ini), the
+# GITEA__<section>__<key> settings that environment-to-ini writes to app.ini on
+# every start, the built-in SSH server on 2222 (the rootless image only has that
+# one) and the web UI on 3000. Setting GITEA__security__INSTALL_LOCK skips the
+# web installer, which would let the first visitor choose the database and the
+# administrator; DISABLE_REGISTRATION keeps sign-up closed, so the administrator
+# is created from the command line (see the notes). The image runs as 1000:1000.
+#
+# The newest tag the registry publishes is 28.0.0 (the 28.1.0 release of the same
+# day has no image yet). Pinned to the tag and the digest docker.gitea.com serves
+# for it, the same Docker Hub serves for gitea/gitea:28.0.0-rootless.
+schema: 2
+name: gitea
+kind: compose
+title: Gitea
+slogan: Painless self-hosted Git service, with issues, pull requests and CI.
+description: A lightweight Git forge with code hosting, code review, issues, packages and Actions. Runs rootless with its own PostgreSQL. Opens 2222 for Git over SSH. Registration is closed; the administrator is created from the command line.
+category: development
+tags: [git, forge, code-review, ci]
+logo: logo.svg
+version: "28.0.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://about.gitea.com
+docs: https://docs.gitea.com
+repository: https://github.com/go-gitea/gitea
+license: MIT
+architectures: ["amd64", "arm64", "riscv64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3300
+public_ports:
+  - {port: 2222, protocol: tcp, purpose: "Git over SSH, served by Gitea's built-in SSH server."}
+variables:
+  GITEA_URL:
+    from: url
+    description: The address people use; Gitea builds clone URLs and links from it.
+  GITEA_DOMAIN:
+    from: fqdn
+    description: The domain of that address, for the clone URLs of Git over SSH.
+  GITEA_SECRET_KEY:
+    generate: hex64
+    description: Encrypts what Gitea stores (two-factor secrets, tokens). Changing it loses them.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /api/healthz
+  expect: "200"
+  timeout: 90
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    gitea:
+      image: docker.gitea.com/gitea:28.0.0-rootless@sha256:c168e7ccb767164793a67e1e874639488260795567337452b06292d1515bea12
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        GITEA__server__DOMAIN: "${GITEA_DOMAIN}"
+        GITEA__server__SSH_DOMAIN: "${GITEA_DOMAIN}"
+        GITEA__server__ROOT_URL: "${GITEA_URL}/"
+        GITEA__server__SSH_PORT: "2222"
+        GITEA__server__SSH_LISTEN_PORT: "2222"
+        GITEA__database__DB_TYPE: postgres
+        GITEA__database__HOST: "db:5432"
+        GITEA__database__NAME: gitea
+        GITEA__database__USER: gitea
+        GITEA__database__PASSWD: "${DB_PASSWORD}"
+        GITEA__security__INSTALL_LOCK: "true"
+        GITEA__security__SECRET_KEY: "${GITEA_SECRET_KEY}"
+        GITEA__service__DISABLE_REGISTRATION: "true"
+      volumes:
+        - gitea-data:/var/lib/gitea
+        - gitea-config:/etc/gitea
+      ports:
+        - "127.0.0.1:${PORT}:3000"
+        - "2222:2222"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: gitea
+        POSTGRES_DB: gitea
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U gitea -d gitea"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - gitea-db:/var/lib/postgresql/data
+  volumes:
+    gitea-data:
+    gitea-config:
+    gitea-db:
+notes:
+  - "Nobody can sign in yet, and nobody can register. Create the administrator: cd {{ app_path }} && docker compose exec gitea gitea admin user create --admin --username admin --email you@example.com --random-password"
+  - "It prints the password once. Sign in at {{ url }} and change it. Git over SSH is on port 2222 of this server ({{ domain }}:2222): open it in the firewall if you use it, or clone over HTTPS."
+  - "Repositories and data are in the Docker volume gitea-data, the configuration in gitea-config and the database in gitea-db (PostgreSQL, dumped by Noust before every update): back them up before updating."

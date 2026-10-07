@@ -1,0 +1,99 @@
+# Matomo from the Docker official image with the MariaDB of the project's own example
+# (.examples/apache/compose.yml in matomo-org/docker): the same MARIADB_* settings
+# for the database, the MATOMO_DATABASE_* settings (the image's documented ones) that
+# fill in the installer's database step, and the whole of /var/www/html in a volume.
+# The example's mariadb image tag is lts; here it is the 11.8 release of that line.
+# Matomo behind nginx needs three settings of its [General] section to see the visitor's
+# address, host and scheme instead of the proxy's (config/global.ini.php, "proxy_client_
+# headers", "proxy_host_headers", "proxy_scheme_headers"); they go in
+# config/common.config.ini.php, which Matomo reads beside the config.ini.php its
+# installer writes, so the installer is left alone. The mount is not read-only: the image's
+# first start copies Matomo into the volume and changes its owner, and a chown that fails on a
+# read-only file stops that start (the container restarts once). The image runs Apache on 80 as
+# root.
+# /matomo.php is the tracker endpoint and answers without a login or a trusted host.
+#
+# Matomo's web installer creates the super user, and nothing in the image can do it
+# earlier: the notes say so first. Pinned to the release tag and the digest Docker Hub
+# serves for it (5.14.0 is the newest tag the image has).
+schema: 2
+name: matomo
+kind: compose
+title: Matomo
+slogan: Web analytics you own, a privacy-respecting alternative to Google Analytics.
+description: "Visitor analytics, goals, e-commerce reports and heatmap-ready data on your own server, with the data owned by you. Runs with its own MariaDB. The first person to open it finishes the installer and creates the super user, so do it right after installing."
+category: analytics
+tags: [analytics, privacy, statistics, tracking]
+logo: logo.svg
+version: "5.14.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://matomo.org
+docs: https://matomo.org/faq/
+repository: https://github.com/matomo-org/matomo
+license: GPL-3.0-or-later
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8380
+variables:
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's MariaDB account.
+  MARIADB_ROOT_PASSWORD:
+    generate: password32
+    description: The password of the stack's MariaDB root account.
+health:
+  path: /matomo.php
+  expect: "200"
+  timeout: 120
+files:
+  noust.nginx.yaml: noust.nginx.yaml
+  matomo/common.config.ini.php: common.config.ini.php
+compose: |
+  services:
+    app:
+      image: matomo:5.14.0-apache@sha256:fdd8110ef9664d54b2a4649b141162961033d309d3d3b2ea194d5fd0e3a832af
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        MATOMO_DATABASE_ADAPTER: mysql
+        MATOMO_DATABASE_HOST: db
+        MATOMO_DATABASE_DBNAME: matomo
+        MATOMO_DATABASE_USERNAME: matomo
+        MATOMO_DATABASE_PASSWORD: "${DB_PASSWORD}"
+        MATOMO_DATABASE_TABLES_PREFIX: matomo_
+      volumes:
+        - matomo-html:/var/www/html
+        - ./matomo/common.config.ini.php:/var/www/html/config/common.config.ini.php
+      ports:
+        - "127.0.0.1:${PORT}:80"
+    db:
+      image: mariadb:11.8.9@sha256:6422478cb8e159f080fb1d8ccf65101e26fe51385787fde7d16c3b165a331f15
+      restart: unless-stopped
+      command: --max-allowed-packet=64MB
+      environment:
+        MARIADB_DATABASE: matomo
+        MARIADB_USER: matomo
+        MARIADB_PASSWORD: "${DB_PASSWORD}"
+        MARIADB_ROOT_PASSWORD: "${MARIADB_ROOT_PASSWORD}"
+        MARIADB_AUTO_UPGRADE: "1"
+        MARIADB_DISABLE_UPGRADE_BACKUP: "1"
+        MARIADB_INITDB_SKIP_TZINFO: "1"
+      healthcheck:
+        test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 30s
+      volumes:
+        - matomo-db:/var/lib/mysql
+  volumes:
+    matomo-html:
+    matomo-db:
+notes:
+  - "Open {{ url }} now and finish the installer: whoever completes it first creates the super user. At the database step the settings are already filled in; click Next."
+  - "Matomo's code, its configuration and the plugins you install are in the Docker volume matomo-html, and the data in the MariaDB of this stack (volume matomo-db, dumped by Noust before every update). Back up both before updating."
+  - "Add the tracking code Matomo gives you to your sites. Reports are built when someone opens them; for a busy site, schedule the archiving the project describes (php console core:archive) instead."

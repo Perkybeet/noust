@@ -1,0 +1,16 @@
+schema: 2
+name: typebot
+kind: compose
+title: Typebot
+slogan: "A powerful chatbot builder that you can self-host."
+description: "Design conversational forms and chatbots visually and embed them anywhere. Listed because it needs two public addresses."
+category: automation
+tags: [chatbot, forms, no-code]
+logo: logo.svg
+updated: 2026-10-06
+homepage: https://typebot.io
+docs: https://docs.typebot.io/self-hosting/deploy/docker
+repository: https://github.com/baptisteArno/typebot.io
+license: FSL-1.1-Apache-2.0
+available: false
+unavailable_reason: "Typebot is two applications on two addresses, the builder (NEXTAUTH_URL, port 8080) and the viewer (NEXT_PUBLIC_VIEWER_URL, port 8081), which its documentation asks to be proxied as separate virtual hosts (docs.typebot.io, Docker deployment, read 2026-10-06); this release routes one web endpoint per application. Not available in this release."

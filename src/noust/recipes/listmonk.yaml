@@ -1,0 +1,98 @@
+# listmonk from its own image with the PostgreSQL it requires in the same stack,
+# as the docker-compose.yml of the v6.2.0 tag has them: the command installs the
+# schema once (--install --idempotent), applies migrations (--upgrade) and starts
+# the server with --config '' so that only the environment configures it
+# (LISTMONK_db__* are the config.toml keys). LISTMONK_ADMIN_USER and
+# LISTMONK_ADMIN_PASSWORD create the Super Admin on the first start, so the
+# first-visit setup page is never open to a stranger. The image runs as root in
+# /listmonk, listens on 9000 and keeps media under /listmonk/uploads, which is
+# a volume here (upstream's example uses a host directory).
+#
+# The upstream example uses listmonk/listmonk:latest and postgres:17-alpine;
+# here both are pinned. The digest is the one ghcr.io serves for the tag, the
+# same Docker Hub serves for listmonk/listmonk:v6.2.0.
+schema: 2
+name: listmonk
+kind: compose
+title: listmonk
+slogan: A self-hosted newsletter and mailing list manager.
+description: High-performance newsletter and mailing list manager with a single binary, a campaign editor, templates, subscriber import and bounce handling. Runs with its own PostgreSQL. You bring your own SMTP server.
+category: communication
+tags: [newsletter, mailing-list, email, campaigns]
+logo: logo.svg
+version: "6.2.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://listmonk.app
+docs: https://listmonk.app/docs/
+repository: https://github.com/knadh/listmonk
+license: AGPL-3.0-only
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - An SMTP server to send through (set in the application's settings)
+port: 9000
+variables:
+  LISTMONK_ADMIN_USER:
+    default: admin
+    description: The Super Admin's user name. listmonk reads it only when it creates the account.
+  LISTMONK_ADMIN_PASSWORD:
+    generate: password32
+    description: The Super Admin's password. listmonk reads it only when it creates the account.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+  TZ:
+    default: Etc/UTC
+    description: The server's time zone, such as Europe/Madrid.
+health:
+  path: /health
+  expect: "200"
+  timeout: 90
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    app:
+      image: ghcr.io/knadh/listmonk:v6.2.0@sha256:f535d59e14991337a9f2d570273685378ae86b0d7698c3e00da444e3bc205286
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      command: ["sh", "-c", "./listmonk --install --idempotent --yes --config '' && ./listmonk --upgrade --yes --config '' && ./listmonk --config ''"]
+      environment:
+        LISTMONK_app__address: "0.0.0.0:9000"
+        LISTMONK_db__user: listmonk
+        LISTMONK_db__password: "${DB_PASSWORD}"
+        LISTMONK_db__database: listmonk
+        LISTMONK_db__host: db
+        LISTMONK_db__port: "5432"
+        LISTMONK_db__ssl_mode: disable
+        LISTMONK_ADMIN_USER: "${LISTMONK_ADMIN_USER}"
+        LISTMONK_ADMIN_PASSWORD: "${LISTMONK_ADMIN_PASSWORD}"
+        TZ: "${TZ}"
+      volumes:
+        - listmonk-uploads:/listmonk/uploads
+      ports:
+        - "127.0.0.1:${PORT}:9000"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: listmonk
+        POSTGRES_DB: listmonk
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U listmonk -d listmonk"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - listmonk-data:/var/lib/postgresql/data
+  volumes:
+    listmonk-uploads:
+    listmonk-data:
+notes:
+  - "Sign in at {{ url }}/admin as {{ vars.LISTMONK_ADMIN_USER }}; the password is LISTMONK_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The account is created once, on the first start."
+  - "Set Settings, General, Root URL to {{ url }} (listmonk keeps it in its database and starts at http://localhost:9000), and add your SMTP server under Settings, SMTP: nothing is sent until you do."
+  - "Uploaded media is in the Docker volume listmonk-uploads (the default Upload path, uploads, is /listmonk/uploads in the container). Subscribers, lists and campaigns are in the PostgreSQL of this stack (Docker volume listmonk-data): Noust dumps it before every update, which the project asks you to do by hand; back both up before updating."

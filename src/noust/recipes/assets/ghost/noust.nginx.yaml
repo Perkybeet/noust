@@ -1,0 +1,2 @@
+# How nginx proxies this application. Images, themes and members' CSV files are uploaded through the admin.
+max_body_size: 100m

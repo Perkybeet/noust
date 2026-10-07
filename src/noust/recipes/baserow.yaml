@@ -1,0 +1,96 @@
+# Baserow from its all-in-one image, with an external PostgreSQL as its installation guide
+# asks for production (docs/installation/install-with-docker.md at the 2.4.0 tag: "Set
+# DATABASE_URL ... to disable the internal postgres and instead connect to an external
+# Postgres. This is highly recommended for any production deployments of this image"):
+# the image runs the backend, the web frontend, the workers, a Redis and a Caddy that serves
+# everything on port 80, keeps its data in /baserow/data, and takes BASEROW_PUBLIC_URL (the
+# address in the browser's bar: any other address is treated as a published application),
+# SECRET_KEY and DATABASE_URL. The image's own health check is the backend's. Its backend
+# answers 404 to a request for any host that is not the public address (it takes it for a
+# published application), which includes the loopback address Noust asks whether it started;
+# BASEROW_EXTRA_PUBLIC_URLS (its configuration page) names that address as one more public URL.
+# The database is the pgvector image, as the all-in-one image's own PostgreSQL has the
+# extension and Baserow creates it when it can; the image is not the official postgres one,
+# so the recipe ships a noust.yaml declaring it, which is what makes the pre-update dump happen.
+#
+# Baserow has no way to create its first account from the environment: whoever signs up
+# first becomes the administrator, which the first note says. The repository is MIT
+# licensed apart from its premium and enterprise directories, under a commercial licence.
+# Pinned to the release tag and the digest Docker Hub serves for it.
+schema: 2
+name: baserow
+kind: compose
+title: Baserow
+slogan: An open source no-code database and Airtable alternative.
+description: "Build databases in a spreadsheet-like interface with views, forms, a REST API, webhooks and applications on top. Runs the all-in-one image with its own PostgreSQL. The first person to sign up becomes the administrator, so do it right after installing."
+category: productivity
+tags: [database, no-code, spreadsheet, airtable]
+logo: logo.svg
+version: "2.4.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://baserow.io
+docs: https://baserow.io/docs
+repository: https://github.com/baserow/baserow
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 2 GB of memory
+port: 8280
+variables:
+  BASEROW_PUBLIC_URL:
+    from: url
+    description: The address people use; it must match what the browser's address bar shows.
+  SECRET_KEY:
+    generate: password64
+    description: Django's key for signing sessions and password-reset links. Changing it signs everybody out.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /api/_health/
+  expect: "200"
+  timeout: 600
+files:
+  noust.nginx.yaml: noust.nginx.yaml
+  noust.yaml: noust.yaml
+compose: |
+  services:
+    baserow:
+      image: baserow/baserow:2.4.0@sha256:f35444dbbbd390c48dae30eaed0b9668b04ff4b71c97d08f9cb2dd436ba22150
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        BASEROW_PUBLIC_URL: "${BASEROW_PUBLIC_URL}"
+        BASEROW_EXTRA_PUBLIC_URLS: "http://127.0.0.1:${PORT}"
+        SECRET_KEY: "${SECRET_KEY}"
+        DATABASE_URL: "postgresql://baserow:${DB_PASSWORD}@db:5432/baserow"
+      volumes:
+        - baserow-data:/baserow/data
+      ports:
+        - "127.0.0.1:${PORT}:80"
+    db:
+      image: pgvector/pgvector:0.8.1-pg17@sha256:3e8b3adfd27b5707128f60956f62a793c3c9326ea8cfaf0eab7adccb5d700b21
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: baserow
+        POSTGRES_DB: baserow
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U baserow -d baserow"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - baserow-db:/var/lib/postgresql/data
+  volumes:
+    baserow-data:
+    baserow-db:
+notes:
+  - "Open {{ url }} now and sign up: the first person to do it becomes the administrator."
+  - "Your databases and tables are in the PostgreSQL of this stack (Docker volume baserow-db, dumped by Noust before every update); uploaded files are in the volume baserow-data. Back up both before updating."
+  - "The first start takes several minutes (about four on a small server) while Baserow prepares its database and its services."

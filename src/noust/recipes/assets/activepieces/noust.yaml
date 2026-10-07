@@ -1,0 +1,5 @@
+# What Noust needs to know that the image does not say: the database is not the official
+# PostgreSQL image, so the dump taken before an update is declared here.
+backup:
+  databases:
+    - {service: postgres, engine: postgres, database: activepieces, user: postgres}

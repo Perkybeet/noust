@@ -1,0 +1,16 @@
+schema: 2
+name: openclaw
+kind: compose
+title: OpenClaw
+slogan: "A personal AI assistant that does things, on any platform."
+description: "An agent gateway that connects models to chat channels, browsers, files and shell tools. Listed because its own policy puts the boundary outside the program."
+category: ai
+tags: [agent, assistant, llm]
+logo: logo.svg
+updated: 2026-10-06
+homepage: https://openclaw.ai
+docs: https://docs.openclaw.ai
+repository: https://github.com/openclaw/openclaw
+license: MIT
+available: false
+unavailable_reason: "Its security policy (SECURITY.md, read 2026-10-06) says 'Anyone who can operate an agent can make it do anything that agent can do' and that it is 'not designed as a shared multi-tenant boundary'; its compose file builds the image locally and offers sandboxing only through the Docker socket, which a recipe may not mount. Not available in this release."

@@ -1,0 +1,108 @@
+# Directus from the image the project publishes, with PostgreSQL in the same stack,
+# configured from the Docker Compose example of its page "Deploying" (directus.com/
+# docs/self-hosting/deploying): DB_CLIENT=pg and the DB_* settings, SECRET, PUBLIC_URL
+# (used for links in e-mails and OAuth redirects), and ADMIN_EMAIL and ADMIN_PASSWORD,
+# which create the first administrator when the database is bootstrapped, so there
+# is no setup page for a stranger to claim. Uploads and extensions are volumes. The
+# image runs as user node, listens on 8055 and answers /server/ping without a login
+# (the page's own container health check; /server/health also tests dependencies
+# the stack does not have, such as an e-mail transport, and answers 503 without them).
+#
+# The page's example uses the PostGIS image and a Redis cache. This one uses the
+# official postgres image (which Noust dumps before every update) and no cache, which
+# Directus does not need on one node: geometry fields need PostGIS, which is not here.
+#
+# Directus 12 is under the Monospace Sustainable Core License 1.0, which is
+# source-available: any use is permitted except a competing use (offering the
+# software to a party that competes with its publisher's commercial offering), and
+# it becomes GPL-3.0 four years after each release. Pinned to the release tag and the
+# digest Docker Hub serves for it.
+schema: 2
+name: directus
+kind: compose
+title: Directus
+slogan: An instant REST and GraphQL API, and an app, on top of any SQL database.
+description: "A headless CMS and data platform: model your data in PostgreSQL, get a REST and GraphQL API and an admin app with roles and flows. Source-available (Monospace Sustainable Core License, GPL-3.0 after four years); free for any use that does not compete with the publisher."
+category: backend
+tags: [headless-cms, api, graphql, database]
+logo: logo.svg
+version: "12.4.1"
+revision: 1
+updated: 2026-10-06
+homepage: https://directus.io
+docs: https://directus.io/docs/
+repository: https://github.com/directus/directus
+license: LicenseRef-MSCL-1.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8055
+variables:
+  PUBLIC_URL:
+    from: url
+    description: The address people use; Directus builds the links in its e-mails and its OAuth redirects from it.
+  ADMIN_EMAIL:
+    required: true
+    description: The first administrator's e-mail address, and the user name they sign in with.
+  ADMIN_PASSWORD:
+    generate: password32
+    description: The first administrator's password. Directus reads it only when it bootstraps its database.
+  SECRET:
+    generate: password64
+    description: Signs the access tokens. Changing it signs everybody out.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /server/ping
+  expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    directus:
+      image: directus/directus:12.4.1@sha256:9cc8ab88e6f1fc98d860416d89d53dd15838860c315a66c6d8ee68cb72f6b3a6
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        SECRET: "${SECRET}"
+        DB_CLIENT: pg
+        DB_HOST: db
+        DB_PORT: "5432"
+        DB_DATABASE: directus
+        DB_USER: directus
+        DB_PASSWORD: "${DB_PASSWORD}"
+        ADMIN_EMAIL: "${ADMIN_EMAIL}"
+        ADMIN_PASSWORD: "${ADMIN_PASSWORD}"
+        PUBLIC_URL: "${PUBLIC_URL}"
+        TELEMETRY: "false"
+      volumes:
+        - directus-uploads:/directus/uploads
+        - directus-extensions:/directus/extensions
+      ports:
+        - "127.0.0.1:${PORT}:8055"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: directus
+        POSTGRES_DB: directus
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U directus -d directus"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - directus-db:/var/lib/postgresql/data
+  volumes:
+    directus-uploads:
+    directus-extensions:
+    directus-db:
+notes:
+  - "Sign in at {{ url }}/admin with {{ vars.ADMIN_EMAIL }}; the password is ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The account is created once, when the database is bootstrapped: change the password in Directus, not in the environment."
+  - "Your data model and content are in the PostgreSQL of this stack (Docker volume directus-db, dumped by Noust before every update); uploaded files are in the volume directus-uploads and extensions in directus-extensions. Back up the volumes too: files are not in the database dump."
+  - "TELEMETRY is set to false; Directus says whether usage reporting can be switched off depends on its licence. There is no PostGIS here, so geometry fields are not available."

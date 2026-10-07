@@ -1,0 +1,95 @@
+# Keycloak from the image the project publishes on quay.io, with the PostgreSQL it
+# documents in the same stack. Settings are the ones its guides name: "Running Keycloak
+# in a container" (KC_DB, KC_DB_URL, KC_DB_USERNAME, KC_DB_PASSWORD, KC_HOSTNAME as a full
+# URL, KC_BOOTSTRAP_ADMIN_USERNAME and KC_BOOTSTRAP_ADMIN_PASSWORD, which create the first
+# administrator at the first start, so there is no page for a stranger to claim) and
+# "Using a reverse proxy" (KC_PROXY_HEADERS=xforwarded to read nginx's headers, and
+# KC_HTTP_ENABLED because nginx terminates TLS). The image runs as user 1000, listens on
+# 8080 and starts with the `start` command, which builds the server configuration first,
+# so a start takes a minute. Its health and metrics endpoints are on a separate management
+# port (9000) that is not published, so the gate asks the master realm's OpenID
+# configuration, which answers without a login.
+#
+# The bootstrap administrator is temporary by design: Keycloak asks that a permanent one be
+# created and this one removed, which the notes say. Pinned to the release tag and the
+# digest quay.io serves for it.
+schema: 2
+name: keycloak
+kind: compose
+title: Keycloak
+slogan: Open source identity and access management with single sign-on.
+description: Single sign-on, OpenID Connect, OAuth 2 and SAML, user federation, social login and fine-grained authorisation for your applications. Runs with its own PostgreSQL. Needs about 1 GB of memory.
+category: security
+tags: [sso, oidc, identity, saml]
+logo: logo.svg
+version: "26.8.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://www.keycloak.org
+docs: https://www.keycloak.org/documentation
+repository: https://github.com/keycloak/keycloak
+license: Apache-2.0
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 1 GB of memory
+port: 8081
+variables:
+  KC_HOSTNAME:
+    from: url
+    description: The address people use, as a full URL; Keycloak puts it in every token and redirect.
+  KC_BOOTSTRAP_ADMIN_USERNAME:
+    default: admin
+    description: The temporary administrator's user name. Keycloak reads it only when it creates the first one.
+  KC_BOOTSTRAP_ADMIN_PASSWORD:
+    generate: password32
+    description: The temporary administrator's password. Keycloak reads it only when it creates the first one.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /realms/master/.well-known/openid-configuration
+  expect: "200"
+  timeout: 240
+compose: |
+  services:
+    keycloak:
+      image: quay.io/keycloak/keycloak:26.8.0@sha256:b0f60d489d51c5d113390bdf5461d4c06e6051be026c05549f2e1e10ec352bcc
+      restart: unless-stopped
+      command: ["start"]
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        KC_DB: postgres
+        KC_DB_URL: "jdbc:postgresql://db:5432/keycloak"
+        KC_DB_USERNAME: keycloak
+        KC_DB_PASSWORD: "${DB_PASSWORD}"
+        KC_HOSTNAME: "${KC_HOSTNAME}"
+        KC_HTTP_ENABLED: "true"
+        KC_PROXY_HEADERS: xforwarded
+        KC_BOOTSTRAP_ADMIN_USERNAME: "${KC_BOOTSTRAP_ADMIN_USERNAME}"
+        KC_BOOTSTRAP_ADMIN_PASSWORD: "${KC_BOOTSTRAP_ADMIN_PASSWORD}"
+      ports:
+        - "127.0.0.1:${PORT}:8080"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: keycloak
+        POSTGRES_DB: keycloak
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - keycloak-db:/var/lib/postgresql/data
+  volumes:
+    keycloak-db:
+notes:
+  - "Sign in at {{ url }}/admin as {{ vars.KC_BOOTSTRAP_ADMIN_USERNAME }}; the password is KC_BOOTSTRAP_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). It is a temporary account: create a permanent administrator in the master realm, then delete it."
+  - "Everything Keycloak knows (realms, clients, users, keys) is in the PostgreSQL of this stack (Docker volume keycloak-db, dumped by Noust before every update). Back it up before updating: a lost database means every application that trusts these keys stops accepting its users."
+  - "Keycloak is the address your other applications trust: {{ url }}. Changing the domain later changes every issuer."

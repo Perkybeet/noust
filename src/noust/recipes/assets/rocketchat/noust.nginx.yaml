@@ -1,0 +1,5 @@
+# How nginx proxies this application. Files are shared in channels, and every client holds a WebSocket.
+max_body_size: 128m
+routes:
+  - path: /
+    read_timeout: 600

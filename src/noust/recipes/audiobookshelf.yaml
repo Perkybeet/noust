@@ -1,0 +1,67 @@
+# Audiobookshelf from the image the project publishes on ghcr.io, as the docker-compose.yml at
+# its v2.37.1 tag has it: the server on 80 inside the container (PORT), the config in /config,
+# the metadata in /metadata (CONFIG_PATH and METADATA_PATH in the image's environment) and the
+# libraries in /audiobooks and /podcasts. The two libraries are directories inside the
+# application by default (./audiobooks, ./podcasts) that the operator can point anywhere,
+# mounted read-write as the project's file has them.
+# The image runs as root unless told otherwise. /healthcheck answers without a login.
+#
+# Audiobookshelf asks the first visitor to create the root account and has no way to set it
+# from the environment, which the first note says. Pinned to the release tag and the digest
+# ghcr.io serves for it.
+schema: 2
+name: audiobookshelf
+kind: compose
+title: Audiobookshelf
+slogan: Self-hosted audiobook and podcast server.
+description: "Stream and manage your audiobooks and podcasts, with progress sync across devices, chapters, metadata matching and mobile apps. Single container; libraries are directories on this server. The first person to open it creates the root account, so do it right after installing."
+category: media
+tags: [audiobooks, podcasts, books, streaming]
+logo: logo.svg
+version: "2.37.1"
+revision: 1
+updated: 2026-10-06
+homepage: https://www.audiobookshelf.org
+docs: https://www.audiobookshelf.org/docs
+repository: https://github.com/advplyr/audiobookshelf
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - Disk for the audiobook and podcast libraries
+port: 13378
+variables:
+  AUDIOBOOKS_PATH:
+    default: ./audiobooks
+    description: The directory of audiobooks. Inside the application by default; give an absolute path to use a library elsewhere.
+  PODCASTS_PATH:
+    default: ./podcasts
+    description: The directory of podcasts. Inside the application by default; give an absolute path to use a library elsewhere.
+  TZ:
+    default: UTC
+    description: The time zone, such as Europe/Madrid.
+health:
+  path: /healthcheck
+  expect: "200"
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    audiobookshelf:
+      image: ghcr.io/advplyr/audiobookshelf:2.37.1@sha256:581d68b2a6fc7ebf58d81c878a9f387cbbc0d88ac9d37b298b9cee10168af85b
+      restart: unless-stopped
+      environment:
+        TZ: "${TZ}"
+      volumes:
+        - audiobookshelf-config:/config
+        - audiobookshelf-metadata:/metadata
+        - "${AUDIOBOOKS_PATH}:/audiobooks"
+        - "${PODCASTS_PATH}:/podcasts"
+      ports:
+        - "127.0.0.1:${PORT}:80"
+  volumes:
+    audiobookshelf-config:
+    audiobookshelf-metadata:
+notes:
+  - "Open {{ url }} now and create the root account: until someone does, the first visitor to the page creates it."
+  - "Put your audiobooks in {{ app_path }}/audiobooks and your podcasts in {{ app_path }}/podcasts, or set AUDIOBOOKS_PATH and PODCASTS_PATH to the directories that hold them and restart the application: noust restart {{ domain }}. Add them as libraries under /audiobooks and /podcasts."
+  - "The database and settings are in the Docker volume audiobookshelf-config and the covers and caches in audiobookshelf-metadata: back them up before updating."

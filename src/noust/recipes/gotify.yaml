@@ -1,0 +1,68 @@
+# Gotify from its own image, as the project's installation page documents it
+# (https://gotify.net/docs/install: the image listens on 80, keeps its SQLite
+# database, uploaded images and plugins under /app/data, and the TZ variable sets
+# the time zone) and as its configuration page names the settings
+# (https://gotify.net/docs/config: GOTIFY_DEFAULTUSER_NAME and
+# GOTIFY_DEFAULTUSER_PASS create the first administrator, only the first time;
+# GOTIFY_REGISTRATION=false keeps the registration endpoint closed). Without
+# GOTIFY_DEFAULTUSER_PASS the first account is admin/admin, which is why the
+# password is generated here. The image's own health check is GET /health.
+#
+# Pinned to the release tag and to the digest ghcr.io serves for it, which is
+# also the digest Docker Hub serves for gotify/server:3.1.1.
+schema: 2
+name: gotify
+kind: compose
+title: Gotify
+slogan: A simple server for sending and receiving messages in real time.
+description: Push notifications over a REST API and a WebSocket, with Android and web clients, applications with their own tokens, and plugins. Its data is a SQLite file.
+category: communication
+tags: [notifications, push, messages, websocket]
+logo: logo.svg
+version: "3.1.1"
+revision: 1
+updated: 2026-10-06
+homepage: https://gotify.net
+docs: https://gotify.net/docs/
+repository: https://github.com/gotify/server
+license: MIT
+architectures: ["386", "amd64", "arm", "arm64", "riscv64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8070
+variables:
+  GOTIFY_DEFAULTUSER_NAME:
+    default: admin
+    description: The first administrator's user name. Gotify reads it only when it creates its database.
+  GOTIFY_DEFAULTUSER_PASS:
+    generate: password32
+    description: The first administrator's password. Gotify reads it only when it creates its database.
+  GOTIFY_REGISTRATION:
+    default: "false"
+    description: Whether anybody can register an account. Leave it false and create users as the administrator.
+  TZ:
+    default: UTC
+    description: The server's time zone, such as Europe/Madrid.
+health:
+  path: /health
+  expect: "200"
+compose: |
+  services:
+    gotify:
+      image: ghcr.io/gotify/server:3.1.1@sha256:44fc5bbd1c0618878e33073d38c2c13126b48f245c3fe12236b1da48eb203b86
+      restart: unless-stopped
+      environment:
+        GOTIFY_DEFAULTUSER_NAME: "${GOTIFY_DEFAULTUSER_NAME}"
+        GOTIFY_DEFAULTUSER_PASS: "${GOTIFY_DEFAULTUSER_PASS}"
+        GOTIFY_REGISTRATION: "${GOTIFY_REGISTRATION}"
+        TZ: "${TZ}"
+      volumes:
+        - gotify-data:/app/data
+      ports:
+        - "127.0.0.1:${PORT}:80"
+  volumes:
+    gotify-data:
+notes:
+  - "Sign in at {{ url }} as {{ vars.GOTIFY_DEFAULTUSER_NAME }}; the password is GOTIFY_DEFAULTUSER_PASS (noust env show {{ domain }} --unmask). It only creates the first account: change the password in Gotify afterwards, not in the environment."
+  - "Registration is closed. Create the other users from the Users page, and applications from the Apps page: each gets a token that is the only thing a script needs to send a message."
+  - "The database, the uploaded images and the plugins are in the Docker volume gotify-data of this application: back it up before updating."

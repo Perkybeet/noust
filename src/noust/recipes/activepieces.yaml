@@ -1,0 +1,145 @@
+# Activepieces from the image the project publishes on ghcr.io, with the stack of its own
+# docker-compose.yml and .env.example at the 0.92.1 tag: the application (AP_CONTAINER_TYPE=
+# APP, which serves the interface and the API on 80), one worker (the same image with
+# AP_CONTAINER_TYPE=WORKER; upstream starts five), PostgreSQL with the pgvector extension
+# (pgvector/pgvector, the image its file names; the 0.8.1 build on PostgreSQL 17 here,
+# because the file's PostgreSQL 14 reaches its end of life in November 2026) and a
+# Redis-compatible store (Valkey, the BSD-licensed fork). The settings are those of its
+# environment-variables page: AP_FRONTEND_URL (it builds webhook URLs from it), AP_ENCRYPTION_
+# KEY (32 hexadecimal characters), AP_JWT_SECRET, AP_EXECUTION_MODE (UNSANDBOXED is
+# the project's default and what .env.example says) and AP_TELEMETRY_ENABLED. The cache
+# directory is a volume shared by the application and the worker. /api/v1/health is the
+# image's own health check. The worker's AP_FRONTEND_URL is the application's service name
+# (docs/install/options/docker-compose.mdx, "Socket.IO connection error"): it reaches the app
+# on the stack's network, not through the public address.
+#
+# The pgvector image is not the official postgres one, so Noust cannot recognise it: the recipe
+# ships a noust.yaml that declares it, which is what makes the pre-update dump happen.
+# Flows can run JavaScript in a Code piece, unsandboxed in this container, like n8n's Code node:
+# give accounts only to people you trust. The first person to sign up becomes the platform
+# administrator, which the first note says. The repository is MIT licensed apart from its
+# "ee" directories, under a commercial licence. Pinned to the release tag and the digests
+# ghcr.io and Docker Hub serve.
+schema: 2
+name: activepieces
+kind: compose
+title: Activepieces
+slogan: Open source no-code workflow automation with hundreds of integrations.
+description: "Automate work between your apps with a visual builder, webhooks, schedules and AI agents, with pieces for hundreds of services. Runs the application, a worker, PostgreSQL with pgvector and Valkey. Flows run code unsandboxed: give accounts only to people you trust. The first person to sign up becomes the administrator."
+category: automation
+tags: [automation, workflows, no-code, integrations]
+logo: logo.svg
+version: "0.92.1"
+revision: 1
+updated: 2026-10-06
+homepage: https://www.activepieces.com
+docs: https://www.activepieces.com/docs
+repository: https://github.com/activepieces/activepieces
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 2 GB of memory
+port: 8088
+variables:
+  AP_FRONTEND_URL:
+    from: url
+    description: The address people use; it must be reachable by the services that call your webhooks.
+  AP_ENCRYPTION_KEY:
+    generate: hex32
+    description: Encrypts the connections (credentials) Activepieces stores. Losing it makes them unreadable.
+  AP_JWT_SECRET:
+    generate: hex64
+    description: Signs the sign-in tokens. Changing it signs everybody out.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL superuser.
+health:
+  path: /api/v1/health
+  expect: "200"
+  timeout: 240
+files:
+  noust.nginx.yaml: noust.nginx.yaml
+  noust.yaml: noust.yaml
+compose: |
+  services:
+    app:
+      image: ghcr.io/activepieces/activepieces:0.92.1@sha256:d22e3f36f78d70264a020d309aa4535c161ba9ee25eeb783759cde3308cd803a
+      restart: unless-stopped
+      depends_on:
+        postgres:
+          condition: service_healthy
+        redis:
+          condition: service_started
+      environment:
+        AP_CONTAINER_TYPE: APP
+        AP_ENGINE_EXECUTABLE_PATH: dist/packages/engine/main.js
+        AP_ENVIRONMENT: prod
+        AP_FRONTEND_URL: "${AP_FRONTEND_URL}"
+        AP_ENCRYPTION_KEY: "${AP_ENCRYPTION_KEY}"
+        AP_JWT_SECRET: "${AP_JWT_SECRET}"
+        AP_POSTGRES_DATABASE: activepieces
+        AP_POSTGRES_HOST: postgres
+        AP_POSTGRES_PORT: "5432"
+        AP_POSTGRES_USERNAME: postgres
+        AP_POSTGRES_PASSWORD: "${DB_PASSWORD}"
+        AP_REDIS_HOST: redis
+        AP_REDIS_PORT: "6379"
+        AP_EXECUTION_MODE: UNSANDBOXED
+        AP_TELEMETRY_ENABLED: "false"
+      volumes:
+        - activepieces-cache:/usr/src/app/cache
+      ports:
+        - "127.0.0.1:${PORT}:80"
+    worker:
+      image: ghcr.io/activepieces/activepieces:0.92.1@sha256:d22e3f36f78d70264a020d309aa4535c161ba9ee25eeb783759cde3308cd803a
+      restart: unless-stopped
+      depends_on:
+        app:
+          condition: service_started
+      environment:
+        AP_CONTAINER_TYPE: WORKER
+        AP_ENGINE_EXECUTABLE_PATH: dist/packages/engine/main.js
+        AP_ENVIRONMENT: prod
+        AP_FRONTEND_URL: "http://app"
+        AP_ENCRYPTION_KEY: "${AP_ENCRYPTION_KEY}"
+        AP_JWT_SECRET: "${AP_JWT_SECRET}"
+        AP_POSTGRES_DATABASE: activepieces
+        AP_POSTGRES_HOST: postgres
+        AP_POSTGRES_PORT: "5432"
+        AP_POSTGRES_USERNAME: postgres
+        AP_POSTGRES_PASSWORD: "${DB_PASSWORD}"
+        AP_REDIS_HOST: redis
+        AP_REDIS_PORT: "6379"
+        AP_EXECUTION_MODE: UNSANDBOXED
+        AP_TELEMETRY_ENABLED: "false"
+      volumes:
+        - activepieces-cache:/usr/src/app/cache
+    postgres:
+      image: pgvector/pgvector:0.8.1-pg17@sha256:3e8b3adfd27b5707128f60956f62a793c3c9326ea8cfaf0eab7adccb5d700b21
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: postgres
+        POSTGRES_DB: activepieces
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U postgres -d activepieces"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - activepieces-db:/var/lib/postgresql/data
+    redis:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      restart: unless-stopped
+      volumes:
+        - activepieces-redis:/data
+  volumes:
+    activepieces-cache:
+    activepieces-db:
+    activepieces-redis:
+notes:
+  - "Open {{ url }} now and sign up: the first person to do it becomes the platform administrator."
+  - "Flows and connections are in the PostgreSQL of this stack (Docker volume activepieces-db, dumped by Noust before every update). Back it up before updating, and keep AP_ENCRYPTION_KEY (noust env show {{ domain }} --unmask): without it the stored connections cannot be read from a restore."
+  - "Flows run code unsandboxed inside the application's container: give accounts only to people you trust."

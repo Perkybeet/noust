@@ -1,0 +1,16 @@
+schema: 2
+name: appwrite
+kind: compose
+title: Appwrite
+slogan: "Complete cloud infrastructure for web, mobile and AI apps."
+description: "Authentication, databases, storage, functions and messaging behind one API, self-hosted. Listed because its stack drives the Docker daemon."
+category: backend
+tags: [backend, baas, auth, functions]
+logo: logo.svg
+updated: 2026-10-06
+homepage: https://appwrite.io
+docs: https://appwrite.io/docs/advanced/self-hosting
+repository: https://github.com/appwrite/appwrite
+license: BSD-3-Clause
+available: false
+unavailable_reason: "Its compose file (docker-compose.yml, 2.3.0, read 2026-10-06) has 40 services, including Traefik, and mounts /var/run/docker.sock in three of them (Traefik, the functions executor and the orchestrator); a recipe may not mount the Docker socket. Not available in this release."

@@ -1,0 +1,119 @@
+# authentik from the image the project publishes on ghcr.io, with the PostgreSQL of its
+# own compose file (lifecycle/container/compose.yml at the version/2026.8.3 tag): a server
+# and a worker from the same image, AUTHENTIK_POSTGRESQL__* and AUTHENTIK_SECRET_KEY on
+# both, shm_size 512mb, and the data, template and certificate folders as volumes (the
+# upstream file binds them to host folders). Redis is no longer part of authentik's stack.
+# The worker in upstream's file also mounts the Docker socket, which only serves the
+# automatic deployment of outposts into Docker and which a recipe may not mount; outposts
+# are deployed by hand instead, as the project's documentation describes. The page
+# "Automated install" documents AUTHENTIK_BOOTSTRAP_PASSWORD and AUTHENTIK_BOOTSTRAP_EMAIL
+# on the worker, read only at the first start, which create the akadmin account so the
+# first-run page (/if/flow/initial-setup/) is never open to a stranger; the project prefers
+# a hash of the password, which Noust cannot generate, and warns that the plain value
+# sits in the environment. The image runs as user 1000, serves HTTP on 9000, and
+# /-/health/ready/ answers 200 without a login once the database is reachable.
+#
+# Pinned to the release tag and the digest ghcr.io serves for it.
+schema: 2
+name: authentik
+kind: compose
+title: authentik
+slogan: "An open source identity provider: SSO, OIDC, SAML, LDAP and proxy authentication."
+description: "The authentication glue for your applications: single sign-on over OpenID Connect, OAuth 2, SAML and LDAP, flows you can edit, MFA and user self-service. Runs a server and a worker with their own PostgreSQL. Needs about 2 GB of memory."
+category: security
+tags: [sso, oidc, saml, ldap]
+logo: logo.svg
+version: "2026.8.3"
+revision: 1
+updated: 2026-10-06
+homepage: https://goauthentik.io
+docs: https://docs.goauthentik.io
+repository: https://github.com/goauthentik/authentik
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 2 GB of memory
+port: 9000
+variables:
+  AUTHENTIK_SECRET_KEY:
+    generate: password64
+    description: Signs sessions and encrypts what authentik stores. Changing it loses the encrypted data.
+  AUTHENTIK_BOOTSTRAP_EMAIL:
+    default: akadmin@example.com
+    description: The akadmin account's e-mail address. authentik reads it only at the first start.
+  AUTHENTIK_BOOTSTRAP_PASSWORD:
+    generate: password32
+    description: The akadmin account's password. authentik reads it only at the first start.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /-/health/ready/
+  expect: "200"
+  timeout: 240
+compose: |
+  services:
+    server:
+      image: ghcr.io/goauthentik/server:2026.8.3@sha256:ab9b4e8cc4ab3f8d1198d2db6aeea66bafea1963b3f2843589e0d163f97d9849
+      restart: unless-stopped
+      command: server
+      shm_size: 512mb
+      depends_on:
+        postgresql:
+          condition: service_healthy
+      environment:
+        AUTHENTIK_POSTGRESQL__HOST: postgresql
+        AUTHENTIK_POSTGRESQL__NAME: authentik
+        AUTHENTIK_POSTGRESQL__USER: authentik
+        AUTHENTIK_POSTGRESQL__PASSWORD: "${DB_PASSWORD}"
+        AUTHENTIK_SECRET_KEY: "${AUTHENTIK_SECRET_KEY}"
+      volumes:
+        - authentik-data:/data
+        - authentik-templates:/templates
+      ports:
+        - "127.0.0.1:${PORT}:9000"
+    worker:
+      image: ghcr.io/goauthentik/server:2026.8.3@sha256:ab9b4e8cc4ab3f8d1198d2db6aeea66bafea1963b3f2843589e0d163f97d9849
+      restart: unless-stopped
+      command: worker
+      shm_size: 512mb
+      depends_on:
+        postgresql:
+          condition: service_healthy
+      environment:
+        AUTHENTIK_POSTGRESQL__HOST: postgresql
+        AUTHENTIK_POSTGRESQL__NAME: authentik
+        AUTHENTIK_POSTGRESQL__USER: authentik
+        AUTHENTIK_POSTGRESQL__PASSWORD: "${DB_PASSWORD}"
+        AUTHENTIK_SECRET_KEY: "${AUTHENTIK_SECRET_KEY}"
+        AUTHENTIK_BOOTSTRAP_EMAIL: "${AUTHENTIK_BOOTSTRAP_EMAIL}"
+        AUTHENTIK_BOOTSTRAP_PASSWORD: "${AUTHENTIK_BOOTSTRAP_PASSWORD}"
+      volumes:
+        - authentik-data:/data
+        - authentik-templates:/templates
+        - authentik-certs:/certs
+    postgresql:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: authentik
+        POSTGRES_DB: authentik
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U authentik -d authentik"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - authentik-db:/var/lib/postgresql/data
+  volumes:
+    authentik-data:
+    authentik-templates:
+    authentik-certs:
+    authentik-db:
+notes:
+  - "Sign in at {{ url }} as akadmin; the password is AUTHENTIK_BOOTSTRAP_PASSWORD (noust env show {{ domain }} --unmask). The account is created once, at the first start, on a first run that takes a minute or two: change the password in authentik, not in the environment."
+  - "Users, flows, providers and applications are in the PostgreSQL of this stack (Docker volume authentik-db, dumped by Noust before every update); uploaded media and certificates are in the volumes authentik-data and authentik-certs. Back them up before updating: authentik cannot be downgraded, and asks that upgrades follow the sequence of releases."
+  - "This stack has no access to the Docker socket, so outposts are not deployed for you: deploy them yourself as the project's documentation describes."

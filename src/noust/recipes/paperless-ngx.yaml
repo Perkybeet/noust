@@ -1,0 +1,135 @@
+# Paperless-ngx from the image the project publishes on ghcr.io, with the PostgreSQL and
+# the Valkey broker of its own docker/compose/docker-compose.postgres.yml at the v3.3.0
+# tag: the same PAPERLESS_DBENGINE, PAPERLESS_DBHOST and PAPERLESS_REDIS, and the
+# data, media, consume and export folders as volumes (the project's file binds the last two
+# to host folders, which a recipe does not write). Settings are the ones its configuration
+# page documents: PAPERLESS_SECRET_KEY (required; the server refuses to start without it),
+# PAPERLESS_URL (also sets the allowed hosts, CORS origins and CSRF origins), PAPERLESS_
+# ALLOWED_HOSTS (which also names 127.0.0.1, how Noust asks whether it started),
+# PAPERLESS_PROXY_SSL_HEADER (so Django trusts nginx's X-Forwarded-Proto), and
+# PAPERLESS_ADMIN_USER, PAPERLESS_ADMIN_PASSWORD and PAPERLESS_ADMIN_MAIL, which create the
+# superuser at start, so there is no first-visitor sign-up (PAPERLESS_ACCOUNT_ALLOW_SIGNUPS
+# defaults to false). The image starts as root under s6 and drops to its own user.
+#
+# Pinned to the release tag and the digest ghcr.io serves for it.
+schema: 2
+name: paperless-ngx
+kind: compose
+title: Paperless-ngx
+slogan: A document management system that scans, indexes and archives your paper.
+description: Turn scans and PDFs into a searchable archive with OCR, tags, correspondents, document types and full-text search. Runs with its own PostgreSQL and Valkey. Needs about 2 GB of memory while it reads a document.
+category: files
+tags: [documents, ocr, archive, scanner]
+logo: logo.svg
+version: "3.3.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://docs.paperless-ngx.com
+docs: https://docs.paperless-ngx.com
+repository: https://github.com/paperless-ngx/paperless-ngx
+license: GPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 2 GB of memory
+port: 8000
+variables:
+  PAPERLESS_URL:
+    from: url
+    description: The address people use; Paperless allows requests to it and trusts its origin.
+  PAPERLESS_DOMAIN:
+    from: fqdn
+    description: The domain of that address, for the allowed hosts.
+  PAPERLESS_ALLOWED_HOSTS:
+    value: "${PAPERLESS_DOMAIN},127.0.0.1"
+    description: The host names Paperless answers to; 127.0.0.1 is how Noust checks that it started.
+  PAPERLESS_SECRET_KEY:
+    generate: password64
+    description: Signs sessions and tokens. Changing it signs everybody out.
+  PAPERLESS_ADMIN_USER:
+    default: admin
+    description: The superuser's name. Paperless creates it at start if it does not exist.
+  PAPERLESS_ADMIN_PASSWORD:
+    generate: password32
+    description: The superuser's password. Paperless never changes an existing account's.
+  PAPERLESS_ADMIN_MAIL:
+    default: root@localhost
+    description: The superuser's e-mail address.
+  PAPERLESS_TIME_ZONE:
+    default: UTC
+    description: The time zone, such as Europe/Madrid.
+  PAPERLESS_OCR_LANGUAGE:
+    default: eng
+    description: "The language most of your documents are written in, a Tesseract code (eng, spa, deu, fra, ita)."
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /
+  expect: 200-399
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    webserver:
+      image: ghcr.io/paperless-ngx/paperless-ngx:3.3.0@sha256:6b94799bc769a063b3340cc5847402e626d4d91d29a295a8e747f8e9bead4207
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        broker:
+          condition: service_started
+      environment:
+        PAPERLESS_REDIS: "redis://broker:6379"
+        PAPERLESS_DBENGINE: postgresql
+        PAPERLESS_DBHOST: db
+        PAPERLESS_DBNAME: paperless
+        PAPERLESS_DBUSER: paperless
+        PAPERLESS_DBPASS: "${DB_PASSWORD}"
+        PAPERLESS_URL: "${PAPERLESS_URL}"
+        PAPERLESS_ALLOWED_HOSTS: "${PAPERLESS_ALLOWED_HOSTS}"
+        PAPERLESS_PROXY_SSL_HEADER: '["HTTP_X_FORWARDED_PROTO", "https"]'
+        PAPERLESS_SECRET_KEY: "${PAPERLESS_SECRET_KEY}"
+        PAPERLESS_ADMIN_USER: "${PAPERLESS_ADMIN_USER}"
+        PAPERLESS_ADMIN_PASSWORD: "${PAPERLESS_ADMIN_PASSWORD}"
+        PAPERLESS_ADMIN_MAIL: "${PAPERLESS_ADMIN_MAIL}"
+        PAPERLESS_TIME_ZONE: "${PAPERLESS_TIME_ZONE}"
+        PAPERLESS_OCR_LANGUAGE: "${PAPERLESS_OCR_LANGUAGE}"
+      volumes:
+        - paperless-data:/usr/src/paperless/data
+        - paperless-media:/usr/src/paperless/media
+        - paperless-export:/usr/src/paperless/export
+        - paperless-consume:/usr/src/paperless/consume
+      ports:
+        - "127.0.0.1:${PORT}:8000"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: paperless
+        POSTGRES_DB: paperless
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U paperless -d paperless"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - paperless-db:/var/lib/postgresql/data
+    broker:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      restart: unless-stopped
+      volumes:
+        - paperless-broker:/data
+  volumes:
+    paperless-data:
+    paperless-media:
+    paperless-export:
+    paperless-consume:
+    paperless-db:
+    paperless-broker:
+notes:
+  - "Sign in at {{ url }} as {{ vars.PAPERLESS_ADMIN_USER }}; the password is PAPERLESS_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The account is created once: change the password in Paperless, not in the environment. Sign-up is closed."
+  - "Upload documents in the web page or with the mobile apps. To feed it from the command line, copy them into the consume folder: cd {{ app_path }} && docker compose cp scan.pdf webserver:/usr/src/paperless/consume/"
+  - "Your originals and archive are in the Docker volume paperless-media and the index and settings in paperless-data; the database is the PostgreSQL of this stack (volume paperless-db, dumped by Noust before every update). Back up all three before updating: the originals are not in the database dump."

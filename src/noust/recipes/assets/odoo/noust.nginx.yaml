@@ -1,0 +1,5 @@
+# How nginx proxies this application. Attachments and imports are uploaded, and a report or an import can run for minutes.
+max_body_size: 128m
+routes:
+  - path: /
+    read_timeout: 720

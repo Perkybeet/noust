@@ -38,7 +38,7 @@ def test_list_prints_the_catalogue_with_its_docker_badge_and_slogan() -> None:
         line for line in result.output.splitlines() if "Uptime Kuma" in line
     )
     assert "not available in this release" in next(
-        line for line in result.output.splitlines() if "Ghost" in line
+        line for line in result.output.splitlines() if "Vault" in line and "Vaultwarden" not in line
     )
 
 
@@ -112,9 +112,9 @@ def test_show_describes_a_native_recipe_with_its_source_and_database() -> None:
 
 def test_show_of_an_unavailable_recipe_says_why_and_nothing_more() -> None:
     """Listed, not deployable."""
-    output = run("recipe", "show", "ghost").output
+    output = run("recipe", "show", "vault").output
 
-    assert "Available" in output and "No" in output and "MySQL 8" in output
+    assert "Available" in output and "No" in output and "sealed" in output
     assert "Install it with" not in output
 
 

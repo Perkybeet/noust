@@ -1,0 +1,16 @@
+schema: 2
+name: strapi
+kind: compose
+title: Strapi
+slogan: "The leading open-source headless CMS."
+description: "A customisable content API with an admin panel, roles and plugins. Listed because it is a framework you build into your own project, not an image."
+category: cms
+tags: [headless-cms, api, nodejs]
+logo: logo.svg
+updated: 2026-10-06
+homepage: https://strapi.io
+docs: https://docs.strapi.io
+repository: https://github.com/strapi/strapi
+license: LicenseRef-Strapi-MIT-and-EE
+available: false
+unavailable_reason: "Strapi 'does not build any official container images' (docs.strapi.io, Running Strapi in a Docker container, read 2026-10-06): a Strapi application is the project's own code with its content types, built into an image the operator writes, so there is no release to pin. Not available in this release."
