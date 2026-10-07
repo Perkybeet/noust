@@ -60,6 +60,26 @@ describe("the applications list", () => {
     expect(screen.getByText("2 applications")).toHaveAttribute("role", "status");
   });
 
+  it("reads a deploy an operator cancelled as cancelled, not as the failure its row says", async () => {
+    const { table } = await appsAt("/apps", {
+      "GET /api/deployments": () =>
+        json(200, {
+          items: [
+            { id: 4, domain: "shop.example.com", status: "failed", cancelled: true, triggered_by: "cli", has_log: true, started_at: "2026-09-25T10:00:00", finished_at: "2026-09-25T10:00:30" },
+            { id: 5, domain: "admin.example.com", status: "failed", cancelled: false, triggered_by: "cli", has_log: true, started_at: "2026-09-25T10:00:00", finished_at: "2026-09-25T10:00:30" },
+          ],
+          total: 2,
+          next_before_id: null,
+        }),
+    });
+    const shop = (await within(table).findByRole("link", { name: "shop.example.com" })).closest("tr");
+    const admin = within(table).getByRole("link", { name: "admin.example.com" }).closest("tr");
+    if (!shop || !admin) throw new Error("no row");
+    expect(within(shop).getByText(/Cancelled/)).toHaveClass("sr-only");
+    expect(within(shop).queryByText(/Failed/)).not.toBeInTheDocument();
+    expect(within(admin).getAllByText(/Failed/).some((node) => node.classList.contains("sr-only"))).toBe(true);
+  });
+
   it("draws each app as a card on a phone, its menu always in view", async () => {
     fakeBackend({ ...signedInRoutes(), "GET /api/deployments": () => json(200, { items: [], total: 0, next_before_id: null }) });
     const { user } = renderConsole("/apps");

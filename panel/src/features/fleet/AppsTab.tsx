@@ -82,7 +82,7 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>, typeName: (ty
         const last = objectOf(row["last_deployment"]);
         if (last === null) return <EmptyCell reason={t("fleet.apps.neverDeployed")} />;
         const text = (key: string): string | null => (typeof last[key] === "string" ? last[key] : null);
-        return <DeployMoment deploy={{ status: text("status") ?? "", finished_at: text("finished_at"), started_at: text("started_at") }} />;
+        return <DeployMoment deploy={{ status: text("status") ?? "", finished_at: text("finished_at"), started_at: text("started_at"), cancelled: last["cancelled"] === true }} />;
       },
     },
     {

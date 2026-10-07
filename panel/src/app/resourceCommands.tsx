@@ -130,7 +130,7 @@ function deploymentCommands(deployments: readonly DeploymentEntry[], { t, naviga
       label: t("shell.commands.deployment", { domain: deployment.domain, id: String(deployment.id) }),
       ...(detail !== undefined ? { detail } : {}),
       icon: <Rocket />,
-      status: deployStatus(deployment.status, t.locale).state,
+      status: deployStatus(deployment.cancelled ? "cancelled" : deployment.status, t.locale).state,
       keywords: words(deployment.domain, deployment.git_commit, deployment.git_branch, deployment.commit_message, deployment.status, deployment.triggered_by),
       kind: "navigate",
       run: () => navigate({ to: "/apps/$domain/deployments/$id", params: { domain: deployment.domain, id: String(deployment.id) } }),

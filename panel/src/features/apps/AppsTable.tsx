@@ -19,10 +19,13 @@ import type { Labels, Scope } from "../teams/organization";
 import type { AppInfo, Deployment, LastDeployment } from "./data";
 import { appReading, deployMoment, lastDeployOf, previewParentOf, readsApps, useTypeName } from "./data";
 
-/** A deployment's outcome as a glyph and when it happened, for dense rows. */
-export function DeployMoment({ deploy }: { deploy: Pick<Deployment, "status" | "finished_at"> & { started_at?: string | null } }) {
+/**
+ * A deployment's outcome as a glyph and when it happened, for dense rows. A deploy an operator
+ * cancelled is stored as failed and is not one: it reads as cancelled, not as a fault.
+ */
+export function DeployMoment({ deploy }: { deploy: Pick<Deployment, "status" | "finished_at"> & { started_at?: string | null; cancelled?: boolean | null } }) {
   const t = useT();
-  const view = deployStatus(deploy.status, t.locale);
+  const view = deployStatus(deploy.cancelled === true ? "cancelled" : deploy.status, t.locale);
   return (
     <span className="inline-flex items-center gap-1.5">
       <StatusGlyph state={view.state} size={10} className={stateTextClass(view.state)} />
