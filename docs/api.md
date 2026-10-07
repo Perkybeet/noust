@@ -323,8 +323,9 @@ restore the database from the backup taken before the first of them. See
 - **The deploy queue.** A push or a request that arrives while an application builds waits
   its turn (`409 app_busy` is for an operation of another kind): `GET /api/jobs/queue` lists
   what runs and what waits, with the limits, and every job carries `state` (`queued`,
-  `running`, `succeeded`, `failed` or `cancelled`), `queue_position`, `waiting_for` and
-  `cancellable`. Builds of different applications overlap up to `deploy.max_concurrent_builds`;
+  `running`, `succeeded`, `failed` or `cancelled`), `queue_position`, `waiting_for`,
+  `cancellable` and, for a running job that cannot be cancelled, `cancel_blocked_reason`
+  (`activating`, `builds_in_place` or `unsupported`). Builds of different applications overlap up to `deploy.max_concurrent_builds`;
   requests for the same update merge, and `POST /api/jobs/update` says so in its `message`.
   When `deploy.queue_limit` builds wait, the next is `429 queue_full` with `Retry-After`.
 - **Lists** answer an object with the items and a count: `{apps, total}`,
@@ -774,7 +775,8 @@ half is a 0600 secret file, never in an argument or a response; git is given its
 (`ssh -i <key> -o IdentitiesOnly=yes`). Host keys are pinned in a `known_hosts` of Noust's own
 the first time each code host is reached, and a different key later is refused, never accepted
 silently: `GET /api/deploy-keys/hosts` lists them and `DELETE /api/deploy-keys/hosts/{host}` (sudo
-mode) forgets one, the one deliberate way to accept a change. The same from the terminal:
+mode) forgets one, the one deliberate way to accept a change; `{host}` is a name, `name:port`
+or the `[name]:port` the list gives a host on another port. The same from the terminal:
 `noust app deploy-key show|list|generate|import|assign|rotate|test|remove|prune|hosts|forget-host`.
 
 A private https repository is reached with a user and a token kept in the secret store, not in
