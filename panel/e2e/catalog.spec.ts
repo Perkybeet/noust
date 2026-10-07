@@ -23,6 +23,17 @@ function card(page: Page, title: string): Locator {
   return recipes(page).getByRole("listitem").filter({ has: page.getByRole("heading", { level: 2, name: title, exact: true }) });
 }
 
+/**
+ * One recipe's card, found by name as an operator does: the catalog holds seventy recipes in
+ * pages of twenty, so one far down the alphabet is not on the first page.
+ */
+async function find(page: Page, title: string): Promise<Locator> {
+  await page.getByRole("searchbox", { name: "Search recipes" }).fill(title);
+  const found = card(page, title);
+  await expect(found).toBeVisible();
+  return found;
+}
+
 /** The names of the recipes on screen, in the order they are drawn. */
 async function titles(page: Page): Promise<string[]> {
   return recipes(page).getByRole("heading", { level: 2 }).allTextContents();
@@ -31,8 +42,10 @@ async function titles(page: Page): Promise<string[]> {
 test("the catalog draws a card for each recipe, its logo loaded under the strict policy", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/catalog");
   await expect(page.getByRole("heading", { level: 1, name: "Catalog" })).toBeVisible();
-  const vault = card(page, "Vaultwarden");
-  await expect(vault).toBeVisible();
+  await expect(recipes(page).getByRole("heading", { level: 2 })).toHaveCount(20);
+  await settle(page);
+  await expectNoA11yViolations(page, "the catalog");
+  const vault = await find(page, "Vaultwarden");
   // The logo is the one the server serves, as an image: the page's policy lets it through (the
   // fixture fails the test on any violation), and it decoded.
   await expect.poll(() => vault.locator("img").evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
@@ -43,16 +56,14 @@ test("the catalog draws a card for each recipe, its logo loaded under the strict
   await expect(vault.getByRole("link", { name: /Documentation of Vaultwarden/ })).toHaveAttribute("href", /^https:\/\//);
   await expect(vault.getByRole("button", { name: "Use Vaultwarden" })).toBeEnabled();
   // A native recipe says what it needs, not that it runs in Docker.
-  const wordpress = card(page, "WordPress");
+  const wordpress = await find(page, "WordPress");
   await expect(wordpress.getByText("A MySQL database")).toBeVisible();
   await expect(wordpress.getByText("Runs in Docker")).toHaveCount(0);
-  await settle(page);
-  await expectNoA11yViolations(page, "the catalog");
 });
 
 test("the catalog is searched and filtered by the server's own search, and says when nothing matches", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/catalog");
-  await expect(card(page, "Vaultwarden")).toBeVisible();
+  await expect(recipes(page).getByRole("heading", { level: 2 })).toHaveCount(20);
 
   await page.getByRole("searchbox", { name: "Search recipes" }).fill("bitwarden");
   await expect(page).toHaveURL(/[?&]q=bitwarden/);
@@ -60,7 +71,7 @@ test("the catalog is searched and filtered by the server's own search, and says 
   await expect(card(page, "WordPress")).toHaveCount(0);
   await expect(page.getByRole("status").filter({ hasText: /^\d+ of \d+ recipes$/ })).toBeVisible();
   await page.getByRole("button", { name: "Clear filters" }).click();
-  await expect(card(page, "WordPress")).toBeVisible();
+  await expect(recipes(page).getByRole("heading", { level: 2 })).toHaveCount(20);
   await expect(page).not.toHaveURL(/q=/);
 
   // A category of the closed list, with how many recipes it holds.
@@ -96,16 +107,21 @@ test("the catalog is searched and filtered by the server's own search, and says 
 
 test("the catalog pages at the operator's size and remembers it, with the recipes it cannot deploy listed with their reason", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/catalog");
-  await expect(card(page, "Vaultwarden")).toBeVisible();
-  const first = (await titles(page)).length;
-  expect(first).toBe(20);
+  await expect(recipes(page).getByRole("heading", { level: 2 })).toHaveCount(20);
   const paging = page.getByRole("group", { name: "Pagination" });
-  await expect(paging.getByText(/^Showing 1–20 of \d+$/)).toBeVisible();
+  const range = await paging.getByText(/^Showing 1–20 of \d+$/).textContent();
+  const total = Number(/of (\d+)$/.exec(range ?? "")?.[1]);
+  expect(total).toBeGreaterThan(40);
 
-  await paging.getByRole("button", { name: "Next page" }).click();
+  const next = paging.getByRole("button", { name: "Next page" });
+  await next.click();
   await expect(paging.getByText(/^Showing 21–\d+ of \d+$/)).toBeVisible();
-  // The deployable recipes come first: the ones this release cannot run are on the last page,
-  // listed with the server's reason and no way to use them.
+  // The deployable recipes come first: the ones this release cannot run are on the last page
+  // (or the last two), listed with the server's reason and no way to use them.
+  for (let shown = 2; shown < Math.ceil(total / 20); shown++) {
+    await next.click();
+    await expect(paging.getByText(new RegExp(`^Showing ${String(shown * 20 + 1)}–\\d+ of \\d+$`))).toBeVisible();
+  }
   const unavailable = recipes(page).getByRole("listitem").filter({ hasText: "Not available in this release" }).first();
   await expect(unavailable).toBeVisible();
   await expect(unavailable.getByRole("button")).toHaveCount(0);
@@ -126,7 +142,7 @@ test("the catalog pages at the operator's size and remembers it, with the recipe
 
 test("a recipe's own page says what it runs, needs, asks for and tells, and shows no secret", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/catalog");
-  await card(page, "Vaultwarden").getByRole("link", { name: "Details of Vaultwarden" }).click();
+  await (await find(page, "Vaultwarden")).getByRole("link", { name: "Details of Vaultwarden" }).click();
   await expect(page).toHaveURL(/\/catalog\/vaultwarden$/);
   await expect(page.getByRole("heading", { level: 1, name: "Vaultwarden" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Catalog" })).toBeVisible();
@@ -160,7 +176,7 @@ test("a recipe's ports opened to the network are said before it is installed", a
 
 test("a recipe cannot be installed before what it cannot run without is given, and the way to it is a click", async ({ page, consoleServer }) => {
   await signIn(page, consoleServer, "/catalog");
-  await card(page, "FreshRSS").getByRole("button", { name: "Use FreshRSS" }).click();
+  await (await find(page, "FreshRSS")).getByRole("button", { name: "Use FreshRSS" }).click();
   await expect(page.getByRole("heading", { level: 2, name: "Address and variables" })).toBeVisible();
   await expect(page.getByText("v1.30.1")).toBeVisible();
   const posted: string[] = [];
@@ -182,7 +198,7 @@ test("a recipe is installed from the catalog as a job with its output a click aw
   test.setTimeout(300_000);
   const domain = "wp-catalogo.example.net";
   await signIn(page, consoleServer, "/catalog");
-  await card(page, "WordPress").getByRole("button", { name: "Use WordPress" }).click();
+  await (await find(page, "WordPress")).getByRole("button", { name: "Use WordPress" }).click();
   await expect(page.getByRole("heading", { level: 2, name: "Address and variables" })).toBeVisible();
   await page.getByLabel("Domain", { exact: true }).fill(domain);
   await page.getByRole("button", { name: "Deploy", exact: true }).click();
