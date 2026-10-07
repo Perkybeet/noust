@@ -1,0 +1,1 @@
+import{lr as e,p as t}from"./IconButton-D6kCn8j9.js";var n={all:[`jobs`,`queue`]},r=3e3;function i(e){return e!==void 0&&e.running.length+e.queued.length>0}var a=()=>e({queryKey:n.all,queryFn:({signal:e})=>t(`get`,`/api/jobs/queue`,{signal:e}),refetchInterval:e=>i(e.state.data)?r:!1});export{n,a as r,i as t};

@@ -1,0 +1,1 @@
+function e(e){let t=document.createElement(`span`);return t.style.transition=`none`,e.append(t),{read:e=>(t.style.color=`var(${e})`,getComputedStyle(t).color),release:()=>{t.remove()}}}export{e as t};

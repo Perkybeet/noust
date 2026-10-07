@@ -1,1 +1,0 @@
-var e=[`recipe`,`import`,`adopt`];function t(t){return typeof t==`string`&&e.includes(t)?t:void 0}function n(e){return{start:t(e.start)}}export{t as n,n as t};

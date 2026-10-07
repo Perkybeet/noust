@@ -1,0 +1,1 @@
+var e=/^(?:(?:25[0-5]|2[0-4]\d|1?\d?\d)\.){3}(?:25[0-5]|2[0-4]\d|1?\d?\d)(?:\/(?:3[0-2]|[12]?\d))?$/,t=/^(?=.*:)[0-9a-fA-F:.]+(?:\/(?:12[0-8]|1[01]\d|\d?\d))?$/;function n(n){return e.test(n)||t.test(n)}function r(e){let t=[...new Set(e.split(/[\s,;]+/).filter(e=>e!==``))];return{entries:t.filter(n),invalid:t.filter(e=>!n(e))}}export{r as t};
