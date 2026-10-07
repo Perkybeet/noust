@@ -20,7 +20,7 @@ import { Skeleton } from "../../../components/ui/Skeleton";
 import { useT } from "../../../i18n";
 import { can, isContainer, sortEngines } from "../../databases/engines";
 import type { Accepted } from "../../databases/jobs";
-import { NO_PICK, choiceFor, initialFlavour, isPickable, isSlotFlavour, needsInstall, requestedVersion, shownVersion } from "../../databases/provisioning/choices";
+import { NO_PICK, choiceFor, defaultOffer, initialFlavour, isPickable, isSlotFlavour, needsInstall, requestedVersion, shownVersion } from "../../databases/provisioning/choices";
 import type { ProvisionPick } from "../../databases/provisioning/choices";
 import { EngineVersionFields } from "../../databases/provisioning/EngineVersionFields";
 
@@ -61,7 +61,10 @@ export function CreateLinkDialog({ domain, open, onOpenChange, onQueued }: Creat
   const chosen = choiceFor(list, pick.flavour);
   const usable = chosen !== undefined && isPickable(chosen);
   const version = requestedVersion(pick);
-  const plan = useQuery({ ...provisioningPlanFor(domain, pick.flavour ?? "", version), enabled: open && usable });
+  // The server says an engine will be installed only for a version it was asked about: for the
+  // default of one that is missing, the plan asks about the version the default stands for.
+  const planVersion = version ?? (chosen !== undefined && needsInstall(chosen) ? (defaultOffer(chosen)?.version ?? null) : null);
+  const plan = useQuery({ ...provisioningPlanFor(domain, pick.flavour ?? "", planVersion), enabled: open && usable });
   const [name, setName] = useState("");
   const [envVar, setEnvVar] = useState("");
   const [extra, setExtra] = useState(false);

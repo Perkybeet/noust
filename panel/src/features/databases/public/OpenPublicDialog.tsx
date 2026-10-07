@@ -19,7 +19,7 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { parseAddresses } from "../../../lib/addresses";
 import { engineName } from "../engines";
-import { ACCESS_PROFILES, MAX_SOURCES, canRequireTls, initialForm, requestOf, validPort } from "./publicAccess";
+import { ACCESS_PROFILES, MAX_SOURCES, canRequireTls, initialForm, namedSources, requestOf, validPort } from "./publicAccess";
 import type { AccessProfile, PublicForm, TlsMode } from "./publicAccess";
 
 type Step = "choose" | "review";
@@ -227,7 +227,7 @@ export function OpenPublicDialog({ engine, database, open, onOpenChange, onOpene
                   { label: t("publicAccess.dialog.reviewFacts.port"), value: String(plan.port) },
                   { label: t("publicAccess.dialog.reviewFacts.listen"), value: plan.bind_address },
                   { label: t("publicAccess.dialog.reviewFacts.forwards"), value: plan.target },
-                  { label: t("publicAccess.facts.from"), value: plan.sources.length === 0 ? t("publicAccess.anyone") : plan.sources.join(", "), mono: plan.sources.length > 0 },
+                  { label: t("publicAccess.facts.from"), value: namedSources(plan.sources).length === 0 ? t("publicAccess.anyone") : namedSources(plan.sources).join(", "), mono: namedSources(plan.sources).length > 0 },
                   { label: t("publicAccess.dialog.reviewFacts.account"), value: `${plan.remote_user} · ${t(`publicAccess.profile.${plan.profile as AccessProfile}`)}`, copy: plan.remote_user },
                   { label: t("publicAccess.facts.tls"), value: plan.tls === "required" ? t("publicAccess.tls.required") : t("publicAccess.tls.optional"), mono: false, copy: false },
                   { label: t("publicAccess.dialog.reviewFacts.unit"), value: plan.unit },

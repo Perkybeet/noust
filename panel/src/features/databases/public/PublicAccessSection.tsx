@@ -20,6 +20,7 @@ import { reportActionError } from "../../apps/useAppActions";
 import { SecretShown } from "../users/SecretShown";
 import type { SecretShownProps } from "../users/SecretShown";
 import { OpenPublicDialog } from "./OpenPublicDialog";
+import { namedSources } from "./publicAccess";
 import type { AccessProfile } from "./publicAccess";
 
 /** What the firewall record says Noust did, as plain data: it is stored, so it is read defensively. */
@@ -33,8 +34,9 @@ function firewallOf(exposure: PublicExposure): { backend: string; active: boolea
 function firewallWords(t: T, exposure: PublicExposure): string {
   const firewall = firewallOf(exposure);
   if (firewall === null) return t("publicAccess.firewall.none");
-  if (exposure.sources.length === 0) return t("publicAccess.firewall.allowedAnyone", { backend: firewall.backend });
-  return t("publicAccess.firewall.allowed", { backend: firewall.backend, sources: exposure.sources.join(", ") });
+  const sources = namedSources(exposure.sources);
+  if (sources.length === 0) return t("publicAccess.firewall.allowedAnyone", { backend: firewall.backend });
+  return t("publicAccess.firewall.allowed", { backend: firewall.backend, sources: sources.join(", ") });
 }
 
 /** The connection, as the dialog that shows it once lists it. */
@@ -123,7 +125,7 @@ export function PublicAccessSection({ engine, name }: { engine: string; name: st
             items={[
               { label: t("publicAccess.facts.address"), value: data.connection !== null && data.connection !== undefined ? `${data.connection.host}:${String(data.connection.port)}` : `${exposure.bind_address}:${String(exposure.port)}` },
               { label: t("publicAccess.facts.tls"), value: exposure.tls === "required" ? t("publicAccess.tls.required") : t("publicAccess.tls.optional"), mono: false, copy: false },
-              { label: t("publicAccess.facts.from"), value: exposure.sources.length === 0 ? t("publicAccess.anyone") : exposure.sources.join(", "), mono: exposure.sources.length > 0, copy: false },
+              { label: t("publicAccess.facts.from"), value: namedSources(exposure.sources).length === 0 ? t("publicAccess.anyone") : namedSources(exposure.sources).join(", "), mono: namedSources(exposure.sources).length > 0, copy: false },
               { label: t("publicAccess.facts.account"), value: exposure.remote_user },
               { label: t("publicAccess.facts.access"), value: t(`publicAccess.profile.${exposure.profile as AccessProfile}`), mono: false, copy: false },
               { label: t("publicAccess.facts.firewall"), value: firewallWords(t, exposure), mono: false, copy: false },

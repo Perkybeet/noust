@@ -61,3 +61,11 @@ export function requestOf(engine: string, database: string, form: PublicForm): O
     profile: form.profile,
   };
 }
+
+/**
+ * Who a plan or an exposure names as able to reach the port: the addresses and networks, without
+ * the word the server writes for "anyone" (`any`), so an empty list is anyone in every place.
+ */
+export function namedSources(sources: readonly string[]): string[] {
+  return sources.filter((source) => source !== "any");
+}

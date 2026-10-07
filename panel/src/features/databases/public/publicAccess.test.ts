@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { engineFamilyOf } from "../engineKey";
-import { canRequireTls, initialForm, requestOf, validPort } from "./publicAccess";
+import { canRequireTls, initialForm, namedSources, requestOf, validPort } from "./publicAccess";
 
 describe("the port", () => {
   it("is empty, or whole and between 1024 and 65535", () => {
@@ -13,6 +13,14 @@ describe("the port", () => {
     expect(validPort("65536")).toBe(false);
     expect(validPort("54.3")).toBe(false);
     expect(validPort("abc")).toBe(false);
+  });
+});
+
+describe("who may reach it", () => {
+  it("is anyone when the server says the one word it writes for that, and the addresses otherwise", () => {
+    expect(namedSources(["any"])).toEqual([]);
+    expect(namedSources([])).toEqual([]);
+    expect(namedSources(["203.0.113.7/32", "10.0.0.0/24"])).toEqual(["203.0.113.7/32", "10.0.0.0/24"]);
   });
 });
 
