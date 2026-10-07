@@ -13,6 +13,8 @@ export const appSettings: Catalog<typeof en> = {
     deploys: "Despliegues",
     push: "Desplegar al hacer push",
     hooks: "Ganchos",
+    container: "Contenedor",
+    buildCommands: "Comandos de compilación",
     builds: "Compilaciones",
     resources: "Recursos",
     source: "Origen",

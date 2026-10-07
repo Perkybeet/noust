@@ -13,6 +13,7 @@ export type WebhookSecret = ResponseOf<"/api/apps/{domain}/webhook-secret", "pos
 export type Sandbox = ResponseOf<"/api/apps/{domain}/sandbox", "get">;
 export type AppHooks = ResponseOf<"/api/apps/{domain}/hooks", "get">;
 export type Identity = ResponseOf<"/api/apps/{domain}/identity", "get">;
+export type AppBuild = ResponseOf<"/api/apps/{domain}/build", "get">;
 
 /** How many deliveries "Pushes received" lists: the newest, enough to see a pattern. */
 export const RECEIVED_SHOWN = 8;
@@ -28,6 +29,8 @@ export const settingsKeys = {
   hooks: (domain: string) => ["app", domain, "hooks"] as const,
   identity: (domain: string) => ["app", domain, "identity"] as const,
   headless: (domain: string) => ["app", domain, "headless"] as const,
+  container: (domain: string) => ["app", domain, "container"] as const,
+  build: (domain: string) => ["app", domain, "build"] as const,
 };
 
 /** Read again every few seconds while the setup waits for the forge's first delivery. */
@@ -66,6 +69,20 @@ export const hooksQuery = (domain: string) =>
   queryOptions({
     queryKey: settingsKeys.hooks(domain),
     queryFn: ({ signal }) => request("get", "/api/apps/{domain}/hooks", { params: { domain }, signal }),
+  });
+
+/** How a container application is built and run (never the registry's password). Changes nothing. */
+export const containerQuery = (domain: string) =>
+  queryOptions({
+    queryKey: settingsKeys.container(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/container", { params: { domain }, signal }),
+  });
+
+/** The build block the next deployment uses, and whether it is the operator's or the repository's. */
+export const buildQuery = (domain: string) =>
+  queryOptions({
+    queryKey: settingsKeys.build(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/build", { params: { domain }, signal }),
   });
 
 /** The account the app runs as, and whether it can move to one of its own. Changes nothing. */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { validateNewAppSearch, wizardStart } from "./search";
+import { validateNewAppSearch, wizardRecipe, wizardStart } from "./search";
 
 describe("the wizard's search", () => {
   it("knows the three ways in besides its default", () => {
@@ -21,6 +21,22 @@ describe("the wizard's search", () => {
     // Every key the route knows is named, so the router drops the raw value of any of them.
     expect(Object.keys(unknown)).toEqual(["start", "team", "project", "environment"]);
     expect(unknown.start).toBeUndefined();
+  });
+
+  it("names a recipe to open only by what a recipe's name can be", () => {
+    expect(wizardRecipe("wordpress")).toBe("wordpress");
+    expect(wizardRecipe("uptime-kuma")).toBe("uptime-kuma");
+    for (const value of ["", "WordPress", "../etc", "a b", "-start", "x".repeat(41), 7, null, undefined, ["wordpress"]]) {
+      expect(wizardRecipe(value), JSON.stringify(value)).toBeUndefined();
+    }
+  });
+
+  it("carries the recipe a link names, and an explicit undefined for one that cannot be", () => {
+    expect(validateNewAppSearch({ start: "recipe", recipe: "wordpress" })).toEqual({ start: "recipe", recipe: "wordpress" });
+    expect(Object.keys(validateNewAppSearch({ start: "recipe" }))).toEqual(["start", "team", "project", "environment"]);
+    const bad = validateNewAppSearch({ start: "recipe", recipe: "../etc" });
+    expect(Object.keys(bad)).toEqual(["start", "team", "project", "environment", "recipe"]);
+    expect(bad.recipe).toBeUndefined();
   });
 
   it("reads where the new application goes, from a project's page, and drops anything that is not a short name", () => {

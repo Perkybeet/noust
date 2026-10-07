@@ -1,6 +1,7 @@
-import { KeyRound } from "lucide-react";
+import { Container, Eye, EyeOff, KeyRound } from "lucide-react";
+import { useState } from "react";
 
-import type { Recipe } from "../../api/queries/recipes";
+import type { Recipe, RecipeVariableInfo } from "../../api/queries/recipes";
 import type { KeyValueItem } from "../../components/page/KeyValueList";
 import { KeyValueList } from "../../components/page/KeyValueList";
 import { Subsection } from "../../components/page/Subsection";
@@ -9,12 +10,16 @@ import { Card } from "../../components/ui/Card";
 import { Disclosure } from "../../components/ui/Disclosure";
 import { ExternalLink } from "../../components/ui/ExternalLink";
 import { Field } from "../../components/ui/Field";
+import { IconButton } from "../../components/ui/IconButton";
 import { Input } from "../../components/ui/Input";
 import { Mono } from "../../components/ui/Mono";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { categoryWords, dependencyWords } from "../catalog/RecipeCard";
+import { RecipeLogo } from "../catalog/RecipeLogo";
+import { versionLabel } from "../catalog/model";
 import { addressItem } from "./DeployStep";
-import { editableVariables, generatedVariables, recipeVariableField, requiredVariables } from "./recipe";
+import { editableVariables, generatedVariables, recipeVariableField, requiredVariables, variableNamed } from "./recipe";
 import type { RecipeForm } from "./recipe";
 import { joinList, typeName } from "./wizard";
 import type { AppTypeOption } from "./wizard";
@@ -106,23 +111,53 @@ export function recipeSummary(t: T, recipe: Recipe, form: RecipeForm): KeyValueI
   ];
 }
 
-/** What the recipe is, above where it answers: its name, where its code comes from, its type. */
+/**
+ * What the recipe is, above where it answers: its logo, name and slogan, the version it pins,
+ * what it runs as (in Docker, or natively), what it needs the server to provide, where its code
+ * comes from and its type. Everything a person reads before giving it a domain.
+ */
 export function RecipeFacts({ recipe, types }: { recipe: Recipe; types: readonly AppTypeOption[] }) {
   const t = useT();
   const source = sourceItem(t, recipe);
+  const version = versionLabel(recipe.version, recipe.revision);
+  const needs = dependencyWords(t, recipe.dependencies);
   return (
     <Card padding="none">
-      <div className="flex flex-col gap-1 px-4 pt-1 pb-3">
+      <div className="flex flex-col gap-1 px-4 pt-4 pb-3">
+        <div className="flex items-center gap-3 pb-2">
+          <RecipeLogo logo={recipe.logo} title={recipe.title} />
+          <div className="flex min-w-0 flex-col gap-1">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {version !== null ? <Badge mono>{version}</Badge> : null}
+              <Badge>{categoryWords(t, recipe.category)}</Badge>
+              {recipe.runs_in_docker ? (
+                <Badge>
+                  <Container aria-hidden="true" className="size-icon-xs" />
+                  {t("catalog.card.docker")}
+                </Badge>
+              ) : null}
+            </div>
+            <p className="text-13 text-pretty text-fg-muted">{recipe.slogan !== "" ? recipe.slogan : recipe.description}</p>
+          </div>
+        </div>
         <KeyValueList
           items={[
             { label: t("newApp.recipes.recipe"), value: recipe.title, mono: false, copy: false, hint: recipe.description },
+            ...(needs.length > 0 ? [{ label: t("newApp.recipes.needs"), value: needs.join(", "), mono: false, copy: false as const }] : []),
             ...(source !== null ? [source] : []),
             ...(recipe.app_type ? [{ label: t("newApp.recipes.type"), value: typeName(types, recipe.app_type), mono: false, copy: false as const }] : []),
           ]}
         />
-        <ExternalLink href={recipe.homepage} inline unlinked="text" className="text-12">
-          {recipe.homepage}
-        </ExternalLink>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <ExternalLink href={recipe.homepage} inline unlinked="text" className="text-12">
+            {recipe.homepage}
+          </ExternalLink>
+          {recipe.docs !== null && recipe.docs !== undefined && recipe.docs !== recipe.homepage ? (
+            <ExternalLink href={recipe.docs} inline className="text-12">
+              {t("catalog.card.docs")}
+            </ExternalLink>
+          ) : null}
+        </div>
       </div>
     </Card>
   );
@@ -139,23 +174,54 @@ export interface RecipeVariablesProps {
 /** The attribute that finds a variable's control, for the step's "go to it" and its focus. */
 export const RECIPE_VARIABLE_ATTRIBUTE = "data-recipe-variable";
 
-function VariableField({ name, optional, form, onChange, error }: { name: string; optional: boolean; form: RecipeForm; onChange: (form: RecipeForm) => void; error?: string | undefined }) {
+function VariableField({
+  name,
+  variable,
+  optional,
+  form,
+  onChange,
+  error,
+}: {
+  name: string;
+  variable: RecipeVariableInfo | undefined;
+  optional: boolean;
+  form: RecipeForm;
+  onChange: (form: RecipeForm) => void;
+  error?: string | undefined;
+}) {
   const t = useT();
+  const secret = variable?.secret === true;
+  const [shown, setShown] = useState(false);
+  const said = variable?.description ?? "";
+  // What the recipe says it is for; an optional one without a word of its own says what empty keeps.
+  const description = said !== "" ? said : optional ? t("newApp.recipes.overridesDescription") : undefined;
+  // The default an empty field keeps, as the field's hint. A secret has none to show.
+  const fallback = !secret && variable?.default !== null && variable?.default !== undefined ? variable.default : "";
   return (
-    <Field
-      {...(optional ? { optional: true } : {})}
-      label={<Mono>{name}</Mono>}
-      error={error}
-      description={optional ? t("newApp.recipes.overridesDescription") : undefined}
-    >
+    <Field {...(optional ? { optional: true } : {})} label={<Mono>{name}</Mono>} error={error} description={description}>
       <Input
         mono
         {...{ [RECIPE_VARIABLE_ATTRIBUTE]: name }}
+        type={secret && !shown ? "password" : "text"}
         value={form.env[name] ?? ""}
         onValueChange={(value: string) => onChange({ ...form, env: { ...form.env, [name]: value } })}
-        autoComplete="off"
+        autoComplete={secret ? "new-password" : "off"}
         autoCapitalize="off"
         spellCheck={false}
+        {...(fallback !== "" ? { placeholder: fallback } : {})}
+        {...(secret
+          ? {
+              suffix: (
+                <IconButton
+                  label={t(shown ? "newApp.env.hide" : "newApp.env.show", { name })}
+                  icon={shown ? <EyeOff /> : <Eye />}
+                  size="sm"
+                  pressed={shown}
+                  onClick={() => setShown(!shown)}
+                />
+              ),
+            }
+          : {})}
       />
     </Field>
   );
@@ -166,8 +232,8 @@ function VariableField({ name, optional, form, onChange, error }: { name: string
  * front, each its own field, with what is wrong with it beside it: the deploy waits for these
  * and says which. Everything else is folded: what the recipe sets up (the database, the folders
  * it keeps, its startup check, which are the recipe's and shown as such), the generated
- * variables (listed, never asked) and the optional values the operator may set over the
- * recipe's.
+ * variables (listed, never asked and never shown) and the optional values the operator may set
+ * over the recipe's, each with what it is for and the default an empty field keeps.
  */
 export function RecipeVariables({ recipe, form, onChange, errors = {} }: RecipeVariablesProps) {
   const t = useT();
@@ -180,7 +246,15 @@ export function RecipeVariables({ recipe, form, onChange, errors = {} }: RecipeV
         <Subsection title={t("newApp.recipes.required")} description={t("newApp.recipes.requiredDescription", { title: recipe.title })}>
           <div className="flex flex-col gap-5">
             {required.map((name) => (
-              <VariableField key={name} name={name} optional={false} form={form} onChange={onChange} error={errors[recipeVariableField(name)]} />
+              <VariableField
+                key={name}
+                name={name}
+                variable={variableNamed(recipe, name)}
+                optional={false}
+                form={form}
+                onChange={onChange}
+                error={errors[recipeVariableField(name)]}
+              />
             ))}
           </div>
         </Subsection>
@@ -198,7 +272,7 @@ export function RecipeVariables({ recipe, form, onChange, errors = {} }: RecipeV
 
           <Subsection title={t("newApp.recipes.environment")} description={t("newApp.review.environmentDescription")}>
             <div className="flex flex-col gap-5">
-              {recipe.env.length === 0 ? <p className="text-13 text-fg-muted">{t("newApp.recipes.noVariables")}</p> : null}
+              {recipe.variables.length === 0 ? <p className="text-13 text-fg-muted">{t("newApp.recipes.noVariables")}</p> : null}
               {generated.length > 0 ? (
                 <div className="flex flex-col gap-1.5">
                   <p className="flex items-center gap-2 text-13 font-medium text-fg">
@@ -217,7 +291,7 @@ export function RecipeVariables({ recipe, form, onChange, errors = {} }: RecipeV
               ) : null}
               {optional.length === 0 && required.length === 0 && generated.length > 0 ? <p className="text-13 text-fg-muted">{t("newApp.recipes.allGenerated")}</p> : null}
               {optional.map((name) => (
-                <VariableField key={name} name={name} optional form={form} onChange={onChange} />
+                <VariableField key={name} name={name} variable={variableNamed(recipe, name)} optional form={form} onChange={onChange} />
               ))}
             </div>
           </Subsection>

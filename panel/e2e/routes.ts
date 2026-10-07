@@ -24,6 +24,10 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "overview", path: "/" },
   { name: "apps", path: "/apps" },
   { name: "apps-new", path: "/apps/new" },
+  // 3.4: the catalog of recipes, the recipes installed from it, and one recipe's own page.
+  { name: "catalog", path: "/catalog" },
+  { name: "catalog-installed", path: "/catalog/installed" },
+  { name: "catalog-recipe", path: "/catalog/vaultwarden" },
   { name: "app-overview", path: "/apps/shop.example.net" },
   { name: "app-deployments", path: "/apps/shop.example.net/deployments" },
   { name: "app-deployment", path: newestDeployment("tienda.example.org") },
@@ -42,6 +46,8 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "app-settings-deploys", path: "/apps/tienda.example.org/settings/deploys" },
   { name: "app-settings-push", path: "/apps/tienda.example.org/settings/deploy-on-push" },
   { name: "app-settings-hooks", path: "/apps/tienda.example.org/settings/hooks" },
+  // 3.4: the build commands of an application, the same page for every type that has a block.
+  { name: "app-settings-build", path: "/apps/shop.example.net/settings/build" },
   { name: "app-settings-builds", path: "/apps/tienda.example.org/settings/builds" },
   { name: "app-settings-resources", path: "/apps/shop.example.net/settings/resources" },
   { name: "app-settings-delete", path: "/apps/shop.example.net/settings/delete" },

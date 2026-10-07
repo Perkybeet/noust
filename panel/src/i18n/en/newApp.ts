@@ -31,6 +31,7 @@ export const newApp = {
     label: "Where the code is",
     github: "From GitHub",
     manual: "URL or path",
+    image: "A Docker image",
     recipe: "From a recipe",
     import: "Import an application",
     adopt: "A running stack",

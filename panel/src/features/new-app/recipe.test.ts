@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { recipeNotesOf } from "../../api/queries/recipes";
 import type { Recipe } from "../../api/queries/recipes";
 import { editableVariables, generatedVariables, initialRecipeForm, noteParts, recipeBody, recipeProblems, requiredVariables } from "./recipe";
-import { WORDPRESS as FIXTURE_WORDPRESS } from "./testFixtures";
+import { WORDPRESS as FIXTURE_WORDPRESS, generatedVariable, recipeVariable } from "./testFixtures";
 
 const WORDPRESS: Recipe = { ...FIXTURE_WORDPRESS, requires: ["MariaDB or MySQL (noust db install mysql)"], notes: [] };
 
@@ -16,7 +16,7 @@ describe("a recipe's form", () => {
 
   it("keeps where it answers, and the values both recipes set, when another recipe is chosen", () => {
     const typed = { domain: "blog.example.com", includeWww: true, ssl: false, env: { WP_DEBUG: "1" } };
-    const other = { env: [{ name: "WP_DEBUG", generated: false }, { name: "TZ", generated: false }] };
+    const other = { variables: [recipeVariable("WP_DEBUG"), recipeVariable("TZ")] };
     expect(initialRecipeForm(other, typed)).toEqual({ domain: "blog.example.com", includeWww: true, ssl: false, env: { WP_DEBUG: "1", TZ: "" } });
   });
 
@@ -29,11 +29,11 @@ describe("a recipe's form", () => {
 
 describe("a recipe's required variables (checklist M-19)", () => {
   const WITH_REQUIRED = {
-    env: [
-      { name: "ADMIN_EMAIL", generated: false, required: true },
-      { name: "SESSION_SECRET", generated: true, required: true },
-      { name: "TZ", generated: false, required: false },
-      { name: "WP_DEBUG", generated: false },
+    variables: [
+      recipeVariable("ADMIN_EMAIL", { origin: "required", required: true }),
+      generatedVariable("SESSION_SECRET", { required: true }),
+      recipeVariable("TZ"),
+      recipeVariable("WP_DEBUG"),
     ],
   };
 
@@ -56,7 +56,7 @@ describe("a recipe's required variables (checklist M-19)", () => {
   });
 
   it("are listed after the domain, in the order the recipe names them", () => {
-    const form = initialRecipeForm({ env: [{ name: "B", generated: false, required: true }, { name: "A", generated: false, required: true }] });
+    const form = initialRecipeForm({ variables: [recipeVariable("B", { required: true }), recipeVariable("A", { required: true })] });
     expect(Object.keys(recipeProblems(form, new Set(), ["B", "A"]))).toEqual(["domain", "env:B", "env:A"]);
     expect(Object.keys(recipeProblems({ ...form, domain: "x.example.com" }, new Set(), ["B", "A"]))).toEqual(["env:B", "env:A"]);
   });

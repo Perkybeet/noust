@@ -32,6 +32,7 @@ export const nav: Catalog<typeof en> = {
     goTo: "Ir a proyectos",
   },
   apps: { label: "Aplicaciones", keywords: "apps sitios desplegar despliegue deploy", goTo: "Ir a aplicaciones" },
+  catalog: { label: "Catálogo", keywords: "recetas plantillas instalar tienda catalog recipes templates marketplace", goTo: "Ir al catálogo" },
   databases: {
     label: "Bases de datos",
     keywords: "mysql postgres redis mongodb sql databases",

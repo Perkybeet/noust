@@ -28,9 +28,10 @@ export const NO_DATABASE: DatabaseChoice = { engine: null, extraVars: false };
 
 /**
  * App types the step is not offered for: a static site runs nothing that would read the variable,
- * and a monorepo or a Docker Compose project provisions its own (the server refuses the block).
+ * a monorepo or a Docker Compose project provisions its own, and a container cannot reach the
+ * host's databases (the server refuses the block for these three).
  */
-export const NO_DATABASE_STEP_TYPES: ReadonlySet<string> = new Set(["static", "monorepo", "docker-compose"]);
+export const NO_DATABASE_STEP_TYPES: ReadonlySet<string> = new Set(["static", "monorepo", "docker-compose", "container"]);
 
 /** The variables the extra-variables box adds (Laravel, Rails). */
 const EXTRA_VARIABLES = ["DB_HOST", "DB_PORT", "DB_NAME", "DB_USER", "DB_PASSWORD"] as const;

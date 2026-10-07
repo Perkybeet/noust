@@ -89,6 +89,19 @@ arguments; its secrets are build secrets, given to it as environment variables o
 that build (their names are checked: `PATH`, `LD_*`, `DOCKER_*` and the like are reserved).
 The image listens on `$PORT`, which Noust sets to the container port (3000 by default).
 
+### In the console
+
+The new-application wizard starts a container application three ways: a repository with a
+Dockerfile (the inspection proposes the container type), a repository Railpack builds (choose
+Railpack on **Configuration**), and **A Docker image**, which has no source and nothing to inspect.
+**Configuration** carries every setting above: the Dockerfile, context and stage, build arguments
+and build secrets, the port, the volumes, the restart policy and a private registry's account. An
+application's **Settings > Container** shows and changes them afterwards (`noust app container set`).
+Secrets are write-only there too: a build secret is listed by its id, a registry account's password
+is "kept", and neither value is ever sent back or shown. The console cannot tell whether Railpack
+is installed (no API says so): it offers it, and the deploy refuses with the server's words when it
+is not.
+
 ## How it runs
 
 Noust writes `compose.noust.yaml` in the application's directory (beside the repository, which

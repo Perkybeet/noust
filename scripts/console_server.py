@@ -85,6 +85,19 @@ CALL_HISTORY = 256
 #: keeps it out of everything that only ever runs one console_server.py.
 FLEET_NODE_APP_ENV = "NOUST_E2E_FLEET_APP"
 
+#: Set to "1" by the catalogue's E2E spec (panel/e2e/catalog.spec.ts) to seed what its pages
+#: need beyond the default machine: container applications, applications installed from a
+#: recipe at an older version and one whose recipe left the catalogue. An environment variable
+#: and not a seed of every run: the default machine's applications are counted by other specs.
+CATALOG_ENV = "NOUST_E2E_CATALOG"
+
+#: What :func:`seed_catalog_apps` creates, for the specs that open each.
+CATALOG_DOCKERFILE_APP = "crate.example.net"
+CATALOG_IMAGE_APP = "registry.example.net"
+CATALOG_VAULT_APP = "vault.example.net"
+CATALOG_READER_APP = "reader.example.net"
+CATALOG_RETIRED_APP = "retired.example.net"
+
 #: Set to a version ("3.0.0") by the fleet's E2E suite to make this node pretend to be an
 #: older Noust: it reports that version and does not offer OLDER_NODE_MISSING (see
 #: pretend_older_node), so a central's views say "unsupported" for it.
@@ -8041,6 +8054,120 @@ def seed_fleet_node_app(
     _tabs_register(sandbox, get_store(), units, ports, domains, app, working_directory=root)
 
 
+def seed_catalog_apps(
+    sandbox: Sandbox, units: dict[str, Unit], ports: dict[str, int], domains: dict[str, str]
+) -> None:
+    """
+    Seed the applications the catalogue's pages are opened on.
+
+    Two container applications (one built from a Dockerfile with a build secret, one pulled
+    from a registry with an account), and three applications recorded as installed from a
+    recipe: Vaultwarden one version behind the catalogue, FreshRSS at the catalogue's version,
+    and one whose recipe is no longer there. Their secrets go to the sandbox's secret store,
+    where a real deployment puts them, so the pages that must never show one are shown a real
+    one to hide.
+
+    Args:
+        sandbox: The sandbox.
+        units: The modelled units, mutated in place.
+        ports: Each unit's port, mutated in place.
+        domains: Each unit's domain, mutated in place.
+    """
+    from datetime import datetime as _datetime
+
+    from noust.core.container_store import ContainerStore
+    from noust.core.store import App, get_store
+    from noust.core.utils import domain_to_app_name
+    from noust.deployers.helpers.container_settings import settings_for_new_app
+    from noust.recipes import get_recipe
+
+    store = get_store()
+
+    def register(domain: str, app_type: str, source: str, port: int, layout: str) -> None:
+        root = sandbox.apps_dir / domain_to_app_name(domain)
+        root.mkdir(parents=True, exist_ok=True)
+        app = App(
+            domain=domain,
+            app_type=app_type,
+            source=source,
+            branch="main" if source.startswith("https://") else None,
+            port=port,
+            app_path=str(root),
+            status="running",
+            ssl_enabled=True,
+            layout=layout,
+        )
+        _tabs_register(sandbox, store, units, ports, domains, app, working_directory=root)
+
+    register(
+        CATALOG_DOCKERFILE_APP,
+        "container",
+        "https://github.com/example-org/crate.git",
+        41981,
+        "releases",
+    )
+    ContainerStore(store).save(
+        CATALOG_DOCKERFILE_APP,
+        settings_for_new_app(
+            CATALOG_DOCKERFILE_APP,
+            {
+                "method": "dockerfile",
+                "dockerfile": "docker/Dockerfile.prod",
+                "context": "services/api",
+                "target": "runtime",
+                "build_args": {"NODE_ENV": "production"},
+                "container_port": 3000,
+                "volumes": ["/data"],
+                "build_secret_values": {
+                    "npmrc": "//registry.npmjs.org/:_authToken=seeded-never-shown"
+                },
+            },
+        ),
+        actor="seed",
+    )
+    register(
+        CATALOG_IMAGE_APP, "container", "ghcr.io/example-org/registry-demo:1.4", 41982, "releases"
+    )
+    ContainerStore(store).save(
+        CATALOG_IMAGE_APP,
+        settings_for_new_app(
+            CATALOG_IMAGE_APP,
+            {
+                "method": "image",
+                "image": "ghcr.io/example-org/registry-demo:1.4",
+                "container_port": 8080,
+                "registry_username": "ci",
+                "registry_password": "seeded-registry-token-never-shown",
+            },
+        ),
+        actor="seed",
+    )
+
+    now = _datetime.now().isoformat()
+    installed = [
+        (CATALOG_VAULT_APP, "vaultwarden", get_recipe("vaultwarden").kind, "1.36.0", 41983),
+        (
+            CATALOG_READER_APP,
+            "freshrss",
+            get_recipe("freshrss").kind,
+            get_recipe("freshrss").version or "1",
+            41984,
+        ),
+        (CATALOG_RETIRED_APP, "retired-recipe", "compose", "0.9.0", 41985),
+    ]
+    for domain, recipe, kind, version, port in installed:
+        register(domain, "docker-compose", "", port, "inplace")
+        row = store.get_app(domain)
+        if row is None:
+            continue
+        with store._transaction() as cursor:
+            cursor.execute(
+                "INSERT INTO app_recipes (app_id, recipe, kind, version, revision, installed_at, "
+                "updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)",
+                (row.id, recipe, kind, version, now, now),
+            )
+
+
 def seed_release_23(sandbox: Sandbox) -> None:
     """
     Seed what the 2.3 screens need beyond the machine seeded before them.
@@ -9424,6 +9551,9 @@ def serve(args: argparse.Namespace, sandbox: Sandbox) -> None:
         # to keep out of them.
         with contextlib.redirect_stdout(sys.stderr):
             seed_exportable_app(sandbox)
+    if os.environ.get(CATALOG_ENV) and args.central_role != "hub":
+        with contextlib.redirect_stdout(sys.stderr):
+            seed_catalog_apps(sandbox, units, ports, domains)
     fleet_node_app = os.environ.get(FLEET_NODE_APP_ENV)
     if fleet_node_app:
         with contextlib.redirect_stdout(sys.stderr):

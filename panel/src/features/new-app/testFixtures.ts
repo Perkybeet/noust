@@ -4,7 +4,7 @@
  */
 
 import type { AppExportDocument } from "../../api/queries/appImport";
-import type { Recipe, RecipeList, RecipeSummary } from "../../api/queries/recipes";
+import type { Recipe, RecipeList, RecipeSummary, RecipeVariableInfo } from "../../api/queries/recipes";
 
 export const EXPORT: AppExportDocument = {
   format: "wasm-app",
@@ -63,6 +63,7 @@ export const RECIPES: RecipeList = {
       available: true,
       app_type: "php-fpm",
       database: "mysql",
+      dependencies: ["mysql"],
       requires: ["PHP-FPM 7.4 or newer", "MariaDB or MySQL (noust db install mysql)"],
     },
     {
@@ -96,6 +97,16 @@ export const RECIPES: RecipeList = {
   total: 3,
 };
 
+/** A variable of a recipe as the API lists it: one the operator may set, unless the patch says otherwise. */
+export function recipeVariable(name: string, patch: Partial<RecipeVariableInfo> = {}): RecipeVariableInfo {
+  return { name, origin: "default", input: true, required: false, secret: false, description: "", default: null, generate: null, ...patch };
+}
+
+/** A variable the deployment fills in itself: asked of nobody. */
+export function generatedVariable(name: string, patch: Partial<RecipeVariableInfo> = {}): RecipeVariableInfo {
+  return recipeVariable(name, { origin: "generated", input: false, secret: true, generate: "password64", ...patch });
+}
+
 export const WORDPRESS: Recipe = {
   name: "wordpress",
   title: "WordPress",
@@ -107,8 +118,9 @@ export const WORDPRESS: Recipe = {
   available: true,
   app_type: "php-fpm",
   database: "mysql",
+  dependencies: ["mysql"],
   requires: ["PHP-FPM 7.4 or newer"],
-  variables: [],
+  variables: [generatedVariable("WORDPRESS_DB_PASSWORD", { origin: "provisioned", generate: null }), generatedVariable("WORDPRESS_AUTH_KEY"), recipeVariable("WP_DEBUG")],
   images: [],
   public_ports: [],
   changelog: [],

@@ -1,23 +1,72 @@
 import { queryOptions } from "@tanstack/react-query";
 
 import { request } from "../client";
-import type { ResponseOf } from "../client";
+import type { BodyOf, QueryOf, ResponseOf } from "../client";
+import { activeNode, nodeApiPath } from "../nodeScope";
 
 export type RecipeList = ResponseOf<"/api/recipes", "get">;
 export type RecipeSummary = RecipeList["items"][number];
 export type Recipe = ResponseOf<"/api/recipes/{name}", "get">;
+/** One variable of a recipe, with where its value comes from and whether install needs it. */
+export type RecipeVariableInfo = Recipe["variables"][number];
+export type RecipeCategories = ResponseOf<"/api/recipes/categories", "get">;
+export type InstalledRecipes = ResponseOf<"/api/recipes/installed", "get">;
+export type InstalledRecipe = InstalledRecipes["items"][number];
+export type RecipeChange = InstalledRecipe["changes"][number];
+export type RecipeUpdateBody = BodyOf<"/api/recipes/installed/{domain}/update", "post">;
+type RecipeQuery = QueryOf<"/api/recipes", "get">;
+
+/** What narrows the catalogue; every one given must hold (the server's own search). */
+export interface RecipeFilters {
+  /** Words to look for in the name, title, slogan, description, category and tags. */
+  q?: string | undefined;
+  /** One category of the closed list. */
+  category?: string | undefined;
+  /** One tag, exactly. */
+  tag?: string | undefined;
+  /** `compose` runs in Docker; `native` is built and run by one of Noust's deployers. */
+  kind?: "native" | "compose" | undefined;
+}
 
 export const recipeKeys = {
   all: ["recipes"] as const,
   list: ["recipes", "list"] as const,
+  filtered: (filters: object) => ["recipes", "list", filters] as const,
   detail: (name: string) => ["recipes", "detail", name] as const,
+  categories: ["recipes", "categories"] as const,
+  installed: ["recipes", "installed"] as const,
 };
 
-/** The recipes this release ships, the deployable ones first. They change only with Noust. */
-export const recipesQuery = () =>
+/** The filters that are set, as the query string takes them: nothing empty is sent. */
+export function cleanRecipeFilters(filters: RecipeFilters): NonNullable<RecipeQuery> {
+  const clean: NonNullable<RecipeQuery> = {};
+  const q = filters.q?.trim();
+  if (q !== undefined && q !== "") clean.q = q;
+  if (filters.category !== undefined && filters.category !== "") clean.category = filters.category;
+  if (filters.tag !== undefined && filters.tag !== "") clean.tag = filters.tag;
+  if (filters.kind !== undefined) clean.kind = filters.kind;
+  return clean;
+}
+
+/**
+ * The recipes this release ships, the deployable ones first, narrowed by the server's own
+ * search when `filters` say so. They change only with Noust, so a read is good for minutes.
+ */
+export const recipesQuery = (filters: RecipeFilters = {}) => {
+  const clean = cleanRecipeFilters(filters);
+  const narrowed = Object.keys(clean).length > 0;
+  return queryOptions({
+    queryKey: narrowed ? recipeKeys.filtered(clean) : recipeKeys.list,
+    queryFn: ({ signal }) => request("get", "/api/recipes", { ...(narrowed ? { query: clean } : {}), signal }),
+    staleTime: 10 * 60_000,
+  });
+};
+
+/** The categories that hold at least one recipe, with how many. */
+export const recipeCategoriesQuery = () =>
   queryOptions({
-    queryKey: recipeKeys.list,
-    queryFn: ({ signal }) => request("get", "/api/recipes", { signal }),
+    queryKey: recipeKeys.categories,
+    queryFn: ({ signal }) => request("get", "/api/recipes/categories", { signal }),
     staleTime: 10 * 60_000,
   });
 
@@ -28,6 +77,26 @@ export const recipeQuery = (name: string) =>
     queryFn: ({ signal }) => request("get", "/api/recipes/{name}", { params: { name }, signal }),
     staleTime: 10 * 60_000,
   });
+
+/**
+ * What was installed from a recipe, at which version, and whether the catalogue is ahead. It
+ * moves with every update, so it is read again whenever the page is opened.
+ */
+export const installedRecipesQuery = () =>
+  queryOptions({
+    queryKey: recipeKeys.installed,
+    queryFn: ({ signal }) => request("get", "/api/recipes/installed", { signal }),
+    staleTime: 30_000,
+  });
+
+/**
+ * Where a recipe's logo is served from, for an `<img>`: on a central with a node selected the
+ * node's own copy, through the proxy, like every other call. The logo is an SVG held to a
+ * closed list of elements, so it needs nothing the Content Security Policy forbids.
+ */
+export function recipeLogoSrc(logo: string): string {
+  return nodeApiPath(activeNode(), logo);
+}
 
 /**
  * The notes a recipe's deploy left in its job's result (`result.notes`, filled in by the

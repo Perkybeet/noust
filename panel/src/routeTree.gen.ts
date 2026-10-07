@@ -28,6 +28,9 @@ import { Route as ConsoleBackupsDestinationsRouteImport } from "./routes/_consol
 import { Route as ConsoleBackupsNoustRouteImport } from "./routes/_console/backups/noust"
 import { Route as ConsoleBackupsSchedulesRouteImport } from "./routes/_console/backups/schedules"
 import { Route as ConsoleBackupsVolumesRouteImport } from "./routes/_console/backups/volumes"
+import { Route as ConsoleCatalogIndexRouteImport } from "./routes/_console/catalog/index"
+import { Route as ConsoleCatalogNameRouteImport } from "./routes/_console/catalog/$name"
+import { Route as ConsoleCatalogInstalledRouteImport } from "./routes/_console/catalog/installed"
 import { Route as ConsoleDatabasesIndexRouteImport } from "./routes/_console/databases/index"
 import { Route as ConsoleDatabasesEnginesRouteImport } from "./routes/_console/databases/engines"
 import { Route as ConsoleDomainsIndexRouteImport } from "./routes/_console/domains/index"
@@ -86,7 +89,9 @@ import { Route as ConsoleTeamsTeamSettingsRouteImport } from "./routes/_console/
 import { Route as ConsoleAppsDomainDeploymentsIndexRouteImport } from "./routes/_console/apps/$domain/deployments/index"
 import { Route as ConsoleAppsDomainDeploymentsIdRouteImport } from "./routes/_console/apps/$domain/deployments/$id"
 import { Route as ConsoleAppsDomainSettingsIndexRouteImport } from "./routes/_console/apps/$domain/settings/index"
+import { Route as ConsoleAppsDomainSettingsBuildRouteImport } from "./routes/_console/apps/$domain/settings/build"
 import { Route as ConsoleAppsDomainSettingsBuildsRouteImport } from "./routes/_console/apps/$domain/settings/builds"
+import { Route as ConsoleAppsDomainSettingsContainerRouteImport } from "./routes/_console/apps/$domain/settings/container"
 import { Route as ConsoleAppsDomainSettingsDeleteRouteImport } from "./routes/_console/apps/$domain/settings/delete"
 import { Route as ConsoleAppsDomainSettingsDeployOnPushRouteImport } from "./routes/_console/apps/$domain/settings/deploy-on-push"
 import { Route as ConsoleAppsDomainSettingsDeploysRouteImport } from "./routes/_console/apps/$domain/settings/deploys"
@@ -200,6 +205,21 @@ const ConsoleBackupsSchedulesRoute = ConsoleBackupsSchedulesRouteImport.update({
 const ConsoleBackupsVolumesRoute = ConsoleBackupsVolumesRouteImport.update({
   id: "/backups/volumes",
   path: "/backups/volumes",
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleCatalogIndexRoute = ConsoleCatalogIndexRouteImport.update({
+  id: "/catalog/",
+  path: "/catalog/",
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleCatalogNameRoute = ConsoleCatalogNameRouteImport.update({
+  id: "/catalog/$name",
+  path: "/catalog/$name",
+  getParentRoute: () => ConsoleRoute,
+} as any)
+const ConsoleCatalogInstalledRoute = ConsoleCatalogInstalledRouteImport.update({
+  id: "/catalog/installed",
+  path: "/catalog/installed",
   getParentRoute: () => ConsoleRoute,
 } as any)
 const ConsoleDatabasesIndexRoute = ConsoleDatabasesIndexRouteImport.update({
@@ -513,10 +533,22 @@ const ConsoleAppsDomainSettingsIndexRoute =
     path: "/",
     getParentRoute: () => ConsoleAppsDomainSettingsRoute,
   } as any)
+const ConsoleAppsDomainSettingsBuildRoute =
+  ConsoleAppsDomainSettingsBuildRouteImport.update({
+    id: "/build",
+    path: "/build",
+    getParentRoute: () => ConsoleAppsDomainSettingsRoute,
+  } as any)
 const ConsoleAppsDomainSettingsBuildsRoute =
   ConsoleAppsDomainSettingsBuildsRouteImport.update({
     id: "/builds",
     path: "/builds",
+    getParentRoute: () => ConsoleAppsDomainSettingsRoute,
+  } as any)
+const ConsoleAppsDomainSettingsContainerRoute =
+  ConsoleAppsDomainSettingsContainerRouteImport.update({
+    id: "/container",
+    path: "/container",
     getParentRoute: () => ConsoleAppsDomainSettingsRoute,
   } as any)
 const ConsoleAppsDomainSettingsDeleteRoute =
@@ -651,6 +683,8 @@ export interface FileRoutesByFullPath {
   "/backups/noust": typeof ConsoleBackupsNoustRoute
   "/backups/schedules": typeof ConsoleBackupsSchedulesRoute
   "/backups/volumes": typeof ConsoleBackupsVolumesRoute
+  "/catalog/$name": typeof ConsoleCatalogNameRoute
+  "/catalog/installed": typeof ConsoleCatalogInstalledRoute
   "/databases/engines": typeof ConsoleDatabasesEnginesRoute
   "/fleet/activity": typeof ConsoleFleetActivityRoute
   "/fleet/apps": typeof ConsoleFleetAppsRoute
@@ -681,6 +715,7 @@ export interface FileRoutesByFullPath {
   "/teams/$team": typeof ConsoleTeamsTeamRouteWithChildren
   "/apps/": typeof ConsoleAppsIndexRoute
   "/backups/": typeof ConsoleBackupsIndexRoute
+  "/catalog/": typeof ConsoleCatalogIndexRoute
   "/databases/": typeof ConsoleDatabasesIndexRoute
   "/domains/": typeof ConsoleDomainsIndexRoute
   "/fleet/": typeof ConsoleFleetIndexRoute
@@ -709,7 +744,9 @@ export interface FileRoutesByFullPath {
   "/domains/sites/": typeof ConsoleDomainsSitesIndexRoute
   "/teams/$team/": typeof ConsoleTeamsTeamIndexRoute
   "/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
+  "/apps/$domain/settings/build": typeof ConsoleAppsDomainSettingsBuildRoute
   "/apps/$domain/settings/builds": typeof ConsoleAppsDomainSettingsBuildsRoute
+  "/apps/$domain/settings/container": typeof ConsoleAppsDomainSettingsContainerRoute
   "/apps/$domain/settings/delete": typeof ConsoleAppsDomainSettingsDeleteRoute
   "/apps/$domain/settings/deploy-on-push": typeof ConsoleAppsDomainSettingsDeployOnPushRoute
   "/apps/$domain/settings/deploys": typeof ConsoleAppsDomainSettingsDeploysRoute
@@ -745,6 +782,8 @@ export interface FileRoutesByTo {
   "/backups/noust": typeof ConsoleBackupsNoustRoute
   "/backups/schedules": typeof ConsoleBackupsSchedulesRoute
   "/backups/volumes": typeof ConsoleBackupsVolumesRoute
+  "/catalog/$name": typeof ConsoleCatalogNameRoute
+  "/catalog/installed": typeof ConsoleCatalogInstalledRoute
   "/databases/engines": typeof ConsoleDatabasesEnginesRoute
   "/fleet/activity": typeof ConsoleFleetActivityRoute
   "/fleet/apps": typeof ConsoleFleetAppsRoute
@@ -774,6 +813,7 @@ export interface FileRoutesByTo {
   "/settings/tokens": typeof ConsoleSettingsTokensRoute
   "/apps": typeof ConsoleAppsIndexRoute
   "/backups": typeof ConsoleBackupsIndexRoute
+  "/catalog": typeof ConsoleCatalogIndexRoute
   "/databases": typeof ConsoleDatabasesIndexRoute
   "/domains": typeof ConsoleDomainsIndexRoute
   "/fleet": typeof ConsoleFleetIndexRoute
@@ -799,7 +839,9 @@ export interface FileRoutesByTo {
   "/domains/sites": typeof ConsoleDomainsSitesIndexRoute
   "/teams/$team": typeof ConsoleTeamsTeamIndexRoute
   "/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
+  "/apps/$domain/settings/build": typeof ConsoleAppsDomainSettingsBuildRoute
   "/apps/$domain/settings/builds": typeof ConsoleAppsDomainSettingsBuildsRoute
+  "/apps/$domain/settings/container": typeof ConsoleAppsDomainSettingsContainerRoute
   "/apps/$domain/settings/delete": typeof ConsoleAppsDomainSettingsDeleteRoute
   "/apps/$domain/settings/deploy-on-push": typeof ConsoleAppsDomainSettingsDeployOnPushRoute
   "/apps/$domain/settings/deploys": typeof ConsoleAppsDomainSettingsDeploysRoute
@@ -841,6 +883,8 @@ export interface FileRoutesById {
   "/_console/backups/noust": typeof ConsoleBackupsNoustRoute
   "/_console/backups/schedules": typeof ConsoleBackupsSchedulesRoute
   "/_console/backups/volumes": typeof ConsoleBackupsVolumesRoute
+  "/_console/catalog/$name": typeof ConsoleCatalogNameRoute
+  "/_console/catalog/installed": typeof ConsoleCatalogInstalledRoute
   "/_console/databases/engines": typeof ConsoleDatabasesEnginesRoute
   "/_console/fleet/activity": typeof ConsoleFleetActivityRoute
   "/_console/fleet/apps": typeof ConsoleFleetAppsRoute
@@ -871,6 +915,7 @@ export interface FileRoutesById {
   "/_console/teams/$team": typeof ConsoleTeamsTeamRouteWithChildren
   "/_console/apps/": typeof ConsoleAppsIndexRoute
   "/_console/backups/": typeof ConsoleBackupsIndexRoute
+  "/_console/catalog/": typeof ConsoleCatalogIndexRoute
   "/_console/databases/": typeof ConsoleDatabasesIndexRoute
   "/_console/domains/": typeof ConsoleDomainsIndexRoute
   "/_console/fleet/": typeof ConsoleFleetIndexRoute
@@ -899,7 +944,9 @@ export interface FileRoutesById {
   "/_console/domains/sites/": typeof ConsoleDomainsSitesIndexRoute
   "/_console/teams/$team/": typeof ConsoleTeamsTeamIndexRoute
   "/_console/apps/$domain/deployments/$id": typeof ConsoleAppsDomainDeploymentsIdRoute
+  "/_console/apps/$domain/settings/build": typeof ConsoleAppsDomainSettingsBuildRoute
   "/_console/apps/$domain/settings/builds": typeof ConsoleAppsDomainSettingsBuildsRoute
+  "/_console/apps/$domain/settings/container": typeof ConsoleAppsDomainSettingsContainerRoute
   "/_console/apps/$domain/settings/delete": typeof ConsoleAppsDomainSettingsDeleteRoute
   "/_console/apps/$domain/settings/deploy-on-push": typeof ConsoleAppsDomainSettingsDeployOnPushRoute
   "/_console/apps/$domain/settings/deploys": typeof ConsoleAppsDomainSettingsDeploysRoute
@@ -941,6 +988,8 @@ export interface FileRouteTypes {
     | "/backups/noust"
     | "/backups/schedules"
     | "/backups/volumes"
+    | "/catalog/$name"
+    | "/catalog/installed"
     | "/databases/engines"
     | "/fleet/activity"
     | "/fleet/apps"
@@ -971,6 +1020,7 @@ export interface FileRouteTypes {
     | "/teams/$team"
     | "/apps/"
     | "/backups/"
+    | "/catalog/"
     | "/databases/"
     | "/domains/"
     | "/fleet/"
@@ -999,7 +1049,9 @@ export interface FileRouteTypes {
     | "/domains/sites/"
     | "/teams/$team/"
     | "/apps/$domain/deployments/$id"
+    | "/apps/$domain/settings/build"
     | "/apps/$domain/settings/builds"
+    | "/apps/$domain/settings/container"
     | "/apps/$domain/settings/delete"
     | "/apps/$domain/settings/deploy-on-push"
     | "/apps/$domain/settings/deploys"
@@ -1035,6 +1087,8 @@ export interface FileRouteTypes {
     | "/backups/noust"
     | "/backups/schedules"
     | "/backups/volumes"
+    | "/catalog/$name"
+    | "/catalog/installed"
     | "/databases/engines"
     | "/fleet/activity"
     | "/fleet/apps"
@@ -1064,6 +1118,7 @@ export interface FileRouteTypes {
     | "/settings/tokens"
     | "/apps"
     | "/backups"
+    | "/catalog"
     | "/databases"
     | "/domains"
     | "/fleet"
@@ -1089,7 +1144,9 @@ export interface FileRouteTypes {
     | "/domains/sites"
     | "/teams/$team"
     | "/apps/$domain/deployments/$id"
+    | "/apps/$domain/settings/build"
     | "/apps/$domain/settings/builds"
+    | "/apps/$domain/settings/container"
     | "/apps/$domain/settings/delete"
     | "/apps/$domain/settings/deploy-on-push"
     | "/apps/$domain/settings/deploys"
@@ -1130,6 +1187,8 @@ export interface FileRouteTypes {
     | "/_console/backups/noust"
     | "/_console/backups/schedules"
     | "/_console/backups/volumes"
+    | "/_console/catalog/$name"
+    | "/_console/catalog/installed"
     | "/_console/databases/engines"
     | "/_console/fleet/activity"
     | "/_console/fleet/apps"
@@ -1160,6 +1219,7 @@ export interface FileRouteTypes {
     | "/_console/teams/$team"
     | "/_console/apps/"
     | "/_console/backups/"
+    | "/_console/catalog/"
     | "/_console/databases/"
     | "/_console/domains/"
     | "/_console/fleet/"
@@ -1188,7 +1248,9 @@ export interface FileRouteTypes {
     | "/_console/domains/sites/"
     | "/_console/teams/$team/"
     | "/_console/apps/$domain/deployments/$id"
+    | "/_console/apps/$domain/settings/build"
     | "/_console/apps/$domain/settings/builds"
+    | "/_console/apps/$domain/settings/container"
     | "/_console/apps/$domain/settings/delete"
     | "/_console/apps/$domain/settings/deploy-on-push"
     | "/_console/apps/$domain/settings/deploys"
@@ -1353,6 +1415,27 @@ declare module "@tanstack/react-router" {
       path: "/backups/volumes"
       fullPath: "/backups/volumes"
       preLoaderRoute: typeof ConsoleBackupsVolumesRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/catalog/": {
+      id: "/_console/catalog/"
+      path: "/catalog"
+      fullPath: "/catalog/"
+      preLoaderRoute: typeof ConsoleCatalogIndexRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/catalog/$name": {
+      id: "/_console/catalog/$name"
+      path: "/catalog/$name"
+      fullPath: "/catalog/$name"
+      preLoaderRoute: typeof ConsoleCatalogNameRouteImport
+      parentRoute: typeof ConsoleRoute
+    }
+    "/_console/catalog/installed": {
+      id: "/_console/catalog/installed"
+      path: "/catalog/installed"
+      fullPath: "/catalog/installed"
+      preLoaderRoute: typeof ConsoleCatalogInstalledRouteImport
       parentRoute: typeof ConsoleRoute
     }
     "/_console/databases/": {
@@ -1761,11 +1844,25 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ConsoleAppsDomainSettingsIndexRouteImport
       parentRoute: typeof ConsoleAppsDomainSettingsRoute
     }
+    "/_console/apps/$domain/settings/build": {
+      id: "/_console/apps/$domain/settings/build"
+      path: "/build"
+      fullPath: "/apps/$domain/settings/build"
+      preLoaderRoute: typeof ConsoleAppsDomainSettingsBuildRouteImport
+      parentRoute: typeof ConsoleAppsDomainSettingsRoute
+    }
     "/_console/apps/$domain/settings/builds": {
       id: "/_console/apps/$domain/settings/builds"
       path: "/builds"
       fullPath: "/apps/$domain/settings/builds"
       preLoaderRoute: typeof ConsoleAppsDomainSettingsBuildsRouteImport
+      parentRoute: typeof ConsoleAppsDomainSettingsRoute
+    }
+    "/_console/apps/$domain/settings/container": {
+      id: "/_console/apps/$domain/settings/container"
+      path: "/container"
+      fullPath: "/apps/$domain/settings/container"
+      preLoaderRoute: typeof ConsoleAppsDomainSettingsContainerRouteImport
       parentRoute: typeof ConsoleAppsDomainSettingsRoute
     }
     "/_console/apps/$domain/settings/delete": {
@@ -1991,7 +2088,9 @@ const ConsoleSettingsRouteWithChildren = ConsoleSettingsRoute._addFileChildren(
 )
 
 interface ConsoleAppsDomainSettingsRouteChildren {
+  ConsoleAppsDomainSettingsBuildRoute: typeof ConsoleAppsDomainSettingsBuildRoute
   ConsoleAppsDomainSettingsBuildsRoute: typeof ConsoleAppsDomainSettingsBuildsRoute
+  ConsoleAppsDomainSettingsContainerRoute: typeof ConsoleAppsDomainSettingsContainerRoute
   ConsoleAppsDomainSettingsDeleteRoute: typeof ConsoleAppsDomainSettingsDeleteRoute
   ConsoleAppsDomainSettingsDeployOnPushRoute: typeof ConsoleAppsDomainSettingsDeployOnPushRoute
   ConsoleAppsDomainSettingsDeploysRoute: typeof ConsoleAppsDomainSettingsDeploysRoute
@@ -2005,7 +2104,10 @@ interface ConsoleAppsDomainSettingsRouteChildren {
 
 const ConsoleAppsDomainSettingsRouteChildren: ConsoleAppsDomainSettingsRouteChildren =
   {
+    ConsoleAppsDomainSettingsBuildRoute: ConsoleAppsDomainSettingsBuildRoute,
     ConsoleAppsDomainSettingsBuildsRoute: ConsoleAppsDomainSettingsBuildsRoute,
+    ConsoleAppsDomainSettingsContainerRoute:
+      ConsoleAppsDomainSettingsContainerRoute,
     ConsoleAppsDomainSettingsDeleteRoute: ConsoleAppsDomainSettingsDeleteRoute,
     ConsoleAppsDomainSettingsDeployOnPushRoute:
       ConsoleAppsDomainSettingsDeployOnPushRoute,
@@ -2131,11 +2233,14 @@ interface ConsoleRouteChildren {
   ConsoleBackupsNoustRoute: typeof ConsoleBackupsNoustRoute
   ConsoleBackupsSchedulesRoute: typeof ConsoleBackupsSchedulesRoute
   ConsoleBackupsVolumesRoute: typeof ConsoleBackupsVolumesRoute
+  ConsoleCatalogNameRoute: typeof ConsoleCatalogNameRoute
+  ConsoleCatalogInstalledRoute: typeof ConsoleCatalogInstalledRoute
   ConsoleDatabasesEnginesRoute: typeof ConsoleDatabasesEnginesRoute
   ConsoleServicesNameRoute: typeof ConsoleServicesNameRoute
   ConsoleTeamsTeamRoute: typeof ConsoleTeamsTeamRouteWithChildren
   ConsoleAppsIndexRoute: typeof ConsoleAppsIndexRoute
   ConsoleBackupsIndexRoute: typeof ConsoleBackupsIndexRoute
+  ConsoleCatalogIndexRoute: typeof ConsoleCatalogIndexRoute
   ConsoleDatabasesIndexRoute: typeof ConsoleDatabasesIndexRoute
   ConsoleDomainsIndexRoute: typeof ConsoleDomainsIndexRoute
   ConsoleProjectsIndexRoute: typeof ConsoleProjectsIndexRoute
@@ -2165,11 +2270,14 @@ const ConsoleRouteChildren: ConsoleRouteChildren = {
   ConsoleBackupsNoustRoute: ConsoleBackupsNoustRoute,
   ConsoleBackupsSchedulesRoute: ConsoleBackupsSchedulesRoute,
   ConsoleBackupsVolumesRoute: ConsoleBackupsVolumesRoute,
+  ConsoleCatalogNameRoute: ConsoleCatalogNameRoute,
+  ConsoleCatalogInstalledRoute: ConsoleCatalogInstalledRoute,
   ConsoleDatabasesEnginesRoute: ConsoleDatabasesEnginesRoute,
   ConsoleServicesNameRoute: ConsoleServicesNameRoute,
   ConsoleTeamsTeamRoute: ConsoleTeamsTeamRouteWithChildren,
   ConsoleAppsIndexRoute: ConsoleAppsIndexRoute,
   ConsoleBackupsIndexRoute: ConsoleBackupsIndexRoute,
+  ConsoleCatalogIndexRoute: ConsoleCatalogIndexRoute,
   ConsoleDatabasesIndexRoute: ConsoleDatabasesIndexRoute,
   ConsoleDomainsIndexRoute: ConsoleDomainsIndexRoute,
   ConsoleProjectsIndexRoute: ConsoleProjectsIndexRoute,

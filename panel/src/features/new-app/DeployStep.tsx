@@ -9,6 +9,7 @@ import { ErrorBlock } from "../../components/page/QueryState";
 import { Card } from "../../components/ui/Card";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
+import { containerSummary } from "../container/summary";
 import { normalizeDomain } from "../domains/names";
 import { JobOutcome } from "./JobOutcome";
 import { useDeploymentLanding } from "./useDeploymentLanding";
@@ -42,6 +43,20 @@ export function deploySummary(t: T, source: SourceForm, inspection: Inspection, 
   const secrets = variables.filter((row) => row.secret).length;
   const revision = revisionOf(t, source.branch.trim() || inspection.branch, inspection.commit);
   const paths = form.layout === "releases" ? form.persistentPaths.map((row) => row.value.trim()).filter((value) => value !== "") : [];
+  // A container's releases are images, whatever the layout says: nothing to choose, nothing to say.
+  const deploys: KeyValueItem[] =
+    form.appType === "container"
+      ? []
+      : [
+          {
+            label: t("newApp.deploy.deploys"),
+            value: t(form.layout === "releases" ? "newApp.deploy.releases" : "newApp.deploy.inplace"),
+            mono: false,
+            copy: false,
+            ...(paths.length > 0 ? { hint: t("newApp.deploy.persistent", { paths: joinList(paths, t.locale) }) } : {}),
+          },
+        ];
+  const container: KeyValueItem[] = form.appType === "container" ? containerSummary(t, form.container) : [];
   return [
     { label: t("newApp.deploy.source"), value: source.source.trim(), ...(revision !== null ? { hint: revision } : {}) },
     {
@@ -53,14 +68,9 @@ export function deploySummary(t: T, source: SourceForm, inspection: Inspection, 
     },
     addressItem(t, form),
     ...(hasPort(form.appType) ? [{ label: t("newApp.deploy.port"), value: form.port.trim() }] : []),
+    ...container,
     { label: t("newApp.deploy.webServer"), value: form.webserver === "apache" ? "Apache" : "nginx", mono: false, copy: false },
-    {
-      label: t("newApp.deploy.deploys"),
-      value: t(form.layout === "releases" ? "newApp.deploy.releases" : "newApp.deploy.inplace"),
-      mono: false,
-      copy: false,
-      ...(paths.length > 0 ? { hint: t("newApp.deploy.persistent", { paths: joinList(paths, t.locale) }) } : {}),
-    },
+    ...deploys,
     {
       label: t("newApp.deploy.environment"),
       value:

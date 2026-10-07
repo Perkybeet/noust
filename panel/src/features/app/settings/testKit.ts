@@ -105,6 +105,20 @@ export async function renderSettings(path: string, heading: string, app: object 
   return { ...harness, backend };
 }
 
+/** The first of what a query matched, which a test that needs it has already shown is there. */
+export function first<T>(items: readonly T[]): T {
+  const [item] = items;
+  if (item === undefined) throw new Error("nothing matched");
+  return item;
+}
+
+/** The last of what a query matched. */
+export function last<T>(items: readonly T[]): T {
+  const item = items.at(-1);
+  if (item === undefined) throw new Error("nothing matched");
+  return item;
+}
+
 /** A card of the subsection, by its heading: the element the heading titles. */
 export function part(name: string): HTMLElement {
   const heading = screen.getByRole("heading", { name });

@@ -12,6 +12,7 @@ import {
   FolderKanban,
   Gauge,
   History,
+  LibraryBig,
   Network,
   Server,
   Settings,
@@ -74,6 +75,13 @@ export const NAV_GROUPS: readonly (readonly NavItem[])[] = [
       icon: Boxes,
       shortcut: { keys: ["g", "a"], description: "nav.apps.goTo" },
       keywords: "nav.apps.keywords",
+    },
+    {
+      label: "nav.catalog.label",
+      to: "/catalog",
+      icon: LibraryBig,
+      shortcut: { keys: ["g", "c"], description: "nav.catalog.goTo" },
+      keywords: "nav.catalog.keywords",
     },
     {
       label: "nav.databases.label",

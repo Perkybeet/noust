@@ -174,8 +174,8 @@ address; the page counts down.
 
 ## Layout
 
-- **Sidebar**, in two groups: Overview, Applications, Databases, Domains and certificates,
-  Backups; then Server, Cron, Activity. On a central, Fleet comes first. Settings is at the
+- **Sidebar**, in two groups: Overview, Applications, Catalog, Databases, Domains and
+  certificates, Backups; then Server, Cron, Activity. On a central, Fleet comes first. Settings is at the
   bottom. On a narrow screen it becomes a menu.
 - **Top bar**: on a central, a server selector with three contexts: one server, **All servers**
   (the Fleet pages) and **This central** (the central's own settings). `/n/<server>/...` keeps
@@ -315,6 +315,39 @@ it. Adopting needs sudo mode. See [compose.md](compose.md#adopting-a-running-sta
 
 ![New application](assets/console/apps-new.png)
 
+Besides a repository, the Source step offers **A Docker image**: an image from a registry runs as
+a container application, with nothing to inspect (and no source: the server refuses one given
+with it). A repository with only a Dockerfile is proposed as a container application too, and
+Configuration then asks how its image is made: a Dockerfile (its path, the context, the stage,
+build arguments and build secrets) or Railpack, the port the process listens on, its volumes, how it
+restarts and, for an image, a private registry's account. A build secret's value and a registry
+password are typed into masked fields, sent once and never shown again; the last step names how the
+image is made and never a secret. A container's releases are images, so the layout and the folders
+kept in `shared/` are not offered, and neither is a database: it cannot reach the host's. See
+[containers.md](containers.md).
+
+### Catalog
+
+The recipes this release ships (`noust recipe list`), each as a card: its logo (an image the server
+serves, within the strict policy), name and slogan, its category from a closed list, tags, the
+version it pins, the day the recipe last changed, links to its site and documentation, **Runs in
+Docker** for a Compose recipe and what a native one needs (a database Noust sets up, a PHP-FPM). A
+recipe this release cannot deploy is listed with the server's reason and no button. Search and the
+category, tag and **Runs** (in Docker or natively) filters are the server's own search, kept in the
+address; the list pages at 20, 50, 100 or all recipes. **Use** opens the wizard on that recipe's
+one step: where it answers and the variables it cannot run without, each with what it is for and
+the default an empty field keeps (a secret is masked), and Deploy waits for the required ones and
+leads to the field. **Details** opens the recipe's own page: what it runs (image, tag and digest),
+what it needs, every variable and where its value comes from, the ports it opens on purpose, what it
+will tell you after the install and what each version changed. The install is a job, its output a
+click away while it prints.
+
+**Installed** lists what was installed from a recipe, the version it runs against the catalog's
+and what changed. **Update** is the one update (a copy first, the startup check, the previous version
+back when it fails) queued as a job; a variable the new version asks for and the application lacks is
+asked for, the ones it has keep their value. An application whose recipe left the catalog says so,
+in the server's words. See [recipes.md](recipes.md).
+
 ### One application
 
 The header shows the domain, state, type, port and a link to the live site. A banner between the
@@ -372,9 +405,11 @@ Discard · Save"):
 |---|---|
 | General | Type, port, source, the branch it deploys from (pin or unpin it), the tags it deploys (**Follow tags...**: a pattern such as `v*`; see [compose.md](compose.md#deploying-by-tag)), commands, how deploys work, the service and the account it runs as (**Give it its own account...**: its service, files and `.env` move to an account of its own and the app restarts once; if it does not answer afterwards everything is put back exactly as it was). On a Compose stack that publishes no port but still has one recorded, **A worker reported as down** offers **Record it as a worker...**, which clears the port and judges the stack by its containers |
 | Source | How the server signs in to the repository: its **deploy key** (an SSH key for that repository alone, made on a click or imported, its public half shown to add at the code host with a copy button and a link to the host's page, **Test the connection** as a deploy would, **Replace the key** without a moment when the repository has none that works, and **Remove**) and, for a repository cloned over https, an **HTTPS credential** (a user and a token kept as a secret, never shown again). Writing a secret asks for sudo mode first. See [api.md](api.md#deploy-keys) |
+| Container | A container application only: how its image is made (a Dockerfile, Railpack or a registry image), the Dockerfile, context and stage, build arguments, build secrets (their ids, never their values; one can be removed), the port, the volumes, the restart policy and the registry account (its password is write-only: it is never shown and an empty field keeps it). A change is stored at once and takes effect with the next update |
 | Deploys | **Instant rollback**: what it gives you, what changes on disk, the migration plan and a rehearsal, then the migration; releases kept; the health check; **Zero-downtime deploys** (blue/green, which new applications that can run as two copies start with by default; on a Docker Compose stack, the relay, which says what to change first when the stack or its site cannot use it); and on a Compose stack, **Copy of the databases before an update** |
 | Deploy on push | The webhook as a guided setup for GitHub, GitLab, Gitea and Bitbucket Cloud: the public URL (`noust web expose-hooks`), the secret, the values to enter at the forge, the branch that deploys, and the last deliveries, ignored ones included. An app that follows tags says so here: releases and tags that match deploy, pushes to a branch do not, and a delivery for an older or unmatched tag is listed as ignored |
 | Deploy hooks | The commands each deploy runs before the new version serves and after it does, where they come from (**From the repository**: the `noust.yaml` of the running code; or **From the operator**, which replaces it whole), each with its service, directory, time limit and whether it changes the schema. The operator's hooks are written here as YAML in the shape of a `noust.yaml`; saving asks for sudo mode and may wait for a second person's approval. An invalid `noust.yaml` is shown with the reason, and the next deploy fails with it until it is fixed or replaced by the operator's hooks. A static site has no hooks |
+| Build commands | The install, build and start commands, the base directory, the publish directory and the runtime of a type that has a build block (not a Compose stack, a monorepo or a container). It says whether they come from this application's own settings, the repository's `noust.yaml` or the type, that the application's own settings win whole (nothing is merged), what the service was last written from and the repository's `noust.yaml` error verbatim; saving asks for sudo mode, and the application's own settings can be removed. See [build.md](build.md) |
 | Builds | Whether it builds in the sandbox or as root and why; **Test a sandboxed build**, then turn it on (the trial Noust runs by itself before the next update of an app that still builds as root is recorded here like one you ran, passed or failed); the network profile; building as root with a reason |
 | Resources | Memory (MB, at least 64), CPU (percent of one core) and tasks (at least 16), optionally restarting so they apply now |
 | Previews | Pull request previews and their settings |
@@ -693,6 +728,7 @@ it does not. The block is the design system's `FeatureState`, see [DESIGN.md](DE
 | `Ctrl K` / `Cmd K` | Open the command palette, from anywhere |
 | `g` `o` | Go to Overview |
 | `g` `a` | Go to Applications |
+| `g` `c` | Go to the Catalog |
 | `g` `b` | Go to Databases |
 | `g` `f` | Go to the Fleet (a central) |
 | `g` `s` | Go to Settings |

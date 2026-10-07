@@ -4,24 +4,16 @@
  * wizard.ts.
  */
 
-import type { Recipe } from "../../api/queries/recipes";
+import type { Recipe, RecipeVariableInfo } from "../../api/queries/recipes";
 import { translate } from "../../i18n";
 import { getLocale } from "../../app/locale";
 import { normalizeDomain } from "../domains/names";
 import { canIncludeWww, domainError } from "./wizard";
 import type { CreateAppBody } from "./wizard";
 
-/**
- * A variable of a recipe. `required` says the recipe has no value for it and cannot run
- * without the operator's (an administrator's address, a licence key): the deploy waits for one.
- * The flag is read as optional here because the API's schema carries it from the release that
- * adds required variables to recipes; a recipe without it is exactly as before.
- */
-export type RecipeVariable = Recipe["env"][number] & { required?: boolean | null };
-
-/** What the form reads of a recipe: its variables. */
+/** What the form reads of a recipe: its variables, as `GET /api/recipes/{name}` lists them. */
 export interface WithVariables {
-  env: readonly RecipeVariable[];
+  variables: readonly RecipeVariableInfo[];
 }
 
 export interface RecipeForm {
@@ -32,22 +24,32 @@ export interface RecipeForm {
   env: Record<string, string>;
 }
 
-/** The variables the operator may set: every one the recipe does not generate. */
+/**
+ * The variables the operator may set: the ones the recipe asks for at install (`input`), which
+ * are the ones it has a default for and the ones it cannot run without. Everything else is the
+ * deployment's, a provisioned service's or Noust's to generate.
+ */
 export function editableVariables(recipe: WithVariables): string[] {
-  return recipe.env.filter((variable) => !variable.generated).map((variable) => variable.name);
+  return recipe.variables.filter((variable) => variable.input).map((variable) => variable.name);
 }
 
-/** The variables Noust generates when it deploys: secrets, database credentials, the address. */
+/** The variables Noust gives a value when it deploys: secrets, database credentials, the address. */
 export function generatedVariables(recipe: WithVariables): string[] {
-  return recipe.env.filter((variable) => variable.generated).map((variable) => variable.name);
+  return recipe.variables.filter((variable) => !variable.input).map((variable) => variable.name);
 }
 
 /**
- * The variables the deploy cannot go ahead without: required by the recipe, and not ones Noust
- * generates (a generated variable has its value already, whatever the recipe says).
+ * The variables the deploy cannot go ahead without: the ones the recipe has no value for and
+ * asks the operator for. The server refuses an install without them, naming every one; asking
+ * first puts each beside its own field.
  */
 export function requiredVariables(recipe: WithVariables): string[] {
-  return recipe.env.filter((variable) => variable.required === true && !variable.generated).map((variable) => variable.name);
+  return recipe.variables.filter((variable) => variable.input && variable.required).map((variable) => variable.name);
+}
+
+/** One variable of a recipe by name, for its description, default and whether it is a secret. */
+export function variableNamed(recipe: WithVariables, name: string): RecipeVariableInfo | undefined {
+  return recipe.variables.find((variable) => variable.name === name);
 }
 
 /**

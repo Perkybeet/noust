@@ -113,6 +113,12 @@ build:                             build:
 
 `--build-file` is refused for a monorepo or Docker Compose project, and with `--recipe`.
 
+In the console, **Settings > Build commands** is this block: the six keys for what the type can
+honour, where the commands come from (this application's own settings, the repository's
+`noust.yaml` or the type), the rule that the operator's block wins whole, and what the service was
+last written from. Saving asks for sudo mode. Runtimes cannot be listed from the console (no
+endpoint says what is installed): it suggests the common ones and names `noust runtime list`.
+
 ## Base directory
 
 For a monorepo (or any repository whose project is not at its root), `base_directory` names the

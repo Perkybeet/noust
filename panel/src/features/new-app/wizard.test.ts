@@ -599,3 +599,67 @@ describe("another platform's configuration", () => {
     expect(form.port).toBe("3000");
   });
 });
+
+describe("a container application (checklist A-31, A-14)", () => {
+  const DOCKERFILE_REPO: Inspection = { ...INSPECTION, app_type: "container", detected_types: ["container"], install_command: [], build_command: [], start_command: "", env_keys: [] };
+  const defaults = { webserver: "nginx" as const, taken: new Map<number, string>() };
+
+  it("is always asked about on the Configuration step: there is a Dockerfile, a port and volumes to look at", () => {
+    const review = initialReview(DOCKERFILE_REPO, defaults);
+    expect(review.appType).toBe("container");
+    expect(stepAsks("configure", "code", { inspection: DOCKERFILE_REPO, review, context: NOBODY })).toBe(true);
+    // The same inspection of a type that detects alone, with nothing to fix, is passed over.
+    const plain: Inspection = { ...INSPECTION, detected_types: ["nextjs"], compatible: true };
+    expect(stepAsks("configure", "code", { inspection: plain, review: initialReview(plain, defaults), context: NOBODY })).toBe(false);
+  });
+
+  it("starts as a Dockerfile's, or as an image's when it starts from one", () => {
+    expect(initialReview(DOCKERFILE_REPO, defaults).container.method).toBe("dockerfile");
+    const image = initialReview(DOCKERFILE_REPO, { ...defaults, image: "ghcr.io/owner/app:1.4" });
+    expect(image.container).toMatchObject({ method: "image", image: "ghcr.io/owner/app:1.4" });
+  });
+
+  it("keeps what was typed when inspected again, and goes back to a Dockerfile when an image is replaced by a repository", () => {
+    const first = initialReview(DOCKERFILE_REPO, defaults);
+    const typed = { ...first, container: { ...first.container, dockerfile: "docker/Dockerfile.prod" } };
+    expect(initialReview(DOCKERFILE_REPO, defaults, typed).container.dockerfile).toBe("docker/Dockerfile.prod");
+    const image = initialReview(DOCKERFILE_REPO, { ...defaults, image: "nginx:1.27" });
+    const again = initialReview(DOCKERFILE_REPO, defaults, image);
+    expect(again.container).toMatchObject({ method: "dockerfile", image: "" });
+    // And a new reference replaces the old one without losing the account typed beside it.
+    const withAccount = { ...image, container: { ...image.container, registryUsername: "ci" } };
+    expect(initialReview(DOCKERFILE_REPO, { ...defaults, image: "nginx:1.28" }, withAccount).container).toMatchObject({ image: "nginx:1.28", registryUsername: "ci" });
+  });
+
+  it("is sent with its container, and without a layout or folders in shared/", () => {
+    const review = { ...initialReview(DOCKERFILE_REPO, defaults), domain: "crate.example.com" };
+    const body = createAppBody({ source: "/srv/app", branch: "" }, { ...review, container: { ...review.container, dockerfile: "Dockerfile.prod" } });
+    expect(body).toMatchObject({ domain: "crate.example.com", source: "/srv/app", app_type: "container", container: { method: "dockerfile", dockerfile: "Dockerfile.prod" } });
+    expect(body).not.toHaveProperty("layout");
+    expect(body).not.toHaveProperty("persistent_paths");
+  });
+
+  it("sends no source, no branch and no installation for an image: the server refuses one given with it", () => {
+    const review = { ...initialReview(DOCKERFILE_REPO, { ...defaults, image: "nginx:1.27" }), domain: "crate.example.com" };
+    const body = createAppBody({ source: "nginx:1.27", branch: "main", installationId: 7 }, review);
+    expect(body).not.toHaveProperty("source");
+    expect(body).not.toHaveProperty("branch");
+    expect(body).not.toHaveProperty("github_installation_id");
+    expect(body).toMatchObject({ app_type: "container", container: { method: "image", image: "nginx:1.27" } });
+  });
+
+  it("is judged on its container's fields beside the others, and on the image only where the image is asked", () => {
+    const review = { ...initialReview(DOCKERFILE_REPO, { ...defaults, image: "" }), domain: "crate.example.com" };
+    // The image is the source step's: Configuration does not refuse it, the source step does.
+    expect(reviewProblems(review, NOBODY)["image"]).toBeUndefined();
+    const bad = { ...review, container: { ...review.container, containerPort: "70000" } };
+    expect(reviewProblems(bad, NOBODY)["container_port"]).toMatch(/1 to 65535/);
+    // Another type has no container to judge, whatever the draft holds.
+    expect(reviewProblems({ ...bad, appType: "nextjs" }, NOBODY)["container_port"]).toBeUndefined();
+  });
+
+  it("sends a refusal of a container's field to the Configuration step, where it is fixed", () => {
+    const refused = new ApiError(400, "validationerror", "API_TOKEN looks like a secret", null, { build_args: "API_TOKEN looks like a secret" });
+    expect(refusalOf(refused)).toMatchObject({ step: "configure", fields: { build_args: "API_TOKEN looks like a secret" } });
+  });
+});

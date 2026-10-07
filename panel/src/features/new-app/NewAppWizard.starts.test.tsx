@@ -83,7 +83,7 @@ describe("starting from a recipe", () => {
     const { harness } = wizard("blog.example.com", {});
     await choose(harness.user, "From a recipe");
     const wordpress = (await screen.findByRole("heading", { level: 3, name: "WordPress" })).closest("li") as HTMLElement;
-    expect(within(wordpress).getByText("A mysql database")).toBeInTheDocument();
+    expect(within(wordpress).getByText("A MySQL database")).toBeInTheDocument();
     expect(within(wordpress).getByText("PHP-FPM 7.4 or newer")).toBeInTheDocument();
     const site = within(wordpress).getByRole("link", { name: /wordpress\.org/ });
     expect(site).toHaveAttribute("href", "https://wordpress.org");

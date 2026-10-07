@@ -27,13 +27,14 @@ describe("the settings' navigation", () => {
     screenWidth(1440);
     await renderSettings("", "General");
     const links = within(nav()).getAllByRole("link");
-    expect(links.map((link) => link.textContent)).toEqual(["General", "Source", "Deploys", "Deploy on push", "Deploy hooks", "Builds", "Resources", "Previews", "Export", "Delete"]);
+    expect(links.map((link) => link.textContent)).toEqual(["General", "Source", "Deploys", "Deploy on push", "Deploy hooks", "Build commands", "Builds", "Resources", "Previews", "Export", "Delete"]);
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       `/apps/${DOMAIN}/settings`,
       `/apps/${DOMAIN}/settings/source`,
       `/apps/${DOMAIN}/settings/deploys`,
       `/apps/${DOMAIN}/settings/deploy-on-push`,
       `/apps/${DOMAIN}/settings/hooks`,
+      `/apps/${DOMAIN}/settings/build`,
       `/apps/${DOMAIN}/settings/builds`,
       `/apps/${DOMAIN}/settings/resources`,
       `/apps/${DOMAIN}/settings/previews`,

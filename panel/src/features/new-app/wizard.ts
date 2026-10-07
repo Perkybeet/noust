@@ -13,6 +13,8 @@ import { typeName } from "../apps/data";
 import { draftOf, parseLimits } from "../app/settings/limits";
 import type { LimitsDraft } from "../app/settings/limits";
 import { domainProblem, normalizeDomain } from "../domains/names";
+import { containerBody, containerProblems, emptyDraft } from "../container/model";
+import type { ContainerDraft } from "../container/model";
 import { generateSecret } from "./secrets";
 
 export type Inspection = ResponseOf<"/api/apps/inspect", "post">;
@@ -133,6 +135,9 @@ export function stepAsks(step: Step, kind: StartKind, { inspection, review, cont
         inspection.detected_types.length !== 1 ||
         // This server cannot deploy it as it is: what to do first is said on this step.
         inspection.compatible === false ||
+        // A container is built and run the way its section says (Dockerfile or Railpack, port,
+        // volumes, build arguments): there is always something to look at.
+        review.appType === "container" ||
         (inspection.platform_proposal ?? null) !== null ||
         errorsOf(errors, "configure").length > 0
       );
@@ -251,6 +256,30 @@ export function manualInspection(source: SourceForm): Inspection {
   };
 }
 
+/**
+ * What the Review step starts from for an image in a registry: there is no repository to read,
+ * so nothing is inspected. The type is the one that runs an image, and everything the form asks
+ * about it (the port, the volumes, the registry account) is the container section's, which the
+ * operator fills in.
+ */
+export function imageInspection(): Inspection {
+  return {
+    app_type: "container",
+    detected_types: ["container"],
+    package_manager: null,
+    install_command: [],
+    build_command: [],
+    start_command: "",
+    default_port: 8080,
+    env_keys: [],
+    branch: "",
+    commit: "",
+    compatible: null,
+    verdict: null,
+    suggestion: null,
+  };
+}
+
 // ---------------------------------------------------------------------------------------
 // The review
 
@@ -319,6 +348,11 @@ export interface ReviewForm {
   limits: LimitsDraft;
   env: EnvRow[];
   /**
+   * How a container application is built and run: only read when `appType` is `container`, kept
+   * while the operator tries another type so nothing typed is lost.
+   */
+  container: ContainerDraft;
+  /**
    * Whether what another platform's configuration proposes (`platform_proposal`) is filled in
    * when there is one. On until the operator turns it off.
    */
@@ -358,16 +392,28 @@ export function proposedPort(preferred: number, taken: ReadonlyMap<number, strin
 }
 
 /**
+ * The container section of a review: an image's when the application starts from one (the
+ * reference given on the source step), what was typed before otherwise, and a Dockerfile's
+ * when what was typed before was an image and the source is a repository now.
+ */
+function containerOf(image: string | undefined, previous: ContainerDraft | undefined): ContainerDraft {
+  if (image !== undefined) return { ...(previous?.method === "image" ? previous : emptyDraft("image")), method: "image", image };
+  if (previous === undefined) return emptyDraft("dockerfile");
+  return previous.method === "image" ? { ...previous, method: "dockerfile", image: "" } : previous;
+}
+
+/**
  * The form an inspection proposes. When the operator inspects again (another branch, a fixed
  * repository), what they already typed is kept: the domain, the choices, and the value of
  * every variable that is still declared. Nothing is asked twice.
  */
 export function initialReview(
   inspection: Inspection,
-  defaults: { webserver: WebServer; taken: ReadonlyMap<number, string> },
+  defaults: { webserver: WebServer; taken: ReadonlyMap<number, string>; image?: string },
   previous?: ReviewForm | null,
 ): ReviewForm {
   const env = envRowsFrom(inspection.env_keys);
+  const container = containerOf(defaults.image, previous?.container);
   if (!previous) {
     const form: ReviewForm = {
       appType: inspection.app_type,
@@ -380,6 +426,7 @@ export function initialReview(
       persistentPaths: [],
       limits: draftOf({}),
       env,
+      container,
       useProposal: true,
     };
     return withProposal(form, inspection, defaults.taken, true);
@@ -395,6 +442,7 @@ export function initialReview(
     ...previous,
     appType: inspection.detected_types.includes(previous.appType) ? previous.appType : inspection.app_type,
     env: [...kept, ...proposed, ...extra],
+    container,
   };
   // A proposal is used on the new inspection as the operator left it on the previous one.
   return withProposal(again, inspection, defaults.taken, previous.useProposal);
@@ -605,6 +653,13 @@ export function reviewProblems(form: ReviewForm, context: ReviewContext): Review
     if (message !== undefined) errors[limitField(name)] = message;
   }
 
+  if (form.appType === "container") {
+    // The image was asked on the source step, where it is checked.
+    for (const [name, message] of Object.entries(containerProblems(form.container, { withImage: false }))) {
+      if (message !== undefined) errors[name] = message;
+    }
+  }
+
   return errors;
 }
 
@@ -631,20 +686,26 @@ export function createAppBody(source: SourceForm, form: ReviewForm, proposal: Pl
     env[name] = row.value;
   }
   const branch = source.branch.trim();
-  const paths = form.layout === "releases" ? form.persistentPaths.map((row) => row.value.trim()).filter((value) => value !== "") : [];
+  // A container application keeps its data in volumes and every release is an image: the
+  // layout and the folders kept in shared/ are not its to choose.
+  const container = form.appType === "container";
+  const pulled = container && form.container.method === "image";
+  const paths = !container && form.layout === "releases" ? form.persistentPaths.map((row) => row.value.trim()).filter((value) => value !== "") : [];
   const limits = parseLimits(form.limits, null).values;
   return {
     domain: normalizeDomain(form.domain),
-    source: source.source.trim(),
-    ...(branch !== "" && sourceKind(source.source) !== "local" ? { branch } : {}),
-    ...(source.installationId !== undefined ? { github_installation_id: source.installationId } : {}),
+    // An image from a registry has no source, and the server refuses one given with it.
+    ...(pulled ? {} : { source: source.source.trim() }),
+    ...(!pulled && branch !== "" && sourceKind(source.source) !== "local" ? { branch } : {}),
+    ...(!pulled && source.installationId !== undefined ? { github_installation_id: source.installationId } : {}),
     app_type: form.appType,
     ...(hasPort(form.appType) ? { port: Number(form.port.trim()) } : {}),
     webserver: form.webserver,
     ssl: form.ssl,
-    layout: form.layout,
+    ...(container ? {} : { layout: form.layout }),
     include_www: form.includeWww && canIncludeWww(form.domain),
     ...(paths.length > 0 ? { persistent_paths: paths } : {}),
+    ...(container ? { container: containerBody(form.container) } : {}),
     memory_max_mb: limits.memory_max_mb,
     cpu_quota_percent: limits.cpu_quota_percent,
     tasks_max: limits.tasks_max,
