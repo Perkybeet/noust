@@ -1,0 +1,16 @@
+schema: 2
+name: cal-com
+kind: compose
+title: Cal.com
+slogan: "Open scheduling infrastructure, a Calendly alternative."
+description: "Booking pages, round-robin and collective events, calendar and video integrations. Listed because the open source edition is no longer the product."
+category: business
+tags: [scheduling, calendar, booking]
+logo: logo.svg
+updated: 2026-10-06
+homepage: https://cal.com
+docs: https://cal.com/docs
+repository: https://github.com/calcom/cal.com
+license: MIT
+available: false
+unavailable_reason: "The repository's main branch is now Cal.diy, the community edition, whose README says it is 'strictly recommended for personal, non-production use' and sends commercial and enterprise use to the hosted Cal.com (README of calcom/cal.com at main, read 2026-10-06); the last Cal.com release, v6.2.0, is from March 2026. Not available in this release."

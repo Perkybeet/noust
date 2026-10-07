@@ -1,0 +1,16 @@
+schema: 2
+name: minio
+kind: compose
+title: MinIO
+slogan: "A high-performance, S3 compatible object store."
+description: "Object storage with the S3 API for backups, media and application data. Listed because its upstream stopped maintaining it."
+category: files
+tags: [s3, object-storage, storage]
+logo: logo.svg
+updated: 2026-10-06
+homepage: https://min.io
+docs: https://min.io/docs/minio/linux/index.html
+repository: https://github.com/minio/minio
+license: AGPL-3.0-only
+available: false
+unavailable_reason: "The upstream repository is archived and its README begins 'THIS REPOSITORY IS NO LONGER MAINTAINED', pointing to AIStor; the last release is RELEASE.2025-10-15T17-29-55Z (GitHub, read 2026-10-06). A recipe does not ship software that receives no security fixes. Not available in this release."

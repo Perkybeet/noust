@@ -137,7 +137,7 @@ def test_the_categories_are_counted(client: TestClient) -> None:
     assert response.status_code == 200
     counted = {entry["category"]: entry["count"] for entry in response.json()["items"]}
     assert counted["media"] >= 2 and counted["security"] >= 1
-    assert "smart-home" not in counted
+    assert "other" not in counted
     assert sum(counted.values()) == client.get("/api/recipes").json()["total"]
 
 

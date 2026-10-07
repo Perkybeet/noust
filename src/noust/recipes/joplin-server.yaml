@@ -1,0 +1,16 @@
+schema: 2
+name: joplin-server
+kind: compose
+title: Joplin Server
+slogan: "The sync server of the Joplin note-taking application."
+description: "Synchronise Joplin notes, notebooks and attachments between devices, with sharing and a web admin. Listed because its licence, not its software, keeps it out of the catalogue."
+category: productivity
+tags: [notes, sync, markdown]
+logo: logo.svg
+updated: 2026-10-06
+homepage: https://joplinapp.org
+docs: https://joplinapp.org/help/
+repository: https://github.com/laurent22/joplin
+license: LicenseRef-Joplin-Server-Personal-Use
+available: false
+unavailable_reason: "Joplin Server's own licence (packages/server/LICENSE.md, the Joplin Server Personal Use License, read at the v3.7.21 tag) allows personal, non-commercial use only: the licensee must not be a business entity and may not give others access to profit from it. A catalogue for servers cannot offer software that many of their operators may not be allowed to run. Not available in this release."

@@ -48,6 +48,7 @@ STACKS = {
     "miniflux",
     "nextcloud",
     "nocodb",
+    "odoo",
     "paperless-ngx",
     "plausible",
     "rocketchat",

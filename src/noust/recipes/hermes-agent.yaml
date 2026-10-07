@@ -1,0 +1,16 @@
+schema: 2
+name: hermes-agent
+kind: compose
+title: Hermes Agent
+slogan: "A personal AI agent that grows with you."
+description: "An agent with a terminal interface and a gateway to chat apps, with tools, skills and memory. Listed because a shared server is the wrong place for a single-tenant agent."
+category: ai
+tags: [agent, llm, automation]
+logo: logo.svg
+updated: 2026-10-06
+homepage: https://hermes-agent.nousresearch.com
+docs: https://hermes-agent.nousresearch.com/docs
+repository: https://github.com/NousResearch/hermes-agent
+license: MIT
+available: false
+unavailable_reason: "Its own security policy (SECURITY.md, read 2026-10-06) calls it 'a single-tenant personal agent' whose trust envelope is whatever the operator's account can reach, runs commands directly on the host by default, and states that 'the only security boundary against an adversarial LLM is the operating system'. Whether to give such a program a place on a server that holds other applications is the owner's decision, not a recipe's. Not available in this release."

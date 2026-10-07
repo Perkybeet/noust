@@ -14,7 +14,7 @@ name: open-webui
 kind: compose
 title: Open WebUI
 slogan: A self-hosted chat interface for Ollama and OpenAI-compatible models.
-description: "A feature-rich, offline-capable web interface for language models: chat, documents, retrieval and users, against Ollama or any OpenAI-compatible API."
+description: "A feature-rich, offline-capable web interface for language models: chat, documents, retrieval and users, against Ollama or any OpenAI-compatible API. Source-available: a BSD-style licence with a clause that keeps its name and logo once more than 50 people use it."
 category: ai
 tags: [llm, chat, ollama, openai]
 logo: logo.svg

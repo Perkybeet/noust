@@ -31,7 +31,25 @@ from noust.recipes.variables import DeploymentContext, resolve_variables
 #: The recipes of the 2.3 catalogue, now in the 3.4 format.
 MIGRATED = {"wordpress", "uptime-kuma", "umami", "n8n"}
 #: Listed, not deployable, with the reason.
-UNAVAILABLE = {"pocketbase", "excalidraw", "vault"}
+UNAVAILABLE = {
+    "appwrite",
+    "bookstack",
+    "cal-com",
+    "coder",
+    "excalidraw",
+    "hermes-agent",
+    "home-assistant",
+    "joplin-server",
+    "minio",
+    "openclaw",
+    "pocketbase",
+    "portainer",
+    "stalwart",
+    "strapi",
+    "supabase",
+    "typebot",
+    "vault",
+}
 #: Wave one (checklist D-29) that ship as Docker recipes.
 WAVE_ONE = {
     "vaultwarden",

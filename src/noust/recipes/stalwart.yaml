@@ -1,0 +1,16 @@
+schema: 2
+name: stalwart
+kind: compose
+title: Stalwart
+slogan: "An all-in-one mail and collaboration server."
+description: "SMTP, IMAP, JMAP, CalDAV, CardDAV and WebDAV with spam filtering, in one Rust binary. Listed because a mail server is not a web application behind a proxy."
+category: communication
+tags: [mail, smtp, imap, jmap]
+logo: logo.svg
+updated: 2026-10-06
+homepage: https://stalw.art
+docs: https://stalw.art/docs/install/platform/docker
+repository: https://github.com/stalwartlabs/stalwart
+license: AGPL-3.0-only OR LicenseRef-Stalwart-Enterprise-v2
+available: false
+unavailable_reason: "Its container instructions publish ports 25, 110, 143, 443, 465, 587, 993, 995, 4190 and 8080 of the host (stalw.art, Docker installation, read 2026-10-06): 443 is nginx's, and a mail server also needs MX, SPF, DKIM and reverse-DNS records and a certificate for the mail host name, which a recipe cannot create. Not available in this release."

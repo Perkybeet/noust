@@ -1,0 +1,16 @@
+schema: 2
+name: portainer
+kind: compose
+title: Portainer
+slogan: "Container management for Docker and Kubernetes."
+description: "A web interface to manage containers, images, volumes and stacks. Listed because it is root on the host by design, and Noust runs the containers it would manage."
+category: development
+tags: [docker, containers, management]
+logo: logo.svg
+updated: 2026-10-06
+homepage: https://www.portainer.io
+docs: https://docs.portainer.io/start/install-ce/server/docker/linux
+repository: https://github.com/portainer/portainer
+license: Zlib
+available: false
+unavailable_reason: "Its installation mounts /var/run/docker.sock into the container (docs.portainer.io, read 2026-10-06), which gives it control of every container on the server, Noust's applications included; a recipe may not mount the Docker socket. Not available in this release."
