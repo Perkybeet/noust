@@ -357,7 +357,7 @@ down, with a link to **Diagnose**. Tabs:
 | Tab | What it has |
 |---|---|
 | Overview | Last deploy, uptime, certificate, domains, webhook, runtime facts, and resource use against its limits |
-| Deployments | Deployment history; for an application with instant rollback, its releases with their status, and **Roll back to this** or **Activate** on each one on disk |
+| Deployments | The application's [queue](#the-deploy-queue-and-cancelling) when something builds or waits for it; deployment history, a deploy that was cancelled drawn as **Cancelled** and never as a failure; for an application with instant rollback, its releases with their status, and **Roll back to this** or **Activate** on each one on disk |
 | Logs | The unit's journal, live |
 | Metrics | CPU and memory (requests and errors for a static site) over an hour, a day, a week or a month, against its limits, with deploys marked; or why there is nothing to show |
 | Environment | The `.env`, redacted; revealing and editing need sudo mode. Changes are staged and reviewed before saving; a restart applies them |
@@ -404,9 +404,10 @@ Discard · Save"):
 | Subsection | What it has |
 |---|---|
 | General | Type, port, source, the branch it deploys from (pin or unpin it), the tags it deploys (**Follow tags...**: a pattern such as `v*`; see [compose.md](compose.md#deploying-by-tag)), commands, how deploys work, the service and the account it runs as (**Give it its own account...**: its service, files and `.env` move to an account of its own and the app restarts once; if it does not answer afterwards everything is put back exactly as it was). On a Compose stack that publishes no port but still has one recorded, **A worker reported as down** offers **Record it as a worker...**, which clears the port and judges the stack by its containers |
-| Deploys | **Instant rollback**: what it gives you, what changes on disk, the migration plan and a rehearsal, then the migration; releases kept; the health check; **Zero-downtime deploys** (blue/green; on a Docker Compose stack, the relay, which says what to change first when the stack or its site cannot use it); and on a Compose stack, **Copy of the databases before an update** |
-| Deploy on push | The webhook as a guided setup: the public URL (`noust web expose-hooks`), the secret, the values to enter at the forge, the branch that deploys, and the last deliveries, ignored ones included. An app that follows tags says so here: releases and tags that match deploy, pushes to a branch do not, and a delivery for an older or unmatched tag is listed as ignored |
+| Source | How the server signs in to the repository: its **deploy key** (an SSH key for that repository alone, made on a click or imported, its public half shown to add at the code host with a copy button and a link to the host's page, **Test the connection** as a deploy would, **Replace the key** without a moment when the repository has none that works, and **Remove**) and, for a repository cloned over https, an **HTTPS credential** (a user and a token kept as a secret, never shown again). Writing a secret asks for sudo mode first. See [api.md](api.md#deploy-keys) |
 | Container | A container application only: how its image is made (a Dockerfile, Railpack or a registry image), the Dockerfile, context and stage, build arguments, build secrets (their ids, never their values; one can be removed), the port, the volumes, the restart policy and the registry account (its password is write-only: it is never shown and an empty field keeps it). A change is stored at once and takes effect with the next update |
+| Deploys | **Instant rollback**: what it gives you, what changes on disk, the migration plan and a rehearsal, then the migration; releases kept; the health check; **Zero-downtime deploys** (blue/green, which new applications that can run as two copies start with by default; on a Docker Compose stack, the relay, which says what to change first when the stack or its site cannot use it); and on a Compose stack, **Copy of the databases before an update** |
+| Deploy on push | The webhook as a guided setup for GitHub, GitLab, Gitea and Bitbucket Cloud: the public URL (`noust web expose-hooks`), the secret, the values to enter at the forge, the branch that deploys, and the last deliveries, ignored ones included. An app that follows tags says so here: releases and tags that match deploy, pushes to a branch do not, and a delivery for an older or unmatched tag is listed as ignored |
 | Deploy hooks | The commands each deploy runs before the new version serves and after it does, where they come from (**From the repository**: the `noust.yaml` of the running code; or **From the operator**, which replaces it whole), each with its service, directory, time limit and whether it changes the schema. The operator's hooks are written here as YAML in the shape of a `noust.yaml`; saving asks for sudo mode and may wait for a second person's approval. An invalid `noust.yaml` is shown with the reason, and the next deploy fails with it until it is fixed or replaced by the operator's hooks. A static site has no hooks |
 | Build commands | The install, build and start commands, the base directory, the publish directory and the runtime of a type that has a build block (not a Compose stack, a monorepo or a container). It says whether they come from this application's own settings, the repository's `noust.yaml` or the type, that the application's own settings win whole (nothing is merged), what the service was last written from and the repository's `noust.yaml` error verbatim; saving asks for sudo mode, and the application's own settings can be removed. See [build.md](build.md) |
 | Builds | Whether it builds in the sandbox or as root and why; **Test a sandboxed build**, then turn it on (the trial Noust runs by itself before the next update of an app that still builds as root is recorded here like one you ran, passed or failed); the network profile; building as root with a reason |
@@ -414,6 +415,33 @@ Discard · Save"):
 | Previews | Pull request previews and their settings |
 | Export | The application as a file to import elsewhere |
 | Delete | Delete the application; removing its files and its certificate are separate choices, both off until you tick them, and you type its domain to confirm |
+
+### The deploy queue and cancelling
+
+Builds of different applications run side by side, up to the server's limit (`deploy.max_concurrent_builds`);
+one application builds one thing at a time, so what is asked meanwhile waits its turn and nothing is lost
+(see [releases.md](releases.md#the-deploy-queue)). The queue is on **Activity** when something builds or
+waits, and on an application's **Deployments** tab for what is its own:
+
+- every job is a row with its state (queued, in progress, stopping), its **place in line** ("Next in line",
+  "Place 3 in line") and, for one that waits, **what it waits for** in the queue's own words, set in mono: the
+  update of the same application that is running, a free build slot, a job that changes the whole server;
+- a request for an update that is already waiting is **merged** into it (the last push wins, nothing builds
+  twice): the row says "1 request merged into this one", and pressing **Update** says it joined the waiting
+  one;
+- the server's limits are in the panel's header ("1 of 2 builds running", "3 of 25 waiting"); a request the
+  queue has no room for is refused, and the console says so with the seconds the server asked to wait
+  ("Try again in 30 seconds, or cancel what no longer needs to wait"), and the server's own sentence under it;
+- **Cancel** is on each row and on the job in hand under an application's header. A job that waits is taken
+  out of the line, after one question. A deploy or an update that is building is **stopped**: the question says
+  that the release it was making is removed, what serves now is not touched and the next request starts. Once
+  its release starts to be activated, or when the application builds in the folder that serves (a single
+  folder, a Compose stack), or for a job that is halfway through changing the system, the button is disabled
+  and the reason is written beside it. A stop that was asked shows **Stopping** until the build has wound down.
+  The same is `noust deploy cancel`.
+
+A deploy that was cancelled is recorded as cancelled, with who cancelled it: the history, the deployment's page
+and the overview never draw it as a failure and never raise it.
 
 ### Diagnose
 
@@ -423,10 +451,23 @@ Reached from the application's banner, or `/apps/<domain>/diagnose`. Correlates 
 state, the port it listens on, an HTTP probe straight to the application and one through nginx,
 the last journal lines, nginx's error log for the domain, the certificate, the last deployment,
 OOM kills in the last seven days and disk space. The most likely cause comes first, with each
-check's evidence verbatim. Every probe only reads. The same report is `noust diagnose DOMAIN`.
+check's evidence verbatim. Every probe only reads. The same report is `noust diagnose DOMAIN`. For an
+application that restarts in place on every update and could update without a cut, it also says so, above the
+checks, with a link to the setting that turns it on.
 A Docker Compose stack that publishes no port (a worker) has no port or site to probe: it is
 judged by its containers, and the evidence is their state and the last lines of `docker compose
 logs`; when a port is still recorded for it, the report says so and names `noust app headless`.
+
+### Terminal
+
+Off the tab strip, under **More actions > Terminal** (`/apps/<domain>/terminal`): a shell as the
+account the application runs as, in its sandbox and with its environment (a stack's, in its
+container), and below it **Run a command once**, which splits what you type into the program and
+its arguments, shows the list it will run, and shows the output as the job's log. The server's own
+root shell is **Server > More actions > Open a terminal**, off until an administrator turns it
+on. Both need sudo mode, are limited in time and recorded in the audit trail. The page is drawn on
+a canvas, with a text view for screen readers; Escape, then Tab, leaves it with the keyboard. See
+[Terminal and one-off commands](terminal.md).
 
 ### Databases
 
@@ -544,7 +585,8 @@ changed the database schema asks first, as going back does (see
 ### Activity
 
 Every job and every audited action on this server in one timeline, newest first, filterable
-by kind, result and actor. A job opens its log.
+by kind, result and actor. A job opens its log. What builds and what waits leads the page as the
+[deploy queue](#the-deploy-queue-and-cancelling).
 
 ### Server
 
@@ -586,7 +628,7 @@ selected server's, or this central's.
 |---|---|---|
 | General | Server | Applications directory, web server, certificate email, backups, the server's name, and the console address `--open` links use |
 | Notifications | Server | Whether notifications are on, at the top (amber when they are on but no channel is set up; see [Features that are on or off](#features-that-are-on-or-off)); channels (webhook, Slack, Discord, Telegram, email) in drawers, with a test each; which events notify, among them **Deployed with warnings** (`deploy_hook_failed`), **Application not answering** (`app_unreachable`) and **Application answering again** (`app_recovered`), all on by default; private destinations allowed |
-| Integrations | Server | The GitHub App |
+| Integrations | Server | The GitHub App, the address for webhooks, and the server's **deploy keys** (each with the repositories it reaches and the applications built from them) and the **host keys it pinned**, which can be forgotten after comparing the fingerprint |
 | About | Server | Version and updates, installation, CLI equivalents, links |
 | Servers | Central | Every server, its reachability, version, ceiling and labels; **Add a server** walks through `noust fleet authorize` and the join code; test and remove |
 | Accounts | Central | Accounts, roles, invitations, separation-of-duties exceptions (with `accounts.read`) |

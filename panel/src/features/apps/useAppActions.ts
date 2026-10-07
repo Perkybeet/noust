@@ -12,6 +12,7 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { describeError } from "../../lib/errors";
 import { reportHeld } from "../../lib/held";
+import { mergedRequests } from "../queue/words";
 
 /** A way back: what to go back to (a backup or a release id), and whether going past a schema change was confirmed. */
 export interface GoBack {
@@ -120,14 +121,21 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
     // only fills an empty entry, never overwrites a newer one.
     queryClient.setQueryData<Job>(jobKeys.detail(job.id), (current) => current ?? job);
     void queryClient.invalidateQueries({ queryKey: jobKeys.active });
-    const message = kind === "update" ? t("apps.actions.updateQueued", { domain }) : t("apps.actions.rollbackQueued", { domain });
+    // An update asked for while one already waits is folded into it (the last request wins,
+    // nothing builds twice): the job answered is that waiting one, and says so by what it merged.
+    const joined = kind === "update" && mergedRequests(job) > 0;
+    const message = joined
+      ? t("queue.joined.title", { domain })
+      : kind === "update"
+        ? t("apps.actions.updateQueued", { domain })
+        : t("apps.actions.rollbackQueued", { domain });
     // Said once: the toast is itself announced (it lives in a live region); a caller that takes
     // the operator somewhere instead of toasting gets the sentence spoken here.
     if (onJobQueued) {
-      announce(message);
+      announce(joined ? `${message}. ${t("queue.joined.body")}` : message);
       onJobQueued(job);
     } else {
-      toast.info(message, { description: t("apps.actions.queuedDescription") });
+      toast.info(message, { description: joined ? t("queue.joined.body") : t("apps.actions.queuedDescription") });
     }
   };
 

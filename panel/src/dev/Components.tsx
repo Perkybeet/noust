@@ -29,6 +29,7 @@ import {
   ChoiceCards,
   ConfirmDialog,
   CopyButton,
+  CopyValue,
   DataTable,
   Dialog,
   DialogClose,
@@ -59,13 +60,15 @@ import {
   TabList,
   TabPanel,
   Tabs,
+  TerminalScreen,
   TextLink,
   Textarea,
   Tooltip,
   toast,
 } from "../components/ui";
-import type { Column, LogLine, Status } from "../components/ui";
+import type { Column, LogLine, ScreenSource, Status } from "../components/ui";
 import { Logo } from "../components/brand/Logo";
+import { Terminal } from "../lib/terminal/terminal";
 import { Item, Row, Section, Stage } from "./gallery";
 import type { SampleApp } from "./sample";
 import { SAMPLE_APPS, SAMPLE_BUILD_LOG, ago, nextJournalLine, sampleDayWithGaps, sampleMetrics, sampleWeekMetrics } from "./sample";
@@ -703,6 +706,13 @@ function Attributes() {
                 <CopyButton value="ssh root@example.dev" label="Copy SSH command" />
               </div>
             </Item>
+            <Item label="Copy a value to paste elsewhere">
+              <CopyValue
+                value="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJm3Nq0YtV4mGx1h5mGq0w1Yk3R8y2Zb9XQe7sT5vC0u shop-example-com"
+                label="Copy the public key"
+                name="Public key of shop-example-com"
+              />
+            </Item>
           </Row>
         </div>
       </Stage>
@@ -1024,6 +1034,57 @@ function Logs() {
   );
 }
 
+/** What a shell might have printed: the colours a program chooses, a prompt, an error. */
+const SAMPLE_TERMINAL =
+  "\u001b[1;32mdeploy@web-01\u001b[0m:\u001b[1;34m/var/www/apps/shop\u001b[0m$ ls\r\n" +
+  "\u001b[1;34mcurrent\u001b[0m  \u001b[1;34mreleases\u001b[0m  \u001b[1;34mshared\u001b[0m  repo\r\n" +
+  "\u001b[1;32mdeploy@web-01\u001b[0m:\u001b[1;34m/var/www/apps/shop\u001b[0m$ node server.js --check\r\n" +
+  "\u001b[31mError:\u001b[0m listen EADDRINUSE: address already in use :::3000\r\n" +
+  "\u001b[1;32mdeploy@web-01\u001b[0m:\u001b[1;34m/var/www/apps/shop\u001b[0m$ ";
+
+function TerminalGallery() {
+  const [source] = useState<ScreenSource & { notify: () => void }>(() => {
+    const listeners = new Set<() => void>();
+    const terminal = new Terminal(80, 24);
+    terminal.write(SAMPLE_TERMINAL);
+    return {
+      terminal,
+      subscribe: (listener) => {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+      notify: () => {
+        for (const listener of listeners) listener();
+      },
+    };
+  });
+  const [textView, setTextView] = useState(false);
+  return (
+    <Section
+      id="terminal"
+      title="Terminal screen"
+      description="A shell drawn on a canvas: the console's own emulator (cursor, erase, colours, scroll regions, the alternate screen, bracketed paste), its own keyboard mapping and its own selection, because a library that injects a style element cannot run under the console's content security policy. It echoes what is typed here. Escape and then Tab leaves it, for a keyboard that would otherwise be trapped. The text view puts the same screen where a screen reader can read it."
+    >
+      <Row>
+        <Switch label="Text view" checked={textView} onCheckedChange={setTextView} />
+      </Row>
+      <TerminalScreen
+        source={source}
+        label="Sample terminal"
+        textView={textView}
+        className="h-80"
+        onResize={() => undefined}
+        onInput={(data) => {
+          source.terminal.write(data === "\r" ? "\r\n\u001b[1;32mdeploy@web-01\u001b[0m$ " : data === "\u007f" ? "\b \b" : data);
+          source.notify();
+        }}
+      />
+    </Section>
+  );
+}
+
 function Brand() {
   return (
     <Section
@@ -1067,6 +1128,7 @@ export function Components() {
       <Tables />
       <Charts />
       <Logs />
+      <TerminalGallery />
       <Brand />
     </>
   );

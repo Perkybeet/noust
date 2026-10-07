@@ -370,8 +370,15 @@ AUTH_PATHS = frozenset(
         "/api/auth/invitations/accept",
         "/api/auth/passkeys/login",
         "/api/auth/passkeys/elevate",
+        "/api/auth/oidc/complete",
     }
 )
+
+#: The lockout paths that are a navigation, not a POST: the identity provider
+#: sends the browser back to ``/api/auth/oidc/callback`` with a GET, and an
+#: address locked out is refused that as it is refused every other guess.
+#: tests/test_web_auth.py holds each to a real GET route.
+AUTH_GET_PATHS = frozenset({"/api/auth/oidc/callback"})
 
 #: The sign-in steps of :data:`AUTH_PATHS`. From an address many people share
 #: (loopback behind ``ssh -L``, a trusted proxy's own), the lockout of these
@@ -846,6 +853,11 @@ async def lifespan(app: FastAPI):
         jobs.unsubscribe_all(app_states)
         jobs.unsubscribe_all(notify_jobs)
         stop_witnessing()
+        # Every open terminal ends, with its recording closed and on record,
+        # before the processes are stopped under it.
+        from noust.terminal.sessions import shutdown_sessions
+
+        await asyncio.to_thread(shutdown_sessions)
         stop_child_processes()
         close_fleet_tunnels()
         manager.purge_expired_sessions()
@@ -1741,7 +1753,7 @@ class SecurityMiddleware:
         """
         if scope["type"] == "websocket":
             return True
-        if path in AUTH_PATHS:
+        if path in AUTH_PATHS or path in AUTH_GET_PATHS:
             return True
         if connection.cookies.get(SESSION_COOKIE_NAME):
             return True

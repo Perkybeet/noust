@@ -21,6 +21,7 @@ import { TextLink } from "../../../components/ui/TextLink";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatCount, formatDuration, parseTimestamp } from "../../../lib/format";
+import { QueuePanel } from "../../queue/QueuePanel";
 import { ReleasesSection } from "./ReleasesSection";
 import { deploymentStatusWord, shortCommit, triggerWords } from "./words";
 
@@ -202,7 +203,9 @@ export function DeploymentsTab({ domain }: { domain: string }) {
 
   return (
     <div className="flex min-w-0 flex-col gap-8 lg:flex-row lg:items-start">
-      <div className="min-w-0 flex-1">
+      <div className="flex min-w-0 flex-1 flex-col gap-8">
+        {/* What builds or waits for this app, with its place in the line: nothing drawn when it is empty. */}
+        <QueuePanel domain={domain} />
         <History domain={domain} t={t} />
       </div>
       {app.data ? (

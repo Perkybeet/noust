@@ -1,3 +1,5 @@
+import { queueFullHint } from "../api/errors";
+
 /**
  * The parts of an error as the console shows it: the suggested fix above, the system's own
  * words below, never paraphrased, and - when the failing tool printed something of its own
@@ -23,5 +25,5 @@ function field(value: unknown, key: string): string | null {
  */
 export function describeError(error: unknown): DescribedError {
   const detail = field(error, "detail") ?? field(error, "message") ?? String(error);
-  return { hint: field(error, "hint"), detail, output: field(error, "output") };
+  return { hint: queueFullHint(error) ?? field(error, "hint"), detail, output: field(error, "output") };
 }

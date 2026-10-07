@@ -69,7 +69,7 @@ export interface StreamSocketOptions {
   connect?: (url: string) => SocketLike;
 }
 
-function socketUrl(path: string, query: Record<string, string>): string {
+export function socketUrl(path: string, query: Record<string, string>): string {
   const scheme = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${scheme}//${window.location.host}${buildPath(path, undefined, query)}`;
 }

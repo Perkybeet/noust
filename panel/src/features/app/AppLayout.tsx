@@ -4,9 +4,10 @@ import { Boxes } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { isApiError } from "../../api/client";
-import { appQuery } from "../../api/queries/apps";
+import { appQuery, appsQuery } from "../../api/queries/apps";
 import type { App } from "../../api/queries/apps";
 import { certsQuery } from "../../api/queries/certs";
+import { queueQuery } from "../../api/queries/queue";
 import { LinkTabs } from "../../app/LinkTabs";
 import type { PageHeaderProps } from "../../app/PageHeader";
 import { DetailPage } from "../../components/page/DetailPage";
@@ -25,6 +26,9 @@ import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { useTypeName } from "../apps/data";
+import { CancelJobButton } from "../queue/CancelJobButton";
+import { useCancelJob } from "../queue/useCancelJob";
+import { cancelReasonWords, cancelState, mergedRequests, placeOf } from "../queue/words";
 import { useAppHeaderActions } from "./AppActions";
 import { AppBanner, useAppCondition } from "./AppBanner";
 import { findCertificate } from "./lookups";
@@ -69,19 +73,53 @@ function FactsSkeleton() {
 /**
  * The job in hand on this app, under the header on every tab: waiting or running with its
  * current step, or how the job this page started failed, in the system's words, until
- * dismissed. Not announced here: the header announces the state it puts the app in, and the
- * job's end is the notice toast's.
+ * dismissed. A job that waits says its place in the line and what it waits for (the queue's
+ * own words), and a job that can be stopped has its Cancel here, where the operator is. Not
+ * announced here: the header announces the state it puts the app in, and the job's end is the
+ * notice toast's.
  */
 function Job({ job, domain, t }: { job: AppJob; domain: string; t: T }) {
+  const cancel = useCancelJob();
+  const apps = useQuery(appsQuery());
+  const queue = useQuery(queueQuery());
   if (job.running) {
     const words = jobWords(job.running.type, domain, t.locale);
+    const waiting = job.running.status === "pending";
+    // The queue's read of this job is the authority on whether it can be stopped (the job
+    // event does not carry that); the job in hand fills in until the queue has answered.
+    const running = job.running;
+    const entry = [...(queue.data?.running ?? []), ...(queue.data?.queued ?? [])].find((candidate) => candidate.id === running.id) ?? running;
+    const state = cancelState(entry, apps.data?.apps);
+    const place = placeOf(entry);
+    const merged = mergedRequests(entry);
+    const reasonId = `job-reason-${entry.id}`;
+    const details: { key: string; line: ReactNode }[] = [];
+    if (waiting && place !== null) details.push({ key: "place", line: place.next ? t("queue.place.next") : t("queue.place.position", { position: place.position }) });
+    if (waiting && entry.waiting_for) details.push({ key: "waiting", line: t.rich("queue.waitingForLine", { what: <Mono key="what">{entry.waiting_for}</Mono> }) });
+    if (merged > 0) details.push({ key: "merged", line: t("queue.merged", { count: merged }) });
+    if (state.kind === "cannot") details.push({ key: "reason", line: cancelReasonWords(state.reason, t.locale) });
     return (
-      <JobProgress
-        announce={false}
-        state={job.running.status === "pending" ? "queued" : "running"}
-        title={words.title}
-        step={jobStep(job.running)}
-      />
+      <>
+        <JobProgress
+          announce={false}
+          state={waiting ? "queued" : "running"}
+          title={words.title}
+          step={jobStep(running)}
+          {...(details.length > 0
+            ? {
+                description: (
+                  <span id={reasonId} className="flex flex-col gap-0.5">
+                    {details.map(({ key, line }) => (
+                      <span key={key}>{line}</span>
+                    ))}
+                  </span>
+                ),
+              }
+            : {})}
+          action={<CancelJobButton entry={entry} state={state} onAsk={cancel.ask} reasonId={reasonId} />}
+        />
+        {cancel.dialog}
+      </>
     );
   }
   if (job.failed) {

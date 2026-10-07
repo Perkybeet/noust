@@ -2533,6 +2533,12 @@ class PostgresManager(BaseDatabaseManager):
             return None
         if value is None:
             return "PostgreSQL did not say whether TLS (ssl) is on"
+        if self.instance is not None:
+            return (
+                "This PostgreSQL runs from its image's own configuration, which has ssl = off, "
+                "and Noust does not change the configuration of a container: no account in it "
+                "can be made to require TLS"
+            )
         return (
             "PostgreSQL has ssl = off, so no client can use TLS here. Turn it on in "
             "postgresql.conf (Debian and Ubuntu ship ssl = on with a self-signed certificate) "

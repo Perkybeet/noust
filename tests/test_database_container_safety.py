@@ -551,8 +551,18 @@ class TestTheSamplerKeepsToItsBudget:
 # ==================== Finding 4: an application's backup reaches its container's database ====================
 
 
+class _NoRows:
+    """A cursor over a table with nothing in it."""
+
+    def execute(self, *_args: Any) -> None:
+        return None
+
+    def fetchall(self) -> list[Any]:
+        return []
+
+
 class StubStore:
-    """The two questions an application backup asks the store, and discovery's one."""
+    """The two questions an application backup asks the store, and discovery's two."""
 
     def __init__(self, engine: str) -> None:
         from types import SimpleNamespace
@@ -568,6 +578,12 @@ class StubStore:
 
     def list_apps(self) -> list[Any]:
         return [self.app]
+
+    def _transaction(self) -> Any:
+        # Discovery also asks which instances Noust runs: this server runs none.
+        import contextlib
+
+        return contextlib.nullcontext(_NoRows())
 
 
 def test_an_application_backup_dumps_a_container_linked_database(

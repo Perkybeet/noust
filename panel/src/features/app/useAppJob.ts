@@ -44,6 +44,12 @@ export function jobWords(type: string, domain: string, locale: Locale = getLocal
 
 const RUNNING = new Set(["pending", "running"]);
 
+/**
+ * Jobs that are work done in an app and not something that happens to it: a one-off command
+ * leaves the app as it was, so it never turns the header into "Working" or stops its verbs.
+ */
+const NOT_A_STATE = new Set(["app_exec"]);
+
 /** The newest line the job logged, which is what it is doing now. */
 export function jobStep(job: Job): string | null {
   const message = job.logs?.at(-1)?.["message"];
@@ -71,7 +77,9 @@ export function useAppJob(domain: string): AppJob {
   const followed = useFollowedJob();
 
   const mine = followed.job ?? undefined;
-  const elsewhere = active.data?.jobs.find((job) => job.metadata?.["domain"] === domain && RUNNING.has(job.status));
+  const elsewhere = active.data?.jobs.find(
+    (job) => job.metadata?.["domain"] === domain && RUNNING.has(job.status) && !NOT_A_STATE.has(job.type),
+  );
   const running = mine !== undefined && RUNNING.has(mine.status) ? mine : (elsewhere ?? null);
 
   return {

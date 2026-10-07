@@ -7,6 +7,7 @@ import type { ReactNode, SyntheticEvent } from "react";
 import { isApiError } from "../../api/client";
 import { login, loginSecondFactor, sessionQuery } from "../../api/queries/auth";
 import type { SecondFactorStep, SessionInfo } from "../../api/queries/auth";
+import { completeSso } from "../../api/queries/sso";
 import { announce } from "../../app/Announcer";
 import { nodeOfConsolePath } from "../../app/nodeRoute";
 import { ErrorBlock } from "../../components/page/QueryState";
@@ -20,6 +21,9 @@ import type { T } from "../../i18n";
 import { signInWithPasskey } from "./passkeys";
 import { rememberSignIn } from "./signInFacts";
 import type { SignInFacts } from "./signInFacts";
+import { SsoButtons, useSsoProviders } from "./SsoButtons";
+import type { SsoError } from "./sso";
+import { safeNext } from "./session";
 import { CeremonyError, browserLimit, conditionalMediationAvailable } from "./webauthn";
 
 /** Which way in: a person's account (the default), or the access token (emergency access). */
@@ -31,6 +35,8 @@ type TokenStep = "token" | "code";
 interface FactorStep extends SecondFactorStep {
   /** What was typed in the first step, to say whose password was accepted. */
   name: string;
+  /** The identity provider that opened this step instead of a password, by its button label. */
+  via?: string;
 }
 
 /** Seconds left of a lockout, counting down to zero once started. */
@@ -70,6 +76,10 @@ export interface LoginFormProps {
   expired: boolean;
   mode: LoginMode;
   onModeChange: (mode: LoginMode) => void;
+  /** The ticket an identity provider's answer left (`?sso=`): collected once, on arrival. */
+  sso?: string;
+  /** Why a sign-in through an identity provider did not finish (`?sso_error=`). */
+  ssoError?: SsoError;
 }
 
 /** A lockout of this address, counting down. */
@@ -111,12 +121,20 @@ function Or({ t }: { t: T }) {
  * password and sent to set one up. Every refusal of the first step reads the same, whatever
  * was wrong. The access token is emergency access: kept, one link away, with what it means
  * said before it is typed.
+ *
+ * An identity provider the operator configured is one more way in, a button above the form. Its
+ * answer is only the first factor: the server sends the browser back here with a ticket, which
+ * is collected on arrival, and an account with a second factor owes it exactly as after a
+ * password.
  */
-export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps) {
+export function LoginForm({ next, expired, mode, onModeChange, sso, ssoError }: LoginFormProps) {
   const t = useT();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { error: sessionError } = useQuery(sessionQuery());
+  const providers = useSsoProviders();
+  const [ssoBusy, setSsoBusy] = useState(sso !== undefined);
+  const collectedTicket = useRef<string | null>(null);
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -163,27 +181,27 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
     refusedField.current?.select();
   }, [pending, refusedField]);
 
-  const finish = async (answer: SignInFacts): Promise<void> => {
+  const finish = async (answer: SignInFacts, destination: string = next): Promise<void> => {
     rememberSignIn(answer);
     const session = await queryClient.query({ ...sessionQuery(), staleTime: 0 });
     announce(t("auth.signedIn"));
-    if (afterSignIn(session, next).to === "/setup") {
-      await navigate({ to: "/setup", search: { next }, replace: true });
+    if (afterSignIn(session, destination).to === "/setup") {
+      await navigate({ to: "/setup", search: { next: destination }, replace: true });
       return;
     }
-    // `next` may name a node the address-bar way (`/n/web-2/apps`), which `navigate({ href })`
+    // `destination` may name a node the address-bar way (`/n/web-2/apps`), which `navigate({ href })`
     // would land on stripped of its node (see nodeOfConsolePath): built as `{ to, search }`
     // instead whenever it does, so a link to a node's page still opens there once its owner
     // has signed in. The console's own guard sends an account with checks pending to them.
-    const { node, pathname } = nodeOfConsolePath(next);
-    await navigate(node === null ? { href: next, replace: true } : { to: pathname, search: { node }, replace: true });
+    const { node, pathname } = nodeOfConsolePath(destination);
+    await navigate(node === null ? { href: destination, replace: true } : { to: pathname, search: { node }, replace: true });
   };
 
   // The passkey in the username field's autofill (conditional UI), for as long as the account
   // form is on screen. Aborted when the operator does anything else with a passkey or leaves.
   const firstStep = factor === null;
   useEffect(() => {
-    if (mode !== "account" || !passkeysHere || !firstStep) return;
+    if (mode !== "account" || !passkeysHere || !firstStep || ssoBusy) return;
     const state = { live: true };
     // Read through a function: the flag changes while the ceremony waits, which a narrowed
     // read of the property would not see.
@@ -208,7 +226,7 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
     };
     // finish is stable in intent (it reads the latest next through its closure on each run).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, passkeysHere, firstStep]);
+  }, [mode, passkeysHere, firstStep, ssoBusy]);
 
   const stopAutofill = (): void => {
     autofill.current?.abort();
@@ -226,6 +244,41 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
     setFieldErrors({});
     setFailure(null);
   };
+
+  // The ticket an identity provider's answer left. It is collected once, and taken out of the
+  // address first, so it is not left in the history for a back button to offer again.
+  useEffect(() => {
+    // A ticket is single use: strict mode runs this twice on one page, and the second must not spend it again.
+    if (sso === undefined || collectedTicket.current === sso) return;
+    collectedTicket.current = sso;
+    void (async () => {
+      try {
+        await navigate({ to: "/login", search: next === "/" ? {} : { next }, replace: true });
+        const done = await completeSso({ ticket: sso, bearer: false });
+        const step = done.login.second_factor;
+        if (step) {
+          setCode("");
+          setFactor({ ...step, name: done.label, via: done.label });
+          const codeFirst = step.methods.includes("totp") || step.methods.includes("backup_code");
+          announce(t(codeFirst ? "auth.sso.codeAnnounce" : "auth.sso.passkeyAnnounce", { provider: done.label }));
+          return;
+        }
+        await finish(done.login, safeNext(done.next));
+      } catch (error: unknown) {
+        if (isApiError(error) && (error.error === "locked_out" || error.error === "rate_limited")) {
+          lockedOut(error);
+        } else if (isApiError(error) && error.error === "sign_in_expired") {
+          setFailure({ title: t("auth.sso.failedTitle"), error: new Error(t("auth.sso.errors.expired")) });
+        } else {
+          setFailure({ title: t("auth.sso.failedTitle"), error });
+        }
+      } finally {
+        setSsoBusy(false);
+      }
+    })();
+    // The ticket is what runs this, once; the rest is read as it is when the answer arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sso]);
 
   const withPasskey = async (): Promise<void> => {
     if (pending || passkeyPending || locked) return;
@@ -414,6 +467,11 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
   const notices: ReactNode = (
     <>
       {expired ? <Notice title={t("auth.sessionExpired")} /> : null}
+      {ssoError !== undefined && failure === null ? (
+        <Notice tone="error" live title={t("auth.sso.failedTitle")}>
+          {t(`auth.sso.errors.${ssoError}`)}
+        </Notice>
+      ) : null}
       {locked ? <LockedNotice t={t} remaining={remaining} /> : null}
       {failure !== null ? (
         <ErrorBlock live compact error={failure.error} title={failure.title} {...(failure.hint !== undefined ? { hint: failure.hint } : {})} />
@@ -515,7 +573,9 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
         <form onSubmit={(event) => void submitFactor(event)} noValidate className="flex flex-col gap-5">
           {notices}
           <div className="flex items-center justify-between gap-3 rounded-control border border-border bg-bg-sunken py-1.5 pr-1.5 pl-3">
-            <span className="min-w-0 text-13 break-words text-fg-muted">{t("auth.account.passwordAccepted", { name: factor.name })}</span>
+            <span className="min-w-0 text-13 break-words text-fg-muted">
+              {factor.via !== undefined ? t("auth.sso.accepted", { provider: factor.via }) : t("auth.account.passwordAccepted", { name: factor.name })}
+            </span>
             <Button
               variant="ghost"
               size="sm"
@@ -579,11 +639,23 @@ export function LoginForm({ next, expired, mode, onModeChange }: LoginFormProps)
     );
   }
 
+  if (ssoBusy) {
+    // The provider's answer is being collected: nothing to type, and nothing to press twice.
+    return (
+      <Button size="lg" className="w-full" loading>
+        {t("auth.sso.finishing")}
+      </Button>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5">
-      {passkeysHere ? (
+      {passkeysHere || providers.length > 0 ? (
         <>
-          {passkeyButton}
+          <div className="flex flex-col gap-3">
+            {passkeysHere ? passkeyButton : null}
+            <SsoButtons providers={providers} next={next} disabled={locked} />
+          </div>
           <Or t={t} />
         </>
       ) : null}

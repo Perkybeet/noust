@@ -340,12 +340,19 @@ def second_factor_blockers() -> list[str]:
         ]
     signing_in = [account for account in accounts if account.can_sign_in()]
     if signing_in:
-        lacking = sorted(account.username for account in signing_in if not account.has_mfa)
+        lacking = sorted(
+            (account for account in signing_in if not account.has_mfa),
+            key=lambda account: account.username,
+        )
         return [
-            f"The account {name} signs in with a password alone. Its owner enrols an "
-            "authenticator or a passkey (Security, after signing in), or the account is "
-            f"disabled (noust user disable {name}); then publish the console."
-            for name in lacking
+            # A provider's answer is a first factor like a password: it never
+            # stands in for the account's own second factor.
+            f"The account {account.username} signs in with "
+            f"{'a password' if account.has_password else 'its identity provider'} alone. "
+            "Its owner enrols an authenticator or a passkey (Security, after signing in), or "
+            f"the account is disabled (noust user disable {account.username}); then publish "
+            "the console."
+            for account in lacking
         ]
     if _master_second_factor():
         return []

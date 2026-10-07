@@ -25,6 +25,7 @@ export const server: Catalog<typeof en> = {
     reboot: "Reiniciar",
     checkUpdates: "Buscar actualizaciones del sistema",
     runChecks: "Ejecutar las comprobaciones de seguridad",
+    terminal: "Abrir un terminal",
     shutdown: "Apagar…",
   },
   hostAccess: {

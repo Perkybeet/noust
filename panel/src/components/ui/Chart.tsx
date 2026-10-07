@@ -7,6 +7,7 @@ import { useT } from "../../i18n";
 import type { Locale, T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { formatDecimal, formatMoment } from "../../lib/format";
+import { tokenReader } from "../../lib/tokenColours";
 import { isHttpUrl } from "../../lib/url";
 import { Button } from "./Button";
 import { useChartGroupCursor, useChartGroupStore } from "./chart/group";
@@ -189,14 +190,8 @@ function seriesToken(series: Pick<ChartSeries, "state"> | undefined, index: numb
  * value depends on the colour scheme in force at the chart, not on the root.
  */
 function readPalette(host: HTMLElement, series: readonly Pick<ChartSeries, "state">[]): Palette {
-  const probe = document.createElement("span");
-  // A transition on colour would make the read below return the previous token.
-  probe.style.transition = "none";
-  host.append(probe);
-  const resolve = (token: string): string => {
-    probe.style.color = `var(${token})`;
-    return getComputedStyle(probe).color;
-  };
+  const reader = tokenReader(host);
+  const resolve = reader.read;
   const colours = series.map((s, i) => resolve(seriesToken(s, i)));
   const tone = {
     ok: resolve(TONE_TOKENS.ok),
@@ -213,7 +208,7 @@ function readPalette(host: HTMLElement, series: readonly Pick<ChartSeries, "stat
     hatch: resolve("--border"),
     tone,
   };
-  probe.remove();
+  reader.release();
   const first = colours[0] ?? "";
   // Only the first series has a fill (8%), and only when it is an identity, not a state.
   if (series[0]?.state === undefined && first.startsWith("rgb(")) palette.fill = first.replace("rgb(", "rgba(").replace(")", ", 0.08)");

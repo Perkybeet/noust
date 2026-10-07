@@ -7,7 +7,7 @@ import { json } from "../../../test/fakes";
 import { screenWidth } from "../testRoutes";
 import type { RouteHandler } from "../../../test/fakes";
 import { DOMAIN, ELEVATED, IN_PLACE_APP, RELEASE_APP, part, renderSettings } from "./testKit";
-import { connectionView, forgeName, outcomeView } from "./webhook";
+import { connectionView, forgeName, outcomeView, senderName } from "./webhook";
 
 const OFF = {
   domain: DOMAIN,
@@ -81,7 +81,7 @@ function step(title: string): HTMLElement {
 describe("deploy on push, off", () => {
   it("says what it does, and sets it up in three steps, each saying whether it is done", async () => {
     await push(OFF);
-    expect(screen.getByText(/When you push to the repository, GitHub, GitLab or Gitea tells this server/)).toBeInTheDocument();
+    expect(screen.getByText(/When you push to the repository, GitHub, GitLab, Gitea or Bitbucket tells this server/)).toBeInTheDocument();
     expect(await screen.findByText("Off")).toBeInTheDocument();
     expect(screen.getByText(/Pushes to the repository do not deploy this app/)).toBeInTheDocument();
 
@@ -245,6 +245,74 @@ describe("deploy on push, in Spanish and for assistive technology", () => {
   });
 });
 
+const BITBUCKET = {
+  ...OFF,
+  hooks: { ...OFF.hooks, events: ["repo:push"] },
+  forge: { forge: "bitbucket", host: "bitbucket.org", repository: "shop/storefront", settings_url: "https://bitbucket.org/shop/storefront/admin/webhooks" },
+};
+
+describe("deploy on push, from Bitbucket", () => {
+  it("says where Bitbucket keeps its webhook form, which triggers to choose, and gives the URL and the secret to paste", async () => {
+    const { user } = await push({ ...BITBUCKET, hooks: { ...BITBUCKET.hooks, exposed: true, base_url: "https://hooks.example.com/hooks", hook_url: `https://hooks.example.com/hooks/deploy/${DOMAIN}`, hook_url_public: true } }, {
+      [`POST /api/apps/${DOMAIN}/webhook-secret`]: () => json(200, SECRET),
+    });
+    await user.click(await within(await screen.findByRole("group", { name: "This app's secret" })).findByRole("button", { name: "Create secret" }));
+    const forge = step("Add the webhook in Bitbucket");
+    expect(within(forge).getByText(/In the repository's Repository settings, open Webhooks, choose Add webhook, give it a title, paste the URL and the secret/)).toBeInTheDocument();
+    expect(await within(forge).findByText(SECRET.secret)).toBeInTheDocument();
+    expect(within(forge).getByText(`https://hooks.example.com/hooks/deploy/${DOMAIN}`)).toBeInTheDocument();
+    expect(within(forge).getByText("Repository: Push")).toBeInTheDocument();
+    expect(within(forge).getByRole("link", { name: /Open the webhook settings on Bitbucket/ })).toHaveAttribute("href", BITBUCKET.forge.settings_url);
+    // A copy button for each value that is pasted at Bitbucket.
+    expect(within(forge).getByRole("button", { name: "Copy webhook url" })).toBeInTheDocument();
+    expect(within(forge).getByRole("button", { name: "Copy secret" })).toBeInTheDocument();
+  });
+
+  it("asks for the pull request triggers too when the app builds previews", async () => {
+    await push({ ...BITBUCKET, hooks: { ...BITBUCKET.hooks, events: ["repo:push", "pullrequest:created", "pullrequest:updated", "pullrequest:fulfilled", "pullrequest:rejected"] } });
+    await screen.findByRole("heading", { name: "Add the webhook in Bitbucket" });
+    expect(within(step("Add the webhook in Bitbucket")).getByText("Repository: Push, and Pull request: Created, Updated, Merged and Declined")).toBeInTheDocument();
+  });
+
+  it("lists what Bitbucket sent, and says who sent each delivery, and a push the full queue turned away", async () => {
+    screenWidth(1440);
+    const sent = (id: number, outcome: string, extra: object = {}) => ({ ...PUSH, id, provider: "bitbucket", event: "repo:push", outcome, ...extra });
+    await push({ ...CONNECTED, forge: BITBUCKET.forge, hooks: { ...EXPOSED, events: ["repo:push"] } }, {
+      [`GET /api/apps/${DOMAIN}/webhook/received`]: () =>
+        json(200, {
+          domain: DOMAIN,
+          items: [
+            sent(12, "queue_full", { detail: "The deploy queue is full: 25 requests are waiting (bitbucket)", job_id: null }),
+            sent(11, "deploy_started"),
+            sent(10, "ping", { event: "diagnostics:ping", branch: null, job_id: null, provider: "github-app" }),
+            sent(9, "bad_signature", { provider: null, event: null, branch: null, job_id: null }),
+          ],
+          total: 4,
+        }),
+    });
+    const received = await screen.findByRole("table", { name: `Deliveries received for ${DOMAIN}, newest first` });
+    expect(within(received).getByRole("columnheader", { name: "Sent by" })).toBeInTheDocument();
+    // The push the queue had no room for is said as what it is, in the working colour and not as a failure.
+    const refused = (await within(received).findByText("Queue full, the host will retry")).closest("tr");
+    if (!refused) throw new Error("no row for the full queue");
+    expect(within(refused).getByText("Bitbucket")).toBeInTheDocument();
+    expect(within(refused).getByText(/The deploy queue is full: 25 requests are waiting/)).toBeInTheDocument();
+    expect(within(received).getAllByText("Bitbucket").length).toBeGreaterThanOrEqual(2);
+    expect(within(received).getByText("GitHub App")).toBeInTheDocument();
+    expect(within(received).getByText("Wrong signature").closest("tr")).toHaveTextContent("No signature verified");
+  });
+
+  it("speaks Spanish and has no accessibility violations", async () => {
+    await push(BITBUCKET);
+    await screen.findByRole("group", { name: "Add the webhook in Bitbucket" });
+    await expectNoAxeViolations(screen.getByRole("main"));
+    await act(() => setLocale("es"));
+    expect(await screen.findByRole("group", { name: "Añade el webhook en Bitbucket" })).toBeInTheDocument();
+    expect(screen.getByText(/En los Repository settings del repositorio, abre Webhooks/)).toBeInTheDocument();
+    await expectNoAxeViolations(screen.getByRole("main"));
+  });
+});
+
 describe("the words of the setup", () => {
   it("draws where the connection stands, and each delivery, with a state, a shape and a word", () => {
     expect(connectionView("disabled")).toEqual({ state: "stopped", label: "Off" });
@@ -256,10 +324,21 @@ describe("the words of the setup", () => {
     expect(outcomeView("duplicate")).toEqual({ state: "stopped", label: "Repeat, ignored" });
     expect(outcomeView("locked")).toEqual({ state: "failed", label: "Refused, too many wrong signatures" });
     expect(outcomeView("something_new")).toEqual({ state: "unknown", label: "something_new" });
+    // A push that was real and verified, turned away because the deploy queue was full.
+    expect(outcomeView("queue_full")).toEqual({ state: "warning", label: "Queue full, the host will retry" });
+  });
+
+  it("names who sent a delivery by the provider the log records", () => {
+    expect(senderName("bitbucket")).toBe("Bitbucket");
+    expect(senderName("github-app")).toBe("GitHub App");
+    expect(senderName("somewhere-new")).toBe("somewhere-new");
+    expect(senderName(null)).toBeNull();
+    expect(senderName("")).toBeNull();
   });
 
   it("names the forge by its product name, and any other host in words", () => {
     expect(forgeName("gitlab")).toBe("GitLab");
+    expect(forgeName("bitbucket")).toBe("Bitbucket");
     expect(forgeName(null)).toBe("your Git host");
     expect(forgeName(null, "es")).toBe("tu plataforma Git");
   });

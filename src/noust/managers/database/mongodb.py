@@ -128,6 +128,10 @@ ADMIN_SECRET = "databases/mongodb/admin"  # noqa: S105 - a secret name, not a se
 #: mongod's configuration file.
 MONGOD_CONF = Path("/etc/mongod.conf")
 
+#: What ``mongosh --shell --eval`` is given to print no prompt around a result
+#: (``void`` keeps the assignment's own value out of the output).
+SILENT_PROMPT = 'void (prompt = () => "")'
+
 #: The built-in role each access profile maps to, on one database.
 PROFILE_ROLES: dict[str, str] = {"owner": "dbOwner", "read_write": "readWrite", "read_only": "read"}
 
@@ -525,6 +529,31 @@ class MongoDBManager(BaseDatabaseManager):
             details="Install mongosh (or the legacy mongo client) and retry.",
         )
 
+    def _shell_argv(self, database: str) -> list[str]:
+        """
+        Build the command that runs a script given on stdin.
+
+        An instance Noust runs has ``mongosh`` 2, which prints its prompt
+        (``admin> ``) around every result when stdin is a pipe, which turns the
+        JSON the helpers parse into JSON with prompts in it. ``--shell`` with an
+        ``--eval`` that makes the prompt empty keeps the shell the scripts are
+        written for (its commands wait for their results, which evaluating the
+        script with ``eval`` does not) and prints nothing around them. The
+        argument is a constant; the script itself still travels on stdin.
+        Anything else (the host's shell, the legacy shell, a container Noust did
+        not make) is run as it always was.
+
+        Args:
+            database: Database the shell connects to.
+
+        Returns:
+            The shell's argv.
+        """
+        argv = [self._shell(), database, "--quiet"]
+        if self.instance is not None and self.instance.managed is not None:
+            argv += ["--shell", "--eval", SILENT_PROMPT]
+        return argv
+
     def _execute_mongo(
         self,
         script: str,
@@ -547,7 +576,7 @@ class MongoDBManager(BaseDatabaseManager):
         """
         preamble, password = self._auth_preamble()
         result = self._exec(
-            [self._shell(), database, "--quiet"],
+            self._shell_argv(database),
             input=preamble + script,
             timeout=timeout,
             secrets=(*secrets, *((password,) if password else ())),

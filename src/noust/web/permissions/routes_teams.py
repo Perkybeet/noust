@@ -31,9 +31,14 @@ ROUTES: dict[tuple[str, str], str] = {
     ("DELETE", "/api/teams/{team}/members/{username}"): Permission.TEAMS_MANAGE,
     ("GET", "/api/teams/{team}/projects"): Permission.TEAMS_READ,
     ("POST", "/api/teams/{team}/projects"): Permission.TEAMS_MANAGE,
+    ("PATCH", "/api/teams/{team}/projects/{project}"): Permission.TEAMS_MANAGE,
     ("DELETE", "/api/teams/{team}/projects/{project}"): Permission.TEAMS_MANAGE,
     ("GET", "/api/teams/{team}/projects/{project}/environments"): Permission.TEAMS_READ,
     ("POST", "/api/teams/{team}/projects/{project}/environments"): Permission.TEAMS_MANAGE,
+    (
+        "PATCH",
+        "/api/teams/{team}/projects/{project}/environments/{environment}",
+    ): Permission.TEAMS_MANAGE,
     (
         "DELETE",
         "/api/teams/{team}/projects/{project}/environments/{environment}",

@@ -16,6 +16,9 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatMoment } from "../../../lib/format";
 import { ChoiceCards } from "../../../components/ui/ChoiceCards";
+import { TEAM_ROLES } from "../../../api/queries/teams";
+import type { TeamRole } from "../../../api/queries/teams";
+import { teamRoleDescription, teamRoleLabel } from "../../teams/roles";
 import { splitErrors } from "../formErrors";
 import { accountKeys, invite } from "./api";
 import type { Account, InvitationIssued } from "./api";
@@ -23,7 +26,7 @@ import { ROLES, incompatible, roleDescription, roleLabel } from "./roles";
 import type { Role } from "./roles";
 import { samePerson } from "./data";
 
-const FIELDS = ["username", "role", "display_name", "person_ref", "expires_hours"] as const;
+const FIELDS = ["username", "role", "team", "team_role", "display_name", "person_ref", "expires_hours"] as const;
 
 const EXPIRY_HOURS = ["24", "72", "168", "336"] as const;
 
@@ -77,6 +80,12 @@ export interface InviteDialogProps {
   accounts: readonly Account[];
   /** A new invitation for an existing account: recovery, which replaces its password and factor. */
   recover?: Account | null;
+  /**
+   * Invite the person into a team: they belong to it only, with the role the operator chooses
+   * there, and hold no role of their own on the server beyond reading (the team's owners
+   * govern the rest). The team's own page offers it; the accounts page invites to the server.
+   */
+  team?: { slug: string; name: string } | null;
 }
 
 /**
@@ -84,13 +93,14 @@ export interface InviteDialogProps {
  * their own password and second factor from the link; nobody else ever knows either. For an
  * existing account it is how access is recovered.
  */
-export function InviteDialog({ open, onClose, accounts, recover = null }: InviteDialogProps) {
+export function InviteDialog({ open, onClose, accounts, recover = null, team = null }: InviteDialogProps) {
   const t = useT();
   const queryClient = useQueryClient();
   const [username, setUsername] = useState(recover?.username ?? "");
   const [displayName, setDisplayName] = useState("");
   const [person, setPerson] = useState("");
   const [role, setRole] = useState<Role>("operator");
+  const [teamRole, setTeamRole] = useState<TeamRole>("viewer");
   const [expiry, setExpiry] = useState<(typeof EXPIRY_HOURS)[number]>("24");
   const [issued, setIssued] = useState<{ answer: InvitationIssued; expiresAt: number } | null>(null);
   const usernameRef = useRef<HTMLInputElement>(null);
@@ -101,7 +111,8 @@ export function InviteDialog({ open, onClose, accounts, recover = null }: Invite
       invite({
         username: username.trim(),
         expires_hours: Number(expiry),
-        ...(recover === null ? { role } : {}),
+        ...(recover === null ? { role: team === null ? role : "viewer" } : {}),
+        ...(recover === null && team !== null ? { team: team.slug, team_role: teamRole } : {}),
         ...(recover === null && displayName.trim() !== "" ? { display_name: displayName.trim() } : {}),
         ...(recover === null && person.trim() !== "" ? { person_ref: person.trim() } : {}),
       }),
@@ -111,7 +122,7 @@ export function InviteDialog({ open, onClose, accounts, recover = null }: Invite
     },
   });
   const errors = splitErrors(create.error, FIELDS);
-  const clashes = recover === null ? samePerson(accounts, { username: username.trim(), person_ref: person }).filter((other) => incompatible(other.role, role)) : [];
+  const clashes = recover === null && team === null ? samePerson(accounts, { username: username.trim(), person_ref: person }).filter((other) => incompatible(other.role, role)) : [];
 
   const onOpenChange = (next: boolean): void => {
     if (next || create.isPending) return;
@@ -146,8 +157,8 @@ export function InviteDialog({ open, onClose, accounts, recover = null }: Invite
       onOpenChange={onOpenChange}
       size="md"
       initialFocus={usernameRef}
-      title={recover === null ? t("accounts.invite.title") : t("accounts.invite.recoverTitle", { name: recover.username })}
-      description={recover === null ? t("accounts.invite.description") : t("accounts.invite.recoverDescription")}
+      title={team !== null ? t("teams.invite.title", { team: team.name }) : recover === null ? t("accounts.invite.title") : t("accounts.invite.recoverTitle", { name: recover.username })}
+      description={team !== null ? t("teams.invite.description", { team: team.name }) : recover === null ? t("accounts.invite.description") : t("accounts.invite.recoverDescription")}
       footer={
         <>
           <Button disabled={create.isPending} onClick={() => onOpenChange(false)}>
@@ -198,13 +209,24 @@ export function InviteDialog({ open, onClose, accounts, recover = null }: Invite
                 }}
               />
             </Field>
-            <ChoiceCards
-              legend={t("accounts.fields.role")}
-              options={ROLES.map((value) => ({ value, label: roleLabel(t, value), description: roleDescription(t, value) }))}
-              value={role}
-              onValueChange={setRole}
-            />
+            {team !== null ? (
+              <ChoiceCards
+                legend={t("teams.members.roleLegend")}
+                options={TEAM_ROLES.map((value) => ({ value, label: teamRoleLabel(t, value), description: teamRoleDescription(t, value) }))}
+                value={teamRole}
+                onValueChange={setTeamRole}
+              />
+            ) : (
+              <ChoiceCards
+                legend={t("accounts.fields.role")}
+                options={ROLES.map((value) => ({ value, label: roleLabel(t, value), description: roleDescription(t, value) }))}
+                value={role}
+                onValueChange={setRole}
+              />
+            )}
             {errors.fields.role !== undefined ? <p className="text-13 text-fail">{errors.fields.role}</p> : null}
+            {errors.fields.team !== undefined ? <p className="text-13 text-fail">{errors.fields.team}</p> : null}
+            {errors.fields.team_role !== undefined ? <p className="text-13 text-fail">{errors.fields.team_role}</p> : null}
             {clashes.length > 0 ? (
               <Notice tone="warning" title={t("accounts.sod.clashTitle")}>
                 {t("accounts.sod.clash", { accounts: clashes.map((other) => other.username).join(", ") })}

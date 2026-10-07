@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 
 from noust.core.exceptions import ValidationError
-from noust.core.teams import ownership_target, scoped_store
+from noust.core.teams import TeamStore, ownership_target, scoped_store
 from noust.managers.database.registry import DatabaseRegistry
 from noust.web.api.auth import get_current_session
 from noust.web.api.databases import jobs
@@ -221,6 +221,8 @@ class ProvisioningPlanResponse(BaseModel):
         running_version: The version of the installed engine.
         will_install: The engine is not installed, and creating the database
             with ``install`` would install it in that version first.
+        instance: The name of the instance Noust runs that the database would
+            be made on (``engine`` is then its key), or None for the host's.
     """
 
     engine: str
@@ -235,6 +237,7 @@ class ProvisioningPlanResponse(BaseModel):
     version: str | None = None
     running_version: str | None = None
     will_install: bool = False
+    instance: str | None = None
 
 
 class ChoiceVersionResponse(BaseModel):
@@ -244,14 +247,32 @@ class ChoiceVersionResponse(BaseModel):
     Attributes:
         version: The version (a PostgreSQL major, a MariaDB release).
         state: ``installed`` (it is the one that runs), ``installable`` (it can
-            be installed now) or ``unavailable`` (it cannot be had: another
-            version of the engine, or another flavour, is installed).
+            be installed now), ``instance`` (an instance Noust runs has it: its
+            name is in ``instance``) or ``unavailable`` (it cannot be had:
+            another version of the engine, or another flavour, is installed).
         default: Whether it is what installs when no version is chosen.
+        instance: The instance that runs it, when ``state`` is ``instance``.
     """
 
     version: str
     state: str
     default: bool = False
+    instance: str | None = None
+
+
+class ChoiceInstanceResponse(BaseModel):
+    """
+    An instance Noust runs that a database can be made on.
+
+    Attributes:
+        name: The instance's name, what ``instance`` takes.
+        key: The key it is addressed by as an engine (``postgresql@pg17``).
+        version: The version it runs.
+    """
+
+    name: str
+    key: str
+    version: str
 
 
 class EngineChoiceResponse(BaseModel):
@@ -269,6 +290,9 @@ class EngineChoiceResponse(BaseModel):
         installable: It can be installed now.
         reason: Why not, or what is installed, as one sentence.
         versions: The versions on offer, oldest first.
+        instances: The instances Noust runs of this flavour that are ready.
+        instance_versions: The versions an instance of this flavour could be
+            made in (``POST /api/databases/instances``).
     """
 
     flavour: str
@@ -279,6 +303,8 @@ class EngineChoiceResponse(BaseModel):
     installable: bool
     reason: str | None = None
     versions: list[ChoiceVersionResponse]
+    instances: list[ChoiceInstanceResponse] = Field(default_factory=list)
+    instance_versions: list[str] = Field(default_factory=list)
 
 
 class EngineChoicesResponse(BaseModel):
@@ -317,19 +343,27 @@ def list_databases(
     scoped = scoped_store()
     views = listing.databases
     # The store says whose a database is; an engine's own listing does not.
+    labels = TeamStore().owner_labels()
+    owners = {
+        (record.name, record.engine): labels.of(record.project_id, record.environment_id)
+        for record in scoped.list_databases(
+            engine=DatabaseRegistry.canonical(engine) or engine if engine else None,
+            project=project,
+            environment=environment,
+            team=team,
+        )
+    }
     if scoped.scope.restricted or team or project or environment:
-        owned = {
-            (record.name, record.engine)
-            for record in scoped.list_databases(
-                engine=DatabaseRegistry.canonical(engine) or engine if engine else None,
-                project=project,
-                environment=environment,
-                team=team,
-            )
-        }
-        views = [view for view in views if (view.name, view.engine) in owned]
+        views = [view for view in views if (view.name, view.engine) in owners]
+    rows = []
+    for view in views:
+        row = database_response(view)
+        row.team, row.project, row.environment = owners.get(
+            (view.name, view.engine), (None, None, None)
+        )
+        rows.append(row)
     return DatabaseListResponse(
-        databases=[database_response(view) for view in views],
+        databases=rows,
         total=len(views),
         problems=[ListingProblemResponse(**problem.to_dict()) for problem in listing.problems],
     )
@@ -457,6 +491,10 @@ def provisioning_plan(
     version: Annotated[
         str | None, Query(max_length=16, description="The version the database is wanted on")
     ] = None,
+    instance: Annotated[
+        str | None,
+        Query(max_length=24, description="The instance Noust runs to make the database on"),
+    ] = None,
 ) -> ProvisioningPlanResponse:
     """
     Say what creating a database for an application would write.
@@ -469,11 +507,15 @@ def provisioning_plan(
         session: The authenticated session.
         domain: The application's domain.
         engine: The engine.
+        version: The version the database is wanted on.
+        instance: The instance Noust runs to make it on.
 
     Returns:
         The plan.
     """
-    return ProvisioningPlanResponse(**service(session).plan_for_app(domain, engine, version))
+    return ProvisioningPlanResponse(
+        **service(session).plan_for_app(domain, engine, version, instance)
+    )
 
 
 @router.get("/databases/{engine}/{name}", response_model=DatabaseInfoResponse)

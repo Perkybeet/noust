@@ -78,6 +78,10 @@ export function checkLabel(name: string, locale: Locale = getLocale()): string {
       return translate(locale, "appPages.diagnose.check.oom");
     case "disk":
       return translate(locale, "appPages.diagnose.check.disk");
+    case "blue_green":
+      return translate(locale, "appPages.diagnose.check.blueGreen");
+    case "zero_downtime":
+      return translate(locale, "appPages.diagnose.check.zeroDowntime");
     default:
       return capitalise(name);
   }

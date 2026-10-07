@@ -42,6 +42,7 @@ from typing import Any, cast
 from noust.core import audit
 from noust.core.config import Config
 from noust.core.database_exposures import ExposureStore
+from noust.core.db_instance_store import DbInstanceStore
 from noust.core.ens import profile as security_profile
 from noust.core.exceptions import (
     ConfigError,
@@ -100,6 +101,7 @@ from noust.managers.database.exposure import (
     ssh_port,
     tunnel_instructions,
 )
+from noust.managers.database.instance_records import assign_managed
 from noust.managers.database.instances import (
     DatabaseInstance,
     assign_apps,
@@ -713,9 +715,22 @@ class DatabaseService:
             elif self._engine_names is not None:
                 found = []
             else:
-                found = assign_apps(discover(), self.store.list_apps())
+                found = assign_managed(
+                    assign_apps(discover(), self.store.list_apps()),
+                    DbInstanceStore(self.store).all(),
+                )
             self._discovered = found
         return self._discovered
+
+    def refresh_instances(self) -> None:
+        """
+        Forget the containers found so far, so the next question asks Docker again.
+
+        Creating, upgrading or removing an instance changes what Docker runs
+        within the life of one service; whoever did it calls this before asking
+        for the instance's manager.
+        """
+        self._discovered = None
 
     def _instance_manager(
         self, key: str, resolve: Callable[[str], BaseDatabaseManager | None]
@@ -2831,6 +2846,7 @@ class DatabaseService:
         version: str | None = None,
         install: bool = False,
         install_hint: str = "",
+        instance: str | None = None,
     ) -> LinkOutcome:
         """
         Create a database and an account for an application, and link them.
@@ -2851,6 +2867,9 @@ class DatabaseService:
             install: Install the engine, in that version, when it is missing.
             install_hint: How the caller says "install it", for the error
                 that refuses a missing engine.
+            instance: The name of an instance Noust runs to make the database
+                on, instead of the host's engine (or the one that runs the
+                version asked for).
 
         Returns:
             What was done.
@@ -2864,12 +2883,17 @@ class DatabaseService:
         """
         app = self._app(domain)
         choice = resolve_choice(
-            self, engine, version=version, install=install, install_hint=install_hint
+            self,
+            engine,
+            version=version,
+            install=install,
+            install_hint=install_hint,
+            instance=instance,
         )
         if choice.action == "install":
             self.logger.info(f"Installing {choice.display_name} first")
             self.install_engine(engine, flavour=choice.flavour, version=choice.version)
-        manager = self.running(engine)
+        manager = self.running(choice.engine)
         db_name, user, created = self._provision(app.domain, manager, name, app=app)
         outcome = self.link(
             domain,
@@ -2894,6 +2918,7 @@ class DatabaseService:
         env: Mapping[str, str] | None = None,
         version: str | None = None,
         install: bool = False,
+        instance: str | None = None,
     ) -> NewAppDatabase:
         """
         Create a database for an application its first deploy is about to create.
@@ -2922,6 +2947,8 @@ class DatabaseService:
             version: The version of the engine the database is for; None for
                 the one that is installed.
             install: Install the engine, in that version, when it is missing.
+            instance: The name of an instance Noust runs to make the database
+                on, instead of the host's engine.
 
         Returns:
             The database and the variables to write.
@@ -2941,11 +2968,11 @@ class DatabaseService:
                 f"{domain} is already deployed",
                 details=f"Create its database with: noust db provision {domain} --engine {engine}",
             )
-        choice = resolve_choice(self, engine, version=version, install=install)
+        choice = resolve_choice(self, engine, version=version, install=install, instance=instance)
         if choice.action == "install":
             self.logger.info(f"Installing {choice.display_name} first")
             self.install_engine(engine, flavour=choice.flavour, version=choice.version)
-        manager = self.running(engine)
+        manager = self.running(choice.engine)
         engine_name = manager.ENGINE_NAME
         variable = env_var or default_env_var(engine_name)
         wanted = {variable, *(EXTRA_VARIABLES if extra_vars else ())}
@@ -3077,7 +3104,9 @@ class DatabaseService:
             kept=True,
         )
 
-    def plan_for_app(self, domain: str, engine: str, version: str | None = None) -> dict[str, Any]:
+    def plan_for_app(
+        self, domain: str, engine: str, version: str | None = None, instance: str | None = None
+    ) -> dict[str, Any]:
         """
         Say what provisioning a database for an application would write.
 
@@ -3090,24 +3119,26 @@ class DatabaseService:
             engine: The engine.
             version: The version the database is wanted on; None for the one
                 that is installed.
+            instance: The name of an instance Noust runs to make it on.
 
         Returns:
-            ``engine``, ``display_name``, ``installed``, ``running``,
-            ``database``, ``username``, ``env_vars`` (names), ``url`` (the
-            connection string with the password masked), ``database_exists``,
-            ``version`` (as asked), ``running_version`` and ``will_install``
-            (the engine is missing and creating the database would install it).
+            ``engine`` (an instance's key when it is made on one), ``display_name``,
+            ``installed``, ``running``, ``database``, ``username``, ``env_vars``
+            (names), ``url`` (the connection string with the password masked),
+            ``database_exists``, ``version`` (as asked), ``running_version``,
+            ``will_install`` (the engine is missing and creating the database
+            would install it) and ``instance`` (the instance's name, or None).
 
         Raises:
             ValidationError: When the version cannot be had here, or is not the
                 one that runs.
         """
         choice = (
-            resolve_choice(self, engine, version=version, install=True)
-            if version is not None
+            resolve_choice(self, engine, version=version, install=True, instance=instance)
+            if version is not None or instance
             else None
         )
-        manager = self.manager(engine)
+        manager = self.manager(choice.engine if choice is not None else engine)
         engine_name = manager.ENGINE_NAME
         app_name = domain_to_app_name(validate_domain(domain))
         installed = manager.is_installed()
@@ -3119,7 +3150,8 @@ class DatabaseService:
         else:
             base = app_name.replace("-", "_")
             database, user = f"{base}_db", f"{base}_user"
-        port = manager.server_port() if running else manager.DEFAULT_PORT
+        # An instance's port is its own, running or not: it is the row's.
+        port = manager.server_port() if running or manager.instance else manager.DEFAULT_PORT
         url = masked(
             connection_url(
                 engine_name,
@@ -3144,6 +3176,7 @@ class DatabaseService:
             "version": version,
             "running_version": manager.get_version() if installed else None,
             "will_install": bool(choice is not None and choice.action == "install"),
+            "instance": manager.instance.managed if manager.instance is not None else None,
         }
 
     # ---------------------------------------------------------------- dumps
@@ -3485,12 +3518,14 @@ class DatabaseService:
         flavour: str | None = None,
         install: bool = False,
         install_hint: str = "",
+        instance: str | None = None,
     ) -> EngineChoice:
         """
         Decide what creating a database on an engine in a version means here.
 
-        Changes nothing: it reads what is installed and what the catalog
-        offers. See :func:`~noust.managers.database.choice.resolve_choice`.
+        Changes nothing: it reads what is installed, which instances Noust
+        runs and what the catalog offers. See
+        :func:`~noust.managers.database.choice.resolve_choice`.
 
         Args:
             engine: The engine as typed.
@@ -3498,13 +3533,15 @@ class DatabaseService:
             flavour: A flavour named explicitly.
             install: Whether installing a missing engine is allowed.
             install_hint: How the caller says "install it", for the refusal.
+            instance: The name of an instance Noust runs to make it on.
 
         Returns:
-            The decision: use the engine that runs, or install it first.
+            The decision: use the engine that runs (the host's, or an
+            instance's, whose key is ``engine``), or install it first.
 
         Raises:
             ValidationError: When the version cannot be had here or is not the
-                one that runs.
+                one that runs, and no instance runs it.
             DatabaseEngineError: When the engine is unknown, or missing and
                 not to be installed.
         """
@@ -3515,6 +3552,7 @@ class DatabaseService:
             flavour=flavour,
             install=install,
             install_hint=install_hint,
+            instance=instance,
         )
 
     def engine_choices(self) -> list[dict[str, Any]]:

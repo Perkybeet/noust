@@ -221,6 +221,37 @@ class TestProjectsAndEnvironments:
             "staging",
         ]
 
+    def test_renaming_a_project_or_an_environment_keeps_the_slug(self, teams: TeamStore) -> None:
+        teams.create_team("Acme", slug="acme")
+        teams.create_project("acme", "Mobile", slug="mobile")
+        teams.create_environment("acme", "mobile", "Staging", slug="staging")
+
+        project = teams.rename_project("acme", "mobile", "Mobile app")
+        environment = teams.rename_environment("acme", "mobile", "staging", "Pre-production")
+
+        assert (project.slug, project.name) == ("mobile", "Mobile app")
+        assert (environment.slug, environment.name) == ("staging", "Pre-production")
+        assert teams.require_project("acme", "mobile").name == "Mobile app"
+        assert teams.require_environment("acme", "mobile", "staging").name == "Pre-production"
+
+    def test_a_rename_of_what_is_not_there_is_not_found(self, teams: TeamStore) -> None:
+        teams.create_team("Acme", slug="acme")
+
+        with pytest.raises(TeamNotFoundError):
+            teams.rename_project("acme", "nope", "Anything")
+        with pytest.raises(TeamNotFoundError):
+            teams.rename_environment("acme", DEFAULT_SLUG, "nope", "Anything")
+
+    def test_a_rename_keeps_the_old_name_when_the_new_one_is_empty_or_unsafe(
+        self, teams: TeamStore
+    ) -> None:
+        teams.create_team("Acme", slug="acme")
+        teams.create_project("acme", "Mobile", slug="mobile")
+
+        assert teams.rename_project("acme", "mobile", "   ").name == "Mobile"
+        with pytest.raises(ValidationError):
+            teams.rename_project("acme", "mobile", "bad\x00name")
+
     def test_the_same_slug_may_exist_in_two_teams(self, teams: TeamStore) -> None:
         teams.create_team("Acme", slug="acme")
         teams.create_team("Globex", slug="globex")

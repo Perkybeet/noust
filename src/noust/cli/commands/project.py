@@ -90,6 +90,22 @@ def create_command(ctx: Context, name: str, team: str | None, slug: str | None) 
     )
 
 
+@cli.command("rename")
+@click.argument("project")
+@click.argument("name")
+@click.option("--team", default=None, help="The team it belongs to (default: the default team).")
+@pass_context
+def rename_command(ctx: Context, project: str, name: str, team: str | None) -> None:
+    """Change a project's display name; the short name commands use stays."""
+    renamed = teams().rename_project(_team_or_default(team), project, name)
+    record("project.update", f"project:{renamed.team}/{renamed.slug}", {"name": renamed.name})
+    say(
+        ctx,
+        {"project": renamed.to_dict()},
+        f"Project renamed: {renamed.team}/{renamed.slug} is now {renamed.name}",
+    )
+
+
 @cli.command("delete")
 @click.argument("project")
 @click.option("--team", default=None, help="The team it belongs to (default: the default team).")

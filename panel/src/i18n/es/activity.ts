@@ -74,6 +74,7 @@ export const activity: Catalog<typeof en> = {
     siteAction: "Acción de sitio",
     delete: "Eliminar",
     zeroDowntime: "Modo sin tiempo de inactividad",
+    appExec: "Comando de una sola vez",
     custom: "Personalizada",
   },
 

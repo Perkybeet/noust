@@ -18,7 +18,8 @@ describe("the wizard's search", () => {
   it("replaces a start it does not know with an explicit undefined, which is what the router needs to drop the raw one", () => {
     expect(validateNewAppSearch({ start: "recipe" })).toEqual({ start: "recipe" });
     const unknown = validateNewAppSearch({ start: "nonsense" });
-    expect(Object.keys(unknown)).toEqual(["start"]);
+    // Every key the route knows is named, so the router drops the raw value of any of them.
+    expect(Object.keys(unknown)).toEqual(["start", "team", "project", "environment"]);
     expect(unknown.start).toBeUndefined();
   });
 
@@ -32,9 +33,17 @@ describe("the wizard's search", () => {
 
   it("carries the recipe a link names, and an explicit undefined for one that cannot be", () => {
     expect(validateNewAppSearch({ start: "recipe", recipe: "wordpress" })).toEqual({ start: "recipe", recipe: "wordpress" });
-    expect(Object.keys(validateNewAppSearch({ start: "recipe" }))).toEqual(["start"]);
+    expect(Object.keys(validateNewAppSearch({ start: "recipe" }))).toEqual(["start", "team", "project", "environment"]);
     const bad = validateNewAppSearch({ start: "recipe", recipe: "../etc" });
-    expect(Object.keys(bad)).toEqual(["start", "recipe"]);
+    expect(Object.keys(bad)).toEqual(["start", "team", "project", "environment", "recipe"]);
     expect(bad.recipe).toBeUndefined();
+  });
+
+  it("reads where the new application goes, from a project's page, and drops anything that is not a short name", () => {
+    expect(validateNewAppSearch({ team: "acme", project: "web", environment: "staging" })).toEqual({ start: undefined, team: "acme", project: "web", environment: "staging" });
+    const bad = validateNewAppSearch({ team: "Acme Corp", project: "../web", environment: 3 });
+    expect(bad.team).toBeUndefined();
+    expect(bad.project).toBeUndefined();
+    expect(bad.environment).toBeUndefined();
   });
 });

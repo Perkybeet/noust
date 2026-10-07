@@ -524,6 +524,7 @@ def test_mysql_backup_argv(mysql: MySQLManager, runner: FakeRunner) -> None:
         "--routines",
         "--triggers",
         "--events",
+        "--set-gtid-purged=OFF",
         "shop",
     )
     assert info.path.read_text() == NASTY_DUMP

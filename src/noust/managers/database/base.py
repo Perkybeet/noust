@@ -853,6 +853,16 @@ class BaseDatabaseManager(BaseManager):
         """
         if self.instance is None:
             return
+        if self.instance.managed is not None:
+            raise DatabaseEngineError(
+                f"Noust does not {action} {self.DISPLAY_NAME} inside {self.instance.container}",
+                details=(
+                    f"{self.instance.managed} is a database instance Noust runs from a pinned "
+                    f"image ({self.instance.image}). Its image moves with: noust db instance "
+                    f"upgrade {self.instance.managed}; remove it with: noust db instance remove "
+                    f"{self.instance.managed}."
+                ),
+            )
         where = (
             f"the {self.instance.service} service of the Compose project {self.instance.project}"
             if self.instance.project
@@ -1595,6 +1605,9 @@ class BaseDatabaseManager(BaseManager):
                 image=self.instance.image,
                 app=self.instance.app,
                 access=self.instance.access,
+                managed=self.instance.managed,
+                pinned_version=self.instance.version,
+                memory_limit_mb=self.instance.memory_limit_mb,
             )
         return status
 
@@ -1631,6 +1644,13 @@ class BaseDatabaseManager(BaseManager):
             The command that stores the administrative credentials; for a
             container, the variables of its environment Noust reads.
         """
+        if self.instance is not None and self.instance.managed is not None:
+            return (
+                f"Noust made {self.instance.managed} and signs in to it with the password in its "
+                "own environment file, which only root can read. If the instance was restored "
+                "from another server, or its file was changed, remove it and make it again: "
+                f"noust db instance remove {self.instance.managed}."
+            )
         if self.instance is not None:
             sources = self.instance.launch(self.CLIENT_BINARY).candidates
             account = self.instance.admin_user

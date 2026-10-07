@@ -29,10 +29,17 @@ Nothing here is implicit and nothing is permanent.
    from anyone, through the one firewall manager (ufw or firewalld).
 
 **What it refuses**, whatever you confirm: the ENS profile (an engine is
-reached through a tunnel there), an engine in a container (its compose file
-publishes its ports), an engine that lets a client in without a password
-(Redis without one, MongoDB without authorization), a port that is taken, one
-below 1024 or the engine's own.
+reached through a tunnel there), an engine in a container Noust did not make (its
+compose file publishes its ports), an engine that lets a client in without a
+password (Redis without one, MongoDB without authorization), a port that is
+taken, one below 1024 or the engine's own.
+
+An **instance Noust runs** is the one container this works for: it is published
+on 127.0.0.1 and nothing else, by Noust, so the proxy forwards to that port and
+the instance stays private. TLS cannot be required of an account in it (the
+image's own configuration decides), so a public database on an instance is
+plaintext unless the engine's server already has TLS (MySQL's image makes its
+own certificate), and the plan says so.
 
 **Undoing it** (:meth:`PublicAccess.make_private`) removes what the record
 says was made and nothing else: the firewall rule only if Noust added it, the
@@ -78,6 +85,7 @@ from noust.core.fs import FileSystem, get_fs, is_rehearsal
 from noust.core.runner import CommandRunner, get_runner
 from noust.managers.database.base import PROFILES, BaseDatabaseManager, is_loopback
 from noust.managers.database.exposure import listening_sockets, public_address, ssh_port
+from noust.managers.database.instances import engine_of, storage_name
 from noust.managers.database.service import DatabaseService
 from noust.managers.database.urls import MASK, connection_url
 from noust.managers.server.security_firewall import Firewall, RuleRequest
@@ -587,7 +595,7 @@ class PublicAccess:
                 "tunnel: 'noust db connect-info' prints one.",
             )
         manager = self.service.running(engine)
-        if manager.instance is not None:
+        if manager.instance is not None and getattr(manager.instance, "managed", None) is None:
             raise ValidationError(
                 "A database container's ports are its compose file's",
                 details="Noust does not open a container's ports. Publish the port in the "
@@ -631,7 +639,7 @@ class PublicAccess:
                 details="It may be left from an earlier attempt: drop it with "
                 f"'noust db user-delete {user} --engine {name}', or use another database name.",
             )
-        unit = f"{paths.DB_EXPOSE_UNIT_PREFIX}{name}-{chosen_port}"
+        unit = f"{paths.DB_EXPOSE_UNIT_PREFIX}{storage_name(name)}-{chosen_port}"
         self._refuse_foreign_units(unit)
         firewall = self._firewall_view(allowed, chosen_port)
         warnings = self._warnings(manager, db, chosen_port, bind, allowed, mode, profile, firewall)
@@ -786,7 +794,7 @@ class PublicAccess:
                 "The account owns the database: it can create, change and drop everything in "
                 "it. Use read_write or read_only if that is more than needed."
             )
-        if manager.ENGINE_NAME == "redis":
+        if manager.engine_type == "redis":
             warnings.append(
                 "A Redis account cannot be limited to one slot: it reaches every key of this Redis."
             )
@@ -934,7 +942,11 @@ class PublicAccess:
             "database": record.db_name,
             "port": record.port,
             "unit": record.unit,
-            "engine_unit": manager.service_unit(),
+            "engine_unit": (
+                getattr(manager.instance, "unit", None) or manager.service_unit()
+                if manager.instance is not None
+                else manager.service_unit()
+            ),
             "listen": listen_spec(record.bind_address, record.port),
             "proxy": str(self._proxy_binary()),
             "connections_max": CONNECTIONS_MAX,
@@ -1276,9 +1288,11 @@ class PublicAccess:
             else (public_address(self.runner) or "<this server's address>")
         )
         options = (
-            dict(TLS_CLIENT_OPTIONS.get(record.engine, {})) if record.tls == TLS_REQUIRED else {}
+            dict(TLS_CLIENT_OPTIONS.get(engine_of(record.engine), {}))
+            if record.tls == TLS_REQUIRED
+            else {}
         )
-        if record.engine == "mongodb":
+        if engine_of(record.engine) == "mongodb":
             options["authSource"] = record.db_name
         url = connection_url(
             record.engine,

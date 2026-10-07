@@ -15,7 +15,7 @@ import { Subsection } from "../../../components/page/Subsection";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
-import { CopyButton } from "../../../components/ui/CopyButton";
+import { CopyValue } from "../../../components/ui/CopyValue";
 import { DataTable } from "../../../components/ui/DataTable";
 import type { Column } from "../../../components/ui/DataTable";
 import { EmptyCell } from "../../../components/ui/EmptyCell";
@@ -36,22 +36,10 @@ import { useSudoFirst } from "./formParts";
 import { RECEIVED_SHOWN, settingsKeys, webhookReceivedQuery, webhookStatusQuery } from "./queries";
 import type { ReceivedDelivery, WebhookSecret, WebhookStatus } from "./queries";
 import { useSettingsApp, useSubsectionTitle } from "./settingsApp";
-import { connectionView, forgeName, outcomeView } from "./webhook";
+import { connectionView, forgeName, outcomeView, senderName } from "./webhook";
 
 /** The example name `noust web expose-hooks` is shown with: the operator types their own. */
 const HOOKS_EXAMPLE = "hooks.example.com";
-
-/** A value the operator runs or pastes elsewhere: in full, never cut, with its copy button. */
-function CopyValue({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="flex max-w-full min-w-0 items-center gap-1 rounded-control border border-border bg-bg-sunken py-0.5 pr-0.5 pl-2.5">
-      <code translate="no" className="min-w-0 flex-1 text-12 break-all text-fg">
-        {value}
-      </code>
-      <CopyButton value={value} label={label} />
-    </div>
-  );
-}
 
 /**
  * One step of the setup: its number, or a check once done, beside what it asks. Its state is
@@ -146,8 +134,17 @@ function Connection({ status, followTags, onRotate, onDisable }: { status: Webho
 }
 
 /** Where each forge keeps its webhook form, and which event to tick. */
-function forgeWords(t: T, forge: string | null | undefined): { how: string; events: string } {
+function forgeWords(t: T, forge: string | null | undefined, events: readonly string[]): { how: string; events: string } {
   if (forge === "github") return { how: t("appSettings.webhook.howGithub"), events: t("appSettings.webhook.eventsGithub") };
+  if (forge === "bitbucket") {
+    // Bitbucket names its events by key, and the pull request ones are asked for only when the
+    // app builds previews: the server says which, so this never lists what it will not use.
+    const previews = events.some((event) => event.startsWith("pullrequest:"));
+    return {
+      how: t("appSettings.webhook.howBitbucket"),
+      events: previews ? t("appSettings.webhook.eventsBitbucketPreviews") : t("appSettings.webhook.eventsBitbucket"),
+    };
+  }
   if (forge === "gitlab") return { how: t("appSettings.webhook.howGitlab"), events: t("appSettings.webhook.eventsGitlab") };
   if (forge === "gitea") return { how: t("appSettings.webhook.howGitea"), events: t("appSettings.webhook.eventsGithub") };
   return { how: t("appSettings.webhook.howOther"), events: t("appSettings.webhook.eventsOther") };
@@ -177,7 +174,7 @@ function Steps({
   const t = useT();
   const { hooks, forge } = status;
   const forgeLabel = forgeName(forge.forge, t.locale);
-  const words = forgeWords(t, forge.forge);
+  const words = forgeWords(t, forge.forge, hooks.events);
   const hookUrl = secret?.hook_url ?? hooks.hook_url ?? null;
   const connected = status.deliveries.last_verified_at ?? null;
 
@@ -289,6 +286,17 @@ function receivedColumns(t: T): Column<ReceivedDelivery>[] {
       },
       width: "w-56",
       card: "title",
+    },
+    {
+      id: "sentBy",
+      header: t("appSettings.webhook.sentByHeader"),
+      cell: (row) => {
+        const sender = senderName(row.provider, t.locale);
+        return sender === null ? <EmptyCell reason={t("appSettings.webhook.sentByNone")} /> : <span className="block truncate text-fg">{sender}</span>;
+      },
+      width: "w-32",
+      hideBelow: "sm",
+      card: "meta",
     },
     {
       id: "branch",

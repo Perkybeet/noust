@@ -55,6 +55,7 @@ from noust.web.api.metrics import router as metrics_router
 from noust.web.api.monitor import router as monitor_router
 from noust.web.api.node_enroll import router as node_enroll_router
 from noust.web.api.nodes import router as nodes_router
+from noust.web.api.oidc import router as oidc_router
 from noust.web.api.openapi import router as openapi_router
 from noust.web.api.overview import router as overview_router
 from noust.web.api.passkeys import router as passkeys_router
@@ -70,6 +71,9 @@ from noust.web.api.system import router as system_router
 from noust.web.api.teams import flat_router as teams_flat_router
 from noust.web.api.teams import move_router as teams_move_router
 from noust.web.api.teams import router as teams_router
+from noust.web.api.terminal import apps_router as terminal_apps_router
+from noust.web.api.terminal import router as terminal_router
+from noust.web.api.terminal import server_router as terminal_server_router
 from noust.web.api.timeline import router as timeline_router
 from noust.web.api.volume_backups import router as volume_backups_router
 from noust.web.api.zero_downtime import router as zero_downtime_router
@@ -184,6 +188,11 @@ router.include_router(identity_router, prefix="/apps", tags=["Applications"])
 router.include_router(app_stack_router, prefix="/apps", tags=["Applications"])
 # app_hooks.py owns only paths under "/{domain}/hooks".
 router.include_router(app_hooks_router, prefix="/apps", tags=["Applications"])
+# terminal.py owns "/{domain}/terminal" and "/{domain}/exec" under "/apps", the one
+# "/terminal" under "/server", and everything under "/terminal".
+router.include_router(terminal_apps_router, prefix="/apps", tags=["Terminal"])
+router.include_router(terminal_server_router, prefix="/server", tags=["Terminal"])
+router.include_router(terminal_router, prefix="/terminal", tags=["Terminal"])
 # deploy_keys.py owns only paths under "/{domain}/deploy-key", and its second
 # router the whole of "/deploy-keys".
 router.include_router(app_deploy_key_router, prefix="/apps", tags=["Applications"])
@@ -208,6 +217,8 @@ router.include_router(central_router, prefix="/central", tags=["Central"])
 router.include_router(fleet_self_router, prefix="/auth/fleet", tags=["Fleet"])
 # Under /auth like the rest of one's own credentials, so no fleet token reaches it.
 router.include_router(passkeys_router, prefix="/auth/passkeys", tags=["Passkeys"])
+# Single sign-in through an identity provider (3.4): the same place, for the same reason.
+router.include_router(oidc_router, prefix="/auth/oidc", tags=["Single sign-on"])
 router.include_router(approvals_router, prefix="/approvals", tags=["Approvals"])
 router.include_router(fleet_router, prefix="/fleet", tags=["Fleet"])
 # Guided enrollment of a server: its host key, then the job that installs and joins it.

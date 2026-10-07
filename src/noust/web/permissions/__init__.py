@@ -39,6 +39,7 @@ class Permission:
     APPS_OPERATE = "apps.operate"
     APPS_DEPLOY = "apps.deploy"
     APPS_MANAGE = "apps.manage"
+    APPS_TERMINAL = "apps.terminal"
 
     SECRETS_REVEAL = "secrets.reveal"
     ROOT_EQUIVALENT = "root_equivalent"
@@ -46,6 +47,7 @@ class Permission:
     SERVER_READ = "server.read"
     SERVER_MANAGE = "server.manage"
     SERVER_HOST_ACCESS = "server.host_access"
+    SERVER_TERMINAL = "server.terminal"
 
     DATABASES_READ = "databases.read"
     DATABASES_WRITE = "databases.write"
@@ -93,11 +95,15 @@ DESCRIPTIONS: dict[str, str] = {
     Permission.APPS_OPERATE: "Start, stop and restart; renew certificates; run cron jobs",
     Permission.APPS_DEPLOY: "Update, roll back, activate a release, rebuild",
     Permission.APPS_MANAGE: "Create, configure and delete applications, sites and domains",
+    Permission.APPS_TERMINAL: (
+        "A terminal and one-off commands as an application's own account, with its secrets"
+    ),
     Permission.SECRETS_REVEAL: "Read secrets in clear: .env values, exports, keys",
     Permission.ROOT_EQUIVALENT: "Raw units, cron commands, backup hooks, raw site configuration",
     Permission.SERVER_READ: "See the server: system, services, metrics, monitor",
     Permission.SERVER_MANAGE: "Manage the server: services, the monitor",
     Permission.SERVER_HOST_ACCESS: "Change the host itself: SSH, firewall, packages",
+    Permission.SERVER_TERMINAL: "A root shell on the server itself, in the browser",
     Permission.DATABASES_READ: "See database engines, databases and users",
     Permission.DATABASES_WRITE: "Create databases and users, run queries",
     Permission.DATABASES_MANAGE: "Install engines, drop databases, restore dumps",

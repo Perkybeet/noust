@@ -141,6 +141,13 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/apps/{domain}/databases/link", RESOURCE, _APP, _BODY_DATABASE),
     _rule("/api/apps/{domain}/databases/{engine}/{name}/**", RESOURCE, _APP, _DATABASE),
     _rule("/api/apps/{domain}/**", RESOURCE, _APP),
+    # --- the terminal ---------------------------------------------------------
+    # What is open is listed and ended per application (the handler filters); what a
+    # session left is the audit's, which is the server's.
+    _rule("/api/terminal/status", OPEN),
+    _rule("/api/terminal/sessions", SCOPED),
+    _rule("/api/terminal/sessions/{session_id}", SCOPED),
+    _rule("/api/terminal/recordings/**", INSTANCE),
     # --- sites, domains, certificates ----------------------------------------
     _rule("/api/sites", SCOPED),
     _rule("/api/sites/templates", OPEN),
@@ -170,6 +177,10 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/databases/engines/catalog", OPEN, methods=("GET",)),
     _rule("/api/databases/engines/{engine}/status", OPEN, methods=("GET",)),
     _rule("/api/databases/engines/**", INSTANCE),
+    # An engine Noust runs itself, in a container, is the server's like the host's: a database
+    # on it is a team's, the engine is nobody's. Making, upgrading and removing one is the
+    # server's; a team member picks one for its application's database through the choices.
+    _rule("/api/databases/instances/**", INSTANCE),
     _rule("/api/databases/exposure", INSTANCE),
     # Making a database reachable from the network opens a port, an account on the engine and
     # a firewall rule: the host's, whoever's database it is. A team member sees which of its

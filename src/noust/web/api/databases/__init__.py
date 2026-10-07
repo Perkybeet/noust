@@ -20,6 +20,8 @@ all live below it.
 - :mod:`.public`: a database made reachable from the network on purpose, and private again.
 - :mod:`.imports`: a dump from another provider: chunked upload, what it is,
   and the import.
+- :mod:`.instances`: engines Noust runs itself, in containers, beside the host's:
+  make, start, stop, upgrade and remove them.
 - :mod:`.query`: the SQL console (history, saved queries, EXPLAIN, export)
   and the connection-string helper.
 - :mod:`.browse`: the data explorer, the row editor and the Redis key browser.
@@ -44,6 +46,7 @@ from noust.web.api.databases import (
     engines,
     exposure,
     imports,
+    instances,
     links,
     metrics,
     public,
@@ -64,6 +67,7 @@ AREAS = (
     backups.router,
     exposure.router,
     imports.router,
+    instances.router,
     query.router,
     browse.router,
     metrics.router,

@@ -494,7 +494,7 @@ def tunnel_instructions(
     own documentation insists on it for the same reason.
 
     Args:
-        engine: Canonical engine name.
+        engine: Canonical engine name, or an instance's key (``postgresql@pg16``).
         database: The database.
         username: The account the clients sign in as, if known.
         remote_port: The engine's port on the server.
@@ -510,6 +510,8 @@ def tunnel_instructions(
     Returns:
         The instructions.
     """
+    # A key says where a database is; which clients to suggest is the engine's.
+    engine = engine.partition("@")[0]
     local = local_port or (remote_port + 10000 if remote_port + 10000 < 65536 else remote_port)
     port_flag = f" -p {ssh_port}" if ssh_port != 22 else ""
     command = f"ssh -N -L {local}:127.0.0.1:{remote_port}{port_flag} {ssh_user}@{server}"

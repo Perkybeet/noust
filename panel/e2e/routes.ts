@@ -38,8 +38,11 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "app-environment", path: "/apps/blog.example.org/environment" },
   { name: "app-domains", path: "/apps/shop.example.net/domains" },
   { name: "app-diagnose", path: "/apps/clientes.example.com/diagnose" },
+  // 3.4: a shell as the application's account, and a command run once.
+  { name: "app-terminal", path: "/apps/tienda.example.org/terminal" },
   { name: "app-settings", path: "/apps/shop.example.net/settings" },
   // 3.1: each subsection of an app's settings is a URL of its own.
+  { name: "app-settings-source", path: "/apps/taller.example.com/settings/source" },
   { name: "app-settings-deploys", path: "/apps/tienda.example.org/settings/deploys" },
   { name: "app-settings-push", path: "/apps/tienda.example.org/settings/deploy-on-push" },
   { name: "app-settings-hooks", path: "/apps/tienda.example.org/settings/hooks" },
@@ -51,6 +54,13 @@ export const ROUTES: readonly ConsoleRoute[] = [
   // 2.2: an application in blue/green mode, and one with pull request previews.
   { name: "app-settings-zero-downtime", path: "/apps/pagos.example.org/settings/deploys" },
   { name: "app-settings-previews", path: "/apps/portal.example.org/settings/previews" },
+  // 3.4: teams, projects and environments.
+  { name: "projects", path: "/projects" },
+  { name: "project", path: "/projects/default/default" },
+  { name: "teams", path: "/teams" },
+  { name: "team", path: "/teams/default" },
+  { name: "team-members", path: "/teams/default/members" },
+  { name: "team-settings", path: "/teams/default/settings" },
   { name: "databases", path: "/databases" },
   { name: "databases-engines", path: "/databases/engines" },
   { name: "database-engine-settings", path: "/databases/engines/postgresql/settings" },
@@ -83,6 +93,7 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "server-storage", path: "/server/storage" },
   { name: "server-logs", path: "/server/logs" },
   { name: "server-system", path: "/server/system" },
+  { name: "server-terminal", path: "/server/terminal" },
   { name: "settings", path: "/settings" },
   { name: "settings-security", path: "/settings/security" },
   { name: "settings-notifications", path: "/settings/notifications" },

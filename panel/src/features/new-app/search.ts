@@ -8,6 +8,8 @@ export const WIZARD_STARTS = ["recipe", "import", "adopt"] as const;
 
 export type WizardStart = (typeof WIZARD_STARTS)[number];
 
+import { slugParam } from "../teams/search";
+
 export interface NewAppSearch {
   /**
    * Opens the wizard on a way in: the Applications page's "From a recipe" and the command
@@ -20,6 +22,13 @@ export interface NewAppSearch {
    * from the catalog), so the wizard opens on its install form instead of on the recipes.
    */
   recipe?: string | undefined;
+  /**
+   * Where it goes (a project's page starts it on that project): the team, project and environment
+   * by their short names. Only asked about where there is more than one place to choose.
+   */
+  team?: string | undefined;
+  project?: string | undefined;
+  environment?: string | undefined;
 }
 
 /** `value` as a start the wizard knows, or undefined: a stale or invented link opens the default. */
@@ -38,8 +47,15 @@ export function wizardRecipe(value: unknown): string | undefined {
 /**
  * Reads the search. A start it does not know is set to undefined, not left out: the router
  * keeps the keys a route's validation does not name, so only an explicit undefined replaces one.
- * The same goes for a recipe, which is only named when the link carries one.
+ * The same goes for the team, project and environment. A recipe is the exception: it is only
+ * named when the link carries one.
  */
 export function validateNewAppSearch(search: Record<string, unknown>): NewAppSearch {
-  return { start: wizardStart(search["start"]), ...("recipe" in search ? { recipe: wizardRecipe(search["recipe"]) } : {}) };
+  return {
+    start: wizardStart(search["start"]),
+    team: slugParam(search["team"]),
+    project: slugParam(search["project"]),
+    environment: slugParam(search["environment"]),
+    ...("recipe" in search ? { recipe: wizardRecipe(search["recipe"]) } : {}),
+  };
 }

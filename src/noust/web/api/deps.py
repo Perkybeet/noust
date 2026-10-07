@@ -82,6 +82,9 @@ from noust.core.teams import (
     TeamError,
     TeamNotFoundError,
 )
+from noust.terminal.recording import RecordingNotFound
+from noust.terminal.sessions import TerminalDisabledError, TerminalGone, TerminalLimitError
+from noust.terminal.tickets import TicketRefused
 from noust.validators.domain import validate_domain
 from noust.web.auth import (
     SCOPE_RANK,
@@ -129,6 +132,13 @@ DEFAULT_ERROR_STATUS = 500
 #: exception is an instance of wins, so a subclass must be listed before its
 #: base class.
 _STATUS_BY_ERROR: tuple[tuple[type[NoustError], int], ...] = (
+    # The terminal: off here (403), too many open (429), gone while away (404), and a
+    # ticket that cannot be minted because too many wait (429, before SecurityError).
+    (TerminalDisabledError, 403),
+    (TerminalLimitError, 429),
+    (TerminalGone, 404),
+    (RecordingNotFound, 404),
+    (TicketRefused, 429),
     (DatabaseNotFoundError, 404),
     # A resource outside the caller's teams reads as one that does not exist.
     (ResourceNotFoundError, 404),

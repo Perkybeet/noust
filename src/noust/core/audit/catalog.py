@@ -100,6 +100,7 @@ EVENTS: dict[str, EventSpec] = {
             "auth.ws_ticket": "A single-use WebSocket ticket was issued.",
             "auth.passkey.login": "Sign-in with a passkey.",
             "auth.passkey.rename": "A passkey was renamed.",
+            "auth.oidc.login": "Sign-in through an identity provider, successful or not.",
             "ws.connect": "A WebSocket handshake, accepted or refused.",
         },
     ),
@@ -115,6 +116,9 @@ EVENTS: dict[str, EventSpec] = {
             "auth.passkey.register": "A passkey was registered.",
             "auth.passkey.remove": "A passkey was removed.",
             "auth.passkey.reset": "Every passkey of an account or of the master token was removed.",
+            "auth.oidc.link": "A person at an identity provider was linked to an account.",
+            "auth.oidc.unlink": "A person at an identity provider was unlinked from an account.",
+            "auth.oidc.provision": "An account was created or activated by its first single sign-in.",
         },
     ),
     **_events(
@@ -174,8 +178,10 @@ EVENTS: dict[str, EventSpec] = {
             "team.member.add": "An account was made a member of a team, or its role there changed.",
             "team.member.remove": "An account was taken out of a team.",
             "project.create": "A project was created in a team.",
+            "project.update": "A project was renamed.",
             "project.delete": "A project was deleted.",
             "environment.create": "An environment was created in a project.",
+            "environment.update": "An environment was renamed.",
             "environment.delete": "An environment was deleted.",
         },
     ),
@@ -196,6 +202,7 @@ EVENTS: dict[str, EventSpec] = {
             "central.lock": "A central's secrets were locked.",
             "central.seal": "A central's secrets were sealed.",
             "central.unseal": "A central's secrets were unsealed.",
+            "auth.oidc.config": "An identity provider was configured, changed or removed.",
         },
     ),
     # Changes to applications and to the machine.
@@ -356,6 +363,11 @@ EVENTS: dict[str, EventSpec] = {
             "apps.git_credential.remove": "An application's repository https credential was forgotten.",
             "db.expose": "A database was made reachable from the network.",
             "db.unexpose": "A database that was reachable from the network was made private again.",
+            "db.instance.create": "A database instance was made: another engine version, run in a container.",
+            "db.instance.start": "A database instance was started.",
+            "db.instance.stop": "A database instance was stopped.",
+            "db.instance.upgrade": "A database instance was moved to a newer image of its version.",
+            "db.instance.remove": "A database instance was removed, with its data.",
             "server.update": "Operating system updates were applied.",
             "server.refresh": "The package index was refreshed.",
             "server.reboot": "A reboot or shutdown was requested or scheduled.",
@@ -390,6 +402,32 @@ EVENTS: dict[str, EventSpec] = {
             "fleet.enroll.hostkey": "An address was asked for its SSH host key, for the operator to confirm.",
         },
     ),
+    # The console's terminal and one-off commands (3.4): a shell as an application,
+    # or as root, is the most root-equivalent thing the console opens.
+    **_events(
+        "access",
+        INFO,
+        {
+            "terminal.ticket": "A single-use ticket to open a terminal was issued.",
+        },
+    ),
+    **_events(
+        "change",
+        NOTICE,
+        {
+            "terminal.start": "A terminal was opened in an application or on the server itself.",
+            "terminal.end": "A terminal ended, with how long it lasted and the digest of its recording.",
+            "terminal.kill": "An administrator ended somebody else's terminal.",
+            "terminal.exec": "A one-off command was run in an application, queued or finished.",
+        },
+    ),
+    **_events(
+        "denial",
+        WARNING,
+        {
+            "terminal.denied": "A terminal was refused: a limit, a ticket that did not match, or a switch that is off.",
+        },
+    ),
     # Sensitive reads: someone saw something secret.
     **_reads(
         {
@@ -411,6 +449,7 @@ EVENTS: dict[str, EventSpec] = {
             "backup.destination.key": "A backup destination's encryption key was shown.",
             "fleet.node.key": "A node's key was shown.",
             "compliance.read": "The compliance report was read.",
+            "terminal.recording.read": "A recording of a terminal session was read.",
         }
     ),
     # Noust's own operation, the audit trail's included.

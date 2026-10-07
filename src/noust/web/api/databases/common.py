@@ -136,6 +136,10 @@ class DatabaseInfoResponse(BaseModel):
         username: The account Noust provisioned for it.
         engine_version: The engine's version.
         last_backup: When its newest dump was taken.
+        team: The slug of the team it belongs to; None for one an engine holds
+            that Noust never recorded, which belongs to nobody.
+        project: The slug of its project.
+        environment: The slug of its environment.
     """
 
     name: str
@@ -154,6 +158,9 @@ class DatabaseInfoResponse(BaseModel):
     username: str | None = None
     engine_version: str | None = None
     last_backup: str | None = None
+    team: str | None = None
+    project: str | None = None
+    environment: str | None = None
 
     _iso_timestamps = iso_offset_validator("last_backup")
 

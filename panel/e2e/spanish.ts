@@ -75,6 +75,13 @@ const SERVER_TEXT: readonly { page: string; text: RegExp; origin: string }[] = [
   { page: "catalog", text: /^Open WebUI$/, origin: "a recipe's name" },
   // The deployer registry's display name of a type, which the application's header shows as the server wrote it.
   { page: "container settings", text: /^Container$/, origin: "deployers/container.py DISPLAY_NAME" },
+  // core/teams: the default team, project and environment are named "Default" and "default",
+  // and the pages of teams and projects show names as the operator (or the server) gave them.
+  ...["projects", "project", "teams", "team", "team-members", "team-settings"].map((page) => ({
+    page,
+    text: /^[Dd]efault$/,
+    origin: "the name of the default team and project",
+  })),
 ];
 
 /**

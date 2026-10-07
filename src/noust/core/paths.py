@@ -207,6 +207,9 @@ BACKUP_UNIT_PREFIX = f"{UNIT_PREFIX}backup-"
 #: The socket and service of a database made reachable from the network
 #: (``noust-dbexpose-<engine>-<port>``).
 DB_EXPOSE_UNIT_PREFIX = f"{UNIT_PREFIX}dbexpose-"
+#: The unit, the Compose project and the container of a database instance Noust
+#: runs in a container (``noust-db-<name>``).
+DB_INSTANCE_UNIT_PREFIX = f"{UNIT_PREFIX}db-"
 #: The transient unit noust-monitor has systemd run the hardening checks in.
 SECURITY_CHECKS_UNIT = f"{UNIT_PREFIX}security-checks"
 
@@ -232,6 +235,7 @@ OWN_UNIT_PREFIXES: tuple[str, ...] = (
     CRON_UNIT_PREFIX,
     BACKUP_UNIT_PREFIX,
     DB_EXPOSE_UNIT_PREFIX,
+    DB_INSTANCE_UNIT_PREFIX,
     LEGACY_CRON_UNIT_PREFIX,
     LEGACY_BACKUP_UNIT_PREFIX,
 )

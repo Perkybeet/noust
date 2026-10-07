@@ -35,6 +35,13 @@ not of any one caller:
   assembled, and :class:`FakeRunner` records exactly what the real runner
   would execute. The policy of *who* gets a sandbox is not here: see
   :mod:`noust.deployers.helpers.sandbox`.
+- **Interactive terminals.** :meth:`CommandRunner.pty` runs a program on a
+  pseudo-terminal a person types into (the console's terminal). It is the same
+  rules with one more property: the session itself has a deadline and an idle
+  limit that this module enforces, because a terminal nobody is watching is the
+  one process that must not outlive its welcome. The terminal is opened here
+  (``os.openpty``) and nowhere else, with the program in a session of its own
+  that dies with the handle, and it takes the same ``sandbox=`` as a build.
 - **What only looks.** :func:`is_read_only` decides which commands a
   ``--dry-run`` may still execute. A command counts only when its exact argv
   shape is declared, never because one of its arguments looks like a status
@@ -61,6 +68,8 @@ from __future__ import annotations
 import atexit
 import contextlib
 import contextvars
+import errno
+import fcntl
 import fnmatch
 import gzip
 import importlib
@@ -69,9 +78,12 @@ import os
 import queue
 import re
 import secrets as _secrets
+import select
 import shutil
 import signal
+import struct
 import subprocess
+import termios
 import threading
 import time
 from abc import ABC, abstractmethod
@@ -485,7 +497,7 @@ class ProcessHandle(ABC):
 #: Every real long-lived process still running, so interpreter shutdown can
 #: stop them. A tunnel left behind by a console that exited would keep a port
 #: forwarded, and an SSH session open, for nobody.
-_live_processes: set[_SubprocessHandle] = set()
+_live_processes: set[_SubprocessHandle | _SubprocessPty] = set()
 _live_lock = threading.Lock()
 
 
@@ -716,6 +728,745 @@ class FakeProcess(ProcessHandle):
             self._alive = False
             self._exit_code = -signal.SIGTERM
             self.terminated = True
+        return self._exit_code
+
+
+# -- Interactive terminals -----------------------------------------------------
+
+#: Why a terminal session ended; what :attr:`PtyHandle.end_reason` says.
+PTY_END_EXITED = "exited"
+PTY_END_IDLE = "idle"
+PTY_END_LIMIT = "limit"
+PTY_END_CLOSED = "closed"
+
+#: The terminal a program starts with when the caller does not say.
+PTY_DEFAULT_ROWS = 24
+PTY_DEFAULT_COLS = 80
+
+#: The largest terminal accepted. The kernel stores both in 16 bits, and a
+#: browser window far past these is a client bug, not a screen.
+PTY_MAX_ROWS = 500
+PTY_MAX_COLS = 1000
+
+#: Most bytes one :meth:`PtyHandle.read` returns.
+PTY_READ_CHUNK = 65536
+
+#: How long :meth:`PtyHandle.write` waits for a program that does not read its
+#: input before it gives up: a stopped process must not freeze whoever types.
+PTY_WRITE_TIMEOUT = 5.0
+
+#: What a terminal program inherits of this process's environment: nothing of
+#: Noust's. The console's own variables (a master token among them) never
+#: reach a shell a person types into.
+PTY_ENV_ALLOW: tuple[str, ...] = ("PATH", "LANG", "LC_*", "TZ", "TERM", "COLORTERM")
+
+#: The program that gives a child its own session and makes the terminal its
+#: controlling one (``-c``): without that a shell has no job control and a
+#: typed Ctrl+C is only a character. Not ``preexec_fn``, which the subprocess
+#: documentation warns can deadlock in a process with threads.
+_SESSION_LEADER = ("setsid", "-c")
+
+
+def _clamp(value: int, upper: int) -> int:
+    """
+    Keep a terminal dimension inside what the kernel stores.
+
+    Args:
+        value: What was asked.
+        upper: The most allowed.
+
+    Returns:
+        A value from 1 to ``upper``.
+    """
+    return max(1, min(int(value), upper))
+
+
+class PtyHandle(ABC):
+    """
+    A terminal session started by :meth:`CommandRunner.pty`.
+
+    What a tunnel's :class:`ProcessHandle` is to ``start``, this is to ``pty``:
+    the owner reads what the program writes, writes what the person types,
+    resizes the screen and ends it. Two limits come with it and are enforced
+    here, in one place, for the real runner and the fake alike (rule 3): a
+    deadline for the whole session and a limit on how long nobody types. When
+    either passes, the program and everything it started are stopped and
+    :meth:`read` reports the end.
+
+    Attributes:
+        argv: The redacted argument vector, for logs and messages.
+        started_at: ``time.time()`` when the session started.
+        rows: The terminal's height now.
+        cols: The terminal's width now.
+    """
+
+    argv: tuple[str, ...]
+    started_at: float
+    rows: int
+    cols: int
+
+    def __init__(
+        self,
+        argv: tuple[str, ...],
+        *,
+        max_seconds: int,
+        idle_seconds: int,
+        rows: int,
+        cols: int,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        """
+        Args:
+            argv: The redacted argument vector.
+            max_seconds: The longest the session may last.
+            idle_seconds: The longest it may go without anything typed.
+            rows: The terminal's height.
+            cols: The terminal's width.
+            clock: Monotonic seconds; a test passes its own.
+        """
+        self.argv = argv
+        self.started_at = time.time()
+        self.rows = _clamp(rows, PTY_MAX_ROWS)
+        self.cols = _clamp(cols, PTY_MAX_COLS)
+        self._clock = clock
+        self._max_seconds = max_seconds
+        self._idle_seconds = idle_seconds
+        now = clock()
+        self._limit_at = now + max_seconds
+        self._last_input = now
+        self._end_reason: str | None = None
+
+    @property
+    def max_seconds(self) -> int:
+        """The longest the session may last, as it was asked."""
+        return self._max_seconds
+
+    @property
+    def idle_seconds(self) -> int:
+        """The longest it may go without anything typed, as it was asked."""
+        return self._idle_seconds
+
+    @property
+    def end_reason(self) -> str | None:
+        """Why the session ended (``exited``, ``idle``, ``limit`` or ``closed``); None while it runs."""
+        return self._end_reason
+
+    def limit_remaining(self) -> float:
+        """
+        Returns:
+            Seconds until the session's deadline; 0 once it has passed.
+        """
+        return max(0.0, self._limit_at - self._clock())
+
+    def idle_remaining(self) -> float:
+        """
+        Returns:
+            Seconds until the idle limit, counted from the last thing typed.
+        """
+        return max(0.0, self._last_input + self._idle_seconds - self._clock())
+
+    def touch(self) -> None:
+        """Record that the person did something, which restarts the idle limit."""
+        self._last_input = self._clock()
+
+    def expired(self) -> str | None:
+        """
+        Say whether a limit has passed.
+
+        Returns:
+            :data:`PTY_END_LIMIT` or :data:`PTY_END_IDLE`, or None.
+        """
+        if self.limit_remaining() <= 0:
+            return PTY_END_LIMIT
+        if self.idle_remaining() <= 0:
+            return PTY_END_IDLE
+        return None
+
+    @property
+    @abstractmethod
+    def pid(self) -> int:
+        """The process id, which is also its process group id; 0 when it never started."""
+
+    @property
+    @abstractmethod
+    def exit_code(self) -> int | None:
+        """The exit status once the program ended, None while it runs."""
+
+    @abstractmethod
+    def is_alive(self) -> bool:
+        """
+        Returns:
+            True until the program exits or is stopped.
+        """
+
+    @abstractmethod
+    def read(self, timeout: float = 0.5) -> bytes | None:
+        """
+        Wait for what the program writes.
+
+        Also where the limits are enforced: a session past one is stopped
+        here, and the read that finds it says it ended.
+
+        Args:
+            timeout: Seconds to wait for something, at most.
+
+        Returns:
+            Bytes; empty when nothing came in ``timeout``; None once the
+            session ended and everything it wrote was read.
+        """
+
+    @abstractmethod
+    def write(self, data: bytes) -> None:
+        """
+        Type something. Restarts the idle limit; a closed terminal ignores it.
+
+        Args:
+            data: The bytes, as a keyboard would send them.
+
+        Raises:
+            CommandError: The program did not read its input for
+                :data:`PTY_WRITE_TIMEOUT` seconds.
+        """
+
+    @abstractmethod
+    def resize(self, rows: int, cols: int) -> None:
+        """
+        Change the terminal's size; the program is told (SIGWINCH).
+
+        Args:
+            rows: The new height.
+            cols: The new width.
+        """
+
+    def input_is_hidden(self) -> bool:
+        """
+        Say whether what is typed now is a secret the program asked for.
+
+        A prompt that reads a password (``sudo``, ``passwd``, ``ssh``,
+        ``mysql -p``) switches the terminal's echo off while it still reads
+        whole lines. A full-screen program (an editor, ``less``) switches echo
+        off too, but also leaves line mode, so it is not mistaken for one.
+
+        Returns:
+            True while the terminal is in the state of a password prompt.
+        """
+        return False
+
+    @abstractmethod
+    def terminate(self, timeout: float = TERMINATE_TIMEOUT) -> int | None:
+        """
+        End the session: hang the terminal up, then stop what is left.
+
+        Args:
+            timeout: Seconds to wait between the signals.
+
+        Returns:
+            The exit status, or None when it could not be reaped.
+        """
+
+    def close(self) -> None:
+        """Release the terminal. Ends the session first when it still runs."""
+        self.terminate()
+
+
+class _SubprocessPty(PtyHandle):
+    """A real program on a real pseudo-terminal, in a session of its own."""
+
+    def __init__(
+        self,
+        process: subprocess.Popen[bytes],
+        master: int,
+        argv: tuple[str, ...],
+        *,
+        max_seconds: int,
+        idle_seconds: int,
+        rows: int,
+        cols: int,
+        stop_unit: Callable[[], None] | None = None,
+        cleanup: Sequence[Callable[[], None]] = (),
+    ) -> None:
+        """
+        Args:
+            process: The started program (``setsid -c`` becomes it).
+            master: The master side of the terminal, which this handle owns.
+            argv: The redacted argument vector.
+            max_seconds: The longest the session may last.
+            idle_seconds: The longest it may go without anything typed.
+            rows: The terminal's height.
+            cols: The terminal's width.
+            stop_unit: Stops the sandbox's unit; killing ``systemd-run`` does
+                not. Called only when the session is stopped while it runs.
+            cleanup: Called once when the session is over: the environment file
+                of a sandbox, which holds the application's secrets.
+        """
+        super().__init__(
+            argv, max_seconds=max_seconds, idle_seconds=idle_seconds, rows=rows, cols=cols
+        )
+        self._process = process
+        self._master = master
+        os.set_blocking(master, False)
+        self._read_lock = threading.Lock()
+        self._write_lock = threading.Lock()
+        self._state_lock = threading.Lock()
+        self._stop_unit = stop_unit
+        self._cleanup = list(cleanup)
+        self._ended = False
+        self._fd_open = True
+        with _live_lock:
+            _live_processes.add(self)
+
+    @property
+    def pid(self) -> int:
+        return self._process.pid
+
+    @property
+    def exit_code(self) -> int | None:
+        return self._process.poll()
+
+    def is_alive(self) -> bool:
+        if self._process.poll() is None:
+            reason = self.expired() if self._end_reason is None else None
+            if reason is not None:
+                self._end(reason)
+                return False
+            return True
+        self._forget()
+        return False
+
+    def signal_group(self, number: int) -> None:
+        """
+        Send a signal to the program's group while its leader runs.
+
+        Args:
+            number: The signal.
+        """
+        if self._process.poll() is None:
+            with contextlib.suppress(ProcessLookupError, PermissionError):
+                os.killpg(self._process.pid, number)
+
+    def wait_until(self, deadline: float) -> None:
+        """
+        Wait for the program to exit, at most until a monotonic deadline.
+
+        Args:
+            deadline: ``time.monotonic()`` value to give up at.
+        """
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            self._process.wait(timeout=max(0.0, deadline - time.monotonic()))
+
+    def _forget(self) -> None:
+        with _live_lock:
+            _live_processes.discard(self)
+
+    def _end(self, reason: str) -> None:
+        """
+        End the session for a reason, once.
+
+        Args:
+            reason: One of the ``PTY_END_*`` values.
+        """
+        with self._state_lock:
+            if self._end_reason is None:
+                self._end_reason = reason
+        self._stop()
+
+    def _stop(self) -> int | None:
+        """
+        Stop the program and everything it started, and clean up after it.
+
+        Returns:
+            The exit status, or None when it could not be reaped.
+        """
+        with self._state_lock:
+            first = not self._ended
+            self._ended = True
+        running = self._process.poll() is None
+        if first and running and self._stop_unit is not None:
+            self._stop_unit()
+        if running:
+            # A hangup first, as closing a real terminal does: a shell passes
+            # it to its jobs and leaves cleanly. Then what ignored it.
+            for number, grace in (
+                (signal.SIGHUP, TERMINATE_TIMEOUT / 2),
+                (signal.SIGTERM, TERMINATE_TIMEOUT / 2),
+                (signal.SIGKILL, TERMINATE_TIMEOUT),
+            ):
+                self.signal_group(number)
+                try:
+                    self._process.wait(timeout=grace)
+                    break
+                except subprocess.TimeoutExpired:
+                    continue
+        # Whatever the leader left in its group, whether it was stopped just
+        # now or ended on its own: the session is over, so nothing of it stays.
+        with contextlib.suppress(ProcessLookupError, PermissionError):
+            os.killpg(self._process.pid, signal.SIGKILL)
+        if first:
+            for step in self._cleanup:
+                try:
+                    step()
+                except OSError as exc:
+                    _log.warning("A terminal's clean-up step failed: %s", exc)
+        self._forget()
+        return self._process.poll()
+
+    def read(self, timeout: float = 0.5) -> bytes | None:
+        with self._read_lock:
+            if not self._fd_open:
+                return None
+            reason = self.expired()
+            if reason is not None and self._end_reason is None:
+                self._end(reason)
+                return None
+            wait = max(0.0, min(timeout, self.limit_remaining(), self.idle_remaining()))
+            try:
+                ready, _, _ = select.select([self._master], [], [], wait)
+            except (OSError, ValueError):
+                return None
+            if not ready:
+                return b""
+            try:
+                data = os.read(self._master, PTY_READ_CHUNK)
+            except BlockingIOError:
+                return b""
+            except OSError as exc:
+                # EIO is how Linux says every other side of the terminal is
+                # closed: the program ended, and what it wrote has been read.
+                if exc.errno not in (errno.EIO, errno.EBADF):
+                    _log.warning("Reading a terminal failed: %s", exc)
+                self._finished()
+                return None
+            if not data:
+                self._finished()
+                return None
+            return data
+
+    def _finished(self) -> None:
+        """The program closed its side: reap it and clean up."""
+        with self._state_lock:
+            if self._end_reason is None:
+                self._end_reason = PTY_END_EXITED
+        self._stop()
+
+    def write(self, data: bytes) -> None:
+        self.touch()
+        deadline = time.monotonic() + PTY_WRITE_TIMEOUT
+        view = memoryview(data)
+        while view:
+            with self._write_lock:
+                if not self._fd_open:
+                    return
+                try:
+                    sent = os.write(self._master, view)
+                    view = view[sent:]
+                    continue
+                except BlockingIOError:
+                    pass
+                except OSError as exc:
+                    if exc.errno in (errno.EIO, errno.EBADF):
+                        return
+                    raise
+            if time.monotonic() >= deadline:
+                raise CommandError(
+                    "The program did not read what was typed",
+                    details="It may be stopped or busy; end the session and start another.",
+                )
+            time.sleep(0.01)
+
+    def resize(self, rows: int, cols: int) -> None:
+        self.rows = _clamp(rows, PTY_MAX_ROWS)
+        self.cols = _clamp(cols, PTY_MAX_COLS)
+        with self._write_lock:
+            if not self._fd_open:
+                return
+            try:
+                fcntl.ioctl(
+                    self._master,
+                    termios.TIOCSWINSZ,
+                    struct.pack("HHHH", self.rows, self.cols, 0, 0),
+                )
+            except OSError as exc:
+                _log.debug("Could not resize a terminal: %s", exc)
+
+    def input_is_hidden(self) -> bool:
+        with self._write_lock:
+            if not self._fd_open:
+                return False
+            try:
+                local_flags = termios.tcgetattr(self._master)[3]
+            except (termios.error, OSError):
+                return False
+        return bool(local_flags & termios.ICANON) and not local_flags & termios.ECHO
+
+    def terminate(self, timeout: float = TERMINATE_TIMEOUT) -> int | None:
+        with self._state_lock:
+            if self._end_reason is None:
+                self._end_reason = PTY_END_CLOSED
+        return self._stop()
+
+    def close(self) -> None:
+        self.terminate()
+        # Every reader and writer is told, and waited for, before the descriptor
+        # is closed: a number closed under a read may already be someone else's.
+        with self._read_lock, self._write_lock:
+            if self._fd_open:
+                self._fd_open = False
+                with contextlib.suppress(OSError):
+                    os.close(self._master)
+
+
+class _EndedPty(PtyHandle):
+    """A terminal that never opened, or was never meant to: it ended before it began."""
+
+    def __init__(self, argv: tuple[str, ...], exit_code: int, words: str) -> None:
+        """
+        Args:
+            argv: The redacted argument vector.
+            exit_code: How it ended.
+            words: What it said on the way out, verbatim.
+        """
+        super().__init__(argv, max_seconds=1, idle_seconds=1, rows=1, cols=1)
+        self._exit_code = exit_code
+        self._words = words.encode("utf-8", errors="replace")
+        self._end_reason = PTY_END_EXITED
+
+    @property
+    def pid(self) -> int:
+        return 0
+
+    @property
+    def exit_code(self) -> int | None:
+        return self._exit_code
+
+    def is_alive(self) -> bool:
+        return False
+
+    def read(self, timeout: float = 0.5) -> bytes | None:
+        words, self._words = self._words, b""
+        return words or None
+
+    def write(self, data: bytes) -> None:
+        return None
+
+    def resize(self, rows: int, cols: int) -> None:
+        return None
+
+    def terminate(self, timeout: float = TERMINATE_TIMEOUT) -> int | None:
+        return self._exit_code
+
+
+class _EchoShell:
+    """
+    What a fake terminal answers when asked to behave like a tiny shell.
+
+    Just enough for a person to try the console against a machine that is not
+    there: it echoes what is typed, runs three commands and ends on ``exit``.
+    """
+
+    PROMPT = b"$ "
+
+    def __init__(self, account: str) -> None:
+        """
+        Args:
+            account: What ``whoami`` answers.
+        """
+        self.account = account
+        self._line = bytearray()
+
+    def greeting(self) -> bytes:
+        """
+        Returns:
+            What it prints when the session opens.
+        """
+        return b"Fake terminal: nothing here runs on this machine.\r\n" + self.PROMPT
+
+    def feed(self, data: bytes) -> tuple[bytes, bool]:
+        """
+        Take what was typed.
+
+        Args:
+            data: The bytes typed.
+
+        Returns:
+            What to print, and whether the shell ended.
+        """
+        out = bytearray()
+        for byte in data:
+            if byte in (13, 10):
+                out += b"\r\n"
+                text = self._line.decode("utf-8", errors="replace").strip()
+                self._line.clear()
+                if text == "exit":
+                    return bytes(out), True
+                out += self._run(text) + self.PROMPT
+            elif byte in (8, 127):
+                if self._line:
+                    self._line.pop()
+                    out += b"\b \b"
+            elif byte == 3:
+                self._line.clear()
+                out += b"^C\r\n" + self.PROMPT
+            elif byte >= 32 or byte == 9:
+                self._line.append(byte)
+                out.append(byte)
+        return bytes(out), False
+
+    def _run(self, text: str) -> bytes:
+        if not text:
+            return b""
+        if text == "whoami":
+            return self.account.encode() + b"\r\n"
+        if text == "pwd":
+            return b"/srv/app\r\n"
+        if text.startswith("echo "):
+            return text[5:].encode("utf-8", errors="replace") + b"\r\n"
+        return f"{text.split()[0]}: command not found\r\n".encode("utf-8", errors="replace")
+
+
+_EOF = object()
+
+
+class FakePty(PtyHandle):
+    """
+    A terminal for tests, started by :meth:`FakeRunner.pty`.
+
+    The test plays the program: :meth:`feed` is what it writes, :attr:`written`
+    what the person typed, :meth:`die` ends it. The limits are the real ones.
+    """
+
+    _next_pid = 50000
+
+    def __init__(
+        self,
+        argv: tuple[str, ...],
+        *,
+        max_seconds: int,
+        idle_seconds: int,
+        rows: int,
+        cols: int,
+        alive: bool = True,
+        exit_code: int | None = None,
+        output: str = "",
+        shell: _EchoShell | None = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        """
+        Args:
+            argv: The argument vector the code under test built.
+            max_seconds: The longest the session may last.
+            idle_seconds: The longest it may go without anything typed.
+            rows: The terminal's height.
+            cols: The terminal's width.
+            alive: Whether it starts running.
+            exit_code: Its status when it starts dead.
+            output: What it has already written.
+            shell: A tiny shell to answer what is typed, or None for silence.
+            clock: Monotonic seconds, for the limits.
+        """
+        super().__init__(
+            argv,
+            max_seconds=max_seconds,
+            idle_seconds=idle_seconds,
+            rows=rows,
+            cols=cols,
+            clock=clock,
+        )
+        FakePty._next_pid += 1
+        self._pid = FakePty._next_pid
+        self._queue: queue.Queue[object] = queue.Queue()
+        self._alive = alive
+        self._exit_code = None if alive else exit_code
+        self._shell = shell
+        self.written: list[bytes] = []
+        self.resizes: list[tuple[int, int]] = []
+        self.terminated = False
+        #: What :meth:`input_is_hidden` answers: a test sets it for a password prompt.
+        self.hidden_input = False
+        if output:
+            self.feed(output)
+        if shell is not None and alive:
+            self.feed(shell.greeting())
+        if not alive:
+            self._end_reason = PTY_END_EXITED
+            self._queue.put(_EOF)
+
+    @property
+    def pid(self) -> int:
+        return self._pid
+
+    @property
+    def exit_code(self) -> int | None:
+        return self._exit_code
+
+    def is_alive(self) -> bool:
+        self._check_limits()
+        return self._alive
+
+    def _check_limits(self) -> None:
+        reason = self.expired() if self._alive else None
+        if reason is not None:
+            self._finish(reason, -signal.SIGHUP)
+
+    def _finish(self, reason: str, exit_code: int) -> None:
+        if not self._alive:
+            return
+        self._alive = False
+        self._exit_code = exit_code
+        self._end_reason = reason
+        self._queue.put(_EOF)
+
+    def feed(self, data: bytes | str) -> None:
+        """
+        Write what the program would print.
+
+        Args:
+            data: Text or bytes.
+        """
+        self._queue.put(data.encode("utf-8") if isinstance(data, str) else data)
+
+    def die(self, exit_code: int = 0) -> None:
+        """
+        End the program, as exiting would.
+
+        Args:
+            exit_code: Its exit status.
+        """
+        self._finish(PTY_END_EXITED, exit_code)
+
+    def read(self, timeout: float = 0.5) -> bytes | None:
+        self._check_limits()
+        try:
+            item = self._queue.get(timeout=max(0.0, timeout))
+        except queue.Empty:
+            return b""
+        if item is _EOF:
+            # Again for the next read: an ended terminal stays ended.
+            self._queue.put(_EOF)
+            return None
+        return item if isinstance(item, bytes) else b""
+
+    def write(self, data: bytes) -> None:
+        self.touch()
+        self.written.append(data)
+        if self._shell is not None and self._alive:
+            answer, ended = self._shell.feed(data)
+            if answer:
+                self.feed(answer)
+            if ended:
+                self.die(0)
+
+    def input_is_hidden(self) -> bool:
+        return self.hidden_input
+
+    def resize(self, rows: int, cols: int) -> None:
+        self.rows = _clamp(rows, PTY_MAX_ROWS)
+        self.cols = _clamp(cols, PTY_MAX_COLS)
+        self.resizes.append((rows, cols))
+
+    def terminate(self, timeout: float = TERMINATE_TIMEOUT) -> int | None:
+        if self._alive:
+            self.terminated = True
+            self._finish(PTY_END_CLOSED, -signal.SIGHUP)
         return self._exit_code
 
 
@@ -976,6 +1727,10 @@ class SandboxSpec:
         pty: Run on a pseudo-terminal instead of pipes: the compatibility
             mode for a build script that reopens /dev/stderr, which a pipe
             owned by root refuses to another account.
+        interactive: A person types into it (:meth:`CommandRunner.pty`): it runs
+            on a pseudo-terminal like ``pty``, but keeps the terminal's own
+            environment instead of the build mode's ``CI``, ``NO_COLOR`` and
+            ``TERM=dumb``.
         name: What the unit is named after (the application), for
             ``systemctl`` and the journal.
     """
@@ -999,6 +1754,7 @@ class SandboxSpec:
     strict: bool = True
     protect_home: bool = True
     pty: bool = False
+    interactive: bool = False
     name: str = "command"
     #: Filled in by __post_init__: the slug the unit name is built from.
     slug: str = field(default="", init=False)
@@ -1151,7 +1907,7 @@ def sandbox_environment(
     """
     composed = {"PATH": SANDBOX_PATH, **SANDBOX_COREPACK_ENV}
     composed.update(clean_environment(parent, spec.env_allow))
-    if spec.pty:
+    if spec.pty and not spec.interactive:
         composed.update(PTY_ENV)
     if env:
         composed.update(env)
@@ -1253,7 +2009,7 @@ def sandbox_prefix(
         "--wait",
         "--collect",
         "--quiet",
-        "--pty" if spec.pty else "--pipe",
+        "--pty" if spec.pty or spec.interactive else "--pipe",
     ]
     group = spec.group or spec.user
     properties = [f"User={spec.user}", f"Group={group}"]
@@ -1660,6 +2416,58 @@ class CommandRunner(ABC):
             details="Use SubprocessRunner, DryRunRunner or FakeRunner.",
         )
 
+    def pty(
+        self,
+        argv: Sequence[str],
+        *,
+        max_seconds: int,
+        idle_seconds: int,
+        cwd: Path | None = None,
+        env: Mapping[str, str] | None = None,
+        user: str | None = None,
+        secrets: Sequence[str] = (),
+        sandbox: SandboxSpec | None = None,
+        rows: int = PTY_DEFAULT_ROWS,
+        cols: int = PTY_DEFAULT_COLS,
+    ) -> PtyHandle:
+        """
+        Run a program on a pseudo-terminal a person types into.
+
+        The mandatory deadline of every other command is two limits here, both
+        required: the session may last ``max_seconds`` and may go
+        ``idle_seconds`` with nothing typed. The runner enforces them, so a
+        terminal nobody closed ends anyway, with the program and everything it
+        started. The program runs in a session of its own, with the terminal as
+        its controlling one, and with nothing of this process's environment
+        beyond :data:`PTY_ENV_ALLOW`: what it gets is ``env``.
+
+        Args:
+            argv: Program and arguments. Never a shell string.
+            max_seconds: The longest the session may last.
+            idle_seconds: The longest it may go with nothing typed.
+            cwd: Working directory.
+            env: The program's environment, over the allowed variables.
+            user: Run as this account instead of the current one.
+            secrets: Literal values to redact from the recorded command line.
+            sandbox: Run confined, as for :meth:`run`; a spec with
+                ``interactive`` set. Exclusive with ``user``.
+            rows: The terminal's height.
+            cols: The terminal's width.
+
+        Returns:
+            The session. A program that cannot be found yields one that has
+            already ended with :data:`EXIT_NOT_FOUND`.
+
+        Raises:
+            ValueError: A limit that is not positive, or an argv that cannot
+                be executed safely.
+            CommandError: When this runner cannot open terminals.
+        """
+        raise CommandError(
+            f"{type(self).__name__} cannot open terminals",
+            details="Use SubprocessRunner, DryRunRunner or FakeRunner.",
+        )
+
     def exists(self, program: str) -> bool:
         """
         Report whether a program is present on PATH.
@@ -1671,6 +2479,25 @@ class CommandRunner(ABC):
             True when the program can be executed.
         """
         return shutil.which(program) is not None
+
+
+def _require_limits(max_seconds: int, idle_seconds: int) -> None:
+    """
+    Refuse a terminal without both of its limits.
+
+    Args:
+        max_seconds: The deadline of the session.
+        idle_seconds: The idle limit.
+
+    Raises:
+        ValueError: When either is not a positive number of seconds.
+    """
+    for name, value in (("max_seconds", max_seconds), ("idle_seconds", idle_seconds)):
+        if value <= 0:
+            raise ValueError(
+                f"A terminal needs a positive {name}, not {value}: a session without its "
+                "limits would outlive whoever opened it"
+            )
 
 
 def _refuse_user_with_sandbox(user: str | None, sandbox: SandboxSpec | None) -> None:
@@ -1686,6 +2513,28 @@ def _refuse_user_with_sandbox(user: str | None, sandbox: SandboxSpec | None) -> 
     """
     if user is not None and sandbox is not None:
         raise ValueError("user= and sandbox= are exclusive: the sandbox spec names the account")
+
+
+@dataclass(frozen=True)
+class _SandboxedCommand:
+    """
+    A sandboxed command, prepared and not yet started.
+
+    Attributes:
+        unit: The transient unit it will run in, without ``.service``.
+        runtime: The directory its environment file and result marker live in.
+        env_file: Its environment file, which the caller removes when done.
+        wrapped: The ``systemd-run`` argv that runs it.
+        redacted: That argv with secrets hidden, for logs.
+        redacted_inner: The command alone, with secrets hidden.
+    """
+
+    unit: str
+    runtime: Path
+    env_file: Path
+    wrapped: list[str]
+    redacted: tuple[str, ...]
+    redacted_inner: tuple[str, ...]
 
 
 class SubprocessRunner(CommandRunner):
@@ -2080,7 +2929,7 @@ class SubprocessRunner(CommandRunner):
             timed_out=timed_out,
         )
 
-    def _run_sandboxed(
+    def _prepare_sandbox(
         self,
         argv: Sequence[str],
         spec: SandboxSpec,
@@ -2089,18 +2938,15 @@ class SubprocessRunner(CommandRunner):
         env: Mapping[str, str] | None,
         timeout: int,
         secrets: Sequence[str],
-        input: str | None,
-        stdin_path: Path | None,
-        on_line: Callable[[str], None] | None,
-    ) -> CommandResult:
+    ) -> _SandboxedCommand | CommandResult:
         """
-        Run a command in a transient unit, confined as ``spec`` says.
+        Write a sandboxed command's environment and build the ``systemd-run`` that runs it.
 
-        The environment goes into a 0600 file on tmpfs that systemd reads as
-        root, never into ``-E`` (which ``systemctl show`` prints to any local
-        account). A cancellation or the deadline stops the unit by name,
-        because killing ``systemd-run`` leaves the unit running; the unit's
-        ``RuntimeMaxSec`` stops it if this process dies first.
+        The one place a sandboxed command is prepared, for ``run``, ``stream``
+        and ``pty`` alike. The environment goes into a 0600 file on tmpfs that
+        systemd reads as root, never into ``-E`` (which ``systemctl show``
+        prints to any local account); the caller removes it when the command is
+        over.
 
         Args:
             argv: The command.
@@ -2109,17 +2955,14 @@ class SubprocessRunner(CommandRunner):
             env: Its environment, over the allow-list.
             timeout: Deadline in seconds.
             secrets: Values to redact.
-            input: Text for stdin, or None.
-            stdin_path: A file for stdin, or None.
-            on_line: Called per line of merged output, to stream; None to
-                capture both streams.
 
         Returns:
-            The outcome, with ``sandbox_unit`` and ``sandbox_result`` set.
+            The prepared command; or the result that says it cannot run (the
+            program is not in the sandbox's PATH, the runtime directory is not
+            writable), already announced to the execution listeners.
 
         Raises:
-            CommandCancelled: When the operation is cancelled; the unit has
-                been stopped.
+            CommandCancelled: When the operation is cancelled.
         """
         inner = _validate(argv)
         redacted_inner = _redact(inner, secrets)
@@ -2163,6 +3006,67 @@ class SubprocessRunner(CommandRunner):
         redacted = (*prefix, *escape_systemd_argv(redacted_inner))
         if self._on_command is not None:
             self._on_command(redacted)
+        return _SandboxedCommand(
+            unit=unit,
+            runtime=runtime,
+            env_file=env_file,
+            wrapped=wrapped,
+            redacted=redacted,
+            redacted_inner=redacted_inner,
+        )
+
+    def _run_sandboxed(
+        self,
+        argv: Sequence[str],
+        spec: SandboxSpec,
+        *,
+        cwd: Path | None,
+        env: Mapping[str, str] | None,
+        timeout: int,
+        secrets: Sequence[str],
+        input: str | None,
+        stdin_path: Path | None,
+        on_line: Callable[[str], None] | None,
+    ) -> CommandResult:
+        """
+        Run a command in a transient unit, confined as ``spec`` says.
+
+        The environment goes into a 0600 file on tmpfs that systemd reads as
+        root, never into ``-E`` (which ``systemctl show`` prints to any local
+        account). A cancellation or the deadline stops the unit by name,
+        because killing ``systemd-run`` leaves the unit running; the unit's
+        ``RuntimeMaxSec`` stops it if this process dies first.
+
+        Args:
+            argv: The command.
+            spec: The confinement.
+            cwd: Its working directory, unless the spec names one.
+            env: Its environment, over the allow-list.
+            timeout: Deadline in seconds.
+            secrets: Values to redact.
+            input: Text for stdin, or None.
+            stdin_path: A file for stdin, or None.
+            on_line: Called per line of merged output, to stream; None to
+                capture both streams.
+
+        Returns:
+            The outcome, with ``sandbox_unit`` and ``sandbox_result`` set.
+
+        Raises:
+            CommandCancelled: When the operation is cancelled; the unit has
+                been stopped.
+        """
+        prepared = self._prepare_sandbox(
+            argv, spec, cwd=cwd, env=env, timeout=timeout, secrets=secrets
+        )
+        if isinstance(prepared, CommandResult):
+            return prepared
+        unit, runtime, env_file = prepared.unit, prepared.runtime, prepared.env_file
+        wrapped, redacted, redacted_inner = (
+            prepared.wrapped,
+            prepared.redacted,
+            prepared.redacted_inner,
+        )
         # systemd-run itself only talks to the manager; it gets a fixed PATH
         # so it resolves the program where the sandbox will find it.
         client_env = {"PATH": SANDBOX_PATH, "LANG": "C.UTF-8"}
@@ -2379,6 +3283,121 @@ class SubprocessRunner(CommandRunner):
             return _EndedProcess(redacted, EXIT_NOT_FOUND, str(exc))
         _notify_execution(_redact(_validate(argv), secrets), cwd=cwd, result=None, user=user)
         return _SubprocessHandle(process, redacted)
+
+    def pty(
+        self,
+        argv: Sequence[str],
+        *,
+        max_seconds: int,
+        idle_seconds: int,
+        cwd: Path | None = None,
+        env: Mapping[str, str] | None = None,
+        user: str | None = None,
+        secrets: Sequence[str] = (),
+        sandbox: SandboxSpec | None = None,
+        rows: int = PTY_DEFAULT_ROWS,
+        cols: int = PTY_DEFAULT_COLS,
+    ) -> PtyHandle:
+        _require_limits(max_seconds, idle_seconds)
+        _refuse_user_with_sandbox(user, sandbox)
+        stop_unit: Callable[[], None] | None = None
+        cleanup: list[Callable[[], None]] = []
+        account: str | None
+        if sandbox is not None:
+            prepared = self._prepare_sandbox(
+                argv, sandbox, cwd=cwd, env=env, timeout=max_seconds, secrets=secrets
+            )
+            if isinstance(prepared, CommandResult):
+                return _EndedPty(prepared.argv, prepared.exit_code, prepared.stderr)
+            args, redacted = prepared.wrapped, prepared.redacted
+            # systemd-run itself only talks to the manager; the program's own
+            # environment is the file it reads.
+            run_env = {"PATH": SANDBOX_PATH, "LANG": "C.UTF-8"}
+            if env and "TERM" in env:
+                run_env["TERM"] = env["TERM"]
+            account = sandbox.user
+            unit, runtime, env_file = prepared.unit, prepared.runtime, prepared.env_file
+
+            def stop_unit() -> None:
+                self._stop_unit(unit)
+
+            def remove_environment() -> None:
+                env_file.unlink(missing_ok=True)
+
+            def drop_marker() -> None:
+                # Reading the result marker is what removes it.
+                read_sandbox_marker(unit, runtime)
+
+            cleanup = [remove_environment, drop_marker]
+        else:
+            inner = _validate(argv)
+            args = inner if user is None else [*runuser_prefix(user), *inner]
+            redacted = _redact(args, secrets)
+            _cancel_scope(redacted)
+            run_env = clean_environment(os.environ, PTY_ENV_ALLOW)
+            if env:
+                run_env.update(env)
+            account = user
+            if self._on_command is not None:
+                self._on_command(redacted)
+            if shutil.which(args[0], path=run_env.get("PATH") or SANDBOX_PATH) is None:
+                return _EndedPty(redacted, EXIT_NOT_FOUND, f"Command not found: {args[0]}")
+
+        try:
+            master, slave = os.openpty()
+        except OSError as exc:
+            for step in cleanup:
+                step()
+            raise CommandError(
+                "No terminal could be opened",
+                details=f"The system refused a pseudo-terminal: {exc}. "
+                "Close some sessions, or raise the limit of ptys (kernel.pty.max).",
+            ) from exc
+        process: subprocess.Popen[bytes] | None = None
+        try:
+            fcntl.ioctl(
+                master,
+                termios.TIOCSWINSZ,
+                struct.pack("HHHH", _clamp(rows, PTY_MAX_ROWS), _clamp(cols, PTY_MAX_COLS), 0, 0),
+            )
+            process = subprocess.Popen(
+                [*_SESSION_LEADER, *args],
+                cwd=str(cwd) if cwd and sandbox is None else None,
+                env=run_env,
+                stdin=slave,
+                stdout=slave,
+                stderr=slave,
+                # Nothing of the parent's but the terminal, whatever a
+                # descriptor's inheritable flag says: a shell must not hold the
+                # console's sockets.
+                close_fds=True,
+            )
+        except (FileNotFoundError, PermissionError) as exc:
+            os.close(master)
+            for step in cleanup:
+                step()
+            return _EndedPty(
+                redacted, EXIT_NOT_FOUND, f"Command not found: {exc.filename or args[0]}"
+            )
+        except OSError:
+            os.close(master)
+            for step in cleanup:
+                step()
+            raise
+        finally:
+            os.close(slave)
+        _notify_execution(_redact(_validate(argv), secrets), cwd=cwd, result=None, user=account)
+        return _SubprocessPty(
+            process,
+            master,
+            redacted,
+            max_seconds=max_seconds,
+            idle_seconds=idle_seconds,
+            rows=rows,
+            cols=cols,
+            stop_unit=stop_unit,
+            cleanup=cleanup,
+        )
 
 
 # -- What only looks ------------------------------------------------------------
@@ -2885,6 +3904,27 @@ class DryRunRunner(CommandRunner):
         # instead of inventing a failure.
         return _EndedProcess(skipped.argv, 0, "Not started: this is a dry run")
 
+    def pty(
+        self,
+        argv: Sequence[str],
+        *,
+        max_seconds: int,
+        idle_seconds: int,
+        cwd: Path | None = None,
+        env: Mapping[str, str] | None = None,
+        user: str | None = None,
+        secrets: Sequence[str] = (),
+        sandbox: SandboxSpec | None = None,
+        rows: int = PTY_DEFAULT_ROWS,
+        cols: int = PTY_DEFAULT_COLS,
+    ) -> PtyHandle:
+        _require_limits(max_seconds, idle_seconds)
+        _refuse_user_with_sandbox(user, sandbox)
+        # A terminal is somebody typing: there is nothing to rehearse and
+        # nothing that only looks.
+        skipped = self._skip(argv, secrets)
+        return _EndedPty(skipped.argv, 0, "Not started: this is a dry run")
+
 
 @dataclass
 class FakeCommand:
@@ -2922,6 +3962,12 @@ class FakeRunner(CommandRunner):
         self.written: dict[Path, tuple[str, ...]] = {}
         #: Every long-lived process :meth:`start` returned, in order.
         self.processes: list[FakeProcess] = []
+        #: Every terminal :meth:`pty` opened, in order.
+        self.ptys: list[FakePty] = []
+        #: Whether a terminal answers like a tiny shell instead of staying silent.
+        self.pty_echo = False
+        #: The clock a fake terminal measures its limits with; a test replaces it.
+        self.pty_clock: Callable[[], float] = time.monotonic
         #: The sandbox each run or stream was given, in order, None for none.
         self.sandboxes: list[SandboxSpec | None] = []
         #: The command inside each sandboxed call, with its spec.
@@ -3222,6 +4268,77 @@ class FakeRunner(CommandRunner):
         if process.is_alive():
             _notify_execution(_redact(_validate(argv), secrets), cwd=cwd, result=None, user=user)
         return process
+
+    def pty(
+        self,
+        argv: Sequence[str],
+        *,
+        max_seconds: int,
+        idle_seconds: int,
+        cwd: Path | None = None,
+        env: Mapping[str, str] | None = None,
+        user: str | None = None,
+        secrets: Sequence[str] = (),
+        sandbox: SandboxSpec | None = None,
+        rows: int = PTY_DEFAULT_ROWS,
+        cols: int = PTY_DEFAULT_COLS,
+    ) -> PtyHandle:
+        """
+        Open a scripted terminal.
+
+        The call is recorded exactly as :meth:`run` records one (a sandboxed
+        one as the ``systemd-run`` argv the real runner would execute). A
+        command scripted with exit code 0 opens a terminal the test drives
+        (:meth:`FakePty.feed`); any other exit code opens one already ended,
+        with the scripted stderr as its last words. With :attr:`pty_echo` set it
+        answers like a tiny shell, which is what the console's development
+        server uses. Every terminal is kept in :attr:`ptys`, in order.
+
+        Args:
+            argv: Program and arguments.
+            max_seconds: The longest the session may last.
+            idle_seconds: The longest it may go without anything typed.
+            cwd: Ignored.
+            env: Recorded in :attr:`envs`.
+            user: Folded into the recorded argv, as for :meth:`run`.
+            secrets: Redacted from what listeners hear.
+            sandbox: Recorded in :attr:`sandboxed`.
+            rows: The terminal's height.
+            cols: The terminal's width.
+
+        Returns:
+            The fake terminal.
+
+        Raises:
+            ValueError: A limit that is not positive.
+        """
+        _require_limits(max_seconds, idle_seconds)
+        result = self._call(
+            argv,
+            cwd=cwd,
+            env=env,
+            timeout=max_seconds,
+            user=user,
+            sandbox=sandbox,
+            clean_env=True,
+            secrets=secrets,
+        )
+        alive = result.exit_code == 0
+        account = sandbox.user if sandbox is not None else (user or "root")
+        handle = FakePty(
+            result.argv,
+            max_seconds=max_seconds,
+            idle_seconds=idle_seconds,
+            rows=rows,
+            cols=cols,
+            alive=alive,
+            exit_code=result.exit_code,
+            output=result.stderr if not alive else "",
+            shell=_EchoShell(account) if self.pty_echo and alive else None,
+            clock=self.pty_clock,
+        )
+        self.ptys.append(handle)
+        return handle
 
     # Assertions -----------------------------------------------------------
 

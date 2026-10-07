@@ -144,6 +144,23 @@ used, with their default in the code, so a file that lacks them behaves as docum
 | `retention.jobs_days` | `90` | Days finished background jobs and their logs are kept. |
 | `retention.deployments_days` | `365` | Days deployment records are kept. |
 | `retention.sessions_days` | `30` | Days ended sessions are kept. |
+| `retention.terminal_days` | `90` | Days the recordings of console terminals are kept. Under the ENS profile, at least `audit.retention_days`: a recording is evidence. |
+
+## Terminal
+
+How the console's terminal behaves. `docs/terminal.md` explains what each limit protects and what a recording holds.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `terminal.enabled` | `true` | Whether the console may open a terminal into an application, as its own account. Off, only one-off commands remain. |
+| `terminal.idle_minutes` | `10` | A terminal where nothing is typed for this long is ended, 1 to 120. Under the ENS profile, 10 at most. |
+| `terminal.max_minutes` | `120` | The longest a terminal lasts, however busy, 1 to 720. Under the ENS profile, 60 at most. |
+| `terminal.max_sessions` | `8` | Terminals open at once on this server, 1 to 64. |
+| `terminal.max_sessions_per_user` | `3` | Terminals one person may have open at once, 1 to 16. |
+| `terminal.recording.max_mb` | `8` | The most one session's recording may take, 1 to 1024. Input and output have a share each, so a flood of output cannot hide what was typed. |
+| `terminal.server.enabled` | `false` | Allow a root shell on the server itself in the browser, for administrators only. Off until you turn it on. |
+| `terminal.server.force_ens` | `false` | Under the ENS profile the server's terminal stays off even when enabled, unless this is set too. Setting it is on record. |
+| `terminal.exec.max_seconds` | `1800` | The longest a one-off command (`noust app exec`) may run, 1 to 86400. |
 
 ## Monitor and notifications
 

@@ -28,6 +28,7 @@ What is defended here:
 
 from __future__ import annotations
 
+import itertools
 import json
 import stat
 import time
@@ -500,6 +501,34 @@ def test_the_tail_parameter_limits_how_much_comes_back(
     assert len(lines) == 3
     assert "line 19" in lines[-2]
     assert "completed successfully" in lines[-1].lower()
+
+
+def test_a_job_log_has_each_line_once_whatever_else_the_job_reports(
+    client: TestClient, store: Any, runner: object
+) -> None:
+    """
+    A result, some metadata or a progress step notify without a new line, and the file must
+    not repeat the last one: a one-off command's output is its log, so a repeated line is
+    output the command never printed.
+    """
+
+    def printing_job(job_context: JobContext | None = None) -> dict[str, Any]:
+        assert job_context is not None
+        job_context.set_metadata("domain", "shop.example.com")
+        job_context.log("hello world", "info")
+        job_context.set_result({"exit_code": 0})
+        job_context.update("Almost", 90)
+        return {"exit_code": 0}
+
+    manager = get_job_manager()
+    job = _run_job_synchronously(manager, JobType.CUSTOM, "Prints", "Prints a line", printing_job)
+
+    lines = client.get(f"/api/jobs/{job.id}/log").json()["content"].splitlines()
+
+    assert sum("hello world" in line for line in lines) == 1
+    assert sum("Job started" in line for line in lines) == 1
+    # No line follows itself: that is what a notification without a new line used to write.
+    assert all(earlier != later for earlier, later in itertools.pairwise(lines))
 
 
 def test_a_job_with_no_log_path_reports_an_empty_log(client: TestClient, store: Any) -> None:

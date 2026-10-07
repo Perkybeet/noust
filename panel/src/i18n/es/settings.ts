@@ -65,7 +65,7 @@ export const settings: Catalog<typeof en> = {
       title: "Detalles",
       description: "Se definen desde un terminal o al instalar Noust.",
       hooksUrl: "Dirección para webhooks",
-      hooksUrlUnset: "Sin definir: GitHub, GitLab y Gitea no pueden llegar a este servidor. Defínela con {command}.",
+      hooksUrlUnset: "Sin definir: GitHub, GitLab, Gitea y Bitbucket no pueden llegar a este servidor. Defínela con {command}.",
       configFile: "Archivo de configuración",
       serviceUser: "Las aplicaciones se ejecutan como",
       notSet: "Sin definir",
@@ -459,7 +459,7 @@ export const settings: Catalog<typeof en> = {
     fromTerminal: "Lo mismo, desde un terminal",
     hooks: {
       title: "Dirección para webhooks",
-      description: "Adónde envían GitHub, GitLab y Gitea los push a este servidor.",
+      description: "Adónde envían GitHub, GitLab, Gitea y Bitbucket los push a este servidor.",
       loadingLabel: "la dirección para webhooks",
       unsetTitle: "Sin definir",
       unsetDescription: "Las plataformas Git envían los push a /hooks en un dominio público, y este servidor aún no expone uno. Apunta un dominio a este servidor y luego ejecuta:",
@@ -467,7 +467,7 @@ export const settings: Catalog<typeof en> = {
       setDescription: "Definida con noust web expose-hooks, que también la sirve.",
     },
     others: {
-      title: "GitLab y Gitea",
+      title: "GitLab, Gitea y Bitbucket",
       description: "Desplegar al hacer push, sin App.",
       body: "Cada aplicación tiene su propio webhook: ábrela en {apps} y ve a Ajustes, Desplegar al hacer push.",
       appsLink: "Aplicaciones",

@@ -685,6 +685,11 @@ headings are then drawn but not announced, so an item's label names its group
 (`Europe/Madrid`). A short, known list is a `Select`; a value the operator types freely is an
 `Input`.
 
+**`CopyValue`** (`value`, `label`, `name`). A value the operator pastes into another place (a
+deploy key's public half, a webhook address, a command): in a sunken box, in full and wrapped
+at any character, never cut, with its `CopyButton`. Not for a fact among facts (a
+`KeyValueList` row copies its own) and not for output the system printed (`SystemOutput`).
+
 **`Switch`** applies at once. **`Checkbox`** is a choice inside a form saved with a button, or a
 selection. They never share a form.
 
@@ -863,6 +868,17 @@ verbatim, copyable. **`Mono`**: a system value. **`Kbd`**: a key. **`CommandHint
 equivalent. **`RelativeTime`**: "3 min ago" with the exact moment in a tooltip.
 **`SegmentedControl`**: one of a few exclusive views (a chart range).
 
+**`TerminalScreen`**. A shell drawn on a canvas, from an emulator that is the console's own
+(`lib/terminal`): a library that injects a `<style>` element cannot run under the content security
+policy, and nothing here writes HTML. Its colours are tokens, read where it is drawn (the chart's
+reader) and again when the theme changes: a program's red is the failure colour. The keyboard
+lands on a text area, so an input method and a virtual keyboard work; Ctrl+C is an interrupt,
+copy and paste are Ctrl+Shift+C and V, and Escape then Tab leaves it, because Tab belongs to the
+shell and a terminal that keeps the keyboard for good fails WCAG 2.1.2. `textView` puts the same
+screen where a screen reader can read it and `announce` reads new lines aloud (off by default: a
+program that redraws the screen would be read again each time). What a shell prints is the
+system's own and is never translated.
+
 **`ErrorBlock`** (`onRetry`, `action`), **`QueryState`**. A failure the way the console always
 shows one, and the four states of anything loaded (see 6.5 and 6.6). `action` is one follow-up
 beside Try again, after the system's words ("View output"); `JobProgress` passes its own
@@ -1001,7 +1017,12 @@ drawer.
 
 `FilterBar`: the search box (`type="search"`, `/` focuses it, its value in the URL's `q`),
 filters as `Select` or `SegmentedControl`, the count ("3 of 17 applications") at the right. A
-filter that empties the table shows "No matches" with "Clear filters".
+filter that empties the table shows "No matches" with "Clear filters". A list of resources that live in a
+project (applications, databases, sites) adds a Project and an Environment filter and the same
+two columns, **only where there is more than one place to tell apart**: one team with one project
+and one environment draws none of it, so a server nobody organised looks as it always did
+(`features/teams/ownership.tsx`). The team the operator works in narrows the list before any
+filter does; the switcher in the top bar says which.
 
 ### 6.10 Charts on a page
 
@@ -1038,8 +1059,8 @@ at most one action. Success is said sparingly: only when it is not evident from 
 `Ctrl/Cmd K` opens the command palette, which finds anything the console lists, by any name
 it answers to (checklist M-23): pages and settings sections; applications (domain, name, type
 as a person says it); databases; sites; certificates; services; servers; the newest
-deployments (by application, commit or message); and the create commands (New application,
-from a recipe, import, adopt, New database, Add a server). Each result is in its group, with
+deployments (by application, commit or message); teams and projects; and the create commands
+(New application, from a recipe, import, adopt, New database, New project, New team, Add a server). Each result is in its group, with
 what tells two of one name apart beside it (a type, a time left). Its lists are the console's
 own, read when it is first opened and only those the account may read, and a finished job
 marks them stale (`applyServerEvent`); nothing is read until it is opened. `g` then a letter

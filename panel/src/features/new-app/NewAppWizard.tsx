@@ -49,6 +49,9 @@ import { useServerStep, withServerStep } from "./ServerStep";
 import { SourceStep } from "./SourceStep";
 import { useAdoption } from "./AdoptStack";
 import { wizardRecipe, wizardStart } from "./search";
+import { DestinationFields } from "../teams/DestinationFields";
+import { useDestination } from "../teams/useDestination";
+import type { Destination } from "../teams/useDestination";
 import type { SourceMode } from "./SourceStep";
 import { useDomainDnsCheck } from "./useDomainDnsCheck";
 import type { LandingTarget } from "./useDeploymentLanding";
@@ -87,6 +90,23 @@ function focusStepHeading(): void {
   heading.classList.add("outline-none");
   heading.focus({ preventScroll: false });
   heading.scrollIntoView({ block: "nearest" });
+}
+
+/** Where it will live, for the last step's list of what was decided: team, project and environment by name. */
+function placeSummary(t: T, destination: Destination): KeyValueItem {
+  const { value } = destination;
+  const name = (list: readonly { slug: string; name: string }[], slug: string): string => list.find((item) => item.slug === slug)?.name ?? slug;
+  return {
+    label: t("teams.destination.title"),
+    value:
+      value === null
+        ? ""
+        : [destination.showTeam ? name(destination.teams, value.team) : null, name(destination.projects, value.project), name(destination.environments, value.environment)]
+            .filter((part) => part !== null)
+            .join(" / "),
+    mono: false,
+    copy: false,
+  };
 }
 
 /** The first field of the step that needs attention takes focus; its message is read with it. */
@@ -201,10 +221,17 @@ export function NewAppWizard() {
   const [source, setSource] = useState<SourceForm>({ source: "", branch: "" });
   // The way in the link asked for (`/apps/new?start=recipe`, from the Applications page and the
   // palette): the wizard opens on it instead of on the default.
-  const linkSearch = useSearch({ from: "/_console/apps/new" });
-  const start = wizardStart(linkSearch.start);
+  const wizardSearch = useSearch({ from: "/_console/apps/new" });
+  const start = wizardStart(wizardSearch.start);
   // The recipe the link already chose (`&recipe=wordpress`, from the catalog): opened for the operator.
-  const linkedRecipe = start === "recipe" ? wizardRecipe(linkSearch.recipe) : undefined;
+  const linkedRecipe = start === "recipe" ? wizardRecipe(wizardSearch.recipe) : undefined;
+  // Which team, project and environment it goes to: asked only where there is more than one
+  // place (a project's page starts it on that project), so the common case costs no click.
+  const destination = useDestination({
+    ...(wizardSearch.team !== undefined ? { team: wizardSearch.team } : {}),
+    ...(wizardSearch.project !== undefined ? { project: wizardSearch.project } : {}),
+    ...(wizardSearch.environment !== undefined ? { environment: wizardSearch.environment } : {}),
+  });
   // Null until the operator acts: what the link asked for, GitHub when the App is connected,
   // the typed source otherwise.
   const [chosenMode, setChosenMode] = useState<SourceMode | null>(start ?? null);
@@ -425,14 +452,14 @@ export function NewAppWizard() {
 
   const deploy = (): void => {
     if (kind === "recipe") {
-      if (recipe !== null && recipeForm !== null) create.mutate(recipeBody(recipe, recipeForm));
+      if (recipe !== null && recipeForm !== null) create.mutate({ ...recipeBody(recipe, recipeForm), ...destination.body });
     } else if (kind === "import") {
       if (loaded !== null && importForm !== null) importing.mutate(importBody(loaded.document, importForm));
     } else if (review !== null && inspected !== null) {
       const body = createAppBody(inspected.for, review, inspected.inspection.platform_proposal ?? null);
       // The database is the operator's choice whether or not the step was passed over: the
       // choice stays "none" until it is opened.
-      create.mutate(allSteps.includes("database") ? withDatabase(body, database) : body);
+      create.mutate({ ...(allSteps.includes("database") ? withDatabase(body, database) : body), ...destination.body });
     }
   };
 
@@ -690,16 +717,19 @@ export function NewAppWizard() {
             title,
             description,
             content: (
-              <AddressFields
-                value={review}
-                onChange={(patch) => {
-                  const next = { ...review, ...patch };
-                  setReview(next);
-                  setReviewErrors((previous) => revalidated(previous, "address", reviewProblems(next, context)));
-                }}
-                error={reviewErrors["domain"]}
-                dns={dns}
-              />
+              <div className="flex flex-col gap-6">
+                <AddressFields
+                  value={review}
+                  onChange={(patch) => {
+                    const next = { ...review, ...patch };
+                    setReview(next);
+                    setReviewErrors((previous) => revalidated(previous, "address", reviewProblems(next, context)));
+                  }}
+                  error={reviewErrors["domain"]}
+                  dns={dns}
+                />
+                <DestinationFields destination={destination} />
+              </div>
             ),
             actions: checked("address", codeErrors, setReviewErrors, dns.checkNow),
           };
@@ -773,6 +803,7 @@ export function NewAppWizard() {
                 error={recipeErrors["domain"]}
                 dns={dns}
               />
+              <DestinationFields destination={destination} />
               <RecipeVariables
                 recipe={recipe}
                 form={recipeForm}
@@ -867,9 +898,11 @@ export function NewAppWizard() {
         if (kind === "code" && inspected !== null && review !== null) {
           summary = deploySummary(t, inspected.for, inspected.inspection, typeList, review);
           if (allSteps.includes("database")) summary = [...summary, databaseSummary(t, database, undefined)];
+          if (destination.needed) summary = [...summary, placeSummary(t, destination)];
           domain = review.domain;
         } else if (kind === "recipe" && recipe !== null && recipeForm !== null) {
           summary = recipeSummary(t, recipe, recipeForm);
+          if (destination.needed) summary = [...summary, placeSummary(t, destination)];
           domain = recipeForm.domain;
         } else if (kind === "import" && loaded !== null && importForm !== null) {
           summary = importSummary(t, loaded.document, importForm, typeList);

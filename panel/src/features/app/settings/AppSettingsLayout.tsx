@@ -21,6 +21,7 @@ import { SettingsAppContext } from "./settingsApp";
  */
 const SUBSECTIONS: readonly { path: string; label: PlainKey; danger?: boolean; when?: (app: App) => boolean }[] = [
   { path: "", label: "appSettings.nav.general" },
+  { path: "/source", label: "appSettings.nav.source" },
   { path: "/container", label: "appSettings.nav.container", when: (app) => app.app_type === "container" },
   { path: "/deploys", label: "appSettings.nav.deploys" },
   { path: "/deploy-on-push", label: "appSettings.nav.push" },

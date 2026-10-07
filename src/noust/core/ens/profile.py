@@ -113,6 +113,15 @@ class ProfileDefaults:
         sudo_require_password: Whether re-confirming also asks for the
             account's password. Outside the profile one factor is enough: the
             session already proved the password and a second factor at sign-in.
+        terminal_idle_minutes: The most a console terminal may go with nothing
+            typed before it is ended (op.acc.6.4): a terminal left open is a
+            session at a prompt.
+        terminal_max_minutes: The most a console terminal may last in all.
+        server_terminal: Whether Noust may open a root shell on the server in
+            the browser (``terminal.server.enabled``). Under the profile it is
+            refused unless the operator forces it in so many words
+            (``terminal.server.force_ens``), because it is the console at its
+            most root-equivalent.
     """
 
     name: str
@@ -141,6 +150,9 @@ class ProfileDefaults:
     sudo_idle_minutes: int = 15
     sudo_max_minutes: int = 120
     sudo_require_password: bool = False
+    terminal_idle_minutes: int = 120
+    terminal_max_minutes: int = 720
+    server_terminal: bool = True
 
     @property
     def ens(self) -> bool:
@@ -176,6 +188,9 @@ STANDARD = ProfileDefaults(
     sudo_idle_minutes=15,
     sudo_max_minutes=120,
     sudo_require_password=False,
+    terminal_idle_minutes=120,
+    terminal_max_minutes=720,
+    server_terminal=True,
 )
 
 #: ENS category MEDIUM (spec §2 and §12.7).
@@ -211,6 +226,11 @@ ENS_MEDIUM = ProfileDefaults(
     sudo_idle_minutes=10,
     sudo_max_minutes=30,
     sudo_require_password=True,
+    # A terminal is a session at a prompt: shorter than the sign-in's own idle
+    # lock, and capped in all, as sudo mode is.
+    terminal_idle_minutes=10,
+    terminal_max_minutes=60,
+    server_terminal=False,
 )
 
 
@@ -360,6 +380,21 @@ def console_exposure_allowed(config: Any | None = None) -> bool:
         an allow-list of who may connect.
     """
     return active_defaults(config).console_exposure
+
+
+def server_terminal_allowed(config: Any | None = None) -> bool:
+    """
+    Report whether a root shell on the server may be opened without being forced.
+
+    Args:
+        config: The configuration; the process-wide one by default.
+
+    Returns:
+        False under ``ens-medium``: the server's terminal stays off there
+        unless the operator sets ``terminal.server.force_ens`` as well as
+        ``terminal.server.enabled``, which is on record.
+    """
+    return active_defaults(config).server_terminal
 
 
 @dataclass(frozen=True)
@@ -523,6 +558,21 @@ def baseline() -> list[BaselineItem]:
             "allowed, with two-factor on every account",
             "refused unless forced, and then only with an allow-list of who may connect",
             ("mp.com.1", "op.acc.4.5"),
+        ),
+        BaselineItem(
+            "terminal.*",
+            "How long a console terminal may last, and how long it may go with nothing typed.",
+            f"{std.terminal_idle_minutes} min idle, {std.terminal_max_minutes} min in all "
+            "(the configured values)",
+            f"{ens.terminal_idle_minutes} min idle, {ens.terminal_max_minutes} min in all (at most)",
+            ("op.acc.6.4", "op.exp.8"),
+        ),
+        BaselineItem(
+            "terminal.server.enabled",
+            "Noust may open a root shell on the server in the browser.",
+            "off until the operator turns it on",
+            "refused unless forced with terminal.server.force_ens, and then on record",
+            ("op.acc.3", "mp.eq.1"),
         ),
         BaselineItem(
             "web.ip_whitelist",

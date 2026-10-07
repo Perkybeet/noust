@@ -288,6 +288,14 @@ a random user handle per server. A passkey signs in on its own and confirms sudo
 one comes with backup codes. `noust passkey reset USERNAME` is the root-only way back when every
 passkey is lost. Browsers offer passkeys only on a certificate they trust.
 
+**Single sign-on.** A provider that speaks OpenID Connect (authorization code with PKCE, `state` and
+`nonce`, ID tokens verified against the provider's published keys) can be one more way to sign in
+(`noust auth oidc`, [sso.md](sso.md)). It is a first factor like a password and never replaces the
+account's own second factor: what the provider says about its MFA is not trusted to skip ours. A
+person is identified by the provider's issuer and subject, never by e-mail alone; an account that has
+no second factor is never linked by e-mail; the first account of a server is never made by a
+provider; the ENS profile never lets a provider hand out `admin`.
+
 **Two steps.** The console signs a person in with their username (or the email of the person,
 when it names exactly one account that may sign in) and password first. When the account has a
 second factor, that answer opens the second step, a single-use challenge bound to the account and
@@ -571,8 +579,9 @@ root on the host by another name need a second person: raw units, cron commands,
 raw site configuration, deploy hooks, moving an application to its own account and building as
 root (`root_equivalent`); SQL that writes, row edits
 and `EXPLAIN ANALYZE` included; deploying from a directory on the server; adding and removing
-fleet servers; and role grants (a role change, a new account, a recovery invitation). The
-OpenAPI schema marks those routes with `x-noust-requires-approval`.
+fleet servers; opening a root shell on the server in the browser (see
+[Terminal and one-off commands](terminal.md)); and role grants (a role change, a new account, a
+recovery invitation). The OpenAPI schema marks those routes with `x-noust-requires-approval`.
 
 - The first call does not run. It answers `202` with `approval_required` and becomes a request
   that snapshots the exact call (method, path, query and body, by their SHA-256), with a reason.

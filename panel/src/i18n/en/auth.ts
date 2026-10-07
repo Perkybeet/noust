@@ -34,6 +34,22 @@ export const auth = {
     unknownHint:
       "This passkey is not registered on this server. It may belong to another server you open at the same address, such as localhost.",
   },
+  sso: {
+    signInWith: "Sign in with {provider}",
+    finishing: "Finishing your sign-in",
+    accepted: "Signed in with {provider}.",
+    codeAnnounce: "Signed in with {provider}. Enter your two-factor code.",
+    passkeyAnnounce: "Signed in with {provider}. Confirm it's you with your passkey.",
+    failedTitle: "Could not sign in with your provider",
+    errors: {
+      unavailable: "The provider did not answer. Try again in a moment, or use your account.",
+      expired: "That sign-in expired or was already used. Start it again.",
+      denied: "The provider did not let you in. Start again, or use your account.",
+      failed: "The provider's answer could not be checked. Start again, and if it keeps failing tell a security officer.",
+      refused: "The provider knows you, but this server has no account for you. Ask a security officer to invite you or link your account.",
+      locked: "Sign-in is locked for this address. Try again later.",
+    },
+  },
   emergency: {
     link: "Emergency access",
     title: "Emergency access",
