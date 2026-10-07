@@ -68,19 +68,31 @@ export type CancelState =
   /** The job's own event does not say whether it can be stopped; the queue's read does. */
   | { kind: "unknown" };
 
+/** The server's codes for why a job cannot be stopped (`cancel_blocked_reason`), as the console words them. */
+const BLOCKED: Readonly<Record<string, CancelReason>> = {
+  activating: "activating",
+  builds_in_place: "buildsInPlace",
+  unsupported: "unsupported",
+};
+
 /**
  * What the Cancel button of a job does: it stops a waiting job at once, and a build that has
  * not started to activate its release; a build asked to stop is winding down; and anything else
- * says why not. The server decides (`cancellable`); the console only words the reason, from the
- * kind of job and the application it builds.
+ * says why not. The server decides, both whether (`cancellable`) and why not
+ * (`cancel_blocked_reason`); the console only words the reason.
  *
  * @param entry The job as the queue lists it. A job as its `job` event carries it has no
  *   `cancellable`: a running one is then `unknown` until the queue answers, never "cannot".
- * @param apps The applications, to tell a build in place from one beside what serves; absent
- *   while they are read, which words the reason as "being activated" for a release build.
+ * @param apps The applications. Read only for a server that does not say why (one older than
+ *   `cancel_blocked_reason`, reached through a central), where the reason is inferred from the
+ *   kind of job and the application it builds; absent while they are read, which words it as
+ *   "being activated" for a release build.
  */
 export function cancelState(
-  entry: Pick<QueueEntry, "status" | "type" | "cancel_requested" | "metadata"> & { cancellable?: boolean | undefined },
+  entry: Pick<QueueEntry, "status" | "type" | "cancel_requested" | "metadata"> & {
+    cancellable?: boolean | undefined;
+    cancel_blocked_reason?: string | null | undefined;
+  },
   apps: AppList["apps"] | undefined,
 ): CancelState {
   if (entry.cancel_requested) return { kind: "stopping" };
@@ -88,13 +100,18 @@ export function cancelState(
   if (isWaiting(entry) && entry.cancellable !== false) return { kind: "can", stage: "queued" };
   if (typeof entry.cancellable !== "boolean") return { kind: "unknown" };
   if (entry.cancellable) return { kind: "can", stage: isWaiting(entry) ? "queued" : "running" };
-  if (!BUILD_TYPES.has(entry.type)) return { kind: "cannot", reason: "unsupported" };
+  const told = entry.cancel_blocked_reason === undefined || entry.cancel_blocked_reason === null ? undefined : BLOCKED[entry.cancel_blocked_reason];
+  if (told !== undefined) return { kind: "cannot", reason: told };
+  return { kind: "cannot", reason: inferReason(entry, apps) };
+}
+
+/** The reason a server that does not give one is taken to have, from the kind of job and its application. */
+function inferReason(entry: Pick<QueueEntry, "type" | "metadata">, apps: AppList["apps"] | undefined): CancelReason {
+  if (!BUILD_TYPES.has(entry.type)) return "unsupported";
   const domain = entryDomain(entry);
   const app = domain === null ? undefined : apps?.find((candidate) => candidate.domain === domain);
-  if (app !== undefined && (app.layout !== "releases" || IN_PLACE_TYPES.has(app.app_type ?? ""))) {
-    return { kind: "cannot", reason: "buildsInPlace" };
-  }
-  return { kind: "cannot", reason: "activating" };
+  if (app !== undefined && (app.layout !== "releases" || IN_PLACE_TYPES.has(app.app_type ?? ""))) return "buildsInPlace";
+  return "activating";
 }
 
 const REASONS: Readonly<Record<CancelReason, PlainKey>> = {

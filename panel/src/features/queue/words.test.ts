@@ -60,6 +60,18 @@ describe("what Cancel does", () => {
     expect(cancelState({ ...base, cancellable: false }, undefined)).toEqual({ kind: "cannot", reason: "activating" });
   });
 
+  it("words the reason the server gives, whatever the applications say", () => {
+    const apps = [{ domain: "shop.example.com", layout: "releases", app_type: "nextjs" }] as never;
+    expect(cancelState({ ...base, cancellable: false, cancel_blocked_reason: "builds_in_place" }, apps)).toEqual({ kind: "cannot", reason: "buildsInPlace" });
+    expect(cancelState({ ...base, cancellable: false, cancel_blocked_reason: "activating" }, undefined)).toEqual({ kind: "cannot", reason: "activating" });
+    expect(cancelState({ ...base, type: "backup", cancellable: false, cancel_blocked_reason: "unsupported" }, undefined)).toEqual({ kind: "cannot", reason: "unsupported" });
+  });
+
+  it("falls back to the kind of job when the server gives no reason or one it does not know", () => {
+    expect(cancelState({ ...base, cancellable: false, cancel_blocked_reason: null }, undefined)).toEqual({ kind: "cannot", reason: "activating" });
+    expect(cancelState({ ...base, type: "restore", cancellable: false, cancel_blocked_reason: "from_the_future" }, undefined)).toEqual({ kind: "cannot", reason: "unsupported" });
+  });
+
   it("says a job that is not a build is halfway through changing the system", () => {
     expect(cancelState({ ...base, type: "restore", cancellable: false }, undefined)).toEqual({ kind: "cannot", reason: "unsupported" });
     expect(cancelReasonWords("unsupported")).toMatch(/halfway through changing the system/);
