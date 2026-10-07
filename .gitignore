@@ -9,6 +9,8 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+# The console's build-commands feature is source, not a build directory.
+!panel/src/features/build/
 develop-eggs/
 dist/
 downloads/
