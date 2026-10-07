@@ -222,6 +222,12 @@ export const backups: Catalog<typeof en> = {
     envFromDownload: "Desde la copia descargada, reemplazando los que hay ahora.",
   },
 
+  retention: {
+    both: { one: "La última copia, hasta {days} días", other: "Las últimas {count} copias, hasta {days} días" },
+    count: { one: "La última copia", other: "Las últimas {count} copias" },
+    days: { one: "Todas las copias, durante {count} día", other: "Todas las copias, durante {count} días" },
+    all: "Todas las copias, hasta que las borres",
+  },
   schedules: {
     newSchedule: "Nueva programación",
     loadError: "No se pudieron cargar las programaciones",

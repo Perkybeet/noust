@@ -84,7 +84,7 @@ describe("the Noust tab", () => {
     await pageAt(ON);
     expect(await screen.findByText("Backed up on a schedule")).toBeInTheDocument();
     expect(screen.getByText("Kept on this server, for the timer")).toBeInTheDocument();
-    expect(screen.getByText("The last 7 dumps, for up to 30 days")).toBeInTheDocument();
+    expect(screen.getByText("The last 7 backups, for up to 30 days")).toBeInTheDocument();
     expect(screen.getAllByText("Every day at 03:00").length).toBeGreaterThan(0);
     const table = screen.getByRole("region", { name: "Bundles of Noust's own state" });
     expect(within(table).getByText(NAME)).toBeInTheDocument();

@@ -107,6 +107,7 @@ export const volumeBackups = {
     everythingHelp: "Its persistent folders and the volumes of its stack, as they are now and as they change.",
     chooseOwn: "Only the pieces I choose",
     chooseOwnHelp: "Pick them from what {domain} declares, below.",
+    chooseOwnHelpNone: "Pick them from what the application declares, below, once you have chosen it.",
     targetsFailed: "Could not read what this application declares",
     noTargets: "This application declares no data of its own yet. Add a folder below.",
     kind: { path: "Folder", docker: "Docker volume" },

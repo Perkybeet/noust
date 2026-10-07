@@ -107,6 +107,7 @@ export const volumeBackups: Catalog<typeof en> = {
     everythingHelp: "Sus carpetas persistentes y los volúmenes de su pila, como están ahora y según cambien.",
     chooseOwn: "Solo las piezas que elija",
     chooseOwnHelp: "Elígelas entre lo que declara {domain}, abajo.",
+    chooseOwnHelpNone: "Elígelas entre lo que declare la aplicación, abajo, cuando la hayas elegido.",
     targetsFailed: "No se pudo leer qué declara esta aplicación",
     noTargets: "Esta aplicación todavía no declara datos propios. Añade una carpeta abajo.",
     kind: { path: "Carpeta", docker: "Volumen Docker" },

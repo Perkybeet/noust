@@ -124,7 +124,7 @@ export function VolumePolicyDrawer({ domain: fixed, policy, taken, open, onOpenC
             onValueChange={(value) => set({ everything: value === "everything" })}
             options={[
               { value: "everything", label: t("volumeBackups.form.everything"), description: t("volumeBackups.form.everythingHelp") },
-              { value: "own", label: t("volumeBackups.form.chooseOwn"), description: t("volumeBackups.form.chooseOwnHelp", { domain: domain === "" ? "…" : domain }) },
+              { value: "own", label: t("volumeBackups.form.chooseOwn"), description: domain === "" ? t("volumeBackups.form.chooseOwnHelpNone") : t("volumeBackups.form.chooseOwnHelp", { domain }) },
             ]}
           />
           {!form.everything ? (

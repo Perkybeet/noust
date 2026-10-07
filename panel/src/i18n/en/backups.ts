@@ -222,6 +222,12 @@ export const backups = {
     envFromDownload: "From the downloaded backup, replacing the ones there now.",
   },
 
+  retention: {
+    both: { one: "The last backup, for up to {days} days", other: "The last {count} backups, for up to {days} days" },
+    count: { one: "The last backup", other: "The last {count} backups" },
+    days: { one: "Every backup, for {count} day", other: "Every backup, for {count} days" },
+    all: "Every backup, until you delete it",
+  },
   schedules: {
     newSchedule: "New schedule",
     loadError: "Could not load the schedules",

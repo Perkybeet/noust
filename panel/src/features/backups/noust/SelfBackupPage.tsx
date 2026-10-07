@@ -24,7 +24,7 @@ import { Notice } from "../../../components/ui/Notice";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
-import { retentionWords } from "../../databases/backups/schedule";
+import { backupRetentionWords } from "../policy/retention";
 import { formatBytes } from "../../../lib/format";
 import { useNode } from "../../../nodes/useNode";
 import type { Accepted } from "../../databases/jobs";
@@ -184,7 +184,7 @@ export function SelfBackupPage() {
                       copy: false,
                       ...(textOf(schedule.timer, "next_run") !== "" ? { hint: t("selfBackup.facts.nextRun", { when: textOf(schedule.timer, "next_run") }) } : {}),
                     },
-                    { label: t("selfBackup.facts.keeps"), value: retentionWords(t, schedule.retention_count, schedule.retention_days), mono: false, copy: false },
+                    { label: t("selfBackup.facts.keeps"), value: backupRetentionWords(t, schedule.retention_count, schedule.retention_days), mono: false, copy: false },
                     {
                       label: t("selfBackup.facts.sendsTo"),
                       value:

@@ -23,7 +23,7 @@ import { Mono } from "../../../components/ui/Mono";
 import { StatusPill } from "../../../components/ui/StatusPill";
 import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
-import { retentionWords } from "../../databases/backups/schedule";
+import { backupRetentionWords } from "../policy/retention";
 import type { Accepted } from "../../databases/jobs";
 import type { JobWords } from "../../jobs/useJobInHand";
 import { formatBytes } from "../../../lib/format";
@@ -153,7 +153,7 @@ export function VolumeDetailDrawer({ row, open, onOpenChange, onEdit, onRun, onR
                   { label: t("volumeBackups.detail.covers"), value: coversWords(t, policy.targets ?? [], []), mono: false, copy: false },
                   ...((policy.extra_paths ?? []).length > 0 ? [{ label: t("volumeBackups.detail.extra"), value: (policy.extra_paths ?? []).join(", ") }] : []),
                   { label: t("volumeBackups.detail.consistency"), value: t(`volumeBackups.consistency.${policy.consistency === "pause" || policy.consistency === "stop" ? policy.consistency : "live"}`), mono: false, copy: false },
-                  { label: t("volumeBackups.detail.keeps"), value: retentionWords(t, policy.retention_count, policy.retention_days), mono: false, copy: false },
+                  { label: t("volumeBackups.detail.keeps"), value: backupRetentionWords(t, policy.retention_count, policy.retention_days), mono: false, copy: false },
                   {
                     label: t("volumeBackups.detail.sendsTo"),
                     value:
@@ -164,7 +164,7 @@ export function VolumeDetailDrawer({ row, open, onOpenChange, onEdit, onRun, onR
                           {(policy.destinations ?? []).map((destination) => (
                             <span key={destination.name} className="flex flex-wrap items-center gap-x-2">
                               <Mono>{destination.name}</Mono>
-                              <span className="text-12 text-fg-muted">{retentionWords(t, destination.retention_count, destination.retention_days)}</span>
+                              <span className="text-12 text-fg-muted">{backupRetentionWords(t, destination.retention_count, destination.retention_days)}</span>
                               {!destination.exists ? <span className="text-12 text-fail">{t("volumeBackups.detail.gone")}</span> : null}
                             </span>
                           ))}
