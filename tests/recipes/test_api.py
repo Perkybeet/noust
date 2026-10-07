@@ -91,7 +91,7 @@ def test_the_list_carries_what_a_catalogue_card_shows(client: TestClient) -> Non
         "mysql"
     ]
     assert items["wordpress"]["requires"][0].startswith("PHP-FPM")
-    assert items["ghost"]["available"] is False and items["ghost"]["unavailable_reason"]
+    assert items["vault"]["available"] is False and items["vault"]["unavailable_reason"]
 
 
 def test_available_recipes_come_first(client: TestClient) -> None:
@@ -137,7 +137,7 @@ def test_the_categories_are_counted(client: TestClient) -> None:
     assert response.status_code == 200
     counted = {entry["category"]: entry["count"] for entry in response.json()["items"]}
     assert counted["media"] >= 2 and counted["security"] >= 1
-    assert "smart-home" not in counted
+    assert "other" not in counted
     assert sum(counted.values()) == client.get("/api/recipes").json()["total"]
 
 
@@ -297,7 +297,7 @@ def test_installing_without_a_required_variable_is_a_400_naming_it_and_queues_no
 @pytest.mark.parametrize(
     ("path", "body", "status"),
     [
-        ("/api/recipes/ghost/install", {"domain": DOMAIN}, 400),
+        ("/api/recipes/vault/install", {"domain": DOMAIN}, 400),
         ("/api/recipes/drupal/install", {"domain": DOMAIN}, 404),
         ("/api/recipes/memos/install", {}, 422),
         ("/api/recipes/memos/install", {"domain": "not a domain"}, 400),

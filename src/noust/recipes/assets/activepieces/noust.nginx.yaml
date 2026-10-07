@@ -1,0 +1,5 @@
+# How nginx proxies this application. Webhooks carry payloads, and a flow's run can take minutes.
+max_body_size: 50m
+routes:
+  - path: /
+    read_timeout: 600

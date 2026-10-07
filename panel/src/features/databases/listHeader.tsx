@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { RefreshCcwDot } from "lucide-react";
+import { RefreshCcwDot, Upload } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -15,6 +15,7 @@ import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { CreateDatabaseDialog } from "./CreateDatabaseDialog";
+import { ImportDumpDialog } from "./import/ImportDumpDialog";
 
 /**
  * What the Databases and Engines tabs share: the header (its one primary action, "New
@@ -26,6 +27,7 @@ export function useDatabasesHeader(): { header: PageHeaderProps; tabs: ReactNode
   const { node } = useNode();
   const queryClient = useQueryClient();
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState(false);
   const list = useQuery(databasesQuery());
   const untracked = (list.data?.databases ?? []).filter((database) => !database.tracked && !database.missing).length;
 
@@ -44,6 +46,12 @@ export function useDatabasesHeader(): { header: PageHeaderProps; tabs: ReactNode
       title: t("databases.page.title"),
       description: t("databases.page.description"),
       server: node,
+      // Where a database comes from another server or provider: a first-day action.
+      secondaryActions: (
+        <Button icon={<Upload aria-hidden="true" />} onClick={() => setImporting(true)}>
+          {t("dumpImport.action")}
+        </Button>
+      ),
       primaryAction: (
         <Button variant="primary" icon={<Add aria-hidden="true" />} onClick={() => setCreating(true)}>
           {t("databases.page.newDatabase")}
@@ -64,7 +72,12 @@ export function useDatabasesHeader(): { header: PageHeaderProps; tabs: ReactNode
         ]}
       />
     ),
-    dialogs: <CreateDatabaseDialog open={creating} onOpenChange={setCreating} />,
+    dialogs: (
+      <>
+        <CreateDatabaseDialog open={creating} onOpenChange={setCreating} />
+        {importing ? <ImportDumpDialog open onOpenChange={setImporting} /> : null}
+      </>
+    ),
     openCreate: () => setCreating(true),
   };
 }

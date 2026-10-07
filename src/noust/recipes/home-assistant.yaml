@@ -1,0 +1,16 @@
+schema: 2
+name: home-assistant
+kind: compose
+title: Home Assistant
+slogan: "Open source home automation that puts local control and privacy first."
+description: "Control and automate lights, sensors and appliances from one place, with thousands of integrations. Listed because it needs the host's network and devices."
+category: smart-home
+tags: [home-automation, iot, smart-home]
+logo: logo.svg
+updated: 2026-10-06
+homepage: https://www.home-assistant.io
+docs: https://www.home-assistant.io/installation/linux/
+repository: https://github.com/home-assistant/core
+license: Apache-2.0
+available: false
+unavailable_reason: "The project's container instructions run it with --privileged, --network=host and /run/dbus mounted (www.home-assistant.io/installation/linux, read 2026-10-06); a recipe may use none of them, and in a bridged container it could not discover the devices on the network, which is most of what it is for. Not available in this release."

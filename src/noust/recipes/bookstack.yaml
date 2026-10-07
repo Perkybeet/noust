@@ -1,0 +1,16 @@
+schema: 2
+name: bookstack
+kind: compose
+title: BookStack
+slogan: "A simple, self-hosted wiki for documentation, organised in books."
+description: "Pages, chapters, books and shelves with a WYSIWYG editor, roles and an API. Listed because there is no official image and a new installation starts with a known account."
+category: productivity
+tags: [wiki, documentation, knowledge-base]
+logo: logo.svg
+updated: 2026-10-06
+homepage: https://www.bookstackapp.com
+docs: https://www.bookstackapp.com/docs/
+repository: https://github.com/BookStackApp/BookStack
+license: MIT
+available: false
+unavailable_reason: "BookStack publishes no container image: its installation page lists only community setups (LinuxServer.io and solidnerd), and says a new installation can be signed into with admin@admin.com and the password 'password', which a recipe cannot leave open (www.bookstackapp.com/docs/admin/installation, read 2026-10-06). Not available in this release."

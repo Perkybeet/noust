@@ -1,0 +1,71 @@
+# Vikunja from the image the project publishes on Docker Hub, with the settings its
+# config-raw.json (v2.7.0 tag) documents as environment variables, VIKUNJA_<SECTION>_<KEY>:
+# service.publicurl (links and e-mails), service.secret (signs the sign-in tokens; jwtsecret is deprecated),
+# service.enableregistration (true unless told otherwise: the recipe closes it) and the
+# SQLite database under /db (the image's VIKUNJA_DATABASE_PATH=/db/vikunja.db), with the
+# uploaded files in /app/vikunja/files. The image is built to run as user 1000 on 3456, but
+# neither directory exists in it, so a named volume mounted there is owned by root and the
+# server stops ("permission denied" creating its files folder); the project's own file binds
+# host folders that the operator chowns. The recipe runs the container as root instead, which
+# is what the volumes need and what most images do, and says so here. Sign-up is closed, so the first account is created with the
+# project's own command, `vikunja user create`, which the notes give.
+#
+# Pinned to the release tag and the digest Docker Hub serves for it.
+schema: 2
+name: vikunja
+kind: compose
+title: Vikunja
+slogan: "The open-source, self-hostable to-do app: tasks, projects, kanban and Gantt."
+description: "Organise tasks in lists, kanban boards, Gantt and table views, with teams, reminders, CalDAV and an API. Single container with a SQLite database. Registration is closed; the first account is created from the command line."
+category: productivity
+tags: [tasks, todo, kanban, projects]
+logo: logo.svg
+version: "2.7.0"
+revision: 1
+updated: 2026-10-06
+homepage: https://vikunja.io
+docs: https://vikunja.io/docs/
+repository: https://github.com/go-vikunja/vikunja
+license: AGPL-3.0-or-later
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 3456
+variables:
+  VIKUNJA_SERVICE_PUBLICURL:
+    from: url
+    description: The address people use; Vikunja builds its links and e-mails from it.
+  VIKUNJA_SERVICE_SECRET:
+    generate: password64
+    description: Signs the sign-in tokens. Changing it signs everybody out.
+  VIKUNJA_SERVICE_ENABLEREGISTRATION:
+    default: "false"
+    description: Whether anybody can register an account. Leave it false and create the accounts from the command line.
+health:
+  path: /api/v1/info
+  expect: "200"
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    vikunja:
+      image: vikunja/vikunja:2.7.0@sha256:e2204a1c1c6a81e833c2b3a5442be182ca2335b54c2e7e37578cc3fe12a27cfc
+      restart: unless-stopped
+      user: "0:0"
+      environment:
+        VIKUNJA_SERVICE_PUBLICURL: "${VIKUNJA_SERVICE_PUBLICURL}/"
+        VIKUNJA_SERVICE_SECRET: "${VIKUNJA_SERVICE_SECRET}"
+        VIKUNJA_SERVICE_ENABLEREGISTRATION: "${VIKUNJA_SERVICE_ENABLEREGISTRATION}"
+        VIKUNJA_DATABASE_TYPE: sqlite
+        VIKUNJA_DATABASE_PATH: /db/vikunja.db
+      volumes:
+        - vikunja-db:/db
+        - vikunja-files:/app/vikunja/files
+      ports:
+        - "127.0.0.1:${PORT}:3456"
+  volumes:
+    vikunja-db:
+    vikunja-files:
+notes:
+  - "Nobody can sign in yet, and registration is closed. Create the first account: cd {{ app_path }} && docker compose exec vikunja /app/vikunja/vikunja user create --email you@example.com --username admin --password 'a-long-password'"
+  - "Then sign in at {{ url }}. Create the other accounts the same way, or set VIKUNJA_SERVICE_ENABLEREGISTRATION to true in the application's environment and restart it: noust restart {{ domain }}."
+  - "The database is the SQLite file in the Docker volume vikunja-db and the attachments are in vikunja-files: back both up before updating."

@@ -1,0 +1,5 @@
+# How nginx proxies this application. Pushes over HTTPS, Git LFS objects and package uploads are large.
+max_body_size: 512m
+routes:
+  - path: /
+    read_timeout: 600

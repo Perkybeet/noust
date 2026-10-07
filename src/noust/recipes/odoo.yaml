@@ -1,0 +1,116 @@
+# Odoo Community from the Docker official image, with the PostgreSQL its documentation
+# asks for (docker-library/docs, odoo/: "This image requires a running PostgreSQL server",
+# the HOST, USER and PASSWORD variables its entrypoint reads, /var/lib/odoo for the filestore,
+# /mnt/extra-addons for modules, and /etc/odoo/odoo.conf, which the entrypoint reads through
+# ODOO_RC). The image's database manager is protected only by a master password that is "admin"
+# until a configuration file sets another, and the first database is made by whoever opens it,
+# with an administrator whose password is "admin": a stranger could own the server. So the
+# entrypoint here builds its own configuration in /tmp (the master password, a database filter
+# on one database named odoo, proxy_mode for nginx, the listen address, which Odoo 20 limits
+# to the container's loopback unless told otherwise, the database manager hidden) from the
+# environment, never from argv, and the first time it runs Odoo's own commands to install the
+# base module in that database and to give its administrator the e-mail address and the
+# password the recipe generates (the install writes admin/admin, which is not left behind).
+# A marker in the data volume says it was done, so an update never repeats it.
+#
+# The image's tags are the series and a build date (20.0-20260926); the newest one is pinned
+# by tag and digest, and the version is that date. The image runs as user odoo on 8069 and
+# /web/health answers without a login. Odoo does not upgrade a database in place from one
+# major version to the next: the notes say so.
+schema: 2
+name: odoo
+kind: compose
+title: Odoo
+slogan: "A suite of open source business apps: CRM, sales, accounting, inventory and more."
+description: "Odoo Community: a CRM, sales, invoicing, accounting, inventory, websites and hundreds of apps on one database. Runs with its own PostgreSQL, and creates its first database and its administrator at install. LGPL-3.0; the Enterprise apps are not included."
+category: business
+tags: [erp, crm, accounting, inventory]
+logo: logo.svg
+version: "20.0.20260926"
+revision: 1
+updated: 2026-10-06
+homepage: https://www.odoo.com
+docs: https://www.odoo.com/documentation/
+repository: https://github.com/odoo/odoo
+license: LGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 2 GB of memory
+port: 8069
+variables:
+  ODOO_ADMIN_EMAIL:
+    required: true
+    description: The administrator's e-mail address, which is the login.
+  ODOO_ADMIN_PASSWORD:
+    generate: password32
+    description: The administrator's password. Odoo's installer writes it at the first start.
+  ODOO_MASTER_PASSWORD:
+    generate: password32
+    description: The master password of Odoo's database tools, which the recipe leaves hidden.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /web/health
+  expect: "200"
+  timeout: 600
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    odoo:
+      image: odoo:20.0-20260926@sha256:cdd83e8359b3e8c357895d476396c05021fed9975bf420f353bab25fcaed1533
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        HOST: db
+        PORT: "5432"
+        USER: odoo
+        PASSWORD: "${DB_PASSWORD}"
+        ODOO_MASTER_PASSWORD: "${ODOO_MASTER_PASSWORD}"
+        ODOO_ADMIN_EMAIL: "${ODOO_ADMIN_EMAIL}"
+        ODOO_ADMIN_PASSWORD: "${ODOO_ADMIN_PASSWORD}"
+      entrypoint:
+        - /bin/bash
+        - -ec
+        - |
+          umask 077
+          cp /etc/odoo/odoo.conf /tmp/odoo.conf
+          printf 'admin_passwd = %s\nhttp_interface = 0.0.0.0\nlist_db = False\nproxy_mode = True\ndb_name = odoo\ndbfilter = ^odoo$$\n' "$$ODOO_MASTER_PASSWORD" >> /tmp/odoo.conf
+          export ODOO_RC=/tmp/odoo.conf
+          if [ ! -e /var/lib/odoo/.noust-initialised ]; then
+            /entrypoint.sh odoo -d odoo -i base --without-demo=all --stop-after-init
+            printf '%s\n' 'import os' 'user = env.ref("base.user_admin")' 'user.write({"login": os.environ["ODOO_ADMIN_EMAIL"], "email": os.environ["ODOO_ADMIN_EMAIL"], "password": os.environ["ODOO_ADMIN_PASSWORD"]})' 'env.cr.commit()' | /entrypoint.sh odoo shell -d odoo
+            touch /var/lib/odoo/.noust-initialised
+          fi
+          exec /entrypoint.sh odoo
+      volumes:
+        - odoo-data:/var/lib/odoo
+        - odoo-addons:/mnt/extra-addons
+      ports:
+        - "127.0.0.1:${PORT}:8069"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: odoo
+        POSTGRES_DB: odoo
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U odoo -d odoo"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - odoo-db:/var/lib/postgresql/data
+  volumes:
+    odoo-data:
+    odoo-addons:
+    odoo-db:
+notes:
+  - "Sign in at {{ url }} with {{ vars.ODOO_ADMIN_EMAIL }}; the password is ODOO_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The database is named odoo and was made at install, so nobody can create one or reach the database manager."
+  - "Your company's records are in the PostgreSQL of this stack (Docker volume odoo-db, dumped by Noust before every update); the filestore (attachments, images) is in the volume odoo-data and the modules you add in odoo-addons. Back up all three before updating: attachments are not in the database dump."
+  - "Odoo does not upgrade a database from one major version to the next in place: the recipe moves within a series (20.0 builds). To go from 19.0 to 20.0, use Odoo's upgrade procedure on a copy."

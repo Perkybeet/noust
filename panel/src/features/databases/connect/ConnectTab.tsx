@@ -25,6 +25,7 @@ import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
 import { useDatabaseJob } from "../jobs";
 import { LinkDialog } from "../LinkDialog";
+import { PublicAccessSection } from "../public/PublicAccessSection";
 import { TEXT_LINK } from "../ui";
 import { SecretShown } from "../users/SecretShown";
 import type { SecretShownProps } from "../users/SecretShown";
@@ -244,6 +245,8 @@ export function ConnectTab({ engine, name }: { engine: string; name: string }) {
             )}
           </div>
         </Section>
+
+        <PublicAccessSection engine={engine} name={name} />
 
         <Section title={t("databases.connect.exposure")} description={t("databases.connect.exposureDescription")} loading={data === undefined}>
           {data === undefined ? (

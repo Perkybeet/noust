@@ -1,0 +1,2 @@
+# How nginx proxies this application. Attachments and CSV imports are uploaded through the interface.
+max_body_size: 50m

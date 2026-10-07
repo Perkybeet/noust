@@ -357,6 +357,9 @@ export function databaseRoutes(extra: Record<string, RouteHandler> = {}): Record
     [`GET ${base}/metrics`]: () =>
       json(200, { engine: "postgresql", database: "example_production", size_bytes: 48_218_931, connections: 6, server_connections: 9, max_connections: 100, cache_hit_ratio: 99.87, transactions: 1_829_384, deadlocks: 0, keys: null, tables: [], series: {} }),
     "GET /api/databases/backup-policies/postgresql/example_production": () => json(200, POLICY),
+    // No policy for every database, and nothing public: what a server that has not set either says.
+    "GET /api/databases/backup-policies/postgresql/*": () => json(200, { engine: "postgresql", database: "*", configured: false, enabled: false, scope: "all", exclusions: {}, destinations: [], timer: {} }),
+    "GET /api/databases/public/postgresql/example_production": () => json(200, { public: false }),
     ...extra,
   };
 }

@@ -1,0 +1,2 @@
+# How nginx proxies this application. A subscriber import and campaign media are uploads.
+max_body_size: 50m

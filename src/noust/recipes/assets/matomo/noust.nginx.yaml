@@ -1,0 +1,5 @@
+# How nginx proxies this application. Plugins and imports are uploaded, and a long report runs for a while.
+max_body_size: 64m
+routes:
+  - path: /
+    read_timeout: 300

@@ -1,0 +1,5 @@
+# How nginx proxies this application. Files are uploaded from the browser and the clients, in chunks, and syncs run long.
+max_body_size: 1g
+routes:
+  - path: /
+    read_timeout: 3600

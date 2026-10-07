@@ -1,0 +1,124 @@
+# Nextcloud from the official Apache image with the PostgreSQL, the Redis-compatible
+# cache and the background-jobs container of the project's own example
+# (.examples/docker-compose/insecure/postgres/apache/compose.yaml in
+# nextcloud/docker): app and cron share the /var/www/html volume, and cron runs
+# the image with entrypoint /cron.sh. Giving the image the database settings and
+# NEXTCLOUD_ADMIN_USER and NEXTCLOUD_ADMIN_PASSWORD installs it without the web
+# wizard (README, "Initial admin account"), so no visitor can claim it.
+# NEXTCLOUD_TRUSTED_DOMAINS names the public domain and 127.0.0.1, which is how
+# Noust asks whether it started; OVERWRITEHOST, OVERWRITEPROTOCOL and
+# OVERWRITECLIURL make it build links for the public address behind nginx (README,
+# "Using the image behind a reverse proxy"). REDIS_HOST turns on the cache and
+# the PHP sessions in it; Valkey, the BSD-licensed Redis fork, answers it.
+# The image listens on 80 as root (Apache drops to www-data).
+#
+# The pins are the release tag and the digest Docker Hub serves for it.
+schema: 2
+name: nextcloud
+kind: compose
+title: Nextcloud
+slogan: Your own file sync and share, calendar, contacts and office suite.
+description: Files, calendar, contacts, talk and collaborative documents on your own server, with web, desktop and mobile clients. Runs with its own PostgreSQL, a cache and the background-jobs container. Installed with the administrator you name.
+category: files
+tags: [files, sync, calendar, collaboration]
+logo: logo.svg
+version: "35.0.1"
+revision: 1
+updated: 2026-10-06
+homepage: https://nextcloud.com
+docs: https://docs.nextcloud.com/server/latest/admin_manual/
+repository: https://github.com/nextcloud/server
+license: AGPL-3.0-or-later
+architectures: ["amd64", "arm", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+port: 8180
+variables:
+  NEXTCLOUD_URL:
+    from: url
+    description: The address people use; Nextcloud builds its links from it.
+  NEXTCLOUD_DOMAIN:
+    from: fqdn
+    description: The domain of that address, the one trusted domain besides 127.0.0.1.
+  NEXTCLOUD_PROTOCOL:
+    from: scheme
+    description: http or https, as the address is served; Nextcloud writes it in the links it builds.
+  NEXTCLOUD_ADMIN_USER:
+    default: admin
+    description: The administrator's user name. Nextcloud reads it only when it installs.
+  NEXTCLOUD_ADMIN_PASSWORD:
+    generate: password32
+    description: The administrator's password. Nextcloud reads it only when it installs.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /status.php
+  expect: "200"
+  timeout: 300
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    app:
+      image: nextcloud:35.0.1-apache@sha256:f4e0ee28ac9e54cad6e04e148489d79a609acba86dfbff69c8f666d50f96e414
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_started
+      environment:
+        POSTGRES_HOST: db
+        POSTGRES_DB: nextcloud
+        POSTGRES_USER: nextcloud
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+        REDIS_HOST: redis
+        NEXTCLOUD_ADMIN_USER: "${NEXTCLOUD_ADMIN_USER}"
+        NEXTCLOUD_ADMIN_PASSWORD: "${NEXTCLOUD_ADMIN_PASSWORD}"
+        NEXTCLOUD_TRUSTED_DOMAINS: "${NEXTCLOUD_DOMAIN} 127.0.0.1"
+        OVERWRITEHOST: "${NEXTCLOUD_DOMAIN}"
+        OVERWRITEPROTOCOL: "${NEXTCLOUD_PROTOCOL}"
+        OVERWRITECLIURL: "${NEXTCLOUD_URL}"
+      volumes:
+        - nextcloud-html:/var/www/html
+      ports:
+        - "127.0.0.1:${PORT}:80"
+    cron:
+      image: nextcloud:35.0.1-apache@sha256:f4e0ee28ac9e54cad6e04e148489d79a609acba86dfbff69c8f666d50f96e414
+      restart: unless-stopped
+      entrypoint: /cron.sh
+      depends_on:
+        db:
+          condition: service_healthy
+        redis:
+          condition: service_started
+      volumes:
+        - nextcloud-html:/var/www/html
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: nextcloud
+        POSTGRES_DB: nextcloud
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U nextcloud -d nextcloud"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - nextcloud-db:/var/lib/postgresql/data
+    redis:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      restart: unless-stopped
+      volumes:
+        - nextcloud-cache:/data
+  volumes:
+    nextcloud-html:
+    nextcloud-db:
+    nextcloud-cache:
+notes:
+  - "Sign in at {{ url }} as {{ vars.NEXTCLOUD_ADMIN_USER }}; the password is NEXTCLOUD_ADMIN_PASSWORD (noust env show {{ domain }} --unmask). The installation is done on the first start, which takes a minute: change the password in Nextcloud, not in the environment."
+  - "Nextcloud's code, its configuration, the apps you install and every user's files are in the Docker volume nextcloud-html, and the database in nextcloud-db (PostgreSQL, dumped by Noust before every update). Back both up before updating: files are not in the database dump."
+  - "Nextcloud upgrades only one major version at a time. If the catalogue is two majors ahead of the one you run, do not update in one step: update to the intermediate major first (edit the image tag in the application's docker-compose.yml), then update the recipe."

@@ -62,11 +62,12 @@ test("a recipe from the gallery is reviewed, deployed, and says what to do next"
   for (const title of ["WordPress", "Uptime Kuma", "Umami", "n8n"]) {
     await expect(recipes.getByRole("button", { name: `Use ${title}` })).toBeEnabled();
   }
-  // Ghost needs MySQL 8 and Plausible ClickHouse: listed, said to be unavailable and with no
-  // button. Named, not counted: every recipe the catalog adds that this release cannot run
-  // would otherwise move the number.
-  for (const title of ["Ghost", "Plausible Analytics"]) {
-    const card = recipes.getByRole("listitem").filter({ has: page.getByRole("heading", { name: title }) });
+  // Vault starts sealed and Excalidraw publishes no release to pin: listed, said to be
+  // unavailable and with no button. Named, not counted: every recipe the catalog adds that this
+  // release cannot run would otherwise move the number. The heading is matched whole, because
+  // "Vault" is also a part of "Vaultwarden", which can be installed.
+  for (const title of ["Vault", "Excalidraw"]) {
+    const card = recipes.getByRole("listitem").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
     await expect(card.getByText("Not available in this release", { exact: true })).toBeVisible();
     await expect(card.getByRole("button", { name: `Use ${title}` })).toHaveCount(0);
   }

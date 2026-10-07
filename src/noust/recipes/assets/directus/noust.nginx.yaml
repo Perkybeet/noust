@@ -1,0 +1,2 @@
+# How nginx proxies this application. Files are uploaded through the admin app and the API.
+max_body_size: 100m

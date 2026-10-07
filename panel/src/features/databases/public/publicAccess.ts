@@ -1,0 +1,71 @@
+/**
+ * What the form that makes a database public needs to know beyond what the server decides:
+ * how the list of addresses is read, which accounts it can make, and which engines can refuse a
+ * connection without TLS. The server checks everything again; this keeps a typo from costing a
+ * round trip.
+ */
+
+import type { PublicBody } from "../../../api/queries/publicAccess";
+import { parseAddresses } from "../../../lib/addresses";
+import { engineFamilyOf } from "../engineKey";
+
+/** What the account made for the database may do, as the API names it. */
+export const ACCESS_PROFILES = ["owner", "read_write", "read_only"] as const;
+export type AccessProfile = (typeof ACCESS_PROFILES)[number];
+
+export type TlsMode = "required" | "optional";
+
+/** Engines that can refuse an account that does not use TLS; the others can only say so. */
+const TLS_ENFORCING: ReadonlySet<string> = new Set(["postgresql", "mysql"]);
+
+/** Whether the engine can require TLS of the account Noust makes. */
+export function canRequireTls(engine: string): boolean {
+  return TLS_ENFORCING.has(engineFamilyOf(engine));
+}
+
+/** The most addresses one rule may name (`PublicRequest.sources`). */
+export const MAX_SOURCES = 20;
+
+export interface PublicForm {
+  port: string;
+  sources: string;
+  profile: AccessProfile;
+  tls: TlsMode;
+  bind: string;
+}
+
+/** The form's starting values: an engine that cannot refuse plaintext starts on optional, said plainly. */
+export function initialForm(engine: string): PublicForm {
+  return { port: "", sources: "", profile: "owner", tls: canRequireTls(engine) ? "required" : "optional", bind: "" };
+}
+
+/** A port as typed: whole, 1024 to 65535, or empty for "a free one next to the engine's". */
+export function validPort(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed === "") return true;
+  const port = Number(trimmed);
+  return /^\d+$/.test(trimmed) && port >= 1024 && port <= 65535;
+}
+
+/** The request the form asks the plan and the opening with. Throws nothing: invalid parts are left out. */
+export function requestOf(engine: string, database: string, form: PublicForm): Omit<PublicBody, "confirm"> {
+  const port = form.port.trim() === "" || !validPort(form.port) ? null : Number(form.port);
+  const bind = form.bind.trim();
+  return {
+    engine,
+    database,
+    port,
+    bind_address: bind === "" ? null : bind,
+    sources: parseAddresses(form.sources).entries,
+    tls: form.tls,
+    profile: form.profile,
+  };
+}
+
+/**
+ * Who a plan or an exposure names as able to reach the port: the addresses and networks, without
+ * the word the server writes for "anyone" (`any`), so an empty list is anyone in every place.
+ */
+export function namedSources(sources: readonly string[]): string[] {
+  return sources.filter((source) => source !== "any");
+}

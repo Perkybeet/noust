@@ -196,6 +196,13 @@ export const SETTINGS_TABS: readonly SettingsTabItem[] = [
     scope: "server",
   },
   {
+    label: "consoleAccess.nav.label",
+    to: "/settings/console",
+    keywords: "consoleAccess.nav.keywords",
+    command: "consoleAccess.nav.command",
+    scope: "server",
+  },
+  {
     label: "nav.settingsTabs.about.label",
     to: "/settings/about",
     keywords: "nav.settingsTabs.about.keywords",

@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArchiveRestore, CloudUpload, Download, FlaskConical, ShieldQuestion, Trash2 } from "lucide-react";
+import { ArchiveRestore, CloudUpload, Download, FlaskConical, ShieldQuestion, Trash2, Upload } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { request } from "../../../api/client";
 import { backupDestinationsQuery } from "../../../api/queries/backupDestinations";
 import { databaseBackupsQuery, databaseKeys, databaseOverviewQuery, policyQuery, remoteDumpsQuery } from "../../../api/queries/databases";
-import type { DatabaseBackup, RemoteDump } from "../../../api/queries/databases";
+import type { BackupPolicy, DatabaseBackup, RemoteDump } from "../../../api/queries/databases";
 import { jobKeys } from "../../../api/queries/jobs";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { KeyValueList, KeyValueListSkeleton } from "../../../components/page/KeyValueList";
@@ -31,19 +31,23 @@ import { StatusPill } from "../../../components/ui/StatusPill";
 import { Skeleton } from "../../../components/ui/Skeleton";
 import { SystemOutput } from "../../../components/ui/SystemOutput";
 import { useT } from "../../../i18n";
-import type { PlainKey } from "../../../i18n";
+import type { PlainKey, T } from "../../../i18n";
 import { formatBytes } from "../../../lib/format";
 import { useNode } from "../../../nodes/useNode";
 import { reportActionError } from "../../apps/useAppActions";
-import { can, isSlotEngine } from "../engines";
+import { can, engineName, isSlotEngine } from "../engines";
+import { engineFamilyOf } from "../engineKey";
 import { useDatabaseJob } from "../jobs";
-import { policyProtection, protectionView } from "../protection";
+import { ALL_DATABASES, effectivePolicy, policyProtection, protectionView } from "../protection";
+import { ImportDumpDialog } from "../import/ImportDumpDialog";
 import { VerifiedMark } from "../VerifiedMark";
 import { downloadDump } from "./download";
 import { PolicyDrawer } from "./PolicyDrawer";
 import { RestoreDialog } from "./RestoreDialog";
 import type { RestoreSource } from "./RestoreDialog";
 import { policyScheduleWords, retentionWords } from "./schedule";
+import { coversEveryDatabase, leftOutLines } from "./scope";
+import type { PolicyScope } from "./scope";
 
 const KIND_WORDS: Readonly<Record<string, PlainKey>> = {
   manual: "databases.dumps.kind.manual",
@@ -61,19 +65,58 @@ const FORMAT_WORDS: Readonly<Record<string, string>> = {
   archive: "mongodump",
 };
 
-/** The policy: its state, when it runs, what it keeps, where it sends, and how the last run went. */
-function PolicyCard({ engine, name, onEdit }: { engine: string; name: string; onEdit: () => void }) {
+/** What a policy leaves out, in one line a person reads. */
+function leavesOutWords(t: T, policy: BackupPolicy, engine: string): string | null {
+  const lines = leftOutLines(policy);
+  if (lines.length === 0) return null;
+  return lines
+    .map(({ kind, names }) => {
+      const list = names.join(", ");
+      if (kind === "databases") return t("policyScope.summary.databases", { names: list });
+      if (kind === "schemas") return t("policyScope.summary.schemas", { names: list });
+      return engineFamilyOf(engine) === "mongodb" ? t("policyScope.summary.collections", { names: list }) : t("policyScope.summary.tables", { names: list });
+    })
+    .join("; ");
+}
+
+/**
+ * A policy: its state, when it runs, what it keeps and leaves out, where it sends, and how the
+ * last run went. `scope="all"` is the policy for every database of the engine (stored under `*`),
+ * which covers each database that has none of its own.
+ */
+function PolicyCard({
+  engine,
+  name,
+  scope = "database",
+  database,
+  coveredBy,
+  onEdit,
+}: {
+  engine: string;
+  name: string;
+  scope?: PolicyScope;
+  database?: string;
+  /** The policy for every database, when it is what backs this database up (it has none of its own). */
+  coveredBy?: BackupPolicy | undefined;
+  onEdit: () => void;
+}) {
   const t = useT();
   const { node } = useNode();
   const queryClient = useQueryClient();
   const policy = useQuery(policyQuery(engine, name));
   const [removing, setRemoving] = useState(false);
   const data = policy.data;
-  const view = protectionView(policyProtection(data));
+  const view = protectionView(policyProtection(coveredBy ?? data));
+  const all = scope === "all";
+  const display = engineName(engine);
+  const leftOut = data?.configured === true ? leavesOutWords(t, data, engine) : null;
+  // What a database reads of the policy for every database: whether it is under it.
+  const excluded = all && database !== undefined && (data?.exclusions?.["databases"] ?? []).includes(database);
 
   return (
     <Card
-      title={t("databases.backups.policy.title")}
+      title={all ? t("policyScope.card.title", { engine: display }) : t("databases.backups.policy.title")}
+      {...(all ? { description: t("policyScope.card.description") } : {})}
       level={2}
       padding="sm"
       loading={data === undefined && !policy.isError}
@@ -85,7 +128,7 @@ function PolicyCard({ engine, name, onEdit }: { engine: string; name: string; on
             </Button>
             <Menu align="end" trigger={<IconButton size="sm" label={t("databases.backups.policy.more")} icon={<ICONS.more />} />}>
               <MenuItem icon={<Trash2 />} destructive onClick={() => setRemoving(true)}>
-                {t("databases.backups.policy.remove")}
+                {all ? t("policyScope.card.remove") : t("databases.backups.policy.remove")}
               </MenuItem>
             </Menu>
           </>
@@ -102,9 +145,15 @@ function PolicyCard({ engine, name, onEdit }: { engine: string; name: string; on
       ) : !data.configured ? (
         <div className="flex flex-col items-start gap-3">
           <StatusPill appearance="inline" size="sm" state={view.state} label={t(view.label)} />
-          <p className="max-w-measure text-13 text-fg-muted">{t("databases.backups.policy.none")}</p>
+          <p className="max-w-measure text-13 text-fg-muted">
+            {all
+              ? t("policyScope.card.none", { engine: display })
+              : coveredBy !== undefined
+                ? t("policyScope.card.coveredBy", { engine: display })
+                : t("databases.backups.policy.none")}
+          </p>
           <Button size="sm" onClick={onEdit}>
-            {t("databases.backups.policy.set")}
+            {all ? t("policyScope.card.set") : t("databases.backups.policy.set")}
           </Button>
         </div>
       ) : (
@@ -120,6 +169,17 @@ function PolicyCard({ engine, name, onEdit }: { engine: string; name: string; on
                 ...(data.timer?.next_run ? { hint: t.rich("databases.backups.policy.nextRun", { when: <RelativeTime value={data.timer.next_run} /> }) } : {}),
               },
               { label: t("databases.backups.policy.keepsHere"), value: retentionWords(t, data.retention_count, data.retention_days), mono: false, copy: false },
+              ...(all && database !== undefined
+                ? [
+                    {
+                      label: t("policyScope.card.covers"),
+                      value: excluded ? t("policyScope.card.leavesThisOut", { engine: display, name: database }) : t("policyScope.card.coversThis", { engine: display, name: database }),
+                      mono: false,
+                      copy: false as const,
+                    },
+                  ]
+                : []),
+              ...(leftOut !== null ? [{ label: t("policyScope.summary.leavesOut"), value: leftOut, mono: false, copy: false as const }] : []),
               {
                 label: t("databases.backups.policy.sendsTo"),
                 value:
@@ -165,9 +225,9 @@ function PolicyCard({ engine, name, onEdit }: { engine: string; name: string; on
         friction="simple"
         open={removing}
         onOpenChange={setRemoving}
-        title={t("databases.backups.policy.removeTitle", { name })}
-        description={t("databases.backups.policy.removeDescription")}
-        actionLabel={t("databases.backups.policy.removeAction")}
+        title={all ? t("policyScope.card.removeTitle", { engine: display }) : t("databases.backups.policy.removeTitle", { name })}
+        description={all ? t("policyScope.card.removeDescription") : t("databases.backups.policy.removeDescription")}
+        actionLabel={all ? t("policyScope.card.removeAction") : t("databases.backups.policy.removeAction")}
         server={node}
         onConfirm={async () => {
           await request("delete", "/api/databases/backup-policies/{engine}/{database}", { params: { engine, database: name } });
@@ -372,12 +432,17 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
   const job = useDatabaseJob();
   const overview = useQuery(databaseOverviewQuery(engine, name));
   const dumps = useQuery(databaseBackupsQuery(engine, name));
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState<PolicyScope | null>(null);
+  const [importing, setImporting] = useState(false);
   const [restoring, setRestoring] = useState<RestoreSource | null>(null);
   const [pushing, setPushing] = useState<DatabaseBackup | null>(null);
   const [deleting, setDeleting] = useState<DatabaseBackup | null>(null);
   const [opened, setOpened] = useState<DatabaseBackup | null>(null);
   const policy = useQuery(policyQuery(engine, name));
+  const everyDatabase = coversEveryDatabase(engine);
+  const everything = useQuery({ ...policyQuery(engine, ALL_DATABASES), enabled: everyDatabase });
+  const covering = effectivePolicy(policy.data, everything.data, name);
+  const coveredByEveryDatabase = covering !== undefined && covering === everything.data ? covering : undefined;
   const slot = isSlotEngine({ capabilities: overview.data?.capabilities ?? [] });
   const formats = engine === "postgresql";
 
@@ -402,9 +467,20 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
 
   return (
     <div className="flex min-w-0 flex-col gap-8">
-      <PolicyCard engine={engine} name={name} onEdit={() => setEditing(true)} />
+      <PolicyCard engine={engine} name={name} coveredBy={coveredByEveryDatabase} onEdit={() => setEditing("database")} />
+      {everyDatabase ? <PolicyCard engine={engine} name={ALL_DATABASES} scope="all" database={name} onEdit={() => setEditing("all")} /> : null}
 
-      <Section title={t("databases.dumps.title")} description={t("databases.dumps.description")}>
+      <Section
+        title={t("databases.dumps.title")}
+        description={t("databases.dumps.description")}
+        actions={
+          slot ? undefined : (
+            <Button size="sm" icon={<Upload aria-hidden="true" />} onClick={() => setImporting(true)}>
+              {t("dumpImport.action")}
+            </Button>
+          )
+        }
+      >
         {dumps.isError && dumps.data === undefined ? (
           <ErrorBlock error={dumps.error} title={t("databases.dumps.loadFailed")} onRetry={() => void dumps.refetch()} retrying={dumps.isRefetching} />
         ) : (
@@ -498,16 +574,26 @@ export function BackupsTab({ engine, name }: { engine: string; name: string }) {
 
       <CommandHint command={`noust db backup-schedule set ${name} -e ${engine} --schedule daily`} label={t("databases.common.fromTerminal")} />
 
-      {editing ? (
+      {editing !== null ? (
         <PolicyDrawer
-          key={policy.dataUpdatedAt}
+          key={`${editing}:${editing === "all" ? everything.dataUpdatedAt : policy.dataUpdatedAt}`}
           engine={engine}
-          name={name}
-          policy={policy.data}
+          name={editing === "all" ? ALL_DATABASES : name}
+          scope={editing}
+          policy={editing === "all" ? everything.data : policy.data}
           formats={formats}
           testRestore={!slot && can({ capabilities: overview.data?.capabilities ?? [] }, "dump")}
-          open={editing}
-          onOpenChange={setEditing}
+          open
+          onOpenChange={(open) => setEditing(open ? editing : null)}
+        />
+      ) : null}
+      {importing ? (
+        <ImportDumpDialog
+          open
+          onOpenChange={(open) => setImporting(open)}
+          engine={engine}
+          database={name}
+          onQueued={(accepted, database) => job.track(accepted, "restore", database)}
         />
       ) : null}
       <RestoreDialog

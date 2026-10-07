@@ -524,12 +524,16 @@ noust recipe outdated                               # installed recipes the cata
 noust recipe update vault.example.com               # through the one update: backup, health gate, way back
 ```
 
-Twenty applications: WordPress (PHP-FPM and MariaDB), Uptime Kuma, Umami (PostgreSQL) and n8n
-run natively from a source pinned to a tag or checked against a published checksum; sixteen more
-(Vaultwarden, Memos, Syncthing, Stirling PDF, Grafana, Meilisearch, code-server, Jellyfin, Mailpit,
-Open WebUI, Ollama, ntfy, Navidrome, linkding, FreshRSS and Homepage) run in Docker, as a Compose
-stack behind nginx whose images are pinned by tag and by digest. Each has generated secrets, its
-variables (kept across updates and editable afterwards), a health check and the next steps. Also
+Fifty-three applications: WordPress (PHP-FPM and MariaDB), Uptime Kuma, Umami (PostgreSQL) and n8n
+run natively from a source pinned to a tag or checked against a published checksum; the other
+forty-nine run in Docker, as a Compose stack behind nginx whose images are pinned by tag and by
+digest. Some are one container (Vaultwarden, Memos, Syncthing, Grafana, Jellyfin, ntfy, Actual
+Budget, CyberChef...); the rest bring the database they need as a service of their stack, which
+Noust dumps before every update (Gitea, Forgejo, Nextcloud, Ghost, Plausible, Matomo, Mattermost,
+Paperless-ngx, Keycloak, authentik, Immich, Odoo, Metabase, NocoDB, Directus, Twenty,
+Rocket.Chat, Langflow, LiteLLM...). Seventeen more are listed with the reason they are not
+installable, and where it was read. Each recipe has generated secrets, its variables (kept across
+updates and editable afterwards), a health check and the next steps. Also
 "From a recipe" in the console's new-application wizard. Noust installs nothing on its own:
 `noust recipe show` lists what a recipe needs. The format, the pinning policy and how to contribute
 one are in [docs/recipes.md](docs/recipes.md).

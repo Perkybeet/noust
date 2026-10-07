@@ -479,6 +479,11 @@ def redirect_system_paths(sandbox: Sandbox) -> None:
     # /etc/systemd/system/noust-monitor.service on whatever machine runs this
     # script - exactly what the module docstring promises never happens.
     process_monitor_module.SYSTEMD_DIR = sandbox.systemd_dir
+    # The console's own unit names the noust that runs it. The modelled machine has one at
+    # /usr/bin/noust, whatever PATH this process was given (the E2E suite runs without one).
+    import noust.cli.commands.web as web_command
+
+    web_command.find_noust_executable = lambda: "/usr/bin/noust"
     BackupManager.DEFAULT_BACKUP_DIR = sandbox.backup_dir
     # The misplaced-backup hint looks in /root and /: on a developer's machine those are the
     # developer's own, so the sandbox has none.
@@ -2223,6 +2228,12 @@ def make_runner(
                 return ok(args, self._certificates())
             if program == "certbot" and "--version" in args:
                 return ok(args, "certbot 2.9.0\n")
+            if program == "openssl" and args[1:2] == ("enc",):
+                # Noust's own state is sealed and opened through `openssl enc` (the secrets of
+                # a central, a bundle of Noust's own backup): the files it writes are real
+                # ones in the sandbox, so a model that wrote nothing would fail them. The
+                # cipher is the machine's own; everything else of openssl stays a model.
+                return self._real_openssl(args, env, getattr(self._stdin, "value", ""))
             if program == "openssl" and "-issuer" in args:
                 # CertManager reads the issuer straight from the certificate
                 # file through openssl; the model answers the same line real
@@ -2241,6 +2252,10 @@ def make_runner(
                     return ok(args, subject + "\n")
             if program == "ssh-keygen":
                 return self._ssh_keygen(args)
+            if program == "ssh-keyscan":
+                return _enroll_keyscan(args)
+            if program == "ssh" and "--" in args:
+                return _enroll_ssh(args, env)
             return ok(args)
 
         def _exec_in_container(
@@ -2271,6 +2286,35 @@ def make_runner(
                 return replace(self._lookup(inner, record=False), argv=args)
             finally:
                 self._inside.container = None
+
+        @staticmethod
+        def _real_openssl(
+            args: tuple[str, ...], env: Mapping[str, str] | None, data: str
+        ) -> CommandResult:
+            """
+            Run ``openssl enc`` for real, with the key in the environment as the caller put it.
+
+            Args:
+                args: The argv, ``openssl enc ...``.
+                env: The caller's extra environment (the key is in it, never in argv).
+                data: What the caller wrote to standard input.
+
+            Returns:
+                What openssl did, or a failed result naming why it could not run.
+            """
+            try:
+                done = subprocess.run(
+                    list(args),
+                    input=data,
+                    capture_output=True,
+                    text=True,
+                    env={**os.environ, **dict(env or {})},
+                    timeout=60,
+                    check=False,
+                )
+            except (OSError, subprocess.TimeoutExpired) as exc:
+                return CommandResult(args, 127, "", f"{exc}\n")
+            return CommandResult(args, done.returncode, done.stdout, done.stderr)
 
         @staticmethod
         def _ssh_keygen(args: tuple[str, ...]) -> CommandResult:
@@ -2427,6 +2471,19 @@ def make_runner(
             container = getattr(self._inside, "container", None)
             pg_databases = container.databases if container is not None else self._pg_databases
             pg_users = container.users if container is not None else _PG_USERS
+            if program == "psql" and statement.strip() == "SHOW ssl;":
+                # Debian and Ubuntu ship PostgreSQL with TLS on (a self-signed certificate),
+                # which is what lets public access ask for TLS without being told otherwise.
+                return "on\n"
+            if program == "psql" and statement.strip() == "SHOW hba_file;":
+                # The file public access edits to make an account refuse a connection
+                # without TLS: the modelled host's own, never this machine's.
+                host = _host_tree()
+                return f"{host / _PG_CONFIG_DIR.lstrip('/') / 'pg_hba.conf'}\n" if host else ""
+            if program == "psql" and "FROM pg_hba_file_rules" in statement:
+                return "0\n"
+            if program == "psql" and statement.strip() == "SELECT pg_reload_conf();":
+                return "t\n"
             # The settings page: pg_settings and SHOW GLOBAL VARIABLES, as the engine
             # would answer them over the files Noust has written (see _postgres_settings).
             if program == "psql" and "FROM pg_settings" in statement:
@@ -2851,7 +2908,40 @@ def seed_machine(
             seed_showcase_nginx_error_log(sandbox, state.failed_domains[0])
     # PHP 8.3's FPM, a system unit Noust does not own, running the pools recipes write.
     units["php8.3-fpm"] = Unit(active="active", pid=912, managed=False)
+    seed_console_service(sandbox, units)
     return units, ports, domains, list(state.cert_domains)
+
+
+def seed_console_service(sandbox: Sandbox, units: dict[str, Unit]) -> None:
+    """
+    Install the console as the service ``noust web enable`` writes, running.
+
+    Publishing the console on a public name needs it to be a service: the trusted proxy is
+    written into its unit's ``ExecStart`` and the site forwards to the port that command
+    line names. The sandbox's own console is a plain process, so this is the machine it
+    stands for, not the process in front of the browser.
+
+    Args:
+        sandbox: The sandbox whose unit directory receives the unit file.
+        units: The unit model, which learns the console runs.
+    """
+    from noust.managers.service_manager import UNIT_MARKER
+
+    (sandbox.systemd_dir / "noust-web.service").write_text(
+        f"# {UNIT_MARKER}\n"
+        "[Unit]\nDescription=Noust console\nAfter=network.target\n\n"
+        "[Service]\nType=simple\n"
+        "ExecStart=/usr/bin/noust web start --host 127.0.0.1 --port 8080\n"
+        "Restart=always\n\n[Install]\nWantedBy=multi-user.target\n",
+        encoding="utf-8",
+    )
+    units["noust-web"] = Unit(
+        active="active",
+        enabled=True,
+        pid=1300,
+        since=datetime.now() - timedelta(days=6),
+        managed=False,
+    )
 
 
 def seed_overview_failed_worker(
@@ -4240,6 +4330,29 @@ def _tabs_journal_model(
     asyncio.create_subprocess_exec = spawn  # type: ignore[assignment]
 
 
+def _exposed_database_listeners() -> list[str]:
+    """
+    List, as ``ss -ltnpH`` prints them, the ports databases are opened on.
+
+    Opening a database to the network starts a socket unit that systemd listens on, and
+    Noust checks the kernel afterwards that something does. The sandbox starts no unit, so
+    the answer is read from the socket files Noust wrote into the sandboxed unit directory.
+
+    Returns:
+        One line per ``noust-dbexpose-*.socket`` whose ``ListenStream`` names a port.
+    """
+    from noust.core import paths
+    from noust.managers.service_manager import ServiceManager
+
+    lines: list[str] = []
+    directory = Path(ServiceManager.SYSTEMD_DIR)
+    for path in sorted(directory.glob(f"{paths.DB_EXPOSE_UNIT_PREFIX}*.socket")):
+        for text in path.read_text(encoding="utf-8").splitlines():
+            if text.startswith("ListenStream="):
+                lines.append(f"LISTEN 0 128 {text.removeprefix('ListenStream=')} 0.0.0.0:* ")
+    return lines
+
+
 def _tabs_diagnose_model(units: dict[str, Unit], ports: dict[str, int]) -> None:
     """
     Answer the questions ``noust diagnose`` asks that the runner could not.
@@ -4269,6 +4382,9 @@ def _tabs_diagnose_model(units: dict[str, Unit], ports: dict[str, int]) -> None:
                 for name, unit in sorted(units.items())
                 if unit.active == "active" and name in ports
             ]
+            # A database opened to the network is a socket unit systemd holds the port of
+            # (no process of Noust's own): the one `noust-dbexpose-*.socket` file says which.
+            listening.extend(_exposed_database_listeners())
             return CommandResult(args, 0, "\n".join(listening) + "\n", "")
         if args[:1] == ("journalctl",) and "-k" in args:
             # The kernel log of the modelled machine has no OOM kills in it; without
@@ -7402,6 +7518,11 @@ def _destinations_rclone_model(sandbox: Sandbox, remotes: Path) -> None:
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination)
             return CommandResult(args, 0, "", "")
+        if verb == "rcat" and target is not None:
+            # The record that travels beside an archive (its sidecar) is written from stdin.
+            target[1].parent.mkdir(parents=True, exist_ok=True)
+            target[1].write_text(stdin, encoding="utf-8")
+            return CommandResult(args, 0, "", "")
         if verb == "deletefile" and target is not None:
             if not target[1].is_file():
                 return failed(args, f"ERROR : {operands[0]}: object not found", 4)
@@ -8456,6 +8577,136 @@ def join_fleet_node(entries: list[str], *, display_hosts: dict[str, str] | None 
             join_code = response.json()["join_code"]
         shown_host = display_hosts.get(name, host)
         manager.add(name, ssh_target=f"root@{shown_host}", join_code=join_code)
+        _ENROLL_NODES.append((host, port))
+
+
+#: The nodes this central was started with, which the guided enrollment's model answers
+#: for: a server enrolled through the console is one of these processes under another name,
+#: since the sandbox has no sshd to install anything on.
+_ENROLL_NODES: list[tuple[str, int]] = []
+
+#: The password the enrollment model refuses, as a server would (the credential check).
+ENROLL_REFUSED_LOGIN = "wrong-password"
+
+#: The address that answers no host key at all (nothing listens there).
+ENROLL_SILENT_HOST = "unreachable.example.org"
+
+
+def _enroll_host_key(host: str) -> str:
+    """
+    Give the host key a modelled server presents: the same for an address every time.
+
+    Args:
+        host: The address that was scanned or connected to.
+
+    Returns:
+        The ed25519 public key line, without a comment.
+    """
+    import zlib
+
+    from tests.fleet_support import ed25519_line
+
+    return ed25519_line(zlib.crc32(host.encode()), "")
+
+
+def _enroll_keyscan(args: tuple[str, ...]) -> Any:
+    """
+    Answer ``ssh-keyscan`` for the guided enrollment, as a server with an ed25519 key does.
+
+    Args:
+        args: ``ssh-keyscan -t ed25519 -T 10 -p PORT HOST``.
+
+    Returns:
+        The key line ssh-keyscan prints, or nothing for the address that answers none.
+    """
+    from noust.core.runner import CommandResult
+
+    host = args[-1]
+    if host == ENROLL_SILENT_HOST:
+        return CommandResult(args, 0, "", f"# {host}:22 : Connection timed out\n")
+    return CommandResult(args, 0, f"{host} {_enroll_host_key(host)}\n", "")
+
+
+def _enroll_ssh(args: tuple[str, ...], env: Mapping[str, str] | None) -> Any:
+    """
+    Answer the ssh calls of a guided enrollment: the server a central connects to.
+
+    The commands are the ones the enroller runs (who the account is and whether Noust is
+    there, ``noust fleet authorize``, ``deauthorize``). The one thing real here is the join
+    code: a node of this sandbox mints it, with the host key the model presented in the
+    scan, so the central registers what it would register against a real server.
+
+    Args:
+        args: The ssh argv, ``ssh ... -- HOST 'COMMAND'``.
+        env: The call's environment; the password is in it, never in argv.
+
+    Returns:
+        What the server would answer.
+    """
+    import shlex
+
+    from noust import __version__
+    from noust.core.runner import CommandResult
+
+    if (env or {}).get("NOUST_ENROLL_SECRET") == ENROLL_REFUSED_LOGIN:
+        return CommandResult(args, 255, "", "Permission denied, please try again.\n")
+    separator = args.index("--")
+    host = args[separator + 1]
+    remote = shlex.split(args[-1])
+    if remote[:2] == ["sudo", "-n"]:
+        remote = remote[2:]
+    if remote[:2] == ["sh", "-c"] and remote[2].startswith("id -u"):
+        return CommandResult(args, 0, f"0\nNoust {__version__}\n", "")
+    if remote[:3] == ["noust", "fleet", "authorize"]:
+        return _enroll_authorize(args, remote, host)
+    return CommandResult(args, 0, "", "")
+
+
+def _enroll_authorize(args: tuple[str, ...], remote: list[str], host: str) -> Any:
+    """
+    Answer ``noust fleet authorize --json`` with a join code a node of this sandbox minted.
+
+    Args:
+        args: The ssh argv, for the result.
+        remote: The command the server was asked to run.
+        host: The address connected to, whose scanned host key the code must carry.
+
+    Returns:
+        The JSON line the command prints, or its failure when no node can stand in.
+    """
+    import httpx
+
+    from noust.core.runner import CommandResult
+    from noust.fleet.joincode import JoinCode
+    from noust.fleet.tunnels import set_loopback_for_testing
+
+    if not _ENROLL_NODES:
+        return CommandResult(
+            args, 1, "", "noust: no server of this sandbox can stand in for that one\n"
+        )
+    alias = next(
+        (part.split("=", 1)[1] for part in args if part.startswith("HostKeyAlias=noust-enroll-")),
+        "",
+    )
+    node_name = alias.removeprefix("HostKeyAlias=").removeprefix("noust-enroll-")
+    node_host, node_port = _ENROLL_NODES[0]
+    set_loopback_for_testing(node_name, node_port)
+    with httpx.Client(timeout=10.0, trust_env=False) as client:
+        response = client.post(
+            f"http://{node_host}:{node_port}{FLEET_TEST_MINT_PATH}",
+            json={
+                "central_name": remote[remote.index("--name") + 1],
+                "central_key": remote[remote.index("--central-key") + 1],
+                "node_name": node_name,
+            },
+        )
+        response.raise_for_status()
+    code = replace(
+        JoinCode.decode(response.json()["join_code"]), ssh_host_key=_enroll_host_key(host)
+    )
+    return CommandResult(
+        args, 0, json.dumps({"join_code": code.encode(), "warnings": []}) + "\n", ""
+    )
 
 
 def seal_sandbox_before_serving(sandbox: Sandbox) -> None:
@@ -8579,6 +8830,20 @@ timezone = 'Europe/Madrid'
 lc_messages = 'en_US.UTF-8'
 default_text_search_config = 'pg_catalog.spanish'
 include_dir = 'conf.d'
+"""
+
+#: Debian's pg_hba.conf for a cluster, the lines that matter: what public access puts its
+#: own block above, and the local lines Noust signs in through.
+_SERVER_PG_HBA_CONF = """\
+# PostgreSQL Client Authentication Configuration File
+# TYPE  DATABASE        USER            ADDRESS                 METHOD
+local   all             postgres                                peer
+local   all             all                                     peer
+host    all             all             127.0.0.1/32            scram-sha-256
+host    all             all             ::1/128                 scram-sha-256
+local   replication     all                                     peer
+host    replication     all             127.0.0.1/32            scram-sha-256
+host    replication     all             ::1/128                 scram-sha-256
 """
 
 #: Ubuntu's mysqld.cnf: the include directory Noust writes 99-noust.cnf into is the one
@@ -8813,6 +9078,7 @@ class ServerHost:
             "/etc/sudoers", "Defaults env_reset\nroot ALL=(ALL:ALL) ALL\n%sudo ALL=(ALL:ALL) ALL\n"
         )
         self.write(f"{_PG_CONFIG_DIR}/postgresql.conf", _SERVER_POSTGRESQL_CONF)
+        self.write(f"{_PG_CONFIG_DIR}/pg_hba.conf", _SERVER_PG_HBA_CONF)
         (self.root / _PG_CONFIG_DIR.lstrip("/") / "conf.d").mkdir(parents=True, exist_ok=True)
         self.write("/etc/mysql/mysql.conf.d/mysqld.cnf", _SERVER_MYSQLD_CNF)
         self.write("/root/.ssh/authorized_keys", f"{self.operator_key}\n")

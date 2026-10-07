@@ -104,6 +104,8 @@ export interface RecordedCall {
   search: URLSearchParams;
   headers: Headers;
   body: unknown;
+  /** The body as it was handed to fetch, for what is not JSON (an upload's chunk). */
+  raw?: BodyInit | null | undefined;
 }
 
 export type RouteHandler = (call: RecordedCall) => Response | Promise<Response>;
@@ -134,6 +136,7 @@ export function fakeBackend(routes: Record<string, RouteHandler> = {}): FakeBack
         search: url.searchParams,
         headers: new Headers(init.headers),
         body: text === undefined ? undefined : (JSON.parse(text) as unknown),
+        raw: init.body,
       };
       calls.push(call);
       const handler = table.get(`${call.method} ${call.path}`);

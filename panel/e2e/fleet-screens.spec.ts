@@ -162,6 +162,7 @@ test("@screens the fleet's console, every context, view and dialog", async ({ pa
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible({ timeout: 20_000 });
         await page.getByRole("button", { name: /^(Add a server|Añadir un servidor)$/ }).first().click();
         const add = page.getByRole("dialog").first();
+        await add.getByRole("button", { name: /^(Authorize it with a command on the server instead|Autorizarlo con un comando en el servidor)$/ }).click();
         await add.getByRole("textbox").first().fill("web-3");
         await add.getByRole("button", { name: /^(Show the command|Mostrar la orden)$/ }).click();
         await expect(add.getByTestId("authorize-command")).toBeVisible();

@@ -1,0 +1,120 @@
+# Immich from the images the project publishes on ghcr.io, with the four services of its
+# own docker/docker-compose.yml and example.env at the v3.2.4 tag: the server (port 2283),
+# the machine-learning service (the server finds it at its default address), a Valkey, and
+# the PostgreSQL image the project builds with the VectorChord and pgvecto.rs extensions,
+# which it pins by tag and digest and so does this recipe. The settings are example.env's
+# (DB_PASSWORD, DB_USERNAME, DB_DATABASE_NAME, UPLOAD_LOCATION, TZ). The library, the
+# photographs and videos themselves, is UPLOAD_LOCATION: a directory inside the
+# application by default (./library) that the operator can point at a bigger disk. The
+# upstream file's /etc/localtime bind is the TZ variable here, because a recipe writes no
+# host path.
+#
+# The database image is not the official postgres one, so Noust cannot recognise it: the
+# recipe ships a noust.yaml that declares it (backup.databases), which is what makes the
+# pre-update dump happen. Immich's own scheduled database dumps (in the library's backups
+# folder) are on by default as well.
+#
+# Immich has no way to create its first account from the environment: whoever opens it
+# first becomes the administrator, which the first note says. Pinned to the release tag
+# and the digests ghcr.io serves.
+schema: 2
+name: immich
+kind: compose
+title: Immich
+slogan: High performance self-hosted photo and video management.
+description: "Back up and browse your photos and videos with face and object recognition, albums, sharing and mobile apps. Runs the server, machine learning, PostgreSQL with vector search and Valkey; needs about 4 GB of memory. The first person to open it creates the administrator, so do it right after installing."
+category: media
+tags: [photos, videos, backup, gallery]
+logo: logo.svg
+version: "3.2.4"
+revision: 1
+updated: 2026-10-06
+homepage: https://immich.app
+docs: https://docs.immich.app
+repository: https://github.com/immich-app/immich
+license: AGPL-3.0-only
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 4 GB of memory and disk for the library
+port: 2283
+variables:
+  UPLOAD_LOCATION:
+    default: ./library
+    description: The directory that holds your photos and videos. Inside the application by default; give an absolute path to use a bigger disk.
+  TZ:
+    default: Etc/UTC
+    description: The time zone, such as Europe/Madrid.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL superuser.
+health:
+  path: /api/server/ping
+  expect: "200"
+  timeout: 240
+files:
+  noust.nginx.yaml: noust.nginx.yaml
+  noust.yaml: noust.yaml
+compose: |
+  services:
+    immich-server:
+      image: ghcr.io/immich-app/immich-server:v3.2.4@sha256:d317916b28090c33eb36b308464ea391f8b7df1d850fcfea227a39ec879718c2
+      restart: unless-stopped
+      depends_on:
+        database:
+          condition: service_healthy
+        redis:
+          condition: service_healthy
+      environment:
+        TZ: "${TZ}"
+        DB_HOSTNAME: database
+        DB_USERNAME: postgres
+        DB_PASSWORD: "${DB_PASSWORD}"
+        DB_DATABASE_NAME: immich
+        REDIS_HOSTNAME: redis
+      volumes:
+        - "${UPLOAD_LOCATION}:/data"
+      ports:
+        - "127.0.0.1:${PORT}:2283"
+    immich-machine-learning:
+      image: ghcr.io/immich-app/immich-machine-learning:v3.2.4@sha256:e16c2f166a8174901959fdf85e2e4c7bd1ebc4b37e0b6655de97c41408a260c4
+      restart: unless-stopped
+      environment:
+        TZ: "${TZ}"
+      volumes:
+        - immich-model-cache:/cache
+    redis:
+      image: valkey/valkey:9.0.6-alpine@sha256:187679e3bd4036959631e3f03983ab2ba503ab21e6fd0454d508e909db2ee989
+      restart: unless-stopped
+      healthcheck:
+        test: ["CMD", "valkey-cli", "ping"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+      volumes:
+        - immich-redis:/data
+    database:
+      image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:bcf63357191b76a916ae5eb93464d65c07511da41e3bf7a8416db519b40b1c23
+      restart: unless-stopped
+      shm_size: 128mb
+      environment:
+        POSTGRES_USER: postgres
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+        POSTGRES_DB: immich
+        POSTGRES_INITDB_ARGS: "--data-checksums"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U postgres -d immich"]
+        interval: 10s
+        timeout: 5s
+        retries: 20
+        start_period: 30s
+      volumes:
+        - immich-db:/var/lib/postgresql/data
+  volumes:
+    immich-model-cache:
+    immich-redis:
+    immich-db:
+notes:
+  - "Open {{ url }} now and create the administrator: whoever completes the first-run page first owns the library."
+  - "Your photos and videos are in {{ app_path }}/library (UPLOAD_LOCATION), the database in the Docker volume immich-db (PostgreSQL, dumped by Noust before every update) and the recognition models in immich-model-cache, which is downloaded again if lost. Back up the library and the database before updating: the library is not in the database dump."
+  - "Install the mobile app and sign in with {{ url }}; large uploads need nothing more here, since nginx accepts files of 50 GB."

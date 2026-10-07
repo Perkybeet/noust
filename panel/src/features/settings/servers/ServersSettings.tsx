@@ -30,7 +30,7 @@ import type { AccessCeiling } from "../../fleet/data";
 import { nodeKeys, nodeStatus, nodesQuery, sshAddress, testNode } from "../../fleet/nodes";
 import type { NodeRecord } from "../../fleet/nodes";
 import { ReachabilityPill } from "../../fleet/ReachabilityPill";
-import { AddServerDialog } from "./AddServerDialog";
+import { AddServer } from "../../fleet/enroll/AddServer";
 import { RemoveServerDialog } from "./RemoveServerDialog";
 
 function columnsFor(t: T, locked: boolean, access: ReadonlyMap<string, AccessCeiling | null>): readonly Column<NodeRecord>[] {
@@ -229,7 +229,7 @@ export function ServersSettings({ adding: addingProp, onAddingChange }: ServersS
         <CommandHint label={t("servers.settings.fromTerminal")} command="noust node list" />
       </Section>
 
-      <AddServerDialog
+      <AddServer
         open={adding}
         onClose={() => {
           setAdding(false);

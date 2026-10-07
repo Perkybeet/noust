@@ -1,0 +1,2 @@
+# How nginx proxies this application. Budget files are synced to the server as uploads.
+max_body_size: 50m

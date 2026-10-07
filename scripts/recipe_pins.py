@@ -28,8 +28,10 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -94,10 +96,60 @@ def _token(registry: str, repository: str) -> str | None:
         "quay.io": "",
     }
     url = urls.get(registry)
+    if url is None:
+        # A registry this script does not know (codeberg.org, registry.gitlab.com,
+        # a project's own): ask it, as Docker does, where its tokens come from.
+        url = _challenge_url(registry, repository)
     if not url:
         return None
     with urllib.request.urlopen(url, timeout=30) as response:
         return str(json.load(response)["token"])
+
+
+def parse_challenge(header: str, repository: str) -> str | None:
+    """
+    Read the token endpoint from a registry's ``WWW-Authenticate`` challenge.
+
+    Args:
+        header: The header, such as
+            ``Bearer realm="https://r/v2/token",service="registry"``.
+        repository: The repository the pull token is for.
+
+    Returns:
+        The URL to ask for an anonymous pull token, or None when the challenge
+        is not a Bearer one with an https realm.
+    """
+    scheme, _, rest = header.partition(" ")
+    if scheme.lower() != "bearer":
+        return None
+    fields = dict(re.findall(r'(\w+)="([^"]*)"', rest))
+    realm = fields.get("realm", "")
+    if not realm.startswith("https://"):
+        return None
+    query = {"scope": f"repository:{repository}:pull"}
+    if fields.get("service"):
+        query["service"] = fields["service"]
+    return f"{realm}?{urllib.parse.urlencode(query)}"
+
+
+def _challenge_url(registry: str, repository: str) -> str:
+    """
+    Ask a registry where its anonymous tokens come from.
+
+    Args:
+        registry: The registry's host.
+        repository: The repository.
+
+    Returns:
+        The token URL, or an empty string for a registry that needs no token.
+    """
+    try:
+        with urllib.request.urlopen(f"https://{registry}/v2/", timeout=30):
+            return ""
+    except urllib.error.HTTPError as exc:
+        if exc.code != 401:
+            return ""
+        return parse_challenge(exc.headers.get("WWW-Authenticate", ""), repository) or ""
 
 
 def resolve_digest(reference: str) -> str:

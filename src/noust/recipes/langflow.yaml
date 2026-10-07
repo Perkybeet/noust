@@ -1,0 +1,93 @@
+# Langflow from the image the project publishes on Docker Hub, with the PostgreSQL of its
+# own docker_example/docker-compose.yml (v1.12.5 tag): LANGFLOW_DATABASE_URL, the
+# superuser's password (the file refuses to start without it), and LANGFLOW_CONFIG_DIR
+# (/app/langflow), where it keeps its logs, files and keys, in a volume. The settings are
+# those of src/lfx/src/lfx/services/settings/auth.py: AUTO_LOGIN (true in the code, false
+# in the image's environment; written out here), SUPERUSER and SUPERUSER_PASSWORD, which
+# create the account the sign-in page takes, SECRET_KEY, and ENABLE_SIGNUP, which is true
+# unless told otherwise and which the recipe closes. The image runs as user `user` and
+# listens on 7860; /health answers without a login.
+#
+# A flow can run Python on the server (custom components): whoever signs in can run code in
+# the container, which is why sign-up is closed and the description says it. Pinned to the
+# release tag and the digest Docker Hub serves for it.
+schema: 2
+name: langflow
+kind: compose
+title: Langflow
+slogan: A low-code builder for agentic and retrieval-augmented workflows.
+description: "Build and deploy AI workflows visually, with components for models, vector stores and tools, and an API for every flow. Runs with its own PostgreSQL. Every account can run Python on the server through custom components: sign-up is closed, give accounts only to people you trust."
+category: ai
+tags: [ai, workflows, llm, agents]
+logo: logo.svg
+version: "1.12.5"
+revision: 1
+updated: 2026-10-06
+homepage: https://www.langflow.org
+docs: https://docs.langflow.org
+repository: https://github.com/langflow-ai/langflow
+license: MIT
+architectures: ["amd64", "arm64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 2 GB of memory
+port: 7860
+variables:
+  LANGFLOW_SUPERUSER:
+    default: langflow
+    description: The superuser's user name.
+  LANGFLOW_SUPERUSER_PASSWORD:
+    generate: password32
+    description: The superuser's password.
+  LANGFLOW_SECRET_KEY:
+    generate: password64
+    description: Encrypts the credentials Langflow stores (model API keys). Changing it makes them unreadable.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /health
+  expect: "200"
+  timeout: 240
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    langflow:
+      image: langflowai/langflow:1.12.5@sha256:25e13252fc3701ca16e2b9a6cf2d3edd720aafbbc297a701ec0b7a15a3287792
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        LANGFLOW_DATABASE_URL: "postgresql://langflow:${DB_PASSWORD}@db:5432/langflow"
+        LANGFLOW_CONFIG_DIR: /app/langflow
+        LANGFLOW_AUTO_LOGIN: "false"
+        LANGFLOW_ENABLE_SIGNUP: "false"
+        LANGFLOW_SUPERUSER: "${LANGFLOW_SUPERUSER}"
+        LANGFLOW_SUPERUSER_PASSWORD: "${LANGFLOW_SUPERUSER_PASSWORD}"
+        LANGFLOW_SECRET_KEY: "${LANGFLOW_SECRET_KEY}"
+      volumes:
+        - langflow-data:/app/langflow
+      ports:
+        - "127.0.0.1:${PORT}:7860"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: langflow
+        POSTGRES_DB: langflow
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U langflow -d langflow"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - langflow-db:/var/lib/postgresql/data
+  volumes:
+    langflow-data:
+    langflow-db:
+notes:
+  - "Sign in at {{ url }} as {{ vars.LANGFLOW_SUPERUSER }}; the password is LANGFLOW_SUPERUSER_PASSWORD (noust env show {{ domain }} --unmask). Sign-up is closed. Anyone you give an account to can run Python on this server through custom components."
+  - "Your flows and users are in the PostgreSQL of this stack (Docker volume langflow-db, dumped by Noust before every update); the keys and uploaded files are in the volume langflow-data. Back up both before updating, and keep LANGFLOW_SECRET_KEY (noust env show {{ domain }} --unmask)."

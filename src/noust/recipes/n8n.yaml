@@ -12,7 +12,7 @@ name: n8n
 kind: native
 title: n8n
 slogan: Workflow automation with a visual editor.
-description: Workflow automation with a visual editor and hundreds of integrations. It runs as a pinned npm package, with its data kept in shared/ across releases.
+description: "Source-available (Sustainable Use License) workflow automation with a visual editor and hundreds of integrations: for your own business, not to resell. It runs as a pinned npm package, with its data kept in shared/ across releases."
 category: automation
 tags: [automation, workflows, integrations, nodejs]
 logo: logo.svg

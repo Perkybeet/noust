@@ -1,0 +1,2 @@
+# How nginx proxies this application. Attachments are uploaded through the interface.
+max_body_size: 100m

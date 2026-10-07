@@ -1,0 +1,2 @@
+# How nginx proxies this application. Attachments are uploaded to tasks.
+max_body_size: 50m

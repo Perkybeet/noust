@@ -17,7 +17,7 @@ name: stirling-pdf
 kind: compose
 title: Stirling PDF
 slogan: Edit, merge, split, convert and sign PDFs from the browser.
-description: "A self-hosted web tool with dozens of operations on PDF files: merge, split, rotate, compress, convert, OCR, sign and redact. Files are processed on your server."
+description: "A self-hosted web tool with dozens of operations on PDF files: merge, split, rotate, compress, convert, OCR, sign and redact. Files are processed on your server. Open core: MIT, with some directories under a proprietary licence."
 category: utilities
 tags: [pdf, documents, ocr, conversion]
 logo: logo.svg

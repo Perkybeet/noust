@@ -14,6 +14,7 @@ This page is for the operator who installs recipes and for the person who writes
 - [Pinning policy](#pinning-policy)
 - [Updating the catalogue](#updating-the-catalogue)
 - [Logos](#logos)
+- [Names, marks, licences and logos of the projects](#names-marks-licences-and-logos-of-the-projects)
 - [Contributing a recipe](#contributing-a-recipe)
 - [What ships, and what does not](#what-ships-and-what-does-not)
 
@@ -67,7 +68,8 @@ recipe that needs any of these is not a recipe:
 - an image without a tag, with a tag that moves (`latest`, `stable`, `edge`, `main`...), or
   without the `sha256` digest the registry served for it;
 - `privileged`, the Docker socket, the host's namespaces, devices, added capabilities, disabled
-  confinement, `build:`, `env_file:`, `extends:`;
+  confinement, `build:`, `env_file:`, `extends:`, `container_name:` and every other key outside the
+  closed list (`composefile.py`, `_SERVICE_KEYS`);
 - a published port other than `127.0.0.1:${PORT}:<port>` (nginx is the only way in), a loopback
   port the operator picks through a variable, and the ports its `public_ports` declares and the
   console shows before installing (Syncthing's sync port is one);
@@ -172,7 +174,7 @@ unavailable_reason: Why, in a sentence that says what it waits for.
 ```
 
 It carries only the catalogue fields above, and `noust recipe show` and the console print the
-reason. Ghost, Plausible, PocketBase, Excalidraw and Vault are listed this way.
+reason. Excalidraw, PocketBase, Vault and fourteen more are listed this way (see the end of this page).
 
 ### `kind: compose`
 
@@ -204,6 +206,26 @@ the document uses is a variable the recipe declares, or carries its own `${NAME:
 `requires` is for native recipes. A Compose recipe cannot reach the server's databases (its
 containers cannot see `127.0.0.1` of the host): its database is a service of its stack. It may ask
 for `s3`.
+
+A stack with a database follows the same few rules in every recipe, and
+`tests/recipes/test_catalog_wave2.py` holds them:
+
+- The database is the official `postgres`, `mysql`, `mariadb` or `mongo` image, with the account and
+  the database named in its environment (`POSTGRES_USER` and `POSTGRES_DB`, `MYSQL_USER` and
+  `MYSQL_DATABASE`, `MARIADB_*`), so that Noust dumps it before every update with the engine's own
+  client. An image Noust does not recognise (PostgreSQL with pgvector or VectorChord) is declared
+  by a `noust.yaml` the recipe ships (`files: {noust.yaml: noust.yaml}`), whose
+  `backup.databases` names the service, the engine, the database and the user.
+- Its data is in a named volume mounted where the engine keeps it, and what uses it starts when
+  it answers: `depends_on` with `condition: service_healthy` and a `healthcheck` on the database.
+- Nothing but the web port, and the ports `public_ports` declares, is published: a database, a
+  cache or a worker is reachable only from inside the stack.
+- No credential is written in the document: the database password and every key are generated
+  variables (`generate: password32`, `hex64`, `base64_32`...), the same value in the application
+  and in the database through one variable.
+- Settings an operator may add later and that are not worth a variable (an SMTP server) are
+  passed through: `NAME:` with no value in `environment` takes the value from the application's
+  environment when the operator sets it, and sets nothing when not.
 
 A recipe may ship a `noust.nginx.yaml` (upload size and read timeout: `max_body_size`,
 `routes: [{path: /, read_timeout: 600}]`), which the Compose deployer builds the site from.
@@ -293,7 +315,11 @@ templates and no digest anywhere; here:
    architecture image, the index's), read with `scripts/recipe_pins.py resolve`, never typed from
    memory. An image mirrored on ghcr.io and Docker Hub usually has the same digest, though not
    always (Jellyfin's differ): the recipe pins the registry it names. Prefer ghcr.io when the
-   project publishes there, which is not subject to Docker Hub's limit on anonymous pulls.
+   project publishes there, which is not subject to Docker Hub's limit on anonymous pulls. The
+   tool asks any registry where its anonymous tokens come from (Docker Hub, ghcr.io, quay.io,
+   codeberg.org, docker.litellm.ai...), so a project that publishes on its own forge is pinned
+   the same way. A database image is pinned like the application's: PostgreSQL 17 and Valkey 9
+   by their exact tags, MySQL 8.4 and MariaDB 11.8 where the application needs them.
 3. **`digest_verified: false`** is the honest form of a pin that could not be read: tag only, and
    `noust recipe show` warns. A test lists every recipe that uses it; the list only shrinks.
 4. **Native sources**: a git tag (never a branch), or an archive with its `sha256` (or the
@@ -314,6 +340,8 @@ python scripts/recipe_pins.py resolve ghcr.io/dani-garcia/vaultwarden:1.38.0
 #    keep `revision` at 1 for a new version, raise it for a fix to the recipe itself
 # 3. check every pin of the shipped recipes against where it is published
 python scripts/recipe_pins.py check --evidence /tmp/pins
+# 4. start the stack on your Docker and ask the health gate's question
+python scripts/recipe_smoke.py vaultwarden --evidence /tmp/smoke
 ```
 
 `check` resolves each image's tag in its registry and compares the digest, reads the
@@ -337,16 +365,65 @@ anywhere.
 
 The logos this release ships are plain monograms drawn for Noust (two letters on a dark tile), not
 the projects' own marks: a project's logo is its trademark, and shipping it needs a licence that
-allows redistribution and a record of it. A contributor may add a project's real logo when its
-licence allows it, with the licence and the source in a `LOGO-NOTICE` file beside it; otherwise
-the monogram stands. Coolify ships 349 third-party SVGs with no attribution; this is the
-opposite.
+allows redistribution and a record of it. The policy for a project's real mark, and for everything
+else a recipe says about someone else's software, is in the next section.
+
+## Names, marks, licences and logos of the projects
+
+A recipe is Noust's description of how to run someone else's software, so what it may call that
+software, show of it and ship of it is written down. Coolify has no such policy: it hides Plausible
+over its trademark and ships 349 third-party SVGs with no attribution per file. This is what Noust
+does. It is the project's practice, so that a rights holder, an operator and a contributor can all
+read it, and not legal advice.
+
+**Names.** A recipe names a project by its own name, to say what it deploys ("Gitea", "Rocket.Chat",
+"Plausible Analytics Community Edition"). The name is never Noust's own: not in a domain, a command
+or a package. Where the recipe is packaging the project did not make, the description says so
+("not affiliated with or endorsed by"), because the guidelines projects publish (Plausible's, at
+plausible.io/trademark, read on 2026-10-06) allow truthfully referring to a product and indicating
+compatibility, and forbid suggesting endorsement and using their marks for a hosted, resold or
+modified offer. A guideline that matters is named in the recipe's header comment with the day it
+was read.
+
+**Logos.** Every recipe ships a Noust monogram: two letters on a dark tile, drawn for Noust and
+under Noust's licence. A project's real mark is added only when its licence or a written permission
+allows redistributing it, with a `LOGO-NOTICE` file beside it that names the project, the source
+URL, the licence or permission and the date. A project whose guidelines do not allow a third
+party's use of its logo (Plausible's) never gets its mark here. `tests/recipes/test_catalog_wave2.py`
+fails on a logo that is not the monogram and has no `LOGO-NOTICE`.
+
+**Licences.** `license` is the SPDX expression of the project's code (`LicenseRef-...` where SPDX
+has no identifier). Noust redistributes none of that code: a recipe is configuration and a pointer
+to the image the project publishes, pinned by its digest. Three cases:
+
+- An open source licence: the recipe is installable.
+- A source-available licence that lets an organisation run the software for itself (n8n's and
+  NocoDB's Sustainable Use License, Directus's Monospace Sustainable Core License, Open WebUI's
+  branding clause), or an open core whose repository holds some files under a proprietary
+  licence (Stirling PDF): the recipe is installable, its description says "source-available" or
+  "open core", and a note names the restriction that matters (not offering it to others as a
+  service, no competing use, keeping a name and logo).
+- A licence that forbids what an operator of a server does (personal use only, no access for
+  others), a community edition its own project declares not for production, or terms that cannot
+  be told from the file: the recipe is listed as unavailable with the file or page named and the
+  day it was read (Joplin Server's licence, Cal.diy's README, Vault's Business Source License).
+
+A file copied from a project's repository (Plausible's ClickHouse settings) is shipped unchanged
+with that repository's licence text in a `NOTICE` file in the recipe's assets.
+
+**Withdrawal.** A recipe becomes an unavailable listing, with the reason and where it was read,
+when the project asks for it, when its licence changes to one of the third kind, when its
+repository is archived (MinIO) or it stops publishing images that can be pinned, or when it needs
+what a recipe may not have (the Docker socket, the host's network). Nothing is deleted without a
+reason a person can read.
 
 ## Contributing a recipe
 
-The rule of eligibility: the upstream project has at least 1,000 stars on GitHub, has made a
-release in the last year and is not archived, and its licence allows running it for others
-(the licence goes in `license`; a source-available one is said so in the description).
+The rule of eligibility: the upstream project has at least 1,000 stars on GitHub (or on the forge
+that hosts it: Codeberg for Forgejo), has made a release in the last year and is not archived, and
+its licence allows running it for others (the licence goes in `license`; a source-available one is
+said so in the description). A project that publishes a build per commit and no release (SearXNG)
+is pinned to the newest dated build by tag and digest, and its recipe says so.
 
 A recipe is accepted when:
 
@@ -360,7 +437,15 @@ A recipe is accepted when:
 4. **Its data is declared.** Every volume is named and the notes say where the data is and that it
    needs a copy before an update.
 5. **Its health check is real.** `health.path` is an endpoint of the application that answers 200
-   without a login; `timeout` is raised for what is slow to start.
+   without a login; `timeout` is raised for what is slow to start. The gate's request is the
+   plainest there is: `http://127.0.0.1:<port><path>`, with `Host: 127.0.0.1:<port>`, no
+   `X-Forwarded-*` header, and a redirect taken as the answer when the recipe states what it expects.
+   An application that checks the host (Django's `ALLOWED_HOSTS`, Nextcloud's trusted domains,
+   Baserow's public URL) must accept `127.0.0.1`, and one that redirects plain HTTP to its https
+   address (Ghost) needs `expect: 200-399`.
+   `scripts/recipe_smoke.py NAME` is how to know: it starts the stack on your Docker, makes
+   exactly that request, makes it again the way nginx does, looks for a restart loop and an
+   out-of-memory kill, and removes the project and its volumes.
 6. **It does not need what a recipe may not have** (above). If it needs it, it is not a recipe; list
    it as unavailable with the reason.
 
@@ -370,34 +455,86 @@ test results.
 
 ## What ships, and what does not
 
-The 3.4 catalogue has 20 recipes you can install and 5 that are listed with the reason.
+The 3.4 catalogue has 53 recipes you can install and 17 that are listed with the reason.
 
 | Recipe | Version | Kind | Runs |
 |---|---|---|---|
-| WordPress | 7.1.2 | native | PHP-FPM, MySQL/MariaDB |
-| Uptime Kuma | 1.23.17 | native | Node.js |
-| Umami | 2.20.2 | native | Node.js, PostgreSQL |
-| n8n | 1.123.82 | native | Node.js |
-| Vaultwarden | 1.37.4 | compose | Docker |
-| Memos | 0.31.0 | compose | Docker |
-| Syncthing | 2.1.6 | compose | Docker; opens 22000 tcp and udp |
-| Stirling PDF | 3.1.0 | compose | Docker |
-| Grafana | 13.2.3 | compose | Docker |
-| Meilisearch | 1.54.3 | compose | Docker |
+| Activepieces | 0.92.1 | compose | Docker; PostgreSQL with pgvector, Valkey |
+| Actual Budget | 26.10.0 | compose | Docker |
+| Audiobookshelf | 2.37.1 | compose | Docker |
+| authentik | 2026.8.3 | compose | Docker; PostgreSQL |
+| Baserow | 2.4.0 | compose | Docker; PostgreSQL with pgvector |
 | code-server | 4.140.0 | compose | Docker |
-| Jellyfin | 12.2 | compose | Docker |
-| Mailpit | 1.31.4 | compose | Docker; SMTP on 127.0.0.1 |
-| Open WebUI | 0.11.4 | compose | Docker |
-| Ollama | 0.35.1 | compose | Docker; no authentication of its own |
-| ntfy | 2.28.0 | compose | Docker |
-| Navidrome | 0.64.2 | compose | Docker |
-| linkding | 1.47.0 | compose | Docker |
+| CyberChef | 11.5.0 | compose | Docker |
+| Directus | 12.4.1 | compose | Docker; PostgreSQL |
+| Docmost | 0.96.0 | compose | Docker; PostgreSQL, Valkey |
+| Forgejo | 16.0.5 | compose | Docker; PostgreSQL; opens 2222 tcp |
 | FreshRSS | 1.30.1 | compose | Docker |
+| Ghost | 6.67.0 | compose | Docker; MySQL |
+| Gitea | 28.0.0 | compose | Docker; PostgreSQL; opens 2222 tcp |
+| Gotify | 3.1.1 | compose | Docker |
+| Grafana | 13.2.3 | compose | Docker |
+| Healthchecks | 4.4 | compose | Docker |
 | Homepage | 2.4.0 | compose | Docker |
+| Immich | 3.2.4 | compose | Docker; PostgreSQL with VectorChord, Valkey |
+| Jellyfin | 12.2 | compose | Docker |
+| Keycloak | 26.8.0 | compose | Docker; PostgreSQL |
+| Langflow | 1.12.5 | compose | Docker; PostgreSQL |
+| linkding | 1.47.0 | compose | Docker |
+| listmonk | 6.2.0 | compose | Docker; PostgreSQL |
+| LiteLLM | 1.104.0 | compose | Docker; PostgreSQL |
+| Mailpit | 1.31.4 | compose | Docker; SMTP on 127.0.0.1 |
+| Matomo | 5.14.0 | compose | Docker; MariaDB |
+| Mattermost | 11.11.1 | compose | Docker; PostgreSQL |
+| Meilisearch | 1.54.3 | compose | Docker |
+| Memos | 0.31.0 | compose | Docker |
+| Metabase | 0.63.19 | compose | Docker; PostgreSQL |
+| Miniflux | 2.3.3 | compose | Docker; PostgreSQL |
+| n8n | 1.123.82 | native | Node.js |
+| Navidrome | 0.64.2 | compose | Docker |
+| Nextcloud | 35.0.1 | compose | Docker; PostgreSQL, Valkey |
+| NocoDB | 2026.09.1 | compose | Docker; PostgreSQL, Valkey |
+| ntfy | 2.28.0 | compose | Docker |
+| Odoo | 20.0.20260926 | compose | Docker; PostgreSQL |
+| Ollama | 0.35.1 | compose | Docker; no authentication of its own |
+| Open WebUI | 0.11.4 | compose | Docker |
+| Paperless-ngx | 3.3.0 | compose | Docker; PostgreSQL, Valkey |
+| Plausible Analytics Community Edition | 3.2.1 | compose | Docker; PostgreSQL, ClickHouse |
+| Rocket.Chat | 8.9.0 | compose | Docker; MongoDB |
+| SearXNG | 2026.10.4 | compose | Docker; a dated build, the project has no releases |
+| Stirling PDF | 3.1.0 | compose | Docker |
+| Syncthing | 2.1.6 | compose | Docker; opens 22000 tcp and udp |
+| Trilium Notes | 0.106.0 | compose | Docker |
+| Twenty | 2.45.6 | compose | Docker; PostgreSQL, Valkey |
+| Umami | 2.20.2 | native | Node.js, PostgreSQL |
+| Uptime Kuma | 1.23.17 | native | Node.js |
+| Vaultwarden | 1.37.4 | compose | Docker |
+| Vikunja | 2.7.0 | compose | Docker |
+| Wiki.js | 2.5.315 | compose | Docker; PostgreSQL |
+| WordPress | 7.1.2 | native | PHP-FPM, MySQL/MariaDB |
 
-Listed, not deployable: Ghost (needs a MySQL engine distinct from MariaDB), Plausible (needs
-ClickHouse), PocketBase (a binary with no image, and no deployer in this release that runs one),
-Excalidraw (no release tag to pin) and Vault (a server that starts sealed, and a licence to review).
+Listed, not installable. Each carries its reason in its file, with the page or file it was read
+from and the day, and `noust recipe show` and the console print it:
+
+| Recipe | Why |
+|---|---|
+| Appwrite | 40 services, three of which mount the Docker socket |
+| BookStack | no official image, and a new installation has a known administrator account |
+| Cal.com | the open source edition is now Cal.diy, "for personal, non-production use" |
+| Coder | drives the Docker daemon through its socket |
+| Excalidraw | no release tag to pin: only `latest` and per-build `sha-` tags, none of them `latest` itself |
+| Hermes Agent | a single-tenant agent whose own policy says the operating system is its only boundary |
+| Home Assistant | its container needs `--privileged`, the host's network and `/run/dbus` |
+| Joplin Server | its licence is personal, non-commercial use only |
+| MinIO | the repository is archived and says it is no longer maintained |
+| OpenClaw | its policy says anyone who can operate the agent can make it do anything it can do |
+| PocketBase | a binary with no image, and no deployer in this release that runs one |
+| Portainer | mounts the Docker socket: root on the host by design |
+| Stalwart | publishes 25, 110, 143, 443, 465, 587, 993, 995 and 4190, and needs mail DNS and certificates |
+| Strapi | publishes no image: a project is built from your own code |
+| Supabase | 11 services, a `container_name` Realtime depends on, and nested variable references |
+| Typebot | two public addresses (builder and viewer); this release routes one |
+| Vault | a server that starts sealed, and a licence to review |
 
 The four migrated recipes keep the versions they were tested at; newer majors exist (Uptime Kuma 2,
 Umami 3, n8n 2) and become a recipe revision of their own once they have been deployed here.

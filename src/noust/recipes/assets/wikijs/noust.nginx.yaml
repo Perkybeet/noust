@@ -1,0 +1,2 @@
+# How nginx proxies this application. Images and files are uploaded into pages.
+max_body_size: 50m

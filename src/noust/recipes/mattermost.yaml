@@ -1,0 +1,98 @@
+# Mattermost Team Edition from the image Mattermost publishes, with the PostgreSQL of
+# its own Docker repository (github.com/mattermost/docker: docker-compose.yml, env.example
+# and docker-compose.without-nginx.yml, which publishes the application's 8065 for a proxy
+# of your own): MM_SQLSETTINGS_DRIVERNAME and MM_SQLSETTINGS_DATASOURCE, MM_SERVICESETTINGS_
+# SITEURL, and the five directories the image declares as volumes (config, data, logs,
+# plugins, client/plugins). The image runs as user mattermost (2000), listens on 8065 and
+# has MM_SERVICESETTINGS_ENABLELOCALMODE=true, which is what its own health check
+# (mmctl system status --local) and the notes' user-creation command use. The image is
+# built for amd64 only. Compiled Mattermost is MIT licensed (its LICENSE.txt).
+#
+# Account creation is switched off until the administrator exists: the first person to
+# sign up on an open Mattermost becomes the system administrator, so the notes create that
+# account with mmctl, which does not go through the sign-up page.
+#
+# Pinned to the release tag and to the digest Docker Hub serves for it.
+schema: 2
+name: mattermost
+kind: compose
+title: Mattermost
+slogan: Secure, self-hosted team messaging with channels, threads and playbooks.
+description: "Open source collaboration for teams: channels, direct messages, file sharing, calls and integrations, with web, desktop and mobile apps. Team Edition (MIT compiled build) with its own PostgreSQL. Sign-up is closed; the administrator is created from the command line."
+category: communication
+tags: [chat, team, messaging, collaboration]
+logo: logo.svg
+version: "11.11.1"
+revision: 1
+updated: 2026-10-06
+homepage: https://mattermost.com
+docs: https://docs.mattermost.com
+repository: https://github.com/mattermost/mattermost
+license: MIT
+architectures: ["amd64"]
+needs:
+  - Docker Engine with the Compose plugin
+  - At least 2 GB of memory
+port: 8065
+variables:
+  MM_SERVICESETTINGS_SITEURL:
+    from: url
+    description: The address people use; Mattermost builds its links, e-mails and the origin of its WebSocket from it.
+  MM_TEAMSETTINGS_ENABLEUSERCREATION:
+    default: "false"
+    description: Whether accounts can be created from the sign-up page. Leave false until the administrator exists.
+  DB_PASSWORD:
+    generate: password32
+    description: The password of the stack's PostgreSQL account.
+health:
+  path: /api/v4/system/ping
+  expect: "200"
+  timeout: 120
+files: {noust.nginx.yaml: noust.nginx.yaml}
+compose: |
+  services:
+    mattermost:
+      image: mattermost/mattermost-team-edition:11.11.1@sha256:6ad5912b45875ef2fafc41886b5a70a3ec1b6c17ec706e0492566e8a2fd8aa85
+      restart: unless-stopped
+      depends_on:
+        db:
+          condition: service_healthy
+      environment:
+        MM_SQLSETTINGS_DRIVERNAME: postgres
+        MM_SQLSETTINGS_DATASOURCE: "postgres://mattermost:${DB_PASSWORD}@db:5432/mattermost?sslmode=disable&connect_timeout=10"
+        MM_SERVICESETTINGS_SITEURL: "${MM_SERVICESETTINGS_SITEURL}"
+        MM_TEAMSETTINGS_ENABLEUSERCREATION: "${MM_TEAMSETTINGS_ENABLEUSERCREATION}"
+      volumes:
+        - mattermost-config:/mattermost/config
+        - mattermost-data:/mattermost/data
+        - mattermost-logs:/mattermost/logs
+        - mattermost-plugins:/mattermost/plugins
+        - mattermost-client-plugins:/mattermost/client/plugins
+      ports:
+        - "127.0.0.1:${PORT}:8065"
+    db:
+      image: postgres:17.11-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+      restart: unless-stopped
+      environment:
+        POSTGRES_USER: mattermost
+        POSTGRES_DB: mattermost
+        POSTGRES_PASSWORD: "${DB_PASSWORD}"
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U mattermost -d mattermost"]
+        interval: 10s
+        timeout: 5s
+        retries: 10
+        start_period: 20s
+      volumes:
+        - mattermost-db:/var/lib/postgresql/data
+  volumes:
+    mattermost-config:
+    mattermost-data:
+    mattermost-logs:
+    mattermost-plugins:
+    mattermost-client-plugins:
+    mattermost-db:
+notes:
+  - "Nobody can sign in yet, and sign-up is closed. Create the administrator: cd {{ app_path }} && docker compose exec mattermost mmctl --local user create --email you@example.com --username admin --password 'a-long-password' --system-admin"
+  - "Then sign in at {{ url }}. To let people join, create their accounts the same way, or set MM_TEAMSETTINGS_ENABLEUSERCREATION to true in the application's environment (noust restart {{ domain }}) and invite them from Mattermost."
+  - "Messages, users and channels are in the PostgreSQL of this stack (Docker volume mattermost-db, dumped by Noust before every update); uploaded files are in the volume mattermost-data and the configuration in mattermost-config. Back them up before updating."

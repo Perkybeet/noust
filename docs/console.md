@@ -482,8 +482,30 @@ editing one row needs sudo mode), **Query** (the SQL console: read-only by defau
 by the database server; history, saved statements, export, `EXPLAIN`; write mode needs sudo
 mode), **Backups** (its policy with schedule, retention and destinations; restore as a new
 database or over this one after a safety copy), **Users** (with owner, read-write and read-only
-profiles, and password rotation), **Connect** (an SSH tunnel from your computer, never an open
-port) and **Metrics**.
+profiles, and password rotation), **Connect** (an SSH tunnel from your computer, and **Public
+access**, below) and **Metrics**.
+
+A database is **private** until you open it: **Public access** on **Connect** makes it reachable
+from your own computer on a port you choose, from the addresses you list, with TLS required where
+the engine can (a PostgreSQL account is refused when its client does not use TLS), through a
+proxy socket so the engine itself stays on loopback. The first step names the port, who may reach
+it and what the account can do (owner, read and write, read only); the second says what Noust will
+open, the firewall rule, and every warning the server has, in its own words, and asks you to tick
+that you accept them before **Make it public** (sudo mode). The account's password is shown once
+(**Show the connection** shows it again after confirming it is you), and **Make it private**
+removes exactly what opening made. A new database for an application (**Application > Database**)
+asks which engine and which version: the one that runs, or, for an engine that is not installed,
+the versions Noust can install first, which it does only when you tick it.
+
+**Backups** has two scopes: a policy for one database, and a policy for **every database of an
+engine**, the ones created later included, with the databases, schemas and tables (collections in
+MongoDB) it leaves out. A database with a policy of its own keeps it. **Import a dump** (on the
+list, and on a database's Backups tab) uploads a file from your browser in chunks of 8 MiB that
+survive a dropped connection (it waits, tells you, and goes on from what the server holds; **Try
+now** does not wait), up to the size the server allows (`databases.import_max_bytes`), reads what
+the file is from its bytes, offers to drop and recreate the database or keep the owners the dump
+names, asks you to type the database's name before it replaces anything, and follows the import
+as a job. A file over the limit is imported from a terminal by its path (`noust db import`).
 
 ### Cron
 
@@ -573,9 +595,20 @@ editor, which works as before.
 
 ### Backups
 
-Three tabs: **Backups** (storage used per application, every backup: verify, restore, delete;
-"New backup" with the same options as `noust backup create`), **Schedules** and
-**Destinations** (remote places, their test and their key). The backup an update of a Docker
+Five tabs: **Backups** (storage used per application, every backup: verify, restore, delete;
+"New backup" with the same options as `noust backup create`), **Schedules**, **Volumes**,
+**Noust** and **Destinations** (remote places, their test and their key). **Volumes** backs up an
+application's data on its own: its persistent folders and the Docker volumes of its stack, picked
+from what it declares (or everything it declares), on a schedule with its own retention, sent to
+the same destinations, taken live, with the application paused or with it stopped, run by hand as
+a job, and restored over what is there after you type the application's name (a safety copy of
+what is there is taken first). **Noust** backs up Noust's own state (the store, the
+configuration, the secrets and keys, the certificates and the unit files it generated) into one
+file sealed with a passphrase: by hand (the passphrase is typed twice and kept nowhere) or on a
+schedule (the passphrase is then kept in the secret store for the timer, and you keep a copy
+outside the server), checked, and sent to a destination. A restore replaces the store the console
+runs on, so it is never done from the browser: **How to restore** shows `noust self-backup
+restore` and `noust restore-server --from`, and what they ask. The backup an update of a Docker
 Compose stack takes first holds a dump of each database the stack runs, unless the application
 turned that off under Settings > Deploys; putting the databases back is `noust backup restore
 BACKUP_ID --databases-only` from a terminal. Restoring only the files past a deployment that
@@ -630,7 +663,8 @@ selected server's, or this central's.
 | Notifications | Server | Whether notifications are on, at the top (amber when they are on but no channel is set up; see [Features that are on or off](#features-that-are-on-or-off)); channels (webhook, Slack, Discord, Telegram, email) in drawers, with a test each; which events notify, among them **Deployed with warnings** (`deploy_hook_failed`), **Application not answering** (`app_unreachable`) and **Application answering again** (`app_recovered`), all on by default; private destinations allowed |
 | Integrations | Server | The GitHub App, the address for webhooks, and the server's **deploy keys** (each with the repositories it reaches and the applications built from them) and the **host keys it pinned**, which can be forgotten after comparing the fingerprint |
 | About | Server | Version and updates, installation, CLI equivalents, links |
-| Servers | Central | Every server, its reachability, version, ceiling and labels; **Add a server** walks through `noust fleet authorize` and the join code; test and remove |
+| Servers | Central | Every server, its reachability, version, ceiling and labels; **Add a server** takes an address and a credential used once, confirms the host key, installs Noust if it is missing and joins the server (below), or, a link away, walks through `noust fleet authorize` and the join code; test and remove |
+| Console access | Server | Publishes the console on a name of its own over TLS, or takes it down (below) |
 | Accounts | Central | Accounts, roles, invitations, separation-of-duties exceptions (with `accounts.read`) |
 | Security | Central | Your password, second factor and passkeys; sessions; the sign-in policy and the notice |
 | API tokens | Central | Your tokens: issue (shown once), narrow, list and revoke |
@@ -638,6 +672,28 @@ selected server's, or this central's.
 | Audit log | Central | The audit trail, its verification, destinations and reviews (with `audit.read`) |
 | Compliance | Central | `noust ens check` and the evidence report |
 | Central | Central | The role, the certificate and the seal |
+
+**Add a server** opens on the guided way: a name, the address and port, the account (root, or one
+with passwordless sudo), what the central may do there (read, deploy or admin, and whether it may
+also manage the server itself), and how to get in, a password or a private key. The credential is
+used once: it reaches ssh through its environment or a private memory-backed file, is never
+stored, logged, kept in the job's record or put in the audit trail, and the page forgets it the
+moment the request leaves. Before anything else is sent, Noust asks the address for its ed25519
+host key and shows the fingerprint, to compare with `ssh-keygen -lf
+/etc/ssh/ssh_host_ed25519_key.pub` on the server; the join must carry that same key. Then it is a
+job whose output (the installer's included) streams in the dialog, ends on the server joined, and,
+if it fails, shows ssh's own words and goes back to the details with the credential empty.
+**Authorize it with a command on the server instead** is the way that never gives the central a
+credential at all.
+
+**Console access** publishes the console at a name that points at this server: an nginx site, a
+Let's Encrypt certificate, the console told to trust nginx, and an allow-list if you give one;
+there is no plain-HTTP form. The page lists what is checked first (a second factor on every
+account that can sign in, with the accounts that lack one named; the ENS profile, which keeps the
+console on loopback unless you force it with an allow-list; a name that is not an application's
+or a site Noust did not write), the dialog previews what will be done, and publishing and
+unpublishing are jobs followed in the page (sudo mode). Unpublishing removes exactly what
+publishing made and leaves what was already there.
 
 On a server without a fleet, every section is the server's own. What a server's own accounts,
 tokens and second factor are cannot be changed from a central; the page says how to manage them

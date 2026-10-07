@@ -1,0 +1,5 @@
+# How nginx proxies this application. Files and images are uploaded through the editor, and the editor holds a WebSocket.
+max_body_size: 50m
+routes:
+  - path: /
+    read_timeout: 600
