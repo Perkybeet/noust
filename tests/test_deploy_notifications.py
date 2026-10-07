@@ -35,6 +35,7 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Iterator
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -150,6 +151,18 @@ class TestKindMapping:
         NOTIFICATION_QUEUE.drain(timeout=5.0)
 
         assert [call.kind for call in fake_notifier.calls] == [notification_kind]
+
+    def test_a_deployment_an_operator_cancelled_is_not_announced_as_a_failure(
+        self, config: Config, fake_notifier: type[FakeNotifier]
+    ) -> None:
+        """Its row says failed, but nothing failed: whoever cancelled it already knows."""
+        cancelled = replace(make_event(DeployEventKind.FAILED), cancelled=True)
+
+        deploy_notifications.on_deploy_event(cancelled)
+        deploy_notifications.on_deploy_event(make_event(DeployEventKind.FAILED))
+        NOTIFICATION_QUEUE.drain(timeout=5.0)
+
+        assert [call.kind for call in fake_notifier.calls] == ["deploy_failed"]
 
     def test_an_unrecognised_kind_is_logged_and_dropped_not_raised(
         self, fake_notifier: type[FakeNotifier], caplog: pytest.LogCaptureFixture

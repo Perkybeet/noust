@@ -72,6 +72,33 @@ class TestViews:
         assert "web-3: unreachable" in result.output
         assert "Connection refused" in result.output
 
+    def test_a_cancelled_deployment_is_not_called_a_failure(self, central):
+        central.nodes["web-2"].apps = [
+            {
+                "domain": "a.example.com",
+                "status": "running",
+                "last_deployment": {"id": 4, "status": "failed", "cancelled": True},
+            },
+            {
+                "domain": "b.example.com",
+                "status": "running",
+                "last_deployment": {"id": 5, "status": "failed", "cancelled": False},
+            },
+            {"domain": "c.example.com", "status": "running"},
+        ]
+
+        result = _invoke("fleet", "apps", "--node", "web-2")
+
+        assert result.exit_code == 0, result.output
+        rows = {
+            line.split()[1]: line.split()
+            for line in result.output.splitlines()
+            if "example.com" in line
+        }
+        assert rows["a.example.com"][-1] == "cancelled"
+        assert rows["b.example.com"][-1] == "failed"
+        assert rows["c.example.com"][-1] == "-"
+
     def test_a_filter(self, central):
         central.nodes["web-2"].apps = [
             {"domain": "a.example.com", "status": "running"},

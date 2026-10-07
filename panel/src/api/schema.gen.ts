@@ -24191,8 +24191,17 @@ export interface components {
          *         finished_at: When it finished, ISO 8601 with an explicit UTC offset;
          *             None while it is still running.
          *         git_commit: Short commit it deployed, when the source is git.
+         *         cancelled: An operator cancelled it while it was being built. Its
+         *             ``status`` is ``failed`` (a store from before 3.4 cannot say
+         *             anything else), but nothing failed and what served before still
+         *             serves: a list that draws the status alone paints it red.
          */
         LastDeploymentOut: {
+            /**
+             * Cancelled
+             * @default false
+             */
+            cancelled: boolean;
             /** Finished At */
             finished_at?: string | null;
             /** Git Commit */

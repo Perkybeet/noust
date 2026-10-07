@@ -142,12 +142,17 @@ class LastDeploymentOut(BaseModel):
         finished_at: When it finished, ISO 8601 with an explicit UTC offset;
             None while it is still running.
         git_commit: Short commit it deployed, when the source is git.
+        cancelled: An operator cancelled it while it was being built. Its
+            ``status`` is ``failed`` (a store from before 3.4 cannot say
+            anything else), but nothing failed and what served before still
+            serves: a list that draws the status alone paints it red.
     """
 
     id: int
     status: str
     finished_at: str | None = None
     git_commit: str | None = None
+    cancelled: bool = False
 
     _iso_timestamps = iso_offset_validator("finished_at")
 
@@ -547,6 +552,7 @@ def _last_deployment_out(record: DeploymentRecord | None) -> LastDeploymentOut |
         status=record.status,
         finished_at=record.finished_at,
         git_commit=record.git_commit,
+        cancelled=record.cancelled,
     )
 
 

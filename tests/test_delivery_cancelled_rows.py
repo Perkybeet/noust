@@ -24,6 +24,7 @@ from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore
 from noust.managers import overview
 from noust.managers.diagnose import diagnose
+from noust.web.api.apps import _last_deployment_out
 from noust.web.api.deployments import _to_out
 
 DOMAIN = "shop.example.com"
@@ -78,6 +79,22 @@ def test_the_api_says_cancelled_and_by_whom(store: NoustStore) -> None:
     plain = store.get_deployment(finish(store, cancelled=False))
     assert plain is not None
     assert _to_out(plain, {}, {}).cancelled is False
+
+
+def test_the_applications_list_carries_cancelled_on_the_last_deployment(
+    store: NoustStore,
+) -> None:
+    """The list a fleet reads says it: a failed status alone would be taken for a fault."""
+    cancelled = store.get_deployment(finish(store, cancelled=True))
+    failed = store.get_deployment(finish(store, cancelled=False))
+
+    out = _last_deployment_out(cancelled)
+    plain = _last_deployment_out(failed)
+
+    assert out is not None
+    assert (out.status, out.cancelled) == ("failed", True)
+    assert plain is not None
+    assert (plain.status, plain.cancelled) == ("failed", False)
 
 
 def test_the_days_counts_keep_cancelled_apart_from_failed(store: NoustStore) -> None:

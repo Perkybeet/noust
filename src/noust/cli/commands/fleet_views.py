@@ -116,6 +116,26 @@ def _node_option(function: Any) -> Any:
     )
 
 
+def _last_deploy(item: dict[str, Any]) -> str:
+    """
+    Say how an application's last deployment ended, for the table.
+
+    Args:
+        item: One application of the view.
+
+    Returns:
+        ``cancelled`` for a deployment an operator stopped (the node stores it
+        as ``failed``, and calling it a failure would send someone looking for
+        a fault that is not there), else its status, or ``-`` when there is none.
+    """
+    last = item.get("last_deployment")
+    if not isinstance(last, dict):
+        return "-"
+    if last.get("cancelled") is True:
+        return "cancelled"
+    return str(last.get("status") or "-")
+
+
 @fleet_cli.command("apps", read_only=True)
 @_node_option
 @click.option("--status", "status", default=None, help="Only applications in this state.")
@@ -133,9 +153,7 @@ def apps_command(ctx: Context, nodes: tuple[str, ...], status: str | None) -> No
             str(item.get("status") or "-"),
             str(item.get("app_type") or "-"),
             str(item.get("branch") or "-"),
-            str((item.get("last_deployment") or {}).get("status") or "-")
-            if isinstance(item.get("last_deployment"), dict)
-            else "-",
+            _last_deploy(item),
         ]
         for item in result.items
     ]
