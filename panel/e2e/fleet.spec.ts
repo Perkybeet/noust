@@ -227,6 +227,8 @@ withFleet("Add a server: a console token pasted as a join code is caught, and a 
   await signIn(page, consoleServer, "/settings/servers");
   await page.getByRole("button", { name: "Add a server" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a server" });
+  // The guided way opens first; the join code is one link away, for a server that must never be given a credential.
+  await dialog.getByRole("button", { name: "Authorize it with a command on the server instead" }).click();
   await expect(dialog.getByText("Run it on the other server: the one you are adding")).toBeVisible();
   await dialog.getByLabel("Name", { exact: true }).fill("temp-join-check");
   await dialog.getByRole("button", { name: "Show the command" }).click();
@@ -312,6 +314,7 @@ withFleet("Settings > Servers shows the node and the add flow's first step", asy
 
   await page.getByRole("button", { name: "Add a server" }).click();
   const dialog = page.getByRole("dialog", { name: "Add a server" });
+  await dialog.getByRole("button", { name: "Authorize it with a command on the server instead" }).click();
   await dialog.getByLabel("Name", { exact: true }).fill("temp-add-check");
   await dialog.getByRole("button", { name: "Show the command" }).click();
   // The command names this central (`--name <central>`), not the server being added: it is
@@ -323,6 +326,117 @@ withFleet("Settings > Servers shows the node and the add flow's first step", asy
 
   await settle(page);
   await expectNoA11yViolations(page, "the add server dialog, step 1");
+});
+
+/** The password the guided enrollment is given in the tests below, which must never be found anywhere after it was sent. */
+const ENROLL_SECRET = "a-good-password-4-the-server";
+
+withFleet("Add a server, guided: the host key is confirmed first, the credential is used once and kept nowhere, and the job is followed", async ({ page, consoleServer, problems }) => {
+  problems.expect(/status of 403 .*\/api\/fleet\/enroll$/);
+  const name = "enrolled-web";
+  await signIn(page, consoleServer, "/settings/servers");
+  await page.getByRole("button", { name: "Add a server" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add a server" });
+  await expect(dialog.getByText("Used once, kept nowhere")).toBeVisible();
+  await dialog.getByLabel("Name", { exact: true }).fill(name);
+  await dialog.getByLabel("Address").fill("203.0.113.50");
+  await dialog.getByRole("radio", { name: /^A password/ }).check();
+  await dialog.getByLabel("Password", { exact: true }).fill(ENROLL_SECRET);
+  await settle(page);
+  await expectNoA11yViolations(page, "the guided add server dialog, step 1");
+
+  // Nothing is sent to the server but its address until its key is confirmed.
+  const sentToServer: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/fleet/enroll/host-key") sentToServer.push(request.postData() ?? "");
+  });
+  await dialog.getByRole("button", { name: "Check the host key" }).click();
+  await expect(dialog.getByText("Is this the server's key?")).toBeVisible();
+  await expect(dialog.getByText(/^SHA256:[A-Za-z0-9+/]+$/)).toBeVisible();
+  expect(sentToServer.join("")).not.toContain(ENROLL_SECRET);
+  const submit = dialog.getByRole("button", { name: "Add the server" });
+  await submit.click();
+  await expect(dialog.getByText("Compare the fingerprint with the server's own, then tick the box.")).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "the guided add server dialog, the host key");
+
+  await dialog.getByRole("checkbox", { name: "The fingerprint is the server's own" }).check();
+  const enrolled = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/fleet/enroll" && response.status() === 202);
+  await submit.click();
+  await confirmItsYou(page, consoleServer);
+  const accepted = (await (await enrolled).json()) as { job_id: string };
+
+  // The job's output is followed here, and ends on the server joined.
+  await expect(dialog.getByRole("region", { name: `Output of adding ${name}` })).toBeVisible();
+  await expect(dialog.getByText(`Added ${name}`)).toBeVisible();
+  await expect(dialog.getByText("The credential left this page when it was sent.")).toBeVisible();
+  await settle(page);
+  await expectNoA11yViolations(page, "the guided add server dialog, the result");
+
+  // The credential is nowhere afterwards: not in the job's record, not in what this browser keeps.
+  const record = await page.request.get(`/api/jobs/${accepted.job_id}`);
+  expect(await record.text()).not.toContain(ENROLL_SECRET);
+  const kept = await page.evaluate(() => JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]));
+  expect(kept).not.toContain(ENROLL_SECRET);
+  await dialog.getByRole("button", { name: "Done" }).click();
+
+  const table = page.getByRole("region", { name: "Servers this central manages" });
+  const row = table.getByRole("row").filter({ hasText: name });
+  await expect(row).toBeVisible();
+
+  // The server is taken out again, so the pair stays what the other tests expect.
+  await row.getByRole("button", { name: `Actions for ${name}` }).click();
+  await page.getByRole("menuitem", { name: "Remove" }).click();
+  const removal = page.getByRole("alertdialog", { name: `Remove ${name}?` });
+  await removal.getByRole("textbox").fill(name);
+  await removal.getByRole("button", { name: "Remove server" }).click();
+  await expect(row).toHaveCount(0);
+});
+
+withFleet("Add a server, guided: a refused credential fails the job in the server's words and leaves nothing behind", async ({ page, consoleServer, problems }) => {
+  problems.expect(/status of 403 .*\/api\/fleet\/enroll$/);
+  const name = "refused-web";
+  await signIn(page, consoleServer, "/settings/servers");
+  await page.getByRole("button", { name: "Add a server" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add a server" });
+  await dialog.getByLabel("Name", { exact: true }).fill(name);
+  await dialog.getByLabel("Address").fill("203.0.113.51");
+  await dialog.getByRole("radio", { name: /^A password/ }).check();
+  await dialog.getByLabel("Password", { exact: true }).fill("wrong-password");
+  await dialog.getByRole("button", { name: "Check the host key" }).click();
+  await dialog.getByRole("checkbox", { name: "The fingerprint is the server's own" }).check();
+  await dialog.getByRole("button", { name: "Add the server" }).click();
+  await confirmItsYou(page, consoleServer);
+
+  await expect(dialog.getByText(`Adding ${name} failed`)).toBeVisible();
+  await expect(dialog.getByRole("region", { name: `Output of adding ${name}` })).toContainText("Permission denied");
+  await settle(page);
+  await expectNoA11yViolations(page, "the guided add server dialog, a refused credential");
+  // Back to the details, with the credential gone: it is typed again, never remembered.
+  await dialog.getByRole("button", { name: "Back to the server's details" }).click();
+  await expect(dialog.getByLabel("Name", { exact: true })).toHaveValue(name);
+  await expect(dialog.getByLabel("Password", { exact: true })).toHaveValue("");
+  await dialog.getByRole("button", { name: "Cancel" }).click();
+  await expect(dialog).toBeHidden();
+  const table = page.getByRole("region", { name: "Servers this central manages" });
+  await expect(table.getByRole("row").filter({ hasText: name })).toHaveCount(0);
+});
+
+withFleet("Add a server, guided: an address that gives no host key is refused with the server's own words, before anything is sent to it", async ({ page, consoleServer, problems }) => {
+  problems.expect(/status of 400 .*\/api\/fleet\/enroll\/host-key$/);
+  await signIn(page, consoleServer, "/settings/servers");
+  await page.getByRole("button", { name: "Add a server" }).click();
+  const dialog = page.getByRole("dialog", { name: "Add a server" });
+  await dialog.getByLabel("Name", { exact: true }).fill("silent-web");
+  await dialog.getByLabel("Address").fill("unreachable.example.org");
+  await dialog.getByRole("radio", { name: /^A password/ }).check();
+  await dialog.getByLabel("Password", { exact: true }).fill(ENROLL_SECRET);
+  await dialog.getByRole("button", { name: "Check the host key" }).click();
+  await expect(dialog.getByText("Could not ask the server for its host key")).toBeVisible();
+  await expect(dialog.getByText(/gave no ed25519 host key/)).toBeVisible();
+  await expect(dialog.getByText("Is this the server's key?")).toHaveCount(0);
+  await settle(page);
+  await expectNoA11yViolations(page, "the guided add server dialog, no host key");
 });
 
 // ---------------------------------------------------------------------------------------

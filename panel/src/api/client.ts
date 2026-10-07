@@ -195,7 +195,9 @@ async function send(
   approval: ApprovalInit = {},
 ): Promise<unknown> {
   const headers: Record<string, string> = { Accept: "application/json" };
-  if (body !== undefined) headers["Content-Type"] = "application/json";
+  // A file's bytes (an upload's chunk) go as they are; everything else is JSON.
+  const raw = body instanceof Blob;
+  if (body !== undefined) headers["Content-Type"] = raw ? "application/octet-stream" : "application/json";
   const token = readCookie(csrf.cookie);
   if (token !== null) headers[csrf.header] = token;
   if (approval.approval !== undefined) headers[APPROVAL_HEADER] = approval.approval;
@@ -207,7 +209,7 @@ async function send(
       method,
       headers,
       credentials: "same-origin",
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(body !== undefined ? { body: raw ? body : JSON.stringify(body) } : {}),
       ...(init.signal ? { signal: init.signal } : {}),
     });
   } catch (cause: unknown) {

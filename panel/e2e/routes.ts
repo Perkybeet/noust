@@ -76,6 +76,8 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "domains-site", path: "/domains/sites/example.net" },
   { name: "backups", path: "/backups" },
   { name: "backups-schedules", path: "/backups/schedules" },
+  { name: "backups-volumes", path: "/backups/volumes" },
+  { name: "backups-noust", path: "/backups/noust" },
   { name: "backups-destinations", path: "/backups/destinations" },
   { name: "activity", path: "/activity" },
   { name: "server", path: "/server" },
@@ -93,6 +95,7 @@ export const ROUTES: readonly ConsoleRoute[] = [
   { name: "settings-notifications", path: "/settings/notifications" },
   { name: "settings-tokens", path: "/settings/tokens" },
   { name: "settings-integrations", path: "/settings/integrations" },
+  { name: "settings-console", path: "/settings/console" },
   // The fleet, on a plain server with none added yet: fleet.spec.ts covers it with a node.
   { name: "fleet", path: "/fleet" },
   { name: "settings-servers", path: "/settings/servers" },

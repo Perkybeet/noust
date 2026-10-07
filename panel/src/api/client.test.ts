@@ -14,6 +14,15 @@ describe("api", () => {
     expect(call?.headers.get("Accept")).toBe("application/json");
   });
 
+  it("sends a file's bytes as they are, not as JSON", async () => {
+    const backend = fakeBackend({ "PUT /api/things": () => json(200, { ok: true }) });
+    const chunk = new Blob([new Uint8Array([1, 2, 3])]);
+    await api("PUT", "/api/things?offset=0", chunk);
+    const [call] = backend.calls;
+    expect(call?.headers.get("Content-Type")).toBe("application/octet-stream");
+    expect(call?.raw).toBe(chunk);
+  });
+
   it("mirrors the wasm_csrf cookie into the X-WASM-CSRF header", async () => {
     document.cookie = "wasm_csrf=token-from-cookie; path=/";
     const backend = fakeBackend({ "DELETE /api/apps/shop.example.com": () => json(202, { job_id: "j1" }) });
