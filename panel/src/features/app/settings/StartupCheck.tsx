@@ -266,7 +266,7 @@ function RequestOptions({ extras }: { extras: ExtrasPart }) {
         description={t("runtime.health.methodDescription", { default: EXTRAS_DEFAULTS.method })}
         error={errorOf("method")}
       >
-        <Select<string>
+        <Select
           mono
           value={draft.method === "" ? EXTRAS_DEFAULTS.method : draft.method.toUpperCase()}
           options={HEALTH_METHODS.map((method) => ({ value: method, label: method }))}
@@ -282,7 +282,7 @@ function RequestOptions({ extras }: { extras: ExtrasPart }) {
         description={t("runtime.health.schemeDescription", { default: EXTRAS_DEFAULTS.scheme })}
         error={errorOf("scheme")}
       >
-        <Select<string>
+        <Select
           mono
           value={draft.scheme === "" ? EXTRAS_DEFAULTS.scheme : draft.scheme.toLowerCase()}
           options={HEALTH_SCHEMES.map((scheme) => ({ value: scheme, label: scheme }))}
@@ -448,21 +448,25 @@ export function StartupCheckCard({ app, check }: { app: App; check: StartupCheck
             </div>
           </div>
         )}
-        {kind === "http" ? (
-          <Disclosure
-            key={extras.loading ? "reading" : "read"}
-            label={t("runtime.health.requestOptions")}
-            defaultOpen={extras.draft.method !== "" || extras.draft.scheme !== "" || extras.draft.host !== "" || extras.draft.port !== ""}>
-            <RequestOptions extras={extras} />
-          </Disclosure>
-        ) : null}
-        <Disclosure
-          key={extras.loading ? "reading" : "read"}
-          label={t("runtime.health.timingOptions")}
-          defaultOpen={extras.draft.interval !== "" || extras.draft.retries !== "" || extras.draft.startPeriod !== ""}
-        >
-          <TimingOptions extras={extras} />
-        </Disclosure>
+        {/* The options open for an application that already uses them, which is known once the check is read. */}
+        {extras.loading ? null : (
+          <>
+            {kind === "http" ? (
+              <Disclosure
+                label={t("runtime.health.requestOptions")}
+                defaultOpen={extras.draft.method !== "" || extras.draft.scheme !== "" || extras.draft.host !== "" || extras.draft.port !== ""}
+              >
+                <RequestOptions extras={extras} />
+              </Disclosure>
+            ) : null}
+            <Disclosure
+              label={t("runtime.health.timingOptions")}
+              defaultOpen={extras.draft.interval !== "" || extras.draft.retries !== "" || extras.draft.startPeriod !== ""}
+            >
+              <TimingOptions extras={extras} />
+            </Disclosure>
+          </>
+        )}
         {check.unplaced !== null ? <ErrorBlock live compact error={check.unplaced} title={t("appSettings.healthCheck.saveFailed")} /> : null}
         <Effective app={app} extras={extras.draft} />
       </div>
