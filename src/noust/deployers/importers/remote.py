@@ -98,19 +98,23 @@ class RemoteClient:
         platform: Its name, for the messages.
         timeout: Seconds per call.
         opener: Replacement for :func:`urllib.request.urlopen` (tests).
+        hints: What to tell the operator for an error status, by status, over the
+            importers' own words (a code host has other tokens to create).
     """
 
     def __init__(
         self,
         base_url: str,
-        header: tuple[str, str],
+        header: tuple[str, str] | None,
         *,
         platform: str,
         timeout: float = REQUEST_TIMEOUT,
         opener: Opener | None = None,
+        hints: Mapping[int, str] | None = None,
     ) -> None:
         self.base_url = check_base_url(base_url, platform)
         self._header = header
+        self._hints = dict(hints or {})
         self.platform = platform
         self.timeout = timeout
         self._opener: Opener = opener or urllib.request.build_opener(_NoRedirects).open
@@ -131,6 +135,46 @@ class RemoteClient:
             IntegrationError: The server cannot be reached, refuses the token,
                 answers an error, or answers something that is not JSON.
         """
+        return self._request("GET", path, query, None)
+
+    def post_form(self, path: str, form: Mapping[str, Any]) -> Any:
+        """
+        Send a form, as an OAuth token endpoint takes one.
+
+        Args:
+            path: Path on the platform's server, starting with ``/``.
+            form: The fields, sent ``application/x-www-form-urlencoded``.
+
+        Returns:
+            The decoded JSON.
+
+        Raises:
+            IntegrationError: As :meth:`get`.
+        """
+        return self._request("POST", path, None, form)
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        query: Mapping[str, Any] | None,
+        form: Mapping[str, Any] | None,
+    ) -> Any:
+        """
+        Make one guarded request.
+
+        Args:
+            method: ``GET`` or ``POST``.
+            path: Path on the platform's server.
+            query: Query parameters.
+            form: Form fields of a POST.
+
+        Returns:
+            The decoded JSON.
+
+        Raises:
+            IntegrationError: As :meth:`get`.
+        """
         if not path.startswith("/") or path.startswith("//"):
             raise IntegrationError(f"Refusing to request {path!r} from {self.platform}")
         url = f"{self.base_url}{path}"
@@ -145,20 +189,19 @@ class RemoteClient:
                     details="A server on this machine's own network is only contacted when it "
                     "is listed: noust config set notifications.allow_private_hosts HOST",
                 ) from None
-        request = urllib.request.Request(
-            url,
-            method="GET",
-            headers={
-                "Accept": "application/json",
-                "User-Agent": f"noust/{__version__}",
-                self._header[0]: self._header[1],
-            },
-        )
+        headers = {"Accept": "application/json", "User-Agent": f"noust/{__version__}"}
+        if self._header is not None:
+            headers[self._header[0]] = self._header[1]
+        body = None
+        if form is not None:
+            body = urlencode(form).encode()
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+        request = urllib.request.Request(url, data=body, method=method, headers=headers)
         try:
             with self._opener(request, timeout=self.timeout) as response:
                 raw = response.read(MAX_RESPONSE_BYTES + 1)
         except HTTPError as exc:
-            raise self._refusal(path, exc) from None
+            raise self._refusal(method, path, exc) from None
         except (URLError, TimeoutError, OSError) as exc:
             reason = getattr(exc, "reason", None) or exc
             raise IntegrationError(
@@ -176,11 +219,12 @@ class RemoteClient:
                 details=f"Is {self.base_url} really a {self.platform} server's address?",
             ) from None
 
-    def _refusal(self, path: str, exc: HTTPError) -> IntegrationError:
+    def _refusal(self, method: str, path: str, exc: HTTPError) -> IntegrationError:
         """
         Turn an error status into the error Noust raises.
 
         Args:
+            method: The method used.
             path: The path asked.
             exc: urllib's error.
 
@@ -194,11 +238,14 @@ class RemoteClient:
             "(and, to bring variables over, to sensitive values).",
             404: f"{self.platform} has no such resource; this may be an older or newer version.",
         }
+        hints.update(self._hints)
         if 300 <= exc.code < 400:
             hint = f"The server redirected the request ({exc.reason}). Use its final https address."
         else:
             hint = hints.get(exc.code, "Retry in a moment.")
-        return IntegrationError(f"{self.platform} refused GET {path} ({exc.code})", details=hint)
+        return IntegrationError(
+            f"{self.platform} refused {method} {path} ({exc.code})", details=hint
+        )
 
 
 def read_token(value: str | None, *, source: str) -> str:

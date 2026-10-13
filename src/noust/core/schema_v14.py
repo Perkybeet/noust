@@ -296,6 +296,36 @@ CREATE TABLE IF NOT EXISTS app_compose (
     updated_at TEXT NOT NULL
 );
 """
+SOURCES_SQL += """
+-- gitlab_connections: the GitLab accounts Noust lists projects and clones private ones with, one
+-- per GitLab user and host (noust.core.gitlab_store is its only reader and writer). The
+-- credentials are never a column: they are the secret named by secret_name. kind says how the
+-- connection signs in (a pasted access token, or the tokens an OAuth sign-in handed back).
+-- last_status is ok or failed after the last time GitLab was asked who it is.
+CREATE TABLE IF NOT EXISTS gitlab_connections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    host TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('token', 'oauth')),
+    username TEXT,
+    secret_name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL,
+    last_checked_at TEXT,
+    last_status TEXT,
+    last_error TEXT
+);
+-- gitlab_oauth_apps: the application an operator registered in GitLab so that people can connect
+-- without pasting a token. One per host; the client secret is the secret named by secret_name.
+CREATE TABLE IF NOT EXISTS gitlab_oauth_apps (
+    host TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL,
+    secret_name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT
+);
+"""
 SOURCES_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the databases lane: database exposure and the choice of engine.

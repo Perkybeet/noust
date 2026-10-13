@@ -71,6 +71,7 @@ COMMAND_MODULES: dict[str, str] = {
     "environment": "noust.cli.commands.environment",
     "fleet": "noust.cli.commands.fleet",
     "github": "noust.cli.commands.github",
+    "gitlab": "noust.cli.commands.gitlab",
     "health": "noust.cli.commands.health",
     "import": "noust.cli.commands.importer",
     "incident": "noust.cli.commands.incident",

@@ -4632,58 +4632,6 @@
         "title": "BootOut",
         "type": "object"
       },
-      "BranchListOut": {
-        "description": "A repository's branches.",
-        "properties": {
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/BranchOut"
-            },
-            "title": "Items",
-            "type": "array"
-          },
-          "total": {
-            "title": "Total",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "items",
-          "total"
-        ],
-        "title": "BranchListOut",
-        "type": "object"
-      },
-      "BranchOut": {
-        "description": "A branch of a repository, with its head commit.",
-        "properties": {
-          "commit": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Commit"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "protected": {
-            "default": false,
-            "title": "Protected",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "name"
-        ],
-        "title": "BranchOut",
-        "type": "object"
-      },
       "BranchResponse": {
         "description": "The branch an application deploys from now.\n\nAttributes:\n    domain: The application's domain.\n    branch: The pinned branch, or None when any push deploys.\n    pinned: Whether a branch is pinned.\n    commit: The branch's head on the remote when it was pinned.\n    previous: The branch it had before.",
         "properties": {
@@ -6486,6 +6434,31 @@
         "title": "ConfigUpdateResponse",
         "type": "object"
       },
+      "ConnectRequest": {
+        "description": "A connection that signs in with an access token.",
+        "properties": {
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "token": {
+            "description": "A personal, group or project access token (read_api, read_repository)",
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "host",
+          "token"
+        ],
+        "title": "ConnectRequest",
+        "type": "object"
+      },
       "ConnectResponse": {
         "description": "Everything the Connect tab shows.\n\nAttributes:\n    password_known: Noust keeps the account's password, so \"Show\" works\n        (sudo mode); otherwise the console offers a rotation.\n    apps: The applications' variables that carry the database.",
         "properties": {
@@ -6554,6 +6527,96 @@
           "exposed"
         ],
         "title": "ConnectResponse",
+        "type": "object"
+      },
+      "ConnectionOut": {
+        "description": "A GitLab connection.",
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "kind": {
+            "description": "token or oauth",
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_checked_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Checked At"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Status"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "updated_at": {
+            "title": "Updated At",
+            "type": "string"
+          },
+          "username": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Username"
+          }
+        },
+        "required": [
+          "name",
+          "host",
+          "kind",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ConnectionOut",
         "type": "object"
       },
       "ConnectionResponse": {
@@ -13843,6 +13906,44 @@
         "title": "GitHubStatusOut",
         "type": "object"
       },
+      "GitLabStatusOut": {
+        "description": "What this server has of GitLab.",
+        "properties": {
+          "connections": {
+            "items": {
+              "$ref": "#/components/schemas/ConnectionOut"
+            },
+            "title": "Connections",
+            "type": "array"
+          },
+          "oauth_apps": {
+            "items": {
+              "$ref": "#/components/schemas/OAuthApplicationOut"
+            },
+            "title": "Oauth Apps",
+            "type": "array"
+          },
+          "redirect_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where GitLab sends the browser back; null when the console has no public URL",
+            "title": "Redirect Uri"
+          }
+        },
+        "required": [
+          "connections",
+          "oauth_apps",
+          "redirect_uri"
+        ],
+        "title": "GitLabStatusOut",
+        "type": "object"
+      },
       "GrantPrivilegesRequest": {
         "description": "Request to grant or revoke privileges.",
         "properties": {
@@ -13889,6 +13990,58 @@
           "engine"
         ],
         "title": "GrantPrivilegesRequest",
+        "type": "object"
+      },
+      "GroupListOut": {
+        "description": "Groups, by path.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GroupOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "GroupListOut",
+        "type": "object"
+      },
+      "GroupOut": {
+        "description": "A group the connection's user belongs to.",
+        "properties": {
+          "full_path": {
+            "title": "Full Path",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "id",
+          "full_path"
+        ],
+        "title": "GroupOut",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -18858,6 +19011,123 @@
         "title": "NotificationTestResult",
         "type": "object"
       },
+      "OAuthApplicationOut": {
+        "description": "An OAuth application registered in GitLab, without its secret.",
+        "properties": {
+          "client_id": {
+            "title": "Client Id",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          }
+        },
+        "required": [
+          "host",
+          "client_id",
+          "created_at"
+        ],
+        "title": "OAuthApplicationOut",
+        "type": "object"
+      },
+      "OAuthApplicationRequest": {
+        "description": "The OAuth application registered in GitLab.",
+        "properties": {
+          "client_id": {
+            "title": "Client Id",
+            "type": "string"
+          },
+          "client_secret": {
+            "title": "Client Secret",
+            "type": "string"
+          },
+          "host": {
+            "title": "Host",
+            "type": "string"
+          }
+        },
+        "required": [
+          "host",
+          "client_id",
+          "client_secret"
+        ],
+        "title": "OAuthApplicationRequest",
+        "type": "object"
+      },
+      "OAuthCallbackRequest": {
+        "description": "What GitLab's redirect carried.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "state"
+        ],
+        "title": "OAuthCallbackRequest",
+        "type": "object"
+      },
+      "OAuthStartOut": {
+        "description": "Where to send the browser.",
+        "properties": {
+          "authorize_url": {
+            "title": "Authorize Url",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorize_url",
+          "state"
+        ],
+        "title": "OAuthStartOut",
+        "type": "object"
+      },
+      "OAuthStartRequest": {
+        "description": "Begin signing in with GitLab.",
+        "properties": {
+          "host": {
+            "title": "Host",
+            "type": "string"
+          },
+          "name": {
+            "description": "What to call the connection",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "host"
+        ],
+        "title": "OAuthStartRequest",
+        "type": "object"
+      },
       "ObservationEntry": {
         "description": "One thing the monitor wrote down.\n\nAttributes:\n    id: Row identifier, absent for an observation not yet stored.\n    observed_at: When it was noticed, ISO 8601.\n    pid: Process identifier at the time.\n    process_name: Executable name.\n    user: Account the process ran as.\n    cpu_percent: CPU usage percentage.\n    memory_percent: Resident memory percentage.\n    command: Command line, truncated.\n    signal: Which check produced it.\n    severity: notice or warning.\n    detail: Human-readable explanation.\n    acknowledged: Whether an operator dismissed it.",
         "properties": {
@@ -20829,12 +21099,34 @@
         "title": "ProcessesResponse",
         "type": "object"
       },
+      "ProjectListOut": {
+        "description": "Projects, most recently active first.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/noust__web__api__gitlab__ProjectOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "ProjectListOut",
+        "type": "object"
+      },
       "ProjectListResponse": {
         "description": "The projects a principal sees.",
         "properties": {
           "projects": {
             "items": {
-              "$ref": "#/components/schemas/ProjectOut"
+              "$ref": "#/components/schemas/noust__web__api__teams__ProjectOut"
             },
             "title": "Projects",
             "type": "array"
@@ -20849,58 +21141,6 @@
           "total"
         ],
         "title": "ProjectListResponse",
-        "type": "object"
-      },
-      "ProjectOut": {
-        "description": "A project.\n\nAttributes:\n    id: Store id.\n    team: The team's slug.\n    slug: Unique inside the team.\n    name: Display name.\n    environments: Its environments' slugs.\n    created_at: When it was created, UNIX seconds.\n    created_by: Who created it.",
-        "properties": {
-          "created_at": {
-            "title": "Created At",
-            "type": "number"
-          },
-          "created_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Created By"
-          },
-          "environments": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Environments",
-            "type": "array"
-          },
-          "id": {
-            "title": "Id",
-            "type": "integer"
-          },
-          "name": {
-            "title": "Name",
-            "type": "string"
-          },
-          "slug": {
-            "title": "Slug",
-            "type": "string"
-          },
-          "team": {
-            "title": "Team",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "team",
-          "slug",
-          "name",
-          "created_at"
-        ],
-        "title": "ProjectOut",
         "type": "object"
       },
       "ProofLoginOut": {
@@ -24676,31 +24916,6 @@
           "token"
         ],
         "title": "RemoteServer",
-        "type": "object"
-      },
-      "RemovalOut": {
-        "description": "What removing the integration did.\n\nAttributes:\n    removed: Whether there was an App to forget.\n    settings_url: The App's page on GitHub, where it is uninstalled and\n        deleted; Noust cannot do that itself.",
-        "properties": {
-          "removed": {
-            "title": "Removed",
-            "type": "boolean"
-          },
-          "settings_url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Settings Url"
-          }
-        },
-        "required": [
-          "removed"
-        ],
-        "title": "RemovalOut",
         "type": "object"
       },
       "RemoveKeyRequest": {
@@ -36266,6 +36481,207 @@
         "title": "RollbackRequest",
         "type": "object"
       },
+      "noust__web__api__gitlab__BranchListOut": {
+        "description": "A project's branches.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/noust__web__api__gitlab__BranchOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "BranchListOut",
+        "type": "object"
+      },
+      "noust__web__api__gitlab__BranchOut": {
+        "description": "A branch of a project.",
+        "properties": {
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "default": {
+            "title": "Default",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "default"
+        ],
+        "title": "BranchOut",
+        "type": "object"
+      },
+      "noust__web__api__gitlab__ProjectOut": {
+        "description": "A project the connection's user can read.",
+        "properties": {
+          "clone_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clone Url"
+          },
+          "default_branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Branch"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "web_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Web Url"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "ProjectOut",
+        "type": "object"
+      },
+      "noust__web__api__gitlab__RemovalOut": {
+        "description": "Whether there was something to remove.",
+        "properties": {
+          "removed": {
+            "title": "Removed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "removed"
+        ],
+        "title": "RemovalOut",
+        "type": "object"
+      },
+      "noust__web__api__integrations__BranchListOut": {
+        "description": "A repository's branches.",
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/noust__web__api__integrations__BranchOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "BranchListOut",
+        "type": "object"
+      },
+      "noust__web__api__integrations__BranchOut": {
+        "description": "A branch of a repository, with its head commit.",
+        "properties": {
+          "commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Commit"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "protected": {
+            "default": false,
+            "title": "Protected",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "BranchOut",
+        "type": "object"
+      },
+      "noust__web__api__integrations__RemovalOut": {
+        "description": "What removing the integration did.\n\nAttributes:\n    removed: Whether there was an App to forget.\n    settings_url: The App's page on GitHub, where it is uninstalled and\n        deleted; Noust cannot do that itself.",
+        "properties": {
+          "removed": {
+            "title": "Removed",
+            "type": "boolean"
+          },
+          "settings_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settings Url"
+          }
+        },
+        "required": [
+          "removed"
+        ],
+        "title": "RemovalOut",
+        "type": "object"
+      },
       "noust__web__api__jobs__RollbackRequest": {
         "description": "Request to roll an application back.",
         "properties": {
@@ -36678,6 +37094,58 @@
           "message"
         ],
         "title": "ActionResponse",
+        "type": "object"
+      },
+      "noust__web__api__teams__ProjectOut": {
+        "description": "A project.\n\nAttributes:\n    id: Store id.\n    team: The team's slug.\n    slug: Unique inside the team.\n    name: Display name.\n    environments: Its environments' slugs.\n    created_at: When it was created, UNIX seconds.\n    created_by: Who created it.",
+        "properties": {
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "created_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created By"
+          },
+          "environments": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Environments",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "slug": {
+            "title": "Slug",
+            "type": "string"
+          },
+          "team": {
+            "title": "Team",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "team",
+          "slug",
+          "name",
+          "created_at"
+        ],
+        "title": "ProjectOut",
         "type": "object"
       },
       "noust__web__api__volume_backups__PolicyDestination": {
@@ -54445,7 +54913,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RemovalOut"
+                  "$ref": "#/components/schemas/noust__web__api__integrations__RemovalOut"
                 }
               }
             },
@@ -54732,7 +55200,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BranchListOut"
+                  "$ref": "#/components/schemas/noust__web__api__integrations__BranchListOut"
                 }
               }
             },
@@ -54754,6 +55222,512 @@
           "Integrations"
         ],
         "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/integrations/gitlab": {
+      "get": {
+        "description": "List the GitLab connections and OAuth applications.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The connections, the applications and the redirect URI an application must allow.",
+        "operationId": "gitlab_status_api_integrations_gitlab_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitLabStatusOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Gitlab Status",
+        "tags": [
+          "Integrations"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/integrations/gitlab/connections": {
+      "post": {
+        "description": "Add a connection that signs in with an access token.\n\nGitLab is asked who the token belongs to before it is kept; the token is never returned.\n\nArgs:\n    body: The name, the host and the token.\n    session: An elevated session.\n\nReturns:\n    The connection.\n\nRaises:\n    ValidationError: The name or host is not valid, or the name is taken.\n    IntegrationError: GitLab could not be reached or refused the token.",
+        "operationId": "gitlab_connect_api_integrations_gitlab_connections_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConnectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Gitlab Connect",
+        "tags": [
+          "Integrations"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/integrations/gitlab/connections/{name}": {
+      "delete": {
+        "description": "Forget a connection and its credentials.\n\nArgs:\n    name: The connection.\n    session: An elevated session.\n\nReturns:\n    Whether there was one.",
+        "operationId": "gitlab_remove_api_integrations_gitlab_connections__name__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__gitlab__RemovalOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Gitlab Remove",
+        "tags": [
+          "Integrations"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/integrations/gitlab/connections/{name}/groups": {
+      "get": {
+        "description": "List the groups a connection's user belongs to.\n\nArgs:\n    name: The connection.\n    session: The authenticated session.\n\nReturns:\n    The groups, by path.",
+        "operationId": "gitlab_groups_api_integrations_gitlab_connections__name__groups_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GroupListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Gitlab Groups",
+        "tags": [
+          "Integrations"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/integrations/gitlab/connections/{name}/projects": {
+      "get": {
+        "description": "List the projects a connection's user can read.\n\nArgs:\n    name: The connection.\n    session: The authenticated session.\n    group: A group's full path: only its projects and its subgroups'.\n    search: Part of a project's name.\n\nReturns:\n    The projects, most recently active first.",
+        "operationId": "gitlab_projects_api_integrations_gitlab_connections__name__projects_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "group",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Group"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Search"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Gitlab Projects",
+        "tags": [
+          "Integrations"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/integrations/gitlab/connections/{name}/projects/{project}/branches": {
+      "get": {
+        "description": "List a project's branches.\n\nArgs:\n    name: The connection.\n    project: The project's numeric id.\n    session: The authenticated session.\n\nReturns:\n    The branches.\n\nRaises:\n    HTTPException: 400 when ``project`` is not a number.",
+        "operationId": "gitlab_branches_api_integrations_gitlab_connections__name__projects__project__branches_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "project",
+            "required": true,
+            "schema": {
+              "title": "Project",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__gitlab__BranchListOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Gitlab Branches",
+        "tags": [
+          "Integrations"
+        ],
+        "x-noust-permission": "apps.read"
+      }
+    },
+    "/api/integrations/gitlab/connections/{name}/test": {
+      "post": {
+        "description": "Ask GitLab who a connection is, and record whether it still works.\n\nArgs:\n    name: The connection.\n    session: The authenticated session.\n\nReturns:\n    The connection, with its new status.",
+        "operationId": "gitlab_test_api_integrations_gitlab_connections__name__test_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Gitlab Test",
+        "tags": [
+          "Integrations"
+        ],
+        "x-noust-permission": "apps.deploy"
+      }
+    },
+    "/api/integrations/gitlab/oauth-apps": {
+      "put": {
+        "description": "Record the OAuth application registered in GitLab for a host.\n\nArgs:\n    body: The host, the application id and its secret.\n    session: An elevated session.\n\nReturns:\n    The application, without its secret.",
+        "operationId": "gitlab_oauth_app_api_integrations_gitlab_oauth_apps_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthApplicationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthApplicationOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Gitlab Oauth App",
+        "tags": [
+          "Integrations"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/integrations/gitlab/oauth-apps/{host}": {
+      "delete": {
+        "description": "Forget the OAuth application of a host.\n\nArgs:\n    host: The GitLab host.\n    session: An elevated session.\n\nReturns:\n    Whether there was one.",
+        "operationId": "gitlab_oauth_app_remove_api_integrations_gitlab_oauth_apps__host__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "host",
+            "required": true,
+            "schema": {
+              "title": "Host",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/noust__web__api__gitlab__RemovalOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Gitlab Oauth App Remove",
+        "tags": [
+          "Integrations"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/integrations/gitlab/oauth/authorize": {
+      "post": {
+        "description": "Begin signing in to GitLab.\n\nArgs:\n    body: What to call the connection, and the host.\n    session: An elevated session.\n\nReturns:\n    The address to send the browser to, and the state GitLab sends back.\n\nRaises:\n    ValidationError: The host has no OAuth application, the name is taken, or the console\n        has no public address.",
+        "operationId": "gitlab_oauth_start_api_integrations_gitlab_oauth_authorize_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthStartRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthStartOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Gitlab Oauth Start",
+        "tags": [
+          "Integrations"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/integrations/gitlab/oauth/callback": {
+      "post": {
+        "description": "Finish signing in: keep the tokens GitLab hands back as a connection.\n\nArgs:\n    body: The ``code`` and ``state`` of GitLab's redirect.\n    session: An elevated session.\n\nReturns:\n    The connection.\n\nRaises:\n    ValidationError: The state was not issued here, expired or was used.\n    IntegrationError: GitLab refused the code.",
+        "operationId": "gitlab_oauth_callback_api_integrations_gitlab_oauth_callback_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthCallbackRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConnectionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Gitlab Oauth Callback",
+        "tags": [
+          "Integrations"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
       }
     },
     "/api/jobs": {
@@ -61830,7 +62804,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProjectOut"
+                  "$ref": "#/components/schemas/noust__web__api__teams__ProjectOut"
                 }
               }
             },
@@ -61945,7 +62919,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProjectOut"
+                  "$ref": "#/components/schemas/noust__web__api__teams__ProjectOut"
                 }
               }
             },
