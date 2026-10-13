@@ -93,7 +93,7 @@ export function GrantsSection() {
 
   return (
     <Section title={t("access.grants.title")} description={t("access.grants.description")}>
-      <SettingsPrimaryAction>{grant}</SettingsPrimaryAction>
+      {query.data !== undefined && query.data.bindings.length > 0 ? <SettingsPrimaryAction>{grant}</SettingsPrimaryAction> : null}
       <QueryState
         query={query}
         label={t("access.loadingLabel")}

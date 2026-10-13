@@ -70,7 +70,12 @@ function columnsFor(t: T): Column<ApiOperation>[] {
         </span>
       ),
     },
-    { id: "summary", header: t("apiReference.table.column.summary"), hideBelow: "md", cell: (operation) => <span className="text-13 text-fg-muted">{operation.summary}</span> },
+    { id: "summary", header: t("apiReference.table.column.summary"), hideBelow: "md", cell: (operation) => (
+        <span translate="no" className="text-13 text-fg-muted">
+          {operation.summary}
+        </span>
+      ),
+    },
     {
       id: "permission",
       header: t("apiReference.table.column.permission"),

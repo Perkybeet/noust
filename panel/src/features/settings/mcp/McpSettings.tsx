@@ -47,7 +47,9 @@ function columnsFor(t: T): Column<McpTool>[] {
       cell: (tool) => (
         <span className="flex min-w-0 flex-col items-start gap-0.5">
           <Mono tone="default">{tool.name}</Mono>
-          <span className="text-12 text-fg-muted">{tool.title}</span>
+          <span translate="no" className="text-12 text-fg-muted">
+            {tool.title}
+          </span>
         </span>
       ),
     },

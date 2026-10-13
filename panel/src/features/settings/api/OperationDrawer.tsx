@@ -38,14 +38,22 @@ function fieldColumns(t: T): Column<ApiField>[] {
     { id: "field", header: t("apiReference.drawer.bodyColumn.field"), card: "title", cell: (field) => <Mono tone="default">{field.name}</Mono> },
     { id: "type", header: t("apiReference.drawer.bodyColumn.type"), cell: (field) => <Mono tone="faint">{field.type}</Mono> },
     { id: "required", header: t("apiReference.drawer.bodyColumn.required"), cell: (field) => (field.required ? t("apiReference.drawer.yes") : t("apiReference.drawer.no")) },
-    { id: "description", header: t("apiReference.drawer.bodyColumn.description"), hideBelow: "md", cell: (field) => <span className="text-13 text-fg-muted">{field.description}</span> },
+    { id: "description", header: t("apiReference.drawer.bodyColumn.description"), hideBelow: "md", cell: (field) => (
+        <span translate="no" className="text-13 text-fg-muted">
+          {field.description}
+        </span>
+      ) },
   ];
 }
 
 function responseColumns(t: T): Column<ApiResponseInfo>[] {
   return [
     { id: "status", header: t("apiReference.drawer.responseColumn.status"), card: "title", width: "w-24", cell: (response) => <Mono tone="default">{response.status}</Mono> },
-    { id: "description", header: t("apiReference.drawer.responseColumn.description"), cell: (response) => <span className="text-13 text-fg-muted">{response.description}</span> },
+    { id: "description", header: t("apiReference.drawer.responseColumn.description"), cell: (response) => (
+        <span translate="no" className="text-13 text-fg-muted">
+          {response.description}
+        </span>
+      ) },
   ];
 }
 
@@ -128,10 +136,14 @@ export function OperationDrawer({ operation, onClose }: OperationDrawerProps) {
       }}
       size="lg"
       title={<Mono tone="default">{route}</Mono>}
-      description={operation.summary === "" ? t("apiReference.drawer.description") : operation.summary}
+      description={operation.summary === "" ? t("apiReference.drawer.description") : <span translate="no">{operation.summary}</span>}
     >
       <div className="flex flex-col gap-6">
-        {operation.description !== "" ? <p className="max-w-measure text-13 whitespace-pre-line text-fg-muted">{operation.description}</p> : null}
+        {operation.description !== "" ? (
+          <p translate="no" className="max-w-measure text-13 whitespace-pre-line text-fg-muted">
+            {operation.description}
+          </p>
+        ) : null}
         <Subsection title={t("apiReference.drawer.needs")}>
           <ul className="flex flex-col gap-2 text-13 text-fg">
             <li className="flex flex-wrap items-center gap-2">

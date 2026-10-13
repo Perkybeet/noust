@@ -150,7 +150,7 @@ export function RoleDrawer({ role, catalog, onClose }: RoleDrawerProps) {
                       toggle(permission, on);
                     }}
                     label={<Mono tone="default">{permission}</Mono>}
-                    description={catalog.permissions[permission] ?? ""}
+                    description={<span translate="no">{catalog.permissions[permission] ?? ""}</span>}
                   />
                 ))}
               </div>
