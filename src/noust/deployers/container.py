@@ -569,7 +569,8 @@ class ContainerDeployer(DockerComposeDeployer):
         Build or pull the image of this release, and write its compose file.
 
         Args:
-            no_cache: Ignored; BuildKit decides what its cache still holds.
+            no_cache: Build without BuildKit's layer cache and pull the base
+                images again. An image from a registry is always pulled.
 
         Raises:
             DeploymentError: A path leaves the repository, there is no
@@ -588,7 +589,7 @@ class ContainerDeployer(DockerComposeDeployer):
             self.settings = replace(self.settings, **changes)
         else:
             self._infer_port()
-            images.build(self.settings, tag)
+            images.build(self.settings, tag, no_cache=no_cache)
         self._write_compose(release)
 
     def _start_and_verify(self) -> None:

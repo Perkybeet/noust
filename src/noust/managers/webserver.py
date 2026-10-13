@@ -40,7 +40,7 @@ import re
 import sqlite3
 import tempfile
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 from pathlib import Path, PurePosixPath
 from string import Template
@@ -319,6 +319,9 @@ class WebServerBackend:
             backend has no module system.
         module_disable_program: Counterpart of ``module_enable_program``.
         required_modules: Modules that must be enabled before a site works.
+        template_modules: Modules a template needs besides those, by template name:
+            Apache's PHP-FPM site proxies to the pool's socket with ``proxy_fcgi``, which
+            a reverse-proxy site does not need.
         server_name_pattern: Matches a directive naming what a virtual host
             answers on; its first group is the space-separated names.
         upstreams_dir: Directory of the per-application upstream files of
@@ -352,6 +355,7 @@ class WebServerBackend:
     module_enable_program: str | None = None
     module_disable_program: str | None = None
     required_modules: tuple[str, ...] = ()
+    template_modules: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     webserver_record: str = WebServer.NGINX.value
     server_name_pattern: re.Pattern[str] = re.compile(r"^\s*server_name\s+([^;]*);", re.MULTILINE)
     upstreams_dir: Path | None = None
@@ -432,6 +436,7 @@ APACHE_BACKEND = WebServerBackend(
     module_enable_program="a2enmod",
     module_disable_program="a2dismod",
     required_modules=("proxy", "proxy_http", "proxy_wstunnel", "rewrite", "headers"),
+    template_modules={"fastcgi": ("proxy_fcgi",)},
     webserver_record=WebServer.APACHE.value,
     server_name_pattern=re.compile(r"^\s*Server(?:Name|Alias)\s+(.+?)\s*$", re.MULTILINE),
     main_config="apache2.conf",
@@ -1150,6 +1155,8 @@ class WebServerManager(BaseManager):
         # time, before the site that names it: a site never refers to a stale one.
         self._sync_access(domain.strip().lower(), ctx)
         content = self.render_config(domain, template, ctx)
+        for module in self.backend.template_modules.get(template, ()):
+            self.enable_module(module)
 
         try:
             # The seam writes through a sibling and renames, so a reload racing

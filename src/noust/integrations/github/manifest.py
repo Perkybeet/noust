@@ -27,6 +27,7 @@ from typing import Any
 from urllib.parse import urlencode, urlsplit
 
 from noust.core.exceptions import IntegrationError, ValidationError
+from noust.core.github_host import web_url
 from noust.core.secrets import SecretStore
 from noust.core.store import GitHubAppRecord, get_store
 from noust.integrations.github.app import (
@@ -36,7 +37,7 @@ from noust.integrations.github.app import (
     forget_tokens,
     write_meta,
 )
-from noust.integrations.github.client import WEB_URL, get_client, json_object
+from noust.integrations.github.client import get_client, json_object
 
 #: GitHub's limit on an App's name.
 MAX_APP_NAME = 34
@@ -253,9 +254,9 @@ def start(origin: str, *, hooks_url: str | None, organization: str | None = None
         )
     state = states.issue(hooks_url)
     base = (
-        f"{WEB_URL}/organizations/{organization}/settings/apps/new"
+        f"{web_url()}/organizations/{organization}/settings/apps/new"
         if organization
-        else f"{WEB_URL}/settings/apps/new"
+        else f"{web_url()}/settings/apps/new"
     )
     return ManifestStart(
         manifest=build_manifest(checked, hooks_url=hooks_url),

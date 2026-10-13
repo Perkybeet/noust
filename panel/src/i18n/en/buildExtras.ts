@@ -1,0 +1,35 @@
+/**
+ * Two cards under an application's build commands: the cache its builds share, and the process
+ * types its repository declares. What the build prints is shown verbatim and is not here.
+ */
+export const buildExtras = {
+  cache: {
+    title: "Build cache",
+    description: "What package managers, Go modules and Cargo download is kept between deployments, outside every release, so a build fetches only what changed.",
+    loading: "Loading the build cache",
+    readFailed: "Could not read the build cache",
+    size: "Size",
+    path: "Kept in",
+    none: "Empty",
+    empty: "Empty the cache",
+    emptyTitle: "Empty the build cache of {domain}?",
+    emptyDescription: "The next build downloads everything again, so it takes longer. Nothing that is running is touched.",
+    emptyAction: "Empty the cache",
+    emptied: "The build cache of {domain} was emptied",
+    nothingFreed: "The build cache of {domain} was already empty",
+    rebuild: "Rebuild without cache",
+    rebuildDescription: "Builds the version that is live again from nothing: the cache is emptied, dependencies are installed again and images are built without their layers.",
+    fromTerminal: "The same, from a terminal",
+  },
+  processes: {
+    title: "Process types",
+    description: "What the repository says it runs, in processes: of noust.yaml or a Procfile.",
+    loading: "Reading the process types",
+    readFailed: "Could not read the process types",
+    used: "Used by deployments",
+    declared: "Declared",
+    problem: "A Procfile that cannot be used",
+    source: "Declared in {source}",
+    fromTerminal: "The same, from a terminal",
+  },
+} as const;

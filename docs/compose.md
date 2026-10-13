@@ -153,6 +153,31 @@ hooks:
 `noust app hooks show proggest.es` says which hooks the next deployment runs and where they
 come from, and the deployment's page in the console lists what each one printed.
 
+## File, profiles and extra arguments
+
+A stack is created with a compose file and profiles (`noust create --compose-file
+--compose-profile`) and keeps them in its unit. They, and a few arguments of `docker compose build`
+and `up`, can be changed afterwards:
+
+```bash
+noust app compose show shop.example.com
+noust app compose set shop.example.com --file deploy/compose.prod.yml --profile web --profile jobs
+noust app compose set shop.example.com --build-args '--pull --build-arg VERSION=1.2' --up-args '--wait'
+noust app compose set shop.example.com --service web --service worker   # build and start only these
+noust app compose reset shop.example.com
+```
+
+The same is `GET|PUT|DELETE /api/apps/{domain}/compose` (changing them needs sudo mode). A new
+file must be in the checkout (it is refused otherwise, with nothing changed) and, with new
+profiles, is written to the unit too, so a start at boot brings up the same stack. The arguments
+are a **closed list**, never a shell line: for `build`, `--pull`, `--no-cache`, `--quiet`,
+`--with-dependencies`, `--build-arg KEY=VALUE`, `--progress auto|plain|tty|quiet`; for `up`,
+`--wait`, `--wait-timeout N`, `--timeout N`, `--force-recreate`, `--no-deps`,
+`--renew-anon-volumes`, `--always-recreate-deps`, `--scale SERVICE=N` (at most 50) and `--pull
+always|missing|never`. `--build` and `--no-build` are not on it: Noust decides when to build.
+An update used to ignore the profiles in the unit, so a service under a profile was left out of
+every rebuild; it reads them now.
+
 ## Operator hooks
 
 The server can declare hooks of its own for an application, without a commit: for a repository

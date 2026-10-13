@@ -50,6 +50,11 @@ IGNORED_TAG = "ignored_tag"
 IGNORED_EVENT = "ignored_event"
 #: A pull request event previews did not act on.
 IGNORED_PULL_REQUEST = "ignored_pull_request"
+#: A push or a pull request the application declined because its commits say
+#: ``[skip ci]`` or ``[skip cd]``. ``detail`` says which.
+IGNORED_SKIP = "ignored_skip"
+#: A push that changed no file under the application's watch paths.
+IGNORED_PATHS = "ignored_paths"
 #: A delivery id seen a moment ago: the forge's own retry.
 DUPLICATE = "duplicate"
 #: A delivery whose signature did not verify: a wrong secret at the forge, or a
@@ -70,6 +75,8 @@ OUTCOMES = (
     IGNORED_TAG,
     IGNORED_EVENT,
     IGNORED_PULL_REQUEST,
+    IGNORED_SKIP,
+    IGNORED_PATHS,
     DUPLICATE,
     BAD_SIGNATURE,
     LOCKED,

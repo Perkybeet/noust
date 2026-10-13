@@ -199,6 +199,7 @@ def update_app(
     verbose: bool = False,
     rollback_of: int | None = None,
     schema_changed_ok: bool = False,
+    no_cache: bool = False,
 ) -> AppUpdate:
     """
     Pull the latest code into a deployed application, rebuild it and restart it.
@@ -246,6 +247,9 @@ def update_app(
         schema_changed_ok: The operator confirmed going back with ``commit``
             past deployments that changed the database's schema (see
             :func:`require_schema_change_confirmed`).
+        no_cache: Build from scratch this once: no package manager cache, no
+            dependencies taken from the release that serves, no image layer
+            cache.
 
     Returns:
         What was done.
@@ -324,6 +328,7 @@ def update_app(
                 verbose=verbose,
                 gated=rollback_of is not None,
                 going_back=rollback_of is not None,
+                no_cache=no_cache,
             )
             if branch is not None and not is_rehearsal():
                 _pin_after_update(get_store(), domain, branch)
@@ -354,6 +359,7 @@ def _update_app(
     verbose: bool,
     gated: bool = False,
     going_back: bool = False,
+    no_cache: bool = False,
 ) -> AppUpdate:
     """
     Update an application whose lock the caller holds.
@@ -430,6 +436,7 @@ def _update_app(
             log=log,
             verbose=verbose,
             notice=notice,
+            no_cache=no_cache,
         )
 
     if (commit is not None or tag is not None) and not (app_path / ".git").exists():
@@ -444,6 +451,8 @@ def _update_app(
         )
 
     source_manager = SourceManager(verbose=verbose)
+    # Its fetches follow this application's source options.
+    source_manager.domain = domain
     tag_commit: str | None = None
     if tag is not None:
         # Judged before the backup too: an update that is about to be refused
@@ -548,7 +557,7 @@ def _update_app(
     elif is_compose_backed(app_type):
         stack = app or App(domain=domain, app_type=app_type, app_path=str(app_path))
         result, deployment_id = _rebuild_compose(
-            stack, on_step, verbose, trigger, job_id, previous_commit
+            stack, on_step, verbose, trigger, job_id, previous_commit, no_cache=no_cache
         )
     else:
         deployer = get_deployer(app_type, verbose=verbose)
@@ -562,6 +571,7 @@ def _update_app(
             package_manager=package_manager,
             trigger=trigger,
             job_id=job_id,
+            no_cache=no_cache,
             # Restarted behind the health gate inside the deployer's own
             # recording, so a build that does not answer is a failed row
             # with the probes in its log.
@@ -623,6 +633,7 @@ def _update_release(
     log: Logger,
     verbose: bool,
     notice: Callable[[str], None] | None = None,
+    no_cache: bool = False,
 ) -> AppUpdate:
     """
     Update an application on the release layout.
@@ -645,6 +656,7 @@ def _update_release(
         verbose: Verbosity of the deployer.
         notice: Where to tell the operator the store's branch was corrected;
             ``log.warning`` when None.
+        no_cache: Build from scratch this once.
 
     Returns:
         What was done.
@@ -695,6 +707,7 @@ def _update_release(
         package_manager=package_manager,
         trigger=trigger,
         job_id=job_id,
+        no_cache=no_cache,
     )
 
     releases = ReleaseManager(app_path)
@@ -1341,6 +1354,8 @@ def _rebuild_compose(
     trigger: str,
     job_id: str | None = None,
     previous_commit: str | None = None,
+    *,
+    no_cache: bool = False,
 ) -> tuple[UpdateResult, int | None]:
     """
     Rebuild the images of a Docker Compose project and recreate its containers.
@@ -1353,6 +1368,7 @@ def _rebuild_compose(
         job_id: The background job driving this update, when there is one.
         previous_commit: The commit the tree was on before this update: the
             compose file a failed update checks out again.
+        no_cache: Build the images without the layer cache.
 
     Returns:
         What the deployer did, and the deployment history row it wrote.
@@ -1363,6 +1379,7 @@ def _rebuild_compose(
     deployer.trigger = trigger
     deployer.job_id = job_id
     deployer.previous_commit = previous_commit
+    deployer.no_cache = no_cache
     result = deployer.update(on_step=on_step)
     return result, getattr(deployer, "last_deployment_id", None)
 

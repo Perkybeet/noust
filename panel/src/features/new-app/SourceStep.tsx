@@ -1,7 +1,9 @@
 import { Archive, Container, FolderGit2, FolderOpen, GitBranch, X } from "lucide-react";
+import { useState } from "react";
 import type { ReactNode, SyntheticEvent } from "react";
 
 import type { GitHubStatus } from "../../api/queries/github";
+import type { GitLabStatus } from "../../api/queries/gitlab";
 import { isApiError } from "../../api/client";
 import { CommandHint } from "../../components/page/CommandHint";
 import { JobProgress } from "../../components/page/JobProgress";
@@ -18,7 +20,9 @@ import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import type { PlainKey } from "../../i18n";
 import { GitHubSource } from "./GitHubSource";
+import { GitLabSource } from "./GitLabSource";
 import { Suggestion } from "./Suggestion";
+import { WorkspacesDialog } from "./WorkspacesDialog";
 import { SOURCE_WORDS, sourceKind } from "./wizard";
 import type { SourceErrors, SourceForm, SourceKind } from "./wizard";
 
@@ -144,10 +148,11 @@ function InspectFailure({ failure, source, onManual }: { failure: unknown; sourc
 }
 
 /** Where the application comes from: code (GitHub, or a typed source), a recipe, or an export. */
-export type SourceMode = "github" | "manual" | "image" | "recipe" | "import" | "adopt";
+export type SourceMode = "github" | "gitlab" | "manual" | "image" | "recipe" | "import" | "adopt";
 
 const MODES: readonly { value: SourceMode; label: PlainKey }[] = [
   { value: "github", label: "newApp.modes.github" },
+  { value: "gitlab", label: "gitlab.picker.mode" },
   { value: "manual", label: "newApp.modes.manual" },
   { value: "image", label: "newApp.modes.image" },
   { value: "recipe", label: "newApp.modes.recipe" },
@@ -170,6 +175,8 @@ export interface SourceStepProps {
   onManual: () => void;
   /** This server's GitHub integration; null while unknown or when it could not be read. */
   github: GitHubStatus | null;
+  /** This server's GitLab connections; null while unknown or when they could not be read. */
+  gitlab: GitLabStatus | null;
   /** Where the source comes from: a repository the GitHub App reaches, or typed. */
   mode: SourceMode;
   onModeChange: (mode: SourceMode) => void;
@@ -198,6 +205,7 @@ export function SourceStep({
   failure,
   onManual,
   github,
+  gitlab,
   mode,
   onModeChange,
   image,
@@ -206,6 +214,7 @@ export function SourceStep({
   adopter,
 }: SourceStepProps) {
   const t = useT();
+  const [workspaces, setWorkspaces] = useState(false);
   const kind = sourceKind(form.source);
   const local = kind === "local";
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
@@ -215,7 +224,10 @@ export function SourceStep({
   const busy = inspecting !== null;
   const shown = form.source.trim();
   // "From GitHub" is offered only where this server has a GitHub App to read repositories with.
-  const modes: SegmentedOption<SourceMode>[] = MODES.filter((option) => option.value !== "github" || github?.configured === true).map((option) => ({
+  // "From GitLab" likewise, where at least one connection exists.
+  const modes: SegmentedOption<SourceMode>[] = MODES.filter(
+    (option) => (option.value !== "github" || github?.configured === true) && (option.value !== "gitlab" || (gitlab?.connections.length ?? 0) > 0),
+  ).map((option) => ({
     value: option.value,
     label: t(option.label),
   }));
@@ -251,6 +263,8 @@ export function SourceStep({
         <form id={SOURCE_FORM} onSubmit={submit} noValidate className="flex flex-col gap-5">
           {mode === "github" && github?.configured === true ? (
             <GitHubSource status={github} form={form} errors={errors} onChange={onChange} disabled={busy} />
+          ) : mode === "gitlab" && gitlab !== null ? (
+            <GitLabSource status={gitlab} form={form} errors={errors} onChange={onChange} disabled={busy} />
           ) : (
             <>
               <Field
@@ -304,6 +318,24 @@ export function SourceStep({
             </>
           )}
 
+          {mode === "manual" || mode === "gitlab" ? (
+            <div className="flex flex-col gap-1">
+              <div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setWorkspaces(true);
+                  }}
+                  disabled={busy}
+                >
+                  {t("workspaces.open")}
+                </Button>
+              </div>
+              <p className="max-w-measure text-12 text-pretty text-fg-muted">{t("workspaces.openHint")}</p>
+            </div>
+          ) : null}
+
           {inspecting !== null ? (
             <Inspecting source={shown} branch={form.branch.trim()} since={inspecting.since} onCancel={onCancel} />
           ) : failure !== null && failure !== undefined ? (
@@ -313,6 +345,16 @@ export function SourceStep({
           <CommandHint command={`noust create --domain example.com --source ${shown === "" ? "https://github.com/you/app.git" : shown}`} label={t("newApp.source.terminal")} />
         </form>
       )}
+      {workspaces ? (
+        <WorkspacesDialog
+          open
+          source={form.source.trim()}
+          branch={form.branch.trim()}
+          onClose={() => {
+            setWorkspaces(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

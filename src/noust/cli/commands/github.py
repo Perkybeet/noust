@@ -46,9 +46,11 @@ def status_command(ctx: Context) -> None:
     logger = ctx.logger
     logger.header("GitHub App")
     if not status.configured:
+        logger.key_value("Host", status.host)
         logger.info("This server has no GitHub App.")
         logger.info(CREATE_HINT)
         return
+    logger.key_value("Host", status.host)
     logger.key_value("App", f"{status.name or status.slug} (id {status.app_id})")
     logger.key_value("Owner", status.owner or "-")
     logger.key_value("Settings", status.settings_url or "-")
@@ -60,6 +62,70 @@ def status_command(ctx: Context) -> None:
     else:
         logger.key_value("Webhook", "none: pushes and pull requests are not received")
         logger.info("Give the hooks a public name: noust web expose-hooks hooks.example.com")
+
+
+@cli.group("host")
+def host_group() -> None:
+    """The GitHub the App talks to: github.com, or a GitHub Enterprise host."""
+
+
+@host_group.command("show", read_only=True)
+@json_option("Print the host as JSON.")
+@pass_context
+def host_show_command(ctx: Context) -> None:
+    """Show which GitHub this server's App talks to."""
+    from noust.core.github_host import api_url, configured_host, is_enterprise, web_url
+
+    host = configured_host()
+    if ctx.json_output:
+        click.echo(
+            json.dumps(
+                {
+                    "host": host,
+                    "enterprise": is_enterprise(host),
+                    "web_url": web_url(host),
+                    "api_url": api_url(host),
+                }
+            )
+        )
+        return
+    ctx.logger.key_value("Host", host)
+    ctx.logger.key_value("Web", web_url(host))
+    ctx.logger.key_value("API", api_url(host))
+
+
+@host_group.command("set")
+@click.argument("host")
+@click.option("--force", is_flag=True, help="Change it although the server has an App.")
+@pass_context
+def host_set_command(ctx: Context, host: str, force: bool) -> None:
+    """
+    Point the App at a GitHub Enterprise Server or Cloud (data residency) host.
+
+    Give the host alone: ghe.example.com (API at /api/v3) or acme.ghe.com (API at
+    api.acme.ghe.com). Set it before creating the App in the console. A server in a private
+    network must be allowed first:
+    noust config set notifications.allow_private_hosts '[ghe.example.com]'.
+    """
+    if ctx.dry_run:
+        ctx.logger.info(f"Would set the GitHub host to {host}")
+        return
+    chosen = service.set_host(host, force=force)
+    ctx.logger.success(f"The GitHub App talks to {chosen}")
+    if not force:
+        ctx.logger.info("Create the App in the console: Integrations, GitHub, Create the App.")
+
+
+@host_group.command("reset")
+@click.option("--force", is_flag=True, help="Change it although the server has an App.")
+@pass_context
+def host_reset_command(ctx: Context, force: bool) -> None:
+    """Go back to github.com."""
+    if ctx.dry_run:
+        ctx.logger.info("Would set the GitHub host to github.com")
+        return
+    service.set_host(None, force=force)
+    ctx.logger.success("The GitHub App talks to github.com")
 
 
 @cli.command("installations", read_only=lambda params: not params["sync"])

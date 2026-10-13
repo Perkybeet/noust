@@ -5,11 +5,13 @@ import type { ChangeEvent } from "react";
 import type { AppExportDocument } from "../../api/queries/appImport";
 import { CommandHint } from "../../components/page/CommandHint";
 import { Card } from "../../components/ui/Card";
+import { Disclosure } from "../../components/ui/Disclosure";
 import { Field } from "../../components/ui/Field";
 import { Mono } from "../../components/ui/Mono";
 import { useT } from "../../i18n";
 import type { AppTypeOption } from "./wizard";
 import { typeName } from "./wizard";
+import { RemoteImport } from "./RemoteImport";
 
 export interface LoadedExport {
   fileName: string;
@@ -25,6 +27,8 @@ export interface ImportFileProps {
   problem: string | null;
   types: readonly AppTypeOption[];
   onFile: (file: File) => void;
+  /** An export document read from a Coolify or Dokploy server, as the text a file would hold. */
+  onRemote: (label: string, text: string) => void;
 }
 
 /**
@@ -32,7 +36,7 @@ export interface ImportFileProps {
  * clearly when it is not an export or is too new, and named once it is read. The wizard's own
  * Continue goes on from here.
  */
-export function ImportFile({ loaded, problem, types, onFile }: ImportFileProps) {
+export function ImportFile({ loaded, problem, types, onFile, onRemote }: ImportFileProps) {
   const t = useT();
   const onChange = (event: ChangeEvent<HTMLInputElement>): void => {
     const file = event.target.files?.[0];
@@ -64,6 +68,10 @@ export function ImportFile({ loaded, problem, types, onFile }: ImportFileProps) 
           </div>
         </Card>
       ) : null}
+
+      <Disclosure label={t("remoteImport.disclosure")}>
+        <RemoteImport onLoaded={onRemote} />
+      </Disclosure>
 
       <CommandHint command="noust app import app.wasm-app.json --domain example.com" label={t("newApp.source.terminal")} />
     </div>

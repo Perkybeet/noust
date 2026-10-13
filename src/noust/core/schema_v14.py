@@ -231,6 +231,101 @@ CREATE TABLE IF NOT EXISTS deploy_key_repositories (
 );
 CREATE INDEX IF NOT EXISTS idx_deploy_key_repositories_key ON deploy_key_repositories(key_id);
 """
+SOURCES_SQL += """
+-- app_source: how an application's repository is fetched and when a push deploys it
+-- (noust.core.app_source_store is its only reader and writer). One row per application, in
+-- a table of its own so a redeploy's full-row write of ``apps`` cannot put back what an
+-- operator changed meanwhile. No row means the defaults. submodules: initialise and export
+-- the submodules. lfs: auto (when the repository tracks files with Git LFS), on, or off.
+-- shallow: fetch only the latest commit. watch_paths: JSON list of globs a push must touch.
+-- skip_markers: honour [skip ci] / [skip cd] in commit messages.
+CREATE TABLE IF NOT EXISTS app_source (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    submodules INTEGER NOT NULL DEFAULT 1,
+    lfs TEXT NOT NULL DEFAULT 'auto' CHECK (lfs IN ('auto', 'on', 'off')),
+    shallow INTEGER NOT NULL DEFAULT 1,
+    watch_paths TEXT NOT NULL DEFAULT '[]',
+    skip_markers INTEGER NOT NULL DEFAULT 1,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+"""
+SOURCES_SQL += """
+-- registry_logins: the accounts Noust logs in to a container registry with (Docker Hub,
+-- GHCR, GitLab, ECR, ACR, Artifact Registry or any other), kept apart from the applications that
+-- use them. noust.core.registry_store is its only reader and writer. The password is never
+-- a column: it is the secret named by secret_name. kind says how a login is made (ecr
+-- trades an access key for a token that expires). last_status is ok or failed after the
+-- last test.
+CREATE TABLE IF NOT EXISTS registry_logins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    kind TEXT NOT NULL CHECK (kind IN ('dockerhub', 'ghcr', 'gitlab', 'ecr', 'acr', 'gar', 'custom')),
+    server TEXT NOT NULL,
+    username TEXT NOT NULL,
+    secret_name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL,
+    last_tested_at TEXT,
+    last_status TEXT,
+    last_error TEXT
+);
+-- app_registry_logins: which logins an application pulls and builds with. Both sides cascade.
+CREATE TABLE IF NOT EXISTS app_registry_logins (
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    login_id INTEGER NOT NULL REFERENCES registry_logins(id) ON DELETE CASCADE,
+    assigned_at TEXT NOT NULL,
+    assigned_by TEXT,
+    PRIMARY KEY (app_id, login_id)
+);
+"""
+SOURCES_SQL += """
+-- app_compose: which compose file, profiles and extra arguments a Compose stack is run with
+-- (noust.core.app_compose_store is its only reader and writer). One row per stack, in a table
+-- of its own so a redeploy's full-row write of apps cannot put back what an operator changed.
+-- The lists are JSON. No row means the stack's unit records the file and the defaults apply.
+CREATE TABLE IF NOT EXISTS app_compose (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    compose_file TEXT,
+    profiles TEXT NOT NULL DEFAULT '[]',
+    build_args TEXT NOT NULL DEFAULT '[]',
+    up_args TEXT NOT NULL DEFAULT '[]',
+    services TEXT NOT NULL DEFAULT '[]',
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+"""
+SOURCES_SQL += """
+-- gitlab_connections: the GitLab accounts Noust lists projects and clones private ones with, one
+-- per GitLab user and host (noust.core.gitlab_store is its only reader and writer). The
+-- credentials are never a column: they are the secret named by secret_name. kind says how the
+-- connection signs in (a pasted access token, or the tokens an OAuth sign-in handed back).
+-- last_status is ok or failed after the last time GitLab was asked who it is.
+CREATE TABLE IF NOT EXISTS gitlab_connections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    host TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('token', 'oauth')),
+    username TEXT,
+    secret_name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL,
+    last_checked_at TEXT,
+    last_status TEXT,
+    last_error TEXT
+);
+-- gitlab_oauth_apps: the application an operator registered in GitLab so that people can connect
+-- without pasting a token. One per host, and the client secret is the secret named by secret_name.
+CREATE TABLE IF NOT EXISTS gitlab_oauth_apps (
+    host TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL,
+    secret_name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT
+);
+"""
 SOURCES_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the databases lane: database exposure and the choice of engine.

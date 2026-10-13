@@ -40,6 +40,8 @@ const OUTCOME: Readonly<Record<string, { state: Status; label: PlainKey }>> = {
   ignored_branch: { state: "stopped", label: "appSettings.webhook.outcomeIgnoredBranch" },
   ignored_tag: { state: "stopped", label: "appSettings.webhook.outcomeIgnoredTag" },
   ignored_event: { state: "stopped", label: "appSettings.webhook.outcomeIgnoredEvent" },
+  ignored_skip: { state: "stopped", label: "sourceOptions.outcome.skip" },
+  ignored_paths: { state: "stopped", label: "sourceOptions.outcome.paths" },
   ignored_pull_request: { state: "stopped", label: "appSettings.webhook.outcomeIgnoredPullRequest" },
   duplicate: { state: "stopped", label: "appSettings.webhook.outcomeDuplicate" },
   bad_signature: { state: "failed", label: "appSettings.webhook.outcomeBadSignature" },

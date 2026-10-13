@@ -981,14 +981,17 @@ completions`. `wasm` runs the same program throughout 3.x.
 | `vite` | `vite.config.{js,ts,mjs}`, or `vite` in `package.json` | Install, `build`, served as static files; `preview` when it uses SSR | Yes |
 | `nodejs` | `package.json` with Express, Fastify or Koa, a `main` or a `start` script | Install, `build` if present, then `start:prod`, `start:production` or `start` | Yes |
 | `python` | `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile` | A virtual environment (Poetry or Pipenv when locked); Gunicorn (Hypercorn when the project depends on it) on `127.0.0.1`, with Uvicorn workers for FastAPI and Starlette; Django's `collectstatic` when it has a `STATIC_ROOT` | Yes |
-| `php-fpm` | `composer.json` with a front controller, or a root `index.php` | A PHP-FPM pool per application on its own socket, `composer` when there is a `composer.json`, a fastcgi site (nginx only); `public/` detected | Yes |
+| `php-fpm` | `composer.json` with a front controller, or a root `index.php` | A PHP-FPM pool per application on its own socket, `composer` when there is a `composer.json`, a fastcgi site (nginx or Apache); `public/` detected | Yes |
+| `go` | `go.mod` with a `package main`, and no Dockerfile | `go mod download`, then `go build` in the build sandbox; the binary runs as the unit | Yes |
+| `rust` | `Cargo.toml` with a program, and no Dockerfile | `cargo fetch`, then `cargo build --release --offline`; the binary runs as the unit | Yes |
+| `ruby` | `Gemfile` next to `config.ru` or Rails's `config/application.rb`, and no Dockerfile | Bundler in the release, assets precompiled, Puma on `127.0.0.1` | Yes |
 | `static` | `index.html`, and no project manifest | Served by the web server from `public`, `dist`, `build`, `www`, `html` or the root | Yes |
-| `monorepo` | `turbo.json`, pnpm workspaces and at least two apps under `apps/` | pnpm; one unit and one subdomain per workspace | In place |
+| `monorepo` | `turbo.json`, pnpm workspaces and at least two apps under `apps/` | pnpm; one unit and one subdomain per workspace. For new work prefer one application per workspace: [docs/workspaces.md](docs/workspaces.md) | In place |
 | `docker-compose` | A compose file (`docker-compose.prod.yml` first) | `docker compose` v2 under a systemd unit, nginx in front of published ports; hooks, relay, database copy | In place |
 | `container` | A `Dockerfile` or `Containerfile` with no compose file; `--image` for a registry; `--builder railpack` for any other language | A compose file Noust writes, one container on 127.0.0.1 under a systemd unit, nginx in front; one image per release | Images |
 
 Detection tries the most specific type first: monorepo, Docker Compose, Angular, Astro, Nuxt,
-Remix, SvelteKit, Next.js, PHP, Vite, Python, Node.js, static. When nothing matches, Noust falls
+Remix, SvelteKit, Next.js, PHP, Vite, Python, Go, Ruby, Rust, Node.js, static. When nothing matches, Noust falls
 back to Node.js and says so; pass `--type` to choose. Node package managers (npm, pnpm, Yarn,
 Bun) are detected from the lockfile (`pnpm-lock.yaml`, `bun.lockb` or `bun.lock`, `yarn.lock`,
 `package-lock.json`, then `packageManager`), the nearest one above the project in a monorepo;

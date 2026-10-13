@@ -34,10 +34,10 @@ from urllib.parse import quote
 
 from noust.core.background import BackgroundQueue
 from noust.core.exceptions import NoustError
+from noust.core.github_host import integration_repository
 from noust.core.store import get_store
 from noust.deployers.deploy_events import DeployEvent, DeployEventKind
 from noust.integrations.github.app import GitHubApp, installation_for, load_app
-from noust.validators.source import github_repository
 
 logger = logging.getLogger(__name__)
 
@@ -87,7 +87,7 @@ def target_for(domain: str) -> Target | None:
         return None
     if app is None:
         return None
-    repository = github_repository(app.source)
+    repository = integration_repository(app.source)
     if repository is None:
         return None
     installation = installation_for(repository, app.github_installation_id)

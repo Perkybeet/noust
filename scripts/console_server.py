@@ -4835,14 +4835,15 @@ def seed_deploy_actions(
         "require('http').createServer((q, s) => s.end('ok')).listen(3000);\n", encoding="utf-8"
     )
 
-    # A stack Noust has no deployer for and no Dockerfile to build it with: refused.
+    # A Rust library: Noust deploys a Rust program, and this has none to run, nor a Dockerfile
+    # to build one with, so it is refused.
     unsupported = sandbox.var / "www" / "src" / WIZARD_UNSUPPORTED_SOURCE
     (unsupported / "src").mkdir(parents=True, exist_ok=True)
     (unsupported / "Cargo.toml").write_text(
         '[package]\nname = "rust-service"\nversion = "0.1.0"\nedition = "2021"\n', encoding="utf-8"
     )
-    (unsupported / "src" / "main.rs").write_text(
-        'fn main() {\n    println!("ok");\n}\n', encoding="utf-8"
+    (unsupported / "src" / "lib.rs").write_text(
+        "pub fn answer() -> u32 {\n    42\n}\n", encoding="utf-8"
     )
 
 

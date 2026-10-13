@@ -21,6 +21,7 @@ redeploy and a rollback behave the same way as the first deploy.
 from __future__ import annotations
 
 import json
+import shlex
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -64,13 +65,52 @@ class ProposedEnv:
     note: str | None = None
 
 
+@dataclass(frozen=True)
+class RemoteApplication:
+    """
+    An application on another platform's server, as its API lists it.
+
+    Attributes:
+        ref: What names it there (Coolify's uuid, Dokploy's application id).
+        name: Its name.
+        build: How it is built there (``nixpacks``, ``dockerfile``, ``static``...).
+        source: Where its code comes from, as the platform says; empty for none.
+        domains: The names it answers on.
+        project: The project (and environment) it is in, when the API says.
+    """
+
+    ref: str
+    name: str
+    build: str = ""
+    source: str = ""
+    domains: tuple[str, ...] = ()
+    project: str = ""
+
+
+@dataclass
+class ProposedCron:
+    """
+    A scheduled task of the other platform.
+
+    Attributes:
+        name: What the platform calls it.
+        schedule: Its cron expression.
+        command: What it runs, as written there.
+    """
+
+    name: str
+    schedule: str
+    command: str
+
+
 @dataclass
 class Proposal:
     """
     Noust's reading of another platform's configuration.
 
     Attributes:
-        platform: ``vercel``, ``railway``, ``render`` or ``heroku``.
+        platform: ``vercel``, ``railway``, ``render``, ``heroku``, ``coolify``
+            or ``dokploy``.
         files: The configuration files read, relative to the repository.
         app_type: The Noust application type, or None to let detection decide
             (the platform's own builder detected it too).
@@ -89,6 +129,20 @@ class Proposal:
             platform kept on a persistent disk.
         warnings: Everything read that Noust has no equivalent for, one
             sentence each, with what to do instead.
+        name: What the platform calls the application (an API import; a
+            repository's file has no name of its own).
+        source: The repository the platform pulled the code from, when it
+            says; None for a file read from a checkout.
+        branch: The branch it followed.
+        base_directory: The subdirectory of the repository the project lives in.
+        watch_paths: The globs a push had to touch to deploy it.
+        image: A registry image the platform ran instead of building code.
+        memory_max_mb: Its memory limit, in MB.
+        cpu_quota_percent: Its CPU limit, as a percent of one CPU.
+        cron: Its scheduled tasks.
+        submodules: Whether it initialised submodules; None when it does not say.
+        equivalent: The ``noust`` command that makes what Noust cannot yet
+            deploy from a proposal (an image, a Dockerfile, a Compose file).
     """
 
     platform: str
@@ -106,6 +160,17 @@ class Proposal:
     domains: list[str] = field(default_factory=list)
     persistent_paths: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
+    name: str | None = None
+    source: str | None = None
+    branch: str | None = None
+    base_directory: str | None = None
+    watch_paths: list[str] = field(default_factory=list)
+    image: str | None = None
+    memory_max_mb: int | None = None
+    cpu_quota_percent: int | None = None
+    cron: list[ProposedCron] = field(default_factory=list)
+    submodules: bool | None = None
+    equivalent: str | None = None
 
     def add_env(self, variable: ProposedEnv) -> None:
         """
@@ -137,6 +202,44 @@ class Proposal:
         if message not in self.warnings:
             self.warnings.append(message)
 
+    def build_document(self) -> str | None:
+        """
+        Write the platform's commands as a ``build:`` block, where Noust can run them.
+
+        A block replaces the commands of the application's type, and Noust runs
+        a command as an argument vector in the build sandbox, never through a
+        shell. A command the platform ran through one (``npm ci && npm run
+        build``) is not carried: it is a warning, to be put in a script or in
+        ``package.json``.
+
+        Returns:
+            The YAML document, or None when the platform says nothing Noust
+            would apply.
+        """
+        import yaml
+
+        block: dict[str, str] = {}
+        if self.base_directory:
+            block["base_directory"] = self.base_directory
+        for key, command in (
+            ("install", self.install_command),
+            ("build", self.build_command),
+            ("start", self.start_command),
+        ):
+            if not command:
+                continue
+            if is_plain_command(command):
+                block[key] = command
+            else:
+                self.warn(
+                    f"The {key} command ({command!r}) uses a shell. Noust runs a command as "
+                    "a program and its arguments: put it in a script, or in package.json's "
+                    "scripts, so every deploy runs it."
+                )
+        if self.output_directory:
+            block["publish_directory"] = self.output_directory
+        return yaml.safe_dump({"build": block}, sort_keys=False) if block else None
+
     def note_commands(self) -> None:
         """
         Say once that the platform's commands are shown, not run.
@@ -151,6 +254,32 @@ class Proposal:
                 "commands are shown to compare. Put a custom one in package.json's "
                 "scripts so every deploy runs it."
             )
+
+
+#: What a shell does with a command line and an argument vector cannot.
+_SHELL_WORDS = frozenset({"&&", "||", "|", ";", "&", ">", ">>", "<", "<<", "2>&1", "2>", "&>"})
+
+
+def is_plain_command(text: str) -> bool:
+    """
+    Tell whether a command is a program and its arguments, with no shell in it.
+
+    Args:
+        text: A command as another platform wrote it.
+
+    Returns:
+        True when splitting it like a shell does gives a program and plain
+        arguments: no operator, no substitution, no variable assignment first.
+    """
+    if any(token in text for token in ("`", "$(")):
+        return False
+    try:
+        words = shlex.split(text)
+    except ValueError:
+        return False
+    if not words or "=" in words[0].split("/")[-1]:
+        return False
+    return not any(word in _SHELL_WORDS or word.endswith((";", "&&", "||")) for word in words)
 
 
 def declared_env(

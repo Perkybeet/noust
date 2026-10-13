@@ -19,4 +19,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/apps/{domain}/build"): Permission.APPS_READ,
     ("PUT", "/api/apps/{domain}/build"): Permission.ROOT_EQUIVALENT,
     ("DELETE", "/api/apps/{domain}/build"): Permission.APPS_MANAGE,
+    # The cache holds nothing the repository did not give a build; emptying it
+    # only makes the next build slower, so it is as much as deploying.
+    ("GET", "/api/apps/{domain}/build-cache"): Permission.APPS_READ,
+    ("DELETE", "/api/apps/{domain}/build-cache"): Permission.APPS_DEPLOY,
 }

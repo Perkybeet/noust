@@ -14,6 +14,8 @@ import { TextLink } from "../../components/ui/TextLink";
 import { useT } from "../../i18n";
 import { DeployKeysSection } from "./DeployKeysSection";
 import { GitHubIntegration } from "./github/GitHubIntegration";
+import { GitLabIntegration } from "./gitlab/GitLabIntegration";
+import { RegistriesSection } from "./registries/RegistriesSection";
 import { readServerIdentity } from "./GeneralSettings.model";
 
 /**
@@ -97,8 +99,10 @@ export function IntegrationsSettings() {
       <GitHubIntegration />
       {settled ? (
         <>
+          <GitLabIntegration />
           <OtherHosts />
           <DeployKeysSection />
+          <RegistriesSection />
           <CommandHint command="noust github status" label={t("settings.integrations.fromTerminal")} />
         </>
       ) : null}

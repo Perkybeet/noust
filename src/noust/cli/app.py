@@ -78,6 +78,7 @@ COMMAND_MODULES: dict[str, str] = {
     "environment": "noust.cli.commands.environment",
     "fleet": "noust.cli.commands.fleet",
     "github": "noust.cli.commands.github",
+    "gitlab": "noust.cli.commands.gitlab",
     "health": "noust.cli.commands.health",
     "import": "noust.cli.commands.importer",
     "incident": "noust.cli.commands.incident",
@@ -92,6 +93,7 @@ COMMAND_MODULES: dict[str, str] = {
     "preview": "noust.cli.commands.preview",
     "project": "noust.cli.commands.project",
     "recipe": "noust.cli.commands.recipe",
+    "registry": "noust.cli.commands.registry",
     "releases": "noust.cli.commands.releases",
     "rollback": "noust.cli.commands.backup",
     "runtime": "noust.cli.commands.runtime",
@@ -109,6 +111,7 @@ COMMAND_MODULES: dict[str, str] = {
     "user": "noust.cli.commands.user",
     "variables": "noust.cli.commands.variables",
     "web": "noust.cli.commands.web",
+    "workspace": "noust.cli.commands.workspace",
 }
 
 #: Commands that act on a deployed application. They are top level rather than

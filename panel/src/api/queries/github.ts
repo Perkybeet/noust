@@ -63,6 +63,11 @@ export function syncGitHubInstallations() {
   return request("post", "/api/integrations/github/installations/sync");
 }
 
+/** Chooses the GitHub the integration talks to: github.com (null) or a GitHub Enterprise host. Needs "Confirm it's you". */
+export function setGitHubHost(host: string | null, force = false) {
+  return request("put", "/api/integrations/github/host", { body: { host, force } });
+}
+
 /** Forgets the App on this server; GitHub keeps it until it is deleted there. Needs "Confirm it's you". */
 export function removeGitHubApp() {
   return request("delete", "/api/integrations/github");

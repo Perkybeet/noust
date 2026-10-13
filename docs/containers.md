@@ -102,6 +102,29 @@ is "kept", and neither value is ever sent back or shown. The console cannot tell
 is installed (no API says so): it offers it, and the deploy refuses with the server's words when it
 is not.
 
+## Registry accounts
+
+A private image, or a Dockerfile whose `FROM` is one, needs a login. Instead of a password per
+application, keep the accounts once and say which applications use them:
+
+```bash
+echo "$TOKEN" | noust registry add ghcr-acme --kind ghcr -u acme-bot --password-stdin
+noust registry test ghcr-acme            # tries it in a private Docker configuration
+noust registry attach shop.example.com ghcr-acme
+noust create -d shop.example.com -s https://github.com/acme/shop.git --registry ghcr-acme
+```
+
+Kinds: `dockerhub`, `ghcr`, `gitlab`, `ecr`, `acr`, `gar` and `custom` (any host; the others know
+theirs). The password is read from standard input or `NOUST_REGISTRY_PASSWORD`, never an
+argument, and is kept as a secret: it is not a column and no answer returns it. Amazon ECR trades
+its AWS keys for a token that lasts twelve hours, asked each time. Docker writes the credential it
+is given to a file in clear, so every `docker` command Noust runs for an application (pull, build,
+Compose `up`) logs in to a configuration directory of its own, with the password on standard
+input, and removes the directory straight after. The console does the same from Settings, Integrations,
+Container registries (`/api/registries`), and an application's Deploys settings choose which
+accounts it uses; attaching accounts to an application is sudo mode, because an account reaches
+every image it can read.
+
 ## How it runs
 
 Noust writes `compose.noust.yaml` in the application's directory (beside the repository, which

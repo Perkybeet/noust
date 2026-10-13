@@ -33,8 +33,11 @@ import click
 
 from noust.cli.app import Context, NoustGroup, global_flags, json_option, pass_context
 from noust.cli.commands.app_adopt import adopt_command
+from noust.cli.commands.app_apply import apply_command
 from noust.cli.commands.app_backup import backup_before_update_command
 from noust.cli.commands.app_build import build as build_group
+from noust.cli.commands.app_cache import cache as cache_group
+from noust.cli.commands.app_compose import compose as compose_group
 from noust.cli.commands.app_container import container as container_group
 from noust.cli.commands.app_deploy_key import deploy_key as deploy_key_group
 from noust.cli.commands.app_exec import exec_command
@@ -43,10 +46,12 @@ from noust.cli.commands.app_headless import headless_command
 from noust.cli.commands.app_hooks import hooks as hooks_group
 from noust.cli.commands.app_identity import identity as identity_group
 from noust.cli.commands.app_policy import policy as policy_group
+from noust.cli.commands.app_processes import processes as processes_group
 from noust.cli.commands.app_promote import clone_command, promote_command, promotion_command
 from noust.cli.commands.app_reclaim import reclaim_command
 from noust.cli.commands.app_runtime import COMMANDS as RUNTIME_COMMANDS
 from noust.cli.commands.app_sandbox import sandbox as sandbox_group
+from noust.cli.commands.app_source import source as source_group
 from noust.cli.commands.app_tag import tag as tag_group
 from noust.cli.commands.app_webhook import webhook as webhook_group
 from noust.cli.commands.webapp import _create_app, _read_env_file
@@ -82,6 +87,7 @@ from noust.deployers.lifecycle import (
     set_resource_limits,
 )
 from noust.deployers.migrate import MigrationPlan, migrate, plan_migration
+from noust.deployers.project_apply import export_declaration
 from noust.deployers.recorder import CapturingLogger
 from noust.managers.service_manager import ResourceLimits
 
@@ -134,6 +140,11 @@ cli.add_command(promotion_command)
 cli.add_command(clone_command)
 cli.add_command(container_group)
 cli.add_command(build_group)
+cli.add_command(cache_group)
+cli.add_command(compose_group)
+cli.add_command(source_group)
+cli.add_command(apply_command)
+cli.add_command(processes_group)
 cli.add_command(policy_group)
 cli.add_command(backup_before_update_command)
 cli.add_command(headless_command)
@@ -848,6 +859,7 @@ def cli_deploy(logger: Logger) -> Callable[[CreateSpec], None]:
                 tasks_max=spec.tasks_max,
             ),
             initial_health=spec.initial_health,
+            build_document=spec.build_document,
         )
         if code != 0:
             raise DeploymentError(
@@ -980,10 +992,20 @@ def run_import(ctx: Context, plan: ImportPlan, *, yes: bool = False) -> None:
     type=click.Path(dir_okay=False, path_type=Path),
     help="Write the export to this file instead of printing it.",
 )
+@click.option(
+    "--as-yaml",
+    is_flag=True,
+    default=False,
+    help="Write a declaration (noust.yaml keys: health, limits, source, build, hooks, "
+    "variables, domains, tasks) that 'noust app apply' sets on a server, instead of the "
+    "JSON export. Secret variables are never written.",
+)
 @global_flags
 @json_option("The export is JSON already; accepted for scripts that always pass it.")
 @pass_context
-def export_command(ctx: Context, domain: str, with_secrets: bool, output: Path | None) -> None:
+def export_command(
+    ctx: Context, domain: str, with_secrets: bool, output: Path | None, as_yaml: bool
+) -> None:
     """
     Export everything that defines an application as a JSON document.
 
@@ -994,7 +1016,13 @@ def export_command(ctx: Context, domain: str, with_secrets: bool, output: Path |
     destination keys, GitHub App) never go in. Recreate it anywhere with
     'noust app import'.
     """
-    text = dumps(export_app(domain, with_secrets=with_secrets))
+    if as_yaml and with_secrets:
+        raise click.UsageError("--as-yaml never writes secrets: drop --with-secrets")
+    text = (
+        export_declaration(domain)
+        if as_yaml
+        else dumps(export_app(domain, with_secrets=with_secrets))
+    )
     if output is None:
         if with_secrets:
             # On stderr, so a redirect to a file still gets the document alone.

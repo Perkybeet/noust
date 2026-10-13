@@ -101,6 +101,7 @@ export const appPages = {
   actions: {
     stop: "Stop",
     diagnose: "Diagnose",
+    rebuildFresh: "Rebuild without cache",
     terminal: "Terminal",
     start: "Start",
     deleteApplication: "Delete application",

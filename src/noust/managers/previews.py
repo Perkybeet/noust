@@ -69,8 +69,9 @@ from typing import TYPE_CHECKING, Any, cast
 from jinja2 import Environment, PackageLoader, TemplateError
 
 from noust.central import require_server_role
-from noust.core import paths
+from noust.core import paths, webhook_deliveries
 from noust.core.config import SYSTEMD_DIR as _SYSTEMD_DIR
+from noust.core.delivery_filter import why_pull_request_is_declined
 from noust.core.exceptions import (
     DeploymentError,
     IntegrationError,
@@ -1366,7 +1367,12 @@ def _set_status(
     )
 
 
-def handle_pull_request(event: PullRequestEvent, *, app_domain: str | None = None) -> list[str]:
+def handle_pull_request(
+    event: PullRequestEvent,
+    *,
+    app_domain: str | None = None,
+    declined: list[str] | None = None,
+) -> list[str]:
     """
     Act on a pull request event for every application that previews it.
 
@@ -1383,6 +1389,11 @@ def handle_pull_request(event: PullRequestEvent, *, app_domain: str | None = Non
         app_domain: Only this application (a per-application webhook knows
             which application it is for); None to find every application
             whose source is ``event.repository`` and has previews on.
+        declined: Where to put, one sentence each, why an application declined
+            to build a preview (the title or the head commit says
+            ``[skip ci]``). The caller then writes it where it keeps its
+            deliveries; None writes it to the declining application's own
+            delivery log here.
 
     Returns:
         The ids of the jobs queued (one per preview built, rebuilt or
@@ -1399,6 +1410,27 @@ def handle_pull_request(event: PullRequestEvent, *, app_domain: str | None = Non
 
     queued: list[str] = []
     for parent, settings in targets:
+        if event.action is not PullRequestAction.CLOSED:
+            skipped = why_pull_request_is_declined(parent, event)
+            if skipped is not None:
+                _log.info(
+                    "Pull request %s#%d: %s: %s",
+                    event.repository,
+                    event.number,
+                    parent.domain,
+                    skipped.reason,
+                )
+                if declined is not None:
+                    declined.append(skipped.reason)
+                elif parent.id is not None:
+                    webhook_deliveries.record_delivery(
+                        parent.id,
+                        skipped.outcome,
+                        provider=event.forge.value,
+                        event="pull_request",
+                        detail=skipped.reason,
+                    )
+                continue
         refusal = None if event.action is PullRequestAction.CLOSED else _refusal(event, settings)
         if event.action is PullRequestAction.CLOSED:
             job_id = _queue_removal(parent, event)
@@ -1679,6 +1711,56 @@ def _save_and_queue(
         _set_status(record, FAILED, exc.message)
         return None
     return str(job.id)
+
+
+def rebuild_preview(parent_domain: str, number: int, *, actor: str) -> Job:
+    """
+    Queue a rebuild of the preview of a pull request that already has one.
+
+    What a CI step that knows the pull request's number asks for, without a
+    code host's delivery: the preview is built again from its branch, the same
+    job a push to the pull request queues.
+
+    Args:
+        parent_domain: The previewed application.
+        number: The pull request's number.
+        actor: Who asked, for the job list.
+
+    Returns:
+        The queued job.
+
+    Raises:
+        ValidationError: The application has no preview of that pull request.
+        QueueFullError: The deploy queue has no room.
+    """
+    record = get_store().get_preview(parent_domain, number)
+    if record is None:
+        raise ValidationError(
+            f"{parent_domain} has no preview of pull request #{number}",
+            details="A preview is made when the pull request is opened, through the code "
+            f"host's webhook. List them with: noust preview list {parent_domain}",
+            field="pull_request",
+        )
+    first = get_store().get_app(record.domain) is None
+    _set_status(record, PENDING)
+    job: Job = _jobs().create_job(
+        job_type=_job_type("DEPLOY" if first else "UPDATE"),
+        name=f"{'Preview' if first else 'Update preview'} #{number} of {parent_domain}",
+        description=f"Rebuilding the preview of pull request #{number} ({record.branch}) "
+        f"at {record.domain}",
+        func=preview_deploy_job,
+        kwargs={"parent_domain": parent_domain, "number": number},
+        metadata={
+            "domain": record.domain,
+            "parent": parent_domain,
+            "preview": number,
+            "branch": record.branch,
+            "trigger": "api",
+            "provider": record.provider,
+        },
+        actor=actor,
+    )
+    return job
 
 
 def _queue_removal(parent: App, event: PullRequestEvent) -> str | None:

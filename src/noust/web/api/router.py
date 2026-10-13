@@ -18,12 +18,18 @@ from noust.web.api.access import router as access_router
 from noust.web.api.access import team_router as access_team_router
 from noust.web.api.alerts import router as alerts_router
 from noust.web.api.app_adopt import router as app_adopt_router
+from noust.web.api.app_apply import router as app_apply_router
 from noust.web.api.app_build import router as app_build_router
+from noust.web.api.app_compose import router as app_compose_router
 from noust.web.api.app_container import router as app_container_router
+from noust.web.api.app_deploy import batch_router as deploy_batch_router
+from noust.web.api.app_deploy import router as app_deploy_router
 from noust.web.api.app_export import router as app_export_router
 from noust.web.api.app_hooks import router as app_hooks_router
+from noust.web.api.app_processes import router as app_processes_router
 from noust.web.api.app_promote import router as app_promote_router
 from noust.web.api.app_runtime import router as app_runtime_router
+from noust.web.api.app_source import router as app_source_router
 from noust.web.api.app_stack import router as app_stack_router
 from noust.web.api.app_tags import app_router as app_tags_app_router
 from noust.web.api.app_tags import router as app_tags_router
@@ -59,7 +65,9 @@ from noust.web.api.ens import router as ens_router
 from noust.web.api.fleet import router as fleet_router
 from noust.web.api.fleet_self import router as fleet_self_router
 from noust.web.api.git_credentials import router as git_credentials_router
+from noust.web.api.gitlab import router as gitlab_router
 from noust.web.api.identity import router as identity_router
+from noust.web.api.import_remote import router as import_remote_router
 from noust.web.api.integrations import router as integrations_router
 from noust.web.api.jobs import router as jobs_router
 from noust.web.api.log_drains import router as log_drains_router
@@ -78,6 +86,8 @@ from noust.web.api.overview import router as overview_router
 from noust.web.api.passkeys import router as passkeys_router
 from noust.web.api.previews import router as previews_router
 from noust.web.api.recipes import router as recipes_router
+from noust.web.api.registries import apps_router as app_registry_logins_router
+from noust.web.api.registries import router as registries_router
 from noust.web.api.sandbox import router as sandbox_router
 from noust.web.api.scope import enforce_scope
 from noust.web.api.secret_providers import router as secret_providers_router
@@ -101,6 +111,7 @@ from noust.web.api.tunnels import router as tunnels_router
 from noust.web.api.variables import router as variables_router
 from noust.web.api.variables import server_router as server_variables_router
 from noust.web.api.volume_backups import router as volume_backups_router
+from noust.web.api.workspaces import router as workspaces_router
 from noust.web.api.zero_downtime import router as zero_downtime_router
 from noust.web.auth import require_auth
 
@@ -219,6 +230,8 @@ router.include_router(
     backup_destinations_router, prefix="/backup-destinations", tags=["Backup Destinations"]
 )
 router.include_router(integrations_router, prefix="/integrations", tags=["Integrations"])
+# gitlab.py owns "/integrations/gitlab/**".
+router.include_router(gitlab_router, prefix="/integrations", tags=["Integrations"])
 router.include_router(log_drains_router, prefix="/log-drains", tags=["Log drains"])
 # Same composition as diagnose: each owns paths under "/{domain}/..." that
 # apps.py does not define ("/zero-downtime", "/previews").
@@ -252,6 +265,24 @@ router.include_router(git_credentials_router, prefix="/apps", tags=["Application
 router.include_router(app_container_router, prefix="/apps", tags=["Applications"])
 # app_build.py owns only paths under "/{domain}/build".
 router.include_router(app_build_router, prefix="/apps", tags=["Applications"])
+# app_deploy.py owns only "/{domain}/deploy" under "/apps", and the one "/deploy".
+router.include_router(app_deploy_router, prefix="/apps", tags=["Applications"])
+router.include_router(deploy_batch_router, tags=["Applications"])
+# registries.py owns the whole of "/registries", and "/{domain}/registry-logins" under "/apps".
+router.include_router(registries_router, prefix="/registries", tags=["Registries"])
+router.include_router(app_registry_logins_router, prefix="/apps", tags=["Applications"])
+# import_remote.py owns the whole of "/import": reading another platform's server.
+router.include_router(import_remote_router, prefix="/import", tags=["Applications"])
+# workspaces.py owns the whole of "/workspaces".
+router.include_router(workspaces_router, prefix="/workspaces", tags=["Applications"])
+# app_apply.py owns only "/{domain}/declaration" and "/{domain}/apply".
+router.include_router(app_apply_router, prefix="/apps", tags=["Applications"])
+# app_compose.py owns only "/{domain}/compose".
+router.include_router(app_compose_router, prefix="/apps", tags=["Applications"])
+# app_processes.py owns only "/{domain}/processes".
+router.include_router(app_processes_router, prefix="/apps", tags=["Applications"])
+# app_source.py owns only "/{domain}/source-options".
+router.include_router(app_source_router, prefix="/apps", tags=["Applications"])
 # app_adopt.py owns only "/adopt", which no "/{domain}" route of apps.py takes.
 router.include_router(app_adopt_router, prefix="/apps", tags=["Applications"])
 router.include_router(recipes_router, prefix="/recipes", tags=["Recipes"])

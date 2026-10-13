@@ -134,12 +134,24 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/apps", SCOPED),
     _rule("/api/apps/types", OPEN),
     _rule("/api/apps/inspect", SCOPED),
+    # Reading a repository's workspaces fetches a few of its files, as inspecting it does;
+    # creating an application per workspace is creating applications, as importing one is.
+    _rule("/api/workspaces/inspect", SCOPED),
+    _rule("/api/workspaces/deploy", INSTANCE),
     # An export document may carry cron jobs and previews, which run as root or reach
     # other applications: a team member does not get to apply one.
     _rule("/api/apps/import", INSTANCE),
+    # Reading another platform's server to bring an application over: creating applications
+    # is the instance's, as POST /api/apps/import is.
+    _rule("/api/import/**", INSTANCE),
+    # Registry accounts are credentials of the server.
+    _rule("/api/registries/**", INSTANCE),
     # Adopting a stack that already runs reaches containers nobody here owns.
     _rule("/api/apps/adopt", INSTANCE),
     # A database linked to an application changes owner with it, so it must be visible too.
+    # An account for a private registry is a credential of the server: choosing which
+    # applications use it is the server's, not a team's.
+    _rule("/api/apps/{domain}/registry-logins", INSTANCE, methods=("PUT",)),
     _rule("/api/apps/{domain}/databases/link", RESOURCE, _APP, _BODY_DATABASE),
     # A release goes from an application to another: both must be visible.
     _rule("/api/apps/{domain}/promote", RESOURCE, _APP, _BODY_TARGET, methods=("POST",)),
@@ -237,6 +249,9 @@ RULES: tuple[Rule, ...] = (
     _rule(
         "/api/deployments/{deployment_id}/**", RESOURCE, Ref(DEPLOYMENT, PATH, ("deployment_id",))
     ),
+    # Several applications in one call: a token that sees every team. A team's token deploys
+    # its own applications one at a time, at /api/apps/{domain}/deploy.
+    _rule("/api/deploy", INSTANCE, methods=("POST",)),
     _rule("/api/jobs", SCOPED),
     _rule("/api/jobs/active", SCOPED),
     _rule("/api/jobs/queue", SCOPED),

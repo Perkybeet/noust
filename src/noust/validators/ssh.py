@@ -11,6 +11,7 @@ from pathlib import Path
 
 from noust.core.exceptions import SSHError
 from noust.core.utils import run_command
+from noust.validators.source import parse_ssh_remote
 
 logger = logging.getLogger(__name__)
 
@@ -164,13 +165,21 @@ def generate_ssh_key(
         return False, None, f"Failed to generate SSH key: {result.stderr}"
 
 
-def test_ssh_connection(host: str = "github.com", timeout: int = 10) -> tuple[bool, str]:
+def test_ssh_connection(
+    host: str = "github.com",
+    timeout: int = 10,
+    *,
+    user: str | None = None,
+    port: int | None = None,
+) -> tuple[bool, str]:
     """
     Test SSH connection to a host.
 
     Args:
         host: Host to test connection to.
         timeout: Connection timeout in seconds.
+        user: The account to sign in as; ``git`` when None.
+        port: The ssh port; ssh's own default when None.
 
     Returns:
         Tuple of (success, message).
@@ -186,8 +195,10 @@ def test_ssh_connection(host: str = "github.com", timeout: int = 10) -> tuple[bo
         "StrictHostKeyChecking=accept-new",
         "-o",
         "BatchMode=yes",
-        f"git@{host}",
     ]
+    if port is not None:
+        cmd += ["-p", str(int(port))]
+    cmd.append(f"{user or 'git'}@{host}")
 
     result = run_command(cmd, timeout=timeout + 5)
 
@@ -211,7 +222,7 @@ def test_ssh_connection(host: str = "github.com", timeout: int = 10) -> tuple[bo
         return False, f"Could not resolve hostname: {host}"
 
     # If we got here with exit code 1, it might still be success for GitHub
-    if result.exit_code == 1 and "git@" in output:
+    if result.exit_code == 1 and f"{user or 'git'}@" in output:
         return True, "SSH connection successful"
 
     return False, f"SSH connection failed: {output}"
@@ -222,15 +233,15 @@ def get_host_from_git_url(url: str) -> str | None:
     Extract the host from a Git SSH URL.
 
     Args:
-        url: Git URL (e.g., git@github.com:user/repo.git)
+        url: Git URL (e.g., git@github.com:user/repo.git or
+            ssh://git@git.example.com:2222/team/repo.git)
 
     Returns:
         Host name or None.
     """
-    # SSH format: git@host:path
-    ssh_match = re.match(r"^git@([\w.-]+):", url)
-    if ssh_match:
-        return ssh_match.group(1)
+    remote = parse_ssh_remote(url)
+    if remote is not None:
+        return remote.host
 
     # HTTPS format: https://host/path
     https_match = re.match(r"^https?://([\w.-]+)/", url)
@@ -248,9 +259,9 @@ def is_ssh_url(url: str) -> bool:
         url: Git URL to check.
 
     Returns:
-        True if URL uses SSH.
+        True for ``user@host:path`` and ``ssh://[user@]host[:port]/path``.
     """
-    return url.startswith("git@") or url.startswith("ssh://")
+    return parse_ssh_remote(url) is not None
 
 
 def validate_ssh_setup_for_url(url: str) -> dict:
@@ -308,7 +319,12 @@ def validate_ssh_setup_for_url(url: str) -> dict:
     # Test connection
     if host:
         result["connection_tested"] = True
-        conn_success, conn_msg = test_ssh_connection(host)
+        remote = parse_ssh_remote(url)
+        conn_success, conn_msg = test_ssh_connection(
+            host,
+            user=remote.user if remote else None,
+            port=remote.port if remote else None,
+        )
         result["connection_success"] = conn_success
 
         if conn_success:

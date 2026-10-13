@@ -921,6 +921,43 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}/webhook/reveal` | POST `secrets.reveal`, sudo |  |
 | `/api/apps/{domain}/zero-downtime` | GET `apps.read`; PUT `apps.manage`, sudo | `{enabled, drain_seconds}`; a Docker Compose stack is accepted since 3.2, updated behind relays |
 
+### Sources, builds and imports
+
+Added in 3.4. Each is documented where its feature is: [sources.md](sources.md), [ci.md](ci.md),
+[build.md](build.md), [declarative.md](declarative.md), [workspaces.md](workspaces.md),
+[containers.md](containers.md#registry-accounts) and [compose.md](compose.md).
+
+| Endpoint | Method, permission | |
+|---|---|---|
+| `/api/deploy` | POST `apps.deploy` | Deploy up to 20 applications with one call (a pipeline's token); `{apps, force, no_cache}` |
+| `/api/apps/{domain}/deploy` | POST `apps.deploy` | Deploy one: `{force, no_cache, commit, tag, image_tag, pull_request}`; `queued`, `joined`, `nothing_new` or `429` when the queue is full |
+| `/api/apps/{domain}/source-options` | GET `apps.read`; PUT, DELETE `apps.manage` | Submodules, Git LFS, shallow clone, watch paths and skip markers |
+| `/api/apps/{domain}/build-cache` | GET `apps.read`; DELETE `apps.deploy` | Size of the build cache; empty it |
+| `/api/apps/{domain}/process-types` | GET `apps.read` | The process types the code declares and which a deployment uses |
+| `/api/apps/{domain}/compose` | GET `apps.read`; PUT, DELETE `apps.manage`, sudo | A Compose stack's file, profiles and extra `build` / `up` arguments |
+| `/api/apps/{domain}/declaration` | GET `secrets.reveal` | The application as a `noust.yaml` declaration (no secret variables) |
+| `/api/apps/{domain}/apply` | POST `root_equivalent`, sudo | `{declaration, check, confirm, prune}`: the plan, and what was applied |
+| `/api/apps/{domain}/registry-logins` | GET `apps.read`; PUT `apps.manage`, sudo | The registry accounts an application pulls and builds with |
+| `/api/registries` | GET `apps.read`; POST `apps.manage`, sudo | Registry accounts (Docker Hub, GHCR, GitLab, ECR, ACR, Artifact Registry, any host); the password is never returned |
+| `/api/registries/{name}` | GET `apps.read`; PATCH, DELETE `apps.manage`, sudo | |
+| `/api/registries/{name}/test` | POST `apps.manage`, sudo | Try the account in a private Docker configuration |
+| `/api/import/applications` | POST `apps.manage`, sudo | List the applications of a Coolify or Dokploy server, read with a token |
+| `/api/import/proposal` | POST `apps.manage`, sudo | One of them as an export document, ready for `POST /api/apps/import` |
+| `/api/workspaces/inspect` | POST `apps.manage` | The workspaces of a monorepo and which are applications |
+| `/api/workspaces/deploy` | POST `apps.manage`, sudo | One application per workspace named, each a job |
+| `/api/integrations/github/host` | PUT `apps.manage`, sudo | The GitHub the App talks to (github.com or an Enterprise host) |
+| `/api/integrations/gitlab` | GET `apps.read` | GitLab connections, OAuth applications, and the redirect URI |
+| `/api/integrations/gitlab/connections` | POST `apps.manage`, sudo | Add a connection with an access token (checked first, never returned) |
+| `/api/integrations/gitlab/connections/{name}` | DELETE `apps.manage`, sudo | |
+| `/api/integrations/gitlab/connections/{name}/test` | POST `apps.deploy` | Ask GitLab who it is |
+| `/api/integrations/gitlab/connections/{name}/groups` | GET `apps.read` | The picker: groups |
+| `/api/integrations/gitlab/connections/{name}/projects` | GET `apps.read` | The picker: projects, `?group=&search=` |
+| `/api/integrations/gitlab/connections/{name}/projects/{project}/branches` | GET `apps.read` | The picker: branches of a project |
+| `/api/integrations/gitlab/oauth-apps` | PUT `apps.manage`, sudo | Record the OAuth application registered in GitLab |
+| `/api/integrations/gitlab/oauth-apps/{host}` | DELETE `apps.manage`, sudo | |
+| `/api/integrations/gitlab/oauth/authorize` | POST `apps.manage`, sudo | Begin signing in: the URL to send the browser to |
+| `/api/integrations/gitlab/oauth/callback` | POST `apps.manage`, sudo | Finish: `{code, state}` |
+
 ### Teams, projects and environments
 
 | Endpoint | Method, permission | |

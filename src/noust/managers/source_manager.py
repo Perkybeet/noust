@@ -70,12 +70,14 @@ from noust.core import outbound
 from noust.core.config import REDACTED
 from noust.core.exceptions import IntegrationError, SourceError
 from noust.core.fs import FileSystem, RealFileSystem, get_fs
+from noust.core.github_host import configured_host
 from noust.core.package_family import install_hint
 from noust.core.repositories import repository_key
 from noust.core.runner import CommandResult, CommandRunner
 from noust.managers.base_manager import BaseManager
 from noust.validators.source import (
     parse_git_url,
+    parse_ssh_remote,
     validate_source,
 )
 from noust.validators.ssh import (
@@ -84,6 +86,7 @@ from noust.validators.ssh import (
 )
 
 if TYPE_CHECKING:
+    from noust.core.app_source_store import SourceOptions
     from noust.managers.source_keys import KeyUse
 
 #: Members allowed in a single archive. A source tree is thousands of files;
@@ -121,9 +124,6 @@ ALLOWED_GIT_SCHEMES = frozenset({"http", "https", "ssh", "git"})
 #: git's remote-helper syntax (``ext::``, ``fd::``, ...). ``ext::sh -c ...``
 #: is remote code execution spelled as a URL.
 _REMOTE_HELPER_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*::")
-
-#: scp-like syntax, the one git URL form that has no scheme.
-_SCP_LIKE_RE = re.compile(r"^[\w.+-]+@[\w.-]+:(?!/)[\w./~+-]+$")
 
 _GIT_REF_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9._/+-]*$")
 
@@ -212,6 +212,15 @@ _MAX_GIT_CONFIG_BYTES = 1024 * 1024
 _GIT_CONFIG_KEY_RE = re.compile(r"\s*([A-Za-z][A-Za-z0-9-]*)\s*(?:=|$|[;#\s])")
 _GIT_CONFIG_SECTION_RE = re.compile(r"\s*\[\s*([A-Za-z0-9.-]*)")
 
+#: What Noust passes git, never a repository, to check files out through Git LFS
+#: whether or not ``git lfs install`` ever ran on this machine.
+_LFS_FILTER = (
+    "filter.lfs.process=git-lfs filter-process",
+    "filter.lfs.smudge=git-lfs smudge -- %f",
+    "filter.lfs.clean=git-lfs clean -- %f",
+    "filter.lfs.required=true",
+)
+
 #: The ssh git runs. BatchMode makes ssh fail instead of asking for a
 #: passphrase, a password or a host key confirmation on the terminal.
 #: accept-new is the host key policy Noust already applies when it tests a
@@ -238,7 +247,7 @@ _GIT_AUTH_FAILURE_MARKERS = (
 
 #: git commands that talk to a remote. ``checkout`` is one in a blobless
 #: clone, which fetches the blobs it checks out.
-_NETWORK_VERBS = frozenset({"clone", "fetch", "ls-remote", "pull", "checkout", "submodule"})
+_NETWORK_VERBS = frozenset({"clone", "fetch", "ls-remote", "pull", "checkout", "submodule", "lfs"})
 
 _HTTPS_REPOSITORY_RE = re.compile(r"^https?://(?P<host>[\w.-]+)/(?P<path>[\w./-]+?)(?:\.git)?/?$")
 
@@ -660,6 +669,10 @@ def host_key_error(url: str | None, result: CommandResult) -> SourceError:
     """
     key = repository_key(url) if url else None
     host = key[0] if key else "the host"
+    remote = parse_ssh_remote(url) if url else None
+    if remote is not None and remote.port not in (None, 22):
+        # known_hosts pins a host on another port as [host]:port.
+        host = f"[{remote.host}]:{remote.port}"
     return SourceError(
         f"The host key of {host} is not the one Noust pinned",
         details=(
@@ -727,7 +740,7 @@ def git_auth_fix(url: str | None) -> str:
     github_app = (
         "Or install this server's GitHub App on the repository's account "
         "(console: Integrations, GitHub), which clones it with a token of its own. "
-        if url and url.strip().lower().startswith("https://github.com/")
+        if url and url.strip().lower().startswith(f"https://{configured_host()}/")
         else ""
     )
     return (
@@ -1011,9 +1024,15 @@ def validate_git_remote_url(url: str) -> str:
                 f"Git URL has no host: '{candidate}'",
                 details="Use a full URL such as https://github.com/user/repo.git",
             )
+        if scheme == "ssh" and parse_ssh_remote(candidate) is None:
+            raise SourceError(
+                f"Not a usable ssh URL: '{candidate}'",
+                details="Use ssh://[user@]host[:port]/owner/repo.git: a user and a host that "
+                "start with a letter or a digit, a port from 1 to 65535 and a repository path.",
+            )
         return candidate
 
-    if _SCP_LIKE_RE.fullmatch(candidate):
+    if parse_ssh_remote(candidate) is not None:
         return candidate
 
     raise SourceError(
@@ -2070,6 +2089,7 @@ class SourceManager(BaseManager):
         runner: CommandRunner | None = None,
         fs: FileSystem | None = None,
         github_installation_id: int | None = None,
+        domain: str | None = None,
     ):
         """
         Initialize source manager.
@@ -2085,10 +2105,14 @@ class SourceManager(BaseManager):
                 the repository (an application's ``github_installation_id``);
                 None lets :func:`~noust.integrations.github.app.installation_for`
                 choose one.
+            domain: The application this manager fetches for. Its source
+                options (submodules, Git LFS, shallow clone) apply to every
+                fetch; None fetches with the defaults.
         """
         super().__init__(verbose=verbose, runner=runner)
         self._fs = fs
         self.github_installation_id = github_installation_id
+        self.domain = domain
         #: The remote URL of every repository this manager cloned or fetched
         #: from a URL, by path, so a later network command there (a fetch in
         #: the cache, the checkout of a blobless clone) knows its host.
@@ -2099,6 +2123,22 @@ class SourceManager(BaseManager):
         #: credential, so a later fetch there, such as the one
         #: :meth:`resolve_commit` makes after :meth:`sync_cache`, needs it.
         self._remote_auth: dict[str, dict[str, str]] = {}
+
+    @property
+    def options(self) -> SourceOptions:
+        """
+        The source options of the application this manager fetches for.
+
+        Returns:
+            Its stored options; the defaults for a manager with no application.
+        """
+        # Imported here: the options live in the store, which imports half of
+        # Noust, and this module is imported by the deployers.
+        from noust.core.app_source_store import SourceOptions, get_options
+
+        if self.domain is None:
+            return SourceOptions()
+        return get_options(self.domain)
 
     @property
     def fs(self) -> FileSystem:
@@ -2138,6 +2178,7 @@ class SourceManager(BaseManager):
         timeout: int = GIT_TIMEOUT,
         auth: Mapping[str, str] | None = None,
         trust_tree: bool = False,
+        config: Sequence[str] = (),
     ) -> CommandResult:
         """
         Run a git command through the command runner.
@@ -2146,6 +2187,8 @@ class SourceManager(BaseManager):
             args: Arguments after ``git``.
             cwd: Working directory.
             timeout: Deadline in seconds.
+            config: ``key=value`` settings Noust itself passes with ``-c``
+                (the Git LFS filter). Never a repository's own.
             auth: Credential environment for a remote named by URL (see
                 :func:`split_url_credentials`). None uses the one recorded
                 for ``cwd``, if any.
@@ -2165,6 +2208,8 @@ class SourceManager(BaseManager):
                 owns whose configuration names a program to run.
         """
         argv = ["git", *_GIT_SAFE_CONFIG]
+        for setting in config:
+            argv.extend(["-c", setting])
         env = git_environment()
         account: pwd.struct_passwd | None = None
         if cwd is not None and trust_tree:
@@ -2464,7 +2509,7 @@ class SourceManager(BaseManager):
         source: str,
         destination: Path,
         branch: str | None = None,
-        depth: int = 1,
+        depth: int | None = None,
         clean: bool = True,
         force: bool = False,
     ) -> bool:
@@ -2475,7 +2520,8 @@ class SourceManager(BaseManager):
             source: Source URL or path.
             destination: Destination directory.
             branch: Git branch (for Git sources).
-            depth: Clone depth (for Git sources).
+            depth: Clone depth (for Git sources); None takes it from the
+                application's source options (1, or the whole history).
             clean: Remove destination if exists.
             force: Force update even if destination exists (for Git, does reset).
 
@@ -2586,6 +2632,7 @@ class SourceManager(BaseManager):
         if not result.success:
             raise SourceError("Git reset failed", details=result.stderr)
 
+        self._finish_checkout(destination)
         return True
 
     def sync_cache(self, source: str, cache: Path, branch: str | None = None) -> str | None:
@@ -2690,6 +2737,16 @@ class SourceManager(BaseManager):
         result = self._git(["reset", "--hard", f"origin/{safe_branch}"], cwd=cache)
         if not result.success:
             raise SourceError("Git reset failed", details=result.stderr)
+
+        # An application switched to its full history keeps the clone it had
+        # until now: deepen it once, and it stays whole.
+        if not self.options.shallow and self._is_shallow(cache):
+            self.logger.debug("Fetching the full history, as the source options ask")
+            deepen = self._git(
+                ["fetch", "--unshallow", "origin"], cwd=cache, timeout=GIT_CLONE_TIMEOUT
+            )
+            if not deepen.success:
+                raise self._git_failed(deepen, "Fetching the full history failed", url=safe_url)
 
     def _fetch_branch(self, repository: Path, branch: str) -> CommandResult:
         """
@@ -2817,6 +2874,17 @@ class SourceManager(BaseManager):
                 f"{commit!r} is not a commit id",
                 details="Export a commit named by its hash, as sync_cache returns it.",
             )
+        options = self.options
+        submodules = options.submodules and self._has_submodules(repository, commit)
+        lfs = self._lfs_wanted(repository, commit, options.lfs)
+        if submodules or lfs:
+            # ``git archive`` leaves a submodule empty and an LFS file as its
+            # pointer, so a release that needs either is copied from a
+            # checkout that has them.
+            self._export_checked_out(
+                repository, commit, destination, submodules=submodules, lfs=lfs
+            )
+            return
         archive = destination.parent / f".{destination.name}.tar"
         result = self._git(
             ["archive", "--format=tar", f"--output={archive}", commit],
@@ -2837,6 +2905,163 @@ class SourceManager(BaseManager):
                 )
         finally:
             self.fs.remove(archive, missing_ok=True)
+
+    def _has_submodules(self, repository: Path, commit: str | None = None) -> bool:
+        """
+        Tell whether a commit (or the checkout) declares submodules.
+
+        Args:
+            repository: A clone or checkout.
+            commit: A commit id; the checked-out files when None.
+
+        Returns:
+            True when there is a ``.gitmodules``.
+        """
+        if commit is None:
+            return (repository / ".gitmodules").is_file()
+        return self._git(["cat-file", "-e", f"{commit}:.gitmodules"], cwd=repository).success
+
+    def _lfs_wanted(self, repository: Path, commit: str | None, mode: str) -> bool:
+        """
+        Decide whether Git LFS files must be fetched for a commit.
+
+        Args:
+            repository: A clone or checkout.
+            commit: A commit id; the checked-out commit when None.
+            mode: ``auto`` (when the repository's ``.gitattributes`` route
+                files through LFS), ``on`` or ``off``.
+
+        Returns:
+            True when LFS applies.
+        """
+        if mode == "off":
+            return False
+        if mode == "on":
+            return True
+        found = self._git(
+            [
+                "grep",
+                "-l",
+                "-F",
+                "filter=lfs",
+                commit or "HEAD",
+                "--",
+                ".gitattributes",
+                "*/.gitattributes",
+            ],
+            cwd=repository,
+        )
+        return found.exit_code == 0 and bool(found.stdout.strip())
+
+    def _require_lfs(self) -> None:
+        """
+        Check that Git LFS is installed before relying on it.
+
+        Raises:
+            SourceError: It is not, with how to install it.
+        """
+        if self.runner.exists("git-lfs") and self._git(["lfs", "version"]).success:
+            return
+        raise SourceError(
+            "This repository stores files with Git LFS and git-lfs is not installed",
+            details=f"Install it with: {install_hint('git-lfs', runner=self.runner)}. "
+            "To deploy without those files, turn Git LFS off: "
+            "noust app source set <domain> --lfs off",
+        )
+
+    def update_submodules(self, repository: Path, *, config: Sequence[str] = ()) -> None:
+        """
+        Check out the submodules a checkout declares, at the commits it records.
+
+        Shallow when the application's source options are: a submodule whose
+        server will not give a commit by name is fetched whole instead.
+
+        Args:
+            repository: The checkout.
+            config: Settings passed to git with ``-c`` (the LFS filter).
+
+        Raises:
+            SourceError: A submodule cannot be fetched.
+        """
+        if not self._has_submodules(repository):
+            return
+        # A URL the repository changed since the clone is read again first.
+        self._git(["submodule", "sync", "--recursive"], cwd=repository, config=config)
+        base = ["submodule", "update", "--init", "--recursive", "--force"]
+        shallow = self.options.shallow
+        result = self._git(
+            [*base, *(["--depth", "1"] if shallow else [])],
+            cwd=repository,
+            timeout=GIT_CLONE_TIMEOUT,
+            config=config,
+        )
+        if not result.success and shallow:
+            self.logger.debug("A submodule would not be fetched shallow; fetching it whole")
+            result = self._git(base, cwd=repository, timeout=GIT_CLONE_TIMEOUT, config=config)
+        if not result.success:
+            raise self._git_failed(
+                result, f"Fetching the submodules of {repository} failed", repository=repository
+            )
+
+    def _export_checked_out(
+        self,
+        repository: Path,
+        commit: str,
+        destination: Path,
+        *,
+        submodules: bool,
+        lfs: bool,
+    ) -> None:
+        """
+        Write a commit, with its submodules and LFS files, from a checkout of it.
+
+        The cache is put on the commit (it is rebuilt from the branch on the
+        next sync, so moving it costs nothing), the submodules are checked out
+        and the LFS files smudged, and the tracked files are copied the way an
+        in-place checkout is: a link is copied as a link and nothing is read
+        through one.
+
+        Args:
+            repository: The cache.
+            commit: The commit id.
+            destination: Existing, empty directory.
+            submodules: Check out and copy the submodules.
+            lfs: Fetch the LFS files.
+
+        Raises:
+            SourceError: Git LFS is needed and absent, or git or tar fails.
+        """
+        config: tuple[str, ...] = ()
+        if lfs:
+            self._require_lfs()
+            config = _LFS_FILTER
+        self._ensure_safe_directory(repository)
+        checkout = self._git(
+            ["checkout", "--force", "--detach", commit],
+            cwd=repository,
+            timeout=GIT_NETWORK_TIMEOUT,
+            config=config,
+        )
+        if not checkout.success:
+            raise self._git_failed(
+                checkout, f"Checking out {commit} to export it failed", repository=repository
+            )
+        if submodules:
+            self.update_submodules(repository, config=config)
+        listed = self._git(
+            ["ls-files", "--cached", *(["--recurse-submodules"] if submodules else []), "-z"],
+            cwd=repository,
+        )
+        if not listed.success:
+            raise SourceError(
+                f"Listing the files of {commit} failed", details=listed.stderr or listed.stdout
+            )
+        files = [
+            name
+            for name in dict.fromkeys(listed.stdout.split("\0"))
+            if name and _copyable_from_tree(repository, name)
+        ]
+        self._copy_files(repository, destination, files)
 
     def export_worktree(self, repository: Path, destination: Path) -> list[str]:
         """
@@ -2878,8 +3103,23 @@ class SourceManager(BaseManager):
         tracked = dict.fromkeys(name for name in listed.stdout.split("\0") if name)
         files = [name for name in tracked if _copyable_from_tree(repository, name)]
         uncommitted = sorted({name for name in changed.stdout.split("\0") if name})
+        self._copy_files(repository, destination, files)
+        return uncommitted
+
+    def _copy_files(self, repository: Path, destination: Path, files: Sequence[str]) -> None:
+        """
+        Copy named files of a checkout into a directory, with ``tar``.
+
+        Args:
+            repository: The checkout the paths are relative to.
+            destination: Existing, empty directory.
+            files: Paths already checked by :func:`_copyable_from_tree`.
+
+        Raises:
+            SourceError: If tar cannot copy or extract them.
+        """
         if not files:
-            return uncommitted
+            return
         archive = destination.parent / f".{destination.name}.tar"
         try:
             create = self.runner.run(
@@ -2916,7 +3156,6 @@ class SourceManager(BaseManager):
                 )
         finally:
             self.fs.remove(archive, missing_ok=True)
-        return uncommitted
 
     def remote_head(
         self,
@@ -3326,8 +3565,9 @@ class SourceManager(BaseManager):
         url: str,
         destination: Path,
         branch: str | None = None,
-        depth: int = 1,
-        recursive: bool = True,
+        depth: int | None = None,
+        recursive: bool | None = None,
+        lfs: bool | None = None,
     ) -> bool:
         """
         Clone a Git repository.
@@ -3336,8 +3576,12 @@ class SourceManager(BaseManager):
             url: Git repository URL.
             destination: Destination directory.
             branch: Branch to checkout.
-            depth: Clone depth (0 for full history).
-            recursive: Initialize submodules.
+            depth: Clone depth (0 for full history); None takes it from the
+                application's source options.
+            recursive: Initialize submodules; None takes it from the
+                application's source options.
+            lfs: Fetch the Git LFS files; None takes it from the application's
+                source options, False never does (an inspection reads text).
 
         Returns:
             True if clone was successful.
@@ -3365,6 +3609,13 @@ class SourceManager(BaseManager):
         # Validate SSH setup for SSH URLs
         self._ensure_ssh(safe_url)
 
+        if depth is None or recursive is None:
+            options = self.options
+            if depth is None:
+                depth = 1 if options.shallow else 0
+            if recursive is None:
+                recursive = options.submodules
+
         # Build clone command
         cmd = ["clone"]
 
@@ -3376,6 +3627,8 @@ class SourceManager(BaseManager):
 
         if recursive:
             cmd.append("--recursive")
+            if depth > 0:
+                cmd.append("--shallow-submodules")
 
         # "--" keeps git from reading the URL or the destination as options.
         cmd.extend(["--", safe_url, str(destination)])
@@ -3387,6 +3640,13 @@ class SourceManager(BaseManager):
             raise self._git_failed(result, f"Git clone failed: {safe_url}", url=safe_url)
 
         self._remember_auth(destination, auth, safe_url)
+        if lfs is not False and self._lfs_wanted(destination, None, self.options.lfs):
+            self._require_lfs()
+            pulled = self._git(
+                ["lfs", "pull"], cwd=destination, timeout=GIT_CLONE_TIMEOUT, config=_LFS_FILTER
+            )
+            if not pulled.success:
+                raise self._git_failed(pulled, "Fetching the Git LFS files failed", url=safe_url)
         return True
 
     def sparse_clone(
@@ -3528,6 +3788,52 @@ class SourceManager(BaseManager):
         self._git(["config", "--global", "--add", "safe.directory", str(path)])
 
     def pull(self, path: Path, branch: str | None = None) -> bool:
+        """
+        Pull latest changes in a Git repository, with its submodules and LFS files.
+
+        Args:
+            path: Repository path.
+            branch: Branch to pull.
+
+        Returns:
+            True if pull was successful.
+
+        Raises:
+            SourceError: If the path is not a repository, the branch name is
+                unsafe, the pull fails, or a submodule or an LFS file cannot be
+                fetched.
+        """
+        pulled = self._pull_branch(path, branch)
+        self._finish_checkout(path)
+        return pulled
+
+    def _finish_checkout(self, path: Path) -> None:
+        """
+        Bring the submodules and the Git LFS files of a checkout up to date.
+
+        What the application's source options ask for, after the branch moved:
+        the submodules at the commits it now records, and the LFS files its
+        ``.gitattributes`` routes through LFS (or all, or none).
+
+        Args:
+            path: The checkout.
+
+        Raises:
+            SourceError: A submodule or an LFS file cannot be fetched, or LFS
+                is needed and not installed.
+        """
+        options = self.options
+        if options.submodules:
+            self.update_submodules(path)
+        if self._lfs_wanted(path, None, options.lfs):
+            self._require_lfs()
+            pulled = self._git(
+                ["lfs", "pull"], cwd=path, timeout=GIT_CLONE_TIMEOUT, config=_LFS_FILTER
+            )
+            if not pulled.success:
+                raise self._git_failed(pulled, "Fetching the Git LFS files failed", repository=path)
+
+    def _pull_branch(self, path: Path, branch: str | None = None) -> bool:
         """
         Pull latest changes in a Git repository.
 

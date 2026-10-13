@@ -746,6 +746,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply
+         * @description Check a declaration against an application and apply it.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The declaration and how to apply it.
+         *         session: An elevated session: a declaration is code the application runs.
+         *
+         *     Returns:
+         *         The plan, and what was done unless it was only checked.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: The declaration is not valid (400, with the field), or the plan runs
+         *             commands and ``confirm`` was not given.
+         *         AppBusyError: Another operation is running on the application.
+         */
+        post: operations["apply_api_apps__domain__apply_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/backup-before-update": {
         parameters: {
             query?: never;
@@ -888,6 +922,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/build-cache": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Build Cache
+         * @description Say how much the package managers keep between this application's builds.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The cache.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_build_cache_api_apps__domain__build_cache_get"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Build Cache
+         * @description Empty the build cache of an application; the next build downloads what it needs again.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The cache as it was: ``size_bytes`` is what was freed.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        delete: operations["delete_build_cache_api_apps__domain__build_cache_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/certificate": {
         parameters: {
             query?: never;
@@ -970,6 +1048,72 @@ export interface paths {
          */
         post: operations["clone_app_api_apps__domain__clone_post"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/compose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Compose Settings
+         * @description Show what a Compose stack is run with.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The options, and the flags the arguments may use.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         NoustError: It is not a Compose stack.
+         */
+        get: operations["get_compose_settings_api_apps__domain__compose_get"];
+        /**
+         * Put Compose Settings
+         * @description Change what a Compose stack is run with, keeping the keys that are not given.
+         *
+         *     A new file or new profiles are written to the stack's unit as well; nothing
+         *     is rebuilt now, the next update uses the new settings.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The keys to change.
+         *         session: An elevated session: the arguments run as root.
+         *
+         *     Returns:
+         *         The options now in force.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: A value is not acceptable (400, with the field).
+         *         DeploymentError: The compose file is not in the stack's directory.
+         *         AppBusyError: Another operation is running on the stack.
+         */
+        put: operations["put_compose_settings_api_apps__domain__compose_put"];
+        post?: never;
+        /**
+         * Delete Compose Settings
+         * @description Forget what the operator chose; the unit's own record of the file applies again.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         The options now in force (none).
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        delete: operations["delete_compose_settings_api_apps__domain__compose_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1157,6 +1301,74 @@ export interface paths {
          *         The connection string.
          */
         post: operations["reveal_app_database_url_api_apps__domain__databases__engine___name__url_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/declaration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Declaration
+         * @description Write an application as a declaration file.
+         *
+         *     Admin scope, like the export: the file names the variables, hooks and schedules. Secret
+         *     variables are never in it.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         request: The incoming request.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The file.
+         *
+         *     Raises:
+         *         HTTPException: 403 below admin scope; 404 when the application is unknown.
+         */
+        get: operations["get_declaration_api_apps__domain__declaration_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/deploy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deploy App
+         * @description Deploy one application: the call a pipeline makes when it has built and pushed.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session or token.
+         *         body: What to deploy, when it is more than the head of the branch.
+         *
+         *     Returns:
+         *         202 with the job to follow (``GET /api/jobs/{job_id}`` until it ends);
+         *         200 when there was nothing new to deploy.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown (or another team's).
+         *         ValidationError: The options exclude each other or do not apply (400,
+         *             with the field).
+         */
+        post: operations["deploy_app_api_apps__domain__deploy_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3393,6 +3605,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/apps/{domain}/process-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Processes
+         * @description Show the process types an application declares and which ones a deployment uses.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The process types, read from the code that runs now.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_processes_api_apps__domain__process_types_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/apps/{domain}/processes": {
         parameters: {
             query?: never;
@@ -3645,6 +3887,55 @@ export interface paths {
          *         AppBusyError: Another operation is running on it (409).
          */
         post: operations["post_reclaim_api_apps__domain__reclaim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/registry-logins": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get App Registry Logins
+         * @description Say which registry accounts an application pulls and builds with.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The names of its accounts.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_app_registry_logins_api_apps__domain__registry_logins_get"];
+        /**
+         * Set App Registry Logins
+         * @description Set the registry accounts an application pulls and builds with.
+         *
+         *     Takes effect on the next deployment or update. A login is the server's
+         *     credential, so this is the instance's to set.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The accounts' names; an empty list uses none.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         The names of its accounts now.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         NoustError: An account is unknown.
+         */
+        put: operations["set_app_registry_logins_api_apps__domain__registry_logins_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4083,6 +4374,69 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/apps/{domain}/source-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Source Options
+         * @description Show how an application's repository is fetched and when a push deploys it.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The options in force.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        get: operations["get_source_options_api_apps__domain__source_options_get"];
+        /**
+         * Put Source Options
+         * @description Change some of an application's source options, keeping the others.
+         *
+         *     The change applies to the next fetch and to the next delivery; nothing is
+         *     rebuilt now. Every value is validated before anything is stored.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         body: The keys to change.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The options now in force.
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         *         ValidationError: A value is not acceptable (400, with the field).
+         */
+        put: operations["put_source_options_api_apps__domain__source_options_put"];
+        post?: never;
+        /**
+         * Delete Source Options
+         * @description Go back to the default source options.
+         *
+         *     Args:
+         *         domain: Domain of the application.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The options now in force (the defaults).
+         *
+         *     Raises:
+         *         HTTPException: 404 when the application is unknown.
+         */
+        delete: operations["delete_source_options_api_apps__domain__source_options_delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -11036,6 +11390,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/deploy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deploy Apps
+         * @description Deploy several applications in one call.
+         *
+         *     Each is its own job; one that has nothing new, is not found or finds the
+         *     queue full is a result of its own and does not stop the others.
+         *
+         *     Args:
+         *         body: The applications and the options they share.
+         *         session: The authenticated session or token.
+         *
+         *     Returns:
+         *         202 with a result per application; 200 when none was queued.
+         *
+         *     Raises:
+         *         ValidationError: The list is too long, or the options exclude each
+         *             other (400, with the field).
+         */
+        post: operations["deploy_apps_api_deploy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/deploy-keys": {
         parameters: {
             query?: never;
@@ -12578,6 +12966,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/import/applications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List Remote Applications
+         * @description List the applications of a Coolify or Dokploy server.
+         *
+         *     Args:
+         *         body: The server and its read-only token.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         What it has.
+         *
+         *     Raises:
+         *         ValidationError: The platform, the address or the token is not valid.
+         *         IntegrationError: The server cannot be reached or refuses the token.
+         */
+        post: operations["list_remote_applications_api_import_applications_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/import/proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read Remote Application
+         * @description Read one application of a Coolify or Dokploy server as a proposal.
+         *
+         *     Args:
+         *         body: The server, its token, the application and, optionally, the
+         *             domain to create it on here.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         The proposal, and the export document it becomes.
+         *
+         *     Raises:
+         *         ValidationError: The platform, the address or the token is not valid,
+         *             or no domain can be derived.
+         *         IntegrationError: The server cannot be read.
+         */
+        post: operations["read_remote_application_api_import_proposal_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/integrations/github": {
         parameters: {
             query?: never;
@@ -12612,6 +13064,42 @@ export interface paths {
          *         Whether there was one, and where to delete it on GitHub.
          */
         delete: operations["github_remove_api_integrations_github_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/github/host": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Github Set Host
+         * @description Choose the GitHub this server's integration talks to.
+         *
+         *     github.com, or a GitHub Enterprise Server or Cloud host. It decides where the App is
+         *     created and what its tokens, statuses and clones address, so a server that already has
+         *     an App keeps its host unless ``force``. A host inside this machine's networks must be
+         *     allowed first (``notifications.allow_private_hosts``).
+         *
+         *     Args:
+         *         body: The host.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         The status, with the host now in force.
+         *
+         *     Raises:
+         *         ConfigError: The host is not a host name, or is a private address that is not allowed.
+         *         ValidationError: An App exists and ``force`` was not given.
+         */
+        put: operations["github_set_host_api_integrations_github_host_put"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -12772,6 +13260,322 @@ export interface paths {
         get: operations["github_branches_api_integrations_github_repositories__owner___repo__branches_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/gitlab": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Gitlab Status
+         * @description List the GitLab connections and OAuth applications.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The connections, the applications and the redirect URI an application must allow.
+         */
+        get: operations["gitlab_status_api_integrations_gitlab_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/gitlab/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Gitlab Connect
+         * @description Add a connection that signs in with an access token.
+         *
+         *     GitLab is asked who the token belongs to before it is kept; the token is never returned.
+         *
+         *     Args:
+         *         body: The name, the host and the token.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         The connection.
+         *
+         *     Raises:
+         *         ValidationError: The name or host is not valid, or the name is taken.
+         *         IntegrationError: GitLab could not be reached or refused the token.
+         */
+        post: operations["gitlab_connect_api_integrations_gitlab_connections_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/gitlab/connections/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Gitlab Remove
+         * @description Forget a connection and its credentials.
+         *
+         *     Args:
+         *         name: The connection.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         Whether there was one.
+         */
+        delete: operations["gitlab_remove_api_integrations_gitlab_connections__name__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/gitlab/connections/{name}/groups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Gitlab Groups
+         * @description List the groups a connection's user belongs to.
+         *
+         *     Args:
+         *         name: The connection.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The groups, by path.
+         */
+        get: operations["gitlab_groups_api_integrations_gitlab_connections__name__groups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/gitlab/connections/{name}/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Gitlab Projects
+         * @description List the projects a connection's user can read.
+         *
+         *     Args:
+         *         name: The connection.
+         *         session: The authenticated session.
+         *         group: A group's full path: only its projects and its subgroups'.
+         *         search: Part of a project's name.
+         *
+         *     Returns:
+         *         The projects, most recently active first.
+         */
+        get: operations["gitlab_projects_api_integrations_gitlab_connections__name__projects_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/gitlab/connections/{name}/projects/{project}/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Gitlab Branches
+         * @description List a project's branches.
+         *
+         *     Args:
+         *         name: The connection.
+         *         project: The project's numeric id.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The branches.
+         *
+         *     Raises:
+         *         HTTPException: 400 when ``project`` is not a number.
+         */
+        get: operations["gitlab_branches_api_integrations_gitlab_connections__name__projects__project__branches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/gitlab/connections/{name}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Gitlab Test
+         * @description Ask GitLab who a connection is, and record whether it still works.
+         *
+         *     Args:
+         *         name: The connection.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The connection, with its new status.
+         */
+        post: operations["gitlab_test_api_integrations_gitlab_connections__name__test_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/gitlab/oauth-apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Gitlab Oauth App
+         * @description Record the OAuth application registered in GitLab for a host.
+         *
+         *     Args:
+         *         body: The host, the application id and its secret.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         The application, without its secret.
+         */
+        put: operations["gitlab_oauth_app_api_integrations_gitlab_oauth_apps_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/gitlab/oauth-apps/{host}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Gitlab Oauth App Remove
+         * @description Forget the OAuth application of a host.
+         *
+         *     Args:
+         *         host: The GitLab host.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         Whether there was one.
+         */
+        delete: operations["gitlab_oauth_app_remove_api_integrations_gitlab_oauth_apps__host__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/gitlab/oauth/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Gitlab Oauth Start
+         * @description Begin signing in to GitLab.
+         *
+         *     Args:
+         *         body: What to call the connection, and the host.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         The address to send the browser to, and the state GitLab sends back.
+         *
+         *     Raises:
+         *         ValidationError: The host has no OAuth application, the name is taken, or the console
+         *             has no public address.
+         */
+        post: operations["gitlab_oauth_start_api_integrations_gitlab_oauth_authorize_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations/gitlab/oauth/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Gitlab Oauth Callback
+         * @description Finish signing in: keep the tokens GitLab hands back as a connection.
+         *
+         *     Args:
+         *         body: The ``code`` and ``state`` of GitLab's redirect.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         The connection.
+         *
+         *     Raises:
+         *         ValidationError: The state was not issued here, expired or was used.
+         *         IntegrationError: GitLab refused the code.
+         */
+        post: operations["gitlab_oauth_callback_api_integrations_gitlab_oauth_callback_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -13033,7 +13837,8 @@ export interface paths {
          *     Unless ``force`` is set, the head of the branch on the remote is compared
          *     with the live commit first (``ls-remote``, nothing is downloaded), and
          *     an update that would rebuild the same commit is refused with ``409
-         *     nothing_new``. The webhook does not ask: a push is itself the news.
+         *     nothing_new``. The webhook does not ask: a push is itself the news. ``no_cache`` rebuilds what
+         *     is live from nothing, so it is not asked either.
          *
          *     Args:
          *         request: The update request.
@@ -14722,6 +15527,142 @@ export interface paths {
         get: operations["get_recipe_logo_api_recipes__name__logo_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/registries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Registry Logins
+         * @description List the registry accounts, without their passwords.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The accounts and the kinds of registry.
+         */
+        get: operations["list_registry_logins_api_registries_get"];
+        put?: never;
+        /**
+         * Add Registry Login
+         * @description Add a registry account.
+         *
+         *     Args:
+         *         body: The account and its password.
+         *         session: An elevated session: a credential travels in.
+         *
+         *     Returns:
+         *         The account.
+         *
+         *     Raises:
+         *         ValidationError: A value is not valid, or the name is taken (400, with
+         *             the field).
+         */
+        post: operations["add_registry_login_api_registries_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/registries/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Registry Login
+         * @description Show one account.
+         *
+         *     Args:
+         *         name: Its name.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The account.
+         *
+         *     Raises:
+         *         HTTPException: 404.
+         */
+        get: operations["get_registry_login_api_registries__name__get"];
+        put?: never;
+        post?: never;
+        /**
+         * Remove Registry Login
+         * @description Remove an account, its password and its assignments.
+         *
+         *     Args:
+         *         name: Its name.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         What was removed and the applications that now pull without it.
+         *
+         *     Raises:
+         *         HTTPException: 404.
+         */
+        delete: operations["remove_registry_login_api_registries__name__delete"];
+        options?: never;
+        head?: never;
+        /**
+         * Change Registry Login
+         * @description Change an account's kind, host, user or password.
+         *
+         *     Args:
+         *         name: Its name.
+         *         body: What to change.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         The account; a change forgets the last test.
+         *
+         *     Raises:
+         *         HTTPException: 404.
+         *         ValidationError: A value is not valid (400, with the field).
+         */
+        patch: operations["change_registry_login_api_registries__name__patch"];
+        trace?: never;
+    };
+    "/api/registries/{name}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Registry Login
+         * @description Try an account against its registry.
+         *
+         *     It logs in to a configuration directory of its own and removes it, so
+         *     nothing of it stays on the server. The outcome is kept on the account
+         *     (``last_status``, ``last_error``), and a registry that refuses it is a
+         *     result, not an error.
+         *
+         *     Args:
+         *         name: Its name.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         The account, with how the test went.
+         *
+         *     Raises:
+         *         HTTPException: 404.
+         */
+        post: operations["test_registry_login_api_registries__name__test_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -19781,6 +20722,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workspaces/deploy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Deploy Workspaces
+         * @description Queue one application per workspace named.
+         *
+         *     Everything is checked before anything is queued: the workspaces exist and are applications,
+         *     each domain is valid and free, and every plan is one an import would accept. Sudo mode: it
+         *     deploys as root, like an import.
+         *
+         *     Args:
+         *         body: The repository, and the workspaces with the domain each is deployed on.
+         *         request: The incoming request.
+         *         session: An elevated session.
+         *
+         *     Returns:
+         *         The queued jobs, in the order asked; each result lists what was applied.
+         *
+         *     Raises:
+         *         ValidationError: A workspace is unknown or a library, a domain repeats, or a plan is
+         *             refused (a taken domain is a 409).
+         */
+        post: operations["deploy_workspaces_api_workspaces_deploy_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workspaces/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Inspect Workspace Source
+         * @description Read a repository's workspaces and say which are applications.
+         *
+         *     Fetches only the configuration files and the ``package.json`` of each workspace; nothing
+         *     is run and nothing is written outside the scratch checkout, which is removed before this
+         *     returns.
+         *
+         *     Args:
+         *         body: The repository and the branch.
+         *         request: The incoming request.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The workspaces: ``tool`` is ``none`` for a repository that declares none.
+         *
+         *     Raises:
+         *         HTTPException: 403 for a local path the credential may not read.
+         *         SourceError: The source is invalid or could not be fetched (400).
+         */
+        post: operations["inspect_workspace_source_api_workspaces_inspect_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -20730,6 +21743,8 @@ export interface components {
             base_directory?: string | null;
             /** Build */
             build?: string | null;
+            /** Cache */
+            cache?: boolean | null;
             /** Install */
             install?: string | null;
             /** Publish Directory */
@@ -20761,6 +21776,11 @@ export interface components {
              * @description Replaces the type's build command
              */
             build?: string | null;
+            /**
+             * Cache
+             * @description false builds every deployment without the build cache; unset keeps it
+             */
+            cache?: boolean | null;
             /**
              * Document
              * @description The operator's document as stored, when there is one
@@ -21376,6 +22396,24 @@ export interface components {
             units?: components["schemas"]["UnitStatusModel"][];
         };
         /**
+         * AppRegistryLogins
+         * @description The accounts an application pulls and builds with.
+         */
+        AppRegistryLogins: {
+            /** Domain */
+            domain: string;
+            /** Logins */
+            logins: string[];
+        };
+        /**
+         * AppRegistryLoginsRequest
+         * @description The accounts to use; an empty list uses none.
+         */
+        AppRegistryLoginsRequest: {
+            /** Logins */
+            logins?: string[];
+        };
+        /**
          * AppTypeInfo
          * @description One application type the new-app wizard may offer.
          */
@@ -21396,6 +22434,39 @@ export interface components {
             types: components["schemas"]["AppTypeInfo"][];
         };
         /**
+         * AppliedStep
+         * @description One change that was attempted.
+         */
+        AppliedStep: {
+            /** Applied */
+            applied: boolean;
+            /** Detail */
+            detail: string;
+            /** Part */
+            part: string;
+        };
+        /**
+         * ApplyPlanModel
+         * @description What applying a declaration changes.
+         */
+        ApplyPlanModel: {
+            /** Changes */
+            changes: components["schemas"]["PlannedChange"][];
+            /**
+             * Confirm
+             * @description What runs commands, which needs confirm
+             */
+            confirm: string[];
+            /** Domain */
+            domain: string;
+            /** Notes */
+            notes: string[];
+            /** Prune */
+            prune: boolean;
+            /** Unchanged */
+            unchanged: string[];
+        };
+        /**
          * ApplyPlanOut
          * @description What applying updates would do, before anything is touched.
          */
@@ -21414,6 +22485,49 @@ export interface components {
             restarts_console: boolean;
             /** Scope */
             scope: string;
+        };
+        /**
+         * ApplyRequest
+         * @description A declaration to apply.
+         */
+        ApplyRequest: {
+            /**
+             * Check
+             * @description Only say what would change
+             * @default false
+             */
+            check: boolean;
+            /**
+             * Confirm
+             * @description Agree to what runs commands: required when the plan lists any
+             * @default false
+             */
+            confirm: boolean;
+            /**
+             * Declaration
+             * @description The YAML text
+             */
+            declaration: string;
+            /**
+             * Prune
+             * @description Also remove the aliases, redirects and tasks the file does not name
+             * @default false
+             */
+            prune: boolean;
+        };
+        /**
+         * ApplyResponse
+         * @description The plan, and what was done when it was applied.
+         */
+        ApplyResponse: {
+            /**
+             * Applied
+             * @description False when only checked
+             */
+            applied: boolean;
+            plan: components["schemas"]["ApplyPlanModel"];
+            /** Steps */
+            steps: components["schemas"]["AppliedStep"][];
         };
         /**
          * ApplyUpdatesRequest
@@ -22494,6 +23608,49 @@ export interface components {
             with_backup_24h: number;
         };
         /**
+         * BatchDeployRequest
+         * @description Several applications at once, with the options they share.
+         */
+        BatchDeployRequest: {
+            /**
+             * Apps
+             * @description The applications' domains, at most 20
+             */
+            apps: string[];
+            /**
+             * Commit
+             * @description Deploy exactly this commit (full or abbreviated)
+             */
+            commit?: string | null;
+            /**
+             * Force
+             * @description Rebuild even when the branch has no commit the live build lacks
+             * @default false
+             */
+            force: boolean;
+            /**
+             * Image Tag
+             * @description For a container application from a registry image: deploy this tag of the image it already runs
+             */
+            image_tag?: string | null;
+            /**
+             * No Cache
+             * @description Build from scratch: no package manager cache, no dependencies taken from the release that serves, no image layer cache. Implies force
+             * @default false
+             */
+            no_cache: boolean;
+            /**
+             * Pull Request
+             * @description Rebuild the preview of this pull request instead of the application
+             */
+            pull_request?: number | null;
+            /**
+             * Tag
+             * @description Deploy the commit this git tag points at
+             */
+            tag?: string | null;
+        };
+        /**
          * BindRequest
          * @description Request to give an account a role at a scope.
          */
@@ -22592,31 +23749,6 @@ export interface components {
             last: string;
         };
         /**
-         * BranchListOut
-         * @description A repository's branches.
-         */
-        BranchListOut: {
-            /** Items */
-            items: components["schemas"]["BranchOut"][];
-            /** Total */
-            total: number;
-        };
-        /**
-         * BranchOut
-         * @description A branch of a repository, with its head commit.
-         */
-        BranchOut: {
-            /** Commit */
-            commit?: string | null;
-            /** Name */
-            name: string;
-            /**
-             * Protected
-             * @default false
-             */
-            protected: boolean;
-        };
-        /**
          * BranchResponse
          * @description The branch an application deploys from now.
          *
@@ -22678,6 +23810,26 @@ export interface components {
             available_mb: number;
             /** Server Mb */
             server_mb: number;
+        };
+        /**
+         * BuildCacheResponse
+         * @description What an application's build cache holds.
+         */
+        BuildCacheResponse: {
+            /** Domain */
+            domain: string;
+            /** Exists */
+            exists: boolean;
+            /**
+             * Path
+             * @description Where the package managers' cache for this application is kept
+             */
+            path: string;
+            /**
+             * Size Bytes
+             * @description Bytes it holds; when emptied, the bytes that were freed
+             */
+            size_bytes: number;
         };
         /**
          * BulkVariablesRequest
@@ -23937,6 +25089,70 @@ export interface components {
             reason: string;
         };
         /**
+         * ComposeSettingsRequest
+         * @description Settings to change. A key left out keeps its value; an empty list clears one.
+         */
+        ComposeSettingsRequest: {
+            /** Build Args */
+            build_args?: string[] | null;
+            /** Compose File */
+            compose_file?: string | null;
+            /** Profiles */
+            profiles?: string[] | null;
+            /** Services */
+            services?: string[] | null;
+            /** Up Args */
+            up_args?: string[] | null;
+        };
+        /**
+         * ComposeSettingsResponse
+         * @description What a Compose stack is run with.
+         */
+        ComposeSettingsResponse: {
+            /**
+             * Allowed Build Args
+             * @description The flags build_args may use
+             */
+            allowed_build_args: string[];
+            /**
+             * Allowed Up Args
+             * @description The flags up_args may use
+             */
+            allowed_up_args: string[];
+            /**
+             * Build Args
+             * @description Extra arguments of docker compose build
+             */
+            build_args?: string[];
+            /**
+             * Compose File
+             * @description The compose file, relative to the application; null finds one
+             */
+            compose_file?: string | null;
+            /**
+             * Customised
+             * @description Whether the operator chose anything
+             */
+            customised: boolean;
+            /** Domain */
+            domain: string;
+            /**
+             * Profiles
+             * @description The profiles to activate
+             */
+            profiles?: string[];
+            /**
+             * Services
+             * @description The services to build and start; empty for all
+             */
+            services?: string[];
+            /**
+             * Up Args
+             * @description Extra arguments of docker compose up
+             */
+            up_args?: string[];
+        };
+        /**
          * ConfigPatchRequest
          * @description Request to patch specific configuration values.
          */
@@ -24016,6 +25232,21 @@ export interface components {
             path: string;
         };
         /**
+         * ConnectRequest
+         * @description A connection that signs in with an access token.
+         */
+        ConnectRequest: {
+            /** Host */
+            host: string;
+            /** Name */
+            name: string;
+            /**
+             * Token
+             * @description A personal, group or project access token (read_api, read_repository)
+             */
+            token: string;
+        };
+        /**
          * ConnectResponse
          * @description Everything the Connect tab shows.
          *
@@ -24039,6 +25270,35 @@ export interface components {
             /** Port */
             port: number;
             tunnel: components["schemas"]["TunnelResponse"];
+            /** Username */
+            username?: string | null;
+        };
+        /**
+         * ConnectionOut
+         * @description A GitLab connection.
+         */
+        ConnectionOut: {
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Host */
+            host: string;
+            /**
+             * Kind
+             * @description token or oauth
+             */
+            kind: string;
+            /** Last Checked At */
+            last_checked_at?: string | null;
+            /** Last Error */
+            last_error?: string | null;
+            /** Last Status */
+            last_status?: string | null;
+            /** Name */
+            name: string;
+            /** Updated At */
+            updated_at: string;
             /** Username */
             username?: string | null;
         };
@@ -25336,6 +26596,19 @@ export interface components {
             comment?: string | null;
         };
         /**
+         * DeclarationResponse
+         * @description An application as a declaration file.
+         */
+        DeclarationResponse: {
+            /**
+             * Declaration
+             * @description The YAML text, in the keys noust.yaml uses
+             */
+            declaration: string;
+            /** Domain */
+            domain: string;
+        };
+        /**
          * DeleteRequest
          * @description Request to delete an application.
          */
@@ -25585,6 +26858,77 @@ export interface components {
              * @default true
              */
             ok: boolean;
+        };
+        /**
+         * DeployOptions
+         * @description What a deploy asks for. Everything is optional: an empty body is an update.
+         */
+        DeployOptions: {
+            /**
+             * Commit
+             * @description Deploy exactly this commit (full or abbreviated)
+             */
+            commit?: string | null;
+            /**
+             * Force
+             * @description Rebuild even when the branch has no commit the live build lacks
+             * @default false
+             */
+            force: boolean;
+            /**
+             * Image Tag
+             * @description For a container application from a registry image: deploy this tag of the image it already runs
+             */
+            image_tag?: string | null;
+            /**
+             * No Cache
+             * @description Build from scratch: no package manager cache, no dependencies taken from the release that serves, no image layer cache. Implies force
+             * @default false
+             */
+            no_cache: boolean;
+            /**
+             * Pull Request
+             * @description Rebuild the preview of this pull request instead of the application
+             */
+            pull_request?: number | null;
+            /**
+             * Tag
+             * @description Deploy the commit this git tag points at
+             */
+            tag?: string | null;
+        };
+        /**
+         * DeployResponse
+         * @description What a deploy call did.
+         */
+        DeployResponse: {
+            /** Message */
+            message: string;
+            /** Results */
+            results: components["schemas"]["DeployResult"][];
+        };
+        /**
+         * DeployResult
+         * @description What came of one application.
+         */
+        DeployResult: {
+            /**
+             * Detail
+             * @description Why, for anything but queued
+             */
+            detail?: string | null;
+            /** Domain */
+            domain: string;
+            /**
+             * Job Id
+             * @description The job to follow, when one was queued
+             */
+            job_id?: string | null;
+            /**
+             * Status
+             * @description queued; joined (an update already waiting will do it); nothing_new; queue_full; not_found; failed
+             */
+            status: string;
         };
         /**
          * DeployTagRequest
@@ -28338,6 +29682,24 @@ export interface components {
             username?: string | null;
         };
         /**
+         * GitHubHostRequest
+         * @description The GitHub to talk to.
+         *
+         *     Attributes:
+         *         host: A host name (``ghe.example.com``, ``acme.ghe.com``); null or empty for
+         *             github.com.
+         *         force: Change it although this server has an App on the current one.
+         */
+        GitHubHostRequest: {
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** Host */
+            host?: string | null;
+        };
+        /**
          * GitHubStatusOut
          * @description The GitHub integration of this server.
          */
@@ -28353,6 +29715,11 @@ export interface components {
             hooks_active: boolean;
             /** Hooks Url */
             hooks_url?: string | null;
+            /**
+             * Host
+             * @default github.com
+             */
+            host: string;
             /** Html Url */
             html_url?: string | null;
             /** Install Url */
@@ -28370,6 +29737,21 @@ export interface components {
             settings_url?: string | null;
             /** Slug */
             slug?: string | null;
+        };
+        /**
+         * GitLabStatusOut
+         * @description What this server has of GitLab.
+         */
+        GitLabStatusOut: {
+            /** Connections */
+            connections: components["schemas"]["ConnectionOut"][];
+            /** Oauth Apps */
+            oauth_apps: components["schemas"]["OAuthApplicationOut"][];
+            /**
+             * Redirect Uri
+             * @description Where GitLab sends the browser back; null when the console has no public URL
+             */
+            redirect_uri: string | null;
         };
         /**
          * GrantPrivilegesRequest
@@ -28402,6 +29784,28 @@ export interface components {
              * @description Username
              */
             username: string;
+        };
+        /**
+         * GroupListOut
+         * @description Groups, by path.
+         */
+        GroupListOut: {
+            /** Items */
+            items: components["schemas"]["GroupOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * GroupOut
+         * @description A group the connection's user belongs to.
+         */
+        GroupOut: {
+            /** Full Path */
+            full_path: string;
+            /** Id */
+            id: number;
+            /** Name */
+            name?: string | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -31621,6 +33025,65 @@ export interface components {
             ok: boolean;
         };
         /**
+         * OAuthApplicationOut
+         * @description An OAuth application registered in GitLab, without its secret.
+         */
+        OAuthApplicationOut: {
+            /** Client Id */
+            client_id: string;
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /** Host */
+            host: string;
+        };
+        /**
+         * OAuthApplicationRequest
+         * @description The OAuth application registered in GitLab.
+         */
+        OAuthApplicationRequest: {
+            /** Client Id */
+            client_id: string;
+            /** Client Secret */
+            client_secret: string;
+            /** Host */
+            host: string;
+        };
+        /**
+         * OAuthCallbackRequest
+         * @description What GitLab's redirect carried.
+         */
+        OAuthCallbackRequest: {
+            /** Code */
+            code: string;
+            /** State */
+            state: string;
+        };
+        /**
+         * OAuthStartOut
+         * @description Where to send the browser.
+         */
+        OAuthStartOut: {
+            /** Authorize Url */
+            authorize_url: string;
+            /** State */
+            state: string;
+        };
+        /**
+         * OAuthStartRequest
+         * @description Begin signing in with GitLab.
+         */
+        OAuthStartRequest: {
+            /** Host */
+            host: string;
+            /**
+             * Name
+             * @description What to call the connection
+             */
+            name: string;
+        };
+        /**
          * ObservationEntry
          * @description One thing the monitor wrote down.
          *
@@ -32123,6 +33586,18 @@ export interface components {
             manifest: string;
         };
         /**
+         * PlannedChange
+         * @description One thing applying would change.
+         */
+        PlannedChange: {
+            /** Description */
+            description: string;
+            /** Root Equivalent */
+            root_equivalent: boolean;
+            /** Section */
+            section: string;
+        };
+        /**
          * PlatformProposalResponse
          * @description What another platform's configuration says, in Noust's terms.
          */
@@ -32132,8 +33607,19 @@ export interface components {
              * @description Null: detection decides
              */
             app_type?: string | null;
+            /**
+             * Base Directory
+             * @description The subdirectory of the repository the project lives in
+             */
+            base_directory?: string | null;
+            /** Branch */
+            branch?: string | null;
             /** Build Command */
             build_command?: string | null;
+            /** Cpu Quota Percent */
+            cpu_quota_percent?: number | null;
+            /** Cron */
+            cron?: components["schemas"]["ProposedCronResponse"][];
             /**
              * Databases
              * @description Engines it needs
@@ -32144,6 +33630,11 @@ export interface components {
             /** Env */
             env?: components["schemas"]["ProposedEnvResponse"][];
             /**
+             * Equivalent
+             * @description The noust command that creates what a proposal cannot deploy (an image, a Dockerfile, a Compose file)
+             */
+            equivalent?: string | null;
+            /**
              * Files
              * @description The files read
              */
@@ -32152,19 +33643,36 @@ export interface components {
             health_path?: string | null;
             /** Health Timeout */
             health_timeout?: number | null;
+            /**
+             * Image
+             * @description A registry image it ran instead
+             */
+            image?: string | null;
             /** Install Command */
             install_command?: string | null;
+            /** Memory Max Mb */
+            memory_max_mb?: number | null;
+            /**
+             * Name
+             * @description What the platform calls it (API imports)
+             */
+            name?: string | null;
             /** Output Directory */
             output_directory?: string | null;
             /** Persistent Paths */
             persistent_paths?: string[];
             /**
              * Platform
-             * @description vercel, railway, render or heroku
+             * @description vercel, railway, render, heroku, coolify or dokploy
              */
             platform: string;
             /** Port */
             port?: number | null;
+            /**
+             * Source
+             * @description The repository it was pulled from, when the platform says
+             */
+            source?: string | null;
             /** Start Command */
             start_command?: string | null;
             /**
@@ -32172,6 +33680,8 @@ export interface components {
              * @description What has no equivalent, and what to do instead
              */
             warnings?: string[];
+            /** Watch Paths */
+            watch_paths?: string[];
         };
         /**
          * PolicyFields
@@ -32792,41 +34302,6 @@ export interface components {
             unit: string;
         };
         /**
-         * ProcessEntry
-         * @description One row of the process table.
-         *
-         *     Attributes:
-         *         pid: Process identifier.
-         *         name: Executable name.
-         *         user: Account the process runs as.
-         *         cpu_percent: CPU usage percentage.
-         *         memory_percent: Resident memory percentage.
-         *         command: Command line, already truncated by the collector.
-         *         status: Kernel process state.
-         */
-        ProcessEntry: {
-            /**
-             * Command
-             * @default
-             */
-            command: string;
-            /** Cpu Percent */
-            cpu_percent: number;
-            /** Memory Percent */
-            memory_percent: number;
-            /** Name */
-            name: string;
-            /** Pid */
-            pid: number;
-            /**
-             * Status
-             * @default running
-             */
-            status: string;
-            /** User */
-            user: string;
-        };
-        /**
          * ProcessHistoryOut
          * @description The process samples of the stretch.
          *
@@ -32990,43 +34465,54 @@ export interface components {
             units: components["schemas"]["UnitProcessesOut"][];
         };
         /**
+         * ProcessesResponse
+         * @description An application's process types.
+         */
+        ProcessesResponse: {
+            /** Domain */
+            domain: string;
+            /**
+             * Notes
+             * @description Why a declared process is not in effect, and what to do
+             */
+            notes: string[];
+            /**
+             * Problem
+             * @description Why a Procfile that exists is not used; empty otherwise
+             */
+            problem: string;
+            /** Processes */
+            processes: components["schemas"]["noust__web__api__app_processes__ProcessEntry"][];
+            /**
+             * Procfile Honoured
+             * @description Whether this application reads its Procfile
+             */
+            procfile_honoured: boolean;
+            /**
+             * Source
+             * @description Where they are declared: noust.yaml, Procfile or none
+             */
+            source: string;
+        };
+        /**
+         * ProjectListOut
+         * @description Projects, most recently active first.
+         */
+        ProjectListOut: {
+            /** Items */
+            items: components["schemas"]["noust__web__api__gitlab__ProjectOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
          * ProjectListResponse
          * @description The projects a principal sees.
          */
         ProjectListResponse: {
             /** Projects */
-            projects: components["schemas"]["ProjectOut"][];
+            projects: components["schemas"]["noust__web__api__teams__ProjectOut"][];
             /** Total */
             total: number;
-        };
-        /**
-         * ProjectOut
-         * @description A project.
-         *
-         *     Attributes:
-         *         id: Store id.
-         *         team: The team's slug.
-         *         slug: Unique inside the team.
-         *         name: Display name.
-         *         environments: Its environments' slugs.
-         *         created_at: When it was created, UNIX seconds.
-         *         created_by: Who created it.
-         */
-        ProjectOut: {
-            /** Created At */
-            created_at: number;
-            /** Created By */
-            created_by?: string | null;
-            /** Environments */
-            environments?: string[];
-            /** Id */
-            id: number;
-            /** Name */
-            name: string;
-            /** Slug */
-            slug: string;
-            /** Team */
-            team: string;
         };
         /**
          * PromoteRequest
@@ -33100,6 +34586,21 @@ export interface components {
             source: string;
             /** User */
             user: string;
+        };
+        /**
+         * ProposedCronResponse
+         * @description A scheduled task of the other platform.
+         */
+        ProposedCronResponse: {
+            /** Command */
+            command: string;
+            /** Name */
+            name: string;
+            /**
+             * Schedule
+             * @description A cron expression
+             */
+            schedule: string;
         };
         /**
          * ProposedEnvResponse
@@ -34808,6 +36309,111 @@ export interface components {
             unit: string;
         };
         /**
+         * RegistryLoginChange
+         * @description What to change about an account. A field left out keeps its value.
+         */
+        RegistryLoginChange: {
+            /** Kind */
+            kind?: string | null;
+            /** Password */
+            password?: string | null;
+            /** Server */
+            server?: string | null;
+            /** Username */
+            username?: string | null;
+        };
+        /**
+         * RegistryLoginListResponse
+         * @description Every account, and the kinds of registry there are.
+         */
+        RegistryLoginListResponse: {
+            /** Kinds */
+            kinds: string[];
+            /** Logins */
+            logins: components["schemas"]["RegistryLoginResponse"][];
+        };
+        /**
+         * RegistryLoginRemoved
+         * @description An account that is gone.
+         */
+        RegistryLoginRemoved: {
+            /**
+             * Apps
+             * @description The applications that used it and now pull without an account
+             */
+            apps: string[];
+            /** Name */
+            name: string;
+        };
+        /**
+         * RegistryLoginRequest
+         * @description A new account.
+         */
+        RegistryLoginRequest: {
+            /** Kind */
+            kind: string;
+            /** Name */
+            name: string;
+            /**
+             * Password
+             * @description The registry's password or token; for ECR, the AWS secret access key. Not returned by any call
+             */
+            password: string;
+            /**
+             * Server
+             * @description The registry host; the kind's own if it has one
+             */
+            server?: string | null;
+            /** Username */
+            username: string;
+        };
+        /**
+         * RegistryLoginResponse
+         * @description One registry account. Never its password.
+         */
+        RegistryLoginResponse: {
+            /**
+             * Apps
+             * @description The applications that use it
+             */
+            apps?: string[];
+            /** Created At */
+            created_at: string;
+            /** Created By */
+            created_by?: string | null;
+            /**
+             * Kind
+             * @description dockerhub, ghcr, gitlab, ecr, acr, gar or custom
+             */
+            kind: string;
+            /**
+             * Last Error
+             * @description What the registry said when it failed
+             */
+            last_error?: string | null;
+            /**
+             * Last Status
+             * @description ok or failed after a test
+             */
+            last_status?: string | null;
+            /** Last Tested At */
+            last_tested_at?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Server
+             * @description The registry host
+             */
+            server: string;
+            /** Updated At */
+            updated_at: string;
+            /**
+             * Username
+             * @description The account (for ECR, the AWS access key id)
+             */
+            username: string;
+        };
+        /**
          * RelationDetailResponse
          * @description A relation's structure.
          *
@@ -34951,6 +36557,43 @@ export interface components {
             webserver: string;
         };
         /**
+         * RemoteApplicationOut
+         * @description An application on the other platform's server.
+         */
+        RemoteApplicationOut: {
+            /**
+             * Build
+             * @default
+             */
+            build: string;
+            /** Domains */
+            domains?: string[];
+            /** Name */
+            name: string;
+            /**
+             * Project
+             * @default
+             */
+            project: string;
+            /** Ref */
+            ref: string;
+            /**
+             * Source
+             * @default
+             */
+            source: string;
+        };
+        /**
+         * RemoteApplicationsResponse
+         * @description What the other server has.
+         */
+        RemoteApplicationsResponse: {
+            /** Applications */
+            applications: components["schemas"]["RemoteApplicationOut"][];
+            /** Platform */
+            platform: string;
+        };
+        /**
          * RemoteBackupInfo
          * @description One backup found on a destination.
          */
@@ -35064,19 +36707,80 @@ export interface components {
             size_human?: string | null;
         };
         /**
-         * RemovalOut
-         * @description What removing the integration did.
-         *
-         *     Attributes:
-         *         removed: Whether there was an App to forget.
-         *         settings_url: The App's page on GitHub, where it is uninstalled and
-         *             deleted; Noust cannot do that itself.
+         * RemoteProposalRequest
+         * @description One application to read.
          */
-        RemovalOut: {
-            /** Removed */
-            removed: boolean;
-            /** Settings Url */
-            settings_url?: string | null;
+        RemoteProposalRequest: {
+            /**
+             * Domain
+             * @description The domain to create it on here; the first one it answered on there if left out
+             */
+            domain?: string | null;
+            /**
+             * Platform
+             * @description coolify or dokploy
+             */
+            platform: string;
+            /**
+             * Ref
+             * @description Its id on the other server (from the list)
+             */
+            ref: string;
+            /**
+             * Source
+             * @description The repository to deploy, when the platform names none
+             */
+            source?: string | null;
+            /**
+             * Token
+             * @description A read-only API token. Not stored
+             */
+            token: string;
+            /**
+             * Url
+             * @description Its address, https://coolify.example.com
+             */
+            url: string;
+        };
+        /**
+         * RemoteProposalResponse
+         * @description One application, as Noust would deploy it.
+         */
+        RemoteProposalResponse: {
+            /**
+             * Deployable
+             * @description false for an image, a Dockerfile or a Compose application: the proposal carries the noust command that creates it
+             */
+            deployable: boolean;
+            /**
+             * Document
+             * @description The export document it becomes: review it, then POST /api/apps/import
+             */
+            document: {
+                [key: string]: unknown;
+            };
+            proposal: components["schemas"]["PlatformProposalResponse"];
+        };
+        /**
+         * RemoteServer
+         * @description The server to read, and the token to read it with.
+         */
+        RemoteServer: {
+            /**
+             * Platform
+             * @description coolify or dokploy
+             */
+            platform: string;
+            /**
+             * Token
+             * @description A read-only API token. Not stored
+             */
+            token: string;
+            /**
+             * Url
+             * @description Its address, https://coolify.example.com
+             */
+            url: string;
         };
         /**
          * RemoveKeyRequest
@@ -38284,6 +39988,61 @@ export interface components {
             verdict?: string | null;
         };
         /**
+         * SourceOptionsRequest
+         * @description Source options to change. A key left out keeps its value.
+         */
+        SourceOptionsRequest: {
+            /** Lfs */
+            lfs?: ("auto" | "on" | "off") | null;
+            /** Shallow */
+            shallow?: boolean | null;
+            /** Skip Markers */
+            skip_markers?: boolean | null;
+            /** Submodules */
+            submodules?: boolean | null;
+            /** Watch Paths */
+            watch_paths?: string[] | null;
+        };
+        /**
+         * SourceOptionsResponse
+         * @description An application's source options.
+         */
+        SourceOptionsResponse: {
+            /**
+             * Customised
+             * @description Whether the operator changed anything from the defaults
+             */
+            customised: boolean;
+            /** Domain */
+            domain: string;
+            /**
+             * Lfs
+             * @description Git LFS: auto fetches the files when the repository tracks any, on always does, off never does
+             * @enum {string}
+             */
+            lfs: "auto" | "on" | "off";
+            /**
+             * Shallow
+             * @description Fetch only the latest commit (off keeps the full history)
+             */
+            shallow: boolean;
+            /**
+             * Skip Markers
+             * @description Skip a push whose commits all say [skip ci] or [skip cd]
+             */
+            skip_markers: boolean;
+            /**
+             * Submodules
+             * @description Initialise the submodules and put their files in the release
+             */
+            submodules: boolean;
+            /**
+             * Watch Paths
+             * @description Globs a push must touch to deploy; '!' excludes and the last match wins. Empty means every push deploys
+             */
+            watch_paths: string[];
+        };
+        /**
          * SourceStatusOut
          * @description What became of one source.
          *
@@ -40352,6 +42111,11 @@ export interface components {
              * @default false
              */
             force: boolean;
+            /**
+             * No Cache
+             * @description Build from scratch: no package manager cache, no dependencies taken from the release that serves, no image layer cache. Implies force
+             */
+            no_cache?: boolean | null;
         };
         /**
          * UpdateRetentionRequest
@@ -41334,12 +43098,23 @@ export interface components {
          *         hook_url_public: Whether ``hook_url`` is one a forge can reach.
          *         content_type: What the forge must send.
          *         events: The events to enable at the forge.
+         *         deploy_url: Where a pipeline deploys the application with a ``deploy``
+         *             token, no code host involved (``POST``).
+         *         deploy_url_public: Whether ``deploy_url`` is the console's public
+         *             address, one a CI runner on another network can reach.
          */
         WebhookHooksOut: {
             /** Base Url */
             base_url?: string | null;
             /** Content Type */
             content_type: string;
+            /** Deploy Url */
+            deploy_url?: string | null;
+            /**
+             * Deploy Url Public
+             * @default false
+             */
+            deploy_url_public: boolean;
             /** Events */
             events: string[];
             /** Exposed */
@@ -41490,6 +43265,115 @@ export interface components {
             message: string;
             /** Webserver */
             webserver: string;
+        };
+        /**
+         * WorkspaceApp
+         * @description One application to create.
+         */
+        WorkspaceApp: {
+            /**
+             * Domain
+             * @description The domain to deploy it on
+             */
+            domain: string;
+            /**
+             * Workspace
+             * @description The workspace's name or its directory
+             */
+            workspace: string;
+        };
+        /**
+         * WorkspaceDeployRequest
+         * @description Applications to create from a monorepo.
+         */
+        WorkspaceDeployRequest: {
+            /**
+             * Apps
+             * @description The workspaces to deploy, each with its domain
+             */
+            apps: components["schemas"]["WorkspaceApp"][];
+            /** Branch */
+            branch?: string | null;
+            /**
+             * Source
+             * @description Git URL, archive URL or local path
+             */
+            source: string;
+        };
+        /**
+         * WorkspaceDeployResponse
+         * @description The jobs that create the applications, in the order they were asked.
+         */
+        WorkspaceDeployResponse: {
+            /** Jobs */
+            jobs: components["schemas"]["JobAcceptedResponse"][];
+        };
+        /**
+         * WorkspaceEntry
+         * @description One package of the monorepo.
+         */
+        WorkspaceEntry: {
+            /**
+             * App Type
+             * @description The Noust type that would deploy it; null for a library
+             */
+            app_type: string | null;
+            /**
+             * Build
+             * @description Its build command, when Turborepo builds it
+             */
+            build: string[] | null;
+            /** Depends On */
+            depends_on: string[];
+            /** Deployable */
+            deployable: boolean;
+            /** Directory */
+            directory: string;
+            /** Name */
+            name: string;
+            /**
+             * Reason
+             * @description Why it is not an application; empty for one
+             */
+            reason: string;
+            /**
+             * Watch Paths
+             * @description What a push must touch to deploy it
+             */
+            watch_paths: string[];
+        };
+        /**
+         * WorkspaceInspectRequest
+         * @description A repository to read the workspaces of.
+         */
+        WorkspaceInspectRequest: {
+            /**
+             * Branch
+             * @description Git branch to read
+             */
+            branch?: string | null;
+            /**
+             * Source
+             * @description Git URL, archive URL or local path
+             */
+            source: string;
+        };
+        /**
+         * WorkspacesResponse
+         * @description What a repository's workspaces are.
+         */
+        WorkspacesResponse: {
+            /** Package Manager */
+            package_manager: string;
+            /** Problems */
+            problems: string[];
+            /**
+             * Tool
+             * @description turborepo, nx, lerna, pnpm, yarn, npm or none
+             */
+            tool: string;
+            /** Workspaces */
+            workspaces: components["schemas"]["WorkspaceEntry"][];
         };
         /**
          * ZeroDowntimeInstance
@@ -41755,6 +43639,36 @@ export interface components {
             unit: string;
             /** Warnings */
             warnings: string[];
+        };
+        /**
+         * ProcessEntry
+         * @description One process type.
+         */
+        noust__web__api__app_processes__ProcessEntry: {
+            /** Argv */
+            argv: string[];
+            /**
+             * Command
+             * @description The argument vector as one quoted line
+             */
+            command: string;
+            /**
+             * In Effect
+             * @description Whether the next deployment uses it
+             */
+            in_effect: boolean;
+            /** Name */
+            name: string;
+            /**
+             * Source
+             * @description noust.yaml or Procfile
+             */
+            source: string;
+            /**
+             * Started By Noust
+             * @description Whether a deployment starts or runs it itself
+             */
+            started_by_noust: boolean;
         };
         /**
          * CatalogResponse
@@ -42400,6 +44314,92 @@ export interface components {
             plan: components["schemas"]["FleetPlanOut"];
         };
         /**
+         * BranchListOut
+         * @description A project's branches.
+         */
+        noust__web__api__gitlab__BranchListOut: {
+            /** Items */
+            items: components["schemas"]["noust__web__api__gitlab__BranchOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * BranchOut
+         * @description A branch of a project.
+         */
+        noust__web__api__gitlab__BranchOut: {
+            /** Commit */
+            commit?: string | null;
+            /** Default */
+            default: boolean;
+            /** Name */
+            name: string;
+        };
+        /**
+         * ProjectOut
+         * @description A project the connection's user can read.
+         */
+        noust__web__api__gitlab__ProjectOut: {
+            /** Clone Url */
+            clone_url?: string | null;
+            /** Default Branch */
+            default_branch?: string | null;
+            /** Id */
+            id: number;
+            /** Path */
+            path?: string | null;
+            /** Web Url */
+            web_url?: string | null;
+        };
+        /**
+         * RemovalOut
+         * @description Whether there was something to remove.
+         */
+        noust__web__api__gitlab__RemovalOut: {
+            /** Removed */
+            removed: boolean;
+        };
+        /**
+         * BranchListOut
+         * @description A repository's branches.
+         */
+        noust__web__api__integrations__BranchListOut: {
+            /** Items */
+            items: components["schemas"]["noust__web__api__integrations__BranchOut"][];
+            /** Total */
+            total: number;
+        };
+        /**
+         * BranchOut
+         * @description A branch of a repository, with its head commit.
+         */
+        noust__web__api__integrations__BranchOut: {
+            /** Commit */
+            commit?: string | null;
+            /** Name */
+            name: string;
+            /**
+             * Protected
+             * @default false
+             */
+            protected: boolean;
+        };
+        /**
+         * RemovalOut
+         * @description What removing the integration did.
+         *
+         *     Attributes:
+         *         removed: Whether there was an App to forget.
+         *         settings_url: The App's page on GitHub, where it is uninstalled and
+         *             deleted; Noust cannot do that itself.
+         */
+        noust__web__api__integrations__RemovalOut: {
+            /** Removed */
+            removed: boolean;
+            /** Settings Url */
+            settings_url?: string | null;
+        };
+        /**
          * RollbackRequest
          * @description Request to roll an application back.
          */
@@ -42478,6 +44478,41 @@ export interface components {
             warnings: string[];
         };
         /**
+         * ProcessEntry
+         * @description One row of the process table.
+         *
+         *     Attributes:
+         *         pid: Process identifier.
+         *         name: Executable name.
+         *         user: Account the process runs as.
+         *         cpu_percent: CPU usage percentage.
+         *         memory_percent: Resident memory percentage.
+         *         command: Command line, already truncated by the collector.
+         *         status: Kernel process state.
+         */
+        noust__web__api__monitor__ProcessEntry: {
+            /**
+             * Command
+             * @default
+             */
+            command: string;
+            /** Cpu Percent */
+            cpu_percent: number;
+            /** Memory Percent */
+            memory_percent: number;
+            /** Name */
+            name: string;
+            /** Pid */
+            pid: number;
+            /**
+             * Status
+             * @default running
+             */
+            status: string;
+            /** User */
+            user: string;
+        };
+        /**
          * ProcessListResponse
          * @description Processes visible to the panel.
          *
@@ -42487,7 +44522,7 @@ export interface components {
          */
         noust__web__api__monitor__ProcessListResponse: {
             /** Processes */
-            processes: components["schemas"]["ProcessEntry"][];
+            processes: components["schemas"]["noust__web__api__monitor__ProcessEntry"][];
             /** Total */
             total: number;
         };
@@ -42850,6 +44885,35 @@ export interface components {
         noust__web__api__teams__ActionResponse: {
             /** Message */
             message: string;
+        };
+        /**
+         * ProjectOut
+         * @description A project.
+         *
+         *     Attributes:
+         *         id: Store id.
+         *         team: The team's slug.
+         *         slug: Unique inside the team.
+         *         name: Display name.
+         *         environments: Its environments' slugs.
+         *         created_at: When it was created, UNIX seconds.
+         *         created_by: Who created it.
+         */
+        noust__web__api__teams__ProjectOut: {
+            /** Created At */
+            created_at: number;
+            /** Created By */
+            created_by?: string | null;
+            /** Environments */
+            environments?: string[];
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Team */
+            team: string;
         };
         /**
          * PolicyDestination
@@ -43742,6 +45806,41 @@ export interface operations {
             };
         };
     };
+    apply_api_apps__domain__apply_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApplyRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplyResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     patch_backup_before_update_api_apps__domain__backup_before_update_patch: {
         parameters: {
             query?: never;
@@ -43909,6 +46008,68 @@ export interface operations {
             };
         };
     };
+    get_build_cache_api_apps__domain__build_cache_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuildCacheResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_build_cache_api_apps__domain__build_cache_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuildCacheResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_app_certificate_api_apps__domain__certificate_get: {
         parameters: {
             query?: never;
@@ -43997,6 +46158,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_compose_settings_api_apps__domain__compose_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposeSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_compose_settings_api_apps__domain__compose_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComposeSettingsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposeSettingsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_compose_settings_api_apps__domain__compose_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComposeSettingsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -44235,6 +46493,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConnectionUrlResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_declaration_api_apps__domain__declaration_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeclarationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deploy_app_api_apps__domain__deploy_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DeployOptions"] | null;
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeployResponse"];
                 };
             };
             /** @description Validation Error */
@@ -46825,6 +49149,37 @@ export interface operations {
             };
         };
     };
+    get_processes_api_apps__domain__process_types_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProcessesResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_processes_api_apps__domain__processes_get: {
         parameters: {
             query?: never;
@@ -47091,6 +49446,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_app_registry_logins_api_apps__domain__registry_logins_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppRegistryLogins"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_app_registry_logins_api_apps__domain__registry_logins_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppRegistryLoginsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppRegistryLogins"];
                 };
             };
             /** @description Validation Error */
@@ -47555,6 +49976,103 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SiteLogResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_source_options_api_apps__domain__source_options_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOptionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_source_options_api_apps__domain__source_options_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SourceOptionsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOptionsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_source_options_api_apps__domain__source_options_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SourceOptionsResponse"];
                 };
             };
             /** @description Validation Error */
@@ -55063,6 +57581,39 @@ export interface operations {
             };
         };
     };
+    deploy_apps_api_deploy_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchDeployRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeployResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_deploy_keys_api_deploy_keys_get: {
         parameters: {
             query?: never;
@@ -56832,6 +59383,72 @@ export interface operations {
             };
         };
     };
+    list_remote_applications_api_import_applications_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RemoteServer"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemoteApplicationsResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_remote_application_api_import_proposal_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RemoteProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemoteProposalResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     github_status_api_integrations_github_get: {
         parameters: {
             query?: never;
@@ -56867,7 +59484,40 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RemovalOut"];
+                    "application/json": components["schemas"]["noust__web__api__integrations__RemovalOut"];
+                };
+            };
+        };
+    };
+    github_set_host_api_integrations_github_host_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GitHubHostRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitHubStatusOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -57029,7 +59679,349 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["BranchListOut"];
+                    "application/json": components["schemas"]["noust__web__api__integrations__BranchListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gitlab_status_api_integrations_gitlab_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitLabStatusOut"];
+                };
+            };
+        };
+    };
+    gitlab_connect_api_integrations_gitlab_connections_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gitlab_remove_api_integrations_gitlab_connections__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__gitlab__RemovalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gitlab_groups_api_integrations_gitlab_connections__name__groups_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gitlab_projects_api_integrations_gitlab_connections__name__projects_get: {
+        parameters: {
+            query?: {
+                group?: string | null;
+                search?: string | null;
+            };
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gitlab_branches_api_integrations_gitlab_connections__name__projects__project__branches_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                project: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__gitlab__BranchListOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gitlab_test_api_integrations_gitlab_connections__name__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gitlab_oauth_app_api_integrations_gitlab_oauth_apps_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthApplicationRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthApplicationOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gitlab_oauth_app_remove_api_integrations_gitlab_oauth_apps__host__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                host: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["noust__web__api__gitlab__RemovalOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gitlab_oauth_start_api_integrations_gitlab_oauth_authorize_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OAuthStartOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    gitlab_oauth_callback_api_integrations_gitlab_oauth_callback_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OAuthCallbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConnectionOut"];
                 };
             };
             /** @description Validation Error */
@@ -58885,6 +61877,187 @@ export interface operations {
                 };
                 content: {
                     "image/svg+xml": string;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_registry_logins_api_registries_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistryLoginListResponse"];
+                };
+            };
+        };
+    };
+    add_registry_login_api_registries_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegistryLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistryLoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_registry_login_api_registries__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistryLoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    remove_registry_login_api_registries__name__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistryLoginRemoved"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    change_registry_login_api_registries__name__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RegistryLoginChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistryLoginResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_registry_login_api_registries__name__test_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegistryLoginResponse"];
                 };
             };
             /** @description Validation Error */
@@ -62799,7 +65972,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProjectOut"];
+                    "application/json": components["schemas"]["noust__web__api__teams__ProjectOut"];
                 };
             };
             /** @description Validation Error */
@@ -62867,7 +66040,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProjectOut"];
+                    "application/json": components["schemas"]["noust__web__api__teams__ProjectOut"];
                 };
             };
             /** @description Validation Error */
@@ -64499,6 +67672,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    deploy_workspaces_api_workspaces_deploy_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkspaceDeployRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceDeployResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    inspect_workspace_source_api_workspaces_inspect_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkspaceInspectRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspacesResponse"];
                 };
             };
             /** @description Validation Error */
