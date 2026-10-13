@@ -24,15 +24,14 @@ import { formatCount } from "../../../lib/format";
 import { useLogStream } from "../../../realtime/sockets";
 import type { SocketStatus } from "../../../realtime/sockets";
 import { levelOf } from "../deployments/buildLog";
+import { withLevel } from "./journalLines";
+import { StackLogs, isStack } from "./StackLogs";
 
 /** Most journal lines held on screen; the oldest go first. */
 export const LOG_CAP = 10_000;
 
 /** Journal lines asked for when the stream opens. */
 const BACKLOG = 200;
-
-/** Which lines the viewer shows: all of them, or only the ones that look like a problem. */
-export type LogLevelFilter = "all" | "warnings" | "errors";
 
 function connectionView(t: T, status: SocketStatus): { state: Status; label: string } {
   switch (status) {
@@ -48,57 +47,15 @@ function connectionView(t: T, status: SocketStatus): { state: Status; label: str
 }
 
 /**
- * A journal line in `short-iso` form: "2026-09-25T21:45:52+0100 web-01 shop[41234]: message".
- * The stamp and the host are systemd's, not the app's: the time goes to the time column, the
- * host (always this machine) is dropped, and the rest stays verbatim from the unit's name on.
- */
-const JOURNAL = /^\d{4}-\d{2}-\d{2}T(\d{2}:\d{2}:\d{2})(?:[+-]\d{2}:?\d{2}|Z)? \S+ (.*)$/;
-
-export function journalLine(line: LogLine): LogLine {
-  const match = JOURNAL.exec(line.text);
-  const text = match?.[2] ?? line.text;
-  const level = line.level ?? levelOf(text);
-  if (match === null && level === line.level) return line;
-  return { ...line, text, ...(match ? { ts: match[1] ?? "" } : {}), ...(level === undefined ? {} : { level }) };
-}
-
-/** Whether a line passes the level filter: warnings keep errors too. */
-export function passesLevel(line: LogLine, filter: LogLevelFilter): boolean {
-  if (filter === "all") return true;
-  if (filter === "errors") return line.level === "error";
-  return line.level === "error" || line.level === "warn";
-}
-
-// A line keeps its identity once read, so the viewer's per-line cache keeps working.
-const read = new WeakMap<LogLine, LogLine>();
-
-function withLevel(line: LogLine): LogLine {
-  let found = read.get(line);
-  if (found === undefined) {
-    found = journalLine(line);
-    read.set(line, found);
-  }
-  return found;
-}
-
-/**
  * The app's journal as systemd writes it: a backlog, then every new line as it arrives. The
  * stream reconnects by itself; the viewer follows the newest line until the operator scrolls
- * up, `/` searches it, and the level filter narrows it to what looks like a problem. The viewer
+ * up, `/` searches it, and the viewer's level chips narrow it to what looks like a problem. The viewer
  * is as tall as the screen leaves it, so the page itself barely scrolls.
  */
 function Journal({ domain, t }: { domain: string; t: T }) {
   const stream = useLogStream(domain, { lines: BACKLOG, cap: LOG_CAP });
-  const [level, setLevel] = useState<LogLevelFilter>("all");
   const lines = useMemo(() => stream.lines.map(withLevel), [stream.lines]);
-  const shown = useMemo(() => (level === "all" ? lines : lines.filter((line) => passesLevel(line, level))), [lines, level]);
   const connection = connectionView(t, stream.status);
-
-  const levels: readonly { value: LogLevelFilter; label: string }[] = [
-    { value: "all", label: t("appPages.logs.levelAll") },
-    { value: "warnings", label: t("appPages.logs.levelWarnings") },
-    { value: "errors", label: t("appPages.logs.levelErrors") },
-  ];
 
   return (
     <div className="flex flex-col gap-3">
@@ -108,12 +65,9 @@ function Journal({ domain, t }: { domain: string; t: T }) {
           <span className="text-12 text-fg-muted tabular-nums">
             {stream.status === "connecting" && lines.length === 0
               ? t("appPages.logs.readingBacklog", { count: BACKLOG })
-              : level === "all"
-                ? t("appPages.logs.lineCount", { count: lines.length })
-                : t("appPages.logs.lineCountFiltered", { shown: formatCount(shown.length, t.locale), total: formatCount(lines.length, t.locale) })}
+              : t("appPages.logs.lineCount", { count: lines.length })}
           </span>
         </div>
-        <SegmentedControl<LogLevelFilter> label={t("appPages.logs.levelLabel")} options={levels} value={level} onValueChange={setLevel} />
       </div>
 
       {stream.error !== null ? (
@@ -136,19 +90,13 @@ function Journal({ domain, t }: { domain: string; t: T }) {
 
       <div className="h-editor">
         <LogViewer
-          lines={shown}
+          lines={lines}
           height="fill"
           pageSearch
           loading={stream.status === "connecting"}
           label={t("appPages.logs.journalLabel", { domain })}
           filename={`${domain}-journal.log`}
-          emptyMessage={
-            level !== "all" && lines.length > 0
-              ? t("appPages.logs.emptyFiltered")
-              : stream.status === "open"
-                ? t("appPages.logs.emptyOpen")
-                : t("appPages.logs.emptyConnecting")
-          }
+          emptyMessage={stream.status === "open" ? t("appPages.logs.emptyOpen") : t("appPages.logs.emptyConnecting")}
         />
       </div>
       <CommandHint command={`noust logs ${domain} --follow`} label={t("appPages.fromTerminal")} />
@@ -179,7 +127,6 @@ export function siteLineLevel(kind: SiteLogKind, text: string): LogLine["level"]
  */
 function SiteLogs({ domain, kind, t }: { domain: string; kind: SiteLogKind; t: T }) {
   const query = useQuery(siteLogQuery(domain, kind, ""));
-  const [level, setLevel] = useState<LogLevelFilter>("all");
   const log = query.data;
   const lines = useMemo<LogLine[]>(
     () =>
@@ -189,12 +136,8 @@ function SiteLogs({ domain, kind, t }: { domain: string; kind: SiteLogKind; t: T
       }),
     [log, kind],
   );
-  const shown = useMemo(() => (level === "all" ? lines : lines.filter((line) => passesLevel(line, level))), [lines, level]);
-  const levels: readonly { value: LogLevelFilter; label: string }[] = [
-    { value: "all", label: t("appPages.logs.levelAll") },
-    { value: "warnings", label: kind === "access" ? t("appPages.logs.levelBadRequests") : t("appPages.logs.levelWarnings") },
-    { value: "errors", label: kind === "access" ? t("appPages.logs.levelServerErrors") : t("appPages.logs.levelErrors") },
-  ];
+  // A request's level is its status, so the viewer's chips say what they filter: 4xx and 5xx.
+  const levelWords = kind === "access" ? { warn: t("appPages.logs.accessWarn"), error: t("appPages.logs.accessError") } : undefined;
 
   if (query.isError && log === undefined) {
     return <ErrorBlock error={query.error} title={t("appPages.logs.siteFailed")} onRetry={() => void query.refetch()} retrying={query.isRefetching} />;
@@ -215,13 +158,8 @@ function SiteLogs({ domain, kind, t }: { domain: string; kind: SiteLogKind; t: T
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <span className="text-12 text-fg-muted tabular-nums">
-          {log === undefined
-            ? t("appPages.logs.siteReading")
-            : level === "all"
-              ? t("appPages.logs.lineCount", { count: lines.length })
-              : t("appPages.logs.lineCountFiltered", { shown: formatCount(shown.length, t.locale), total: formatCount(lines.length, t.locale) })}
+          {log === undefined ? t("appPages.logs.siteReading") : t("appPages.logs.lineCount", { count: lines.length })}
         </span>
-        <SegmentedControl<LogLevelFilter> label={t("appPages.logs.levelLabel")} options={levels} value={level} onValueChange={setLevel} />
       </div>
       {log?.truncated === true ? (
         <Notice>
@@ -233,14 +171,15 @@ function SiteLogs({ domain, kind, t }: { domain: string; kind: SiteLogKind; t: T
       ) : null}
       <div className="h-editor">
         <LogViewer
-          lines={shown}
+          lines={lines}
           follow
           height="fill"
           pageSearch
+          {...(levelWords !== undefined ? { levelWords } : {})}
           loading={log === undefined}
           label={kind === "access" ? t("appPages.logs.accessLabel", { domain }) : t("appPages.logs.errorLabel", { domain })}
           filename={`${domain}-${kind}.log`}
-          emptyMessage={level !== "all" && lines.length > 0 ? t("appPages.logs.emptyFiltered") : t("appPages.logs.siteEmpty")}
+          emptyMessage={t("appPages.logs.siteEmpty")}
         />
       </div>
       <CommandHint command={`noust site logs ${domain} --kind ${kind}`} label={t("appPages.fromTerminal")} />
@@ -291,7 +230,16 @@ export function LogsTab({ domain }: { domain: string }) {
         <Notice title={t("appPages.logs.staticTitle")}>{t("appPages.logs.staticDescription")}</Notice>
       ) : null}
       <Sources source={shown} onChange={setSource} withJournal={!isStatic} t={t} />
-      {shown === "journal" ? <Journal domain={domain} t={t} /> : <SiteLogs domain={domain} kind={shown} t={t} />}
+      {shown === "journal" ? (
+        // A stack's unit only starts its containers: what they printed is the tab, and the journal one choice of it.
+        isStack(app.data.app_type ?? "") ? (
+          <StackLogs domain={domain} unit={<Journal domain={domain} t={t} />} />
+        ) : (
+          <Journal domain={domain} t={t} />
+        )
+      ) : (
+        <SiteLogs domain={domain} kind={shown} t={t} />
+      )}
     </div>
   );
 }

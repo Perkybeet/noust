@@ -151,6 +151,14 @@ describe("the fleet's views", () => {
     expect(within(await rowOf(updates, "db-1")).getByText("Update available")).toBeInTheDocument();
     expect(within(await rowOf(updates, "old-1")).getByText("Package index behind")).toBeInTheDocument();
     expect(within(await rowOf(updates, "old-1")).getByText("1.8.0 → 2.1.0")).toBeInTheDocument();
+    // A server whose package is still being published shows the version it will get (item 81).
+    expect(within(await rowOf(updates, "pub-1")).getByText("Being published")).toBeInTheDocument();
+    expect(within(await rowOf(updates, "pub-1")).getByText("2.0.0 → 2.1.0")).toBeInTheDocument();
+    // And the fleet says where it is heading and how many servers are there.
+    const target = screen.getByRole("group", { name: "Target version of the fleet" });
+    expect(within(target).getByText("Noust 2.1.0")).toBeInTheDocument();
+    expect(within(target).getByText("2 can update now.")).toBeInTheDocument();
+    expect(within(target).getByText("1 waits for its package to be published.")).toBeInTheDocument();
 
     await act(() => router.navigate({ to: "/fleet/activity" }));
     const activity = await rows("What happened lately on every server");

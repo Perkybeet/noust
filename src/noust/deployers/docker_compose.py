@@ -2109,6 +2109,34 @@ class DockerComposeDeployer(AppDeployer):
         """
         return self.container_logs(lines, service=service)[1]
 
+    def service_names(self) -> list[str]:
+        """
+        List the services of this stack, as Compose reads them from its file.
+
+        The list comes from the file, not from the containers that exist: the
+        service that crashed, or never started, is the one whose log is worth
+        reading, and it has no running container to be found by.
+
+        Returns:
+            The service names in the file's order; empty when Compose could not
+            read the stack. A name Compose would not accept as one (and that
+            could not be passed on to it) is left out.
+        """
+        from noust.terminal.targets import validate_service
+
+        result = self._run(self._compose("config", "--services"))
+        if not result.success:
+            return []
+        names: list[str] = []
+        for line in result.stdout.splitlines():
+            try:
+                name = validate_service(line.strip())
+            except ValidationError:
+                continue
+            if name is not None:
+                names.append(name)
+        return names
+
     def container_logs(self, lines: int, *, service: str | None = None) -> tuple[bool, str]:
         """
         Read the last lines the stack's containers printed, with their secrets masked.

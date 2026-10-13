@@ -25,6 +25,8 @@ export const nav: Catalog<typeof en> = {
     nodeNoteCommands: "En {node}",
   },
   failed: { one: "{count} con fallo", other: "{count} con fallos" },
+  /** Tras el nombre de Actividad, para tecnologías de apoyo: "Actividad 2 en curso". */
+  running: { one: "{count} en curso", other: "{count} en curso" },
   overview: { label: "Resumen", keywords: "inicio panel salud home dashboard health", goTo: "Ir al resumen" },
   projects: {
     label: "Proyectos",

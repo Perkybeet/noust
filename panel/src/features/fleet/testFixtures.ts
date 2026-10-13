@@ -202,7 +202,7 @@ export const BACKUPS_VIEW = view("backups", [
 
 export const UPDATES_VIEW = view(
   "updates",
-  ["web-01", "web-2", "db-1", "old-1"].map((node) =>
+  ["web-01", "web-2", "db-1", "old-1", "pub-1"].map((node) =>
     server(
       node,
       node === "web-2"
@@ -210,7 +210,10 @@ export const UPDATES_VIEW = view(
         : node === "old-1"
           ? // Its package index has not seen the release yet: the fleet's update refreshes it first.
             { os: null, noust: { current_version: "1.8.0", latest_version: "2.1.0", update_state: "index_behind", update_command: null } }
-          : { os: null },
+          : node === "pub-1"
+            ? // Its distribution's package is still being built: the target is shown, nothing to do yet.
+              { os: null, noust: { current_version: "2.0.0", latest_version: null, published_version: "2.1.0", update_state: "on_the_way", update_command: null } }
+            : { os: null },
     ),
   ),
 );

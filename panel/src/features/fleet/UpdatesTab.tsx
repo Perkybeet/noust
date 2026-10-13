@@ -20,6 +20,7 @@ import type { PlainKey, T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { useFleetActions } from "./BulkActionDialog";
 import { noustOf, noustUpdatable, originOf, osUpdatesOf } from "./data";
+import { fleetTarget } from "./target";
 import type { FleetRow, NodeOutcome, NoustUpdateState } from "./data";
 import { isFiltered, matchesQuery, patchSearch } from "./filters";
 import type { FleetSearch, FleetSearchPatch } from "./filters";
@@ -164,6 +165,7 @@ export function UpdatesTab({ search, onSearchChange }: UpdatesTabProps) {
     if (search.state !== undefined && !UPDATE_STATES.some((what) => what === search.state && needs(row, what))) return false;
     return matchesQuery([originOf(row).node, noustOf(row).current], search.q);
   });
+  const target = fleetTarget(rows);
   const central = rows.find((row) => originOf(row).local);
   const centralNoust = central === undefined ? null : noustOf(central);
   const nodesFor = (what: (typeof UPDATE_STATES)[number]): string[] => rows.filter((row) => !originOf(row).local && needs(row, what)).map((row) => originOf(row).node);
@@ -186,6 +188,14 @@ export function UpdatesTab({ search, onSearchChange }: UpdatesTabProps) {
             <CommandHint label={t("fleet.updates.central.command")} command={centralNoust.command} />
           </div>
         </Notice>
+      ) : null}
+      {target !== null ? (
+        <div role="group" aria-label={t("fleet.updates.target.label")} className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-13 text-fg-muted">
+          <Mono className="font-medium text-fg">{t("fleet.updates.target.version", { version: target.version })}</Mono>
+          <span>{t("fleet.updates.target.onIt", { count: target.onTarget, total: target.total })}</span>
+          {target.updatable > 0 ? <span>{t("fleet.updates.target.updatable", { count: target.updatable })}</span> : null}
+          {target.onTheWay > 0 ? <span>{t("fleet.updates.target.onTheWay", { count: target.onTheWay })}</span> : null}
+        </div>
       ) : null}
       <FilterBar
         label={t("fleet.updates.filterLabel")}

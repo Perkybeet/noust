@@ -10701,6 +10701,18 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 .SS noust store
 Inspect and maintain the database Noust records deployments in.
 
+.SS noust store compat
+Say which Noust releases can open this store, and how to go back to an earlier one.
+.TP
+.B \-\-to
+The release you want to go back to, such as 3.3.1.
+.TP
+.B \-\-json
+Print the answer as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust store export
 Dump every record as JSON, to a file or to stdout.
 .TP
@@ -10813,6 +10825,30 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 
 .SS noust stream repair
 Finish the openings and closings that were interrupted.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust support
+Collect what a maintainer needs to help you, with the secrets masked.
+
+.SS noust support report
+Print a report to paste into an issue, with secrets masked.
+.TP
+.B \-\-lines
+Lines of the console's and the monitor's journal to include. Default: 60.
+.TP
+.B \-\-diagnose
+How many applications that need attention are diagnosed. Default: 3.
+.TP
+.B \-\-hide\-domains
+Replace domains, application names and this host's name (app\-1, host).
+.TP
+.B \-\-output, \-o
+Write the report to this file (owner\-only) instead of printing it.
+.TP
+.B \-\-json
+Print the report as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.

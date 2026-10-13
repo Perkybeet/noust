@@ -429,6 +429,7 @@ npm run typecheck               # tsc, strict
 npm test                        # vitest unit + component tests (axe included)
 npm run check:api               # schema.gen.ts matches openapi.json (npm run gen:api to fix)
 npm run build                   # writes src/noust/web/static: commit the result
+npm run check:bundle            # the build's gzip weight against panel/bundle-budget.json
 npm run e2e                     # Playwright: every page, both themes, zero axe/CSP violations
 npm run e2e:screens             # screenshots of every route, both themes + 390px mobile
 ```
@@ -472,6 +473,22 @@ A release that fixes a vulnerability is released with a changelog bullet that st
 GitHub Actions publishes to PyPI and OBS on tag push, and the central's container image to
 `ghcr.io/perkybeet/noust`.
 **OBS builds**: https://build.opensuse.org/package/show/home:Perkybeet/noust (15-30 min)
+
+A release is **announced only when every distribution serves it**. The GitHub release is created as
+a pre-release (servers' update checks and `releases/latest/download/install.sh` read the latest
+one), `release.yml` then waits in `obs-published` (`scripts/obs_published.py`, which reads the
+published index of each repository of `managers/server/platforms.py`, the product and the
+transitional package) and only the `announce` job makes it the latest. Run
+`python scripts/obs_published.py vX.Y.Z` by hand to see who is behind. The console's Fleet >
+Updates shows the target version and how many servers are there, and the self-update (the console's
+and the fleet's "Update Noust") upgrades the transitional package with `noust` when it is installed.
+
+The pictures of the console in the README and the guides (`docs/assets/console/`) are recorded in
+`SCREENS.json` with the release they show and a hash each, and `release.yml` refuses a tag whose
+pictures show an earlier minor release: before tagging a minor, run `cd panel && npm run docs:screens`
+(it retakes them from a seeded server and records them) and commit the folder. CI only notes the
+lag between releases, and fails on a picture changed by hand or one nobody recorded
+(`python scripts/docs_screens.py check`).
 
 Distribution names: `noust` on PyPI and OBS. The names WASM shipped under stay as
 transitional packages through 3.x, each one only depending on `noust`: `wasm-cli` on PyPI,

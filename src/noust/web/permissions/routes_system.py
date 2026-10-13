@@ -22,6 +22,15 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/system/network"): Permission.SERVER_READ,
     ("GET", "/api/system/version"): Permission.SERVER_READ,
     ("GET", "/api/system/health"): Permission.SERVER_READ,
+    # What changed in each release, from the package, and what an update will change, from the
+    # release on GitHub (checklist N-24).
+    ("GET", "/api/system/changelog"): Permission.SERVER_READ,
+    ("GET", "/api/system/release-notes"): Permission.SERVER_READ,
+    # What `noust setup doctor` finds, read-only (checklist N-09).
+    ("GET", "/api/system/doctor"): Permission.SERVER_READ,
+    # The report for an issue: everything server.read sees, masked; the journal excerpt in it is
+    # left out by the handler for anyone without secrets.reveal.
+    ("GET", "/api/system/support-report"): Permission.SERVER_READ,
     # Noust updating itself: installing a package as root, like applying the
     # operating system's updates (sudo mode is asked on top).
     ("GET", "/api/system/update"): Permission.SERVER_READ,

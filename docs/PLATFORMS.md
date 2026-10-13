@@ -50,13 +50,32 @@ by the package manager). Options, in `sh install.sh --help`:
 | `--target NAME` | `NOUST_TARGET` | The repository directory to use when the release is not in the table |
 | `--force` | `NOUST_FORCE=1` | Go on past a release or an architecture the table refuses |
 | `-y`, `--yes` | `NOUST_ASSUME_YES=1` | Answer yes to every question (there is only one) |
+| `--admin-user NAME` | `NOUST_ADMIN_USER` | Create this administrator once Noust is installed (nothing happens if it exists) |
+| `--admin-password-file FILE` | `NOUST_ADMIN_PASSWORD_FILE` | Where the administrator's password is read from (its first line) |
+| | `NOUST_ADMIN_PASSWORD` | The administrator's password, from the environment, when a file is not convenient. Never an argument: `ps` shows every argument to every local user |
+| `--json` | `NOUST_JSON=1` | Print one JSON document on standard output (when it ends, and when it fails or refuses) and everything else on standard error |
 | `--print-platform` | | Print what it detected as `key=value` lines and stop |
 | | `NOUST_REPO_BASE` | A mirror of the repository (https only) |
 | | `NOUST_REPO_KEY_FPR` | Replaces the pinned fingerprint, see [key rotation](#when-the-repository-key-is-rotated) |
 | | `NOUST_OS_RELEASE`, `NOUST_ARCH` | Replace `/etc/os-release` and `uname -m` (how the table is tested) |
 
-For a script (cloud-init, Ansible): `NOUST_ASSUME_YES=1 sh install.sh --no-console`, then `noust
-web enable` when the server should have its console.
+For a script (cloud-init, Ansible): `NOUST_ASSUME_YES=1 sh install.sh --json --admin-user ops
+--admin-password-file /root/ops.pw`, which installs Noust, creates the administrator and prints
+one line of JSON. [Cloud-init](cloud-init.md) has the whole user-data file.
+
+The JSON document, when it succeeds:
+
+```json
+{"status":"ok","dry_run":false,"version":"3.4.0","method":"package",
+ "platform":{"id":"ubuntu","version_id":"24.04","arch":"amd64","support":"supported"},
+ "console":{"state":"new","address":"127.0.0.1:8080"},
+ "admin":{"username":"ops","state":"created"}}
+```
+
+`console.state` is `new`, `existing`, `skipped` or `failed`; `admin.state` is `created`,
+`existing` (the account was already there and was left alone) or, in a dry run, `would-create`;
+`admin` is `null` when none was asked for. A failure is `{"status":"error","error":"..."}` with
+exit status 1, and a platform the table refuses is `{"status":"refused",...}` with exit status 3.
 
 ## What the status means
 

@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: ["src/**/*.test.{ts,tsx}", "scripts/**/*.test.mjs"],
     // Stylesheets are not applied in jsdom, but tokens.css, fonts.css and app.css are read as
     // text by the tokens test (contrast, font stacks and their fallback faces, the utilities
     // app.css exposes for each token).

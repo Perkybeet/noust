@@ -300,9 +300,18 @@ has a database you choose between one of its own and sharing it). See [teams.md]
 
 On a phone, rows become cards with their actions always visible.
 
+Each row has a checkbox. With some chosen, **Act on N selected** opens the plan of an action
+(restart, update, stop or start): what will be done to each application, and which are left out and
+why (a static site has no process to restart, an application already stopped is not stopped again,
+one being deployed is not restarted). **Restart N applications** then does it one application at a
+time, in the order chosen, with the server's own words for any that fails and **Retry the failed**
+for those alone. Each is the call the application's page makes, so sudo mode, the audit trail and
+the update queue are the same.
+
 **New application** (`/apps/new`) walks through **Server** (on a fleet only: which server
 deploys it, so any server can be reached from one place), **Source** (a Git URL, a GitHub
-repository, a directory on the server, a recipe or an export, and a branch), **Address**,
+repository, a directory on the server, a recipe, an export file or an application read from a
+Coolify or Dokploy server with a read-only token, and a branch), **Address**,
 **Configuration**, **Variables**, **Database** (optional: one created and linked before the first
 build, its connection string in the app's environment) and **Deploy**. The server inspects the repository before anything is created: the
 detected type (editable), install, build and start commands, port, and the variables declared in
@@ -366,7 +375,7 @@ down, with a link to **Diagnose**. Tabs:
 |---|---|
 | Overview | Last deploy, uptime, certificate, domains, webhook, runtime facts, and resource use against its limits |
 | Deployments | The application's [queue](#the-deploy-queue-and-cancelling) when something builds or waits for it; deployment history, a deploy that was cancelled drawn as **Cancelled** and never as a failure; for an application with instant rollback, its releases with their status, and **Roll back to this** or **Activate** on each one on disk |
-| Logs | The unit's journal, live |
+| Logs | The unit's journal, live; for a Docker Compose stack or a container application, what the containers printed (all services or one, read again every few seconds), with the unit's journal as one choice |
 | Metrics | CPU and memory (requests and errors for a static site) over an hour, a day, a week or a month, against its limits, with deploys marked; or why there is nothing to show |
 | Environment | The `.env`, redacted; revealing and editing need sudo mode. Changes are staged and reviewed before saving; a restart applies them. A value made of references (`{{project.NAME}}`, `{{secret:vault/...}}`) is shown as written, not as what it resolved to, and **Resolve references** reads them again without a deploy. **Given to** (build and runtime, build only, runtime only) is in each row's menu and in the add dialog, and saved with the values. **Given by Noust** lists `NOUST_URL`, `NOUST_BRANCH` and the rest, read-only. See [variables.md](variables.md) |
 | Database | The databases it uses, creating and linking one, and its connection string |
@@ -860,7 +869,10 @@ The console holds one Server-Sent Events stream for the machine strip, charts, a
 states, job progress and notifications, and opens a WebSocket for a log or a running job
 while you look at it. If the connection drops it reconnects with backoff and refreshes
 everything it shows. Log viewers render ANSI colours, search, follow the newest line (pausing
-when you scroll up, with a "Jump to latest" button), wrap, copy and download.
+when you scroll up, with a "Jump to latest" button), wrap, copy and download. When the output has
+levels, a chip for each (error, warning, info, debug, with its count) keeps only the levels you
+choose, the line numbers stay those of the whole output, and copy and download take what is shown;
+the time column can be hidden, and the viewer can take the whole screen.
 
 A job runs on a thread of the console, so a console that restarts ends the jobs it was running:
 they are marked "Interrupted by a panel restart". The exception is work that runs in a transient

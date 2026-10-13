@@ -2808,15 +2808,20 @@ export interface paths {
         };
         /**
          * Get App Logs
-         * @description Read journal output for an application.
+         * @description Read the output of an application.
          *
          *     Args:
          *         domain: Domain of the application.
          *         lines: How many lines to return.
+         *         service: Only this service's containers, for a Docker Compose stack.
          *         session: The authenticated session.
          *
          *     Returns:
-         *         The log output.
+         *         The log output, and for a stack the services it can be read by.
+         *
+         *     Raises:
+         *         ValidationError: 400, the service is not a name Compose would accept.
+         *         HTTPException: 404 when a stack has no such service.
          */
         get: operations["get_app_logs_api_apps__domain__logs_get"];
         put?: never;
@@ -18683,6 +18688,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/system/changelog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Changelog
+         * @description List what changed in each release this installation ships with, newest first.
+         *
+         *     The notes are in the package (``changelog.json``, written from the Debian changelog by
+         *     ``scripts/release.py``), so this answers offline. A line that needs the operator to act is
+         *     flagged.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         since: Only the releases newer than this one.
+         *         limit: How many releases at most.
+         *
+         *     Returns:
+         *         The running version and its releases' notes.
+         */
+        get: operations["get_changelog_api_system_changelog_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/system/cpu": {
         parameters: {
             query?: never;
@@ -18727,6 +18764,35 @@ export interface paths {
          *         One entry per readable mount point.
          */
         get: operations["get_disk_info_api_system_disks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/doctor": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Install Check
+         * @description Check what a deployment depends on, as ``noust setup doctor`` does.
+         *
+         *     The same checks (:func:`noust.managers.setup_doctor.collect`), minus the connection test to
+         *     GitHub, which does not belong in a page load. Every probe only reads.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Each section with its items, and the count of issues and warnings.
+         */
+        get: operations["get_install_check_api_system_doctor_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -18873,6 +18939,71 @@ export interface paths {
          *         The processes, sorted and truncated.
          */
         get: operations["get_processes_api_system_processes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/release-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Release Notes
+         * @description Read what updating to a version will change, before updating.
+         *
+         *     A release this server does not have yet is not in its package, so the notes are read from the
+         *     release's page on GitHub, through the same bounded reader the update check uses, and kept for an
+         *     hour. When the update check is turned off, or GitHub does not answer, the answer says so and
+         *     still carries the release's address.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         version: The release, such as ``3.4.0``.
+         *
+         *     Returns:
+         *         The lines, or the reason there are none.
+         */
+        get: operations["get_release_notes_api_system_release_notes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/system/support-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Support Report
+         * @description Build the same support report as ``noust support report``.
+         *
+         *     The journal excerpt is only included for a credential that may reveal secrets
+         *     (``secrets.reveal``, what ``GET /api/server/logs`` asks), because the console's own
+         *     journal records the work it did for everyone. Everything else in the report is what
+         *     ``server.read`` already sees, and all of it is masked before it is returned.
+         *
+         *     Args:
+         *         session: The authenticated session.
+         *         hide_domains: Replace domains, application names and this host's name.
+         *         lines: Lines of the console's and the monitor's journal.
+         *
+         *     Returns:
+         *         The report, as Markdown and as sections.
+         */
+        get: operations["get_support_report_api_system_support_report_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -22344,7 +22475,16 @@ export interface components {
         };
         /**
          * AppLogsResponse
-         * @description Response carrying journal output for an application.
+         * @description Response carrying the output of an application.
+         *
+         *     Attributes:
+         *         domain: The application.
+         *         logs: The output: the unit's journal, or for a Docker Compose stack
+         *             what its containers printed.
+         *         lines: How many lines were asked for.
+         *         service: The Compose service the output is of, None for the whole stack.
+         *         services: The services of a Compose stack, to choose one from; empty for
+         *             any other application and for a stack Compose could not read.
          */
         AppLogsResponse: {
             /** Domain */
@@ -22353,6 +22493,10 @@ export interface components {
             lines: number;
             /** Logs */
             logs: string;
+            /** Service */
+            service?: string | null;
+            /** Services */
+            services?: string[];
         };
         /**
          * AppMetricsResponse
@@ -24387,6 +24531,49 @@ export interface components {
              * @default []
              */
             validate_command: string[];
+        };
+        /**
+         * ChangelogEntryOut
+         * @description The notes of one release.
+         */
+        ChangelogEntryOut: {
+            /**
+             * Action Required
+             * @default false
+             */
+            action_required: boolean;
+            /**
+             * Date
+             * @default
+             */
+            date: string;
+            /** Items */
+            items: components["schemas"]["ChangelogItemOut"][];
+            /** Version */
+            version: string;
+        };
+        /**
+         * ChangelogItemOut
+         * @description One line of a release's notes.
+         */
+        ChangelogItemOut: {
+            /**
+             * Action Required
+             * @default false
+             */
+            action_required: boolean;
+            /** Text */
+            text: string;
+        };
+        /**
+         * ChangelogOut
+         * @description What changed in the releases this installation ships with (checklist N-24).
+         */
+        ChangelogOut: {
+            /** Current Version */
+            current_version: string;
+            /** Entries */
+            entries: components["schemas"]["ChangelogEntryOut"][];
         };
         /**
          * ChannelBody
@@ -27622,6 +27809,49 @@ export interface components {
             project?: string | null;
             /** Proto */
             proto: string;
+        };
+        /**
+         * DoctorItemOut
+         * @description One thing the installation check looked at.
+         */
+        DoctorItemOut: {
+            /** Fix */
+            fix?: string | null;
+            /** Notes */
+            notes?: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "info" | "warn" | "fail";
+            /** Text */
+            text: string;
+        };
+        /**
+         * DoctorOut
+         * @description What ``noust setup doctor`` finds, for the console (checklist N-09).
+         */
+        DoctorOut: {
+            /** Issues */
+            issues: number;
+            /** Ready */
+            ready: boolean;
+            /** Sections */
+            sections: components["schemas"]["DoctorSectionOut"][];
+            /** Warnings */
+            warnings: number;
+        };
+        /**
+         * DoctorSectionOut
+         * @description A group of checks under one heading.
+         */
+        DoctorSectionOut: {
+            /** Explain */
+            explain?: string | null;
+            /** Items */
+            items: components["schemas"]["DoctorItemOut"][];
+            /** Title */
+            title: string;
         };
         /**
          * DomainPortRequest
@@ -36502,6 +36732,27 @@ export interface components {
             rolled_back: boolean;
         };
         /**
+         * ReleaseNotesOut
+         * @description What an update to a version will change, read from its GitHub release.
+         */
+        ReleaseNotesOut: {
+            /** Available */
+            available: boolean;
+            entry?: components["schemas"]["ChangelogEntryOut"] | null;
+            /**
+             * Reason
+             * @default
+             */
+            reason: string;
+            /**
+             * Url
+             * @default
+             */
+            url: string;
+            /** Version */
+            version: string;
+        };
+        /**
          * ReleaseOut
          * @description One release of an application on the release layout.
          *
@@ -40537,6 +40788,36 @@ export interface components {
             status: string;
             /** Version */
             version?: string | null;
+        };
+        /**
+         * SupportReportOut
+         * @description The support report an operator pastes into an issue (``noust support report``).
+         */
+        SupportReportOut: {
+            /** Generated At */
+            generated_at: string;
+            /** Hide Domains */
+            hide_domains: boolean;
+            /** Markdown */
+            markdown: string;
+            /** Sections */
+            sections: components["schemas"]["SupportSectionOut"][];
+            /** Version */
+            version: string;
+        };
+        /**
+         * SupportSectionOut
+         * @description One part of the support report.
+         */
+        SupportSectionOut: {
+            /** Body */
+            body: string;
+            /** Collected */
+            collected: boolean;
+            /** Key */
+            key: string;
+            /** Title */
+            title: string;
         };
         /**
          * SwapDeviceOut
@@ -48200,6 +48481,8 @@ export interface operations {
         parameters: {
             query?: {
                 lines?: number;
+                /** @description Only this service of a Docker Compose stack */
+                service?: string | null;
             };
             header?: never;
             path: {
@@ -65198,6 +65481,38 @@ export interface operations {
             };
         };
     };
+    get_changelog_api_system_changelog_get: {
+        parameters: {
+            query?: {
+                since?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChangelogOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_cpu_info_api_system_cpu_get: {
         parameters: {
             query?: never;
@@ -65234,6 +65549,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DiskInfo"][];
+                };
+            };
+        };
+    };
+    get_install_check_api_system_doctor_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DoctorOut"];
                 };
             };
         };
@@ -65337,6 +65672,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["noust__web__api__system__ProcessListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_release_notes_api_system_release_notes_get: {
+        parameters: {
+            query: {
+                version: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseNotesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_support_report_api_system_support_report_get: {
+        parameters: {
+            query?: {
+                hide_domains?: boolean;
+                lines?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportReportOut"];
                 };
             };
             /** @description Validation Error */

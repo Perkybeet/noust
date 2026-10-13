@@ -134,25 +134,6 @@ export function useLogLines(content: string | undefined): BuildLogLine[] {
   return lines;
 }
 
-/** How much of a log is shown: everything, warnings and errors, or only errors. */
-export type LogLevelFilter = "all" | "warn" | "error";
-
-/** The lines at the level asked for or worse; "all" is every line, unlevelled ones included. */
-export function filterByLevel<L extends LogLine>(lines: readonly L[], level: LogLevelFilter): readonly L[] {
-  if (level === "all") return lines;
-  return lines.filter((line) => line.level === "error" || (level === "warn" && line.level === "warn"));
-}
-
-/** The same lines without their time column, for a reader who wants only the text. */
-export function withoutTimes<L extends LogLine>(lines: readonly L[]): readonly L[] {
-  return lines.map((line) => {
-    if (line.ts === undefined) return line;
-    const rest: Partial<L> = { ...line };
-    delete rest.ts;
-    return rest as L;
-  });
-}
-
 /** The phase steps a captured build log recorded, in order. */
 export function buildLogEvents(lines: readonly BuildLogLine[]): PhaseEvent[] {
   const events: PhaseEvent[] = [];

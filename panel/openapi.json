@@ -2838,7 +2838,7 @@
         "type": "object"
       },
       "AppLogsResponse": {
-        "description": "Response carrying journal output for an application.",
+        "description": "Response carrying the output of an application.\n\nAttributes:\n    domain: The application.\n    logs: The output: the unit's journal, or for a Docker Compose stack\n        what its containers printed.\n    lines: How many lines were asked for.\n    service: The Compose service the output is of, None for the whole stack.\n    services: The services of a Compose stack, to choose one from; empty for\n        any other application and for a stack Compose could not read.",
         "properties": {
           "domain": {
             "title": "Domain",
@@ -2851,6 +2851,24 @@
           "logs": {
             "title": "Logs",
             "type": "string"
+          },
+          "service": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Service"
+          },
+          "services": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Services",
+            "type": "array"
           }
         },
         "required": [
@@ -6571,6 +6589,79 @@
           "proof"
         ],
         "title": "ChangeOut",
+        "type": "object"
+      },
+      "ChangelogEntryOut": {
+        "description": "The notes of one release.",
+        "properties": {
+          "action_required": {
+            "default": false,
+            "title": "Action Required",
+            "type": "boolean"
+          },
+          "date": {
+            "default": "",
+            "title": "Date",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ChangelogItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "items"
+        ],
+        "title": "ChangelogEntryOut",
+        "type": "object"
+      },
+      "ChangelogItemOut": {
+        "description": "One line of a release's notes.",
+        "properties": {
+          "action_required": {
+            "default": false,
+            "title": "Action Required",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "ChangelogItemOut",
+        "type": "object"
+      },
+      "ChangelogOut": {
+        "description": "What changed in the releases this installation ships with (checklist N-24).",
+        "properties": {
+          "current_version": {
+            "title": "Current Version",
+            "type": "string"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/ChangelogEntryOut"
+            },
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "current_version",
+          "entries"
+        ],
+        "title": "ChangelogOut",
         "type": "object"
       },
       "ChannelBody": {
@@ -12642,6 +12733,114 @@
           "proto"
         ],
         "title": "DockerPortOut",
+        "type": "object"
+      },
+      "DoctorItemOut": {
+        "description": "One thing the installation check looked at.",
+        "properties": {
+          "fix": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fix"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "info",
+              "warn",
+              "fail"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "text"
+        ],
+        "title": "DoctorItemOut",
+        "type": "object"
+      },
+      "DoctorOut": {
+        "description": "What ``noust setup doctor`` finds, for the console (checklist N-09).",
+        "properties": {
+          "issues": {
+            "title": "Issues",
+            "type": "integer"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/DoctorSectionOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "warnings": {
+            "title": "Warnings",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "ready",
+          "issues",
+          "warnings",
+          "sections"
+        ],
+        "title": "DoctorOut",
+        "type": "object"
+      },
+      "DoctorSectionOut": {
+        "description": "A group of checks under one heading.",
+        "properties": {
+          "explain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explain"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DoctorItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "items"
+        ],
+        "title": "DoctorSectionOut",
         "type": "object"
       },
       "DomainPortRequest": {
@@ -29662,6 +29861,45 @@
         "title": "ReleaseActivationResponse",
         "type": "object"
       },
+      "ReleaseNotesOut": {
+        "description": "What an update to a version will change, read from its GitHub release.",
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "entry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ChangelogEntryOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          },
+          "url": {
+            "default": "",
+            "title": "Url",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "available"
+        ],
+        "title": "ReleaseNotesOut",
+        "type": "object"
+      },
       "ReleaseOut": {
         "description": "One release of an application on the release layout.\n\nAttributes:\n    id: Release id, the directory name under ``releases/``.\n    commit: Short commit it was built from; None for a non-git source.\n    created_at: When it was created, ISO 8601 with an explicit UTC offset.\n    activated_at: When it last became active, if it ever did.\n    status: ``active``, ``superseded``, ``rolled_back``, ``failed`` or\n        ``built``.\n    active: Whether it is the one serving.\n    on_disk: Whether it can be activated. A failed release is listed for\n        a while after its directory was removed.",
         "properties": {
@@ -37242,6 +37480,72 @@
           "message"
         ],
         "title": "SupportNoticeResponse",
+        "type": "object"
+      },
+      "SupportReportOut": {
+        "description": "The support report an operator pastes into an issue (``noust support report``).",
+        "properties": {
+          "generated_at": {
+            "title": "Generated At",
+            "type": "string"
+          },
+          "hide_domains": {
+            "title": "Hide Domains",
+            "type": "boolean"
+          },
+          "markdown": {
+            "title": "Markdown",
+            "type": "string"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/SupportSectionOut"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "generated_at",
+          "hide_domains",
+          "markdown",
+          "sections"
+        ],
+        "title": "SupportReportOut",
+        "type": "object"
+      },
+      "SupportSectionOut": {
+        "description": "One part of the support report.",
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "collected": {
+            "title": "Collected",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "body",
+          "collected"
+        ],
+        "title": "SupportSectionOut",
         "type": "object"
       },
       "SwapDeviceOut": {
@@ -50751,7 +51055,7 @@
     },
     "/api/apps/{domain}/logs": {
       "get": {
-        "description": "Read journal output for an application.\n\nArgs:\n    domain: Domain of the application.\n    lines: How many lines to return.\n    session: The authenticated session.\n\nReturns:\n    The log output.",
+        "description": "Read the output of an application.\n\nArgs:\n    domain: Domain of the application.\n    lines: How many lines to return.\n    service: Only this service's containers, for a Docker Compose stack.\n    session: The authenticated session.\n\nReturns:\n    The log output, and for a stack the services it can be read by.\n\nRaises:\n    ValidationError: 400, the service is not a name Compose would accept.\n    HTTPException: 404 when a stack has no such service.",
         "operationId": "get_app_logs_api_apps__domain__logs_get",
         "parameters": [
           {
@@ -50773,6 +51077,25 @@
               "minimum": 1,
               "title": "Lines",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Only this service of a Docker Compose stack",
+            "in": "query",
+            "name": "service",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 64,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this service of a Docker Compose stack",
+              "title": "Service"
             }
           }
         ],
@@ -76543,6 +76866,70 @@
         "x-noust-permission": "server.read"
       }
     },
+    "/api/system/changelog": {
+      "get": {
+        "description": "List what changed in each release this installation ships with, newest first.\n\nThe notes are in the package (``changelog.json``, written from the Debian changelog by\n``scripts/release.py``), so this answers offline. A line that needs the operator to act is\nflagged.\n\nArgs:\n    session: The authenticated session.\n    since: Only the releases newer than this one.\n    limit: How many releases at most.\n\nReturns:\n    The running version and its releases' notes.",
+        "operationId": "get_changelog_api_system_changelog_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^\\d+\\.\\d+\\.\\d+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Since"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 10,
+              "maximum": 60,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChangelogOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Changelog",
+        "tags": [
+          "System"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
     "/api/system/cpu": {
       "get": {
         "description": "Sample CPU usage over half a second.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    The CPU description.",
@@ -76587,6 +76974,29 @@
           }
         },
         "summary": "Get Disk Info",
+        "tags": [
+          "System"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/system/doctor": {
+      "get": {
+        "description": "Check what a deployment depends on, as ``noust setup doctor`` does.\n\nThe same checks (:func:`noust.managers.setup_doctor.collect`), minus the connection test to\nGitHub, which does not belong in a page load. Every probe only reads.\n\nArgs:\n    session: The authenticated session.\n\nReturns:\n    Each section with its items, and the count of issues and warnings.",
+        "operationId": "get_install_check_api_system_doctor_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DoctorOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Install Check",
         "tags": [
           "System"
         ],
@@ -76736,6 +77146,108 @@
           }
         },
         "summary": "Get Processes",
+        "tags": [
+          "System"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/system/release-notes": {
+      "get": {
+        "description": "Read what updating to a version will change, before updating.\n\nA release this server does not have yet is not in its package, so the notes are read from the\nrelease's page on GitHub, through the same bounded reader the update check uses, and kept for an\nhour. When the update check is turned off, or GitHub does not answer, the answer says so and\nstill carries the release's address.\n\nArgs:\n    session: The authenticated session.\n    version: The release, such as ``3.4.0``.\n\nReturns:\n    The lines, or the reason there are none.",
+        "operationId": "get_release_notes_api_system_release_notes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d+\\.\\d+\\.\\d+$",
+              "title": "Version",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseNotesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Release Notes",
+        "tags": [
+          "System"
+        ],
+        "x-noust-permission": "server.read"
+      }
+    },
+    "/api/system/support-report": {
+      "get": {
+        "description": "Build the same support report as ``noust support report``.\n\nThe journal excerpt is only included for a credential that may reveal secrets\n(``secrets.reveal``, what ``GET /api/server/logs`` asks), because the console's own\njournal records the work it did for everyone. Everything else in the report is what\n``server.read`` already sees, and all of it is masked before it is returned.\n\nArgs:\n    session: The authenticated session.\n    hide_domains: Replace domains, application names and this host's name.\n    lines: Lines of the console's and the monitor's journal.\n\nReturns:\n    The report, as Markdown and as sections.",
+        "operationId": "get_support_report_api_system_support_report_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "hide_domains",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Hide Domains",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lines",
+            "required": false,
+            "schema": {
+              "default": 60,
+              "maximum": 500,
+              "minimum": 0,
+              "title": "Lines",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportReportOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Support Report",
         "tags": [
           "System"
         ],

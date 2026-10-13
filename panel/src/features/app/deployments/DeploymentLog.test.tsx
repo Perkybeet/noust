@@ -65,13 +65,13 @@ async function open() {
 }
 
 describe("reading a deploy's log", { timeout: 20_000 }, () => {
-  it("shows every line first, and only warnings and errors when asked", async () => {
+  it("shows every line first, and the viewer's chips narrow it to a level", async () => {
     const { region } = await open();
     for (const line of ["[1/9] Fetching source...", "npm install", "done"]) {
       expect(await within(region).findByText(line)).toBeInTheDocument();
     }
 
-    await userEvent.click(screen.getByRole("radio", { name: "Warnings and errors" }));
+    await userEvent.click(screen.getByRole("button", { name: "Warning 1" }));
 
     await waitFor(
       () => {
@@ -80,30 +80,17 @@ describe("reading a deploy's log", { timeout: 20_000 }, () => {
       { timeout: 5_000 },
     );
     expect(within(region).getByText("npm WARN deprecated left-pad@1.0.0")).toBeInTheDocument();
-    expect(within(region).getByText("Error: Cannot find module 'express'")).toBeInTheDocument();
-    expect(screen.getByText("Showing 2 of 6 lines.")).toBeInTheDocument();
+    expect(within(region).queryByText("Error: Cannot find module 'express'")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Error 1" }));
+    expect(await within(region).findByText("Error: Cannot find module 'express'")).toBeInTheDocument();
   });
 
-  it("shows only errors at the errors level, and says when nothing reads that way", async () => {
-    const { region } = await open();
-
-    await userEvent.click(screen.getByRole("radio", { name: "Errors" }));
-
-    await waitFor(
-      () => {
-        expect(within(region).queryByText("npm WARN deprecated left-pad@1.0.0")).not.toBeInTheDocument();
-      },
-      { timeout: 5_000 },
-    );
-    expect(within(region).getByText("Error: Cannot find module 'express'")).toBeInTheDocument();
-    expect(screen.getByText("Showing 1 of 6 lines.")).toBeInTheDocument();
-  });
-
-  it("leaves the times out and puts them back", async () => {
+  it("leaves the times out and puts them back, with the viewer's own toggle", async () => {
     const { region } = await open();
     expect(within(region).getAllByText("18:00:03")).not.toHaveLength(0);
 
-    await userEvent.click(screen.getByRole("checkbox", { name: "Show times" }));
+    await userEvent.click(screen.getByRole("button", { name: "Show times" }));
     await waitFor(
       () => {
         expect(within(region).queryByText("18:00:03")).not.toBeInTheDocument();
@@ -112,17 +99,23 @@ describe("reading a deploy's log", { timeout: 20_000 }, () => {
     );
     expect(within(region).getByText("npm install")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("checkbox", { name: "Show times" }));
+    await userEvent.click(screen.getByRole("button", { name: "Show times" }));
     expect(await within(region).findAllByText("18:00:03")).not.toHaveLength(0);
   });
 
-  it("copies the log to share as the server prepares it, at the level and with the times shown", async () => {
+  it("has one control of each, the viewer's: the page adds no level or times control of its own", async () => {
+    await open();
+
+    expect(screen.queryByRole("radio", { name: "Warnings and errors" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Show times" })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("group", { name: "Filter by level" })).toHaveLength(1);
+  });
+
+  it("copies the whole log to share as the server prepares it, with the credentials masked", async () => {
     const { backend } = await open();
     const writeText = vi.fn(() => Promise.resolve());
     vi.stubGlobal("isSecureContext", true);
     Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
-    await userEvent.click(screen.getByRole("radio", { name: "Warnings and errors" }));
-    await userEvent.click(screen.getByRole("checkbox", { name: "Show times" }));
 
     await userEvent.click(screen.getByRole("button", { name: "Copy to share" }));
 
@@ -134,8 +127,8 @@ describe("reading a deploy's log", { timeout: 20_000 }, () => {
     expect(copied).toContain("postgres://app:***@db:5432/app");
     const asked = backend.callsTo("GET /api/deployments/30/log").at(-1);
     expect(asked?.search.get("sanitize")).toBe("true");
-    expect(asked?.search.get("level")).toBe("warn");
-    expect(asked?.search.get("timestamps")).toBe("false");
+    expect(asked?.search.get("level")).toBe("all");
+    expect(asked?.search.get("timestamps")).toBe("true");
     expect(await screen.findByText("Copied the log, ready to share")).toBeInTheDocument();
   });
 
@@ -147,7 +140,7 @@ describe("reading a deploy's log", { timeout: 20_000 }, () => {
   it("speaks Spanish", async () => {
     await open();
     await act(() => setLocale("es"));
-    expect(await screen.findByRole("radio", { name: "Avisos y errores" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Aviso 1" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Copiar para compartir" })).toBeInTheDocument();
   });
 });

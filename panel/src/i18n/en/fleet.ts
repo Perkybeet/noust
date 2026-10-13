@@ -400,6 +400,16 @@ export const fleet = {
       unknown: "Not checked",
       fromTo: "{current} → {latest}",
     },
+    target: {
+      label: "Target version of the fleet",
+      version: "Noust {version}",
+      onIt: { one: "{count} of {total} servers runs it.", other: "{count} of {total} servers run it." },
+      updatable: { one: "{count} can update now.", other: "{count} can update now." },
+      onTheWay: {
+        one: "{count} waits for its package to be published.",
+        other: "{count} wait for their packages to be published.",
+      },
+    },
     actionsFor: "Actions for {name}",
     refreshLists: "Refresh package lists",
     refreshBehind: "Refresh package lists (its index is behind)",

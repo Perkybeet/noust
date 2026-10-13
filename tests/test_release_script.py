@@ -121,6 +121,8 @@ def repo(tmp_path, monkeypatch):
 
     monkeypatch.setattr(release, "ROOT", tmp_path)
     monkeypatch.setattr(release, "_current_tag", lambda: None)
+    # The console's copy of the changelog, which the check holds equal to the Debian one.
+    release.sync_packaged_changelog()
     # The fixture's security.txt is valid on this day, whatever day the suite runs.
     monkeypatch.setattr(release, "_today", lambda: date(2026, 10, 13))
     return tmp_path

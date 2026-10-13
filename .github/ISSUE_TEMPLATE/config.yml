@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security problem
+    url: https://github.com/Perkybeet/noust/security/advisories/new
+    about: Privately, never in a public issue. See SECURITY.md for what happens next.
+  - name: Ask how to do something
+    url: https://github.com/Perkybeet/noust/blob/main/docs/SUPPORT.md
+    about: Where to ask a question and what to include, before opening an issue.

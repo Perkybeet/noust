@@ -31,19 +31,22 @@ remote execution of an installation, so it is as narrow as it can be:
 
 from __future__ import annotations
 
+import importlib.metadata
 import json
+import logging
 import os
 import sys
 import time
 import uuid
-from collections.abc import Callable
-from dataclasses import asdict, dataclass, field
+from collections.abc import Callable, Sequence
+from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from noust import __version__
 from noust.core import paths
+from noust.core.exceptions import NoustError
 from noust.core.fs import SECRET_MODE, FileSystem, get_fs
 from noust.core.runner import CommandRunner, get_runner
 from noust.core.update_checker import web_installed
@@ -57,9 +60,12 @@ from noust.managers.transient_unit import (
     unit_state,
     with_output,
 )
+from noust.managers.upgrade_preflight import PreflightReport, UpgradePreflight
 
 if TYPE_CHECKING:
     from noust.core.store import JobRecord
+
+log = logging.getLogger(__name__)
 
 #: Every transient unit of a self-update starts with this, then the run's id.
 UNIT_PREFIX = "noust-self-update-"
@@ -170,6 +176,21 @@ def command_for(method: str) -> SelfUpdateCommand | None:
         return WEB_COMMANDS[method]
     return COMMANDS.get(method)
 
+
+#: The transitional package WASM's name left behind in each family (docs/RENAME.md): an
+#: empty package that only depends on ``noust``. Left alone it stays on its old version for
+#: ever, and the operating system's Updates page lists it as pending (owner item 80), so an
+#: update that finds it installed upgrades it with Noust.
+TRANSITIONAL_PACKAGES: dict[str, str] = {
+    "apt": "wasm",
+    "dnf": "wasm-cli",
+    "yum": "wasm-cli",
+    "zypper": "wasm-cli",
+    "pip": "wasm-cli",
+}
+
+#: The package names an installation may name: the product and the transitional packages.
+_PACKAGE_NAMES = frozenset({"noust", *TRANSITIONAL_PACKAGES.values()})
 
 #: What an image-based installation runs instead (docs/CENTRAL.md).
 CONTAINER_COMMAND = "docker compose pull && docker compose up -d"
@@ -301,6 +322,8 @@ class SelfUpdate:
         process_started: When this console started, as a Unix time, instead
             of asking (tests).
         sleep: Waits between looks at the unit.
+        preflight: Runs the checks before the installation, given the method and the
+            package names; the real ones (:mod:`noust.managers.upgrade_preflight`) when omitted.
     """
 
     def __init__(
@@ -315,6 +338,7 @@ class SelfUpdate:
         version: str | None = None,
         process_started: float | None = None,
         sleep: Callable[[float], None] = time.sleep,
+        preflight: Callable[[str, Sequence[str]], PreflightReport] | None = None,
     ) -> None:
         self._runner = runner
         self.process_started = (
@@ -327,6 +351,7 @@ class SelfUpdate:
         self._systemd = systemd
         self.version = version or __version__
         self._sleep = sleep
+        self._preflight = preflight or self._real_preflight
 
     @property
     def runner(self) -> CommandRunner:
@@ -373,6 +398,84 @@ class SelfUpdate:
                 _DETECTED["container"] = result.success and kind not in ("", "none")
             self._container = bool(_DETECTED["container"])
         return self._container
+
+    def transitional_installed(self, method: str) -> str | None:
+        """
+        Name the transitional package installed beside Noust, if any.
+
+        ``apt-get install --only-upgrade`` skips a name that is not installed, but
+        ``dnf upgrade`` and ``zypper update`` fail on one, so every family is asked
+        first rather than given a name that may not be there.
+
+        Args:
+            method: The installation method.
+
+        Returns:
+            ``wasm`` (apt) or ``wasm-cli`` (rpm, pip) when it is installed; None
+            when it is not, or for a method without one.
+        """
+        name = TRANSITIONAL_PACKAGES.get(method)
+        if name is None:
+            return None
+        if method == "apt":
+            result = self.runner.run(
+                ["dpkg-query", "--show", "--showformat=${db:Status-Status}", name], timeout=10
+            )
+            return name if result.success and result.stdout.strip() == "installed" else None
+        if method == "pip":
+            try:
+                importlib.metadata.distribution(name)
+            except importlib.metadata.PackageNotFoundError:
+                return None
+            return name
+        result = self.runner.run(["rpm", "--query", "--queryformat=%{NAME}", name], timeout=10)
+        return name if result.success and result.stdout.strip() == name else None
+
+    def command(self, method: str) -> SelfUpdateCommand | None:
+        """
+        The command that updates this installation, transitional package included.
+
+        Args:
+            method: The installation method.
+
+        Returns:
+            :func:`command_for`'s command with the installed transitional package
+            appended to the names it upgrades; None for a method not updated here.
+        """
+        command = command_for(method)
+        if command is None:
+            return None
+        companion = self.transitional_installed(method)
+        if companion is None:
+            return command
+        return replace(command, install=(*command.install, companion))
+
+    def _real_preflight(self, method: str, names: Sequence[str]) -> PreflightReport:
+        """
+        Run the checks before the installation against this machine.
+
+        Args:
+            method: The installation method.
+            names: The package names the installation names.
+
+        Returns:
+            The report.
+        """
+        from noust.core.store import get_store
+
+        try:
+            store_path: Path | None = get_store().db_path
+        except (NoustError, OSError) as exc:
+            # No readable store is the store check's own business, not a reason to skip the rest.
+            log.debug("The store could not be located for the preflight: %s", exc)
+            store_path = None
+        return UpgradePreflight(
+            method=method,
+            names=names,
+            runner=self.runner,
+            state_dir=paths.state_dir(),
+            store_path=store_path,
+        ).run()
 
     def systemd(self) -> bool:
         """Returns: Whether a transient unit can be started here."""
@@ -562,7 +665,7 @@ class SelfUpdate:
         record = self.read()
         if record is not None:
             record = self.settle(record)
-        command = command_for(self.method())
+        command = self.command(self.method()) if refusal is None else None
         return {
             "current_version": self.version,
             "method": self.method(),
@@ -570,7 +673,7 @@ class SelfUpdate:
             "code": refusal.code if refusal else None,
             "reason": refusal.message if refusal else None,
             "hint": refusal.hint if refusal else None,
-            "command": list(command.install) if command and refusal is None else None,
+            "command": list(command.install) if command else None,
             "last_run": record.to_dict() if record else None,
         }
 
@@ -611,7 +714,7 @@ class SelfUpdate:
                 f"Follow it with: journalctl -fu {previous.unit}.service",
             )
         method = self.method()
-        command = command_for(method)
+        command = self.command(method)
         if command is None:
             raise SelfUpdateRefused(
                 "unsupported_installation",
@@ -630,6 +733,19 @@ class SelfUpdate:
                     "Read the output, fix the repository, and try again.",
                     output=(refreshed.stdout + refreshed.stderr).strip() or None,
                 )
+        names = [name for name in command.install if name in _PACKAGE_NAMES]
+        report = self._preflight(method, names)
+        for check in report.checks:
+            if check.status != "ok":
+                on_line(f"before updating ({check.status}): {check.text}")
+        if not report.ready:
+            first = report.blocking[0]
+            raise SelfUpdateRefused(
+                "preflight_failed",
+                f"{first.text}; nothing was installed",
+                first.fix or "Fix what it names, then update again.",
+                output=first.evidence or None,
+            )
         update_id = uuid.uuid4().hex[:8]
         record = SelfUpdateRecord(
             id=update_id,

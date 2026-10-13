@@ -384,6 +384,16 @@ export const fleet: Catalog<typeof en> = {
       unknown: "Sin comprobar",
       fromTo: "{current} → {latest}",
     },
+    target: {
+      label: "Versión objetivo de la flota",
+      version: "Noust {version}",
+      onIt: { one: "{count} de {total} servidores la ejecuta.", other: "{count} de {total} servidores la ejecutan." },
+      updatable: { one: "{count} puede actualizarse ya.", other: "{count} pueden actualizarse ya." },
+      onTheWay: {
+        one: "{count} espera a que se publique su paquete.",
+        other: "{count} esperan a que se publiquen sus paquetes.",
+      },
+    },
     actionsFor: "Acciones de {name}",
     refreshLists: "Renovar las listas de paquetes",
     refreshBehind: "Renovar las listas de paquetes (su índice está atrasado)",

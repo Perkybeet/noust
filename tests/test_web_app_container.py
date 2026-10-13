@@ -433,27 +433,121 @@ class TestChangingTheSettings:
         assert events[0]["target"] == f"app:{DOMAIN}"
 
 
+class StackDeployer:
+    """What ``stack_deployer`` hands the route: the one reader of a stack's containers."""
+
+    def __init__(self, services: list[str] | None = None) -> None:
+        self.services = ["app", "db"] if services is None else services
+        self.asked: list[tuple[str | None, int]] = []
+
+    def service_names(self) -> list[str]:
+        return self.services
+
+    def logs(self, service: str | None = None, lines: int = 50) -> str:
+        self.asked.append((service, lines))
+        return f"{service or 'app'}-1  | listening on 8080"
+
+
 class TestTheLogs:
-    def test_it_is_what_the_container_printed_not_the_units_journal(
-        self, client, store, monkeypatch
-    ):
-        deployed(store)
-        asked: list[int] = []
-
-        class Deployer:
-            def logs(self, lines: int = 50) -> str:
-                asked.append(lines)
-                return "app-1  | listening on 8080"
-
+    @pytest.fixture
+    def stack(self, monkeypatch: pytest.MonkeyPatch) -> StackDeployer:
+        deployer = StackDeployer()
         monkeypatch.setattr(
-            "noust.deployers.docker_compose.stack_deployer", lambda app, **kwargs: Deployer()
+            "noust.deployers.docker_compose.stack_deployer", lambda app, **kwargs: deployer
         )
+        return deployer
+
+    def test_it_is_what_the_container_printed_not_the_units_journal(self, client, store, stack):
+        deployed(store)
 
         response = client.get(f"/api/apps/{DOMAIN}/logs", params={"lines": 20})
 
         assert response.status_code == 200, response.text
         assert response.json()["logs"] == "app-1  | listening on 8080"
-        assert asked == [20]
+        assert stack.asked == [(None, 20)]
+
+    def test_it_names_the_services_so_one_of_them_can_be_chosen(self, client, store, stack):
+        deployed(store)
+
+        body = client.get(f"/api/apps/{DOMAIN}/logs").json()
+
+        assert body["services"] == ["app", "db"]
+        assert body["service"] is None
+
+    def test_one_service_of_the_stack_is_read_alone(self, client, store, stack):
+        deployed(store)
+
+        response = client.get(f"/api/apps/{DOMAIN}/logs", params={"service": "db", "lines": 30})
+
+        assert response.status_code == 200, response.text
+        assert response.json()["logs"] == "db-1  | listening on 8080"
+        assert response.json()["service"] == "db"
+        assert stack.asked == [("db", 30)]
+
+    def test_a_compose_stack_reads_its_containers_as_a_container_application_does(
+        self, client, store, stack
+    ):
+        store.create_app(
+            App(domain=DOMAIN, app_type="docker-compose", app_path="/var/www/apps/shop", port=3001)
+        )
+
+        response = client.get(f"/api/apps/{DOMAIN}/logs")
+
+        assert response.status_code == 200, response.text
+        assert response.json()["services"] == ["app", "db"]
+        assert stack.asked == [(None, 100)]
+
+    def test_a_service_the_stack_does_not_have_is_a_404_that_lists_the_ones_it_has(
+        self, client, store, stack
+    ):
+        deployed(store)
+
+        response = client.get(f"/api/apps/{DOMAIN}/logs", params={"service": "cache"})
+
+        assert response.status_code == 404
+        assert "app" in response.text and "db" in response.text
+        assert stack.asked == []
+
+    def test_a_name_compose_would_not_accept_is_refused_before_anything_runs(
+        self, client, store, stack
+    ):
+        deployed(store)
+
+        response = client.get(f"/api/apps/{DOMAIN}/logs", params={"service": "db; reboot"})
+
+        assert response.status_code == 400
+        assert "service" in response.json()["fields"]
+        assert stack.asked == []
+
+    def test_a_stack_compose_cannot_list_is_still_read_whole(self, client, store, monkeypatch):
+        deployed(store)
+        deployer = StackDeployer(services=[])
+        monkeypatch.setattr(
+            "noust.deployers.docker_compose.stack_deployer", lambda app, **kwargs: deployer
+        )
+
+        response = client.get(f"/api/apps/{DOMAIN}/logs")
+
+        assert response.status_code == 200, response.text
+        assert response.json()["services"] == []
+        assert deployer.asked == [(None, 100)]
+
+    def test_a_native_application_has_the_units_journal_and_no_services(
+        self, client, store, monkeypatch
+    ):
+        store.create_app(
+            App(domain=DOMAIN, app_type="nextjs", app_path="/var/www/apps/shop", port=3001)
+        )
+        monkeypatch.setattr(
+            "noust.managers.service_manager.ServiceManager.logs",
+            lambda self, name, lines=100: "journal line",
+        )
+
+        body = client.get(f"/api/apps/{DOMAIN}/logs").json()
+
+        assert body["logs"] == "journal line"
+        assert body["services"] == []
+        assert body["service"] is None
 
 
 class TestPermissions:

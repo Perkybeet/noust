@@ -1,0 +1,43 @@
+name: Feature request
+description: Something Noust does not do yet, or does in a way that costs you time
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        A request that starts from the job you are trying to do is easier to weigh than one that
+        starts from a solution. Please look through the open issues first.
+  - type: textarea
+    id: job
+    attributes:
+      label: What are you trying to do
+      description: The situation, and what you do today instead.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like Noust to do
+      description: A command, a console screen, a setting. A sketch is enough.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Deploying applications
+        - Domains, certificates or the web server
+        - Databases
+        - Backups and restore
+        - Monitoring and notifications
+        - Fleet (a central and its servers)
+        - Console
+        - Command line
+        - Installation or documentation
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Noust version you are on
+      description: Output of `noust --version`.

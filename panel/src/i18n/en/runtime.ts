@@ -6,17 +6,10 @@
  */
 export const runtime = {
   deployLog: {
-    levelLabel: "Log level",
-    levelAll: "All",
-    levelWarn: "Warnings and errors",
-    levelError: "Errors",
-    timesLabel: "Show times",
     share: "Copy to share",
-    shareDescription: "Copies what is shown without colour codes and with anything that looks like a credential masked: safe to paste into a ticket.",
+    shareDescription: "Copies the whole log without colour codes and with anything that looks like a credential masked: safe to paste into a ticket.",
     shareCopied: "Copied the log, ready to share",
     shareFailed: "The log could not be prepared to share",
-    nothingAtLevel: "No line of this log reads as a warning or an error.",
-    filteredNote: "Showing {shown} of {total} lines.",
   },
   health: {
     kindLabel: "Check with",

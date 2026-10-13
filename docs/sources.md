@@ -65,7 +65,7 @@ workspace create` sets the watch paths of each application.
 
 ## GitHub, and GitHub Enterprise
 
-The [GitHub App](api.md#integrations) clones private repositories with a token of its own and
+The [GitHub App](api.md#configuration-integrations-and-recipes) clones private repositories with a token of its own and
 delivers pushes and pull requests. It works against **GitHub Enterprise Server** and **Enterprise
 Cloud with data residency** too:
 

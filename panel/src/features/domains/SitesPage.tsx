@@ -23,10 +23,12 @@ import { StatusPill } from "../../components/ui/StatusPill";
 import { TextLink } from "../../components/ui/TextLink";
 import { toast } from "../../components/ui/toast";
 import { useT } from "../../i18n";
+import { useOnArrival } from "../../lib/useArrival";
 import { ownerColumns, useOwnerScope } from "../teams/ownership";
 import { CreateSiteDialog } from "./CreateSiteDialog";
 import { DomainsListPage } from "./DomainsListPage";
 import { truncatedNames } from "./names";
+import { spendNew } from "./search";
 import type { SitesSearch } from "./search";
 import { useSiteActions } from "./useSiteActions";
 
@@ -89,6 +91,13 @@ export function SitesPage({ search, onSearchChange }: SitesPageProps) {
   const { enable, disable, reload, refresh } = useSiteActions();
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState<SiteEntry | null>(null);
+
+  // Arriving with `?new` (the palette's "New site"): the dialog opens, and the link is spent.
+  const opening = search.new === true;
+  useOnArrival(opening, () => {
+    setCreating(true);
+    onSearchChange(spendNew(search), { replace: true });
+  });
 
   const everything = sites.data?.sites ?? [];
   // The team the operator works in narrows the list, and the project and environment filters narrow it further.

@@ -1,11 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { Bell, Boxes, DatabaseBackup, KeyRound } from "lucide-react";
+import { Bell, Boxes, DatabaseBackup, HardDriveUpload, KeyRound, Stethoscope } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { sessionQuery } from "../../api/queries/auth";
+import { backupDestinationsQuery } from "../../api/queries/backupDestinations";
 import { configQuery } from "../../api/queries/config";
 import type { Overview } from "../../api/queries/overview";
+import { installCheckQuery } from "../../api/queries/system";
 import { buttonClassName } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
 import { ICONS } from "../../components/ui/icons";
@@ -20,7 +22,7 @@ interface Step {
   title: PlainKey;
   description: PlainKey;
   action: PlainKey;
-  to: "/apps/new" | "/backups" | "/settings/notifications" | "/settings/security";
+  to: "/apps/new" | "/backups" | "/backups/destinations" | "/settings/about" | "/settings/notifications" | "/settings/security";
   done: boolean;
 }
 
@@ -34,7 +36,19 @@ export function FirstSteps({ overview }: { overview: Overview }) {
   const session = useQuery(sessionQuery());
   const config = useQuery(configQuery());
   const notifications = config.data === undefined ? false : readNotificationSettings(config.data.config).enabled;
+  // Neither read is worth an error on a welcome: a step whose answer is not known is not ticked.
+  const installation = useQuery({ ...installCheckQuery(), retry: false });
+  const destinations = useQuery({ ...backupDestinationsQuery(), retry: false });
   const steps: Step[] = [
+    {
+      key: "check",
+      icon: <Stethoscope />,
+      title: "overview.firstSteps.check.title",
+      description: "overview.firstSteps.check.description",
+      action: "overview.firstSteps.check.action",
+      to: "/settings/about",
+      done: installation.data?.ready === true,
+    },
     {
       key: "deploy",
       icon: <Boxes />,
@@ -52,6 +66,15 @@ export function FirstSteps({ overview }: { overview: Overview }) {
       action: "overview.firstSteps.backups.action",
       to: "/backups",
       done: overview.backups.scheduled > 0,
+    },
+    {
+      key: "destination",
+      icon: <HardDriveUpload />,
+      title: "overview.firstSteps.destination.title",
+      description: "overview.firstSteps.destination.description",
+      action: "overview.firstSteps.destination.action",
+      to: "/backups/destinations",
+      done: (destinations.data?.destinations.length ?? 0) > 0,
     },
     {
       key: "notifications",

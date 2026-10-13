@@ -563,6 +563,75 @@ def sync(state: Context) -> None:
     _store_sync(state.verbose)
 
 
+@cli.command("compat", read_only=True)
+@click.option(
+    "--to",
+    "target",
+    metavar="RELEASE",
+    help="The release you want to go back to, such as 3.3.1.",
+)
+@json_option("Print the answer as JSON.")
+@pass_context
+def compat(state: Context, target: str | None) -> None:
+    """
+    Say which Noust releases can open this store, and how to go back to an earlier one.
+
+    A release opens a store written at its own schema or an older one, and refuses a newer one.
+    Without --to this shows the schema on disk, the oldest release that understands it and the
+    copies the upgrades kept beside the store. With --to it gives the steps to run that release
+    (docs/DOWNGRADING.md). It reads and changes nothing.
+    """
+    from noust.core import store_compat
+    from noust.core.store import SCHEMA_VERSION, get_store
+
+    db_path = get_store().db_path
+    try:
+        schema = store_compat.read_schema(db_path)
+    except sqlite3.Error as exc:
+        raise NoustError(f"The store at {db_path} cannot be read", details=str(exc)) from exc
+    copies = store_compat.kept_copies(db_path)
+    answer: dict[str, object] = {
+        "store": str(db_path),
+        "store_schema": schema,
+        "this_release_schema": SCHEMA_VERSION,
+        "oldest_release": store_compat.oldest_release_for(schema) if schema is not None else None,
+        "kept_copies": [copy.to_dict() for copy in copies],
+        "plan": None,
+    }
+    if target is not None:
+        if schema is None:
+            raise NoustError(
+                f"There is no store at {db_path} yet", details="Nothing to go back from."
+            )
+        try:
+            answer["plan"] = store_compat.plan(target, schema, copies, db_path=db_path).to_dict()
+        except ValueError as exc:
+            raise click.UsageError(str(exc)) from exc
+    if state.json_output:
+        click.echo(json.dumps(answer, indent=2))
+        return
+    logger = state.logger
+    logger.key_value("Store", str(db_path))
+    logger.key_value("Schema on disk", "none yet" if schema is None else str(schema))
+    logger.key_value("This release writes", str(SCHEMA_VERSION))
+    oldest = answer["oldest_release"]
+    if oldest:
+        logger.key_value("Oldest release that opens it", str(oldest))
+    if copies:
+        logger.info("Copies kept before upgrading:")
+        for copy in copies:
+            logger.info(
+                f"  {copy.path.name}  schema {copy.schema}  {copy.taken_at:%Y-%m-%d %H:%M} UTC"
+            )
+    else:
+        logger.info("No copy was kept beside the store (upgrades keep one before migrating).")
+    plan = answer["plan"]
+    if isinstance(plan, dict):
+        logger.blank()
+        for number, step in enumerate(plan["steps"], start=1):
+            logger.info(f"{number}. {step}")
+
+
 @cli.command("path")
 def path() -> None:
     """Print the location of the database file."""

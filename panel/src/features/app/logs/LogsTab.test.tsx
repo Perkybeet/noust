@@ -6,7 +6,8 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { FakeWebSocket, fakeBackend, json } from "../../../test/fakes";
 import { TAB_DOMAIN, appRoutes } from "../testRoutes";
-import { journalLine, passesLevel, siteLineLevel } from "./LogsTab";
+import { journalLine } from "./journalLines";
+import { siteLineLevel } from "./LogsTab";
 
 /** What the API answers for a site's log: the end of the file, already masked. */
 function siteLog(kind: string, lines: string[], extra: Record<string, unknown> = {}) {
@@ -38,17 +39,6 @@ async function socket(): Promise<FakeWebSocket> {
   if (!found) throw new Error("no log socket");
   return found;
 }
-
-describe("the level filter", () => {
-  it("keeps errors for errors, and warnings with errors for warnings", () => {
-    const error = { id: 1, text: "x", level: "error" as const };
-    const warn = { id: 2, text: "y", level: "warn" as const };
-    const plain = { id: 3, text: "z" };
-    expect([error, warn, plain].filter((line) => passesLevel(line, "errors"))).toEqual([error]);
-    expect([error, warn, plain].filter((line) => passesLevel(line, "warnings"))).toEqual([error, warn]);
-    expect([error, warn, plain].filter((line) => passesLevel(line, "all"))).toHaveLength(3);
-  });
-});
 
 describe("a web server log line", () => {
   it("reads the level of a request from its status, and of an error from its own word", () => {
@@ -111,7 +101,7 @@ describe("the logs tab", { timeout: 20_000 }, () => {
     expect(screen.getByText("The log stream failed")).toBeInTheDocument();
   });
 
-  it("narrows the lines to warnings and errors, and says how many it shows", async () => {
+  it("narrows the lines to a level with the viewer's chips", async () => {
     const { user } = await logsAt();
     const ws = await socket();
     act(() => {
@@ -121,10 +111,11 @@ describe("the logs tab", { timeout: 20_000 }, () => {
     });
     const journal = await screen.findByRole("region", { name: `Logs of ${TAB_DOMAIN}` });
     await within(journal).findByText(/GET \/ 200 in 38ms/);
-    await user.click(screen.getByRole("radio", { name: "Errors" }));
+    await user.click(screen.getByRole("button", { name: "Error 1" }));
     expect(within(journal).queryByText(/GET \/ 200 in 38ms/)).not.toBeInTheDocument();
     expect(within(journal).getByText(/ECONNREFUSED/)).toBeInTheDocument();
-    expect(screen.getByText("1 of 2 lines")).toBeInTheDocument();
+    // The count is the stream's, not the filter's: the viewer says what it hides.
+    expect(screen.getByText("2 lines")).toBeInTheDocument();
   });
 
   it("lets `/` search the journal", async () => {
@@ -161,10 +152,11 @@ describe("the logs tab", { timeout: 20_000 }, () => {
     // A server error is marked like a failure, a client error like a warning.
     expect(within(access).getByText(/ 502 157/).closest("[data-index]")).toHaveClass("bg-fail-soft");
     expect(screen.getByText("3 lines")).toBeInTheDocument();
-    await user.click(screen.getByRole("radio", { name: "Server errors" }));
+    // The viewer's chips say what an access log's levels are: a 5xx is a server error, a 4xx a client error.
+    expect(screen.getByRole("button", { name: "Client errors 1" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Server errors 1" }));
     expect(within(access).queryByText(/ 200 512/)).not.toBeInTheDocument();
     expect(within(access).getByText(/ 502 157/)).toBeInTheDocument();
-    expect(screen.getByText("1 of 3 lines")).toBeInTheDocument();
 
     await user.click(screen.getByRole("radio", { name: "Web server errors" }));
     const errors = await screen.findByRole("region", { name: `Web server error log of ${TAB_DOMAIN}` });

@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import { BookOpen, Box, Database, FileUp, FolderKanban, Keyboard, Landmark, LogOut, Monitor, Moon, Network, Plus, Server, Sun, Unplug, Users } from "lucide-react";
+import { useNavigate, useParams, useRouterState } from "@tanstack/react-router";
+import { Archive, BookOpen, BookText, Box, Database, FileCode, FileUp, FolderKanban, Keyboard, Landmark, LogOut, Monitor, Moon, Network, Plus, Server, ShieldCheck, Sun, Unplug, Users } from "lucide-react";
 import { useMemo } from "react";
 
-import { appTypesQuery, appsQuery } from "../api/queries/apps";
+import { appQuery, appTypesQuery, appsQuery } from "../api/queries/apps";
 import { sessionQuery } from "../api/queries/auth";
 import { appStatus } from "../components/page/status";
 import { typeName } from "../features/apps/data";
@@ -13,6 +13,8 @@ import { useOrganization } from "../features/teams/useOrganization";
 import { useT } from "../i18n";
 import type { PlainKey } from "../i18n";
 import { announce } from "./Announcer";
+import { appSectionCommands } from "./appCommands";
+import { helpFor, helpUrl } from "./help";
 import { nodeOfConsolePath } from "./nodeRoute";
 import { useHasFleet, useServerList } from "../nodes/servers";
 import { useConsoleContext, useNode, useSwitchNode } from "../nodes/useNode";
@@ -42,6 +44,7 @@ const THEME_ACTION_LABEL: Record<ThemeChoice, PlainKey> = {
 export function useConsoleCommands(open: boolean, openShortcuts: () => void): Command[] {
   const t = useT();
   const navigate = useNavigate();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
   const [theme, setTheme] = useTheme();
   const { signOut } = useSignOut();
   const context = useConsoleContext();
@@ -49,6 +52,10 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
   const onFleet = context.kind === "fleet";
   const { data: apps } = useQuery({ ...appsQuery(), enabled: open && !onFleet });
   const { data: types } = useQuery({ ...appTypesQuery(), enabled: open && !onFleet, retry: false });
+  // Inside an application's pages the palette also finds that application's sections.
+  const params = useParams({ strict: false });
+  const appDomain = !onFleet && typeof params.domain === "string" ? params.domain : null;
+  const { data: currentApp } = useQuery({ ...appQuery(appDomain ?? ""), enabled: open && appDomain !== null, retry: false });
   const { data: fleetApps } = useQuery({ ...fleetViewQuery("apps"), enabled: open && onFleet });
   const listed = useResourceIndex(open, !onFleet);
   const org = useOrganization();
@@ -118,6 +125,8 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
         });
       }
     }
+
+    if (appDomain !== null) pages.push(...appSectionCommands(appDomain, currentApp, t, go));
 
     const applications: Command[] = onFleet
       ? (fleetApps?.items ?? []).flatMap((row): Command[] => {
@@ -210,6 +219,39 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
           void navigate({ to: "/databases", search: { new: true } as never });
         },
       },
+      {
+        id: "action:new-backup",
+        group: "Actions",
+        label: t("shell.commands.newBackup"),
+        icon: <Archive />,
+        keywords: t("shell.commands.newBackupKeywords"),
+        kind: "navigate",
+        run: () => {
+          void navigate({ to: "/backups", search: { new: true } as never });
+        },
+      },
+      {
+        id: "action:new-site",
+        group: "Actions",
+        label: t("shell.commands.newSite"),
+        icon: <FileCode />,
+        keywords: t("shell.commands.newSiteKeywords"),
+        kind: "navigate",
+        run: () => {
+          void navigate({ to: "/domains/sites", search: { new: true } as never });
+        },
+      },
+      {
+        id: "action:issue-certificate",
+        group: "Actions",
+        label: t("shell.commands.issueCertificate"),
+        icon: <ShieldCheck />,
+        keywords: t("shell.commands.issueCertificateKeywords"),
+        kind: "navigate",
+        run: () => {
+          void navigate({ to: "/domains", search: { new: true } as never });
+        },
+      },
       ...(mayOrganise
         ? [
             {
@@ -267,6 +309,17 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
             },
           };
         }),
+      {
+        id: "action:documentation",
+        group: "Actions",
+        label: t("shell.commands.documentation"),
+        icon: <BookText />,
+        keywords: t("shell.commands.documentationKeywords"),
+        kind: "action",
+        run: () => {
+          window.open(helpUrl(helpFor(pathname)), "_blank", "noopener,noreferrer");
+        },
+      },
       {
         id: "action:shortcuts",
         group: "Actions",
@@ -361,5 +414,5 @@ export function useConsoleCommands(open: boolean, openShortcuts: () => void): Co
           ];
 
     return [...pages, ...applications, ...resources, ...servers, ...actions];
-  }, [apps, types, index, fleetApps, onFleet, navigate, theme, setTheme, openShortcuts, signOut, t, node, nodes, hostname, switchNode, hasFleet, context.kind, permissions, mayOrganise, mayCreateTeams]);
+  }, [apps, types, index, fleetApps, onFleet, navigate, theme, setTheme, openShortcuts, signOut, t, pathname, appDomain, currentApp, node, nodes, hostname, switchNode, hasFleet, context.kind, permissions, mayOrganise, mayCreateTeams]);
 }

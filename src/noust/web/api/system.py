@@ -25,12 +25,17 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from noust import __version__
+from noust.core import changelog, release_notes
 from noust.core.exceptions import DependencyError
+from noust.managers import setup_doctor
 from noust.managers.health import collect_health_report
+from noust.managers.support_report import SupportReporter
 from noust.web.api.auth import get_current_session
 from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated
 from noust.web.auth import sees_command_lines
 from noust.web.machine import read_machine
+from noust.web.permissions import Permission
+from noust.web.permissions.enforce import has_permission
 
 router = APIRouter(route_class=NoustErrorRoute)
 
@@ -688,6 +693,219 @@ def get_system_health(session: Annotated[dict, Depends(get_current_session)]) ->
     )
 
 
+# ------------------------------------------------------------ what's new
+
+
+class ChangelogItemOut(BaseModel):
+    """One line of a release's notes."""
+
+    text: str
+    #: The operator has to do something when updating (the line began "Action required:").
+    action_required: bool = False
+
+
+class ChangelogEntryOut(BaseModel):
+    """The notes of one release."""
+
+    version: str
+    #: The day it was released, ``YYYY-MM-DD``; empty when unknown.
+    date: str = ""
+    action_required: bool = False
+    items: list[ChangelogItemOut]
+
+
+class ChangelogOut(BaseModel):
+    """What changed in the releases this installation ships with (checklist N-24)."""
+
+    current_version: str
+    entries: list[ChangelogEntryOut]
+
+
+class ReleaseNotesOut(BaseModel):
+    """What an update to a version will change, read from its GitHub release."""
+
+    version: str
+    #: Whether the release's lines could be read; when not, ``reason`` says why and ``url`` still
+    #: leads to the release.
+    available: bool
+    entry: ChangelogEntryOut | None = None
+    url: str = ""
+    reason: str = ""
+
+
+@router.get("/changelog", response_model=ChangelogOut)
+def get_changelog(
+    session: Annotated[dict, Depends(get_current_session)],
+    since: Annotated[str | None, Query(pattern=r"^\d+\.\d+\.\d+$")] = None,
+    limit: Annotated[int, Query(ge=1, le=60)] = 10,
+) -> ChangelogOut:
+    """
+    List what changed in each release this installation ships with, newest first.
+
+    The notes are in the package (``changelog.json``, written from the Debian changelog by
+    ``scripts/release.py``), so this answers offline. A line that needs the operator to act is
+    flagged.
+
+    Args:
+        session: The authenticated session.
+        since: Only the releases newer than this one.
+        limit: How many releases at most.
+
+    Returns:
+        The running version and its releases' notes.
+    """
+    entries = changelog.packaged()
+    if since is not None:
+        entries = changelog.since(entries, since)
+    return ChangelogOut(
+        current_version=__version__,
+        entries=[ChangelogEntryOut(**entry.to_dict()) for entry in entries[:limit]],
+    )
+
+
+@router.get("/release-notes", response_model=ReleaseNotesOut)
+def get_release_notes(
+    session: Annotated[dict, Depends(get_current_session)],
+    version: Annotated[str, Query(pattern=r"^\d+\.\d+\.\d+$")],
+) -> ReleaseNotesOut:
+    """
+    Read what updating to a version will change, before updating.
+
+    A release this server does not have yet is not in its package, so the notes are read from the
+    release's page on GitHub, through the same bounded reader the update check uses, and kept for an
+    hour. When the update check is turned off, or GitHub does not answer, the answer says so and
+    still carries the release's address.
+
+    Args:
+        session: The authenticated session.
+        version: The release, such as ``3.4.0``.
+
+    Returns:
+        The lines, or the reason there are none.
+    """
+    from noust.core.update_checker import UpdateChecker
+
+    notes = release_notes.read(version, enabled=UpdateChecker.enabled())
+    return ReleaseNotesOut(
+        version=notes.version,
+        available=notes.available,
+        entry=ChangelogEntryOut(**notes.entry.to_dict()) if notes.entry else None,
+        url=notes.url,
+        reason=notes.reason,
+    )
+
+
+# ---------------------------------------------------------- install check
+
+
+class DoctorItemOut(BaseModel):
+    """One thing the installation check looked at."""
+
+    #: ``ok``, ``info`` (optional or not applicable), ``warn`` or ``fail`` (deployments will not work).
+    status: Literal["ok", "info", "warn", "fail"]
+    text: str
+    #: The command that fixes it, when there is one.
+    fix: str | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
+class DoctorSectionOut(BaseModel):
+    """A group of checks under one heading."""
+
+    title: str
+    explain: str | None = None
+    items: list[DoctorItemOut]
+
+
+class DoctorOut(BaseModel):
+    """What ``noust setup doctor`` finds, for the console (checklist N-09)."""
+
+    #: False when something a deployment needs is missing.
+    ready: bool
+    issues: int
+    warnings: int
+    sections: list[DoctorSectionOut]
+
+
+@router.get("/doctor", response_model=DoctorOut)
+def get_install_check(session: Annotated[dict, Depends(get_current_session)]) -> DoctorOut:
+    """
+    Check what a deployment depends on, as ``noust setup doctor`` does.
+
+    The same checks (:func:`noust.managers.setup_doctor.collect`), minus the connection test to
+    GitHub, which does not belong in a page load. Every probe only reads.
+
+    Args:
+        session: The authenticated session.
+
+    Returns:
+        Each section with its items, and the count of issues and warnings.
+    """
+    report = setup_doctor.collect(setup_doctor.DoctorEnvironment.default(include_ssh=False))
+    return DoctorOut(**report.to_dict())
+
+
+# --------------------------------------------------------- support report
+
+
+class SupportSectionOut(BaseModel):
+    """One part of the support report."""
+
+    key: str
+    title: str
+    #: Already masked: the secrets Noust knows and what only looks like one are replaced.
+    body: str
+    #: False when the section could not be read; ``body`` then says why.
+    collected: bool
+
+
+class SupportReportOut(BaseModel):
+    """The support report an operator pastes into an issue (``noust support report``)."""
+
+    version: str
+    generated_at: str
+    hide_domains: bool
+    #: The whole report as Markdown, ready to copy.
+    markdown: str
+    sections: list[SupportSectionOut]
+
+
+@router.get("/support-report", response_model=SupportReportOut)
+def get_support_report(
+    session: Annotated[dict, Depends(get_current_session)],
+    hide_domains: Annotated[bool, Query()] = False,
+    lines: Annotated[int, Query(ge=0, le=500)] = 60,
+) -> SupportReportOut:
+    """
+    Build the same support report as ``noust support report``.
+
+    The journal excerpt is only included for a credential that may reveal secrets
+    (``secrets.reveal``, what ``GET /api/server/logs`` asks), because the console's own
+    journal records the work it did for everyone. Everything else in the report is what
+    ``server.read`` already sees, and all of it is masked before it is returned.
+
+    Args:
+        session: The authenticated session.
+        hide_domains: Replace domains, application names and this host's name.
+        lines: Lines of the console's and the monitor's journal.
+
+    Returns:
+        The report, as Markdown and as sections.
+    """
+    reveals = has_permission(session, Permission.SECRETS_REVEAL)
+    left_out = (
+        None
+        if reveals and lines > 0
+        else "--lines 0 was given"
+        if reveals
+        else "reading the journal needs the right to reveal secrets"
+    )
+    report = SupportReporter(
+        journal_lines=lines, journal_left_out=left_out, hide_domains=hide_domains
+    ).build()
+    return SupportReportOut(**report.to_dict())
+
+
 # ------------------------------------------------------------ self-update
 
 
@@ -734,7 +952,9 @@ def _self_update_refused(refusal: Any) -> Any:
     from fastapi import HTTPException
 
     return HTTPException(
-        status_code=409 if refusal.code in ("already_running", "refresh_failed") else 501,
+        status_code=409
+        if refusal.code in ("already_running", "refresh_failed", "preflight_failed")
+        else 501,
         detail={
             "error": refusal.code,
             "detail": refusal.message,
