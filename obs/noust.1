@@ -3511,6 +3511,80 @@ Print the instance as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust db instance health
+Show or change how an instance is asked whether it is well.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-interval
+Seconds between probes. 'default' is 10.
+.TP
+.B \-\-timeout
+Seconds a probe may take. 'default' is 5.
+.TP
+.B \-\-retries
+Failed probes in a row before the engine is unhealthy. 'default' is 12.
+.TP
+.B \-\-plan
+Only say what it would do.
+.TP
+.B \-\-yes, \-y
+Do not ask before restarting it.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the settings, the plan or what was done as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust db instance limits
+Show or change what an instance may use: memory, CPUs and swap.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-memory
+Its memory limit, such as 2g. The engine's caches follow.
+.TP
+.B \-\-cpus
+How many CPUs it may use, such as 1.5. 'none' lifts the limit.
+.TP
+.B \-\-swap
+Swap it may use on top of its memory: 0 for none, or 512m. 'default' leaves Docker's.
+.TP
+.B \-\-plan
+Only say what it would do.
+.TP
+.B \-\-yes, \-y
+Do not ask before restarting it.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the settings, the plan or what was done as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust db instance list
 List the instances Noust runs, and how much of the server's memory they hold.
 .TP

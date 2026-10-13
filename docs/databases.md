@@ -143,6 +143,31 @@ the previous image is put back and the error carries the container's own log, se
 not change the major version: PostgreSQL 16 stays 16. A new major version is another instance, and
 Noust moves the databases for you ([below](#moving-a-database-or-an-engine-to-a-newer-version)).
 
+**Limits and health.** An instance is held to a memory limit from the day it is made, and the other
+two limits a container can have are settings too, as is the probe that decides whether the engine is
+well:
+
+```bash
+noust db instance limits pg16                                  # what it is held to, and how it is doing
+noust db instance limits pg16 --memory 2g --cpus 1.5 --plan    # what the change would do
+noust db instance limits pg16 --memory 2g --cpus 1.5           # asks, restarts the engine
+noust db instance limits pg16 --cpus none --swap default       # put the defaults back
+noust db instance health pg16 --interval 15 --timeout 5 --retries 5
+```
+
+The memory is checked against what the other instances leave of the share instances may hold
+(its own memory counts as available to it), the CPUs against the server's (Docker refuses more than
+the server has), and a probe whose timeout is longer than its interval is refused: Docker would call a
+healthy engine unhealthy. `--swap 0` gives the container no swap at all (Compose counts memory and swap
+together, so Noust writes a `memswap_limit` equal to the memory); without `--swap` the container has
+Docker's default. The engine's caches are sized to the new memory when it restarts. A change is a
+restart behind the same readiness gate a creation passes: when the engine does not come up on the new
+numbers, the previous row and Compose file are put back, the engine is started on them and the error
+carries the container's log. `noust db instance health` without options shows what Docker says of the
+engine now and the output of the last probe, verbatim. Limits and probe are the instance's row (a
+validated column each), never an edited file. Applying them to the host's own engines (a systemd
+drop-in) is not part of this release.
+
 **Removing.** `noust db instance remove pg16` lists what it deletes (the databases, the data volume)
 and asks; `--yes` is the answer in a script. It refuses, whatever you confirm, while an application
 uses a database on it (unlink it first) or one of its databases is public (close it first). Backup
@@ -166,7 +191,8 @@ cannot yet.
 The API is under `/api/databases/instances`: `GET` the list, `GET .../catalog`, `POST .../plan` (what a
 creation would do, changing nothing), `POST` to make one (sudo mode, a job), `GET .../{name}`,
 `POST .../{name}/start` (a job), `POST .../{name}/stop`, `POST .../{name}/upgrade` (sudo mode, a job),
-`GET .../{name}/remove-plan` and `DELETE .../{name}?confirm=true` (sudo mode, a job). They need
+`GET .../{name}/remove-plan` and `DELETE .../{name}?confirm=true` (sudo mode, a job),
+`GET .../{name}/tuning`, `POST .../{name}/tuning/plan` and `PUT .../{name}/tuning` (sudo mode, a job). They need
 `databases.read`, `databases.manage` (and `apps.operate` for start and stop), and are the server's: a
 team member does not see them, but picks one for its application's database through
 `GET /api/databases/provisioning/choices`.

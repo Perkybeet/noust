@@ -325,6 +325,14 @@ DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = [
     # Whether the engine serves TLS (off, optional, required): the Compose file is
     # rendered from the row, so the mode is a column and not a file's content.
     ("db_instances", "tls_mode", "TEXT NOT NULL DEFAULT 'off'"),
+    # What the Compose file is rendered from besides the memory: the CPUs and the swap the
+    # container may use (NULL: Docker's own default) and the health probe's thresholds
+    # (NULL: Noust's defaults), so a change is a validated setter and not an edited file.
+    ("db_instances", "cpu_limit", "REAL"),
+    ("db_instances", "swap_limit_mb", "INTEGER"),
+    ("db_instances", "probe_interval_s", "INTEGER"),
+    ("db_instances", "probe_timeout_s", "INTEGER"),
+    ("db_instances", "probe_retries", "INTEGER"),
 ]
 
 # Owned by the backups lane: volume backups and the backup of Noust itself.

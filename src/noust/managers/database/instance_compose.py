@@ -262,7 +262,19 @@ def engine_command(flavour: str, memory_mb: int, *, tls: str = TLS_OFF) -> list[
     return None
 
 
-def health_check(flavour: str, spec: EngineSpec) -> dict[str, Any]:
+#: What a probe does when the instance's row says nothing: every ten seconds, at most five
+#: to answer, twelve failures in a row before the engine is called unhealthy.
+DEFAULT_PROBE = {"interval_s": 10, "timeout_s": 5, "retries": 12}
+
+
+def health_check(
+    flavour: str,
+    spec: EngineSpec,
+    *,
+    interval_s: int | None = None,
+    timeout_s: int | None = None,
+    retries: int | None = None,
+) -> dict[str, Any]:
     """
     Say how Docker can tell the engine is up and accepting connections.
 
@@ -273,6 +285,9 @@ def health_check(flavour: str, spec: EngineSpec) -> dict[str, Any]:
     Args:
         flavour: The flavour.
         spec: Its spec.
+        interval_s: Seconds between probes; :data:`DEFAULT_PROBE`'s when None.
+        timeout_s: Seconds a probe may take; the default when None.
+        retries: Failed probes in a row before it is unhealthy; the default when None.
 
     Returns:
         The service's ``healthcheck``.
@@ -297,9 +312,9 @@ def health_check(flavour: str, spec: EngineSpec) -> dict[str, Any]:
     }
     return {
         "test": tests[flavour],
-        "interval": "10s",
-        "timeout": "5s",
-        "retries": 12,
+        "interval": f"{interval_s or DEFAULT_PROBE['interval_s']}s",
+        "timeout": f"{timeout_s or DEFAULT_PROBE['timeout_s']}s",
+        "retries": retries or DEFAULT_PROBE["retries"],
         "start_period": "30s",
     }
 
@@ -338,6 +353,10 @@ def build_document(record: InstanceRecord) -> dict[str, Any]:
     if record.tls_mode != TLS_OFF:
         volumes.append(f"./{layout.TLS_DIRECTORY}:{TLS_MOUNT}:ro")
 
+    limits: dict[str, Any] = {"memory": f"{record.memory_limit_mb}M"}
+    if record.cpu_limit is not None:
+        limits["cpus"] = f"{record.cpu_limit:g}"
+
     service: dict[str, Any] = {
         "image": record.reference,
         "container_name": layout.container_name(name),
@@ -346,11 +365,20 @@ def build_document(record: InstanceRecord) -> dict[str, Any]:
         "ports": [f"127.0.0.1:{record.host_port}:{spec.container_port}"],
         "volumes": volumes,
         "labels": labels,
-        "healthcheck": health_check(record.flavour, spec),
-        "deploy": {"resources": {"limits": {"memory": f"{record.memory_limit_mb}M"}}},
+        "healthcheck": health_check(
+            record.flavour,
+            spec,
+            interval_s=record.probe_interval_s,
+            timeout_s=record.probe_timeout_s,
+            retries=record.probe_retries,
+        ),
+        "deploy": {"resources": {"limits": limits}},
         "stop_grace_period": STOP_GRACE,
         "logging": {"driver": "json-file", "options": {"max-size": "10m", "max-file": "3"}},
     }
+    if record.swap_limit_mb is not None:
+        # Compose counts memory and swap together: the memory limit alone is "no swap".
+        service["memswap_limit"] = f"{record.memory_limit_mb + record.swap_limit_mb}M"
     command = engine_command(record.flavour, record.memory_limit_mb, tls=record.tls_mode)
     if command is not None:
         service["command"] = command

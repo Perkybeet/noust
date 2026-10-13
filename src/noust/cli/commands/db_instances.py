@@ -39,6 +39,7 @@ from noust.core.logger import Logger
 from noust.managers.database.instance_catalog import ALIASES, SPECS, offered
 from noust.managers.database.instance_migration import InstanceMigrations, MigrationPlan
 from noust.managers.database.instance_tls import InstanceTls, TlsPlan
+from noust.managers.database.instance_tuning import InstanceTuning, TuningPlan
 from noust.managers.database.managed import InstancePlan, ManagedInstances
 from noust.managers.database.moves import DatabaseMover, MovePlan
 from noust.managers.database.tls_authority import TlsAuthority
@@ -259,6 +260,16 @@ def show_command(ctx: Context, name: str) -> None:
     logger.key_value("Image", described["reference"])
     logger.key_value("Listens on", f"{described['address']}:{described['host_port']}")
     logger.key_value("Memory limit", f"{described['memory_limit_mb']} MB")
+    logger.key_value(
+        "CPUs", "no limit" if described["cpu_limit"] is None else f"{described['cpu_limit']:g}"
+    )
+    logger.key_value(
+        "Swap",
+        "Docker's default"
+        if described["swap_limit_mb"] is None
+        else f"{described['swap_limit_mb']} MB",
+    )
+    logger.key_value("TLS", described["tls_mode"])
     logger.key_value("Unit", described["unit"])
     logger.key_value("Data volume", described["volume"])
     logger.key_value("Files", described["directory"])
@@ -321,6 +332,232 @@ def upgrade_command(ctx: Context, name: str, no_backup: bool) -> None:
         return
     ctx.logger.success(f"{name} runs {outcome.to_digest}")
     ctx.logger.info(f"It ran {outcome.from_digest}; the dumps taken first: {len(outcome.dumps)}")
+
+
+def _words(value: str | None, name: str, clear: list[str], *, words: tuple[str, ...]) -> str | None:
+    """
+    Read an option that may also say "put the default back".
+
+    Args:
+        value: What the operator typed, or None.
+        name: The setting, as :data:`~noust.managers.database.instance_tuning.CLEARABLE` names it.
+        clear: Where the setting is added when the operator asked for its default.
+        words: The words that ask for it.
+
+    Returns:
+        The value, or None when it was not given or was a request for the default.
+    """
+    if value is None:
+        return None
+    if value.strip().lower() in words:
+        clear.append(name)
+        return None
+    return value
+
+
+def _show_tuning(ctx: Context, status: dict[str, Any]) -> None:
+    """
+    Print what an instance is held to and how it is probed.
+
+    Args:
+        ctx: The invocation's context.
+        status: What :meth:`InstanceTuning.status` returned.
+    """
+    logger = ctx.logger
+    limits, probe, health = status["limits"], status["probe"], status["health"]
+    logger.key_value("Instance", status["name"])
+    logger.key_value("Memory limit", f"{limits['memory_mb']} MB")
+    logger.key_value("CPUs", "no limit" if limits["cpus"] is None else f"{limits['cpus']:g}")
+    logger.key_value(
+        "Swap", "Docker's default" if limits["swap_mb"] is None else f"{limits['swap_mb']} MB"
+    )
+    logger.key_value(
+        "Health probe",
+        f"every {probe['interval_s']} s, {probe['timeout_s']} s to answer, "
+        f"unhealthy after {probe['retries']} failures in a row",
+    )
+    logger.key_value("Health now", health["status"])
+    if health["failing_streak"]:
+        logger.key_value("Failures in a row", str(health["failing_streak"]))
+    if health["last"] and health["last"]["output"]:
+        logger.key_value("Last probe said", health["last"]["output"])
+
+
+def _show_tuning_plan(ctx: Context, plan: TuningPlan) -> None:
+    """
+    Print what a change of limits or probe would do.
+
+    Args:
+        ctx: The invocation's context.
+        plan: The plan.
+    """
+    logger = ctx.logger
+    logger.key_value("Instance", plan.name)
+    for change in plan.changes:
+        before = "default" if change["from"] is None else change["from"]
+        after = "default" if change["to"] is None else change["to"]
+        logger.key_value(change["setting"].capitalize(), f"{before} -> {after}")
+    if plan.apps:
+        logger.key_value("Applications", ", ".join(plan.apps))
+    for warning in plan.warnings:
+        logger.warning(warning)
+    for blocker in plan.blockers:
+        logger.error(blocker)
+
+
+def _tune(
+    ctx: Context,
+    name: str,
+    *,
+    plan_only: bool,
+    yes: bool,
+    clear: list[str],
+    **wanted: str | None,
+) -> None:
+    """
+    Show, plan or apply a change of limits or of the probe: what both commands share.
+
+    Args:
+        ctx: The invocation's context.
+        name: The instance.
+        plan_only: Say what it would do and stop.
+        yes: Do not ask before restarting the engine.
+        clear: Settings to put back to their default.
+        **wanted: The settings given, as :meth:`InstanceTuning.plan` takes them.
+    """
+    tuning = InstanceTuning(_managed(ctx))
+    if not any(value is not None for value in wanted.values()) and not clear:
+        status = tuning.status(name)
+        if ctx.json_output:
+            _echo_json(status)
+        else:
+            _show_tuning(ctx, status)
+        return
+    plan = tuning.plan(name, clear=clear, **wanted)
+    if plan_only or is_rehearsal():
+        if ctx.json_output:
+            _echo_json(plan.to_dict())
+        else:
+            _show_tuning_plan(ctx, plan)
+        if plan.blockers:
+            raise click.exceptions.Exit(1)
+        return
+    if plan.blockers:
+        _show_tuning_plan(ctx, plan)
+        raise click.ClickException("It cannot go ahead: see what is listed above.")
+    if not plan.changes:
+        ctx.logger.info(f"{name} already has these settings")
+        return
+    if not yes and not ctx.json_output:
+        _show_tuning_plan(ctx, plan)
+        click.confirm(f"Restart {name} on these settings?", default=False, abort=True)
+    status = tuning.apply(name, clear=clear, **wanted)
+    if ctx.json_output:
+        _echo_json(status)
+        return
+    ctx.logger.success(f"{name} runs on the new settings")
+
+
+@instance.command(
+    "limits",
+    read_only=lambda params: (
+        bool(params.get("plan_only"))
+        or all(params.get(key) is None for key in ("memory", "cpus", "swap"))
+    ),
+)
+@click.argument("name")
+@click.option(
+    "--memory", metavar="SIZE", help="Its memory limit, such as 2g. The engine's caches follow."
+)
+@click.option(
+    "--cpus", metavar="N", help="How many CPUs it may use, such as 1.5. 'none' lifts the limit."
+)
+@click.option(
+    "--swap",
+    metavar="SIZE",
+    help="Swap it may use on top of its memory: 0 for none, or 512m. 'default' leaves Docker's.",
+)
+@click.option("--plan", "plan_only", is_flag=True, help="Only say what it would do.")
+@click.option("--yes", "-y", is_flag=True, help="Do not ask before restarting it.")
+@global_flags
+@json_option("Print the settings, the plan or what was done as JSON.")
+@pass_context
+def limits_command(
+    ctx: Context,
+    name: str,
+    memory: str | None,
+    cpus: str | None,
+    swap: str | None,
+    plan_only: bool,
+    yes: bool,
+) -> None:
+    """
+    Show or change what an instance may use: memory, CPUs and swap.
+
+    Docker applies a container's limits when it is made, so the engine restarts, behind the
+    same readiness gate a creation passes; when it does not come up the previous limits are put
+    back. Without options it shows the limits and how the instance is doing.
+    """
+    clear: list[str] = []
+    _tune(
+        ctx,
+        name,
+        plan_only=plan_only,
+        yes=yes,
+        clear=clear,
+        memory=memory,
+        cpus=_words(cpus, "cpus", clear, words=("none", "unlimited", "default")),
+        swap=_words(swap, "swap", clear, words=("default",)),
+    )
+
+
+@instance.command(
+    "health",
+    read_only=lambda params: (
+        bool(params.get("plan_only"))
+        or all(params.get(key) is None for key in ("interval", "timeout", "retries"))
+    ),
+)
+@click.argument("name")
+@click.option("--interval", metavar="SECONDS", help="Seconds between probes. 'default' is 10.")
+@click.option("--timeout", metavar="SECONDS", help="Seconds a probe may take. 'default' is 5.")
+@click.option(
+    "--retries",
+    metavar="N",
+    help="Failed probes in a row before the engine is unhealthy. 'default' is 12.",
+)
+@click.option("--plan", "plan_only", is_flag=True, help="Only say what it would do.")
+@click.option("--yes", "-y", is_flag=True, help="Do not ask before restarting it.")
+@global_flags
+@json_option("Print the settings, the plan or what was done as JSON.")
+@pass_context
+def health_command(
+    ctx: Context,
+    name: str,
+    interval: str | None,
+    timeout: str | None,
+    retries: str | None,
+    plan_only: bool,
+    yes: bool,
+) -> None:
+    """
+    Show or change how an instance is asked whether it is well.
+
+    Without options it shows the probe and what Docker says of the engine now (with the last
+    probe's own output). A change restarts the engine, behind the readiness gate. A probe may
+    not take longer than the time between probes.
+    """
+    clear: list[str] = []
+    _tune(
+        ctx,
+        name,
+        plan_only=plan_only,
+        yes=yes,
+        clear=clear,
+        interval=_words(interval, "interval", clear, words=("default",)),
+        timeout=_words(timeout, "timeout", clear, words=("default",)),
+        retries=_words(retries, "retries", clear, words=("default",)),
+    )
 
 
 @instance.command("remove")
@@ -598,7 +835,9 @@ def _show_tls_plan(ctx: Context, plan: TlsPlan) -> None:
         logger.error(blocker)
 
 
-@instance.command("tls")
+@instance.command(
+    "tls", read_only=lambda params: params.get("mode") is None or bool(params.get("plan_only"))
+)
 @click.argument("name")
 @click.option(
     "--mode",

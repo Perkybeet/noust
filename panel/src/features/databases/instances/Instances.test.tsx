@@ -152,6 +152,26 @@ const TLS_PLAN = {
   warnings: ["pg16 restarts: its connections drop for a few seconds, shop.example.com among them"],
 };
 
+const TUNING = {
+  name: "pg16",
+  key: "postgresql@pg16",
+  limits: { memory_mb: 1024, cpus: null, swap_mb: null },
+  probe: { interval_s: 10, timeout_s: 5, retries: 12 },
+  defaults: { interval_s: 10, timeout_s: 5, retries: 12 },
+  server: { memory_mb: 8192, available_mb: 7000, cpus: 4 },
+  health: { status: "healthy", failing_streak: 0, last: { exit_code: 0, output: "accepting connections" } },
+};
+
+const TUNING_PLAN = {
+  name: "pg16",
+  changes: [{ setting: "memory", from: 1024, to: 2048 }],
+  values: {},
+  restarts: true,
+  apps: ["shop.example.com"],
+  blockers: [],
+  warnings: ["pg16 restarts: its connections drop for a few seconds, shop.example.com among them"],
+};
+
 const JOB = { id: "j1", type: "database", name: "Job", description: "", status: "running", progress: 10, total_steps: 100, current_step: "Working", created_at: "2026-10-06T10:00:00", logs: [], metadata: {} };
 const ACCEPTED = { job_id: "j1", status: "pending", message: "queued", job: JOB };
 
@@ -471,5 +491,108 @@ describe("TLS of an instance", { timeout: 60_000 }, () => {
     const dialog = await screen.findByRole("dialog", { name: "TLS of pg16" });
 
     expect(await within(dialog).findByText("It expires soon. Renew it.")).toBeInTheDocument();
+  });
+});
+
+describe("limits and health of an instance", { timeout: 60_000 }, () => {
+  async function openDialog(extra: Record<string, RouteHandler> = {}) {
+    const found = await enginesAt({ "GET /api/databases/instances/pg16/tuning": () => json(200, TUNING), ...extra });
+    await menuOf(found.harness.user, "pg16");
+    await found.harness.user.click(await screen.findByRole("menuitem", { name: "Limits and health…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Limits and health of pg16" });
+    await within(dialog).findByText("Healthy");
+    return { ...found, dialog };
+  }
+
+  it("shows what the instance is held to and what Docker says of it now", async () => {
+    const { dialog } = await openDialog();
+
+    expect(within(dialog).getByLabelText("Memory")).toHaveValue("1024");
+    expect(within(dialog).getByLabelText(/^CPUs/)).toHaveValue("");
+    expect(within(dialog).getByLabelText(/^Every/)).toHaveValue("10");
+    expect(within(dialog).getByText("accepting connections")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Restart on these settings" })).toBeDisabled();
+    await expectNoAxeViolations(dialog);
+  });
+
+  it("shows an engine that is not well with the probe's own words", async () => {
+    screenWidth(1440);
+    fakeBackend(
+      databaseRoutes({
+        "GET /api/databases/instances": () => json(200, { instances: [INSTANCE], budget: BUDGET }),
+        "GET /api/databases/instances/catalog": () => json(200, CATALOG),
+        "GET /api/databases/instances/migrations": () => json(200, { migrations: [] }),
+        "GET /api/databases/instances/pg16/tuning": () =>
+          json(200, { ...TUNING, health: { status: "unhealthy", failing_streak: 3, last: { exit_code: 1, output: "pg_isready: no response" } } }),
+      }),
+    );
+    const harness = renderConsole("/databases/engines");
+    const section = await screen.findByRole("region", { name: "Instances Noust runs" }, { timeout: 15_000 });
+    await within(section).findByText("pg16");
+    await menuOf(harness.user, "pg16");
+    await harness.user.click(await screen.findByRole("menuitem", { name: "Limits and health…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Limits and health of pg16" });
+
+    expect(await within(dialog).findByText("Unhealthy")).toBeInTheDocument();
+    expect(within(dialog).getByText("3 failed probes in a row")).toBeInTheDocument();
+    expect(within(dialog).getByText("pg_isready: no response")).toBeInTheDocument();
+  });
+
+  it("shows what a change would do before it is queued, then queues exactly that", async () => {
+    const { backend, harness, dialog } = await openDialog({
+      "POST /api/databases/instances/pg16/tuning/plan": () => json(200, TUNING_PLAN),
+      "PUT /api/databases/instances/pg16/tuning": () => json(202, ACCEPTED),
+    });
+    const { user } = harness;
+
+    const memory = within(dialog).getByLabelText("Memory");
+    await user.clear(memory);
+    await user.type(memory, "2048");
+
+    expect(await within(dialog).findByText("1024 → 2048")).toBeInTheDocument();
+    expect(within(dialog).getByText("shop.example.com")).toBeInTheDocument();
+    expect(within(dialog).getByText(/connections drop for a few seconds/)).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/databases/instances/pg16/tuning/plan").at(-1)?.body).toEqual({ memory_mb: 2048 });
+    await user.click(within(dialog).getByRole("button", { name: "Restart on these settings" }));
+
+    await waitFor(() => expect(backend.callsTo("PUT /api/databases/instances/pg16/tuning")).toHaveLength(1));
+    expect(backend.callsTo("PUT /api/databases/instances/pg16/tuning")[0]?.body).toEqual({ memory_mb: 2048 });
+    expect(await screen.findByText("Restarting pg16 on its new settings")).toBeInTheDocument();
+  });
+
+  it("says a value it cannot read and does not plan or offer to go on", async () => {
+    const { backend, harness, dialog } = await openDialog();
+    const { user } = harness;
+
+    await user.type(within(dialog).getByLabelText(/^CPUs/), "many");
+
+    expect(await within(dialog).findByText("Not a valid number.")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Restart on these settings" })).toBeDisabled();
+    expect(backend.callsTo("POST /api/databases/instances/pg16/tuning/plan")).toHaveLength(0);
+  });
+
+  it("does not offer to go on when the plan has a blocker", async () => {
+    const { harness, dialog } = await openDialog({
+      "POST /api/databases/instances/pg16/tuning/plan": () => json(200, { ...TUNING_PLAN, blockers: ["pg16 is not ready: it is upgrading"] }),
+    });
+    const { user } = harness;
+
+    await user.type(within(dialog).getByLabelText(/^CPUs/), "2");
+
+    expect(await within(dialog).findByText("pg16 is not ready: it is upgrading")).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Restart on these settings" })).toBeDisabled();
+  });
+
+  it("asks for a default when an optional limit is emptied", async () => {
+    const { backend, harness, dialog } = await openDialog({
+      "GET /api/databases/instances/pg16/tuning": () => json(200, { ...TUNING, limits: { memory_mb: 1024, cpus: 2, swap_mb: null } }),
+      "POST /api/databases/instances/pg16/tuning/plan": () => json(200, { ...TUNING_PLAN, changes: [{ setting: "cpus", from: 2, to: null }] }),
+    });
+    const { user } = harness;
+
+    await user.clear(within(dialog).getByLabelText(/^CPUs/));
+
+    expect(await within(dialog).findByText("2 → default")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/databases/instances/pg16/tuning/plan").at(-1)?.body).toEqual({ clear: ["cpus"] });
   });
 });

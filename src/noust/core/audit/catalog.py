@@ -370,6 +370,7 @@ EVENTS: dict[str, EventSpec] = {
             "db.instance.upgrade": "A database instance was moved to a newer image of its version.",
             "db.instance.remove": "A database instance was removed, with its data.",
             "db.instance.tls": "A database instance began to serve TLS, stopped, or was given a new certificate.",
+            "db.instance.tune": "The memory, CPUs, swap or health probe of a database instance was changed.",
             "db.move": "A database was moved to another engine, with its accounts and applications.",
             "db.instance.migrate": "The databases of an engine were moved to a new instance of a newer major version.",
             "db.instance.rollback": "A move to a newer major version was rolled back to the engine it left.",

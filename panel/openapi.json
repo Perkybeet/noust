@@ -20761,6 +20761,29 @@
         "title": "PrivilegesResponse",
         "type": "object"
       },
+      "ProbeResult": {
+        "description": "The last probe Docker ran.",
+        "properties": {
+          "exit_code": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Code"
+          },
+          "output": {
+            "default": "",
+            "title": "Output",
+            "type": "string"
+          }
+        },
+        "title": "ProbeResult",
+        "type": "object"
+      },
       "ProcessEntry": {
         "description": "One row of the process table.\n\nAttributes:\n    pid: Process identifier.\n    name: Executable name.\n    user: Account the process runs as.\n    cpu_percent: CPU usage percentage.\n    memory_percent: Resident memory percentage.\n    command: Command line, already truncated by the collector.\n    status: Kernel process state.",
         "properties": {
@@ -32235,6 +32258,304 @@
           "available"
         ],
         "title": "TrafficModel",
+        "type": "object"
+      },
+      "TuningHealth": {
+        "description": "What Docker says of the container now.\n\nAttributes:\n    status: ``healthy``, ``starting``, ``unhealthy`` or ``absent`` (no container).\n    failing_streak: Failed probes in a row.\n    last: The last probe, with the output the engine's own command printed.",
+        "properties": {
+          "failing_streak": {
+            "default": 0,
+            "title": "Failing Streak",
+            "type": "integer"
+          },
+          "last": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProbeResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "TuningHealth",
+        "type": "object"
+      },
+      "TuningLimits": {
+        "description": "What an instance is held to: ``cpus`` and ``swap_mb`` are null for Docker's default.",
+        "properties": {
+          "cpus": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpus"
+          },
+          "memory_mb": {
+            "title": "Memory Mb",
+            "type": "integer"
+          },
+          "swap_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swap Mb"
+          }
+        },
+        "required": [
+          "memory_mb"
+        ],
+        "title": "TuningLimits",
+        "type": "object"
+      },
+      "TuningPlanResponse": {
+        "description": "What a change would do. Nothing was changed.\n\nAttributes:\n    changes: The settings that would change, each with ``setting``, ``from`` and ``to``.\n    values: What the instance would have afterwards.\n    restarts: Whether the engine restarts.\n    apps: The applications that lose their connections while it does.\n    blockers: What stops the change.\n    warnings: What the operator should know first.",
+        "properties": {
+          "apps": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Blockers",
+            "type": "array"
+          },
+          "changes": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "restarts": {
+            "title": "Restarts",
+            "type": "boolean"
+          },
+          "values": {
+            "additionalProperties": true,
+            "title": "Values",
+            "type": "object"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "restarts"
+        ],
+        "title": "TuningPlanResponse",
+        "type": "object"
+      },
+      "TuningProbe": {
+        "description": "How an instance is probed, each as it is applied.",
+        "properties": {
+          "interval_s": {
+            "title": "Interval S",
+            "type": "integer"
+          },
+          "retries": {
+            "title": "Retries",
+            "type": "integer"
+          },
+          "timeout_s": {
+            "title": "Timeout S",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "interval_s",
+          "timeout_s",
+          "retries"
+        ],
+        "title": "TuningProbe",
+        "type": "object"
+      },
+      "TuningRequest": {
+        "description": "A change of what an instance may use or how it is probed.\n\nA setting left out (null) is left as it is.\n\nAttributes:\n    memory_mb: The new memory limit, in megabytes.\n    cpus: The new CPU limit, such as ``1.5``.\n    swap_mb: The swap it may use besides its memory, in megabytes; 0 gives it none.\n    interval_s: Seconds between health probes.\n    timeout_s: Seconds a probe may take; no more than the interval.\n    retries: Failed probes in a row before the engine is unhealthy.\n    clear: Settings to put back to their default: any of ``cpus``, ``swap``,\n        ``interval``, ``timeout`` and ``retries``.",
+        "properties": {
+          "clear": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 5,
+            "title": "Clear",
+            "type": "array"
+          },
+          "cpus": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 256.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpus"
+          },
+          "interval_s": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interval S"
+          },
+          "memory_mb": {
+            "anyOf": [
+              {
+                "maximum": 4194304.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Mb"
+          },
+          "retries": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retries"
+          },
+          "swap_mb": {
+            "anyOf": [
+              {
+                "maximum": 4194304.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swap Mb"
+          },
+          "timeout_s": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout S"
+          }
+        },
+        "title": "TuningRequest",
+        "type": "object"
+      },
+      "TuningServer": {
+        "description": "What the server can give an instance: ``available_mb`` counts the instance's own memory.",
+        "properties": {
+          "available_mb": {
+            "title": "Available Mb",
+            "type": "integer"
+          },
+          "cpus": {
+            "title": "Cpus",
+            "type": "integer"
+          },
+          "memory_mb": {
+            "title": "Memory Mb",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "memory_mb",
+          "available_mb",
+          "cpus"
+        ],
+        "title": "TuningServer",
+        "type": "object"
+      },
+      "TuningStatusResponse": {
+        "description": "What an instance is held to, how it is probed, and how it is doing.",
+        "properties": {
+          "defaults": {
+            "$ref": "#/components/schemas/TuningProbe"
+          },
+          "health": {
+            "$ref": "#/components/schemas/TuningHealth"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/TuningLimits"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "probe": {
+            "$ref": "#/components/schemas/TuningProbe"
+          },
+          "server": {
+            "$ref": "#/components/schemas/TuningServer"
+          }
+        },
+        "required": [
+          "name",
+          "key",
+          "limits",
+          "probe",
+          "defaults",
+          "server",
+          "health"
+        ],
+        "title": "TuningStatusResponse",
         "type": "object"
       },
       "TunnelResponse": {
@@ -51515,6 +51836,157 @@
         ],
         "x-noust-permission": "databases.manage",
         "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/instances/{name}/tuning": {
+      "get": {
+        "description": "Say what an instance is held to, how it is probed, and how it is doing.\n\nArgs:\n    name: The instance.\n    session: The authenticated session.\n\nReturns:\n    Its limits, its probe and the defaults of the probe, what the server can give\n    it, and what Docker's health probe says now.\n\nRaises:\n    DatabaseNotFoundError: There is no such instance.",
+        "operationId": "get_tuning_api_databases_instances__name__tuning_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TuningStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Tuning",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
+      },
+      "put": {
+        "description": "Queue changing what an instance may use or how it is probed, with sudo mode.\n\nThe engine restarts on the new numbers; when it does not come up the previous ones\nare put back and the job fails with the engine's own log.\n\nArgs:\n    name: The instance.\n    request: The change.\n    session: The authenticated, elevated session.\n\nReturns:\n    The queued job.\n\nRaises:\n    ValidationError: A value cannot be had, or the instance is being changed.\n    DatabaseNotFoundError: There is no such instance.",
+        "operationId": "set_tuning_api_databases_instances__name__tuning_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TuningRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobAcceptedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Tuning",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/databases/instances/{name}/tuning/plan": {
+      "post": {
+        "description": "Say what a change would do. Changes nothing.\n\nArgs:\n    name: The instance.\n    request: The change.\n    session: The authenticated session.\n\nReturns:\n    The plan, with the applications that lose their connections and what blocks it.\n\nRaises:\n    ValidationError: A value cannot be had; ``field`` says which.\n    DatabaseNotFoundError: There is no such instance.",
+        "operationId": "plan_tuning_api_databases_instances__name__tuning_plan_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TuningRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TuningPlanResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Plan Tuning",
+        "tags": [
+          "Databases"
+        ],
+        "x-noust-permission": "databases.read"
       }
     },
     "/api/databases/instances/{name}/upgrade": {

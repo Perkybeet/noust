@@ -8998,6 +8998,88 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/databases/instances/{name}/tuning": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Tuning
+         * @description Say what an instance is held to, how it is probed, and how it is doing.
+         *
+         *     Args:
+         *         name: The instance.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         Its limits, its probe and the defaults of the probe, what the server can give
+         *         it, and what Docker's health probe says now.
+         *
+         *     Raises:
+         *         DatabaseNotFoundError: There is no such instance.
+         */
+        get: operations["get_tuning_api_databases_instances__name__tuning_get"];
+        /**
+         * Set Tuning
+         * @description Queue changing what an instance may use or how it is probed, with sudo mode.
+         *
+         *     The engine restarts on the new numbers; when it does not come up the previous ones
+         *     are put back and the job fails with the engine's own log.
+         *
+         *     Args:
+         *         name: The instance.
+         *         request: The change.
+         *         session: The authenticated, elevated session.
+         *
+         *     Returns:
+         *         The queued job.
+         *
+         *     Raises:
+         *         ValidationError: A value cannot be had, or the instance is being changed.
+         *         DatabaseNotFoundError: There is no such instance.
+         */
+        put: operations["set_tuning_api_databases_instances__name__tuning_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/databases/instances/{name}/tuning/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Tuning
+         * @description Say what a change would do. Changes nothing.
+         *
+         *     Args:
+         *         name: The instance.
+         *         request: The change.
+         *         session: The authenticated session.
+         *
+         *     Returns:
+         *         The plan, with the applications that lose their connections and what blocks it.
+         *
+         *     Raises:
+         *         ValidationError: A value cannot be had; ``field`` says which.
+         *         DatabaseNotFoundError: There is no such instance.
+         */
+        post: operations["plan_tuning_api_databases_instances__name__tuning_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/databases/instances/{name}/upgrade": {
         parameters: {
             query?: never;
@@ -27339,6 +27421,19 @@ export interface components {
             privileges: string[];
         };
         /**
+         * ProbeResult
+         * @description The last probe Docker ran.
+         */
+        ProbeResult: {
+            /** Exit Code */
+            exit_code?: number | null;
+            /**
+             * Output
+             * @default
+             */
+            output: string;
+        };
+        /**
          * ProcessEntry
          * @description One row of the process table.
          *
@@ -33168,6 +33263,140 @@ export interface components {
             /** Log */
             log?: string | null;
             reason?: components["schemas"]["ReasonModel"] | null;
+        };
+        /**
+         * TuningHealth
+         * @description What Docker says of the container now.
+         *
+         *     Attributes:
+         *         status: ``healthy``, ``starting``, ``unhealthy`` or ``absent`` (no container).
+         *         failing_streak: Failed probes in a row.
+         *         last: The last probe, with the output the engine's own command printed.
+         */
+        TuningHealth: {
+            /**
+             * Failing Streak
+             * @default 0
+             */
+            failing_streak: number;
+            last?: components["schemas"]["ProbeResult"] | null;
+            /** Status */
+            status: string;
+        };
+        /**
+         * TuningLimits
+         * @description What an instance is held to: ``cpus`` and ``swap_mb`` are null for Docker's default.
+         */
+        TuningLimits: {
+            /** Cpus */
+            cpus?: number | null;
+            /** Memory Mb */
+            memory_mb: number;
+            /** Swap Mb */
+            swap_mb?: number | null;
+        };
+        /**
+         * TuningPlanResponse
+         * @description What a change would do. Nothing was changed.
+         *
+         *     Attributes:
+         *         changes: The settings that would change, each with ``setting``, ``from`` and ``to``.
+         *         values: What the instance would have afterwards.
+         *         restarts: Whether the engine restarts.
+         *         apps: The applications that lose their connections while it does.
+         *         blockers: What stops the change.
+         *         warnings: What the operator should know first.
+         */
+        TuningPlanResponse: {
+            /** Apps */
+            apps?: string[];
+            /** Blockers */
+            blockers?: string[];
+            /** Changes */
+            changes?: {
+                [key: string]: unknown;
+            }[];
+            /** Name */
+            name: string;
+            /** Restarts */
+            restarts: boolean;
+            /** Values */
+            values?: {
+                [key: string]: unknown;
+            };
+            /** Warnings */
+            warnings?: string[];
+        };
+        /**
+         * TuningProbe
+         * @description How an instance is probed, each as it is applied.
+         */
+        TuningProbe: {
+            /** Interval S */
+            interval_s: number;
+            /** Retries */
+            retries: number;
+            /** Timeout S */
+            timeout_s: number;
+        };
+        /**
+         * TuningRequest
+         * @description A change of what an instance may use or how it is probed.
+         *
+         *     A setting left out (null) is left as it is.
+         *
+         *     Attributes:
+         *         memory_mb: The new memory limit, in megabytes.
+         *         cpus: The new CPU limit, such as ``1.5``.
+         *         swap_mb: The swap it may use besides its memory, in megabytes; 0 gives it none.
+         *         interval_s: Seconds between health probes.
+         *         timeout_s: Seconds a probe may take; no more than the interval.
+         *         retries: Failed probes in a row before the engine is unhealthy.
+         *         clear: Settings to put back to their default: any of ``cpus``, ``swap``,
+         *             ``interval``, ``timeout`` and ``retries``.
+         */
+        TuningRequest: {
+            /** Clear */
+            clear?: string[];
+            /** Cpus */
+            cpus?: number | null;
+            /** Interval S */
+            interval_s?: number | null;
+            /** Memory Mb */
+            memory_mb?: number | null;
+            /** Retries */
+            retries?: number | null;
+            /** Swap Mb */
+            swap_mb?: number | null;
+            /** Timeout S */
+            timeout_s?: number | null;
+        };
+        /**
+         * TuningServer
+         * @description What the server can give an instance: ``available_mb`` counts the instance's own memory.
+         */
+        TuningServer: {
+            /** Available Mb */
+            available_mb: number;
+            /** Cpus */
+            cpus: number;
+            /** Memory Mb */
+            memory_mb: number;
+        };
+        /**
+         * TuningStatusResponse
+         * @description What an instance is held to, how it is probed, and how it is doing.
+         */
+        TuningStatusResponse: {
+            defaults: components["schemas"]["TuningProbe"];
+            health: components["schemas"]["TuningHealth"];
+            /** Key */
+            key: string;
+            limits: components["schemas"]["TuningLimits"];
+            /** Name */
+            name: string;
+            probe: components["schemas"]["TuningProbe"];
+            server: components["schemas"]["TuningServer"];
         };
         /**
          * TunnelResponse
@@ -45081,6 +45310,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_tuning_api_databases_instances__name__tuning_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TuningStatusResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_tuning_api_databases_instances__name__tuning_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TuningRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobAcceptedResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    plan_tuning_api_databases_instances__name__tuning_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TuningRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TuningPlanResponse"];
                 };
             };
             /** @description Validation Error */

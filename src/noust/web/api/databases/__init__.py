@@ -25,6 +25,7 @@ all live below it.
 - :mod:`.migrations`: moving a database to another engine, and an engine to a newer
   major version, with a way back.
 - :mod:`.tls`: an instance that serves TLS with a certificate of Noust's own authority.
+- :mod:`.tuning`: what an instance may use (memory, CPUs, swap) and how it is probed.
 - :mod:`.query`: the SQL console (history, saved queries, EXPLAIN, export)
   and the connection-string helper.
 - :mod:`.browse`: the data explorer, the row editor and the Redis key browser.
@@ -56,6 +57,7 @@ from noust.web.api.databases import (
     public,
     query,
     tls,
+    tuning,
     users,
 )
 from noust.web.api.databases.common import ActionResponse, DatabaseInfoResponse
@@ -75,6 +77,7 @@ AREAS = (
     # Literal paths before the parametrised ones they share a prefix with.
     migrations.router,
     tls.router,
+    tuning.router,
     instances.router,
     query.router,
     browse.router,

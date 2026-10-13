@@ -41,4 +41,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/databases/instances/{name}/tls/plan"): Permission.DATABASES_READ,
     ("PUT", "/api/databases/instances/{name}/tls"): Permission.DATABASES_MANAGE,
     ("POST", "/api/databases/instances/{name}/tls/renew"): Permission.DATABASES_MANAGE,
+    # 3.4 (C-30, C-31): what an instance may use, and how it is probed.
+    ("GET", "/api/databases/instances/{name}/tuning"): Permission.DATABASES_READ,
+    ("POST", "/api/databases/instances/{name}/tuning/plan"): Permission.DATABASES_READ,
+    ("PUT", "/api/databases/instances/{name}/tuning"): Permission.DATABASES_MANAGE,
 }

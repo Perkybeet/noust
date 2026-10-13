@@ -21,6 +21,8 @@ export type MovePlan = ResponseOf<"/api/databases/moves/plan", "post">;
 export type TlsStatus = ResponseOf<"/api/databases/instances/{name}/tls", "get">;
 export type TlsPlan = ResponseOf<"/api/databases/instances/{name}/tls/plan", "post">;
 export type TlsMode = "off" | "optional" | "required";
+export type TuningStatus = ResponseOf<"/api/databases/instances/{name}/tuning", "get">;
+export type TuningPlan = ResponseOf<"/api/databases/instances/{name}/tuning/plan", "post">;
 
 export const instanceKeys = {
   all: ["databases", "instances"] as const,
@@ -28,6 +30,7 @@ export const instanceKeys = {
   catalog: ["databases", "instances", "catalog"] as const,
   migrations: ["databases", "instances", "migrations"] as const,
   tls: (name: string) => ["databases", "instances", "tls", name] as const,
+  tuning: (name: string) => ["databases", "instances", "tuning", name] as const,
 };
 
 /** The instances Noust runs, and how the server's memory is divided among them. */
@@ -57,4 +60,11 @@ export const tlsStatusQuery = (name: string) =>
   queryOptions({
     queryKey: instanceKeys.tls(name),
     queryFn: ({ signal }) => request("get", "/api/databases/instances/{name}/tls", { params: { name }, signal }),
+  });
+
+/** What an instance is held to, how it is probed, and what Docker says of it now. */
+export const tuningQuery = (name: string) =>
+  queryOptions({
+    queryKey: instanceKeys.tuning(name),
+    queryFn: ({ signal }) => request("get", "/api/databases/instances/{name}/tuning", { params: { name }, signal }),
   });

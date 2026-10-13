@@ -148,6 +148,8 @@ class DockerHost(FakeRunner):
                 "NetworkSettings": {"Ports": ports},
                 "HostConfig": {"PortBindings": {}},
                 "_limits": service.get("deploy", {}).get("resources", {}).get("limits", {}),
+                "_memswap": service.get("memswap_limit"),
+                "_healthcheck": service.get("healthcheck", {}),
             }
             for volume in document.get("volumes", {}).values():
                 self.volumes.add(volume["name"])
@@ -295,6 +297,25 @@ class DockerHost(FakeRunner):
                 return self._ok(result, self._health_of(target) + "\n")
             if template == "{{json .Config.Env}}":
                 return self._ok(result, json.dumps(self.containers[target]["Config"]["Env"]))
+            if template == "{{json .State.Health}}":
+                status = self._health_of(target)
+                return self._ok(
+                    result,
+                    json.dumps(
+                        {
+                            "Status": status,
+                            "FailingStreak": 0 if status == "healthy" else 3,
+                            "Log": [
+                                {
+                                    "ExitCode": 0 if status == "healthy" else 1,
+                                    "Output": "accepting connections"
+                                    if status == "healthy"
+                                    else "no response",
+                                }
+                            ],
+                        }
+                    ),
+                )
         ids = [part for part in command[2:] if not part.startswith("-")]
         found = [
             {key: value for key, value in entry.items() if not key.startswith("_")}

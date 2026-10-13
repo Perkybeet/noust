@@ -21,6 +21,7 @@ from noust.deployers.recorder import CapturingLogger
 from noust.managers.database.backups import DatabaseBackups
 from noust.managers.database.instance_migration import InstanceMigrations
 from noust.managers.database.instance_tls import InstanceTls
+from noust.managers.database.instance_tuning import InstanceTuning
 from noust.managers.database.managed import ManagedInstances
 from noust.managers.database.moves import DatabaseMover
 from noust.managers.database.service import DatabaseService
@@ -498,5 +499,53 @@ def tls_job(
     what = f"Serving TLS as {mode}" if mode else "Renewing the certificate of"
     tls = InstanceTls(ManagedInstances(_service(job_context, f"{what} {name}", actor)))
     status = tls.renew(name) if mode is None else tls.set_mode(name, mode)
+    _done(job_context)
+    return status
+
+
+def tuning_job(
+    name: str,
+    memory_mb: int | None = None,
+    cpus: float | None = None,
+    swap_mb: int | None = None,
+    interval_s: int | None = None,
+    timeout_s: int | None = None,
+    retries: int | None = None,
+    clear: list[str] | None = None,
+    actor: str | None = None,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Change what an instance may use, or how it is probed.
+
+    The engine restarts on the new numbers and the job waits for it to answer, which
+    is work that must not sit on a request.
+
+    Args:
+        name: The instance.
+        memory_mb: The new memory limit, or None to leave it.
+        cpus: The new CPU limit, or None to leave it.
+        swap_mb: The swap it may use besides its memory, or None to leave it.
+        interval_s: Seconds between health probes, or None to leave it.
+        timeout_s: Seconds a probe may take, or None to leave it.
+        retries: Failed probes in a row before it is unhealthy, or None to leave it.
+        clear: Settings to put back to their default.
+        actor: Who queued it, as the audit trail names them.
+        job_context: Injected by the job manager.
+
+    Returns:
+        The instance's settings afterwards, as ``InstanceTuning.status`` says.
+    """
+    tuning = InstanceTuning(ManagedInstances(_service(job_context, f"Changing {name}", actor)))
+    status = tuning.apply(
+        name,
+        memory=memory_mb,
+        cpus=cpus,
+        swap=swap_mb,
+        interval=interval_s,
+        timeout=timeout_s,
+        retries=retries,
+        clear=clear or (),
+    )
     _done(job_context)
     return status

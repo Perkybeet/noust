@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpFromLine, Lock, Play, Plus, Replace, Square, Trash2, Undo2 } from "lucide-react";
+import { ArrowUpFromLine, Gauge, Lock, Play, Plus, Replace, Square, Trash2, Undo2 } from "lucide-react";
 import { useState } from "react";
 
 import { request } from "../../../api/client";
@@ -284,6 +284,9 @@ export function InstancesSection({ actions }: { actions: InstanceActions }) {
                 </MenuItem>
                 <MenuItem icon={<Lock />} disabled={actions.busy || !row.running} onClick={() => actions.openTls(row)}>
                   {t("databases.tls.open")}
+                </MenuItem>
+                <MenuItem icon={<Gauge />} disabled={actions.busy || !row.running} onClick={() => actions.openTuning(row)}>
+                  {t("databases.tuning.open")}
                 </MenuItem>
                 <MenuSeparator />
                 <MenuItem icon={<Trash2 />} destructive onClick={() => setRemoving(row)}>
