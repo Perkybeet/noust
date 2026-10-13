@@ -24,6 +24,7 @@ const STATUS: GitHubStatus = {
   ],
   hooks_url: "https://hooks.example.com/hooks/github",
   hooks_active: true,
+  host: "github.com",
 };
 
 const REPOSITORIES: GitHubRepository[] = [
@@ -220,7 +221,7 @@ describe("the new-app wizard, from GitHub", () => {
   });
 
   it("links to Settings > Integrations when no App is connected, and keeps the typed source", async () => {
-    wizard({ configured: false, installations: [], hooks_url: null, hooks_active: false });
+    wizard({ configured: false, installations: [], hooks_url: null, hooks_active: false, host: "github.com" });
     expect(await screen.findByRole("link", { name: "Connect a GitHub App" })).toHaveAttribute("href", "/settings/integrations");
     expect(screen.getByLabelText("Repository or directory")).toBeInTheDocument();
     expect(screen.queryByRole("radio", { name: "From GitHub" })).not.toBeInTheDocument();

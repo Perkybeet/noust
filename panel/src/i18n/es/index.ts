@@ -40,6 +40,7 @@ export { servers } from "./servers";
 export { services } from "./services";
 export { settings } from "./settings";
 export { shell } from "./shell";
+export { sourceOptions } from "./sourceOptions";
 export { sources } from "./sources";
 export { teams } from "./teams";
 export { terminal } from "./terminal";

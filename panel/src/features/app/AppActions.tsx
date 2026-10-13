@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { CircleArrowUp, History, Play, RotateCw, Square, SquareTerminal, Stethoscope } from "lucide-react";
+import { CircleArrowUp, Hammer, History, Play, RotateCw, Square, SquareTerminal, Stethoscope } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -75,7 +75,7 @@ export function useAppHeaderActions(
   const t = useT();
   const { node } = useNode();
   const wide = useMediaQuery(SM_UP);
-  const { restart, start, stop, update, rebuildAnyway, nothingNew, dismissNothingNew } = useAppActions(domain, { onJobQueued });
+  const { restart, start, stop, update, rebuildAnyway, rebuildFresh, nothingNew, dismissNothingNew } = useAppActions(domain, { onJobQueued });
   const confirmItsYou = useConfirmItsYou();
   const navigate = useNavigate();
   const [confirmStop, setConfirmStop] = useState(false);
@@ -115,6 +115,9 @@ export function useAppHeaderActions(
       {/* Off the tab strip (eight tabs at most), one click away from every tab. */}
       <MenuItem icon={<Stethoscope />} onClick={() => void navigate({ to: "/apps/$domain/diagnose", params: { domain } })}>
         {t("appPages.actions.diagnose")}
+      </MenuItem>
+      <MenuItem icon={<Hammer />} onClick={() => rebuildFresh.mutate()}>
+        {t("appPages.actions.rebuildFresh")}
       </MenuItem>
       {canOpenTerminal ? (
         <MenuItem icon={<SquareTerminal />} onClick={() => void navigate({ to: "/apps/$domain/terminal", params: { domain } })}>

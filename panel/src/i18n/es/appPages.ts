@@ -96,6 +96,7 @@ export const appPages: Catalog<typeof en> = {
   actions: {
     stop: "Detener",
     diagnose: "Diagnosticar",
+    rebuildFresh: "Reconstruir sin caché",
     terminal: "Terminal",
     start: "Iniciar",
     deleteApplication: "Eliminar aplicación",
