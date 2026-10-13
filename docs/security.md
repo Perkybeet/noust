@@ -61,10 +61,16 @@ can decide how to expose it.
   no shell, owning its tree, `.env` and caches, so one compromised application cannot read
   another's files. An application from before 3.2 keeps the shared account (`service_user`,
   `www-data`) until `noust app identity migrate` moves it, and while it does, it can read the
-  files, including the `.env`, of every other application on that account. A Docker Compose
-  stack, a monorepo and a static site have no account of their own. Applications still share the
-  kernel, the network and the machine: Noust is not a multi-tenant isolation boundary, and the
-  build sandbox separates builds, not running applications.
+  files, including the `.env`, of every other application on that account. A monorepo created
+  from 3.4 runs all its workspaces' units as one account of its own, and an older one moves with
+  the same command. A Docker Compose stack has no account (its processes are its containers'), so
+  the compose check keeps it to its own files instead: a bind mount of Noust's configuration and
+  secrets, of what contains them (`/`, `/etc`, `/var`) or of another application's tree is
+  refused like `privileged` (see [Builds](#builds)). A static site runs nothing; its files are
+  served read-only, and once no application shares the account that owns them, none can change
+  them. Applications still share the kernel, the network and the machine: Noust is not a
+  multi-tenant isolation boundary, and the build sandbox separates builds, not running
+  applications.
 - **A compromised application reaching the console on loopback.** It still needs a
   credential, but it is on the same host.
 - **Anything with root**, including an application built as root because its sandbox was
@@ -134,8 +140,12 @@ applications run as.
   Building one application as root is a per-application decision recorded with a name and a
   reason (`noust app sandbox disable DOMAIN --reason ...`, permission `root_equivalent`).
 - **Docker Compose** builds run in the Docker daemon, outside any sandbox Noust controls. A new
-  stack is refused `privileged: true` and a mounted Docker socket, both of which are root on the
-  host, unless the application has a recorded exception.
+  stack is refused `privileged: true`, a mounted Docker socket and a bind mount of Noust's own
+  state or of another application, all of which are root on the host or the secrets of
+  everything on it, unless the application has a recorded exception. The mounts are judged after
+  `..` is resolved (`/var/www/apps/shop/../other` and `../other` are the other application's
+  directory), the long and the short syntax alike. A stack proven to run with one already is
+  warned about and never stopped.
 
 ## Deploy hooks
 
