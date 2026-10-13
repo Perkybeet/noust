@@ -28,6 +28,8 @@ from noust.recipes import (
     get_recipe,
     search_recipes,
 )
+from noust.recipes.catalog import catalogue_problems
+from noust.recipes.model import ORIGINS
 
 if TYPE_CHECKING:
     from noust.recipes.updates import RecipeUpdateStatus
@@ -179,20 +181,43 @@ def cli() -> None:
 )
 @click.option("--tag", help="Only the recipes with this tag.")
 @click.option("--kind", type=click.Choice(KINDS), help="Only native or only compose recipes.")
+@click.option(
+    "--origin",
+    type=click.Choice(ORIGINS),
+    help="Only the package's recipes (shipped), a catalogue package's (catalog) or yours (operator).",
+)
 @json_option("Print the recipes as JSON.")
 @pass_context
 def list_command(
-    ctx: Context, query: str | None, category: str | None, tag: str | None, kind: str | None
+    ctx: Context,
+    query: str | None,
+    category: str | None,
+    tag: str | None,
+    kind: str | None,
+    origin: str | None,
 ) -> None:
     """
     List the recipes, the ones this release can deploy first.
 
-    A recipe that is not available says why.
+    A recipe that is not available says why. Your own recipes (added with
+    ``noust recipe add``) are listed with the rest; a file of yours that is
+    not a usable recipe is named at the end instead of hiding the catalogue.
     """
-    recipes = search_recipes(query=query, category=category, tag=tag, kind=kind)
+    recipes = [
+        recipe
+        for recipe in search_recipes(query=query, category=category, tag=tag, kind=kind)
+        if origin is None or recipe.origin == origin
+    ]
+    problems = [problem for problem in catalogue_problems() if origin in (None, problem.origin)]
     if ctx.json_output:
         click.echo(
-            json.dumps({"items": [recipe.summary() for recipe in recipes], "total": len(recipes)})
+            json.dumps(
+                {
+                    "items": [recipe.summary() for recipe in recipes],
+                    "total": len(recipes),
+                    "problems": [problem.to_dict() for problem in problems],
+                }
+            )
         )
         return
     logger = ctx.logger
@@ -201,12 +226,18 @@ def list_command(
             logger.key_value(recipe.name, f"{recipe.title}: not available in this release")
             continue
         badge = " [Docker]" if recipe.runs_in_docker else ""
+        mine = " [yours]" if recipe.origin == "operator" else ""
         version = f" {recipe.version}" if recipe.version else ""
         logger.key_value(
-            recipe.name, f"{recipe.title}{version}{badge} - {recipe.slogan or recipe.description}"
+            recipe.name,
+            f"{recipe.title}{version}{badge}{mine} - {recipe.slogan or recipe.description}",
         )
     if not recipes:
         logger.info("No recipe matches.")
+    for problem in problems:
+        logger.warning(f"{problem.location}: {problem.error}")
+        if problem.details:
+            logger.info(f"    {problem.details}")
     logger.blank()
     logger.info("Details: noust recipe show NAME. Install: noust recipe install NAME -d DOMAIN")
 
@@ -366,3 +397,67 @@ def update_command(ctx: Context, domain: str, variable_pairs: tuple[str, ...], f
         logger.info(f"Variables added: {', '.join(outcome.added_variables)}")
     if outcome.warnings:
         logger.warning(outcome.warnings)
+
+
+@cli.command("check", read_only=True)
+@click.argument("path", type=click.Path(path_type=Path, exists=True))
+@json_option("Print what was checked as JSON.")
+@pass_context
+def check_command(ctx: Context, path: Path) -> None:
+    """
+    Check a recipe file, or a folder of them, without adding anything.
+
+    Runs the schema every recipe in the catalogue passes: an unknown key, an
+    image on a floating tag or without a digest, a symbolic link or a logo
+    the console's policy would refuse are errors that name the field.
+    """
+    from noust.recipes.private import read_bundles
+
+    bundles = read_bundles(path)
+    if ctx.json_output:
+        click.echo(json.dumps({"items": [bundle.recipe.summary() for bundle in bundles]}))
+        return
+    for bundle in bundles:
+        recipe = bundle.recipe
+        ctx.logger.success(f"{recipe.name} {recipe.version} is a valid {recipe.kind} recipe.")
+    ctx.logger.info(f"Add it with: noust recipe add {path}")
+
+
+@cli.command("add")
+@click.argument("path", type=click.Path(path_type=Path, exists=True))
+@click.option("--replace", is_flag=True, help="Overwrite a recipe of yours with the same name.")
+@global_flags
+@pass_context
+def add_command(ctx: Context, path: Path, replace: bool) -> None:
+    """
+    Add your own recipe to the catalogue.
+
+    PATH is a recipe file (``<name>.yaml``, its logo and files in
+    ``assets/<name>/`` beside it) or a folder of them. It is checked against
+    the same schema as the shipped recipes first, and a name the catalogue
+    already holds is refused: a private recipe has a name of its own. Recipes
+    are kept in /etc/noust/recipes, shown as yours, and installed and updated
+    like any other.
+    """
+    from noust.recipes.private import add_recipes
+
+    for recipe in add_recipes(path, replace=replace):
+        ctx.logger.success(f"Added {recipe.name} {recipe.version}.")
+        ctx.logger.info(f"Install it with: noust recipe install {recipe.name} -d <domain>")
+
+
+@cli.command("remove")
+@click.argument("name")
+@global_flags
+@pass_context
+def remove_command(ctx: Context, name: str) -> None:
+    """
+    Remove one of your own recipes.
+
+    Applications installed from it keep running. The shipped catalogue's
+    recipes cannot be removed.
+    """
+    from noust.recipes.private import remove_recipe
+
+    remove_recipe(name)
+    ctx.logger.success(f"Removed {name}.")

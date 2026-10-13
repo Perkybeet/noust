@@ -17,6 +17,12 @@ from typing import Any
 
 from noust.recipes.model import recipe_error
 
+#: Where each recipe's ``assets/<recipe>/`` directory is, when the recipe is not
+#: the package's own. The catalogue records it each time it looks at its
+#: sources, before a recipe is validated, because validating a recipe checks
+#: that every asset it names is there.
+_ROOTS: dict[str, Any] = {}
+
 _ASSET_PATH = re.compile(r"^[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)*$")
 
 #: The largest asset read into memory.
@@ -42,9 +48,24 @@ def is_plain_path(path: Any) -> bool:
     )
 
 
+def set_asset_root(name: str, root: Any | None) -> None:
+    """
+    Say where a recipe's ``assets`` directory is.
+
+    Args:
+        name: The recipe.
+        root: The directory that holds ``assets/<name>/``, or None for the
+            package's own.
+    """
+    if root is None:
+        _ROOTS.pop(name, None)
+    else:
+        _ROOTS[name] = root
+
+
 def asset_resource(name: str, asset: str) -> Any:
     """
-    Locate a recipe asset inside the package.
+    Locate a recipe asset: in the package, or where the catalogue found the recipe.
 
     Args:
         name: The recipe.
@@ -53,7 +74,8 @@ def asset_resource(name: str, asset: str) -> Any:
     Returns:
         The resource.
     """
-    resource = resources.files("noust.recipes").joinpath("assets").joinpath(name)
+    root = _ROOTS.get(name) or resources.files("noust.recipes")
+    resource = root.joinpath("assets").joinpath(name)
     for part in asset.split("/"):
         resource = resource.joinpath(part)
     return resource
@@ -77,7 +99,35 @@ def checked_asset(name: str, asset: Any) -> str:
         raise recipe_error(name, f"asset {asset!r} is not a plain relative path")
     if not asset_resource(name, asset).is_file():
         raise recipe_error(name, f"asset {asset!r} is not in assets/{name}/")
+    if _crosses_link(name, asset):
+        raise recipe_error(name, f"asset {asset!r} is, or sits under, a symbolic link")
     return str(asset)
+
+
+def _crosses_link(name: str, asset: str) -> bool:
+    """
+    Tell whether an asset of a recipe kept on disk is, or sits under, a link.
+
+    A recipe from the operator's folder is read as root, and a link there could
+    point at any file of the server, so none is followed. The package's own
+    resources are not on a path that can be a link the operator controls, and a
+    resource that is not a path (a zip import) has nothing to check.
+
+    Args:
+        name: The recipe.
+        asset: The asset's path under ``assets/<recipe>/``.
+
+    Returns:
+        True when any part of the path is a symbolic link.
+    """
+    if name not in _ROOTS:
+        return False
+    resource = _ROOTS[name].joinpath("assets").joinpath(name)
+    checks = [resource]
+    for part in asset.split("/"):
+        resource = resource.joinpath(part)
+        checks.append(resource)
+    return any(getattr(entry, "is_symlink", lambda: False)() for entry in checks)
 
 
 def read_asset(name: str, asset: str) -> str:

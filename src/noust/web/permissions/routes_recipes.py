@@ -19,6 +19,10 @@ ROUTES: dict[tuple[str, str], str] = {
     ("GET", "/api/recipes/installed"): Permission.APPS_READ,
     ("GET", "/api/recipes/installed/{domain}"): Permission.APPS_READ,
     ("POST", "/api/recipes/installed/{domain}/update"): Permission.APPS_DEPLOY,
+    # The server's own recipes decide what can be deployed from this server.
+    ("POST", "/api/recipes/private/check"): Permission.SERVER_MANAGE,
+    ("POST", "/api/recipes/private"): Permission.SERVER_MANAGE,
+    ("DELETE", "/api/recipes/private/{name}"): Permission.SERVER_MANAGE,
     ("GET", "/api/recipes/{name}"): Permission.APPS_READ,
     ("GET", "/api/recipes/{name}/logo"): Permission.APPS_READ,
     ("POST", "/api/recipes/{name}/install"): Permission.APPS_MANAGE,

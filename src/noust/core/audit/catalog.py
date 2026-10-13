@@ -428,6 +428,15 @@ EVENTS: dict[str, EventSpec] = {
             "terminal.denied": "A terminal was refused: a limit, a ticket that did not match, or a switch that is off.",
         },
     ),
+    **_events(
+        "change",
+        INFO,
+        {
+            "recipe.private.add": "A private recipe was added to the operator's own recipes.",
+            "recipe.private.remove": "A private recipe was removed from the operator's recipes.",
+            "recipe.catalog.import": "A signed catalogue package of recipes was imported.",
+        },
+    ),
     # Sensitive reads: someone saw something secret.
     **_reads(
         {

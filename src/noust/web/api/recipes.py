@@ -25,13 +25,22 @@ from noust.recipes import (
     logo_svg,
     search_recipes,
 )
+from noust.recipes.catalog import catalogue_problems
 from noust.recipes.deploy import require_available
 from noust.recipes.installed import get_installed
+from noust.recipes.model import ORIGINS, RecipeError
+from noust.recipes.private import add_recipes, read_bundles, remove_recipe, staged_document
+from noust.recipes.sources import MAX_RECIPE_BYTES
 from noust.recipes.updates import installed_statuses, status_of
 from noust.recipes.variables import require_inputs
 from noust.web.api.apps import CreateAppRequest, create_app
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, strict_domain
+from noust.web.api.deps import (
+    JobAcceptedResponse,
+    NoustErrorRoute,
+    require_elevated,
+    strict_domain,
+)
 from noust.web.auth import actor_label
 from noust.web.jobs import JobType, get_job_manager
 from noust.web.recipe_jobs import update_recipe_job
@@ -78,6 +87,8 @@ class RecipeSummaryOut(BaseModel):
         digest_verified: Compose: every image carries a digest read from its
             registry. None for a native recipe.
         schema_version: The format version the file is written in.
+        origin: ``shipped`` (the package), ``catalog`` (a signed catalogue
+            package) or ``operator`` (the server's own recipes).
     """
 
     name: str
@@ -106,6 +117,26 @@ class RecipeSummaryOut(BaseModel):
     requires: list[str] = []
     digest_verified: bool | None = None
     schema_version: int = 2
+    origin: str = "shipped"
+
+
+class RecipeProblemOut(BaseModel):
+    """
+    A file in the server's own recipes that is not a usable recipe.
+
+    Attributes:
+        name: The recipe's name, or the file's.
+        origin: Where it was found.
+        location: Its path.
+        error: What is wrong.
+        details: What to do about it.
+    """
+
+    name: str
+    origin: str
+    location: str
+    error: str
+    details: str | None = None
 
 
 class RecipeListOut(BaseModel):
@@ -115,10 +146,12 @@ class RecipeListOut(BaseModel):
     Attributes:
         items: The recipes, the ones this release can deploy first.
         total: How many there are.
+        problems: Files in the server's own recipes that were left out, and why.
     """
 
     items: list[RecipeSummaryOut]
     total: int = 0
+    problems: list[RecipeProblemOut] = []
 
 
 class CategoryOut(BaseModel):
@@ -374,6 +407,35 @@ class RecipeUpdateRequest(BaseModel):
     force: bool = False
 
 
+class PrivateRecipeRequest(BaseModel):
+    """
+    A recipe of the server's own, sent as text.
+
+    Attributes:
+        document: The recipe's YAML (``<name>.yaml``).
+        assets: The files it ships beside the document: path under
+            ``assets/<name>/`` to its text (the logo, a configuration file).
+        replace: Overwrite a recipe of the server's own with the same name.
+    """
+
+    document: str = Field(max_length=MAX_RECIPE_BYTES)
+    assets: dict[str, str] = Field(default_factory=dict)
+    replace: bool = False
+
+
+class PrivateRecipeResult(BaseModel):
+    """
+    The recipe a request checked or added.
+
+    Attributes:
+        recipe: The recipe in full, as the catalogue shows it.
+        added: Whether it was added to the server's recipes (False for a check).
+    """
+
+    recipe: RecipeOut
+    added: bool
+
+
 def _summary(data: dict[str, Any]) -> dict[str, Any]:
     """
     Turn a recipe's description into what the API answers.
@@ -400,6 +462,9 @@ def get_recipes(
     category: Annotated[str | None, Query(description="One category of the closed list")] = None,
     tag: Annotated[str | None, Query(max_length=40, description="One tag, exactly")] = None,
     kind: Annotated[str | None, Query(description="native or compose")] = None,
+    origin: Annotated[
+        str | None, Query(description="shipped, catalog or operator: where the recipe comes from")
+    ] = None,
 ) -> RecipeListOut:
     """
     List the recipes, the ones this release can deploy first, and search them.
@@ -413,17 +478,39 @@ def get_recipes(
         category: One category of the closed list.
         tag: One tag.
         kind: ``native`` or ``compose``.
+        origin: Only the recipes from this source.
 
     Returns:
-        The matching recipes, with whether each is available and why not.
+        The matching recipes, with whether each is available and why not, and
+        the files of the server's own recipes that could not be read.
 
     Raises:
-        RecipeError: ``category`` or ``kind`` is not one of the closed lists (400).
+        RecipeError: ``category``, ``kind`` or ``origin`` is not one of the
+            closed lists (400).
     """
-    found = search_recipes(query=q, category=category, tag=tag, kind=kind)
+    if origin is not None and origin not in ORIGINS:
+        raise RecipeError(
+            f"{origin!r} is not a recipe origin", details=f"Choose one of: {', '.join(ORIGINS)}."
+        )
+    found = [
+        recipe
+        for recipe in search_recipes(query=q, category=category, tag=tag, kind=kind)
+        if origin is None or recipe.origin == origin
+    ]
     return RecipeListOut(
         items=[RecipeSummaryOut(**_summary(recipe.summary())) for recipe in found],
         total=len(found),
+        problems=[
+            RecipeProblemOut(
+                name=problem.name,
+                origin=problem.origin,
+                location=problem.location,
+                error=problem.error,
+                details=problem.details,
+            )
+            for problem in catalogue_problems()
+            if origin in (None, problem.origin)
+        ],
     )
 
 
@@ -541,6 +628,83 @@ def update_installed_recipe(
         message=f"Update of {domain} queued",
         job=job.to_dict(),
     )
+
+
+@router.post("/private/check", response_model=PrivateRecipeResult)
+def check_private_recipe(
+    body: PrivateRecipeRequest, session: Annotated[dict, Depends(get_current_session)]
+) -> PrivateRecipeResult:
+    """
+    Check a recipe against the catalogue's schema, adding nothing.
+
+    Args:
+        body: The recipe and its assets.
+        session: The authenticated session.
+
+    Returns:
+        The recipe as the catalogue would show it.
+
+    Raises:
+        RecipeError: It is not valid, or its name belongs to the package (400);
+            the message names the field.
+    """
+    with staged_document(body.document, body.assets) as folder:
+        [bundle] = read_bundles(folder)
+    return PrivateRecipeResult(recipe=RecipeOut(**_summary(bundle.recipe.to_dict())), added=False)
+
+
+@router.post("/private", response_model=PrivateRecipeResult, status_code=201)
+def add_private_recipe(
+    body: PrivateRecipeRequest, session: Annotated[dict, Depends(require_elevated)]
+) -> PrivateRecipeResult:
+    """
+    Add a recipe to the server's own recipes (sudo mode).
+
+    It passes the schema first, and a name the package holds is refused. The
+    recipe can pull any image the document names, so adding one is as weighty
+    as deploying anything: it needs sudo mode and the server's permission.
+
+    Args:
+        body: The recipe and its assets.
+        session: The authenticated session in sudo mode.
+
+    Returns:
+        The recipe as the catalogue now has it.
+
+    Raises:
+        RecipeError: It is not valid, its name is taken, or ``replace`` was
+            not set for a recipe that exists (400).
+    """
+    with staged_document(body.document, body.assets) as folder:
+        [recipe] = add_recipes(folder, replace=body.replace, actor=actor_label(session))
+    return PrivateRecipeResult(recipe=RecipeOut(**_summary(recipe.to_dict())), added=True)
+
+
+@router.delete("/private/{name}", status_code=204)
+def remove_private_recipe(
+    name: str, session: Annotated[dict, Depends(require_elevated)]
+) -> Response:
+    """
+    Remove one of the server's own recipes (sudo mode).
+
+    Applications installed from it keep running.
+
+    Args:
+        name: The recipe.
+        session: The authenticated session in sudo mode.
+
+    Returns:
+        An empty 204.
+
+    Raises:
+        HTTPException: 404 when no recipe of the server's has that name.
+        NoustError: The recipe is not the server's own (400).
+    """
+    try:
+        remove_recipe(name)
+    except RecipeNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=exc.message) from exc
+    return Response(status_code=204)
 
 
 @router.get("/{name}", response_model=RecipeOut)

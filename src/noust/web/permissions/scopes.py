@@ -246,6 +246,8 @@ RULES: tuple[Rule, ...] = (
     # Installing creates an application, which a team member does through POST /api/apps
     # with a recipe, naming its project; this route does not name one yet.
     _rule("/api/recipes/{name}/install", INSTANCE, methods=("POST",)),
+    # The server's own recipes belong to the server, not to a team.
+    _rule("/api/recipes/private/**", INSTANCE),
     _rule("/api/recipes/**", OPEN),
     _rule("/api/central/**", OPEN),
     _rule("/api/ens/inventory/**", INSTANCE),

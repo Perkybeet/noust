@@ -153,6 +153,30 @@ class RecipeNotFoundError(RecipeError):
     """No recipe has that name."""
 
 
+#: Where a recipe's file is, by name, for the error that names it. A recipe
+#: from the package is in the source tree; the catalogue records where it found
+#: each of the others (an operator's folder, a catalogue package).
+_LOCATIONS: dict[str, str] = {}
+
+#: Where a recipe comes from: the package, a signed catalogue package that is
+#: newer than it, or the operator's own folder.
+ORIGINS = ("shipped", "catalog", "operator")
+
+
+def set_location(name: str, location: str | None) -> None:
+    """
+    Remember where a recipe's file is, so an error about it can say.
+
+    Args:
+        name: The recipe.
+        location: The file's path, or None to forget it (the package's own).
+    """
+    if location is None:
+        _LOCATIONS.pop(name, None)
+    else:
+        _LOCATIONS[name] = location
+
+
 def recipe_error(name: str, message: str, *, field: str | None = None) -> RecipeError:
     """
     Build the error for an invalid recipe.
@@ -165,9 +189,10 @@ def recipe_error(name: str, message: str, *, field: str | None = None) -> Recipe
     Returns:
         The error, naming the file.
     """
+    where = _LOCATIONS.get(name, f"src/noust/recipes/{name}.yaml")
     return RecipeError(
         f"Recipe {name!r} is not valid: {message}",
-        details=f"Fix src/noust/recipes/{name}.yaml; see noust.recipes for the format.",
+        details=f"Fix {where}; see noust.recipes for the format.",
         field=field,
     )
 
@@ -504,6 +529,8 @@ class Recipe:
         public_ports: Ports a Compose recipe opens to the network.
         notes: Templates of what to tell the operator after the deploy.
         changelog: What the latest versions changed.
+        origin: One of :data:`ORIGINS`: the package, a catalogue package, or
+            the operator's folder.
     """
 
     name: str
@@ -545,6 +572,7 @@ class Recipe:
     public_ports: tuple[PublicPort, ...] = ()
     notes: tuple[str, ...] = ()
     changelog: tuple[ChangelogEntry, ...] = ()
+    origin: str = "shipped"
 
     @property
     def runs_in_docker(self) -> bool:
@@ -634,6 +662,7 @@ class Recipe:
             "requires": list(self.needs),
             "digest_verified": self.digest_verified if self.kind == "compose" else None,
             "schema": self.schema,
+            "origin": self.origin,
         }
 
     def to_dict(self) -> dict[str, Any]:

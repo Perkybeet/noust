@@ -12,13 +12,13 @@ both.
 
 from __future__ import annotations
 
-from functools import cache
-from importlib import resources
+import dataclasses
+import logging
 from typing import Any
 
 import yaml
 
-from noust.recipes.assets import read_asset
+from noust.recipes.assets import read_asset, set_asset_root
 from noust.recipes.model import (
     CATEGORIES,
     KINDS,
@@ -27,44 +27,82 @@ from noust.recipes.model import (
     RecipeError,
     RecipeNotFoundError,
     recipe_error,
+    set_location,
 )
 from noust.recipes.schema import parse_recipe
+from noust.recipes.sources import (
+    Problem,
+    RecipeFile,
+    folder_files,
+    operator_directory,
+    shipped_files,
+)
+
+_logger = logging.getLogger(__name__)
+
+#: Shipped recipes already read, by name: the package cannot change while Noust
+#: runs. Recipes from the operator's folder are read each time, because an
+#: operator edits them while Noust is up.
+_SHIPPED: dict[str, Recipe] = {}
 
 
-def _recipe_files() -> dict[str, Any]:
+def catalogue_files() -> tuple[dict[str, RecipeFile], list[Problem]]:
     """
-    List the recipe files the package ships.
+    Find every recipe file the catalogue offers, and the files it refused.
+
+    The package comes first; a catalogue package (signed, imported by the
+    operator) may supersede a shipped recipe; the operator's own folder adds
+    recipes and may not take a name another source already holds.
 
     Returns:
-        Recipe name to resource.
+        Recipe name to file, and one problem per rejected file.
     """
-    return {
-        entry.name.removesuffix(".yaml"): entry
-        for entry in resources.files("noust.recipes").iterdir()
-        if entry.name.endswith(".yaml") and entry.is_file()
-    }
+    files = shipped_files()
+    problems: list[Problem] = []
+    from noust.recipes.catalog_package import catalog_directory
+
+    packaged, package_problems = folder_files(catalog_directory(), "catalog", taken={})
+    files.update(packaged)
+    problems.extend(package_problems)
+    taken = {name: entry.origin for name, entry in files.items()}
+    private, private_problems = folder_files(operator_directory(), "operator", taken=taken)
+    files.update(private)
+    problems.extend(private_problems)
+    for name, entry in files.items():
+        set_asset_root(name, None if entry.origin == "shipped" else entry.root)
+        set_location(name, None if entry.origin == "shipped" else entry.location)
+    return files, problems
 
 
-@cache
-def _load(name: str) -> Recipe:
+def _load_file(entry: RecipeFile) -> Recipe:
     """
     Read and validate one recipe file.
 
     Args:
-        name: A name that is known to be shipped.
+        entry: The file, as :func:`catalogue_files` found it.
 
     Returns:
-        The recipe.
+        The recipe, with the origin it was read from.
 
     Raises:
         RecipeError: Its file is not valid. Errors are not cached: the next
             call reads the file again.
     """
+    cached = _SHIPPED.get(entry.name) if entry.origin == "shipped" else None
+    if cached is not None:
+        return cached
     try:
-        data = yaml.safe_load(_recipe_files()[name].read_text(encoding="utf-8"))
+        data = yaml.safe_load(entry.read())
     except yaml.YAMLError as exc:
-        raise recipe_error(name, f"the YAML does not parse: {exc}") from exc
-    return parse_recipe(name, data)
+        raise recipe_error(entry.name, f"the YAML does not parse: {exc}") from exc
+    except (OSError, ValueError) as exc:
+        raise recipe_error(entry.name, f"the file cannot be read: {exc}") from exc
+    recipe = parse_recipe(entry.name, data)
+    if recipe.origin != entry.origin:
+        recipe = dataclasses.replace(recipe, origin=entry.origin)
+    if entry.origin == "shipped":
+        _SHIPPED[entry.name] = recipe
+    return recipe
 
 
 def get_recipe(name: str) -> Recipe:
@@ -81,27 +119,69 @@ def get_recipe(name: str) -> Recipe:
         RecipeNotFoundError: When no recipe has that name.
         RecipeError: When its file is not valid.
     """
-    files = _recipe_files()
+    files, _ = catalogue_files()
     if not NAME_PATTERN.match(name or "") or name not in files:
         raise RecipeNotFoundError(
             f"No recipe named {name!r}",
             details=f"Available recipes: {', '.join(sorted(files))}. See: noust recipe list",
         )
-    return _load(name)
+    return _load_file(files[name])
 
 
 def list_recipes() -> list[Recipe]:
     """
-    Load every recipe the package ships.
+    Load every recipe the catalogue offers.
+
+    A shipped recipe that is not valid is a bug and raises. A recipe of the
+    operator's or of a catalogue package that is not valid is left out and
+    reported by :func:`catalogue_problems`: one bad private file must not
+    take the catalogue away.
 
     Returns:
         The recipes, the available ones first, each group by title.
 
     Raises:
-        RecipeError: When a file is not valid.
+        RecipeError: When a shipped recipe is not valid.
     """
-    recipes = [get_recipe(name) for name in _recipe_files()]
+    recipes, _ = _load_all()
     return sorted(recipes, key=lambda recipe: (not recipe.available, recipe.title.lower()))
+
+
+def catalogue_problems() -> list[Problem]:
+    """
+    List what the catalogue could not read from the operator's folders.
+
+    Returns:
+        The rejected files and the recipes that failed validation, each with
+        why and what to do.
+    """
+    return _load_all()[1]
+
+
+def _load_all() -> tuple[list[Recipe], list[Problem]]:
+    """
+    Load every recipe, collecting the ones from outside the package that fail.
+
+    Returns:
+        The recipes, and the problems.
+
+    Raises:
+        RecipeError: When a shipped recipe is not valid.
+    """
+    files, problems = catalogue_files()
+    recipes: list[Recipe] = []
+    problems = list(problems)
+    for entry in files.values():
+        try:
+            recipes.append(_load_file(entry))
+        except RecipeError as exc:
+            if entry.origin == "shipped":
+                raise
+            problems.append(
+                Problem(entry.name, entry.origin, entry.location, str(exc), exc.details)
+            )
+            _logger.debug("recipe %s is not usable: %s", entry.location, exc)
+    return recipes, problems
 
 
 def search_recipes(
