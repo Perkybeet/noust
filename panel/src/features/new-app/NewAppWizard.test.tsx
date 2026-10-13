@@ -183,6 +183,8 @@ describe("the new-app wizard", () => {
         LOG_LEVEL: "info",
       },
       skip_database: false,
+      default_backups: true,
+      install_requirements: false,
     });
     // The wizard hands over once the deployments list carries a row for this exact job, not
     // once some heuristic guesses which row is this one's.

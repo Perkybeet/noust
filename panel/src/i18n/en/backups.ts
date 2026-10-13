@@ -104,6 +104,28 @@ export const backups = {
     },
   },
 
+  drills: {
+    title: "Restore tests",
+    loading: "Reading the restore tests",
+    readFailed: "Could not read the restore tests",
+    descriptionEvery: { one: "A test loads the newest backup into temporary databases and drops them. A scheduled backup runs one every day.", other: "A test loads the newest backup into temporary databases and drops them. A scheduled backup runs one every {count} days." },
+    descriptionOff: "A test loads the newest backup into temporary databases and drops them. Scheduled tests are off.",
+    run: "Run a restore test",
+    queued: "Restore test of {domain} queued",
+    queuedDescription: "Nothing of the application is touched.",
+    notQueued: "The restore test of {domain} was not queued",
+    empty: "No restore test has run yet. Run one to know the newest backup comes back.",
+    passed: "Passed",
+    failed: "Failed",
+    byTimer: "Scheduled",
+    byHand: "By hand",
+    steps: { one: "{count} step", other: "{count} steps" },
+    stepOutput: "Output of the step {name}",
+    stepsLabel: "What the test checked",
+    stepOk: "Passed",
+    stepFailed: "Failed",
+    skipped: "Not tried",
+  },
   history: {
     title: "Backups of {domain}",
     loading: "Loading its backups.",
@@ -360,7 +382,7 @@ export const backups = {
     oauthNote: "This backend signs in on your own computer, never on the server. Run {command} there, then paste the JSON it prints below.",
     encrypt: {
       label: "Encrypt backups before upload",
-      description: "Everything sent here is encrypted first, so the destination itself never sees a readable file.",
+      description: "Everything sent here is encrypted first, so the destination itself never sees a readable file. A new destination is encrypted unless you untick this.",
     },
     haveKey: {
       label: "I already have a key for this folder",

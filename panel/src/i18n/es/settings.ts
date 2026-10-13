@@ -426,6 +426,8 @@ export const settings: Catalog<typeof en> = {
         appRecovered: { label: "Aplicación de nuevo operativa", description: "Vuelve a pasar su comprobación de salud tras una caída." },
         diskThreshold: { label: "Disco casi lleno, y de vuelta", description: "Un disco superó su umbral, y cuando baja de él." },
         backupFailed: { label: "Copia de seguridad fallida", description: "Falló una copia programada o manual." },
+        backupMissing: { label: "Una copia se detuvo", description: "Una aplicación o una base de datos no tiene una copia tan reciente como debería, porque su programación se detuvo o nunca se ejecutó." },
+        destinationUnreachable: { label: "Un destino dejó de responder", description: "Un lugar al que se envían copias dejó de responder, así que las copias de allí no se están haciendo." },
         backupSuccess: { label: "Copia de seguridad terminada", description: "Cada copia programada correcta: una señal diaria de que funciona." },
         nodeUnreachable: { label: "Servidor inaccesible", description: "Un servidor que gestionas dejó de responder." },
         nodeRecovered: { label: "Servidor accesible de nuevo", description: "Vuelve a responder." },

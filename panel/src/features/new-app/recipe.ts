@@ -22,6 +22,10 @@ export interface RecipeForm {
   ssl: boolean;
   /** Values over the recipe's own, by variable; empty keeps the recipe's. Generated ones are not here. */
   env: Record<string, string>;
+  /** Schedule the daily backups a recipe starts with (kept 7 days, 30 days, tested by restoring). */
+  defaultBackups: boolean;
+  /** Install the runtime, tools and database engines the server lacks before the install starts. */
+  installRequirements: boolean;
 }
 
 /**
@@ -64,6 +68,9 @@ export function initialRecipeForm(recipe: WithVariables, previous?: RecipeForm |
     includeWww: previous?.includeWww ?? false,
     ssl: previous?.ssl ?? true,
     env,
+    defaultBackups: previous?.defaultBackups ?? true,
+    // What the server lacks is another recipe's business: never carried to the next one.
+    installRequirements: false,
   };
 }
 
@@ -105,6 +112,8 @@ export function recipeBody(recipe: Pick<Recipe, "name">, form: RecipeForm): Crea
     include_www: form.includeWww && canIncludeWww(form.domain),
     env_vars: env,
     skip_database: false,
+    default_backups: form.defaultBackups,
+    install_requirements: form.installRequirements,
   };
 }
 

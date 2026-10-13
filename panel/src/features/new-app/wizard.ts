@@ -22,6 +22,8 @@ export type EnvKey = Inspection["env_keys"][number];
 export type CreateAppBody = BodyOf<"/api/apps", "post">;
 export type AppTypeOption = ResponseOf<"/api/apps/types", "get">["types"][number];
 export type PlatformProposal = NonNullable<Inspection["platform_proposal"]>;
+/** What `POST /api/compose/analyze` says of a Docker Compose document typed in. */
+export type ComposeAnalysis = ResponseOf<"/api/compose/analyze", "post">;
 
 // ---------------------------------------------------------------------------------------
 // The steps
@@ -272,6 +274,48 @@ export function imageInspection(): Inspection {
     start_command: "",
     default_port: 8080,
     env_keys: [],
+    branch: "",
+    commit: "",
+    compatible: null,
+    verdict: null,
+    suggestion: null,
+  };
+}
+
+/** A variable whose name says it holds a secret: marked so the Variables step masks it. */
+const SECRET_NAME = /PASSWORD|SECRET|TOKEN|KEY/i;
+
+/** The host port a service publishes (`8080:80/tcp`), or null when Docker picks it or it publishes none. */
+function publishedPort(publishes: readonly string[]): number | null {
+  for (const entry of publishes) {
+    const match = /^(\d+):/.exec(entry);
+    if (match?.[1] !== undefined) return Number(match[1]);
+  }
+  return null;
+}
+
+/**
+ * What the Review step starts from for a Compose document typed in: nothing to fetch or read,
+ * the analysis has already said what it is. The type is Docker Compose, the variables are the
+ * ones the document reads (the ones it cannot run without marked as required), and the port is
+ * the first a service publishes.
+ */
+export function composeInspection(analysis: ComposeAnalysis): Inspection {
+  const port = analysis.services.map((service) => publishedPort(service.publishes)).find((value) => value !== null) ?? 8080;
+  return {
+    app_type: "docker-compose",
+    detected_types: ["docker-compose"],
+    package_manager: null,
+    install_command: [],
+    build_command: [],
+    start_command: "",
+    default_port: port,
+    env_keys: analysis.variables.map((variable) => ({
+      name: variable.name,
+      ...(variable.default !== null && variable.default !== undefined ? { default: variable.default } : {}),
+      required: variable.required,
+      secret: SECRET_NAME.test(variable.name),
+    })),
     branch: "",
     commit: "",
     compatible: null,
@@ -678,7 +722,12 @@ function proposalHealth(proposal: PlatformProposal): Pick<CreateAppBody, "health
  * another platform's configuration proposes goes with it while that proposal is used, so the
  * first deploy is already gated on it.
  */
-export function createAppBody(source: SourceForm, form: ReviewForm, proposal: PlatformProposal | null = null): CreateAppBody {
+export function createAppBody(
+  source: SourceForm,
+  form: ReviewForm,
+  proposal: PlatformProposal | null = null,
+  options: { composeDocument?: string } = {},
+): CreateAppBody {
   const env: Record<string, string> = {};
   for (const row of form.env) {
     const name = row.name.trim();
@@ -692,12 +741,15 @@ export function createAppBody(source: SourceForm, form: ReviewForm, proposal: Pl
   const pulled = container && form.container.method === "image";
   const paths = !container && form.layout === "releases" ? form.persistentPaths.map((row) => row.value.trim()).filter((value) => value !== "") : [];
   const limits = parseLimits(form.limits, null).values;
+  const document = options.composeDocument;
   return {
     domain: normalizeDomain(form.domain),
-    // An image from a registry has no source, and the server refuses one given with it.
-    ...(pulled ? {} : { source: source.source.trim() }),
-    ...(!pulled && branch !== "" && sourceKind(source.source) !== "local" ? { branch } : {}),
-    ...(!pulled && source.installationId !== undefined ? { github_installation_id: source.installationId } : {}),
+    // An image from a registry, and a Compose document, are their own source: the server
+    // refuses a source given with either.
+    ...(pulled || document !== undefined ? {} : { source: source.source.trim() }),
+    ...(!pulled && document === undefined && branch !== "" && sourceKind(source.source) !== "local" ? { branch } : {}),
+    ...(!pulled && document === undefined && source.installationId !== undefined ? { github_installation_id: source.installationId } : {}),
+    ...(document !== undefined ? { compose_document: document } : {}),
     app_type: form.appType,
     ...(hasPort(form.appType) ? { port: Number(form.port.trim()) } : {}),
     webserver: form.webserver,
@@ -712,6 +764,8 @@ export function createAppBody(source: SourceForm, form: ReviewForm, proposal: Pl
     ...(form.useProposal && proposal !== null ? proposalHealth(proposal) : {}),
     env_vars: env,
     skip_database: false,
+    default_backups: true,
+    install_requirements: false,
   };
 }
 

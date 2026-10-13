@@ -436,6 +436,8 @@ export const settings = {
         appRecovered: { label: "Application answering again", description: "It passes its health check again after an outage." },
         diskThreshold: { label: "Disk almost full, and back", description: "A disk passed its threshold, and when it drops below." },
         backupFailed: { label: "Backup failed", description: "A scheduled or manual backup failed." },
+        backupMissing: { label: "A backup stopped", description: "An application or a database has no backup newer than it should have, because its schedule stopped or never ran." },
+        destinationUnreachable: { label: "A destination went away", description: "A place backups are sent to stopped answering, so the copies there are not being made." },
         backupSuccess: { label: "Backup finished", description: "Every successful scheduled backup: a daily sign it works." },
         nodeUnreachable: { label: "Server unreachable", description: "A server you manage stopped answering." },
         nodeRecovered: { label: "Server reachable again", description: "It answers again." },

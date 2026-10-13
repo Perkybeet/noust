@@ -11,13 +11,13 @@ describe("a recipe's form", () => {
   it("asks only for the variables the recipe does not generate", () => {
     expect(generatedVariables(WORDPRESS)).toEqual(["WORDPRESS_DB_PASSWORD", "WORDPRESS_AUTH_KEY"]);
     expect(editableVariables(WORDPRESS)).toEqual(["WP_DEBUG"]);
-    expect(initialRecipeForm(WORDPRESS)).toEqual({ domain: "", includeWww: false, ssl: true, env: { WP_DEBUG: "" } });
+    expect(initialRecipeForm(WORDPRESS)).toEqual({ domain: "", includeWww: false, ssl: true, env: { WP_DEBUG: "" }, defaultBackups: true, installRequirements: false });
   });
 
   it("keeps where it answers, and the values both recipes set, when another recipe is chosen", () => {
-    const typed = { domain: "blog.example.com", includeWww: true, ssl: false, env: { WP_DEBUG: "1" } };
+    const typed = { domain: "blog.example.com", includeWww: true, ssl: false, env: { WP_DEBUG: "1" }, defaultBackups: false, installRequirements: true };
     const other = { variables: [recipeVariable("WP_DEBUG"), recipeVariable("TZ")] };
-    expect(initialRecipeForm(other, typed)).toEqual({ domain: "blog.example.com", includeWww: true, ssl: false, env: { WP_DEBUG: "1", TZ: "" } });
+    expect(initialRecipeForm(other, typed)).toEqual({ domain: "blog.example.com", includeWww: true, ssl: false, env: { WP_DEBUG: "1", TZ: "" }, defaultBackups: false, installRequirements: false });
   });
 
   it("refuses a domain already deployed here", () => {
@@ -62,14 +62,14 @@ describe("a recipe's required variables (checklist M-19)", () => {
   });
 
   it("are sent like any other value the operator set", () => {
-    const form = { domain: "blog.example.com", includeWww: false, ssl: true, env: { ADMIN_EMAIL: " ops@example.com ", TZ: "", WP_DEBUG: "1" } };
+    const form = { domain: "blog.example.com", includeWww: false, ssl: true, env: { ADMIN_EMAIL: " ops@example.com ", TZ: "", WP_DEBUG: "1" }, defaultBackups: true, installRequirements: false };
     expect(recipeBody({ name: "wordpress" }, form).env_vars).toEqual({ ADMIN_EMAIL: " ops@example.com ", WP_DEBUG: "1" });
   });
 });
 
 describe("a recipe's request", () => {
   it("names the recipe, sends no source, leaves the type on auto, and only the values set", () => {
-    const form = { domain: " Blog.Example.com ", includeWww: false, ssl: true, env: { WP_DEBUG: "" } };
+    const form = { domain: " Blog.Example.com ", includeWww: false, ssl: true, env: { WP_DEBUG: "" }, defaultBackups: true, installRequirements: false };
     expect(recipeBody(WORDPRESS, form)).toEqual({
       domain: "blog.example.com",
       recipe: "wordpress",
@@ -79,13 +79,15 @@ describe("a recipe's request", () => {
       include_www: false,
       env_vars: {},
       skip_database: false,
+      default_backups: true,
+      install_requirements: false,
     });
     expect(recipeBody(WORDPRESS, { ...form, env: { WP_DEBUG: "1" } }).env_vars).toEqual({ WP_DEBUG: "1" });
   });
 
   it("sends www only where it means something", () => {
-    expect(recipeBody(WORDPRESS, { domain: "example.com", includeWww: true, ssl: true, env: {} }).include_www).toBe(true);
-    expect(recipeBody(WORDPRESS, { domain: "blog.example.com", includeWww: true, ssl: true, env: {} }).include_www).toBe(false);
+    expect(recipeBody(WORDPRESS, { domain: "example.com", includeWww: true, ssl: true, env: {}, defaultBackups: true, installRequirements: false }).include_www).toBe(true);
+    expect(recipeBody(WORDPRESS, { domain: "blog.example.com", includeWww: true, ssl: true, env: {}, defaultBackups: true, installRequirements: false }).include_www).toBe(false);
   });
 });
 

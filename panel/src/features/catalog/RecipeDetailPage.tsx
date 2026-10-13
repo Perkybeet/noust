@@ -1,10 +1,11 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { Container } from "lucide-react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 
-import { isApiError } from "../../api/client";
-import { recipeQuery } from "../../api/queries/recipes";
+import { isApiError, request } from "../../api/client";
+import { recipeKeys, recipeQuery } from "../../api/queries/recipes";
 import type { Recipe, RecipeVariableInfo } from "../../api/queries/recipes";
 import { DetailPage } from "../../components/page/DetailPage";
 import { KeyValueList } from "../../components/page/KeyValueList";
@@ -14,6 +15,7 @@ import { Section, Sections } from "../../components/page/Section";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
 import { Card } from "../../components/ui/Card";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { ExternalLink } from "../../components/ui/ExternalLink";
@@ -27,6 +29,8 @@ import { joinList } from "../new-app/wizard";
 import { useNode } from "../../nodes/useNode";
 import { ORIGIN_LABELS, dayOf, previewNote, versionLabel } from "./model";
 import { RecipeLogo } from "./RecipeLogo";
+import { RecipeRequirements } from "./RecipeRequirements";
+import { announce } from "../../app/Announcer";
 import { categoryWords, dependencyWords } from "./RecipeCard";
 
 /** Where a recipe's code comes from, or what it runs, as the rows of the facts card. */
@@ -144,6 +148,8 @@ export function RecipeDetailPage({ name }: { name: string }) {
   const navigate = useNavigate();
   const { node } = useNode();
   const query = useQuery(recipeQuery(name));
+  const queryClient = useQueryClient();
+  const [removing, setRemoving] = useState(false);
   const recipe = query.data;
 
   const use = (): void => {
@@ -160,6 +166,8 @@ export function RecipeDetailPage({ name }: { name: string }) {
             <>
               {versionLabel(recipe.version, recipe.revision) !== null ? <Badge mono>{versionLabel(recipe.version, recipe.revision)}</Badge> : null}
               <Badge>{categoryWords(t, recipe.category)}</Badge>
+              {recipe.origin === "operator" ? <Badge>{t("catalog.card.yours")}</Badge> : null}
+              {recipe.origin === "catalog" ? <Badge>{t("catalog.card.package")}</Badge> : null}
               {recipe.runs_in_docker ? (
                 <Badge>
                   <Container aria-hidden="true" className="size-icon-xs" />
@@ -168,6 +176,15 @@ export function RecipeDetailPage({ name }: { name: string }) {
               ) : null}
             </>
           ),
+          ...(recipe.origin === "operator"
+            ? {
+                secondaryActions: (
+                  <Button variant="ghost" onClick={() => setRemoving(true)}>
+                    {t("catalog.own.remove")}
+                  </Button>
+                ),
+              }
+            : {}),
           ...(recipe.available
             ? {
                 primaryAction: (
@@ -269,6 +286,8 @@ export function RecipeDetailPage({ name }: { name: string }) {
           ) : null}
         </Section>
 
+        <RecipeRequirements name={recipe.name} />
+
         {needs.length > 0 || recipe.requires.length > 0 ? (
           <Section title={t("catalog.detail.needs")} description={t("catalog.detail.needsDescription")}>
             <ul className="flex list-disc flex-col gap-1 pl-5 text-13 text-pretty text-fg marker:text-fg-faint">
@@ -339,5 +358,25 @@ export function RecipeDetailPage({ name }: { name: string }) {
     );
   }
 
-  return <DetailPage header={header}>{body}</DetailPage>;
+  return (
+    <>
+      <DetailPage header={header}>{body}</DetailPage>
+      <ConfirmDialog
+        open={removing}
+        onOpenChange={setRemoving}
+        friction="simple"
+        destructive
+        server={node}
+        title={t("catalog.own.removeTitle", { title: recipe?.title ?? name })}
+        description={t("catalog.own.removeDescription")}
+        actionLabel={t("catalog.own.removeAction")}
+        onConfirm={async () => {
+          await request("delete", "/api/recipes/private/{name}", { params: { name } });
+          void queryClient.invalidateQueries({ queryKey: recipeKeys.all });
+          announce(t("catalog.own.removed", { title: recipe?.title ?? name }));
+          void navigate({ to: "/catalog" });
+        }}
+      />
+    </>
+  );
 }

@@ -14,6 +14,7 @@ export type Sandbox = ResponseOf<"/api/apps/{domain}/sandbox", "get">;
 export type AppHooks = ResponseOf<"/api/apps/{domain}/hooks", "get">;
 export type Identity = ResponseOf<"/api/apps/{domain}/identity", "get">;
 export type AppBuild = ResponseOf<"/api/apps/{domain}/build", "get">;
+export type BackupRequired = ResponseOf<"/api/apps/{domain}/backup-required", "get">;
 
 /** How many deliveries "Pushes received" lists: the newest, enough to see a pattern. */
 export const RECEIVED_SHOWN = 8;
@@ -31,6 +32,7 @@ export const settingsKeys = {
   headless: (domain: string) => ["app", domain, "headless"] as const,
   container: (domain: string) => ["app", domain, "container"] as const,
   build: (domain: string) => ["app", domain, "build"] as const,
+  backupRequired: (domain: string) => ["app", domain, "backup-required"] as const,
 };
 
 /** Read again every few seconds while the setup waits for the forge's first delivery. */
@@ -83,6 +85,13 @@ export const buildQuery = (domain: string) =>
   queryOptions({
     queryKey: settingsKeys.build(domain),
     queryFn: ({ signal }) => request("get", "/api/apps/{domain}/build", { params: { domain }, signal }),
+  });
+
+/** Whether an update is refused when its backup fails, and whether that is the default. */
+export const backupRequiredQuery = (domain: string) =>
+  queryOptions({
+    queryKey: settingsKeys.backupRequired(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/backup-required", { params: { domain }, signal }),
   });
 
 /** The account the app runs as, and whether it can move to one of its own. Changes nothing. */

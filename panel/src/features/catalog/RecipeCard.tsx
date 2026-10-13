@@ -89,6 +89,8 @@ export function RecipeCard({ recipe, opening = false, disabled = false, onChoose
         <div className="flex flex-wrap items-center gap-1.5">
           {version !== null ? <Badge mono>{version}</Badge> : null}
           <Badge>{categoryWords(t, recipe.category)}</Badge>
+          {recipe.origin === "operator" ? <Badge>{t("catalog.card.yours")}</Badge> : null}
+          {recipe.origin === "catalog" ? <Badge>{t("catalog.card.package")}</Badge> : null}
           {recipe.runs_in_docker ? (
             <Badge>
               <Container aria-hidden="true" className="size-icon-xs" />

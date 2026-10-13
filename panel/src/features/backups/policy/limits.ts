@@ -28,19 +28,48 @@ export const MAX_COUNT = 365;
 /** How many days a scheduled backup may be kept. */
 export const MAX_DAYS = 3650;
 
+/** The most gigabytes a policy may be asked to keep (the API's own bound). */
+export const MAX_GB = 100_000;
+
+/** The API's value for a typed size in gigabytes: null for empty, a decimal allowed. */
+export function gbValue(text: string): number | null {
+  const trimmed = text.trim();
+  return trimmed === "" ? null : Number(trimmed.replace(",", "."));
+}
+
+/** Whether a typed size is empty or a number above zero up to `max` gigabytes. */
+export function validGb(text: string, max: number = MAX_GB): boolean {
+  const trimmed = text.trim();
+  if (trimmed === "") return true;
+  const value = Number(trimmed.replace(",", "."));
+  return Number.isFinite(value) && value > 0 && value <= max;
+}
+
 /** A destination a policy sends to, as its form holds it. */
 export interface DestinationDraft {
   name: string;
   count: string;
   days: string;
+  /** How many gigabytes the dumps there may weigh together; empty for no limit. */
+  gb?: string;
 }
 
-/** What the API takes for each destination of a policy. */
-export function destinationBody(sends: readonly DestinationDraft[]): { name: string; retention_count: number | null; retention_days: number | null }[] {
-  return sends.map((item) => ({ name: item.name, retention_count: limitValue(item.count), retention_days: limitValue(item.days) }));
+/**
+ * What the API takes for each destination of a policy. A size limit is sent only by the policies
+ * that have one (a database's): the others' destinations do not know the field.
+ */
+export function destinationBody(
+  sends: readonly DestinationDraft[],
+): { name: string; retention_count: number | null; retention_days: number | null; retention_gb?: number | null }[] {
+  return sends.map((item) => ({
+    name: item.name,
+    retention_count: limitValue(item.count),
+    retention_days: limitValue(item.days),
+    ...(item.gb !== undefined ? { retention_gb: gbValue(item.gb) } : {}),
+  }));
 }
 
 /** Whether every destination's limits are valid. */
 export function destinationsValid(sends: readonly DestinationDraft[]): boolean {
-  return sends.every((item) => validLimit(item.count, MAX_COUNT) && validLimit(item.days, MAX_DAYS));
+  return sends.every((item) => validLimit(item.count, MAX_COUNT) && validLimit(item.days, MAX_DAYS) && validGb(item.gb ?? ""));
 }
