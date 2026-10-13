@@ -29,6 +29,7 @@ export { dumpImport } from "./dumpImport";
 export { enroll } from "./enroll";
 export { environment } from "./environment";
 export { fleet } from "./fleet";
+export { githubHost } from "./githubHost";
 export { language } from "./language";
 export { nav } from "./nav";
 export { newApp } from "./newApp";

@@ -28,6 +28,7 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
 import { CreateGitHubApp } from "./CreateGitHubApp";
+import { GitHubHost } from "./GitHubHost";
 import { accountTypeWords, hooksState, repositorySelectionWords } from "./github";
 
 const EXPOSE_COMMAND = "noust web expose-hooks hooks.example.com";
@@ -142,7 +143,12 @@ function Setup({ status, step }: { status: GitHubStatus; step: SetupStep }) {
         <Stepper steps={steps} current={step} className="shrink-0 md:w-48" />
         <div className="flex min-w-0 flex-1 flex-col gap-3 md:border-l md:border-border md:pl-6">
           <Subsection title={current.label}>
-            {step === "create" ? <CreateGitHubApp /> : step === "install" ? <InstallStep status={status} /> : <EventsStep status={status} />}
+            {step === "create" ? (
+              <>
+                <GitHubHost key={status.host} status={status} />
+                <CreateGitHubApp />
+              </>
+            ) : step === "install" ? <InstallStep status={status} /> : <EventsStep status={status} />}
           </Subsection>
         </div>
       </div>
@@ -160,6 +166,7 @@ function AppFacts({ status }: { status: GitHubStatus }) {
         items={[
           { label: t("settings.integrations.github.appFacts.app"), value: status.name ?? status.slug ?? null, mono: false },
           { label: t("settings.integrations.github.appFacts.owner"), value: status.owner ?? null },
+          { label: t("githubHost.fact"), value: status.host, hint: t("githubHost.factDescription") },
           {
             label: t("settings.integrations.github.appFacts.events"),
             value:
