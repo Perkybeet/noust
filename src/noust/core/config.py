@@ -285,6 +285,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # master token to account recovery. See noust.core.accounts.policy.
         "profile": "standard",
     },
+    # The Model Context Protocol endpoint (POST /api/mcp): an agent with an API token is
+    # given tools to inspect, deploy and control applications. Off until a security officer
+    # turns it on; "groups" are the kinds of tool offered (inspect, deploy, control).
+    "mcp": {"enabled": False, "groups": ["inspect", "deploy", "control"]},
     "auth": {
         # Accounts' sign-in policy (noust.core.accounts.policy): a session
         # unused for idle_minutes, or older than absolute_hours, is over.
@@ -1215,6 +1219,36 @@ def _validate_flag(label: str) -> Callable[[Any], bool]:
     return validator
 
 
+#: The kinds of tool the MCP endpoint offers; noust.web.mcp.tools.GROUPS says the same, and
+#: a test holds the two together (this module cannot import the console).
+MCP_GROUPS = ("inspect", "deploy", "control")
+
+
+def _validate_mcp_groups(value: Any) -> list[str]:
+    """
+    Accept the groups of MCP tools on offer.
+
+    Args:
+        value: A list of group names, or text with them separated by commas.
+
+    Returns:
+        The groups, in a fixed order, without repeats.
+
+    Raises:
+        ConfigError: When one is not a group.
+    """
+    items = value.replace(",", " ").split() if isinstance(value, str) else value
+    if not isinstance(items, (list, tuple)):
+        raise ConfigError("mcp.groups must be a list", details=f"Got {value!r}.")
+    unknown = sorted({str(item) for item in items} - set(MCP_GROUPS))
+    if unknown:
+        raise ConfigError(
+            f"Unknown MCP group: {', '.join(unknown)}",
+            details=f"Use any of: {', '.join(MCP_GROUPS)}.",
+        )
+    return [group for group in MCP_GROUPS if group in {str(item) for item in items}]
+
+
 def _validate_local_login_enabled(value: Any) -> bool:
     """
     Accept a yes or a no for the password and passkey sign-in, and refuse a no
@@ -1348,6 +1382,8 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "auth.sudo.idle_minutes": _int_range_validator("auth.sudo.idle_minutes", *SUDO_IDLE_RANGE),
     "auth.sudo.max_minutes": _int_range_validator("auth.sudo.max_minutes", *SUDO_MAX_RANGE),
     "auth.sudo.require_password": _validate_flag("auth.sudo.require_password"),
+    "mcp.enabled": _validate_flag("mcp.enabled"),
+    "mcp.groups": _validate_mcp_groups,
     "auth.local_login.enabled": _validate_local_login_enabled,
     "auth.local_login.exempt": _validate_local_login_exempt,
     "terminal.enabled": _validate_flag("terminal.enabled"),

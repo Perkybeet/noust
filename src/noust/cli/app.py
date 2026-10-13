@@ -78,6 +78,7 @@ COMMAND_MODULES: dict[str, str] = {
     "import": "noust.cli.commands.importer",
     "incident": "noust.cli.commands.incident",
     "migrate-from-wasm": "noust.cli.commands.migrate_from_wasm",
+    "mcp": "noust.cli.commands.mcp",
     "monitor": "noust.cli.commands.monitor",
     "node": "noust.cli.commands.node",
     "passkey": "noust.cli.commands.passkey",
