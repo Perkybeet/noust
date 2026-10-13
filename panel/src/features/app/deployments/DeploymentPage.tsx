@@ -31,8 +31,10 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { formatBytes, formatDuration, parseTimestamp } from "../../../lib/format";
 import { hasUnit } from "../../apps/AppRowActions";
-import { buildLogEvents, jobEvents, logClockText, logSpan, mergeEvents, useLogLines } from "./buildLog";
+import { buildLogEvents, filterByLevel, jobEvents, logClockText, logSpan, mergeEvents, useLogLines, withoutTimes } from "./buildLog";
+import type { LogLevelFilter } from "./buildLog";
 import { useDeploymentActions } from "./DeploymentActions";
+import { LogControls } from "./LogControls";
 import { PhaseTimeline, phaseDoing } from "./PhaseTimeline";
 import { currentPhase, logClockOffset, outcomeOf, timeline } from "./phases";
 import type { PhaseKey, PhaseView } from "./phases";
@@ -228,7 +230,12 @@ function LogSection({
 }) {
   const running = RUNNING.has(deployment.status);
   const missing = log.data?.missing_reason ?? null;
-  const shown = lines.length > 0 ? lines : fallback;
+  const [level, setLevel] = useState<LogLevelFilter>("all");
+  const [times, setTimes] = useState(true);
+  const whole = lines.length > 0 ? lines : fallback;
+  // What the reader asked to see: the level first, then whether the times column is drawn.
+  const leveled = filterByLevel(whole, level);
+  const shown = times ? leveled : withoutTimes(leveled);
   // Rows of 20px, the toolbar and the padding: a finished log shorter than the usual frame
   // gets a frame its own height (never under 12rem), instead of a well of empty space.
   const natural = shown.length * LOG_ROW_PX + LOG_CHROME_PX;
@@ -246,6 +253,16 @@ function LogSection({
         ) : undefined
       }
     >
+      {log.data !== undefined && whole.length > 0 ? (
+        <LogControls deploymentId={deployment.id} level={level} onLevel={setLevel} times={times} onTimes={setTimes} />
+      ) : null}
+      {level !== "all" && whole.length > 0 ? (
+        <p className="text-12 text-fg-muted">
+          {shown.length === 0
+            ? t("runtime.deployLog.nothingAtLevel")
+            : t("runtime.deployLog.filteredNote", { shown: shown.length, total: whole.length })}
+        </p>
+      ) : null}
       {log.data?.truncated ? (
         <p className="text-12 text-fg-muted">{t("appPages.deployments.page.logTruncated", { size: formatBytes(DEFAULT_TAIL, t.locale) })}</p>
       ) : null}
