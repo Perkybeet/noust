@@ -75,7 +75,9 @@ noust github host set ghe.corp.example      # or acme.ghe.com
 noust github status                          # Host: ghe.corp.example
 ```
 
-Then create the App in the console as usual: it is created, installed and listed on that host.
+In the console, Settings, Integrations asks for the GitHub address before the App is created, and
+shows the host it lives on afterwards. Then create the App as usual: it is created, installed and
+listed on that host.
 Enterprise Server's API is `https://HOST/api/v3`; Cloud with data residency's is
 `https://api.SUBDOMAIN.ghe.com`. The host passes the guard every address an operator types
 passes (a name that resolves inside the machine's own networks is refused unless it is listed under
@@ -113,6 +115,11 @@ anyone who can use the console signs in from Integrations, GitLab:
 ```bash
 echo "$CLIENT_SECRET" | noust gitlab oauth-app set --host git.example.com --client-id 1a2b... --client-secret-stdin
 ```
+
+In the console the sign-in is **Connect GitLab**, **Sign in with GitLab**: it registers the
+application the first time, shows the redirect address to give GitLab, and the callback page
+finishes it. The New application wizard then offers **From GitLab**, with a connection, a group, a
+search and the branches of the project chosen.
 
 The sign-in uses PKCE and a state that is used once and expires in ten minutes; the tokens it
 returns are kept as secrets, refreshed before they expire and rotated.

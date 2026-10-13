@@ -6,7 +6,7 @@ import { expectNoAxeViolations } from "../../../test/axe";
 import { renderConsole } from "../../../test/console";
 import { SESSION, fakeBackend, json, signedInRoutes } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
-import { hostField } from "./GitHubHost";
+import { hostField, statusHost } from "./GitHubHost";
 
 const ELEVATED = { ...SESSION, elevated_until: "2999-01-01T00:00:00+00:00" };
 
@@ -45,6 +45,11 @@ describe("the GitHub address field", () => {
   it("is empty for github.com, which is what leaving it empty means", () => {
     expect(hostField("github.com")).toBe("");
     expect(hostField("ghe.example.com")).toBe("ghe.example.com");
+  });
+
+  it("takes a status from a server older than the field to be github.com", () => {
+    expect(statusHost({ host: "ghe.example.com" })).toBe("ghe.example.com");
+    expect(statusHost({} as { host: string })).toBe("github.com");
   });
 });
 

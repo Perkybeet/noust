@@ -110,6 +110,8 @@ export const gitlab: Catalog<typeof en> = {
     loadingBranches: "Cargando las ramas",
     branchesFailed: "No se pudieron listar las ramas",
     chosen: "{path} en {branch}",
+    change: "Cambiar de proyecto",
+    chooseProject: "Elige un proyecto.",
     notConnected: "GitLab todavía no está conectado.",
     connect: "Conectar GitLab",
   },

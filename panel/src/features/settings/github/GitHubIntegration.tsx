@@ -28,7 +28,7 @@ import { useT } from "../../../i18n";
 import type { T } from "../../../i18n";
 import { reportActionError } from "../../apps/useAppActions";
 import { CreateGitHubApp } from "./CreateGitHubApp";
-import { GitHubHost } from "./GitHubHost";
+import { GitHubHost, statusHost } from "./GitHubHost";
 import { accountTypeWords, hooksState, repositorySelectionWords } from "./github";
 
 const EXPOSE_COMMAND = "noust web expose-hooks hooks.example.com";
@@ -145,7 +145,7 @@ function Setup({ status, step }: { status: GitHubStatus; step: SetupStep }) {
           <Subsection title={current.label}>
             {step === "create" ? (
               <>
-                <GitHubHost key={status.host} status={status} />
+                <GitHubHost key={statusHost(status)} status={status} />
                 <CreateGitHubApp />
               </>
             ) : step === "install" ? <InstallStep status={status} /> : <EventsStep status={status} />}
@@ -166,7 +166,7 @@ function AppFacts({ status }: { status: GitHubStatus }) {
         items={[
           { label: t("settings.integrations.github.appFacts.app"), value: status.name ?? status.slug ?? null, mono: false },
           { label: t("settings.integrations.github.appFacts.owner"), value: status.owner ?? null },
-          { label: t("githubHost.fact"), value: status.host, hint: t("githubHost.factDescription") },
+          { label: t("githubHost.fact"), value: statusHost(status), hint: t("githubHost.factDescription") },
           {
             label: t("settings.integrations.github.appFacts.events"),
             value:

@@ -47,6 +47,10 @@ noust app apply shop.example.com noust.yaml --prune     # also remove names and 
 - The port, and the layout, type and source, are chosen when an application is created: a file
   that names another port gets a note, never a change.
 
+The console does both from an application's Export settings: **Download the declaration** writes
+the file, and **Apply a declaration** checks a pasted one first (showing what it would change and
+flagging what runs commands) before it applies it.
+
 ## The keys
 
 ```yaml

@@ -5,10 +5,11 @@ import type { ReactNode } from "react";
 
 import { ElevationCancelledError } from "../../../api/client";
 import { finishGitLabSignIn, gitlabKeys } from "../../../api/queries/gitlab";
-import { PageHeader } from "../../../app/PageHeader";
+import { DetailPage } from "../../../components/page/DetailPage";
+import { JobProgress } from "../../../components/page/JobProgress";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button, buttonClassName } from "../../../components/ui/Button";
-import { Spinner } from "../../../components/ui/Spinner";
+import { Card } from "../../../components/ui/Card";
 import { toast } from "../../../components/ui/toast";
 import { useT } from "../../../i18n";
 import { parseGitLabCallback } from "./gitlab";
@@ -23,7 +24,11 @@ function BackLink({ primary = false }: { primary?: boolean }) {
 }
 
 function Panel({ children }: { children: ReactNode }) {
-  return <div className="flex max-w-2xl min-w-0 flex-col gap-4 rounded-card border border-border bg-surface p-5 shadow-raised">{children}</div>;
+  return (
+    <Card className="max-w-2xl">
+      <div className="flex min-w-0 flex-col gap-4">{children}</div>
+    </Card>
+  );
 }
 
 /**
@@ -102,25 +107,21 @@ export function GitLabCallback() {
     );
   } else {
     body = (
-      <Panel>
-        <p role="status" className="flex items-center gap-2 text-13 text-fg">
-          <Spinner size={14} className="text-warn" />
-          {`${t("gitlab.callback.progress")}…`}
-        </p>
-      </Panel>
+      <JobProgress state="running" title={t("gitlab.callback.progress")} className="max-w-2xl" />
     );
   }
 
   return (
-    <>
-      <PageHeader
-        title={t("gitlab.callback.title")}
-        breadcrumbs={[
+    <DetailPage
+      header={{
+        title: t("gitlab.callback.title"),
+        breadcrumbs: [
           { label: t("gitlab.callback.breadcrumbSettings"), to: "/settings" },
           { label: t("gitlab.callback.breadcrumbIntegrations"), to: "/settings/integrations" },
-        ]}
-      />
+        ],
+      }}
+    >
       {body}
-    </>
+    </DetailPage>
   );
 }

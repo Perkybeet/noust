@@ -52,6 +52,11 @@ is built and checked before anything is created (a library, a taken domain, an u
 domain given twice stops all of it), then the applications are created one after the other through
 the path `noust app import` takes. `--dry-run` shows the plans. `--branch` picks the branch.
 
+In the console, the New application wizard has the same in its first step: with a typed source
+(or a GitLab project) chosen, **Deploy the workspaces of a monorepo** reads them, lists the ones
+that are applications (and why the others are not), and creates the ones you tick, each on the
+domain you give it.
+
 ## What each application gets
 
 - **The releases layout**, with the workspace as its `build.base_directory`: the build, the unit and

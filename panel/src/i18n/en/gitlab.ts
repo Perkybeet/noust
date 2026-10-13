@@ -112,6 +112,8 @@ export const gitlab = {
     loadingBranches: "Loading the branches",
     branchesFailed: "Could not list the branches",
     chosen: "{path} on {branch}",
+    change: "Change project",
+    chooseProject: "Choose a project.",
     notConnected: "GitLab is not connected yet.",
     connect: "Connect GitLab",
   },

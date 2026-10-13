@@ -8,6 +8,7 @@ import { announce } from "../../../app/Announcer";
 import { CommandHint } from "../../../components/page/CommandHint";
 import { ErrorBlock } from "../../../components/page/QueryState";
 import { Button } from "../../../components/ui/Button";
+import { Card } from "../../../components/ui/Card";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
 import { useT } from "../../../i18n";
@@ -15,6 +16,14 @@ import { splitErrors } from "../formErrors";
 
 /** The default: nothing to type. */
 const GITHUB_COM = "github.com";
+
+/**
+ * The host a status names. A server older than the field answers none, and that is github.com:
+ * a console served by a newer Noust than the server it manages must not fail on it.
+ */
+export function statusHost(status: Pick<GitHubStatus, "host">): string {
+  return (status as { host?: string }).host ?? GITHUB_COM;
+}
 
 /** What the field holds for a host: empty for github.com, which is what leaving it empty means. */
 export function hostField(host: string): string {
@@ -29,7 +38,7 @@ export function hostField(host: string): string {
 export function GitHubHost({ status }: { status: GitHubStatus }) {
   const t = useT();
   const queryClient = useQueryClient();
-  const stored = hostField(status.host);
+  const stored = hostField(statusHost(status));
   const [host, setHost] = useState(stored);
   const save = useMutation({
     mutationFn: () => setGitHubHost(host.trim() === "" ? null : host.trim()),
@@ -47,7 +56,8 @@ export function GitHubHost({ status }: { status: GitHubStatus }) {
   };
 
   return (
-    <form onSubmit={submit} noValidate className="flex min-w-0 flex-col gap-4 rounded-card border border-border bg-surface p-5">
+    <Card>
+      <form onSubmit={submit} noValidate className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-col gap-1">
         <p className="text-14 font-medium text-fg">{t("githubHost.title")}</p>
         <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("githubHost.description")}</p>
@@ -71,6 +81,7 @@ export function GitHubHost({ status }: { status: GitHubStatus }) {
         </Button>
       </div>
       <CommandHint command="noust github host set ghe.example.com" label={t("githubHost.fromTerminal")} />
-    </form>
+      </form>
+    </Card>
   );
 }
