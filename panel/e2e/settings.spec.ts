@@ -36,6 +36,38 @@ test("every server settings page loads its sections and passes axe", async ({ pa
   }
 });
 
+test("About says a security release is out, with what it fixes, and passes axe in a real browser", async ({ page, consoleServer }) => {
+  // The seeded server cannot reach GitHub, so the answer of the version check is the one thing
+  // faked: what the console does with it is what is measured (CSP included).
+  await page.route("**/api/system/version", async (route) => {
+    await route.fulfill({
+      json: {
+        current_version: "3.3.1",
+        latest_version: "3.3.2",
+        has_update: true,
+        update_state: "update_available",
+        update_command: "sudo apt update && sudo apt install --only-upgrade noust",
+        release_url: "https://github.com/Perkybeet/noust/releases/tag/v3.3.2",
+        security_update: true,
+        security_version: "3.3.2",
+        advisory_url: "https://github.com/Perkybeet/noust/security/advisories/GHSA-abcd-1234-wxyz",
+        status: "checked",
+      },
+    });
+  });
+  await signIn(page, consoleServer, "/settings/about");
+  const version = page.getByRole("region", { name: "Version" });
+  await expect(version.getByText("Version 3.3.2 fixes a security vulnerability")).toBeVisible();
+  await expect(version.getByRole("link", { name: /What 3.3.2 fixes/ })).toHaveAttribute(
+    "href",
+    "https://github.com/Perkybeet/noust/security/advisories/GHSA-abcd-1234-wxyz",
+  );
+  await expect(version.getByText("Version 3.3.2 can be installed")).toBeVisible();
+  await expect(page.locator("[aria-busy=true]")).toHaveCount(0);
+  await settle(page);
+  await expectNoA11yViolations(page, "About with a security release");
+});
+
 test("General saves from one bar; a refused value stays beside its field, verbatim", async ({ page, consoleServer, problems }) => {
   // Saving configuration is sudo mode: the bar asks "Confirm it's you" before the first write.
   problems.expect(/status of 422 .* \/api\/config\/backup$/);

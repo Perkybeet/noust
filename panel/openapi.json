@@ -31314,6 +31314,17 @@
       "UpdateInfo": {
         "description": "Installed version and, when known, the one this server can install.",
         "properties": {
+          "advisory_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Advisory Url"
+          },
           "announced_version": {
             "anyOf": [
               {
@@ -31387,6 +31398,22 @@
               }
             ],
             "title": "Release Url"
+          },
+          "security_update": {
+            "default": false,
+            "title": "Security Update",
+            "type": "boolean"
+          },
+          "security_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Security Version"
           },
           "status": {
             "default": "checked",
