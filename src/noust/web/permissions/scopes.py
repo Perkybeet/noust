@@ -132,6 +132,10 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/apps", SCOPED),
     _rule("/api/apps/types", OPEN),
     _rule("/api/apps/inspect", SCOPED),
+    # Reading a repository's workspaces fetches a few of its files, as inspecting it does;
+    # creating an application per workspace is creating applications, as importing one is.
+    _rule("/api/workspaces/inspect", SCOPED),
+    _rule("/api/workspaces/deploy", INSTANCE),
     # An export document may carry cron jobs and previews, which run as root or reach
     # other applications: a team member does not get to apply one.
     _rule("/api/apps/import", INSTANCE),

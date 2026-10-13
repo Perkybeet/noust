@@ -728,11 +728,13 @@ def _unmatched_verdict(checkout: Path, listing: list[str]) -> Verdict:
             compatible=False,
             summary=f"Nothing Noust deploys at the root of the repository; found {found}.",
             suggestion=(
-                "Noust deploys a repository from its root. Deploy each project from a "
-                "repository of its own, or add a compose.yaml at the root that builds "
-                "them and deploy it as Docker Compose. A JavaScript workspace with "
-                "turbo.json, a workspace config and its apps under apps/ deploys as a "
-                "monorepo."
+                "Noust deploys a repository from its root, or one application per project "
+                "of it: a JavaScript monorepo (npm, Yarn, pnpm, Lerna, Nx or Turborepo "
+                "workspaces) is read with 'noust workspace detect SOURCE' and each "
+                "application created with 'noust workspace create SOURCE --app "
+                "WORKSPACE=DOMAIN', on releases and watching only its own files. "
+                "Otherwise deploy each project from a repository of its own, or add a "
+                "compose.yaml at the root that builds them and deploy it as Docker Compose."
             ),
         )
 

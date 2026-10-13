@@ -16,6 +16,7 @@ job ``POST /api/apps`` queues, then the rest is applied through the managers.
 from __future__ import annotations
 
 import dataclasses
+from collections.abc import Mapping
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -339,6 +340,30 @@ def import_app(
     """
     domain = strict_domain(body.domain) if body.domain else None
     plan = plan_import(dump_model(body.document), domain=domain, source=body.source, env=body.env)
+    return queue_import(plan, request, session)
+
+
+def queue_import(
+    plan: ImportPlan, request: Request, session: Mapping[str, Any]
+) -> JobAcceptedResponse:
+    """
+    Queue the creation of the application a plan describes, as a deploy job.
+
+    The one place an import becomes a job: ``POST /api/apps/import`` and the creation of an
+    application per workspace (``POST /api/workspaces/deploy``) both end here.
+
+    Args:
+        plan: What :func:`plan_import` decided.
+        request: The incoming request, for the audit record of a refusal.
+        session: The authenticated session.
+
+    Returns:
+        The queued job.
+
+    Raises:
+        HTTPException: 403 for a local source the credential may not deploy, 503 when no
+            port is free.
+    """
     _require_local_source_privilege(request, session, plan.create.source)
     if plan.create.port is None:
         # As POST /api/apps does: the deploy job would otherwise fall back to

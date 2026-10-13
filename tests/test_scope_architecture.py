@@ -417,6 +417,7 @@ class TestEveryRouteIsHeldToTheScope:
             "GET /api/apps",
             "POST /api/apps",
             "POST /api/apps/inspect",
+            "POST /api/workspaces/inspect",
             "GET /api/sites",
             "POST /api/sites",
             "GET /api/certs",

@@ -85,6 +85,7 @@ from noust.web.api.terminal import router as terminal_router
 from noust.web.api.terminal import server_router as terminal_server_router
 from noust.web.api.timeline import router as timeline_router
 from noust.web.api.volume_backups import router as volume_backups_router
+from noust.web.api.workspaces import router as workspaces_router
 from noust.web.api.zero_downtime import router as zero_downtime_router
 from noust.web.auth import require_auth
 
@@ -220,6 +221,8 @@ router.include_router(registries_router, prefix="/registries", tags=["Registries
 router.include_router(app_registry_logins_router, prefix="/apps", tags=["Applications"])
 # import_remote.py owns the whole of "/import": reading another platform's server.
 router.include_router(import_remote_router, prefix="/import", tags=["Applications"])
+# workspaces.py owns the whole of "/workspaces".
+router.include_router(workspaces_router, prefix="/workspaces", tags=["Applications"])
 # app_apply.py owns only "/{domain}/declaration" and "/{domain}/apply".
 router.include_router(app_apply_router, prefix="/apps", tags=["Applications"])
 # app_compose.py owns only "/{domain}/compose".

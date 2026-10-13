@@ -34804,6 +34804,218 @@
         "title": "WebserverUpdateResponse",
         "type": "object"
       },
+      "WorkspaceApp": {
+        "description": "One application to create.",
+        "properties": {
+          "domain": {
+            "description": "The domain to deploy it on",
+            "title": "Domain",
+            "type": "string"
+          },
+          "workspace": {
+            "description": "The workspace's name or its directory",
+            "title": "Workspace",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workspace",
+          "domain"
+        ],
+        "title": "WorkspaceApp",
+        "type": "object"
+      },
+      "WorkspaceDeployRequest": {
+        "description": "Applications to create from a monorepo.",
+        "properties": {
+          "apps": {
+            "description": "The workspaces to deploy, each with its domain",
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceApp"
+            },
+            "title": "Apps",
+            "type": "array"
+          },
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Branch"
+          },
+          "source": {
+            "description": "Git URL, archive URL or local path",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "apps"
+        ],
+        "title": "WorkspaceDeployRequest",
+        "type": "object"
+      },
+      "WorkspaceDeployResponse": {
+        "description": "The jobs that create the applications, in the order they were asked.",
+        "properties": {
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/JobAcceptedResponse"
+            },
+            "title": "Jobs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "jobs"
+        ],
+        "title": "WorkspaceDeployResponse",
+        "type": "object"
+      },
+      "WorkspaceEntry": {
+        "description": "One package of the monorepo.",
+        "properties": {
+          "app_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The Noust type that would deploy it; null for a library",
+            "title": "App Type"
+          },
+          "build": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Its build command, when Turborepo builds it",
+            "title": "Build"
+          },
+          "depends_on": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Depends On",
+            "type": "array"
+          },
+          "deployable": {
+            "title": "Deployable",
+            "type": "boolean"
+          },
+          "directory": {
+            "title": "Directory",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Why it is not an application; empty for one",
+            "title": "Reason",
+            "type": "string"
+          },
+          "watch_paths": {
+            "description": "What a push must touch to deploy it",
+            "items": {
+              "type": "string"
+            },
+            "title": "Watch Paths",
+            "type": "array"
+          }
+        },
+        "required": [
+          "name",
+          "directory",
+          "app_type",
+          "deployable",
+          "reason",
+          "depends_on",
+          "watch_paths",
+          "build"
+        ],
+        "title": "WorkspaceEntry",
+        "type": "object"
+      },
+      "WorkspaceInspectRequest": {
+        "description": "A repository to read the workspaces of.",
+        "properties": {
+          "branch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Git branch to read",
+            "title": "Branch"
+          },
+          "source": {
+            "description": "Git URL, archive URL or local path",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source"
+        ],
+        "title": "WorkspaceInspectRequest",
+        "type": "object"
+      },
+      "WorkspacesResponse": {
+        "description": "What a repository's workspaces are.",
+        "properties": {
+          "package_manager": {
+            "title": "Package Manager",
+            "type": "string"
+          },
+          "problems": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Problems",
+            "type": "array"
+          },
+          "tool": {
+            "description": "turborepo, nx, lerna, pnpm, yarn, npm or none",
+            "title": "Tool",
+            "type": "string"
+          },
+          "workspaces": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceEntry"
+            },
+            "title": "Workspaces",
+            "type": "array"
+          }
+        },
+        "required": [
+          "tool",
+          "package_manager",
+          "workspaces",
+          "problems"
+        ],
+        "title": "WorkspacesResponse",
+        "type": "object"
+      },
       "ZeroDowntimeInstance": {
         "description": "One instance of an application in zero-downtime mode.",
         "properties": {
@@ -63003,6 +63215,93 @@
           "Volume Backups"
         ],
         "x-noust-permission": "backups.run"
+      }
+    },
+    "/api/workspaces/deploy": {
+      "post": {
+        "description": "Queue one application per workspace named.\n\nEverything is checked before anything is queued: the workspaces exist and are applications,\neach domain is valid and free, and every plan is one an import would accept. Sudo mode: it\ndeploys as root, like an import.\n\nArgs:\n    body: The repository, and the workspaces with the domain each is deployed on.\n    request: The incoming request.\n    session: An elevated session.\n\nReturns:\n    The queued jobs, in the order asked; each result lists what was applied.\n\nRaises:\n    ValidationError: A workspace is unknown or a library, a domain repeats, or a plan is\n        refused (a taken domain is a 409).",
+        "operationId": "deploy_workspaces_api_workspaces_deploy_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceDeployRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceDeployResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Deploy Workspaces",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage",
+        "x-noust-requires-elevation": true
+      }
+    },
+    "/api/workspaces/inspect": {
+      "post": {
+        "description": "Read a repository's workspaces and say which are applications.\n\nFetches only the configuration files and the ``package.json`` of each workspace; nothing\nis run and nothing is written outside the scratch checkout, which is removed before this\nreturns.\n\nArgs:\n    body: The repository and the branch.\n    request: The incoming request.\n    session: The authenticated session.\n\nReturns:\n    The workspaces: ``tool`` is ``none`` for a repository that declares none.\n\nRaises:\n    HTTPException: 403 for a local path the credential may not read.\n    SourceError: The source is invalid or could not be fetched (400).",
+        "operationId": "inspect_workspace_source_api_workspaces_inspect_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkspaceInspectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspacesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Inspect Workspace Source",
+        "tags": [
+          "Applications"
+        ],
+        "x-noust-permission": "apps.manage"
       }
     },
     "/health": {

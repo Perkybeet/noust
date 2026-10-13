@@ -98,6 +98,7 @@ COMMAND_MODULES: dict[str, str] = {
     "token": "noust.cli.commands.token",
     "user": "noust.cli.commands.user",
     "web": "noust.cli.commands.web",
+    "workspace": "noust.cli.commands.workspace",
 }
 
 #: Commands that act on a deployed application. They are top level rather than

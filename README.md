@@ -977,7 +977,7 @@ completions`. `wasm` runs the same program throughout 3.x.
 | `rust` | `Cargo.toml` with a program, and no Dockerfile | `cargo fetch`, then `cargo build --release --offline`; the binary runs as the unit | Yes |
 | `ruby` | `Gemfile` next to `config.ru` or Rails's `config/application.rb`, and no Dockerfile | Bundler in the release, assets precompiled, Puma on `127.0.0.1` | Yes |
 | `static` | `index.html`, and no project manifest | Served by the web server from `public`, `dist`, `build`, `www`, `html` or the root | Yes |
-| `monorepo` | `turbo.json`, pnpm workspaces and at least two apps under `apps/` | pnpm; one unit and one subdomain per workspace | In place |
+| `monorepo` | `turbo.json`, pnpm workspaces and at least two apps under `apps/` | pnpm; one unit and one subdomain per workspace. For new work prefer one application per workspace: [docs/workspaces.md](docs/workspaces.md) | In place |
 | `docker-compose` | A compose file (`docker-compose.prod.yml` first) | `docker compose` v2 under a systemd unit, nginx in front of published ports; hooks, relay, database copy | In place |
 | `container` | A `Dockerfile` or `Containerfile` with no compose file; `--image` for a registry; `--builder railpack` for any other language | A compose file Noust writes, one container on 127.0.0.1 under a systemd unit, nginx in front; one image per release | Images |
 
