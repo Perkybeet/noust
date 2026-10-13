@@ -1,0 +1,958 @@
+# Copyright (c) 2024-2026 Yago Lopez Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+"""
+The processes an application runs beside its web process (checklist B-67, B-68).
+
+Pinned here:
+
+- a process is a template unit of its own from the same release (the ``workers``
+  link, which follows the release that serves), with the account, the environment
+  and the sandbox of the web unit and its own command and limits;
+- its copies are the instances of the template, and scaling starts and stops
+  instances without restarting the ones that run;
+- a change is judged like an activation: copies that do not stay up put the
+  process back as it was, with the state of each and the journal;
+- the health gate restarts the copies with the unit and fails when one does not
+  stay up, and a blue/green switch proves them on the release before the traffic;
+- the processes are not the application's unit: no row of the services table
+  carries the application's id.
+"""
+
+# The blue/green fixtures are imported rather than replicated.
+# ruff: noqa: F811
+
+from __future__ import annotations
+
+import os
+from collections.abc import Sequence
+from pathlib import Path
+from typing import Any
+
+import pytest
+
+from noust.core import app_process_store as processes_store
+from noust.core import unit_hardening_store
+from noust.core.app_process_store import ProcessRecord
+from noust.core.exceptions import (
+    DeploymentError,
+    NoustError,
+    RolledBackError,
+    ServiceError,
+    ValidationError,
+)
+from noust.core.logger import Logger
+from noust.core.runner import CommandResult, FakeRunner
+from noust.core.store import App, NoustStore
+from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
+from noust.deployers.releases import ReleaseManager
+from noust.managers import app_processes
+from noust.managers.app_processes import ProcessManager, base_name, instance_name
+from tests.test_bluegreen import (  # noqa: F401  (pytest resolves fixtures by name)
+    BASE,
+    DOMAIN,
+    FIRST,
+    SECOND,
+    Machine,
+    app,
+    engine,
+    machine,
+    root,
+    store,
+    switched_on,
+)
+
+WORKER = f"{BASE}-worker"
+
+
+class Clock:
+    """Monotonic time that only moves when something sleeps."""
+
+    def __init__(self) -> None:
+        self.now = 100.0
+
+    def __call__(self) -> float:
+        return self.now
+
+    def sleep(self, seconds: float) -> None:
+        self.now += max(seconds, 0.01)
+
+
+class World(FakeRunner):
+    """
+    systemd, as far as the processes ask it: units and their states.
+
+    It is the runner (``systemctl show`` and ``list-units`` answer from the
+    states) and the service manager (it records what is written, enabled,
+    restarted and deleted), so a test reads one object.
+    """
+
+    def __init__(self, directory: Path) -> None:
+        super().__init__()
+        self.SYSTEMD_DIR = directory
+        self.states: dict[str, tuple[str, str, int]] = {}
+        self.installed: dict[str, dict[str, Any]] = {}
+        self.enabled: list[str] = []
+        self.restarted: list[str] = []
+        self.deleted: list[str] = []
+        self.templates_removed: list[str] = []
+        self.control: list[tuple[str, str]] = []
+        #: Units that die after starting.
+        self.crashing: set[str] = set()
+        self.main_unit = '[Service]\nEnvironment="PORT=3100"\nEnvironment="NODE_ENV=production"\n'
+
+    # -- the runner -----------------------------------------------------------
+
+    def run(self, argv: Sequence[str], **kwargs: Any) -> CommandResult:  # type: ignore[override]
+        args = tuple(str(part) for part in argv)
+        if args[:2] == ("systemctl", "show"):
+            unit = args[2].removesuffix(".service")
+            active, sub, restarts = self.states.get(unit, ("inactive", "dead", 0))
+            return CommandResult(
+                argv=args,
+                exit_code=0,
+                stdout=f"ActiveState={active}\nSubState={sub}\nNRestarts={restarts}\n",
+            )
+        if args[:2] == ("systemctl", "list-units"):
+            lines = [
+                f"{unit}.service loaded {active} {sub} desc"
+                for unit, (active, sub, _) in sorted(self.states.items())
+                if args[-1].startswith(unit.split("@")[0] + "@")
+            ]
+            return CommandResult(argv=args, exit_code=0, stdout="\n".join(lines))
+        if args[0] == "journalctl":
+            return CommandResult(argv=args, exit_code=0, stdout="line one\nline two\n")
+        return super().run(argv, **kwargs)
+
+    # -- the service manager ---------------------------------------------------
+
+    def get_service_config(self, name: str) -> str | None:
+        return self.main_unit
+
+    def install_unit(self, name: str, template: str, context: dict[str, Any]) -> Path:
+        assert template == "process@"
+        self.installed[name] = dict(context)
+        path = self.SYSTEMD_DIR / f"{name}.service"
+        path.write_text("# Generated by Noust\n")
+        return path
+
+    def enable(self, name: str) -> bool:
+        self.enabled.append(name)
+        return True
+
+    def restart(self, name: str) -> None:
+        self.restarted.append(name)
+        if name in self.crashing:
+            self.states[name] = ("activating", "auto-restart", 1)
+        else:
+            self.states[name] = ("active", "running", 0)
+
+    def start(self, name: str) -> None:
+        self.control.append(("start", name))
+
+    def stop(self, name: str) -> bool:
+        self.control.append(("stop", name))
+        return True
+
+    def delete_service(self, name: str, *, keep_record: bool = False) -> None:
+        self.deleted.append(name)
+        self.states.pop(name, None)
+
+    def remove_template(self, name: str) -> bool:
+        self.templates_removed.append(name)
+        (self.SYSTEMD_DIR / f"{name}@.service").unlink(missing_ok=True)
+        return True
+
+    def logs(self, name: str, lines: int = 50) -> str:
+        return f"{name}: Error: cannot connect to redis"
+
+
+@pytest.fixture
+def world(tmp_path: Path) -> World:
+    directory = tmp_path / "systemd"
+    directory.mkdir()
+    return World(directory)
+
+
+@pytest.fixture
+def clock() -> Clock:
+    return Clock()
+
+
+@pytest.fixture
+def manager(world: World, store: NoustStore, clock: Clock) -> ProcessManager:
+    return ProcessManager(
+        store=store,
+        services=world,
+        runner=world,
+        log=Logger(verbose=False),
+        clock=clock,
+        sleep=clock.sleep,
+    )
+
+
+def worker(**overrides: Any) -> ProcessRecord:
+    fields: dict[str, Any] = {"name": "worker", "command": "node worker.js", "instances": 1}
+    fields.update(overrides)
+    return ProcessRecord(**fields)
+
+
+@pytest.fixture
+def released(root: Path, store: NoustStore, app: App) -> App:
+    """The application on the release layout, with a release serving."""
+    (root / "shared").mkdir(exist_ok=True)
+    return app
+
+
+def link(path: Path) -> str:
+    return os.readlink(path)
+
+
+# ---------------------------------------------------------------------------
+# Defining a process
+# ---------------------------------------------------------------------------
+
+
+def test_a_process_is_a_template_of_the_same_release_account_and_environment(
+    manager: ProcessManager, world: World, released: App, root: Path
+) -> None:
+    manager.set_process(DOMAIN, worker(memory_max_mb=256), actor="ana")
+
+    context = world.installed[f"{WORKER}@"]
+    assert context["process"] == "worker" and context["application"] == DOMAIN
+    assert context["working_directory"] == str(root / "workers")
+    assert context["user"] == "www-data"
+    assert context["command"].endswith("node worker.js")
+    assert context["environment"] == {"NODE_ENV": "production"}, (
+        "no PORT: it is not the web process"
+    )
+    assert context["environment_file"].endswith("shared/.env")
+    assert context["resource_limits"] == ["MemoryMax=256M"]
+    assert link(root / "workers") == link(root / "current")
+
+
+def test_the_unit_is_enabled_and_started_per_copy(
+    manager: ProcessManager, world: World, released: App
+) -> None:
+    change = manager.set_process(DOMAIN, worker(instances=3))
+
+    assert change.started == (f"{WORKER}@1", f"{WORKER}@2", f"{WORKER}@3")
+    assert world.enabled == list(change.started)
+    assert world.restarted == list(change.started)
+
+
+def test_a_hardened_application_hardens_its_processes_too(
+    manager: ProcessManager, world: World, released: App, store: NoustStore
+) -> None:
+    unit_hardening_store.set_record(DOMAIN, "default", (), changed_by="ana", store=store)
+
+    manager.set_process(DOMAIN, worker())
+
+    assert "ProtectSystem=strict" in world.installed[f"{WORKER}@"]["hardening"]
+
+
+def test_the_processes_are_not_the_applications_unit(
+    manager: ProcessManager, world: World, released: App, store: NoustStore
+) -> None:
+    """A row of the services table carrying the application's id would make them its units."""
+    manager.set_process(DOMAIN, worker())
+
+    assert [s.name for s in store.list_services() if s.app_id == released.id] == [BASE]
+
+
+def test_a_process_survives_a_redeploy_writing_the_application_row(
+    manager: ProcessManager, released: App, store: NoustStore
+) -> None:
+    manager.set_process(DOMAIN, worker())
+
+    released.status = "running"
+    store.update_app(released)
+
+    assert [p.name for p in processes_store.list_processes(DOMAIN, store=store)] == ["worker"]
+
+
+def test_the_definition_is_recorded_with_who_set_it(
+    manager: ProcessManager, released: App, store: NoustStore
+) -> None:
+    manager.set_process(DOMAIN, worker(), actor="ana")
+
+    record = processes_store.get_process(DOMAIN, "worker", store=store)
+    assert record is not None and record.updated_by == "ana" and record.source == "operator"
+
+
+# ---------------------------------------------------------------------------
+# What is refused
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("name", ["Worker", "web", "main", "a b", "", "-x", "x-", "x" * 25, "w_1"])
+def test_a_name_that_is_not_a_label_or_is_the_applications_own_is_refused(
+    manager: ProcessManager, released: App, name: str
+) -> None:
+    with pytest.raises(ValidationError) as caught:
+        manager.set_process(DOMAIN, worker(name=name))
+    assert caught.value.field == "name"
+
+
+@pytest.mark.parametrize("instances", [-1, 33, True])
+def test_a_count_outside_zero_to_thirty_two_is_refused(
+    manager: ProcessManager, released: App, instances: Any
+) -> None:
+    with pytest.raises(ValidationError) as caught:
+        manager.set_process(DOMAIN, worker(instances=instances))
+    assert caught.value.field == "instances"
+
+
+@pytest.mark.parametrize("command", ["", "   ", "echo 'unclosed", "a\nb"])
+def test_a_command_a_unit_cannot_run_is_refused(
+    manager: ProcessManager, released: App, command: str
+) -> None:
+    with pytest.raises(ValidationError):
+        manager.set_process(DOMAIN, worker(command=command))
+
+
+def test_limits_a_unit_cannot_run_under_are_refused(manager: ProcessManager, released: App) -> None:
+    with pytest.raises(ValidationError):
+        manager.set_process(DOMAIN, worker(memory_max_mb=8))
+
+
+@pytest.mark.parametrize("kind", ["docker-compose", "container", "static"])
+def test_what_has_no_process_of_its_own_to_run_beside_is_refused(
+    manager: ProcessManager, released: App, store: NoustStore, kind: str
+) -> None:
+    row = store.get_app(DOMAIN)
+    assert row is not None
+    row.app_type = kind
+    store.update_app(row)
+
+    with pytest.raises(ValidationError, match="cannot have processes"):
+        manager.set_process(DOMAIN, worker())
+
+
+def test_a_monorepos_workspaces_are_its_processes(
+    manager: ProcessManager, released: App, store: NoustStore
+) -> None:
+    row = store.get_app(DOMAIN)
+    assert row is not None
+    row.app_type = "monorepo"
+    store.update_app(row)
+
+    with pytest.raises(ValidationError, match="workspaces"):
+        manager.set_process(DOMAIN, worker())
+
+
+def test_a_unit_name_too_long_is_refused_before_anything_is_written(
+    manager: ProcessManager, world: World, released: App, store: NoustStore
+) -> None:
+    store.create_app(
+        App(
+            domain="a-very-long-name.of-an-application.with-subdomains.example.com",
+            app_type="nodejs",
+            app_path="/srv/x",
+        )
+    )
+
+    with pytest.raises(ValidationError, match="characters"):
+        manager.set_process(
+            "a-very-long-name.of-an-application.with-subdomains.example.com",
+            worker(name="queue-consumer"),
+        )
+
+    assert world.installed == {}
+
+
+def test_an_unknown_application_is_refused(manager: ProcessManager) -> None:
+    with pytest.raises(NoustError, match="not found"):
+        manager.set_process("nobody.example.com", worker())
+
+
+def test_nothing_runs_on_a_hub(
+    manager: ProcessManager, released: App, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def refuse(what: str) -> None:
+        raise NoustError(f"{what} run on servers")
+
+    monkeypatch.setattr(app_processes, "require_server_role", refuse)
+
+    with pytest.raises(NoustError, match="run on servers"):
+        manager.set_process(DOMAIN, worker())
+
+
+# ---------------------------------------------------------------------------
+# Scaling
+# ---------------------------------------------------------------------------
+
+
+def test_scaling_up_starts_the_new_copies_and_restarts_none_of_the_others(
+    manager: ProcessManager, world: World, released: App
+) -> None:
+    manager.set_process(DOMAIN, worker(instances=2))
+    world.restarted.clear()
+
+    change = manager.scale(DOMAIN, "worker", 4)
+
+    assert world.restarted == [f"{WORKER}@3", f"{WORKER}@4"]
+    assert change.instances == 4 and change.stopped == ()
+
+
+def test_scaling_down_stops_the_surplus_and_keeps_the_rest_running(
+    manager: ProcessManager, world: World, released: App
+) -> None:
+    manager.set_process(DOMAIN, worker(instances=4))
+    world.restarted.clear()
+
+    change = manager.scale(DOMAIN, "worker", 2)
+
+    assert world.deleted == [f"{WORKER}@3", f"{WORKER}@4"]
+    assert change.stopped == (f"{WORKER}@3", f"{WORKER}@4")
+    assert world.restarted == []
+
+
+def test_zero_copies_keeps_the_definition_and_stops_them(
+    manager: ProcessManager, world: World, released: App, store: NoustStore
+) -> None:
+    manager.set_process(DOMAIN, worker(instances=2))
+
+    manager.scale(DOMAIN, "worker", 0)
+
+    assert len(world.deleted) == 2
+    record = processes_store.get_process(DOMAIN, "worker", store=store)
+    assert record is not None and record.instances == 0
+    assert manager.units_for(DOMAIN) == []
+
+
+def test_changing_the_command_restarts_every_copy(
+    manager: ProcessManager, world: World, released: App
+) -> None:
+    manager.set_process(DOMAIN, worker(instances=2))
+    world.restarted.clear()
+
+    manager.set_process(DOMAIN, worker(instances=2, command="node worker.js --fast"))
+
+    assert world.restarted == [f"{WORKER}@1", f"{WORKER}@2"]
+
+
+def test_scaling_a_process_that_does_not_exist_is_refused(
+    manager: ProcessManager, released: App
+) -> None:
+    with pytest.raises(ValidationError, match="no process called"):
+        manager.scale(DOMAIN, "ghost", 2)
+
+
+def test_the_copies_a_unit_has_are_read_from_systemd_not_assumed(
+    manager: ProcessManager, world: World, released: App
+) -> None:
+    manager.set_process(DOMAIN, worker(instances=2))
+    world.states[f"{WORKER}@2"] = ("failed", "failed", 5)
+
+    [status] = manager.status(DOMAIN)
+
+    assert status.running == 1
+    assert status.to_dict()["copies"][1] == {
+        "unit": f"{WORKER}@2",
+        "number": 2,
+        "state": "failed",
+        "sub_state": "failed",
+        "restarts": 5,
+    }
+
+
+# ---------------------------------------------------------------------------
+# A change is judged like an activation
+# ---------------------------------------------------------------------------
+
+
+def test_a_process_that_does_not_stay_up_is_not_kept(
+    manager: ProcessManager, world: World, released: App, store: NoustStore
+) -> None:
+    world.crashing.add(f"{WORKER}@1")
+
+    with pytest.raises(DeploymentError, match="did not stay up") as caught:
+        manager.set_process(DOMAIN, worker())
+
+    assert processes_store.get_process(DOMAIN, "worker", store=store) is None
+    assert world.templates_removed == [WORKER], "a process that never held leaves nothing behind"
+    assert f"{WORKER}@1: activating (auto-restart)" in (caught.value.details or "")
+    assert "cannot connect to redis" in (caught.value.details or ""), "the journal, verbatim"
+
+
+def test_a_change_that_does_not_hold_puts_the_previous_definition_back(
+    manager: ProcessManager, world: World, released: App, store: NoustStore
+) -> None:
+    manager.set_process(DOMAIN, worker(command="node worker.js"))
+    world.crashing.add(f"{WORKER}@1")
+
+    with pytest.raises(DeploymentError):
+        manager.set_process(DOMAIN, worker(command="node broken.js"))
+
+    record = processes_store.get_process(DOMAIN, "worker", store=store)
+    assert record is not None and record.command == "node worker.js"
+    assert world.installed[f"{WORKER}@"]["command"].endswith("node worker.js")
+
+
+def test_a_copy_that_restarts_while_it_is_watched_does_not_stay_up(
+    manager: ProcessManager, world: World, clock: Clock
+) -> None:
+    units = [f"{WORKER}@1"]
+    world.states[units[0]] = ("active", "running", 0)
+    original = clock.sleep
+
+    def sleeping(seconds: float) -> None:
+        original(seconds)
+        world.states[units[0]] = ("active", "running", 2)
+
+    manager._sleep = sleeping
+
+    settled = manager.settle(units)
+
+    assert not settled.ok and "restarted 2 time(s)" in settled.failed[0]
+
+
+def test_copies_that_stay_up_for_the_whole_wait_are_settled(
+    manager: ProcessManager, world: World, clock: Clock
+) -> None:
+    units = [f"{WORKER}@1", f"{WORKER}@2"]
+    for unit in units:
+        world.states[unit] = ("active", "running", 0)
+
+    settled = manager.settle(units)
+
+    assert settled.ok and settled.failed == []
+    assert clock.now - 100.0 >= app_processes.SETTLE_SECONDS
+
+
+def test_nothing_to_wait_for_settles_at_once(manager: ProcessManager, clock: Clock) -> None:
+    assert manager.settle([]).ok
+    assert clock.now == 100.0
+
+
+# ---------------------------------------------------------------------------
+# Removing
+# ---------------------------------------------------------------------------
+
+
+def test_removing_stops_every_copy_the_template_and_the_link_it_ran_from(
+    manager: ProcessManager, world: World, released: App, store: NoustStore, root: Path
+) -> None:
+    manager.set_process(DOMAIN, worker(instances=2))
+    assert (root / "workers").is_symlink()
+
+    change = manager.remove(DOMAIN, "worker", actor="ana")
+
+    assert change.removed and set(change.stopped) == {f"{WORKER}@1", f"{WORKER}@2"}
+    assert world.templates_removed == [WORKER]
+    assert processes_store.list_processes(DOMAIN, store=store) == []
+    assert not (root / "workers").is_symlink()
+
+
+def test_the_link_stays_while_another_process_needs_it(
+    manager: ProcessManager, released: App, root: Path
+) -> None:
+    manager.set_process(DOMAIN, worker())
+    manager.set_process(DOMAIN, worker(name="scheduler", command="node cron.js"))
+
+    manager.remove(DOMAIN, "worker")
+
+    assert (root / "workers").is_symlink()
+
+
+def test_removing_what_is_not_there_is_refused(manager: ProcessManager, released: App) -> None:
+    with pytest.raises(ValidationError, match="no process called"):
+        manager.remove(DOMAIN, "ghost")
+
+
+def test_deleting_the_application_removes_every_process(
+    manager: ProcessManager, world: World, released: App, store: NoustStore
+) -> None:
+    manager.set_process(DOMAIN, worker())
+    manager.set_process(DOMAIN, worker(name="scheduler", command="node cron.js"))
+
+    stopped = manager.remove_all(DOMAIN)
+
+    assert sorted(stopped) == [f"{BASE}-scheduler@1", f"{WORKER}@1"]
+    assert processes_store.list_processes(DOMAIN, store=store) == []
+
+
+def test_the_rows_go_with_the_application(
+    manager: ProcessManager, released: App, store: NoustStore
+) -> None:
+    manager.set_process(DOMAIN, worker())
+
+    store.delete_app(DOMAIN)
+
+    with store._transaction() as cursor:
+        cursor.execute("SELECT COUNT(*) FROM app_processes")
+        assert cursor.fetchone()[0] == 0
+
+
+# ---------------------------------------------------------------------------
+# Starting, stopping and restarting the application
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("action", ["start", "stop", "restart"])
+def test_what_is_done_to_the_application_is_done_to_its_processes(
+    manager: ProcessManager, world: World, released: App, action: str
+) -> None:
+    manager.set_process(DOMAIN, worker(instances=2))
+    world.control.clear()
+    world.restarted.clear()
+
+    acted = manager.control(DOMAIN, action)
+
+    assert acted == [f"{WORKER}@1", f"{WORKER}@2"]
+    seen = world.restarted if action == "restart" else [name for _, name in world.control]
+    assert seen == acted
+
+
+def test_an_application_with_no_processes_is_left_alone(
+    manager: ProcessManager, world: World, released: App
+) -> None:
+    assert manager.control(DOMAIN, "restart") == []
+    assert world.restarted == []
+
+
+# ---------------------------------------------------------------------------
+# The release link
+# ---------------------------------------------------------------------------
+
+
+def test_activating_a_release_moves_the_workers_with_current(root: Path, released: App) -> None:
+    releases = ReleaseManager(root)
+    releases.point_workers(root / "releases" / FIRST)
+
+    releases.activate(root / "releases" / FIRST)
+
+    assert link(root / "workers") == f"releases/{FIRST}"
+    assert link(root / "current") == f"releases/{FIRST}"
+
+
+def test_an_application_without_processes_gets_no_link_from_an_activation(
+    root: Path, released: App
+) -> None:
+    ReleaseManager(root).activate(root / "releases" / FIRST)
+
+    assert not (root / "workers").exists()
+
+
+def test_the_link_is_never_written_through(root: Path, released: App) -> None:
+    (root / "workers").mkdir()
+
+    with pytest.raises(DeploymentError, match="real directory"):
+        ReleaseManager(root).point_workers(root / "releases" / FIRST)
+
+
+def test_a_release_the_workers_run_is_not_pruned(root: Path, released: App) -> None:
+    releases = ReleaseManager(root)
+    releases.point_workers(root / "releases" / FIRST)
+    releases.activate(root / "releases" / SECOND)
+    releases.point_workers(root / "releases" / FIRST)
+
+    releases.prune(1)
+
+    assert (root / "releases" / FIRST).is_dir()
+
+
+def test_the_workers_release_is_read_back(root: Path, released: App) -> None:
+    releases = ReleaseManager(root)
+    assert releases.workers_release() is None
+
+    releases.point_workers(root / "releases" / FIRST)
+
+    found = releases.workers_release()
+    assert found is not None and found.id == FIRST
+
+
+# ---------------------------------------------------------------------------
+# The health gate
+# ---------------------------------------------------------------------------
+
+
+class Units:
+    """The part of the service manager the gate uses."""
+
+    def __init__(self) -> None:
+        self.restarts: list[str] = []
+
+    def restart(self, name: str) -> None:
+        self.restarts.append(name)
+
+    def logs(self, name: str, lines: int = 50) -> str:
+        return f"{name}: Error: cannot connect to redis"
+
+
+class GateProbe:
+    def __init__(self, result: bool = True) -> None:
+        self.calls = 0
+        self.result = result
+
+    def __call__(self, url: str, **kwargs: Any) -> bool:
+        self.calls += 1
+        return self.result
+
+
+@pytest.fixture
+def gate_world(
+    manager: ProcessManager,
+    world: World,
+    released: App,
+    monkeypatch: pytest.MonkeyPatch,
+    clock: Clock,
+) -> World:
+    """Processes defined, and the gate's own managers pointed at the same world."""
+    manager.set_process(DOMAIN, worker(instances=2))
+    world.restarted.clear()
+
+    def build(**kwargs: Any) -> ProcessManager:
+        return ProcessManager(
+            store=manager.store,
+            services=kwargs.get("services"),
+            runner=world,
+            log=Logger(verbose=False),
+            clock=clock,
+            sleep=clock.sleep,
+        )
+
+    monkeypatch.setattr(app_processes, "ProcessManager", build)
+    return world
+
+
+def gate(units: Units, probe: GateProbe, *, unit: str = BASE) -> HealthGate:
+    return HealthGate(
+        unit=unit,
+        url="http://127.0.0.1:3100/",
+        services=units,  # type: ignore[arg-type]
+        logger=Logger(verbose=False),
+        probe=probe,
+        check=HealthCheck(domain=DOMAIN),
+    )
+
+
+def test_the_gate_restarts_the_copies_with_the_unit_and_passes_when_all_stay_up(
+    gate_world: World,
+) -> None:
+    units = Units()
+    # The copies come up when the gate restarts them.
+    original = units.restart
+
+    def restart(name: str) -> None:
+        original(name)
+        if "@" in name:
+            gate_world.states[name] = ("active", "running", 0)
+
+    units.restart = restart  # type: ignore[method-assign]
+
+    healthy, evidence = gate(units, GateProbe()).restart_and_probe()
+
+    assert (healthy, evidence) == (True, "")
+    assert units.restarts == [BASE, f"{WORKER}@1", f"{WORKER}@2"]
+
+
+def test_a_copy_that_does_not_stay_up_fails_the_gate_with_its_journal(gate_world: World) -> None:
+    units = Units()
+    gate_world.states[f"{WORKER}@1"] = ("active", "running", 0)
+    gate_world.states[f"{WORKER}@2"] = ("failed", "failed", 3)
+
+    healthy, evidence = gate(units, GateProbe()).restart_and_probe()
+
+    assert not healthy
+    assert "These processes did not stay up" in evidence
+    assert f"{WORKER}@2: failed" in evidence
+    assert "cannot connect to redis" in evidence
+
+
+def test_a_web_process_that_does_not_answer_is_judged_before_the_copies(
+    gate_world: World,
+) -> None:
+    units = Units()
+
+    healthy, evidence = gate(units, GateProbe(False)).restart_and_probe()
+
+    assert not healthy and "did not answer the health check" in evidence
+    assert "did not stay up" not in evidence
+
+
+def test_an_instance_of_a_blue_green_template_does_not_restart_the_copies(
+    gate_world: World,
+) -> None:
+    """The engine moves the processes itself, before the traffic."""
+    units = Units()
+
+    healthy, _ = gate(units, GateProbe(), unit=f"{BASE}@blue").restart_and_probe()
+
+    assert healthy
+    assert units.restarts == [f"{BASE}@blue"]
+
+
+def test_a_gate_without_an_application_asks_for_no_copies() -> None:
+    units = Units()
+    plain = HealthGate(
+        unit=BASE,
+        url="http://127.0.0.1:3100/",
+        services=units,  # type: ignore[arg-type]
+        logger=Logger(verbose=False),
+        probe=GateProbe(),
+    )
+
+    assert plain.restart_and_probe() == (True, "")
+    assert units.restarts == [BASE]
+
+
+# ---------------------------------------------------------------------------
+# Blue/green: the copies are proven on the release before the traffic moves
+# ---------------------------------------------------------------------------
+
+
+class FakeProcesses:
+    """What the engine asks of the process manager."""
+
+    ok = True
+
+    def __init__(self, **kwargs: Any) -> None:
+        self.restarted: list[list[str]] = []
+
+    def units_for(self, domain: str) -> list[str]:
+        return [f"{BASE}-worker@1"]
+
+    def restart(self, units: Sequence[str]) -> None:
+        self.restarted.append(list(units))
+        FakeProcesses.log.append(("restart", tuple(units)))
+
+    def settle(self, units: Sequence[str]) -> app_processes.Settled:
+        return app_processes.Settled(
+            ok=FakeProcesses.ok, failed=[] if FakeProcesses.ok else ["x: failed"]
+        )
+
+    def evidence(self, settled: app_processes.Settled, units: Sequence[str]) -> str:
+        return "journal of the worker"
+
+    log: list[Any] = []
+
+
+def test_the_copies_run_the_release_before_nginx_moves_to_it(
+    root: Path, store: NoustStore, app: App, machine: Machine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    switched_on(machine, store, app)
+    FakeProcesses.ok, FakeProcesses.log = True, []
+    monkeypatch.setattr(app_processes, "ProcessManager", FakeProcesses)
+    ReleaseManager(root).point_workers(root / "releases" / SECOND)
+
+    engine(machine, store).activate(root / "releases" / FIRST, ReleaseManager(root))
+
+    assert link(root / "workers") == f"releases/{FIRST}"
+    assert FakeProcesses.log == [("restart", (f"{BASE}-worker@1",))]
+    assert machine.names().index("upstream") > 0
+
+
+def test_a_copy_that_breaks_on_the_release_stops_the_switch_and_goes_back(
+    root: Path, store: NoustStore, app: App, machine: Machine, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    switched_on(machine, store, app)
+    FakeProcesses.ok, FakeProcesses.log = False, []
+    monkeypatch.setattr(app_processes, "ProcessManager", FakeProcesses)
+    ReleaseManager(root).point_workers(root / "releases" / SECOND)
+    before = machine.upstream
+
+    with pytest.raises(RolledBackError, match="processes did not stay up") as caught:
+        engine(machine, store).activate(root / "releases" / FIRST, ReleaseManager(root))
+
+    assert machine.upstream == before, "nginx was never asked to move"
+    assert link(root / "workers") == f"releases/{SECOND}", "the copies run what they ran"
+    assert FakeProcesses.log[-1] == ("restart", (f"{BASE}-worker@1",)), "restarted as they were"
+    assert "journal of the worker" in (caught.value.details or "")
+    row = store.get_app(DOMAIN)
+    assert row is not None and row.active_color == "green"
+
+
+def test_an_application_without_processes_switches_as_it_always_did(
+    root: Path, store: NoustStore, app: App, machine: Machine
+) -> None:
+    switched_on(machine, store, app)
+
+    engine(machine, store).activate(root / "releases" / FIRST, ReleaseManager(root))
+
+    assert not (root / "workers").exists()
+
+
+# ---------------------------------------------------------------------------
+# What a repository declares
+# ---------------------------------------------------------------------------
+
+
+def test_the_repositorys_processes_are_replaced_by_what_it_declares(
+    released: App, store: NoustStore
+) -> None:
+    processes_store.put_process(
+        DOMAIN,
+        worker(name="old", command="old", source="repository"),
+        updated_by="repository",
+        store=store,
+    )
+    processes_store.put_process(
+        DOMAIN, worker(name="mine", command="mine"), updated_by="ana", store=store
+    )
+
+    changed, removed = processes_store.sync_repository(
+        DOMAIN,
+        [worker(name="queue", command="node queue.js"), worker(name="mine", command="theirs")],
+        store=store,
+    )
+
+    assert changed == ["queue"] and removed == ["old"]
+    names = {p.name: p for p in processes_store.list_processes(DOMAIN, store=store)}
+    assert set(names) == {"mine", "queue"}
+    assert names["mine"].command == "mine" and names["mine"].source == "operator"
+    assert names["queue"].source == "repository"
+
+
+def test_a_repository_gives_the_command_not_how_many_copies_this_server_runs(
+    released: App, store: NoustStore
+) -> None:
+    processes_store.put_process(
+        DOMAIN,
+        worker(name="queue", command="node queue.js", instances=5, source="repository"),
+        updated_by="repository",
+        store=store,
+    )
+
+    changed, _ = processes_store.sync_repository(
+        DOMAIN, [worker(name="queue", command="node queue2.js", instances=1)], store=store
+    )
+
+    record = processes_store.get_process(DOMAIN, "queue", store=store)
+    assert changed == ["queue"]
+    assert record is not None and (record.command, record.instances) == ("node queue2.js", 5)
+
+
+def test_a_repository_process_that_did_not_change_is_not_rewritten(
+    released: App, store: NoustStore
+) -> None:
+    declared = [worker(name="queue", command="node queue.js")]
+    processes_store.sync_repository(DOMAIN, declared, store=store)
+
+    changed, removed = processes_store.sync_repository(DOMAIN, declared, store=store)
+
+    assert changed == [] and removed == []
+
+
+def test_the_names_are_derived_in_one_place(released: App) -> None:
+    assert base_name(released, "worker") == WORKER
+    assert instance_name(released, "worker", 3) == f"{WORKER}@3"
+
+
+def test_a_unit_that_cannot_be_written_is_an_error_not_a_half_defined_process(
+    manager: ProcessManager,
+    world: World,
+    released: App,
+    store: NoustStore,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def refuse(name: str, template: str, context: dict[str, Any]) -> Path:
+        raise ServiceError("Refusing to write a unit Noust does not manage")
+
+    monkeypatch.setattr(world, "install_unit", refuse)
+
+    with pytest.raises(ServiceError):
+        manager.set_process(DOMAIN, worker())
+
+    assert processes_store.get_process(DOMAIN, "worker", store=store) is None

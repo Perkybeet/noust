@@ -1468,7 +1468,7 @@ class VolumeBackupManager:
         except (OSError, ValueError, KeyError, TypeError) as exc:
             _log.debug("Error reading %s: %s", sidecar, exc)
             return None
-        return metadata if _ID.match(metadata.id) and sidecar.stem == metadata.id else None
+        return metadata if _ID.fullmatch(metadata.id) and sidecar.stem == metadata.id else None
 
     def get_backup(self, backup_id: str) -> VolumeBackupMetadata | None:
         """
@@ -1480,7 +1480,7 @@ class VolumeBackupManager:
         Returns:
             The metadata, or None.
         """
-        if not _ID.match(backup_id):
+        if not _ID.fullmatch(backup_id):
             return None
         app_name = backup_id.split(".", 1)[0]
         sidecar = self.root / app_name / f"{backup_id}.json"

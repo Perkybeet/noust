@@ -57,7 +57,7 @@ from noust.core import paths
 from noust.core.config_text import CannotEditText, remove_keys
 from noust.core.ens.profile import STANDARD as STANDARD_PROFILE
 from noust.core.ens.profile import SUDO_IDLE_RANGE, SUDO_MAX_RANGE
-from noust.core.exceptions import ConfigError, SecurityError
+from noust.core.exceptions import ConfigError, SecurityError, ValidationError
 from noust.core.fs import SECRET_DIR_MODE, SECRET_MODE, FileSystem, get_fs
 from noust.validators.domain import is_valid_domain
 
@@ -115,6 +115,25 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # browsers remember it for a year, so it is not something to turn on
         # for a domain that may still need plain HTTP. See noust.managers.webserver.
         "hsts": False,
+        # Which certificate authority orders go to: letsencrypt, letsencrypt-staging (for
+        # trying a setup without spending the rate limit), zerossl, google, or custom
+        # with ``acme_server``. zerossl and google need an external account
+        # (``eab_kid`` here, its HMAC key in the secret store: noust cert acme).
+        "ca": "letsencrypt",
+        "acme_server": "",
+        "eab_kid": "",
+        # Whether an application whose name a wildcard certificate already covers
+        # is given that one instead of an order of its own.
+        "reuse_wildcard": True,
+    },
+    "dns": {
+        # The resolvers the "does this name point here?" check asks, in order: the
+        # public DNS the certificate authority's validators ask, not the machine's
+        # own cache. Empty means the machine's resolver.
+        "resolvers": ["1.1.1.1", "8.8.8.8"],
+        # This server's public addresses when it cannot see them itself (behind NAT,
+        # a cloud's 1:1 address). The check and the records Noust creates use them.
+        "public_addresses": [],
     },
     "deploy": {
         # Layout of applications created from now on: "releases" builds each
@@ -138,6 +157,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # How many deployments and updates may wait in the queue before the
         # next one is refused (429 from the API and the webhooks).
         "queue_limit": 25,
+        # How much of systemd's sandbox the unit of a new application runs in
+        # (noust.managers.unit_hardening): "default" (read-only filesystem but
+        # for its own directories, no capability, a system-call filter),
+        # "strict" (adds the privileged calls) or "off". Applications that
+        # already exist keep their unit until `noust app hardening` moves them.
+        "hardening": "default",
     },
     "updates": {
         # Whether noust asks GitHub for the latest release: the CLI's
@@ -163,6 +188,27 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "scan_interval": 60,
         "cpu_threshold": 80.0,
         "memory_threshold": 80.0,
+        # The disk of the applications is announced when it passes this
+        # percentage, looked at no more often than every disk_check_seconds
+        # (0: every scan); renotify_hours > 0 repeats the message while it
+        # stays over (0: one message per crossing).
+        "disk_threshold": 90.0,
+        "disk_check_seconds": 0,
+        "disk_renotify_hours": 0,
+        # A certificate with fewer days than this left is announced.
+        "cert_warning_days": 14,
+        # A scheduled backup with no backup newer than this many days is
+        # announced (0 turns it off), looked at every backup_check_hours and
+        # repeated every backup_missing_renotify_hours while it stays missing.
+        "backup_missing_days": 2,
+        "backup_check_hours": 6,
+        "backup_missing_renotify_hours": 24,
+        # Updates of the operating system waiting are looked for every this
+        # many hours (0 turns it off).
+        "os_patches_check_hours": 24,
+        # An API token is announced this many days before it expires (0 turns
+        # it off).
+        "token_warning_days": 7,
         "log_file": str(DEFAULT_LOG_DIR / "monitor.log"),
         "smtp": {
             "host": "",
@@ -212,9 +258,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
             # A heartbeat, not a problem: an operator who wants a message for
             # every successful scheduled backup turns it on.
             "backup_success": False,
-            # A backup that should have been taken and was not, and a
-            # destination that stopped answering: failures that fail nothing.
-            "backup_missing": True,
+            # A destination that stopped answering fails nothing until the next
+            # upload, which may be days away; see monitor/watch_destinations.py.
             "destination_unreachable": True,
             # A central's own events about the servers it manages.
             "node_unreachable": True,
@@ -228,6 +273,21 @@ DEFAULT_CONFIG: dict[str, Any] = {
             # decision, for the person who asked.
             "approval_requested": True,
             "approval_decided": True,
+            # A user-defined alert rule (noust alert) started or stopped
+            # breaching its threshold.
+            "alert_firing": True,
+            "alert_resolved": True,
+            # A scheduled backup that did not run for days: nothing failed, so
+            # backup_failed never says so.
+            "backup_missing": True,
+            # A cron job (a systemd timer of Noust's) ended with an error; the
+            # success of every run is a heartbeat, off like backup_success.
+            "cron_failed": True,
+            "cron_success": False,
+            # Operating system updates waiting, security ones first.
+            "os_patches": True,
+            # An API token about to expire.
+            "token_expiring": True,
         },
         "channels": {
             # A webhook URL is a capability: Slack and Discord embed the
@@ -245,6 +305,17 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "telegram": {"bot_token": "", "chat_id": ""},
             # Email reuses the monitor's SMTP account (monitor.smtp.*).
             "email": {"enabled": False},
+            # Pushover: the user's key and an application's token. ntfy: the
+            # topic's URL (a capability on a public server) and, if the topic
+            # needs one, an access token. Gotify: the server's URL and an
+            # application token. Teams: a Workflows webhook URL.
+            "pushover": {"user_key": "", "app_token": "", "device": ""},
+            "ntfy": {"webhook_url": "", "token": ""},
+            "gotify": {"webhook_url": "", "token": ""},
+            "teams": {"webhook_url": ""},
+            # Any other key is a further instance with a "type" (a second
+            # Slack, a staging Discord) and may carry its own "events",
+            # "route" and "quiet"; see noust.core.notifications.instances.
         },
     },
     "web": {
@@ -283,12 +354,30 @@ DEFAULT_CONFIG: dict[str, Any] = {
         # every earlier version did - see _validate_allowed_hosts.
         "allowed_hosts": [],
     },
+    "github": {
+        # The GitHub this server's GitHub App talks to: empty is github.com; a host
+        # name (ghe.example.com for GitHub Enterprise Server, acme.ghe.com for
+        # Enterprise Cloud with data residency) points the App, its tokens, its
+        # statuses and the repositories it clones there. Set it before the App is
+        # created. See noust.core.github_host.
+        "host": "",
+    },
     "security": {
         # "standard", or "ens-medium" for Spain's ENS category MEDIUM: it
         # caps the auth settings below at the profile's values and keeps the
         # master token to account recovery. See noust.core.accounts.policy.
         "profile": "standard",
+        # Hosts the machine may send a request to though they resolve to its
+        # own network (a NAS for backups, an artifact server for a source
+        # archive, a webhook on the LAN). Names or address literals, compared
+        # exactly. Empty refuses every internal destination: see
+        # noust.core.outbound.
+        "allow_private_hosts": [],
     },
+    # The Model Context Protocol endpoint (POST /api/mcp): a client with an API token is
+    # given tools to inspect, deploy and control applications. Off until a security officer
+    # turns it on; "groups" are the kinds of tool offered (inspect, deploy, control).
+    "mcp": {"enabled": False, "groups": ["inspect", "deploy", "control"]},
     "auth": {
         # Accounts' sign-in policy (noust.core.accounts.policy): a session
         # unused for idle_minutes, or older than absolute_hours, is over.
@@ -307,6 +396,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
         # Longest life of an API token under the ENS profile, and its default.
         "tokens": {"max_days": 90},
+        # Once single sign-on is in, a password or a passkey need not sign anybody in
+        # (noust.core.accounts.local_login). Off, the accounts in "exempt" - the
+        # break-glass administrators - keep them; the identity provider, the master
+        # token and the command line are untouched. Refused while it would leave
+        # nobody able to administer the server.
+        "local_login": {"enabled": True, "exempt": []},
         # Rights and obligations shown after sign-in and accepted on record;
         # empty for none. Editing it asks everybody to accept it again.
         "notice": {"text": ""},
@@ -340,6 +435,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "enterprise_id": 32473,
         "checkpoint_minutes": 5,
         "sink_lag_minutes": 15,
+        # What a change does when the trail cannot be written (noust.core.audit.failclosed):
+        # warn makes it and is loud about the failure; refuse stops every change until the
+        # trail works. Always refuse under the ENS profile.
+        "on_failure": "warn",
     },
     "retention": {
         # How long Noust keeps its own records (ENS G19); the monitor's
@@ -741,6 +840,34 @@ def _forget_blank_backup_directory(tree: dict[str, Any]) -> None:
         logger.debug("Treating an empty backup.directory as the default %s", DEFAULT_BACKUP_DIR)
 
 
+def _float_range_validator(label: str, low: float, high: float) -> Callable[[Any], float]:
+    """
+    Build a validator that requires a number in a closed range.
+
+    Args:
+        label: Dotted setting name, quoted in the error.
+        low: Smallest accepted value.
+        high: Largest accepted value.
+
+    Returns:
+        A function that returns the value as a float, or raises
+        :class:`ConfigError` naming the setting and the accepted range.
+    """
+
+    def validator(value: Any) -> float:
+        if isinstance(value, bool):
+            raise ConfigError(f"{label} must be a number, not a flag")
+        try:
+            number = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ConfigError(f"{label} must be a number, got {value!r}") from exc
+        if not low <= number <= high:
+            raise ConfigError(f"{label} must be between {low:g} and {high:g}, got {number:g}")
+        return number
+
+    return validator
+
+
 def _int_range_validator(label: str, low: int, high: int) -> Callable[[Any], int]:
     """
     Build a validator that requires a whole number in a closed range.
@@ -788,7 +915,7 @@ def _is_valid_email(value: str) -> bool:
     Returns:
         True if it has the shape of an address.
     """
-    return bool(_EMAIL_PATTERN.match(value))
+    return bool(_EMAIL_PATTERN.fullmatch(value))
 
 
 def _validate_optional_email(label: str) -> Callable[[Any], str]:
@@ -981,6 +1108,31 @@ def _validate_discord_id(key: str, what: str) -> Callable[[Any], str]:
     return validate
 
 
+def _validate_notification_channels(channels: dict[str, Any]) -> None:
+    """
+    Refuse a ``notifications.channels`` block the notifier could not read.
+
+    Delegates to :func:`noust.core.notifications.instances.validate_channels`,
+    the one rule for the shape of a channel instance; imported when called
+    because that package reads its settings through this module.
+
+    Args:
+        channels: The mapping of channel instances about to be stored.
+
+    Raises:
+        ConfigError: Naming the channel and the setting that is not acceptable.
+    """
+    from noust.core.notifications.instances import validate_channels
+
+    try:
+        validate_channels(channels)
+    except ValueError as exc:
+        raise ConfigError(
+            str(exc),
+            details="See docs/CONFIG.md, 'Notification channels', for what a channel accepts.",
+        ) from exc
+
+
 def _validate_notification_language(value: Any) -> str:
     """
     Accept the language Noust's own notification texts are rendered in.
@@ -1033,6 +1185,24 @@ def _validate_server_name(value: Any) -> str:
             details=f"Got {text[:70]!r}.",
         )
     return text
+
+
+def _validate_github_host(value: Any) -> str:
+    """
+    Accept the GitHub host the integration talks to, or leave it unset.
+
+    Args:
+        value: The candidate value, from either front end.
+
+    Returns:
+        The host lowercased, or ``""`` for github.com.
+
+    Raises:
+        ConfigError: When it is not a host name.
+    """
+    from noust.core.github_host import validate_host
+
+    return validate_host(value)
 
 
 def _validate_public_url(value: Any) -> str:
@@ -1100,18 +1270,55 @@ def _validate_hooks_url(value: Any) -> str:
 
 def _validate_allowed_hosts(value: Any) -> list[str]:
     """
-    Accept the Host header values the console answers to.
+    Accept the Host header values the console answers to (``web.allowed_hosts``).
 
     Each entry is a host name, an IP address, or ``*.example.com`` for every
-    subdomain of a domain. No scheme, no port and no path: the check compares
-    the host part of the Host header only, so an entry with more than that
+    subdomain of a domain; see :func:`_host_list`.
+
+    Args:
+        value: The candidate list, from either front end.
+
+    Returns:
+        The normalised entries.
+
+    Raises:
+        ConfigError: As :func:`_host_list`.
+    """
+    return _host_list("web.allowed_hosts", value, wildcards=True)
+
+
+def _validate_private_hosts(value: Any) -> list[str]:
+    """
+    Accept the internal hosts a request may be sent to (``security.allow_private_hosts``).
+
+    Args:
+        value: The candidate list, from either front end.
+
+    Returns:
+        The normalised entries; names and address literals, no wildcard.
+
+    Raises:
+        ConfigError: As :func:`_host_list`.
+    """
+    return _host_list("security.allow_private_hosts", value, wildcards=False)
+
+
+def _host_list(key: str, value: Any, *, wildcards: bool) -> list[str]:
+    """
+    Normalise a list of host names, as two settings hold them.
+
+    Each entry is a host name or an IP address, and with ``wildcards`` also
+    ``*.example.com`` for every subdomain of a domain. No scheme, no port and no
+    path: the check compares the host part only, so an entry with more than that
     could never match and would look like protection that is not there.
 
     Accepts a comma-separated string too, which is all ``noust config set``
     can hand over without ``--list``.
 
     Args:
+        key: The setting, named in the error.
         value: The candidate list, from either front end.
+        wildcards: Whether ``*.example.com`` is an entry.
 
     Returns:
         The entries, lowercased and without a trailing dot; empty entries and
@@ -1126,9 +1333,10 @@ def _validate_allowed_hosts(value: Any) -> list[str]:
     elif isinstance(value, (list, tuple)):
         raw = [str(item) for item in value]
     else:
+        example = "console.example.com" + (" or *.example.com" if wildcards else "")
         raise ConfigError(
-            "web.allowed_hosts must be a list of host names",
-            details=f"Got {value!r}. Use names such as console.example.com or *.example.com.",
+            f"{key} must be a list of host names",
+            details=f"Got {value!r}. Use names such as {example}.",
         )
 
     hosts: list[str] = []
@@ -1136,7 +1344,7 @@ def _validate_allowed_hosts(value: Any) -> list[str]:
         entry = item.strip().lower().rstrip(".")
         if not entry:
             continue
-        name = entry[2:] if entry.startswith("*.") else entry
+        name = entry[2:] if wildcards and entry.startswith("*.") else entry
         try:
             ipaddress.ip_address(entry)
             is_address = True
@@ -1146,16 +1354,46 @@ def _validate_allowed_hosts(value: Any) -> list[str]:
             valid, reason = is_valid_domain(name)
             if not valid or "*" in name or ":" in name or "/" in name:
                 raise ConfigError(
-                    f"web.allowed_hosts: {item.strip()!r} is not a host name",
+                    f"{key}: {item.strip()!r} is not a host name",
                     details=(
                         f"{reason or 'Only the host is compared'}. Write the name alone, "
-                        "without scheme, port or path: console.example.com, or "
-                        "*.example.com for every subdomain."
+                        "without scheme, port or path: console.example.com"
+                        + (", or *.example.com for every subdomain." if wildcards else ".")
                     ),
                 )
         if entry not in hosts:
             hosts.append(entry)
     return hosts
+
+
+#: What ``deploy.hardening`` may be. Mirrored by noust.core.unit_hardening_store.PROFILES,
+#: which imports this module's store and cannot be imported here.
+HARDENING_PROFILES = ("off", "default", "strict")
+
+
+def _validate_hardening(value: Any) -> str:
+    """
+    Accept one of the hardening profiles a new application's unit can have.
+
+    Args:
+        value: Candidate profile.
+
+    Returns:
+        The profile, lower-cased.
+
+    Raises:
+        ConfigError: When it is not one of :data:`HARDENING_PROFILES`.
+    """
+    profile = str(value or "").strip().lower()
+    if profile not in HARDENING_PROFILES:
+        raise ConfigError(
+            f"deploy.hardening must be one of {', '.join(HARDENING_PROFILES)}, not {value!r}",
+            details=(
+                "'default' takes away what a web application does not need; 'strict' also "
+                "bans privileged system calls; 'off' leaves the unit as it was before 3.4."
+            ),
+        )
+    return profile
 
 
 #: What ``central.role`` may be. Mirrored by noust.central.ROLES, which this
@@ -1188,6 +1426,115 @@ def _validate_central_role(value: Any) -> str:
     return role
 
 
+#: The certificate authorities ``ssl.ca`` may name.
+ACME_CAS: tuple[str, ...] = ("letsencrypt", "letsencrypt-staging", "zerossl", "google", "custom")
+
+
+def _validate_acme_ca(value: Any) -> str:
+    """
+    Accept one of the certificate authorities Noust knows.
+
+    Args:
+        value: Candidate name.
+
+    Returns:
+        The name, lower-cased.
+
+    Raises:
+        ConfigError: When it is not one of :data:`ACME_CAS`.
+    """
+    ca = str(value or "").strip().lower()
+    if ca not in ACME_CAS:
+        raise ConfigError(
+            f"ssl.ca must be one of {', '.join(ACME_CAS)}, not {value!r}",
+            details="'custom' uses the directory URL in ssl.acme_server.",
+        )
+    return ca
+
+
+def _validate_acme_server(value: Any) -> str:
+    """
+    Accept the directory URL of a certificate authority, or leave it unset.
+
+    Args:
+        value: Candidate URL.
+
+    Returns:
+        The URL, or ``""`` when unset.
+
+    Raises:
+        ConfigError: When it is set and is not an https URL without credentials.
+    """
+    text = "" if value is None else str(value).strip()
+    if not text:
+        return ""
+    parsed = urlparse(text)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        raise ConfigError(
+            "ssl.acme_server must be an https:// directory URL without credentials",
+            details=f"Got {text!r}. Use the address your certificate authority publishes, "
+            "such as https://acme.example.com/directory.",
+        )
+    if any(char.isspace() or char in "\"'`$;|&<>" for char in text):
+        raise ConfigError("ssl.acme_server has characters a URL does not", details=f"Got {text!r}.")
+    return text
+
+
+def _validate_eab_kid(value: Any) -> str:
+    """
+    Accept the key id of an external account, or leave it unset.
+
+    Args:
+        value: Candidate id.
+
+    Returns:
+        The id, or ``""`` when unset.
+
+    Raises:
+        ConfigError: When it holds anything but letters, digits and ``-_.``.
+    """
+    text = "" if value is None else str(value).strip()
+    if text and not re.fullmatch(r"[A-Za-z0-9_.-]{4,256}", text):
+        raise ConfigError("ssl.eab_kid is the key id the certificate authority gave you")
+    return text
+
+
+def _validate_address_list(label: str) -> Callable[[Any], list[str]]:
+    """
+    Build a validator for a list of IP addresses.
+
+    Args:
+        label: Name used in the error message.
+
+    Returns:
+        A function turning a list (or a comma-separated string, as the command line
+        gives it) into a list of canonical addresses, and refusing anything else.
+    """
+
+    def validator(value: Any) -> list[str]:
+        if value is None or value == "":
+            return []
+        items = value.split(",") if isinstance(value, str) else value
+        if not isinstance(items, (list, tuple)):
+            raise ConfigError(f"{label} must be a list of IP addresses", details=f"Got {value!r}.")
+        found: list[str] = []
+        for item in items:
+            try:
+                address = str(ipaddress.ip_address(str(item).strip()))
+            except ValueError:
+                raise ConfigError(
+                    f"{label} holds {item!r}, which is not an IP address",
+                    details="Use addresses such as 1.1.1.1 or 2606:4700:4700::1111.",
+                ) from None
+            if address not in found:
+                found.append(address)
+        if len(found) > 8:
+            raise ConfigError(f"{label} may hold at most 8 addresses")
+        return found
+
+    return validator
+
+
 def _validate_flag(label: str) -> Callable[[Any], bool]:
     """
     Build a validator for a yes/no setting.
@@ -1211,6 +1558,111 @@ def _validate_flag(label: str) -> Callable[[Any], bool]:
         raise ConfigError(f"{label} must be true or false", details=f"Got {value!r}.")
 
     return validator
+
+
+#: The kinds of tool the MCP endpoint offers; noust.web.mcp.tools.GROUPS says the same, and
+#: a test holds the two together (this module cannot import the console).
+MCP_GROUPS = ("inspect", "deploy", "control")
+
+
+def _validate_choice(label: str, choices: tuple[str, ...]) -> Callable[[Any], str]:
+    """
+    Build a validator for a setting that is one of a few words.
+
+    Args:
+        label: Name used in the error message.
+        choices: The words accepted.
+
+    Returns:
+        A function returning the word, lower-cased, and refusing anything else.
+    """
+
+    def validator(value: Any) -> str:
+        word = str(value).strip().lower()
+        if word not in choices:
+            raise ConfigError(
+                f"{label} must be one of: {', '.join(choices)}", details=f"Got {value!r}."
+            )
+        return word
+
+    return validator
+
+
+def _validate_mcp_groups(value: Any) -> list[str]:
+    """
+    Accept the groups of MCP tools on offer.
+
+    Args:
+        value: A list of group names, or text with them separated by commas.
+
+    Returns:
+        The groups, in a fixed order, without repeats.
+
+    Raises:
+        ConfigError: When one is not a group.
+    """
+    items = value.replace(",", " ").split() if isinstance(value, str) else value
+    if not isinstance(items, (list, tuple)):
+        raise ConfigError("mcp.groups must be a list", details=f"Got {value!r}.")
+    unknown = sorted({str(item) for item in items} - set(MCP_GROUPS))
+    if unknown:
+        raise ConfigError(
+            f"Unknown MCP group: {', '.join(unknown)}",
+            details=f"Use any of: {', '.join(MCP_GROUPS)}.",
+        )
+    return [group for group in MCP_GROUPS if group in {str(item) for item in items}]
+
+
+def _validate_local_login_enabled(value: Any) -> bool:
+    """
+    Accept a yes or a no for the password and passkey sign-in, and refuse a no
+    that would lock the administrators out.
+
+    Args:
+        value: What was written.
+
+    Returns:
+        The flag.
+
+    Raises:
+        ConfigError: When it is neither, or turning it off would leave nobody
+            able to administer the server.
+    """
+    enabled = _validate_flag("auth.local_login.enabled")(value)
+    if not enabled:
+        # Imported here: the accounts read this module's configuration.
+        from noust.core.accounts.local_login import refuse_to_turn_off
+
+        try:
+            refuse_to_turn_off()
+        except ValidationError as exc:
+            raise ConfigError(exc.message, details=exc.details) from exc
+    return enabled
+
+
+def _validate_local_login_exempt(value: Any) -> list[str]:
+    """
+    Accept the break-glass accounts that keep their password.
+
+    Args:
+        value: A list of usernames, or text with them separated by commas.
+
+    Returns:
+        The usernames, normalised.
+
+    Raises:
+        ConfigError: When one is not a username, or removing one while the
+            password sign-in is off would leave nobody able to administer.
+    """
+    from noust.core.accounts.local_login import clean_exempt, load_policy, refuse_to_turn_off
+
+    try:
+        names = clean_exempt(value)
+        if not load_policy().enabled:
+            refuse_to_turn_off(exempt=names)
+    except ValidationError as exc:
+        raise ConfigError(exc.message, details=exc.details) from exc
+    return names
 
 
 def _validate_sudo_section(section: dict[str, Any]) -> None:
@@ -1294,6 +1746,11 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "auth.sudo.idle_minutes": _int_range_validator("auth.sudo.idle_minutes", *SUDO_IDLE_RANGE),
     "auth.sudo.max_minutes": _int_range_validator("auth.sudo.max_minutes", *SUDO_MAX_RANGE),
     "auth.sudo.require_password": _validate_flag("auth.sudo.require_password"),
+    "audit.on_failure": _validate_choice("audit.on_failure", ("warn", "refuse")),
+    "mcp.enabled": _validate_flag("mcp.enabled"),
+    "mcp.groups": _validate_mcp_groups,
+    "auth.local_login.enabled": _validate_local_login_enabled,
+    "auth.local_login.exempt": _validate_local_login_exempt,
     "terminal.enabled": _validate_flag("terminal.enabled"),
     "terminal.idle_minutes": _int_range_validator("terminal.idle_minutes", 1, 120),
     "terminal.max_minutes": _int_range_validator("terminal.max_minutes", 1, 720),
@@ -1305,7 +1762,14 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "terminal.exec.max_seconds": _int_range_validator("terminal.exec.max_seconds", 1, 86400),
     "retention.terminal_days": _int_range_validator("retention.terminal_days", 1, 3650),
     "central.role": _validate_central_role,
+    "dns.resolvers": _validate_address_list("dns.resolvers"),
+    "dns.public_addresses": _validate_address_list("dns.public_addresses"),
+    "ssl.ca": _validate_acme_ca,
+    "ssl.acme_server": _validate_acme_server,
+    "ssl.eab_kid": _validate_eab_kid,
+    "ssl.reuse_wildcard": _validate_flag("ssl.reuse_wildcard"),
     "deploy.zero_downtime": _validate_flag("deploy.zero_downtime"),
+    "deploy.hardening": _validate_hardening,
     # The largest drain an application may ask for is store.MAX_DRAIN_SECONDS;
     # this module cannot import the store, and a test holds the two together.
     "deploy.drain_seconds": _int_range_validator("deploy.drain_seconds", 0, 300),
@@ -1315,8 +1779,10 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "web.port": _int_range_validator("web.port", 1, 65535),
     "web.session_timeout": _int_range_validator("web.session_timeout", 300, 86400),
     "web.public_url": _validate_public_url,
+    "github.host": _validate_github_host,
     "web.hooks_url": _validate_hooks_url,
     "web.allowed_hosts": _validate_allowed_hosts,
+    "security.allow_private_hosts": _validate_private_hosts,
     # The one key every deployer, noust.core.config.Config.apps_directory and
     # the panel's disk usage meter read. "apps.directory" is a deprecated
     # dotted alias, resolved to this key by _canonical_key() before a
@@ -1325,6 +1791,19 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     # Empty is stored as the default; relative is refused. See
     # resolve_backup_directory for the server this came from.
     "backup.directory": _validate_backup_directory,
+    "monitor.disk_threshold": _float_range_validator("monitor.disk_threshold", 1, 100),
+    "monitor.disk_check_seconds": _int_range_validator("monitor.disk_check_seconds", 0, 86400),
+    "monitor.disk_renotify_hours": _int_range_validator("monitor.disk_renotify_hours", 0, 720),
+    "monitor.cert_warning_days": _int_range_validator("monitor.cert_warning_days", 1, 365),
+    "monitor.backup_missing_days": _int_range_validator("monitor.backup_missing_days", 0, 365),
+    "monitor.backup_check_hours": _int_range_validator("monitor.backup_check_hours", 1, 168),
+    "monitor.backup_missing_renotify_hours": _int_range_validator(
+        "monitor.backup_missing_renotify_hours", 1, 720
+    ),
+    "monitor.os_patches_check_hours": _int_range_validator(
+        "monitor.os_patches_check_hours", 0, 720
+    ),
+    "monitor.token_warning_days": _int_range_validator("monitor.token_warning_days", 0, 365),
     "monitor.smtp.host": _validate_smtp_host,
     "monitor.smtp.port": _int_range_validator("monitor.smtp.port", 1, 65535),
     "monitor.smtp.from_address": _validate_optional_email("monitor.smtp.from_address"),
@@ -1347,6 +1826,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
 _SECTION_VALIDATORS: dict[str, Callable[[dict[str, Any]], None]] = {
     "monitor.smtp": _validate_smtp_section,
     "auth.sudo": _validate_sudo_section,
+    "notifications.channels": _validate_notification_channels,
 }
 
 
@@ -1657,7 +2137,15 @@ SECRET_KEY_MARKERS: frozenset[str] = frozenset(
 # "require_password" is auth.sudo's switch for asking the password again when
 # someone confirms it's them: a boolean, not a password.
 NON_SECRET_KEYS: frozenset[str] = frozenset(
-    {"token_expiration_hours", "node_host_key_changed", "require_password"}
+    {
+        "token_expiration_hours",
+        "node_host_key_changed",
+        "require_password",
+        # The days before an API token expires from which the monitor says so.
+        "token_warning_days",
+        # An event switch, like node_host_key_changed: whether to say a token expires.
+        "token_expiring",
+    }
 )
 
 REDACTED = "***"
@@ -2312,10 +2800,21 @@ class Config:
         # checked as it will read after this write, siblings included.
         container_key = ".".join(keys[:-1])
         section_validator = _SECTION_VALIDATORS.get(container_key)
-        if section_validator is not None:
+        if container_key == "notifications.channels":
+            # Adding or replacing one channel is judged on that channel alone:
+            # a block somebody broke by hand elsewhere in the file must not
+            # stop a good one from being saved (the error would name the
+            # wrong channel).
+            _validate_notification_channels({leaf: resolved})
+        elif section_validator is not None:
             prospective = dict(config)
             prospective[leaf] = resolved
             section_validator(prospective)
+        elif len(keys) == 4 and keys[:2] == ["notifications", "channels"]:
+            # One setting of one channel, checked as the channel will read.
+            prospective = dict(config)
+            prospective[leaf] = resolved
+            _validate_notification_channels({keys[2]: prospective})
 
         config[leaf] = resolved
 

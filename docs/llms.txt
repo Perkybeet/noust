@@ -1,0 +1,34 @@
+# Noust
+
+> Noust deploys web applications on Linux servers: Nginx or Apache, TLS, systemd, databases and backups, every deploy a health-gated release with instant rollback, and an optional browser console over a JSON API.
+
+Noust (previously WASM) is a Python 3.10+ command line, run as root on the server it manages, with a browser console and a JSON API at /api (OpenAPI at /api/openapi.json). Other servers, scripts and MCP clients use the API with a bearer token: the command line can drive a server remotely (noust --context NAME ...), and POST /api/mcp speaks the Model Context Protocol. Variables' values and secrets are never given to a client.
+
+## Documentation
+
+- [API](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/api.md): The JSON API: authentication, tokens, errors, versions, jobs, events and every area
+- [The MCP endpoint](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/mcp.md): The MCP endpoint: tools, prompts, resources, guardrails and how to connect a client
+- [Operating a server from elsewhere](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/remote.md): Operating a server from elsewhere: contexts, tokens that never go in an argument, exit codes
+- [A server written down: the manifest](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/manifest.md): A server written down: validate, plan, apply and export a manifest
+- [Security](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/security.md): The security model: roles, tokens, sudo mode, four eyes, audit, what is not defended
+- [Teams, projects and environments](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/teams.md): Teams, projects and environments; roles on a project; tokens bound to a team
+- [Single sign-on (OpenID Connect)](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/sso.md): Single sign-on with OpenID Connect and turning the password sign-in off
+- [The console](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/console.md): The browser console, screen by screen
+- [Configuration reference](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/CONFIG.md): Every configuration setting, its default and what it does
+- [Releases](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/releases.md): Releases, the health gate and rollback
+- [Docker Compose](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/compose.md): Docker Compose applications, hooks, the relay and adopting a stack
+- [Container applications](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/containers.md): Container applications: a Dockerfile, a registry image or Railpack
+- [Build, start and runtime](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/build.md): How an application is built: commands, runtimes, the sandbox
+- [Recipes](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/recipes.md): The catalogue of applications that install with one command
+- [Databases](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/databases.md): Databases: engines, instances, access, backups and imports
+- [Domains](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/domains.md): Domains, certificates and DNS
+- [Backups and disaster recovery](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/disaster-recovery.md): Backing up Noust itself and restoring a server
+- [Terminal and one-off commands](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/terminal.md): The terminal and one-off commands in the browser
+- [The Noust central](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/CENTRAL.md): Running a central that manages several servers
+- [Resource monitor](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/MONITOR.md): The monitor, observations and notifications
+- [Noust y el Esquema Nacional de Seguridad (categoría MEDIA)](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/ENS.md): The ENS category MEDIUM profile and its evidence
+- [Platforms and the installer](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/PLATFORMS.md): Supported operating systems, processors and the installer
+
+## Optional
+
+- [The documentation in one file](https://raw.githubusercontent.com/Perkybeet/noust/main/docs/llms-full.txt): every document above, in order (published with each release)

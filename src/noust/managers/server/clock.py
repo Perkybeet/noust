@@ -196,10 +196,10 @@ def is_offered_zone(name: str) -> bool:
     """
     if name == "UTC":
         return True
-    if not _ZONE.match(name) or "/" not in name:
+    if not _ZONE.fullmatch(name) or "/" not in name:
         return False
     if name.startswith("Etc/"):
-        return bool(_ETC_ZONE.match(name))
+        return bool(_ETC_ZONE.fullmatch(name))
     return name.split("/", 1)[0] in _ZONE_REGIONS
 
 
@@ -373,7 +373,7 @@ class ClockManager:
             True when the tz database has it. The shape is checked first, so a
             name cannot walk out of the zoneinfo directory.
         """
-        if not isinstance(name, str) or not _ZONE.match(name) or ".." in name:
+        if not isinstance(name, str) or not _ZONE.fullmatch(name) or ".." in name:
             return False
         try:
             from zoneinfo import available_timezones

@@ -125,6 +125,8 @@ _BODY_DATABASE = Ref(DATABASE, BODY, ("engine", "database"))
 #: ``/api/databases/public/{engine}/{database}``: the same resource, whose path names it so.
 _PUBLIC_DATABASE = Ref(DATABASE, PATH, ("engine", "database"))
 _BODY_DOMAIN = Ref(APP, BODY, ("domain",))
+#: The application a release is promoted to: named in the body, and as visible as the source.
+_BODY_TARGET = Ref(APP, BODY, ("target",))
 
 #: The table, most specific first.
 RULES: tuple[Rule, ...] = (
@@ -132,13 +134,27 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/apps", SCOPED),
     _rule("/api/apps/types", OPEN),
     _rule("/api/apps/inspect", SCOPED),
+    # Reading a repository's workspaces fetches a few of its files, as inspecting it does;
+    # creating an application per workspace is creating applications, as importing one is.
+    _rule("/api/workspaces/inspect", SCOPED),
+    _rule("/api/workspaces/deploy", INSTANCE),
     # An export document may carry cron jobs and previews, which run as root or reach
     # other applications: a team member does not get to apply one.
     _rule("/api/apps/import", INSTANCE),
+    # Reading another platform's server to bring an application over: creating applications
+    # is the instance's, as POST /api/apps/import is.
+    _rule("/api/import/**", INSTANCE),
+    # Registry accounts are credentials of the server.
+    _rule("/api/registries/**", INSTANCE),
     # Adopting a stack that already runs reaches containers nobody here owns.
     _rule("/api/apps/adopt", INSTANCE),
     # A database linked to an application changes owner with it, so it must be visible too.
+    # An account for a private registry is a credential of the server: choosing which
+    # applications use it is the server's, not a team's.
+    _rule("/api/apps/{domain}/registry-logins", INSTANCE, methods=("PUT",)),
     _rule("/api/apps/{domain}/databases/link", RESOURCE, _APP, _BODY_DATABASE),
+    # A release goes from an application to another: both must be visible.
+    _rule("/api/apps/{domain}/promote", RESOURCE, _APP, _BODY_TARGET, methods=("POST",)),
     _rule("/api/apps/{domain}/databases/{engine}/{name}/**", RESOURCE, _APP, _DATABASE),
     _rule("/api/apps/{domain}/**", RESOURCE, _APP),
     # --- the terminal ---------------------------------------------------------
@@ -155,8 +171,20 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/sites/reload", INSTANCE),
     _rule("/api/sites/{domain}/**", RESOURCE, _DOMAIN),
     _rule("/api/domains/dns", OPEN),
+    # The ranges Cloudflare publishes, and the sites that trust them: the server's.
+    _rule("/api/policy/**", INSTANCE),
+    # DNS accounts hold a credential that edits the server's zones: the server's.
+    _rule("/api/dns/**", INSTANCE),
+    # A published TCP or UDP port changes nginx and the firewall: the server's.
+    _rule("/api/streams/**", INSTANCE),
+    # A tunnel runs a connector as a service with a token and edits DNS: the server's.
+    _rule("/api/tunnels/**", INSTANCE),
     _rule("/api/certs", SCOPED),
     _rule("/api/certs/renew-all", INSTANCE),
+    # Which authority orders, and the certificates uploaded: the server's. A team member
+    # picks one for its application through /api/apps/{domain}/certificate.
+    _rule("/api/certs/acme/**", INSTANCE),
+    _rule("/api/certs/uploaded/**", INSTANCE),
     _rule("/api/certs/{domain}/**", RESOURCE, _DOMAIN),
     # --- databases ------------------------------------------------------------
     _rule("/api/databases/databases", SCOPED),
@@ -203,9 +231,16 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/backup-schedules/{domain}", RESOURCE, _APP),
     _rule("/api/backups/**", INSTANCE),
     _rule("/api/backup-destinations/**", INSTANCE),
+    # Where the logs of applications leave the server for: the server's.
+    _rule("/api/log-drains/**", INSTANCE),
     # Volumes, and Noust's own backup, are copies of the machine's disks and of its state.
     _rule("/api/volume-backups/**", INSTANCE),
     _rule("/api/self-backup/**", INSTANCE),
+    # --- tags -----------------------------------------------------------------------
+    # Which applications carry a tag, and deploying them, are the caller's own: the handler
+    # asks the scoped store, so a tag in one team is not the same tag in another.
+    _rule("/api/tags", SCOPED),
+    _rule("/api/tags/{tag}/deploy", SCOPED),
     # --- deploy keys -----------------------------------------------------------
     # A key is found by repository, so one may reach the applications of several teams: the
     # list shows each team the keys of the repositories its applications are built from.
@@ -217,11 +252,17 @@ RULES: tuple[Rule, ...] = (
     _rule(
         "/api/deployments/{deployment_id}/**", RESOURCE, Ref(DEPLOYMENT, PATH, ("deployment_id",))
     ),
+    # Several applications in one call: a token that sees every team. A team's token deploys
+    # its own applications one at a time, at /api/apps/{domain}/deploy.
+    _rule("/api/deploy", INSTANCE, methods=("POST",)),
     _rule("/api/jobs", SCOPED),
     _rule("/api/jobs/active", SCOPED),
     _rule("/api/jobs/queue", SCOPED),
     _rule("/api/jobs/cleanup", INSTANCE),
     _rule("/api/jobs/update", RESOURCE, _BODY_DOMAIN),
+    # A group is chosen by team, project or environment: the handler reads through the scoped
+    # store and holds each application to the caller's permission where it lives.
+    _rule("/api/jobs/update-many", SCOPED),
     _rule("/api/jobs/delete", RESOURCE, _BODY_DOMAIN),
     _rule("/api/jobs/backup", RESOURCE, _BODY_DOMAIN),
     _rule("/api/jobs/rollback", RESOURCE, _BODY_DOMAIN),
@@ -237,6 +278,18 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/teams/{team}/**", RESOURCE, Ref(TEAM, PATH, ("team",))),
     _rule("/api/projects", SCOPED),
     _rule("/api/environments", SCOPED),
+    # The catalogue of roles is what a team's owner offers; defining one and giving a role on
+    # the whole server are the server's. Who holds what inside one team is the team's own
+    # (/api/teams/{team}/access, above).
+    _rule("/api/access/roles", OPEN, methods=("GET",)),
+    _rule("/api/access/roles/{role}", OPEN, methods=("GET",)),
+    _rule("/api/access/**", INSTANCE),
+    # A client's endpoint answers whoever holds a token; each tool it calls is a request to the
+    # API as that token and is held to its team and permissions there. Turning it on is the server's.
+    _rule("/api/mcp/settings", INSTANCE),
+    _rule("/api/mcp/**", OPEN),
+    # A preview reads through the API as the caller, so every route it meets holds it to its team.
+    _rule("/api/manifest/**", OPEN),
     # --- the rest is about the server, or about nobody ------------------------
     _rule("/api/auth/**", OPEN),
     _rule("/api/approvals/**", OPEN),
@@ -257,6 +310,10 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/recipes/catalog/**", INSTANCE),
     _rule("/api/recipes/**", OPEN),
     _rule("/api/central/**", OPEN),
+    # The server's own shared variables, and the secret managers whose tokens reach into
+    # other systems: decisions about what any deploy of any team can fetch.
+    _rule("/api/variables/**", INSTANCE),
+    _rule("/api/secret-providers/**", INSTANCE),
     _rule("/api/ens/inventory/**", INSTANCE),
     _rule("/api/ens/**", OPEN),
     _rule("/api/system/version", OPEN),
@@ -272,6 +329,10 @@ RULES: tuple[Rule, ...] = (
     _rule("/api/cron/**", INSTANCE),
     _rule("/api/monitor/**", INSTANCE),
     _rule("/api/metrics/**", INSTANCE),
+    # The rules watch the server's metrics, and the channels hold the keys to the
+    # places its alerts go; the record of deliveries names every team's applications.
+    _rule("/api/alerts/**", INSTANCE),
+    _rule("/api/notifications/**", INSTANCE),
     _rule("/api/overview", INSTANCE),
     _rule("/api/timeline", INSTANCE),
     _rule("/api/integrations/**", INSTANCE),

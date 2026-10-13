@@ -28,6 +28,7 @@ from typing import Any
 import pytest
 
 from noust.core.runner import FakeRunner
+from tests.network_tables import NetworkTables
 
 SRC_ROOT = Path(__file__).resolve().parents[1] / "src" / "noust"
 
@@ -311,7 +312,7 @@ def _find_missing_methods() -> list[tuple[str, int, str]]:
     return missing
 
 
-class FakeStore:
+class FakeStore(NetworkTables):
     """A stand-in for :class:`~noust.core.store.NoustStore`."""
 
     def __init__(self, db_path: Path | None = None) -> None:
@@ -488,6 +489,8 @@ def health_environment(monkeypatch: pytest.MonkeyPatch, fake_store: FakeStore) -
     # The hardening checks read their own tables, which this stand-in does not
     # have; they are tested in test_server_security_checks.py.
     monkeypatch.setattr("noust.managers.health.run_checks", lambda **_kw: None)
+    # So does the posture check (destinations, nodes); test_security_posture.py has it.
+    monkeypatch.setattr("noust.managers.security_posture.collect", list)
     return fake_store
 
 

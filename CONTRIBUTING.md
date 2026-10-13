@@ -391,6 +391,13 @@ decided in the data layer, not in the routes.
 - Google-style docstrings on everything public, with Args/Returns/Raises.
 - Type hints everywhere, modern syntax (`X | None`, `list[str]`).
 - Actionable errors: `raise DeploymentError("what happened", details="how to fix it")`.
+- A pattern that judges text is applied with `fullmatch`, never `match` plus a `$`: `$` matches before a
+  trailing newline, which is how `validate_app_name("shop\n")` was once accepted.
+  `tests/test_regex_anchors.py` fails on a new one. Text a person or a repository supplies is judged
+  at one place by an allowlist (`validators/`), and that place is attacked by
+  `tests/test_adversarial_inputs.py`: add a class there when you add a validator.
+- Anything that opens a request to a host somebody typed goes through `core/outbound.py`
+  (`require_public_host`), never its own resolver.
 - Comments explain **why**, never what.
 - No emojis in code, comments or commit messages.
 - Absolute paths in systemd units; `shutil.which()` or `/usr/bin/`, never nvm paths.
@@ -410,6 +417,7 @@ ruff format src/noust tests     # format (blocking in CI)
 mypy                            # types (blocking in CI)
 
 python scripts/release.py --check         # version consistency
+python scripts/security_model.py --write  # regenerate docs/SECURITY-MODEL.md after changing a role, a header, a route or a guarantee
 ```
 
 The console needs Node 22 (the major in `panel/.nvmrc`); CI runs every one of these:
@@ -421,6 +429,7 @@ npm run typecheck               # tsc, strict
 npm test                        # vitest unit + component tests (axe included)
 npm run check:api               # schema.gen.ts matches openapi.json (npm run gen:api to fix)
 npm run build                   # writes src/noust/web/static: commit the result
+npm run check:bundle            # the build's gzip weight against panel/bundle-budget.json
 npm run e2e                     # Playwright: every page, both themes, zero axe/CSP violations
 npm run e2e:screens             # screenshots of every route, both themes + 390px mobile
 ```
@@ -456,9 +465,30 @@ git push && git push origin v1.0.0
 `rpm/`, the `.dsc` in `obs/` and both changelogs. CI runs `--check` and refuses to publish on a mismatch.
 Do not edit those files by hand.
 
+A release that fixes a vulnerability is released with a changelog bullet that starts `SECURITY:`
+(`-m "SECURITY: what it fixes (GHSA-xxxx-xxxx-xxxx)"`). `release.yml` then titles the GitHub release
+"(security release)", which the update check reads so that every installation behind it, its
+`noust health` and its console say so. The same release renews `.well-known/security.txt`.
+
 GitHub Actions publishes to PyPI and OBS on tag push, and the central's container image to
 `ghcr.io/perkybeet/noust`.
 **OBS builds**: https://build.opensuse.org/package/show/home:Perkybeet/noust (15-30 min)
+
+A release is **announced only when every distribution serves it**. The GitHub release is created as
+a pre-release (servers' update checks and `releases/latest/download/install.sh` read the latest
+one), `release.yml` then waits in `obs-published` (`scripts/obs_published.py`, which reads the
+published index of each repository of `managers/server/platforms.py`, the product and the
+transitional package) and only the `announce` job makes it the latest. Run
+`python scripts/obs_published.py vX.Y.Z` by hand to see who is behind. The console's Fleet >
+Updates shows the target version and how many servers are there, and the self-update (the console's
+and the fleet's "Update Noust") upgrades the transitional package with `noust` when it is installed.
+
+The pictures of the console in the README and the guides (`docs/assets/console/`) are recorded in
+`SCREENS.json` with the release they show and a hash each, and `release.yml` refuses a tag whose
+pictures show an earlier minor release: before tagging a minor, run `cd panel && npm run docs:screens`
+(it retakes them from a seeded server and records them) and commit the folder. CI only notes the
+lag between releases, and fails on a picture changed by hand or one nobody recorded
+(`python scripts/docs_screens.py check`).
 
 Distribution names: `noust` on PyPI and OBS. The names WASM shipped under stay as
 transitional packages through 3.x, each one only depending on `noust`: `wasm-cli` on PyPI,

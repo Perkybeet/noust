@@ -211,7 +211,14 @@ class ImageBuilder:
             DockerError: The registry did not accept the account.
         """
         if not settings.has_account or settings.registry_secret is None:
-            yield {}
+            # No account of its own: the ones an operator attached to it
+            # (noust registry attach), logged in for this command.
+            from noust.managers.registry_logins import RegistryManager
+
+            with RegistryManager(secrets=self.secrets, runner=self.runner, fs=self.fs).session(
+                self.domain
+            ) as attached:
+                yield attached
             return
         server = settings.account_server() or "docker.io"
         password = self.secrets.read(settings.registry_secret)
@@ -250,13 +257,15 @@ class ImageBuilder:
 
     # -- Building ------------------------------------------------------------
 
-    def build(self, settings: ContainerSettings, tag: str) -> None:
+    def build(self, settings: ContainerSettings, tag: str, *, no_cache: bool = False) -> None:
         """
         Build the image of a release from the repository.
 
         Args:
             settings: The application's settings; ``dockerfile`` or ``railpack``.
             tag: The image's name, ``noust-<app>:<release>``.
+            no_cache: Ignore BuildKit's layer cache and pull the base images
+                again.
 
         Raises:
             DeploymentError: A path leaves the repository, there is no Dockerfile,
@@ -265,9 +274,9 @@ class ImageBuilder:
         """
         with self.registry_session(settings) as login_env:
             if settings.method == METHOD_RAILPACK:
-                self._build_railpack(settings, tag, login_env)
+                self._build_railpack(settings, tag, login_env, no_cache=no_cache)
             else:
-                self._build_dockerfile(settings, tag, login_env)
+                self._build_dockerfile(settings, tag, login_env, no_cache=no_cache)
 
     def _inside(self, relative: str, what: str) -> Path:
         """
@@ -380,7 +389,12 @@ class ImageBuilder:
                 self.secrets.discard_usable_copy(build_secret_name(self.app_name, secret_id))
 
     def _build_dockerfile(
-        self, settings: ContainerSettings, tag: str, login_env: Mapping[str, str]
+        self,
+        settings: ContainerSettings,
+        tag: str,
+        login_env: Mapping[str, str],
+        *,
+        no_cache: bool = False,
     ) -> None:
         """
         Build with the repository's Dockerfile.
@@ -389,6 +403,7 @@ class ImageBuilder:
             settings: The application's settings.
             tag: The image's name.
             login_env: The registry session's environment.
+            no_cache: Ignore BuildKit's layer cache and pull the base images again.
 
         Raises:
             DeploymentError: See :meth:`build`.
@@ -405,6 +420,8 @@ class ImageBuilder:
             "--tag",
             tag,
         ]
+        if no_cache:
+            argv += ["--no-cache", "--pull"]
         if settings.target:
             argv += ["--target", settings.target]
         for name, value in settings.build_args.items():
@@ -442,7 +459,12 @@ class ImageBuilder:
         self.logger.substep("Image built")
 
     def _build_railpack(
-        self, settings: ContainerSettings, tag: str, login_env: Mapping[str, str]
+        self,
+        settings: ContainerSettings,
+        tag: str,
+        login_env: Mapping[str, str],
+        *,
+        no_cache: bool = False,
     ) -> None:
         """
         Build with Railpack: its plan, then Docker through its BuildKit frontend.
@@ -458,6 +480,7 @@ class ImageBuilder:
             settings: The application's settings.
             tag: The image's name.
             login_env: The registry session's environment.
+            no_cache: Ignore BuildKit's layer cache and pull the base images again.
 
         Raises:
             DeploymentError: Railpack is not installed, or a secret has no value.
@@ -527,6 +550,8 @@ class ImageBuilder:
                 "--tag",
                 tag,
             ]
+            if no_cache:
+                argv += ["--no-cache", "--pull"]
             for (name, _), variable in zip(every.items(), bridge, strict=True):
                 argv += ["--secret", f"id={name},env={variable}"]
             if every:

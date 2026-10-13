@@ -246,10 +246,12 @@ def test_import_from_as_json(tmp_path: Path) -> None:
     assert proposal["health_path"] == "/healthz"
 
 
-def test_import_from_coolify_explains(tmp_path: Path) -> None:
+def test_import_from_coolify_asks_for_the_servers_address(tmp_path: Path) -> None:
+    # Coolify keeps its configuration in a database, so it is read through its API: a repository
+    # path alone says nothing, and the usage error names what is missing.
     result = invoke(["import", "--from", "coolify", str(tmp_path)])
-    assert isinstance(result.exception, ValidationError)
-    assert "database" in result.exception.details
+    assert result.exit_code == 2
+    assert "--url" in result.output
 
 
 def test_import_from_options_need_deploy(tmp_path: Path) -> None:

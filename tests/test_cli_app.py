@@ -275,7 +275,11 @@ def test_health_json_prints_the_settings(checked: Any) -> None:
         "path": "/healthz",
         "expect": "any status below 500",
         "timeout": 45,
+        "interval": 2.0,
+        "start_period": 0,
+        "summary": "GET http://127.0.0.1:<port>/healthz",
     }
+    assert body["kind"] == "http"
 
 
 def test_health_refuses_a_bad_value_and_changes_nothing(checked: Any, log: list[str]) -> None:

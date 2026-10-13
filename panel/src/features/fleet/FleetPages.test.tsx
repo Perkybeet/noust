@@ -151,6 +151,14 @@ describe("the fleet's views", () => {
     expect(within(await rowOf(updates, "db-1")).getByText("Update available")).toBeInTheDocument();
     expect(within(await rowOf(updates, "old-1")).getByText("Package index behind")).toBeInTheDocument();
     expect(within(await rowOf(updates, "old-1")).getByText("1.8.0 → 2.1.0")).toBeInTheDocument();
+    // A server whose package is still being published shows the version it will get (item 81).
+    expect(within(await rowOf(updates, "pub-1")).getByText("Being published")).toBeInTheDocument();
+    expect(within(await rowOf(updates, "pub-1")).getByText("2.0.0 → 2.1.0")).toBeInTheDocument();
+    // And the fleet says where it is heading and how many servers are there.
+    const target = screen.getByRole("group", { name: "Target version of the fleet" });
+    expect(within(target).getByText("Noust 2.1.0")).toBeInTheDocument();
+    expect(within(target).getByText("2 can update now.")).toBeInTheDocument();
+    expect(within(target).getByText("1 waits for its package to be published.")).toBeInTheDocument();
 
     await act(() => router.navigate({ to: "/fleet/activity" }));
     const activity = await rows("What happened lately on every server");
@@ -196,6 +204,77 @@ describe("a bulk action", () => {
       expect(location().pathname).toBe("/fleet/jobs/fj-1");
     });
     expect(backend.callsTo("POST /api/fleet/actions")[1]?.body).toMatchObject({ plan: false });
+  });
+
+  it("updates Noust to the version the operator types, and says the step of each server", { timeout: 40_000 }, async () => {
+    const plan = {
+      ...PLAN,
+      action: "noust_update",
+      title: "Update Noust",
+      options: { target_version: "3.4.0" },
+      nodes: [{ ...PLAN.nodes[0], step: "Noust 2.0.0 -> 3.4.0" }],
+      summary: { run: 1, skipped: 0 },
+    };
+    const backend = fakeBackend({
+      ...fleetRoutes(),
+      "POST /api/fleet/actions": () => json(200, { plan, job: null }),
+    });
+    const { user } = renderConsole("/fleet/servers");
+    const table = await rows("Servers of this fleet");
+    await user.click(within(await rowOf(table, "web-2")).getByRole("checkbox", { name: "Select web-2" }));
+    await user.click(screen.getByRole("button", { name: /^Run an action on 1 server/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Run an action on several servers" });
+    await user.click(within(dialog).getByRole("radio", { name: "Update Noust" }));
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+
+    // A version that is not one is said before anything is asked of the central.
+    const target = within(dialog).getByLabelText(/^Update to this version/);
+    await user.type(target, "latest");
+    await user.click(within(dialog).getByRole("button", { name: "Show the plan" }));
+    expect(await within(dialog).findByText("Use a version such as 3.4.0.")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/fleet/actions")).toHaveLength(0);
+
+    await user.clear(target);
+    await user.type(target, "3.4.0");
+    await user.click(within(dialog).getByRole("button", { name: "Show the plan" }));
+    expect(await within(dialog).findByText("Noust 2.0.0 to 3.4.0")).toBeInTheDocument();
+    expect(backend.callsTo("POST /api/fleet/actions")[0]?.body).toMatchObject({ action: "noust_update", options: { target_version: "3.4.0" }, plan: true });
+  });
+
+  it("sends no version when the field is empty, so each server takes the newest its source offers", { timeout: 40_000 }, async () => {
+    const backend = fakeBackend({
+      ...fleetRoutes(),
+      "POST /api/fleet/actions": () => json(200, { plan: { ...PLAN, action: "noust_update", title: "Update Noust", options: { target_version: null } }, job: null }),
+    });
+    const { user } = renderConsole("/fleet/servers");
+    const table = await rows("Servers of this fleet");
+    await user.click(within(await rowOf(table, "web-2")).getByRole("checkbox", { name: "Select web-2" }));
+    await user.click(screen.getByRole("button", { name: /^Run an action on 1 server/ }));
+    const dialog = await screen.findByRole("dialog", { name: "Run an action on several servers" });
+    await user.click(within(dialog).getByRole("radio", { name: "Update Noust" }));
+    await user.click(within(dialog).getByRole("button", { name: "Continue" }));
+    await user.click(within(dialog).getByRole("button", { name: "Show the plan" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/fleet/actions")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/fleet/actions")[0]?.body).toMatchObject({ action: "noust_update", options: { target_version: null } });
+  });
+
+  it("renews the package lists of a server whose release is behind, from its row", { timeout: 40_000 }, async () => {
+    const backend = fakeBackend({
+      ...fleetRoutes(),
+      "POST /api/fleet/actions": () => json(200, { plan: { ...PLAN, action: "index_refresh", title: "Refresh the package lists", options: {} }, job: null }),
+    });
+    const { user } = renderConsole("/fleet/updates");
+    const updates = await rows("Noust and system updates of every server");
+    await user.click(within(await rowOf(updates, "old-1")).getByRole("button", { name: "Actions for old-1" }));
+    await user.click(await screen.findByRole("menuitem", { name: /package lists/i }));
+    const dialog = await screen.findByRole("dialog", { name: "Run an action on several servers" });
+    await user.click(within(dialog).getByRole("button", { name: "Show the plan" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/fleet/actions")).toHaveLength(1);
+    });
+    expect(backend.callsTo("POST /api/fleet/actions")[0]?.body).toMatchObject({ action: "index_refresh", targets: { nodes: ["old-1"] } });
   });
 
   it("shows each server's state and words, and retries the failed ones after their plan", { timeout: 40_000 }, async () => {

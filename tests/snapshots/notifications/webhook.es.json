@@ -1737,77 +1737,9 @@
     ],
     "excerpt": null
   },
-  "backup.missing": {
-    "version": 1,
-    "id": "00000000-0000-4000-8000-000000000037",
-    "event": "backup_missing",
-    "code": "backup.missing",
-    "state": "warning",
-    "locale": "es",
-    "title": "Falta una copia de seguridad: postgresql/shop",
-    "summary": "No se ha hecho ninguna copia correcta en el tiempo que permite su programación.",
-    "body": "No se ha hecho ninguna copia correcta en el tiempo que permite su programación.\n\nServidor: web-1\nÚltima copia correcta: 2026-10-10 03:00 UTC\nHaz una ahora con: noust db backup-run shop -e postgresql\n\nAbrir en la consola: https://console.example.com/n/web-1/backups",
-    "domain": null,
-    "server": "web-1",
-    "ts": "2026-09-29T10:45:51Z",
-    "facts": [
-      {
-        "key": "server",
-        "label": "Servidor",
-        "value": "web-1"
-      },
-      {
-        "key": "last_backup",
-        "label": "Última copia correcta",
-        "value": "2026-10-10 03:00 UTC"
-      },
-      {
-        "key": "run_now",
-        "label": "Haz una ahora con",
-        "value": "noust db backup-run shop -e postgresql"
-      }
-    ],
-    "links": [
-      {
-        "rel": "console",
-        "label": "Abrir en la consola",
-        "url": "https://console.example.com/n/web-1/backups"
-      }
-    ],
-    "excerpt": null
-  },
-  "backup.recovered": {
-    "version": 1,
-    "id": "00000000-0000-4000-8000-000000000038",
-    "event": "backup_missing",
-    "code": "backup.recovered",
-    "state": "ok",
-    "locale": "es",
-    "title": "Copia de seguridad al día: postgresql/shop",
-    "summary": "Se ha vuelto a hacer una copia correcta.",
-    "body": "Se ha vuelto a hacer una copia correcta.\n\nServidor: web-1\n\nAbrir en la consola: https://console.example.com/n/web-1/backups",
-    "domain": null,
-    "server": "web-1",
-    "ts": "2026-09-29T10:45:51Z",
-    "facts": [
-      {
-        "key": "server",
-        "label": "Servidor",
-        "value": "web-1"
-      }
-    ],
-    "links": [
-      {
-        "rel": "console",
-        "label": "Abrir en la consola",
-        "url": "https://console.example.com/n/web-1/backups"
-      }
-    ],
-    "excerpt": null
-  },
   "drill.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000039",
+    "id": "00000000-0000-4000-8000-000000000037",
     "event": "backup_failed",
     "code": "drill.failed",
     "state": "failed",
@@ -1853,7 +1785,7 @@
   },
   "drill.passed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000040",
+    "id": "00000000-0000-4000-8000-000000000038",
     "event": "backup_success",
     "code": "drill.passed",
     "state": "ok",
@@ -1887,7 +1819,7 @@
   },
   "destination.unreachable": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000041",
+    "id": "00000000-0000-4000-8000-000000000039",
     "event": "destination_unreachable",
     "code": "destination.unreachable",
     "state": "warning",
@@ -1928,7 +1860,7 @@
   },
   "destination.recovered": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000042",
+    "id": "00000000-0000-4000-8000-000000000040",
     "event": "destination_unreachable",
     "code": "destination.recovered",
     "state": "ok",
@@ -1957,7 +1889,7 @@
   },
   "node.host_key_changed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000043",
+    "id": "00000000-0000-4000-8000-000000000041",
     "event": "node_host_key_changed",
     "code": "node.host_key_changed",
     "state": "failed",
@@ -2006,7 +1938,7 @@
   },
   "report.observations": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000044",
+    "id": "00000000-0000-4000-8000-000000000042",
     "event": "report",
     "code": "report.observations",
     "state": "warning",
@@ -2039,7 +1971,7 @@
   },
   "server.rebooted": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000045",
+    "id": "00000000-0000-4000-8000-000000000043",
     "event": "server_rebooted",
     "code": "server.rebooted",
     "state": "warning",
@@ -2073,7 +2005,7 @@
   },
   "server.back": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000046",
+    "id": "00000000-0000-4000-8000-000000000044",
     "event": "server_back",
     "code": "server.back",
     "state": "ok",
@@ -2122,7 +2054,7 @@
   },
   "approval.requested": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000047",
+    "id": "00000000-0000-4000-8000-000000000045",
     "event": "approval_requested",
     "code": "approval.requested",
     "state": "progress",
@@ -2186,7 +2118,7 @@
   },
   "approval.approved": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000048",
+    "id": "00000000-0000-4000-8000-000000000046",
     "event": "approval_decided",
     "code": "approval.approved",
     "state": "ok",
@@ -2250,7 +2182,7 @@
   },
   "approval.rejected": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000049",
+    "id": "00000000-0000-4000-8000-000000000047",
     "event": "approval_decided",
     "code": "approval.rejected",
     "state": "warning",
@@ -2309,7 +2241,7 @@
   },
   "database.backup.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000050",
+    "id": "00000000-0000-4000-8000-000000000048",
     "event": "backup_failed",
     "code": "database.backup.failed",
     "state": "failed",
@@ -2345,7 +2277,7 @@
   },
   "database.backup.upload_failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000051",
+    "id": "00000000-0000-4000-8000-000000000049",
     "event": "backup_failed",
     "code": "database.backup.upload_failed",
     "state": "warning",
@@ -2385,7 +2317,7 @@
   },
   "database.backup.completed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000052",
+    "id": "00000000-0000-4000-8000-000000000050",
     "event": "backup_success",
     "code": "database.backup.completed",
     "state": "ok",
@@ -2429,7 +2361,7 @@
   },
   "database.restore.completed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000053",
+    "id": "00000000-0000-4000-8000-000000000051",
     "event": "restore_success",
     "code": "database.restore.completed",
     "state": "ok",
@@ -2463,7 +2395,7 @@
   },
   "database.restore.failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000054",
+    "id": "00000000-0000-4000-8000-000000000052",
     "event": "restore_failed",
     "code": "database.restore.failed",
     "state": "failed",
@@ -2503,7 +2435,7 @@
   },
   "sandbox.trial_failed": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000055",
+    "id": "00000000-0000-4000-8000-000000000053",
     "event": "deploy_failed",
     "code": "sandbox.trial_failed",
     "state": "warning",
@@ -2550,7 +2482,7 @@
   },
   "app.unreachable": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000056",
+    "id": "00000000-0000-4000-8000-000000000054",
     "event": "app_unreachable",
     "code": "app.unreachable",
     "state": "failed",
@@ -2595,7 +2527,7 @@
   },
   "app.recovered": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000057",
+    "id": "00000000-0000-4000-8000-000000000055",
     "event": "app_recovered",
     "code": "app.recovered",
     "state": "ok",
@@ -2629,7 +2561,7 @@
   },
   "app.outside_unit": {
     "version": 1,
-    "id": "00000000-0000-4000-8000-000000000058",
+    "id": "00000000-0000-4000-8000-000000000056",
     "event": "unit_failed",
     "code": "app.outside_unit",
     "state": "warning",
@@ -2669,6 +2601,630 @@
         "url": "https://console.example.com/n/web-1/apps/shop.example.com"
       }
     ],
+    "excerpt": null
+  },
+  "alert.above": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000057",
+    "event": "alert_firing",
+    "code": "alert.above",
+    "state": "warning",
+    "locale": "es",
+    "title": "Alerta activa: cpu-high",
+    "summary": "CPU del servidor lleva por encima de 90% durante 15 min.",
+    "body": "CPU del servidor lleva por encima de 90% durante 15 min.\n\nServidor: web-1\nRegla: cpu-high\nAhora: 93.4%\nLímite: 90%\nInaccesible desde: 2026-10-12 09:30 UTC\n\nAbrir en la consola: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "rule",
+        "label": "Regla",
+        "value": "cpu-high"
+      },
+      {
+        "key": "value",
+        "label": "Ahora",
+        "value": "93.4%"
+      },
+      {
+        "key": "threshold",
+        "label": "Límite",
+        "value": "90%"
+      },
+      {
+        "key": "since",
+        "label": "Inaccesible desde",
+        "value": "2026-10-12 09:30 UTC"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "alert.below": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000058",
+    "event": "alert_firing",
+    "code": "alert.below",
+    "state": "failed",
+    "locale": "es",
+    "title": "Alerta activa: shop.example.com",
+    "summary": "Memoria libre de shop.example.com lleva por debajo de 256 MB durante 5 min.",
+    "body": "Memoria libre de shop.example.com lleva por debajo de 256 MB durante 5 min.\n\nServidor: web-1\nRegla: memory-free\nAhora: 112 MB\nLímite: 256 MB\nInaccesible desde: 2026-10-12 09:30 UTC\n\nAbrir en la consola: https://console.example.com/n/web-1/apps/shop.example.com",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "rule",
+        "label": "Regla",
+        "value": "memory-free"
+      },
+      {
+        "key": "value",
+        "label": "Ahora",
+        "value": "112 MB"
+      },
+      {
+        "key": "threshold",
+        "label": "Límite",
+        "value": "256 MB"
+      },
+      {
+        "key": "since",
+        "label": "Inaccesible desde",
+        "value": "2026-10-12 09:30 UTC"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+      }
+    ],
+    "excerpt": null
+  },
+  "alert.resolved": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000059",
+    "event": "alert_resolved",
+    "code": "alert.resolved",
+    "state": "ok",
+    "locale": "es",
+    "title": "Alerta resuelta: cpu-high",
+    "summary": "CPU del servidor ha vuelto a 41.0%, dentro del límite de 90%.",
+    "body": "CPU del servidor ha vuelto a 41.0%, dentro del límite de 90%.\n\nServidor: web-1\nRegla: cpu-high\nAhora: 41.0%\nActiva desde hace: 45 min 12 s\n\nAbrir en la consola: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "rule",
+        "label": "Regla",
+        "value": "cpu-high"
+      },
+      {
+        "key": "value",
+        "label": "Ahora",
+        "value": "41.0%"
+      },
+      {
+        "key": "firing_for",
+        "label": "Activa desde hace",
+        "value": "45 min 12 s"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "backup.missing": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000060",
+    "event": "backup_missing",
+    "code": "backup.missing",
+    "state": "warning",
+    "locale": "es",
+    "title": "Sin copia reciente: shop.example.com",
+    "summary": "No se ha hecho ninguna copia de esta aplicación en los últimos 3 días, aunque hay una programación de copias. Nada ha fallado: nada se ha ejecutado.",
+    "body": "No se ha hecho ninguna copia de esta aplicación en los últimos 3 días, aunque hay una programación de copias. Nada ha fallado: nada se ha ejecutado.\n\nServidor: web-1\nÚltima copia: 9 oct 2026\nProgramación: daily\nCopiarla ahora: noust backup create shop.example.com\n\nAbrir en la consola: https://console.example.com/n/web-1/backups",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "last_backup",
+        "label": "Última copia",
+        "value": "9 oct 2026"
+      },
+      {
+        "key": "schedule",
+        "label": "Programación",
+        "value": "daily"
+      },
+      {
+        "key": "backup_now",
+        "label": "Copiarla ahora",
+        "value": "noust backup create shop.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "excerpt": null
+  },
+  "backup.never": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000061",
+    "event": "backup_missing",
+    "code": "backup.never",
+    "state": "warning",
+    "locale": "es",
+    "title": "Aún sin copias: blog.example.com",
+    "summary": "Hay una programación de copias, pero no existe ninguna de esta aplicación. Nada ha fallado: nada se ha ejecutado.",
+    "body": "Hay una programación de copias, pero no existe ninguna de esta aplicación. Nada ha fallado: nada se ha ejecutado.\n\nServidor: web-1\nProgramación: daily\nCopiarla ahora: noust backup create blog.example.com\n\nAbrir en la consola: https://console.example.com/n/web-1/backups",
+    "domain": "blog.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "schedule",
+        "label": "Programación",
+        "value": "daily"
+      },
+      {
+        "key": "backup_now",
+        "label": "Copiarla ahora",
+        "value": "noust backup create blog.example.com"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/backups"
+      }
+    ],
+    "excerpt": null
+  },
+  "cron.failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000062",
+    "event": "cron_failed",
+    "code": "cron.failed",
+    "state": "failed",
+    "locale": "es",
+    "title": "Tarea programada fallida: shop-sync",
+    "summary": "La tarea ha terminado con un error, así que lo que hace no se ha hecho.",
+    "body": "La tarea ha terminado con un error, así que lo que hace no se ha hecho.\n\nServidor: web-1\nEjecutada: 2026-10-13 03:00 UTC\nCódigo de salida: 1\nResultado: exit-code\nVer las ejecuciones: noust cron runs shop-sync\n\nÚltimas líneas de la salida de shop-sync:\n  Traceback (most recent call last):\n    File \"sync.py\", line 9\n  KeyError: 'sku'\n\nAbrir en la consola: https://console.example.com/n/web-1/cron",
+    "domain": "shop.example.com",
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "last_run",
+        "label": "Ejecutada",
+        "value": "2026-10-13 03:00 UTC"
+      },
+      {
+        "key": "exit_status",
+        "label": "Código de salida",
+        "value": "1"
+      },
+      {
+        "key": "result",
+        "label": "Resultado",
+        "value": "exit-code"
+      },
+      {
+        "key": "runs",
+        "label": "Ver las ejecuciones",
+        "value": "noust cron runs shop-sync"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/cron"
+      }
+    ],
+    "excerpt": {
+      "label": "Últimas líneas de la salida de shop-sync",
+      "lines": [
+        "Traceback (most recent call last):",
+        "  File \"sync.py\", line 9",
+        "KeyError: 'sku'"
+      ],
+      "omitted": 0
+    }
+  },
+  "cron.succeeded": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000063",
+    "event": "cron_success",
+    "code": "cron.succeeded",
+    "state": "ok",
+    "locale": "es",
+    "title": "Tarea programada ejecutada: shop-sync",
+    "summary": "La tarea se ha ejecutado y ha terminado sin error.",
+    "body": "La tarea se ha ejecutado y ha terminado sin error.\n\nServidor: web-1\nEjecutada: 2026-10-13 03:00 UTC\nCódigo de salida: 0\n\nAbrir en la consola: https://console.example.com/n/web-1/cron",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "last_run",
+        "label": "Ejecutada",
+        "value": "2026-10-13 03:00 UTC"
+      },
+      {
+        "key": "exit_status",
+        "label": "Código de salida",
+        "value": "0"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/cron"
+      }
+    ],
+    "excerpt": null
+  },
+  "patches.available": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000064",
+    "event": "os_patches",
+    "code": "patches.available",
+    "state": "info",
+    "locale": "es",
+    "title": "Actualizaciones disponibles",
+    "summary": "5 actualizaciones esperando a instalarse.",
+    "body": "5 actualizaciones esperando a instalarse.\n\nServidor: web-1\nActualizaciones: 5\nDetalle: openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4\nVerlas: noust server updates list\n\nAbrir en la consola: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "packages",
+        "label": "Actualizaciones",
+        "value": "5"
+      },
+      {
+        "key": "detail",
+        "label": "Detalle",
+        "value": "openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4"
+      },
+      {
+        "key": "list",
+        "label": "Verlas",
+        "value": "noust server updates list"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "patches.security": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000065",
+    "event": "os_patches",
+    "code": "patches.security",
+    "state": "warning",
+    "locale": "es",
+    "title": "Actualizaciones de seguridad disponibles",
+    "summary": "3 de las 12 actualizaciones pendientes son de seguridad.",
+    "body": "3 de las 12 actualizaciones pendientes son de seguridad.\n\nServidor: web-1\nActualizaciones: 12\nSeguridad: 3\nDetalle: openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4\nReinicio: Pendiente, tras las actualizaciones\nVerlas: noust server updates list\n\nAbrir en la consola: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "packages",
+        "label": "Actualizaciones",
+        "value": "12"
+      },
+      {
+        "key": "security",
+        "label": "Seguridad",
+        "value": "3"
+      },
+      {
+        "key": "detail",
+        "label": "Detalle",
+        "value": "openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4"
+      },
+      {
+        "key": "reboot",
+        "label": "Reinicio",
+        "value": "Pendiente, tras las actualizaciones"
+      },
+      {
+        "key": "list",
+        "label": "Verlas",
+        "value": "noust server updates list"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": null
+  },
+  "patches.check_failed": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000066",
+    "event": "os_patches",
+    "code": "patches.check_failed",
+    "state": "warning",
+    "locale": "es",
+    "title": "Fallo al comprobar las actualizaciones",
+    "summary": "Noust no ha podido listar las actualizaciones que espera este servidor.",
+    "body": "Noust no ha podido listar las actualizaciones que espera este servidor.\n\nServidor: web-1\nVerlas: noust server updates list\n\n  E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)\n\nAbrir en la consola: https://console.example.com/n/web-1/server",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "list",
+        "label": "Verlas",
+        "value": "noust server updates list"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/server"
+      }
+    ],
+    "excerpt": {
+      "label": "",
+      "lines": [
+        "E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)"
+      ],
+      "omitted": 0
+    }
+  },
+  "token.expiring": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000067",
+    "event": "token_expiring",
+    "code": "token.expiring",
+    "state": "warning",
+    "locale": "es",
+    "title": "Token de API a punto de caducar: ci-deploy",
+    "summary": "El token dejará de funcionar dentro de 7 días. Lo que lo use será rechazado.",
+    "body": "El token dejará de funcionar dentro de 7 días. Lo que lo use será rechazado.\n\nServidor: web-1\nCaduca: 20 oct 2026\nPropietario: alice\nSustituirlo: noust token create\n\nAbrir en la consola: https://console.example.com/n/web-1/settings/tokens",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "expires",
+        "label": "Caduca",
+        "value": "20 oct 2026"
+      },
+      {
+        "key": "owner",
+        "label": "Propietario",
+        "value": "alice"
+      },
+      {
+        "key": "revoke",
+        "label": "Sustituirlo",
+        "value": "noust token create"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/settings/tokens"
+      }
+    ],
+    "excerpt": null
+  },
+  "token.today": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000068",
+    "event": "token_expiring",
+    "code": "token.today",
+    "state": "warning",
+    "locale": "es",
+    "title": "El token de API caduca hoy: ci-deploy",
+    "summary": "El token deja de funcionar hoy. Lo que lo use será rechazado.",
+    "body": "El token deja de funcionar hoy. Lo que lo use será rechazado.\n\nServidor: web-1\nCaduca: 13 oct 2026\nPropietario: alice\nSustituirlo: noust token create\n\nAbrir en la consola: https://console.example.com/n/web-1/settings/tokens",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "expires",
+        "label": "Caduca",
+        "value": "13 oct 2026"
+      },
+      {
+        "key": "owner",
+        "label": "Propietario",
+        "value": "alice"
+      },
+      {
+        "key": "revoke",
+        "label": "Sustituirlo",
+        "value": "noust token create"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/settings/tokens"
+      }
+    ],
+    "excerpt": null
+  },
+  "token.expired": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000069",
+    "event": "token_expiring",
+    "code": "token.expired",
+    "state": "failed",
+    "locale": "es",
+    "title": "Token de API caducado: ci-deploy",
+    "summary": "El token ha caducado. Lo que todavía lo use está siendo rechazado.",
+    "body": "El token ha caducado. Lo que todavía lo use está siendo rechazado.\n\nServidor: web-1\nCaduca: 1 oct 2026\nPropietario: alice\nSustituirlo: noust token create\n\nAbrir en la consola: https://console.example.com/n/web-1/settings/tokens",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "expires",
+        "label": "Caduca",
+        "value": "1 oct 2026"
+      },
+      {
+        "key": "owner",
+        "label": "Propietario",
+        "value": "alice"
+      },
+      {
+        "key": "revoke",
+        "label": "Sustituirlo",
+        "value": "noust token create"
+      }
+    ],
+    "links": [
+      {
+        "rel": "console",
+        "label": "Abrir en la consola",
+        "url": "https://console.example.com/n/web-1/settings/tokens"
+      }
+    ],
+    "excerpt": null
+  },
+  "digest.held": {
+    "version": 1,
+    "id": "00000000-0000-4000-8000-000000000070",
+    "event": "digest",
+    "code": "digest.held",
+    "state": "warning",
+    "locale": "es",
+    "title": "Avisos retenidos",
+    "summary": "Han llegado 3 avisos mientras este canal estaba en silencio.",
+    "body": "Han llegado 3 avisos mientras este canal estaba en silencio.\n\nServidor: web-1\nAvisos: 3\nEntre: 2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC\n\nDisco casi lleno · /\n  Cuándo: 2026-09-29 10:45 UTC\n  Detalle: Ha superado el umbral de aviso del 90%, y un disco lleno detiene los despliegues, los registros y las bases de datos de este servidor.\n\nCertificado a punto de caducar · shop.example.com\n  Cuándo: 2026-09-29 11:05 UTC\n  Detalle: Caduca en 7 días (6 oct 2026).\n\nCopia completada · shop.example.com\n  Cuándo: 2026-09-29 11:25 UTC\n  Detalle: Se ha guardado una copia nueva de la aplicación.",
+    "domain": null,
+    "server": "web-1",
+    "ts": "2026-09-29T10:45:51Z",
+    "facts": [
+      {
+        "key": "server",
+        "label": "Servidor",
+        "value": "web-1"
+      },
+      {
+        "key": "events",
+        "label": "Avisos",
+        "value": "3"
+      },
+      {
+        "key": "period",
+        "label": "Entre",
+        "value": "2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC"
+      }
+    ],
+    "links": [],
     "excerpt": null
   },
   "hostile.deploy_failed": {

@@ -32,6 +32,7 @@ from urllib.parse import quote, urlsplit
 
 from noust.core import audit
 from noust.core.exceptions import ConfigError, ValidationError
+from noust.core.gitlab_store import GitLabStore
 from noust.core.repositories import repository_identity
 from noust.core.secrets import SecretStore
 from noust.core.store import App, NoustStore, get_store
@@ -329,7 +330,10 @@ class GitCredentialManager:
             True when the credentials directory has anything in it.
         """
         directory: Path = self.secrets.root / NAMESPACE
-        return directory.is_dir() and any(directory.iterdir())
+        if directory.is_dir() and any(directory.iterdir()):
+            return True
+        # A GitLab connection signs in to every repository of its host.
+        return GitLabStore(self.store).any()
 
     def auth_for(self, url: str) -> dict[str, str]:
         """
@@ -357,6 +361,12 @@ class GitCredentialManager:
             stored = self._read(self._secret_name(identity))
         except ValidationError:
             return {}
+        if stored is None:
+            # No credential of the repository's own: the connection of its host, if any.
+            from noust.integrations.gitlab.service import GitLabService
+
+            found = GitLabService(GitLabStore(self.store), self.secrets).credential_for_url(url)
+            stored = {"username": found[0], "secret": found[1]} if found else None
         if stored is None:
             return {}
         userinfo = f"{quote(stored['username'], safe='')}:{quote(stored['secret'], safe='')}"

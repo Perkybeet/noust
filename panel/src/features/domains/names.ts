@@ -11,6 +11,11 @@ import type { Locale } from "../../i18n";
 const LABEL = /^(?!-)[a-z0-9-]{1,63}(?<!-)$/;
 const TLD = /^(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/;
 
+/** Whether a name is a wildcard: `*.example.com`, every name one label under `example.com`. */
+export function isWildcard(value: string): boolean {
+  return normalizeDomain(value).startsWith("*.");
+}
+
 /** Trims and lowercases, the two changes the server accepts silently. */
 export function normalizeDomain(value: string): string {
   return value.trim().toLowerCase();
@@ -20,8 +25,10 @@ export function normalizeDomain(value: string): string {
  * Why a name is not a domain the server would take, or null when it looks like one.
  * Schemes, ports and paths are refused rather than stripped: the server refuses them too.
  */
-export function domainProblem(value: string, locale: Locale = getLocale()): string | null {
-  const name = normalizeDomain(value);
+export function domainProblem(value: string, locale: Locale = getLocale(), options: { wildcard?: boolean } = {}): string | null {
+  const typed = normalizeDomain(value);
+  // A wildcard alias (`*.example.com`) is a name under the star: the star is checked apart.
+  const name = options.wildcard === true && typed.startsWith("*.") ? typed.slice(2) : typed;
   if (name === "") return translate(locale, "domains.domainValidation.enterADomain");
   if (/^[a-z][a-z0-9+.-]*:\/\//.test(name)) return translate(locale, "domains.domainValidation.noScheme");
   if (/[/:?#@\s]/.test(name)) return translate(locale, "domains.domainValidation.noPath");

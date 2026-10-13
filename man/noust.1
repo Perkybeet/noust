@@ -43,6 +43,27 @@ Show what changed in this release.
 .TP
 .B \-i, \-\-interactive
 Start the interactive menu.
+.TP
+.B \-\-remote
+Run the command on another server through its API (also $NOUST_REMOTE).
+.TP
+.B \-\-context
+Run it on a saved server (see 'noust context'; also $NOUST_CONTEXT).
+.TP
+.B \-\-token
+Where to read the API token: standard input, a file or a variable. Never the token itself, which every user of this machine could read in ps.
+.TP
+.B \-\-token\-file
+A private file holding the token (also $NOUST_TOKEN_FILE).
+.TP
+.B \-\-token\-env
+A variable holding the token.
+.TP
+.B \-\-ca\-file
+Trust this certificate authority bundle.
+.TP
+.B \-\-local
+Run on this machine even if a server is in use.
 
 .SS noust 2fa
 Enrol, confirm, disable or recover two\-factor authentication for logins.
@@ -91,6 +112,277 @@ Print the status as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust access
+Roles, and where each person holds them.
+
+.SS noust access grant
+Give an account a role at a scope.
+.TP
+.B Arguments
+.br
+\fIusername\fR
+.TP
+.B \-\-role
+A built\-in team role or one you defined.
+.TP
+.B \-\-team
+The team.
+.TP
+.B \-\-project
+The project of that team.
+.TP
+.B \-\-env
+The environment of that project.
+.TP
+.B \-\-scope
+Where; the narrowest of \-\-team, \-\-project and \-\-env by default. 'instance' is the whole server (a role you defined, added to the account's own).
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust access list
+List who holds a role where, besides each account's own role and team memberships.
+.TP
+.B \-\-user
+Only this account's.
+.TP
+.B \-\-team
+Only what is held in this team.
+.TP
+.B \-\-json
+Print the bindings as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust access permissions
+List every permission a role can hold, and what it allows.
+.TP
+.B \-\-json
+Print the permissions as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust access revoke
+Take a role away, by the id 'noust access list' shows.
+.TP
+.B Arguments
+.br
+\fIbinding_id\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust access role
+Define roles of your own, as sets of permissions.
+
+.SS noust access role create
+Define a role.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-permission
+A permission the role holds (repeat). 'noust access permissions' lists them.
+.TP
+.B \-\-label
+What the console shows; the name by default.
+.TP
+.B \-\-description
+What the role is for.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust access role list
+List the roles that can be given: a team's built\-in ones and yours.
+.TP
+.B \-\-json
+Print the roles as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust access role remove
+Remove a role nobody holds.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-yes, \-y
+Do not ask for confirmation.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust access role set
+Change a role; everyone who holds it holds the change at their next request.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-permission
+Replace its permissions (repeat).
+.TP
+.B \-\-label
+Its new label.
+.TP
+.B \-\-description
+Its new description.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust access role show
+Show what a role holds, permission by permission.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the role as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust alert
+Alert rules on CPU, memory, disk, load and traffic.
+
+.SS noust alert disable
+Turn a rule off; what it had decided is forgotten.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust alert enable
+Turn a rule on.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust alert list
+List the alert rules and how many subjects of each are firing.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the rules as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust alert metrics
+List what a rule can watch, and the unit its limit is written in.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the metrics as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust alert remove
+Remove a rule and what it remembered.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust alert set
+Create an alert rule, or replace the one of that name.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-metric
+What to watch.
+.TP
+.B \-\-above
+Fire when it stays above LIMIT (90%, 512MB, 2MB/s).
+.TP
+.B \-\-below
+Fire when it stays below LIMIT.
+.TP
+.B \-\-or\-equal
+Count the limit itself as a breach (>= and <=).
+.TP
+.B \-\-for
+How long it must hold before it fires (at least 1m): 5m, 1h. Default: 5m.
+.TP
+.B \-\-hysteresis
+How far back inside the limit it must come to clear, in the metric's unit. Default: 0.
+.TP
+.B \-\-cooldown
+The least time between two messages about the same thing. Default: 1h.
+.TP
+.B \-\-app
+The application, for an application metric (every one by default).
+.TP
+.B \-\-severity
+No description. Default: warning.
+.TP
+.B \-\-remind
+Say it again every cooldown while it keeps firing.
+.TP
+.B \-\-disabled
+Create it switched off.
+.TP
+.B \-\-note
+Free text for whoever reads the rule later. Default: .
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust alert status
+Show the alerts that are firing now.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the firing alerts as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust app
 Change how a deployed application is laid out and what it may use.
 
@@ -127,6 +419,39 @@ Adopt without asking.
 .TP
 .B \-\-json
 Print what was adopted as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app apply
+Set an application from a declaration file, as 'noust app export \-\-as\-yaml' writes one.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIfile\fR
+.TP
+.B \-\-prune
+Also remove the aliases, redirects and tasks the file does not name.
+.TP
+.B \-\-check
+Show what would change and change nothing.
+.TP
+.B \-\-yes, \-y
+Do not ask before applying what runs commands (build, hooks, tasks, Compose arguments).
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the plan and what was applied as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -216,6 +541,9 @@ Where a static build leaves the files the web server serves, from the project.
 .B \-\-runtime
 Pin the runtime: node@22, python@3.12 or php@8.3.
 .TP
+.B \-\-cache, \-\-no\-cache
+\-\-no\-cache builds every deployment from scratch, without the package managers' cache or the dependencies of the release that serves.
+.TP
 .B \-\-file
 Replace the whole block with a YAML file holding 'build:'; '\-' reads stdin.
 .TP
@@ -246,6 +574,137 @@ Remove keys of the operator's block, or all of it, so the repository's applies a
 \fIdomain\fR
 .br
 \fIkeys\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app cache
+The cache the package managers keep between an application's builds.
+
+.SS noust app cache clear
+Empty an application's build cache; its next build downloads what it needs again.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print what was freed as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app cache show
+Show where an application's build cache is and how much it holds.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the cache as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app clone
+Clone an application: the same application on NEW_DOMAIN.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fInew_domain\fR
+.TP
+.B \-\-database
+What the clone does with the application's database: 'empty' makes one of its own, 'share' uses the original's (and writes into its data). Required when the application has a database.
+.TP
+.B \-\-source
+Deploy the clone from this source instead.
+.TP
+.B \-\-yes, \-y
+Do not ask before cloning.
+.TP
+.B \-\-team
+The team it goes to (default: the original's).
+.TP
+.B \-\-project
+The project it goes to (default: the original's).
+.TP
+.B \-\-environment
+The environment it goes to (default: the original's).
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print what was applied as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app compose
+The compose file, profiles and extra arguments of a Docker Compose stack.
+
+.SS noust app compose reset
+Forget the choices; the unit's own record of the file applies again.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app compose set
+Change what a Compose stack is run with, keeping what is not named.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-file
+The compose file, relative to the project.
+.TP
+.B \-\-profile
+A profile to activate; repeat it. Replaces the profiles.
+.TP
+.B \-\-no\-profiles
+Activate no profile.
+.TP
+.B \-\-build\-args
+Extra arguments of 'docker compose build', as one quoted line. Allowed: \-\-build\-arg, \-\-no\-cache, \-\-progress, \-\-pull, \-\-quiet, \-\-with\-dependencies, \-q.
+.TP
+.B \-\-up\-args
+Extra arguments of 'docker compose up', as one quoted line. Allowed: \-\-always\-recreate\-deps, \-\-force\-recreate, \-\-no\-deps, \-\-pull, \-\-renew\-anon\-volumes, \-\-scale, \-\-timeout, \-\-wait, \-\-wait\-timeout, \-V, \-t.
+.TP
+.B \-\-service
+Build and start only this service (and what it depends on); repeat it.
+.TP
+.B \-\-all\-services
+Build and start every service again.
+.TP
+.B \-\-json
+Print the settings now in force as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app compose show
+Show what a Compose stack is run with.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the settings as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -574,6 +1033,36 @@ Never emit colour.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust app deploy\-log
+Print the captured log of a deployment of an application.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIdeployment_id\fR
+.TP
+.B \-\-level
+warn keeps warnings and errors; error keeps only errors. Default: all.
+.TP
+.B \-\-search
+Keep only the lines that hold this text, ignoring case.
+.TP
+.B \-\-timestamps, \-\-no\-timestamps
+Keep each line's stamp.
+.TP
+.B \-\-sanitize
+Mask what looks like a credential and strip control sequences, to share the log.
+.TP
+.B \-\-tail
+Only this many bytes, from the end.
+.TP
+.B \-\-json
+Print the log and whether it was cut as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust app exec
 Run one command in an application, as the application: noust app exec DOMAIN \-\- PROGRAM ARGS.
 .TP
@@ -608,6 +1097,9 @@ Include the values of secret variables. The file is written 0600.
 .B \-o, \-\-output
 Write the export to this file instead of printing it.
 .TP
+.B \-\-as\-yaml
+Write a declaration (noust.yaml keys: health, limits, source, build, hooks, variables, domains, tasks) that 'noust app apply' sets on a server, instead of the JSON export. Secret variables are never written.
+.TP
 .B \-v, \-\-verbose
 Show the detail of each step.
 .TP
@@ -619,6 +1111,102 @@ Never emit colour.
 .TP
 .B \-\-json
 The export is JSON already; accepted for scripts that always pass it.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app files
+The files of an application, as its own account.
+
+.SS noust app files get
+Copy a file out of the application: to DESTINATION, or to standard output.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIpath\fR
+.br
+\fIdestination\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app files list
+List a directory of the application (its own directory by default).
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIpath\fR
+.TP
+.B \-\-json
+Print the listing as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app files mkdir
+Create a directory whose parent exists.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIpath\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app files move
+Rename or move something inside the application.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIsource\fR
+.br
+\fIdestination\fR
+.TP
+.B \-\-replace
+Replace what is at DESTINATION.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app files put
+Copy a local file into the application at PATH, as the application's account.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIsource\fR
+.br
+\fIpath\fR
+.TP
+.B \-\-replace
+Replace a file that is there.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app files remove
+Delete a file, a link, or a directory. A link is removed, never what it points at.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIpath\fR
+.TP
+.B \-\-recursive, \-r
+Delete a directory and what is in it.
+.TP
+.B \-\-yes, \-y
+Do not ask for confirmation.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -722,6 +1310,49 @@ Print the state (never the token) as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust app hardening
+The sandbox an application's unit runs in: see it, or change it.
+
+.SS noust app hardening set
+Run the application's unit in this sandbox: off, default or strict.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIprofile\fR
+.TP
+.B \-\-writable
+A directory the unit may write to besides the application's own tree; repeat it. Without any, the ones it has are kept.
+.TP
+.B \-\-no\-writable
+Forget the extra writable directories it has.
+.TP
+.B \-\-no\-restart
+Write the unit but do not restart: the running process keeps its sandbox.
+.TP
+.B \-\-yes, \-y
+Do not ask for confirmation.
+.TP
+.B \-\-json
+Print what was done as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app hardening status
+Show the sandbox of the application's unit and how exposed systemd finds it.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the status as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust app headless
 Record a Docker Compose stack that publishes no port as a worker.
 .TP
@@ -757,8 +1388,35 @@ Statuses that mean up: 200\-399, or 200,204. Default: any status below 500.
 .B \-\-timeout
 Seconds it gets to answer, 5 to 600.
 .TP
+.B \-\-command
+Check by running this command as the application (up when it exits 0) instead of making a request.
+.TP
+.B \-\-service
+The Compose service a \-\-command runs in.
+.TP
+.B \-\-method
+Request method: GET, HEAD, OPTIONS or POST.
+.TP
+.B \-\-scheme
+http or https (connects to 127.0.0.1 either way).
+.TP
+.B \-\-host
+The Host header to present, such as shop.example.com.
+.TP
+.B \-\-port
+Probe this port on 127.0.0.1 instead.
+.TP
+.B \-\-interval
+Seconds between two probes, 1 to 60.
+.TP
+.B \-\-retries
+The most probes after the start period.
+.TP
+.B \-\-start\-period
+Seconds during which a failed probe does not count, 0 to 600.
+.TP
 .B \-\-reset
-Go back to the defaults for all three.
+Go back to the defaults for all of it.
 .TP
 .B \-v, \-\-verbose
 Show the detail of each step.
@@ -826,6 +1484,9 @@ Run the application as its own system account instead of the shared one.
 .B Arguments
 .br
 \fIdomain\fR
+.TP
+.B \-\-all
+Move every application that can have its own account, one at a time.
 .TP
 .B \-\-yes, \-y
 Do not ask for confirmation.
@@ -930,6 +1591,84 @@ Print the migration plan (or, with \-\-yes, its result) as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust app mount
+Files kept for an application, and server paths bound into its container.
+
+.SS noust app mount bind
+Bind SOURCE, a path of the server, at TARGET in a container application.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIsource\fR
+.br
+\fItarget\fR
+.TP
+.B \-\-writable
+Mount it read\-write.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app mount file
+Keep a file for the application at TARGET, linked into every release.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fItarget\fR
+.TP
+.B \-\-from
+Read the text from this file instead of standard input.
+.TP
+.B \-\-mode
+Permissions in octal digits. Default: 600.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app mount list
+List the files and server paths mounted into an application.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the mounts as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app mount remove
+Remove a mount. A file Noust kept is deleted with it.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fItarget\fR
+.TP
+.B \-\-yes, \-y
+Do not ask for confirmation.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app mount show
+Print the text of a mounted file. It may hold a secret: the read is on record.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fItarget\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust app move
 Move an application to another project or environment.
 .TP
@@ -961,6 +1700,321 @@ Print where it is now as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust app pending
+Show what the application is set to that it does not run with yet.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the changes as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app policy
+Who may reach an application's site and how: password, addresses, limits, headers.
+
+.SS noust app policy ranges
+Show the networks a site believes Cloudflare's client\-address header from.
+.TP
+.B \-\-refresh
+Fetch Cloudflare's published ranges and apply them.
+.TP
+.B \-\-json
+Print the ranges as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app policy reset
+Take every field of the policy back to its default. The accounts are kept.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the policy now in force as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app policy set
+Change an application's policy: what you name changes, the rest stays.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-password, \-\-no\-password
+Ask for a password.
+.TP
+.B \-\-realm
+The sign\-in prompt's title.
+.TP
+.B \-\-access
+all: the password and the address list must both pass; any: either lets in.
+.TP
+.B \-\-allow
+Allow only these (repeat).
+.TP
+.B \-\-clear\-allow
+Allow everyone again.
+.TP
+.B \-\-deny
+Refuse these (repeat).
+.TP
+.B \-\-clear\-deny
+Refuse no one.
+.TP
+.B \-\-real\-ip
+Read the client address from a header, believed from Cloudflare or your own proxies.
+.TP
+.B \-\-real\-ip\-header
+The header (custom): X\-Forwarded\-For, X\-Real\-IP...
+.TP
+.B \-\-trusted\-proxy
+A proxy (custom).
+.TP
+.B \-\-rate\-limit
+10r/s or 300r/m per client address; none clears.
+.TP
+.B \-\-rate\-burst
+Requests above the rate let through first.
+.TP
+.B \-\-connection\-limit
+Concurrent connections per address; 0 for none.
+.TP
+.B \-\-header
+Send a header.
+.TP
+.B \-\-remove\-header
+Stop sending yours.
+.TP
+.B \-\-hide\-header
+Do not send a default.
+.TP
+.B \-\-hsts
+Strict\-Transport\-Security.
+.TP
+.B \-\-noindex, \-\-index
+Tell search engines not to index.
+.TP
+.B \-\-canonical
+Serve www or the bare name, redirecting the other.
+.TP
+.B \-\-accept\-lockout
+Go ahead although the lists refuse the address you are connected from.
+.TP
+.B \-\-json
+Print the policy now in force as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app policy show
+Show an application's policy, its accounts and the headers its site sends.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the policy as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app policy user
+The accounts of an application's password.
+
+.SS noust app policy user add
+Add an account to the application's password, or change its password. Asks for it.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIusername\fR
+.TP
+.B \-\-password\-stdin
+Read the password from standard input.
+.TP
+.B \-\-json
+Print the policy as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app policy user remove
+Remove an account of the application's password.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIusername\fR
+.TP
+.B \-\-json
+Print the policy as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app process
+The processes an application runs beside its web process: workers, schedulers.
+
+.SS noust app process list
+List the processes of an application with the state of each copy.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the processes as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app process logs
+Read the journal of a process: all its copies, interleaved.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIname\fR
+.TP
+.B \-\-lines, \-n
+No description. Default: 100.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app process remove
+Stop a process and forget it.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIname\fR
+.TP
+.B \-\-yes, \-y
+Do not ask for confirmation.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app process scale
+Run INSTANCES copies of a process. 0 stops them and keeps the definition.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIname\fR
+.br
+\fIinstances\fR
+.TP
+.B \-\-json
+Print what was done as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app process set
+Define a process of the application, or change one, and run it.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIname\fR
+.br
+\fIcommand\fR
+.TP
+.B \-\-instances
+How many copies run on this server. Default: 1.
+.TP
+.B \-\-memory
+MemoryMax of each copy.
+.TP
+.B \-\-cpu
+CPUQuota of each copy.
+.TP
+.B \-\-tasks
+TasksMax of each copy.
+.TP
+.B \-\-json
+Print what was done as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app process\-types
+The process types (web, release, workers) a repository declares.
+
+.SS noust app process\-types show
+Show the process types an application declares and which ones a deployment uses.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the process types as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app promote
+Put a release of DOMAIN on another application and activate it there.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-to
+The application that receives the release.
+.TP
+.B \-\-release
+The release (default: the one that serves).
+.TP
+.B \-\-schema\-changed\-ok
+Go back past a deployment of the target that changed its database's schema.
+.TP
+.B \-\-yes, \-y
+Do not ask before promoting.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app promotion
+List the applications a release of DOMAIN can be promoted to.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the targets as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust app reclaim
 Hand a Docker Compose stack that runs outside its unit back to Noust.
 .TP
@@ -976,6 +2030,21 @@ Hand it back without asking.
 .TP
 .B \-\-json
 Print what was done as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app replicas
+Show how an application is scaled, or run it as COPIES copies of its web process.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIcopies\fR
+.TP
+.B \-\-json
+Print the copies as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -1068,6 +2137,137 @@ Build what the application's next update would build, in the sandbox, without ac
 .TP
 .B \-\-json
 Print the trial's outcome as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app source
+How an application's repository is fetched, and which pushes deploy it.
+
+.SS noust app source reset
+Go back to the default source options.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app source set
+Change some source options of an application, keeping the others.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-submodules, \-\-no\-submodules
+Initialise and export the submodules.
+.TP
+.B \-\-lfs
+Git LFS: auto fetches the files when the repository tracks any, on always, off never.
+.TP
+.B \-\-shallow, \-\-no\-shallow
+Fetch only the latest commit (\-\-no\-shallow keeps the full history).
+.TP
+.B \-\-watch\-path
+A glob a push must touch to deploy (apps/web/**); repeat it, or prefix '!' to exclude. The last pattern that matches wins.
+.TP
+.B \-\-clear\-watch\-paths
+Remove every watch path.
+.TP
+.B \-\-skip\-markers, \-\-no\-skip\-markers
+Skip a push whose commits all say [skip ci] or [skip cd].
+.TP
+.B \-\-json
+Print the options now in force as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app source show
+Show submodules, Git LFS, shallow clone, watch paths and skip markers of an application.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the source options as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app tag
+Tags on applications: find them, and deploy the ones that share a tag.
+
+.SS noust app tag add
+Give an application more tags.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fItags\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app tag deploy
+Update every application that carries TAG, one after the other.
+.TP
+.B Arguments
+.br
+\fItag_name\fR
+.TP
+.B \-\-force
+Rebuild applications even when their branch has nothing new.
+.TP
+.B \-\-stop\-on\-failure
+Leave the rest alone after the first one that fails.
+.TP
+.B \-\-json
+Print what came of each application as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app tag list
+List the tags of one application, or every tagged application.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-tag
+Only the applications with this tag.
+.TP
+.B \-\-json
+Print the tags as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app tag remove
+Take tags off an application.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fItags\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust app tag set
+Make an application carry exactly these tags (none clears them).
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fItags\fR
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -1423,6 +2623,53 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 .SS noust auth
 How people sign in to the console besides a password.
 
+.SS noust auth local\-login
+Turn the password and passkey sign\-in off once single sign\-on is in.
+
+.SS noust auth local\-login exempt
+The break\-glass accounts that keep their password while it is off.
+
+.SS noust auth local\-login exempt add
+Let an account keep its password and passkeys when they are off.
+.TP
+.B Arguments
+.br
+\fIusername\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust auth local\-login exempt remove
+Stop an account keeping its password when they are off.
+.TP
+.B Arguments
+.br
+\fIusername\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust auth local\-login off
+Stop accepting passwords and passkeys: only the identity provider signs people in.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust auth local\-login on
+Accept passwords and passkeys again.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust auth local\-login status
+Show whether passwords and passkeys still sign accounts in.
+.TP
+.B \-\-json
+Print the setting as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust auth oidc
 Single sign\-in through an OpenID Connect provider.
 
@@ -1687,7 +2934,7 @@ Read the backend's secret field (password, key or token) from standard input.
 Prompt for the backend's secret field without echoing it, twice.
 .TP
 .B \-\-encrypt, \-\-no\-encrypt
-Wrap the remote in an rclone crypt backend. On unless backup.encrypt_new_destinations is false; run 'show\-key' once to keep a copy of the key.
+Wrap the remote in an rclone crypt backend; run 'show\-key' once to keep a copy. On unless the backend is 'local' or backup.encrypt_new_destinations is false: a backup holds the .env and the database dumps, so it leaves this server encrypted unless you say \-\-no\-encrypt.
 .TP
 .B \-\-key\-stdin
 Encrypt with an existing key read from standard input, as 'show\-key' printed it (its text, its \-\-json, or the two passphrases on two lines). Implies \-\-encrypt.
@@ -2305,6 +3552,33 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 .SS noust cert
 Obtain, inspect and retire the SSL certificates of this server.
 
+.SS noust cert acme
+Show, or change, which authority certificates are ordered from and as whom.
+.TP
+.B \-\-ca
+letsencrypt, letsencrypt\-staging (try a setup without spending the rate limit), zerossl, google or custom.
+.TP
+.B \-\-email
+The address registered with the authority.
+.TP
+.B \-\-server
+The directory URL of a custom authority.
+.TP
+.B \-\-eab\-kid
+The key id of the external account (ZeroSSL, Google).
+.TP
+.B \-\-eab\-hmac\-key\-stdin
+Read the external account's HMAC key from standard input. An argument would be in ps.
+.TP
+.B \-\-register
+Register the account with the authority now.
+.TP
+.B \-\-json
+Print the settings as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust cert create
 Obtain a certificate for one or more domains.
 .TP
@@ -2370,6 +3644,19 @@ Print the certificate list as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust cert remove\-upload
+Delete an uploaded certificate. One an application serves cannot be deleted.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-y, \-\-yes
+Do not ask.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust cert renew
 Renew certificates before they expire.
 .TP
@@ -2391,6 +3678,75 @@ Tell Let's Encrypt that the certificate for DOMAIN must no longer be trusted.
 .TP
 .B \-\-delete, \-\-keep\-files
 Also remove the certificate files afterwards. Default: remove them.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust cert source
+Show where APP's certificate comes from, and what is served.
+.TP
+.B Arguments
+.br
+\fIapp_domain\fR
+.TP
+.B \-\-json
+Print the description as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust cert upload
+Check a certificate and its key, and keep them as NAME.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-cert
+The certificate (PEM); '\-' reads stdin.
+.TP
+.B \-\-key
+Its private key (PEM, no passphrase); '\-' reads stdin.
+.TP
+.B \-\-chain
+The intermediates (PEM), when they come apart.
+.TP
+.B \-\-json
+Print the record as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust cert uploads
+List the uploaded certificates, what they cover, when they expire and who serves them.
+.TP
+.B \-\-json
+Print the uploads as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust cert use
+Choose where APP's certificate comes from: ordered (over HTTP, or DNS with \-\-dns) or uploaded.
+.TP
+.B Arguments
+.br
+\fIapp_domain\fR
+.TP
+.B \-\-acme
+Have it ordered from the authority.
+.TP
+.B \-\-upload
+Serve this uploaded certificate.
+.TP
+.B \-\-dns
+Prove control with a DNS record in this account's zone (needed for a wildcard).
+.TP
+.B \-\-no\-order
+Only keep the choice; the next order uses it.
+.TP
+.B \-\-json
+Print the certificate as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -2589,6 +3945,85 @@ Print the outcome as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust context
+Save and choose the servers this machine operates through their API.
+
+.SS noust context add
+Save a server.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-url
+The server's address, such as https://noust.example.com.
+.TP
+.B \-\-token
+Keep the token in a private file of its own, read from standard input (\-), a file (@FILE) or a variable (env:NAME). Never the token itself.
+.TP
+.B \-\-token\-file
+A private file that already holds the token.
+.TP
+.B \-\-token\-env
+A variable that holds the token.
+.TP
+.B \-\-ca\-file
+Trust this certificate authority.
+.TP
+.B \-\-use
+Also make it the server commands run on.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust context current
+Print the server commands run on, or say they run here.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust context list
+List the saved servers, marking the one in use.
+.TP
+.B \-\-json
+Print the contexts as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust context remove
+Forget a saved server, and the token file this tool kept for it.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust context use
+Run commands on this server from now on.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust context verify
+Check that a saved server answers and the token is accepted.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the answer as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust create
 Deploy a web application and put it online.
 .TP
@@ -2669,6 +4104,12 @@ A YAML file holding 'build:' (base_directory, install, build, start, publish_dir
 .TP
 .B \-\-force
 Deploy into an app directory that already holds files: in place a git checkout is brought up to date, keeping what git does not track (.env, data), and anything else is refused, never emptied; on releases a release is added beside them.
+.TP
+.B \-\-no\-cache
+Build the first deployment without any cache: images without their layer cache.
+.TP
+.B \-\-registry
+A registry account (noust registry add) to pull private images with, for a Docker Compose or container application. Repeat it for several.
 .TP
 .B \-\-image
 Deploy this image from a registry: name[:tag][@sha256:digest]. Needs no source.
@@ -2753,6 +4194,12 @@ Absolute directory to run the command in.
 .TP
 .B \-\-app
 Associate the job with a deployed application; its runtime directory (current/ for a releases application) becomes the default.
+.TP
+.B \-\-timeout
+Stop the command after this many seconds (1 to 86400); the run counts as failed.
+.TP
+.B \-\-service
+Run the command in this service of the \-\-app application's Compose stack (docker compose exec) instead of on this server.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -4827,6 +6274,200 @@ Explain why an application is down.
 .B \-\-json
 Print the diagnosis as JSON.
 
+.SS noust dns
+DNS accounts, the records Noust manages in them, and the DNS\-01 challenge.
+
+.SS noust dns challenge
+The two hooks certbot runs for a DNS\-01 order. Not for humans.
+
+.SS noust dns challenge auth
+Publish the record certbot asks for and wait for it.
+.TP
+.B \-\-account
+The DNS account.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust dns challenge cleanup
+Remove the record this order published.
+.TP
+.B \-\-account
+The DNS account.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust dns check
+Does NAME point at this server? Asked of the public DNS, as the certificate authority will.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-resolver
+Ask this resolver instead of dns.resolvers.
+.TP
+.B \-\-json
+Print the verdict as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust dns ensure
+Make HOSTNAME point at this server, creating its record in the account that holds the zone.
+.TP
+.B Arguments
+.br
+\fIapp_domain\fR
+.br
+\fIhostname\fR
+.TP
+.B \-\-content
+What it holds: an address, or a name for a CNAME. This server's public address by default.
+.TP
+.B \-\-type
+The record type.
+.TP
+.B \-\-account
+The account, when more than one holds the zone.
+.TP
+.B \-\-plan
+Say what would be done and change nothing.
+.TP
+.B \-\-replace\-record
+Replace the record in the way: its id, as the conflict named it.
+.TP
+.B \-\-replace\-current
+What that record held when you looked.
+.TP
+.B \-\-json
+Print the outcome as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust dns provider
+The DNS accounts Noust holds: Cloudflare (records, tunnels, challenge) and certbot's plugins.
+
+.SS noust dns provider add
+Add a DNS account. Its credential is proven first, and kept only in the secret store.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-kind
+The provider.
+.TP
+.B \-\-set
+A field that is not secret.
+.TP
+.B \-\-token\-stdin
+Read the credential from one line of standard input.
+.TP
+.B \-\-credentials\-stdin
+Read every field from a JSON object on standard input.
+.TP
+.B \-\-automatic, \-\-ask
+Create the records of a domain when it is added, without asking (Cloudflare).
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust dns provider kinds
+List the providers Noust knows, and what an account of each needs.
+.TP
+.B \-\-json
+Print the providers as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust dns provider list
+List the DNS accounts and when each one's credential last worked.
+.TP
+.B \-\-json
+Print the accounts as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust dns provider remove
+Remove an account and its credential. The records stay at the provider.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-y, \-\-yes
+Do not ask.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust dns provider set
+Change whether an account creates records on its own, or how long a challenge waits.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-automatic, \-\-ask
+Create records without asking.
+.TP
+.B \-\-propagation
+Seconds to wait for a challenge record.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust dns provider verify
+Try an account's credential again and list the zones it manages.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust dns records
+List the DNS records Noust manages, who made them and who uses them.
+.TP
+.B \-\-json
+Print the records as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust dns release
+Let APP go of its records (or of HOSTNAME's): the last user's release deletes what Noust made.
+.TP
+.B Arguments
+.br
+\fIapp_domain\fR
+.br
+\fIhostname\fR
+.TP
+.B \-\-keep
+Only forget that APP uses the records; delete nothing.
+.TP
+.B \-\-json
+Print the outcomes as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust dns sweep
+Release the records nobody has used for an hour. The monitor does this every hour.
+.TP
+.B \-\-json
+Print the outcomes as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust domain
 Serve an application on more domains: aliases and redirects.
 
@@ -4845,6 +6486,43 @@ alias serves the application on DOMAIN; redirect sends DOMAIN to APP. Default: a
 .B \-\-no\-cert
 Do not extend the certificate now. Run the same command again to extend it.
 .TP
+.B \-\-port
+Proxy this name to another port of the application than its own (an alias).
+.TP
+.B \-\-force
+Add the name although another site of the web server already answers on it.
+.TP
+.B \-\-no\-dns
+Do not point the name at this server in the DNS account that holds its zone.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust domain canonical
+Choose whether www.<domain> or <domain> is served; the other one redirects to it.
+.TP
+.B Arguments
+.br
+\fIapp_domain\fR
+.br
+\fIspelling\fR
+.TP
+.B \-\-no\-cert
+Do not extend the certificate to cover both names now.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust domain certificate
+Make APP's certificate cover exactly the names it answers on.
+.TP
+.B Arguments
+.br
+\fIapp_domain\fR
+.TP
+.B \-\-reduce
+Order it again with only the names the application answers on (after a removal).
+.TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
@@ -4857,6 +6535,20 @@ List the domains APP answers on.
 .TP
 .B \-\-json
 Print the domains as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust domain port
+Proxy an alias to another port of the application, or back to its own with 'none'.
+.TP
+.B Arguments
+.br
+\fIapp_domain\fR
+.br
+\fIdomain\fR
+.br
+\fIport\fR
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -4985,6 +6677,27 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 .SS noust env
 Read and set the environment variables of a deployed application.
 
+.SS noust env audience
+Say whether a variable is for the build, the running application, or both.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIname\fR
+.TP
+.B \-\-build\-only
+Only the install and the build.
+.TP
+.B \-\-runtime\-only
+Not the install or the build.
+.TP
+.B \-\-both
+The build and the running application.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust env configure
 Ask for each variable the application declares and save its .env.
 .TP
@@ -5042,6 +6755,40 @@ Every application whose unit still carries variables.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust env resolve
+Resolve the references in an application's variables again, without a deploy.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust env set
+Add or change variables, keeping the others.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIpairs\fR
+.TP
+.B \-\-stdin
+Read NAME=VALUE lines from standard input.
+.TP
+.B \-\-build\-only
+Only the install and the build.
+.TP
+.B \-\-runtime\-only
+Not the install or the build.
+.TP
+.B \-\-both
+The build and the running application.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust env show
 List the variables an application runs with, secrets hidden.
 .TP
@@ -5054,6 +6801,18 @@ Print secret values in clear instead of hiding them.
 .TP
 .B \-\-json
 Print the variables as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust env unset
+Remove variables, keeping the others.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fInames\fR
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -5243,6 +7002,292 @@ Print the view as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust fleet cloud
+Create servers at a cloud provider and bring them into the fleet.
+
+.SS noust fleet cloud account
+The provider accounts this central creates servers with.
+
+.SS noust fleet cloud account add
+Keep a provider API token as NAME.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-provider
+hetzner, digitalocean or vultr.
+.TP
+.B \-\-token\-stdin
+Read the token from one line of standard input.
+.TP
+.B \-\-note
+A note, such as which project the token belongs to.
+.TP
+.B \-\-no\-verify
+Do not ask the provider whether it accepts the token.
+.TP
+.B \-\-json
+Print the account as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud account list
+List the accounts. A token is never shown, only its last characters.
+.TP
+.B \-\-json
+Print the accounts as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud account remove
+Forget an account and its token.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-force
+Remove it although servers made with it are on record.
+.TP
+.B \-\-yes, \-y
+Do not ask.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud account token
+Replace the token of an account, after the provider accepted the new one.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-token\-stdin
+Read the token from one line of standard input.
+.TP
+.B \-\-no\-verify
+Do not ask the provider whether it accepts the token.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud account verify
+Ask the provider whether it still accepts the token of NAME.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud catalog
+Show what ACCOUNT can create: locations, plans and images (with prices where known).
+.TP
+.B Arguments
+.br
+\fIaccount\fR
+.TP
+.B \-\-only
+Show one list only.
+.TP
+.B \-\-json
+Print the catalog as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud providers
+List the providers a server can be created at, and where each one's token is made.
+.TP
+.B \-\-json
+Print the providers as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud script
+The cloud\-init library: scripts and fragments a new server can boot with.
+
+.SS noust fleet cloud script delete
+Delete one of your own library entries.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-yes, \-y
+Do not ask.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud script list
+List the library: what ships with Noust, then your own.
+.TP
+.B \-\-json
+Print the library as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud script preview
+Print the document a new server would boot with when given NAMES, its host key withheld.
+.TP
+.B Arguments
+.br
+\fInames\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud script save
+Add a script or fragment to the library, or replace your own of the same name.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-kind
+A shell script, or a #cloud\-config fragment. Guessed from the first line.
+.TP
+.B \-\-file
+Read it from this file (default: standard input). Default: \-.
+.TP
+.B \-\-description
+What it does, in a line. Default: .
+.TP
+.B \-\-json
+Print the entry as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud script show
+Print the text of a library entry.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud server
+The machines this central created at a provider.
+
+.SS noust fleet cloud server create
+Create the server NAME at a provider, install Noust on it and join it to this central.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-account
+The cloud account to create it with.
+.TP
+.B \-\-location
+A location id from 'noust fleet cloud catalog'.
+.TP
+.B \-\-plan
+A plan id from the catalog.
+.TP
+.B \-\-image
+An image id from the catalog.
+.TP
+.B \-\-access
+The most this central may do on the server. Default: admin.
+.TP
+.B \-\-allow\-host\-access, \-\-no\-host\-access
+Also let this central reach the host itself.
+.TP
+.B \-\-ssh\-key
+Id of one of the account's SSH keys to authorize for root too (repeat).
+.TP
+.B \-\-firewall
+Id of a firewall to attach (repeat where the provider allows).
+.TP
+.B \-\-network
+Id of a private network to attach (repeat where the provider allows).
+.TP
+.B \-\-ipv4, \-\-no\-ipv4
+A public IPv4 address.
+.TP
+.B \-\-ipv6, \-\-no\-ipv6
+A public IPv6 address.
+.TP
+.B \-\-backups
+Turn on the provider's backups (they cost extra).
+.TP
+.B \-\-script
+A library entry to boot with, in order (repeat).
+.TP
+.B \-\-delete\-on\-failure
+Delete the machine when it does not join the fleet.
+.TP
+.B \-\-yes, \-y
+Do not ask: the machine costs money until it is deleted.
+.TP
+.B \-\-json
+Print the node as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud server delete
+Delete the machine NAME at its provider: it is destroyed, and the charge for it stops.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-remove\-node
+Also remove the server from this central's fleet.
+.TP
+.B \-\-yes, \-y
+Do not ask. The machine and its disk are destroyed.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud server list
+List the machines this central created.
+.TP
+.B \-\-json
+Print the machines as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud server power\-on
+Start a machine that is off.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust fleet cloud server show
+Describe a machine this central created.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-live
+Ask the provider for the machine's state too.
+.TP
+.B \-\-json
+Print the machine as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust fleet deauthorize
 Stop trusting a central: remove its SSH key lines and revoke its tokens.
 .TP
@@ -5320,6 +7365,45 @@ Print the jobs, or the job, as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust fleet link
+Dial a central that cannot reach this server, and print the link code for it.
+.TP
+.B \-\-name
+The central's name.
+.TP
+.B \-\-as
+The name this server goes by on the central. Default: its host name.
+.TP
+.B \-\-host
+The address to dial to reach the central.
+.TP
+.B \-\-ssh\-port
+The central's SSH port. Default: 22.
+.TP
+.B \-\-host\-key
+The central's SSH host key line, as its invitation printed it. It is pinned.
+.TP
+.B \-\-remote\-port
+The loopback port the link listens on at the central.
+.TP
+.B \-\-invite
+The invitation's nonce.
+.TP
+.B \-\-access
+The most any central may do on this server: read, deploy or admin. Unchanged when omitted (admin on a server that never set it).
+.TP
+.B \-\-allow\-host\-access, \-\-no\-host\-access
+Let centrals reach the host itself (SSH keys, sshd, firewall); off unless set.
+.TP
+.B \-y, \-\-yes
+Replace an older token and move a background console to a service without asking.
+.TP
+.B \-\-json
+Print the result, link code included, as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust fleet retry
 Run a fleet job again on its nodes that failed or were not reached.
 .TP
@@ -5364,6 +7448,9 @@ A node that goes alone first; if it fails, nothing else runs.
 .B \-\-domains
 Only these applications (comma\-separated), for app and backup actions.
 .TP
+.B \-\-target\-version
+For noust_update: update to this Noust version. A server already on it or newer is skipped, one whose package source does not offer it yet is skipped with the reason, and each server that is updated must end up on it.
+.TP
 .B \-\-option
 An action option, KEY=VALUE (force=true, scope=all).
 .TP
@@ -5388,6 +7475,18 @@ Print every node's summary as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust fleet unlink
+Stop dialling a central: stop the link, remove its key and unit, revoke its tokens.
+.TP
+.B \-\-name
+The central's name.
+.TP
+.B \-\-json
+Print what was removed as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust fleet updates
 Every node's Noust (installed and available) and pending system updates.
 .TP
@@ -5402,6 +7501,40 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 
 .SS noust github
 This server's GitHub App: private repositories, push and pull request events.
+
+.SS noust github host
+The GitHub the App talks to: github.com, or a GitHub Enterprise host.
+
+.SS noust github host reset
+Go back to github.com.
+.TP
+.B \-\-force
+Change it although the server has an App.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust github host set
+Point the App at a GitHub Enterprise Server or Cloud (data residency) host.
+.TP
+.B Arguments
+.br
+\fIhost\fR
+.TP
+.B \-\-force
+Change it although the server has an App.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust github host show
+Show which GitHub this server's App talks to.
+.TP
+.B \-\-json
+Print the host as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
 .SS noust github installations
 List the accounts the App is installed on.
@@ -5457,6 +7590,137 @@ Print the status as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust gitlab
+GitLab connections: a project and branch picker, and private clones.
+
+.SS noust gitlab branches
+List a project's branches (PROJECT is its id or its path, group/project).
+.TP
+.B Arguments
+.br
+\fIname\fR
+.br
+\fIproject\fR
+.TP
+.B \-\-json
+Print the branches as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust gitlab connect
+Add a connection that signs in with an access token.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-host
+The GitLab host: gitlab.com or git.example.com.
+.TP
+.B \-\-token\-stdin
+Read the access token from standard input (else NOUST_GITLAB_TOKEN).
+.TP
+.B \-\-json
+Print the connection as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust gitlab groups
+List the groups a connection's user belongs to.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the groups as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust gitlab list
+List the GitLab connections and OAuth applications.
+.TP
+.B \-\-json
+Print the connections as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust gitlab oauth\-app
+The OAuth application registered in GitLab, so people can connect without a token.
+
+.SS noust gitlab oauth\-app remove
+Forget the OAuth application of a host.
+.TP
+.B \-\-host
+No description.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust gitlab oauth\-app set
+Record an OAuth application.
+.TP
+.B \-\-host
+The GitLab host it is registered on.
+.TP
+.B \-\-client\-id
+The application's id.
+.TP
+.B \-\-client\-secret\-stdin
+Read the application's secret from standard input (else NOUST_GITLAB_CLIENT_SECRET).
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust gitlab projects
+List the projects a connection's user can read, most recently active first.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-group
+Only the projects of this group (its full path) and subgroups.
+.TP
+.B \-\-search
+Only projects whose name contains this.
+.TP
+.B \-\-limit
+No description. Default: 200.
+.TP
+.B \-\-json
+Print the projects as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust gitlab remove
+Forget a connection and its token.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust gitlab test
+Ask GitLab who a connection is, and record whether it still works.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the connection as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust health
 Check the server and report anything that needs attention.
 .TP
@@ -5464,14 +7728,23 @@ Check the server and report anything that needs attention.
 Print the report as JSON.
 
 .SS noust import
-Read Vercel, Railway, Render or Heroku configuration from a repository.
+Read Vercel, Railway, Render or Heroku configuration from a repository, or a Coolify or Dokploy application through its API.
 .TP
 .B Arguments
 .br
 \fIpath\fR
 .TP
 .B \-\-from
-The platform whose configuration the repository carries.
+The platform whose configuration the repository carries, or whose server to read (coolify, dokploy: with \-\-url).
+.TP
+.B \-\-url
+coolify and dokploy: the server's address, https://coolify.example.com.
+.TP
+.B \-\-token\-file
+coolify and dokploy: a file whose first line is a read\-only API token (or set NOUST_IMPORT_TOKEN).
+.TP
+.B \-\-app
+coolify and dokploy: the application to read, by name or id. Without it they are listed.
 .TP
 .B \-\-deploy
 Deploy it on this domain with the proposal, through the normal create path.
@@ -5560,6 +7833,9 @@ Only the applications of the projects with this name.
 .B \-\-env
 Only those in this environment.
 .TP
+.B \-\-tag
+Only the applications that carry this tag.
+.TP
 .B \-\-json
 Print machine\-readable JSON instead of a table.
 .TP
@@ -5571,6 +7847,155 @@ Rehearse without changing anything. Read\-only checks still run.
 .TP
 .B \-\-no\-color
 Never emit colour.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust logdrain
+Ship the logs of applications to Loki, Axiom, Fluent Bit, OTLP or a remote syslog.
+
+.SS noust logdrain add
+Make a destination, or change the one of that name.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-kind
+What the destination is.
+.TP
+.B \-\-url
+Its address (not for syslog).
+.TP
+.B \-\-tenant
+Loki: the tenant (X\-Scope\-OrgID).
+.TP
+.B \-\-username
+Loki, http, otlp: the user, for basic authentication.
+.TP
+.B \-\-auth
+http, otlp: how to authenticate.
+.TP
+.B \-\-dataset
+Axiom: the dataset.
+.TP
+.B \-\-transport
+Syslog: udp, tcp or tls.
+.TP
+.B \-\-host
+Syslog: the receiver.
+.TP
+.B \-\-port
+Syslog: its port (6514 for tls, 514 otherwise).
+.TP
+.B \-\-facility
+Syslog: the facility, 0 to 23 (16 by default).
+.TP
+.B \-\-ca
+Syslog over tls: the CA file the receiver must chain to.
+.TP
+.B \-\-pin\-sha256
+Syslog over tls: the receiver's certificate pin.
+.TP
+.B \-\-label
+Added to every line; repeat it.
+.TP
+.B \-\-app
+Only this application; repeat it. Without any, all.
+.TP
+.B \-\-token\-stdin
+Read the token or password from standard input.
+.TP
+.B \-\-disabled
+Make it, but do not ship to it yet.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust logdrain disable
+Stop shipping to a destination, keeping it.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust logdrain enable
+Ship to a destination again.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust logdrain list
+List the destinations and how each is doing.
+.TP
+.B \-\-json
+Print the destinations as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust logdrain remove
+Remove a destination and its token.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-yes, \-y
+Do not ask for confirmation.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust logdrain run
+The shipper: read the logs of applications and send what is new, in a loop.
+.TP
+.B \-\-once
+Do one cycle and exit.
+.TP
+.B \-\-interval
+No description. Default: 5.0.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust logdrain service
+The unit that runs the shipper.
+
+.SS noust logdrain service install
+Install the shipper's unit and start it.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust logdrain service remove
+Stop the shipper and remove its unit. Destinations are kept.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust logdrain service status
+Say whether the shipper is installed and running.
+.TP
+.B \-\-json
+Print the state as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust logdrain test
+Send one line to a destination, and say what it answered.
+.TP
+.B Arguments
+.br
+\fIname\fR
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -5602,6 +8027,143 @@ Rehearse without changing anything. Read\-only checks still run.
 .TP
 .B \-\-no\-color
 Never emit colour.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust manifest
+Write a server down, preview what would change, and apply it.
+
+.SS noust manifest apply
+Make the server match a manifest.
+.TP
+.B Arguments
+.br
+\fIfile\fR
+.TP
+.B \-\-yes, \-y
+Apply without asking (a pipeline).
+.TP
+.B \-\-wait, \-\-no\-wait
+Wait for the deployments it queues.
+.TP
+.B \-\-timeout
+No description. Default: 1800.0.
+.TP
+.B \-\-restart
+Restart the applications whose variables changed, so they use them.
+.TP
+.B \-\-json
+Print the outcome of each change as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust manifest export
+Write down the applications and projects you can see as a manifest.
+.TP
+.B \-\-output, \-o
+No description.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust manifest plan
+Say what applying a manifest would change. Changes nothing.
+.TP
+.B Arguments
+.br
+\fIfile\fR
+.TP
+.B \-\-check
+Exit 2 when there is something to apply (for a pipeline).
+.TP
+.B \-\-json
+Print the plan as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust manifest validate
+Check a manifest and say what it holds. Needs no server.
+.TP
+.B Arguments
+.br
+\fIfile\fR
+.TP
+.B \-\-json
+Print what the manifest holds as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust mcp
+Let clients inspect, deploy and control applications through MCP.
+
+.SS noust mcp disable
+Turn the MCP endpoint off: it answers nothing until it is turned on again.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust mcp enable
+Turn the MCP endpoint on.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust mcp groups
+Choose which groups of tools are offered: inspect, deploy, control.
+.TP
+.B Arguments
+.br
+\fIgroups\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust mcp status
+Say whether MCP is on and which groups of tools it offers.
+.TP
+.B \-\-json
+Print the setting as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust mcp token
+Issue an API token with the permissions a client needs and no more.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-preset
+What the client needs: inspect (read), deploy (also update, roll back, back up) or control (also start, stop, restart). Default: inspect.
+.TP
+.B \-\-owner
+The account the token acts for.
+.TP
+.B \-\-team
+Bind it to this team: it sees nothing else.
+.TP
+.B \-\-project
+Bind it to this project of the team.
+.TP
+.B \-\-env
+Bind it to this environment.
+.TP
+.B \-\-expires\-hours
+Lifetime in hours. A client's credential should not live forever. Default: 720.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust mcp tools
+List every tool, the permission its route needs and what it asks to be confirmed.
+.TP
+.B \-\-json
+Print the tools as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -5752,6 +8314,75 @@ Print the node's labels as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust node link
+Servers behind NAT that dial in to this central.
+
+.SS noust node link add
+Register NAME from the link code it printed, once it connects and answers.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-link\-code
+The code 'noust fleet link' printed on the server; '\-' reads it from stdin. Omitted, it is asked for without echo.
+.TP
+.B \-\-json
+Print the registered node as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust node link cancel
+Cancel the invitation of NAME, if it was never answered.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust node link invite
+Invite the server NAME to dial in, and print the command to run on it.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-host
+The address the server dials to reach this central: a name or an IP address.
+.TP
+.B \-\-ssh\-port
+The SSH port it dials. Default: the port sshd listens on here.
+.TP
+.B \-\-port
+The loopback port its link listens on, on this machine. Default: a free one.
+.TP
+.B \-\-json
+Print the invitation as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust node link setup
+Prepare this central for servers that dial in.
+.TP
+.B \-\-json
+Print what was done as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust node link status
+Say whether this central can take servers that dial in, and which do.
+.TP
+.B \-\-json
+Print the status as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust node list
 List the nodes this central manages, with what it last learnt about each.
 .TP
@@ -5776,6 +8407,16 @@ Print the command, or the node, as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust node pause
+Pause NAME's monitoring while you work on it.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why, in a line: shown beside the node.
 
 .SS noust node rekey
 Give NAME a new key: first the command to run on it, then the join code it prints.
@@ -5812,6 +8453,16 @@ Print the warnings as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust node resume
+Put NAME's monitoring back, with a clean count of silences.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust node show
 Show one node: its address, pinned host key, tunnel and last status.
 .TP
@@ -5839,10 +8490,166 @@ Print the result as JSON.
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
 .SS noust notify
-Send test notifications through a configured channel.
+Notification channels: what Noust tells you, and where.
+
+.SS noust notify channel
+Add, change and remove notification channels.
+
+.SS noust notify channel remove
+Remove a channel. A default channel is emptied instead.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust notify channel set
+Create or change a channel, keeping what is not mentioned.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-type
+The channel's type.
+.TP
+.B \-\-enable, \-\-disable
+Turn the channel on or off.
+.TP
+.B \-\-set
+A setting of the type (chat_id, device, mention_role_id...). Not a credential.
+.TP
+.B \-\-secret
+Ask for a credential (webhook_url, bot_token, user_key...), hidden.
+.TP
+.B \-\-secret\-stdin
+Read one credential from standard input.
+.TP
+.B \-\-event
+This channel's own switch for an event (see 'noust notify events').
+.TP
+.B \-\-clear\-events
+Forget this channel's own event switches.
+.TP
+.B \-\-route\-app
+Only this application (a * pattern works).
+.TP
+.B \-\-route\-project
+Only this project.
+.TP
+.B \-\-route\-environment
+Only this environment (or project/environment).
+.TP
+.B \-\-route\-tag
+Only applications with this tag.
+.TP
+.B \-\-min\-severity
+Skip everything below this severity.
+.TP
+.B \-\-server\-events, \-\-no\-server\-events
+With a route: also hear what is about the server, not an application.
+.TP
+.B \-\-clear\-route
+Remove the channel's route.
+.TP
+.B \-\-quiet
+Quiet hours, such as 22:00\-07:00.
+.TP
+.B \-\-quiet\-timezone
+The time zone of the quiet hours (UTC by default).
+.TP
+.B \-\-quiet\-allow
+The lowest severity that still gets through the quiet hours (failed by default).
+.TP
+.B \-\-no\-digest
+Deliver what the quiet hours held one by one.
+.TP
+.B \-\-clear\-quiet
+Remove the channel's quiet hours.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust notify deliveries
+Show the record of deliveries: what went out, what waits and what failed.
+.TP
+.B \-\-state
+Only deliveries in this state.
+.TP
+.B \-\-channel
+Only deliveries to this channel.
+.TP
+.B \-\-limit
+No description. Default: 30.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the deliveries as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust notify events
+List the events a channel may be switched for, and which are on.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the events as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust notify list
+List every notification channel, the default of each type and your own.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the channels as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust notify retry
+Send again what failed, now.
+.TP
+.B Arguments
+.br
+\fIdelivery_id\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
 .SS noust notify telegram\-chats
 List the chats the Telegram bot can send to, with their ids.
+.TP
+.B \-\-channel
+The Telegram channel whose bot is asked. Default: telegram.
 .TP
 .B \-v, \-\-verbose
 Show the detail of each step.
@@ -5920,6 +8727,43 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 .SS noust preview
 Pull request previews: a short\-lived copy of an application per pull request.
 
+.SS noust preview create
+Make a preview by hand, from an open pull request, a branch or a tag.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-pr
+An open pull request's number.
+.TP
+.B \-\-branch
+A branch.
+.TP
+.B \-\-tag
+A tag.
+.TP
+.B \-\-allow\-fork
+Preview a pull request whose branch is in a fork.
+.TP
+.B \-\-no\-wait
+Record it and return; a console build follows.
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print the preview as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust preview disable
 Turn previews off for an application and remove the previews it has.
 .TP
@@ -5970,6 +8814,18 @@ A variable never copied to previews; repeat for more. Replaces the current list;
 .B \-\-no\-exclude\-env
 Copy every variable again (clear the excluded list).
 .TP
+.B \-\-env\-mode
+Which of the application's variables a preview is given: 'allowlist' (only \-\-allow\-env, the default for previews turned on now) or 'all' (every one less \-\-exclude\-env, as before 3.4).
+.TP
+.B \-\-allow\-env
+A variable an 'allowlist' preview copies; repeat for more. Replaces the current list.
+.TP
+.B \-\-no\-allow\-env
+Copy no variable of the application's (clear the allowed list).
+.TP
+.B \-\-data
+'empty' gives each preview a database of its own, 'shared' lets it use the application's (a pull request can then write into production's). Default for previews turned on now: empty, when the application has a database.
+.TP
 .B \-v, \-\-verbose
 Show the detail of each step.
 .TP
@@ -5998,8 +8854,94 @@ Print the settings and previews as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust preview logs
+Show what a preview's process printed, or the log of its last build.
+.TP
+.B Arguments
+.br
+\fIpreview_domain\fR
+.TP
+.B \-\-lines
+Journal lines. Default: 100.
+.TP
+.B \-\-build
+Show the log of its last build instead.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust preview pulls
+List the open pull requests of an application's repository (GitHub App).
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the pull requests as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust preview redeploy
+Build a preview again, from the head of its branch as it is now.
+.TP
+.B Arguments
+.br
+\fIpreview_domain\fR
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust preview remove
 Remove one preview now: its application, certificate and record.
+.TP
+.B Arguments
+.br
+\fIpreview_domain\fR
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust preview start
+Start a preview that was stopped.
+.TP
+.B Arguments
+.br
+\fIpreview_domain\fR
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust preview stop
+Stop a preview without removing it.
 .TP
 .B Arguments
 .br
@@ -6031,6 +8973,57 @@ Never emit colour.
 .TP
 .B \-\-json
 Print the previews removed as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust preview vars
+The variables the previews of an application are given besides its own.
+
+.SS noust preview vars list
+List the variables defined for the previews of an application (secrets hidden).
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-json
+Print the variables as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust preview vars set
+Define a variable previews are given; it wins over the application's own.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fIname\fR
+.br
+\fIvalue\fR
+.TP
+.B \-\-stdin
+Read the value from standard input.
+.TP
+.B \-\-secret, \-\-not\-secret
+Say whether it is a secret.
+.TP
+.B \-\-audience
+Who sees it. Default: both.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust preview vars unset
+Stop giving previews variables.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fInames\fR
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -6379,6 +9372,122 @@ Never emit colour.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust registry
+The container registry accounts used to pull and build private images.
+
+.SS noust registry add
+Add a registry account.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-kind
+Which registry it is: it decides the host and how a login is made.
+.TP
+.B \-\-username, \-u
+The account (for ECR, the AWS access key id).
+.TP
+.B \-\-server
+The registry host. Needed for ecr, acr, gar and custom; the other kinds have their own.
+.TP
+.B \-\-password\-stdin
+Read the password or token from standard input.
+.TP
+.B \-\-json
+Print the account as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust registry attach
+Say which registry accounts an application pulls and builds with.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.br
+\fInames\fR
+.TP
+.B \-\-none
+Use no account: pull anonymously again.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust registry list
+List the registry accounts, without their passwords.
+.TP
+.B \-\-json
+Print the accounts as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust registry remove
+Remove an account, its password and which applications use it.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-yes, \-y
+Remove it without asking.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust registry show
+Show one account.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the account as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust registry test
+Try an account against its registry.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-json
+Print the account, with how the test went, as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust registry update
+Change an account's kind, host, user or password; a change forgets the last test.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-kind
+No description.
+.TP
+.B \-\-username, \-u
+No description.
+.TP
+.B \-\-server
+No description.
+.TP
+.B \-\-password\-stdin
+Replace the password from standard input.
+.TP
+.B \-\-json
+Print the account as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust releases
 List an application's releases and go back to one instantly.
 
@@ -6547,6 +9656,75 @@ Remove an installed runtime: node@22.11.0 or python@3.12.4 (the full version).
 .B Arguments
 .br
 \fIspec\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust secrets
+Secret managers (Vault, Doppler, Infisical) that variables refer to.
+
+.SS noust secrets add
+Add a secret manager, or change one.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-kind
+The manager.
+.TP
+.B \-\-address
+Where it is (https). Needed unless it is hosted.
+.TP
+.B \-\-setting
+A setting of the kind (see 'noust secrets kinds'); repeat for more.
+.TP
+.B \-\-team
+Only this team's applications may name it.
+.TP
+.B \-\-token\-stdin
+Read the token from stdin.
+.TP
+.B \-\-keep\-token
+Change its settings and keep the token it has.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust secrets kinds
+List the kinds of secret manager and the settings each takes.
+.TP
+.B \-\-json
+Print the kinds as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust secrets list
+List the secret managers this server knows.
+.TP
+.B \-\-json
+Print the providers as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust secrets remove
+Remove a secret manager and its token.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust secrets test
+Check that a secret manager answers and accepts its token.
+.TP
+.B Arguments
+.br
+\fIname\fR
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -6772,6 +9950,69 @@ Never emit colour.
 .TP
 .B \-\-json
 Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust server cleanup\-schedule
+Clean the disk by itself: when, how full it must be, what is run, and what ran.
+
+.SS noust server cleanup\-schedule history
+List the cleanups that ran, the newest first: scheduled ones and by hand.
+.TP
+.B \-\-limit
+How many runs. Default: 20.
+.TP
+.B \-\-json
+Print the runs as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust server cleanup\-schedule run
+Run the cleanup policy now (the timer's own command is \-\-scheduled).
+.TP
+.B \-\-scheduled
+Run as the timer does: only when the disk is as full as the policy asks.
+.TP
+.B \-\-json
+Print the run as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust server cleanup\-schedule set
+Change the cleanup policy; what is not given stays as it was.
+.TP
+.B \-\-enable, \-\-disable
+Switch the timer on or off.
+.TP
+.B \-\-schedule
+daily, weekly, monthly, hourly or a systemd calendar.
+.TP
+.B \-\-threshold
+Run only when the fullest disk is this percent full (0: always).
+.TP
+.B \-\-action
+What to run, in order (repeat). Default: journal, pkg\-cache, releases.
+.TP
+.B \-\-journal\-mb
+Vacuum the journal to this size.
+.TP
+.B \-\-allow\-docker, \-\-no\-docker
+Accept that the Docker actions delete build cache and images with no name.
+.TP
+.B \-\-json
+Print the policy as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust server cleanup\-schedule show
+Show the cleanup policy and its timer.
+.TP
+.B \-\-json
+Print the policy as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -8012,6 +11253,28 @@ Print the site list as JSON.
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
+.SS noust site logs
+Show the end of what the web server logged for a site.
+.TP
+.B Arguments
+.br
+\fIdomain\fR
+.TP
+.B \-\-kind
+The web server's access log or its error log. Default: access.
+.TP
+.B \-n, \-\-lines
+No description. Default: 100.
+.TP
+.B \-\-contains
+Only lines with this text, whatever its case.
+.TP
+.B \-\-json
+Print the log as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust site show
 Print the configuration file of a site.
 .TP
@@ -8088,6 +11351,18 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 .SS noust store
 Inspect and maintain the database Noust records deployments in.
 
+.SS noust store compat
+Say which Noust releases can open this store, and how to go back to an earlier one.
+.TP
+.B \-\-to
+The release you want to go back to, such as 3.3.1.
+.TP
+.B \-\-json
+Print the answer as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
 .SS noust store export
 Dump every record as JSON, to a file or to stdout.
 .TP
@@ -8126,6 +11401,104 @@ Why this change is made (a change reference, a ticket). Recorded with the comman
 
 .SS noust store sync
 Match the recorded service states to what systemd reports.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust stream
+Publish a TCP or UDP port in front of a backend, through nginx and the firewall.
+
+.SS noust stream add
+Publish PORT and carry it to the backend, opening it in the firewall.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-protocol
+What the port carries. nginx cannot publish SCTP. Default: tcp.
+.TP
+.B \-\-port
+The port to publish.
+.TP
+.B \-\-to
+The backend: a port on this machine, or an address and port. The application's own port with \-\-app.
+.TP
+.B \-\-allow
+An address or network that may reach it; repeat. Without one, anyone can.
+.TP
+.B \-\-timeout
+Seconds a quiet connection (TCP) or session (UDP) is kept. Default: 3600.
+.TP
+.B \-\-app
+The application it is for.
+.TP
+.B \-\-plan
+Say what would be done and change nothing.
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust stream check
+Say whether nginx here can publish a TCP or UDP port, and what is missing.
+.TP
+.B \-\-json
+Print the answer as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust stream list
+List the published ports and how far each one got.
+.TP
+.B \-\-json
+Print the ports as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust stream remove
+Close a published port: the firewall rules made for it, its file, and nginx's use of it.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-y, \-\-yes
+Do not ask.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust stream repair
+Finish the openings and closings that were interrupted.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust support
+Collect what a maintainer needs to help you, with the secrets masked.
+
+.SS noust support report
+Print a report to paste into an issue, with secrets masked.
+.TP
+.B \-\-lines
+Lines of the console's and the monitor's journal to include. Default: 60.
+.TP
+.B \-\-diagnose
+How many applications that need attention are diagnosed. Default: 3.
+.TP
+.B \-\-hide\-domains
+Replace domains, application names and this host's name (app\-1, host).
+.TP
+.B \-\-output, \-o
+Write the report to this file (owner\-only) instead of printing it.
+.TP
+.B \-\-json
+Print the report as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -8239,6 +11612,18 @@ Lifetime in hours. Omitted: the token only dies by revocation.
 .B \-\-owner
 Account the token acts for, with at most its role. Required under the ENS profile.
 .TP
+.B \-\-permission
+Narrow the token to this permission (repeat). The owner must hold it.
+.TP
+.B \-\-team
+Bind the token to this team: it sees nothing else (needs \-\-owner).
+.TP
+.B \-\-project
+Bind it to this project of the team.
+.TP
+.B \-\-env
+Bind it to this environment.
+.TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
 
@@ -8260,6 +11645,113 @@ Revoke one API token by its id, as listed by 'noust token list'.
 .TP
 .B \-f, \-\-force
 Do not ask for confirmation.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust tunnel
+Reach an application through a Cloudflare Tunnel: no public address, no open port.
+
+.SS noust tunnel check
+Say whether a tunnel can run here, and what is missing.
+.TP
+.B \-\-json
+Print the answer as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust tunnel create
+Create a tunnel at Cloudflare and run its connector here.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-\-account
+The Cloudflare account of 'noust dns provider' to create it through.
+.TP
+.B \-\-cloudflare\-account
+The Cloudflare account id, when the token reaches several.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust tunnel list
+List the tunnels, whether their connectors run and what each one carries.
+.TP
+.B \-\-json
+Print the tunnels as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust tunnel remove
+Stop a tunnel's connector, delete the tunnel at Cloudflare and let go of its records.
+.TP
+.B Arguments
+.br
+\fIname\fR
+.TP
+.B \-y, \-\-yes
+Do not ask.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust tunnel repair
+Finish the creations and removals that were interrupted.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust tunnel route
+The public names a tunnel carries, and where each one goes.
+
+.SS noust tunnel route add
+Carry HOSTNAME through TUNNEL.
+.TP
+.B Arguments
+.br
+\fItunnel\fR
+.br
+\fIhostname\fR
+.TP
+.B \-\-app
+The application it is for: its site is reached.
+.TP
+.B \-\-service
+Where the connector sends it (http://localhost:3000), when it is not an application's site.
+.TP
+.B \-\-no\-dns
+Do not make the name's CNAME.
+.TP
+.B \-\-replace\-record
+Replace the record in the way: its id, as the conflict named it.
+.TP
+.B \-\-replace\-current
+What that record held when you looked.
+.TP
+.B \-\-json
+Print the result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust tunnel route remove
+Stop carrying HOSTNAME, and let go of its record (a record Noust did not make stays).
+.TP
+.B Arguments
+.br
+\fItunnel\fR
+.br
+\fIhostname\fR
+.TP
+.B \-\-keep\-dns
+Do not touch the name's CNAME.
+.TP
+.B \-\-json
+Print the result as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -8291,6 +11783,9 @@ Rebuild without asking when the branch has nothing new since the live commit.
 .TP
 .B \-\-schema\-changed\-ok
 With \-\-commit, go back even past deployments that changed the database schema.
+.TP
+.B \-\-no\-cache
+Build from scratch: empty the build cache first, install the dependencies again instead of taking them from the release that serves, and build images without their layer cache. Rebuilds what is live even when there is nothing new.
 .TP
 .B \-v, \-\-verbose
 Show the detail of each step.
@@ -8468,6 +11963,111 @@ Lift an account's lockout before it runs out.
 .B Arguments
 .br
 \fIusername\fR
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust variables
+Variables shared by the server, a team, a project or an environment.
+
+.SS noust variables list
+List the variables of a scope, secrets hidden.
+.TP
+.B Arguments
+.br
+\fIscope\fR
+.TP
+.B \-\-team
+The team.
+.TP
+.B \-\-project
+The project.
+.TP
+.B \-\-environment
+The environment.
+.TP
+.B \-\-unmask
+Print secret values in clear.
+.TP
+.B \-\-json
+Print the variables as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust variables set
+Create or change a shared variable.
+.TP
+.B Arguments
+.br
+\fIscope\fR
+.br
+\fIname\fR
+.br
+\fIvalue\fR
+.TP
+.B \-\-team
+The team.
+.TP
+.B \-\-project
+The project.
+.TP
+.B \-\-environment
+The environment.
+.TP
+.B \-\-stdin
+Read the value from standard input (not argv).
+.TP
+.B \-\-secret, \-\-not\-secret
+Say whether it is a secret.
+.TP
+.B \-\-audience
+Which part of a deployment an application that uses it hands it to. Default: both.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust variables unset
+Remove shared variables.
+.TP
+.B Arguments
+.br
+\fIscope\fR
+.br
+\fInames\fR
+.TP
+.B \-\-team
+The team.
+.TP
+.B \-\-project
+The project.
+.TP
+.B \-\-environment
+The environment.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust variables used\-by
+List the applications whose variables refer to a shared variable.
+.TP
+.B Arguments
+.br
+\fIscope\fR
+.br
+\fIname\fR
+.TP
+.B \-\-team
+The team.
+.TP
+.B \-\-project
+The project.
+.TP
+.B \-\-environment
+The environment.
+.TP
+.B \-\-json
+Print the applications as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
@@ -8757,6 +12357,56 @@ Rehearse without changing anything. Read\-only checks still run.
 .TP
 .B \-\-no\-color
 Never emit colour.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust workspace
+A monorepo as one application per workspace.
+
+.SS noust workspace create
+Deploy workspaces of a monorepo, one application each.
+.TP
+.B Arguments
+.br
+\fIsource\fR
+.TP
+.B \-\-app
+A workspace (its name or its directory) and the domain to deploy it on. Repeat.
+.TP
+.B \-\-branch
+The branch to deploy; the repository's default otherwise.
+.TP
+.B \-\-yes, \-y
+Do not ask before applying what a plan runs as root (cron jobs, previews).
+.TP
+.B \-v, \-\-verbose
+Show the detail of each step.
+.TP
+.B \-\-dry\-run
+Rehearse without changing anything. Read\-only checks still run.
+.TP
+.B \-\-no\-color
+Never emit colour.
+.TP
+.B \-\-json
+Print each application's plan and result as JSON.
+.TP
+.B \-\-reason
+Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.
+
+.SS noust workspace detect
+Find the workspaces of a repository and which of them are applications.
+.TP
+.B Arguments
+.br
+\fIsource\fR
+.TP
+.B \-\-branch
+The branch to read; the repository's default otherwise.
+.TP
+.B \-\-json
+Print the workspaces as JSON.
 .TP
 .B \-\-reason
 Why this change is made (a change reference, a ticket). Recorded with the command in the audit log; required by the ens\-medium security profile.

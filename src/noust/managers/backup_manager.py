@@ -239,7 +239,7 @@ def backup_id_of_archive(path: Path) -> str | None:
     if not path.name.endswith(ARCHIVE_SUFFIX):
         return None
     stem = path.name[: -len(ARCHIVE_SUFFIX)]
-    return stem if BACKUP_ID_PATTERN.match(stem) else None
+    return stem if BACKUP_ID_PATTERN.fullmatch(stem) else None
 
 
 def app_name_of_backup_id(backup_id: str) -> str | None:
@@ -258,7 +258,7 @@ def app_name_of_backup_id(backup_id: str) -> str | None:
     Returns:
         The application name, or None when the id is not one Noust generated.
     """
-    if not BACKUP_ID_PATTERN.match(backup_id):
+    if not BACKUP_ID_PATTERN.fullmatch(backup_id):
         return None
     return backup_id.rsplit("_", 2)[0]
 

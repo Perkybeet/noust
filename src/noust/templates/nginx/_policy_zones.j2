@@ -1,0 +1,13 @@
+{#
+    The zones a site's rate and connection limits count in. Declared in the
+    http context, so before the first server block, and named after the site.
+#}
+{% for zone in policy_zones | default([]) %}
+{% if zone.directive == "limit_req_zone" %}
+
+limit_req_zone $binary_remote_addr zone={{ zone.name }}:10m rate={{ zone.arg }};
+{% else %}
+
+limit_conn_zone $binary_remote_addr zone={{ zone.name }}:10m;
+{% endif %}
+{% endfor %}

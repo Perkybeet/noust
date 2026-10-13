@@ -1,0 +1,38 @@
+{#
+    What the site's policy says in the virtual host that serves the application
+    (noust.managers.site_policy.policy_context): the real client address behind
+    a CDN, and who may reach it. Apache has no rate limit of its own in the core,
+    so those are nginx's. Renders nothing for a site without a policy.
+#}
+{% set rules = policy | default({}) %}
+{% if rules.real_ip %}
+
+    # Client address: believed from these networks only
+    RemoteIPHeader {{ rules.real_ip.header }}
+{% for network in rules.real_ip.proxies %}
+    RemoteIPTrustedProxy {{ network }}
+{% endfor %}
+{% endif %}
+{% if rules.auth or rules.require %}
+
+    # Who may reach the site
+    <Location />
+{% if rules.auth %}
+        AuthType Basic
+        AuthName "{{ rules.auth.realm }}"
+        AuthUserFile {{ rules.auth.file }}
+{% endif %}
+{% if rules.require %}
+{% for line in rules.require %}
+        {{ line }}
+{% endfor %}
+{% else %}
+        Require valid-user
+{% endif %}
+    </Location>
+
+    # The certificate authority is neither signed in nor on a list
+    <Location "/.well-known/acme-challenge/">
+        Require all granted
+    </Location>
+{% endif %}

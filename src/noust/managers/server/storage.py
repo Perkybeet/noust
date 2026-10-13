@@ -24,8 +24,10 @@ Three rules shape this module, each from a way a disk page goes wrong:
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
+import sqlite3
 from collections.abc import Callable, Iterable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
@@ -42,6 +44,8 @@ from noust.managers.server.errors import (
 )
 from noust.managers.server.host import HostPaths, Platform, detect_platform
 from noust.managers.server.pkg import backend_for
+
+logger = logging.getLogger(__name__)
 
 #: Filesystem types that are not somewhere a person runs out of space.
 IGNORED_FILESYSTEMS = frozenset(
@@ -504,6 +508,21 @@ class StorageManager:
         writable = [m for m in (mounts if mounts is not None else self.mounts()) if not m.readonly]
         return max(writable, key=lambda mount: mount.percent_used, default=None)
 
+    def worst_percent(self) -> tuple[str, float] | None:
+        """
+        Say how full the fullest writable filesystem is, for the history of a cleanup.
+
+        Returns:
+            Its mount point and percentage; None when the disks cannot be read here
+            (psutil is missing, or there is no real filesystem). A cleanup is never
+            refused for want of this.
+        """
+        try:
+            worst = self.worst_mount()
+        except (DependencyError, OSError):
+            return None
+        return None if worst is None else (worst.mount_point, worst.percent_used)
+
     # -- quick candidates -------------------------------------------------------
 
     def _journal_candidate(self) -> Candidate | None:
@@ -935,15 +954,20 @@ class StorageManager:
         *,
         confirm: bool = False,
         on_line: Callable[[str], None] | None = None,
+        record: bool = True,
+        actor: str | None = None,
         **params: Any,
     ) -> CleanupResult:
         """
-        Run one cleanup action.
+        Run one cleanup action, and write it in the history of cleanups.
 
         Args:
             action: One of :data:`CLEANUP_ACTIONS`.
             confirm: The caller has read what the action takes and accepts it.
             on_line: Receives what the tools print, verbatim.
+            record: Write this run to the history. A scheduled run of several actions
+                passes False and writes one row for all of them.
+            actor: Who asked, for the history.
             **params: The action's parameters.
 
         Returns:
@@ -966,6 +990,85 @@ class StorageManager:
                     "items": list(plan.items),
                 },
             )
+        if not record or isinstance(self.fs, DryRunFileSystem):
+            return self._clean(action, plan, on_line, **params)
+        return self._clean_and_record(action, plan, on_line, actor, **params)
+
+    def _clean_and_record(
+        self,
+        action: str,
+        plan: CleanupPlan,
+        on_line: Callable[[str], None] | None,
+        actor: str | None,
+        **params: Any,
+    ) -> CleanupResult:
+        """
+        Run an action by hand and leave its row in the history, whatever happens.
+
+        Args:
+            action: The action.
+            plan: Its plan.
+            on_line: Receives what the tools print.
+            actor: Who asked.
+            **params: The action's parameters.
+
+        Returns:
+            What was done.
+
+        Raises:
+            ServerError: A command failed (after the failure was written down).
+        """
+        from noust.managers.server.storage_policy import (
+            ActionOutcome,
+            CleanupHistory,
+            CleanupRun,
+        )
+
+        run = CleanupRun(trigger="manual", actor=actor)
+        worst = self.worst_percent()
+        if worst is not None:
+            run.mount, run.percent_before = worst
+        outcome = ActionOutcome(action=action)
+        run.actions.append(outcome)
+        try:
+            result = self._clean(action, plan, on_line, **params)
+        except ServerError as exc:
+            outcome.status = "failed"
+            outcome.error = (exc.output or exc.details or exc.message).strip()[:2000]
+            raise
+        else:
+            outcome.freed_bytes = result.freed_bytes
+            outcome.removed = list(result.removed)
+            return result
+        finally:
+            after = self.worst_percent()
+            if after is not None:
+                run.percent_after = after[1]
+            run.finish()
+            try:
+                CleanupHistory().record(run)
+            except sqlite3.Error as exc:
+                logger.warning("Could not write the cleanup to the history: %s", exc)
+
+    def _clean(
+        self,
+        action: str,
+        plan: CleanupPlan,
+        on_line: Callable[[str], None] | None,
+        **params: Any,
+    ) -> CleanupResult:
+        """
+        Run one action whose plan was confirmed.
+
+        Args:
+            action: The action.
+            plan: Its plan.
+            on_line: Receives what the tools print.
+            **params: The action's parameters.
+
+        Returns:
+            What was done.
+        """
         emit = on_line or (lambda line: None)
         result = CleanupResult(action=action, dry_run=isinstance(self.fs, DryRunFileSystem))
 

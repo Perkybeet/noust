@@ -863,7 +863,9 @@ locations, destinations, backends), never a free graph. Rules:
   a list per column, each element saying where it leads.
 
 **`Chart`**. A time series (see 2.2). **`LogViewer`** (`loading`: busy, with the shape of lines
-under what it waits for, until the first arrive), **`SystemOutput`**: the system's output,
+under what it waits for, until the first arrive; chips to keep only some levels, each with its word,
+its glyph and its count, offered only when the output has more than one level; a time toggle; full
+screen where the browser has it), **`SystemOutput`**: the system's output,
 verbatim, copyable. **`Mono`**: a system value. **`Kbd`**: a key. **`CommandHint`**: the CLI
 equivalent. **`RelativeTime`**: "3 min ago" with the exact moment in a tooltip.
 **`SegmentedControl`**: one of a few exclusive views (a chart range).

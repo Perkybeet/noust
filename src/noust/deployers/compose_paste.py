@@ -162,7 +162,7 @@ def analyze_document(document: str) -> PastedCompose:
         )
     result = PastedCompose()
     for name, spec in services.items():
-        if not _SERVICE_NAME.match(str(name)) or not isinstance(spec, dict):
+        if not _SERVICE_NAME.fullmatch(str(name)) or not isinstance(spec, dict):
             raise ValidationError(
                 f"Service {name!r} is not a usable service", field="compose_document"
             )
@@ -260,7 +260,7 @@ def _judge_image(service: str, image: str, result: PastedCompose) -> None:
     if (
         not reference
         or any(char.isspace() for char in image)
-        or (digest and not _DIGEST.match(digest))
+        or (digest and not _DIGEST.fullmatch(digest))
     ):
         result.refused.append(f"service {service}: {image!r} is not an image reference")
         return

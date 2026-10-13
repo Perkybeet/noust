@@ -42,7 +42,7 @@ def is_plain_path(path: Any) -> bool:
     """
     return (
         isinstance(path, str)
-        and bool(_ASSET_PATH.match(path))
+        and bool(_ASSET_PATH.fullmatch(path))
         and ".." not in path.split("/")
         and "." not in path.split("/")
     )

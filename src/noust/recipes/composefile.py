@@ -160,7 +160,7 @@ def parse_image(name: str, service: str, reference: Any, *, digest_verified: boo
     where = f"service {service}"
     if not isinstance(reference, str) or "${" in reference:
         raise recipe_error(name, f"{where}: image must be a fixed reference, not a variable")
-    match = _IMAGE.match(reference)
+    match = _IMAGE.fullmatch(reference)
     if match is None:
         raise recipe_error(name, f"{where}: {reference!r} is not an image reference")
     tag, digest = match.group("tag"), match.group("digest")
@@ -256,7 +256,7 @@ def validate_compose(
     opened: set[tuple[int, str]] = set()
     for service_name, service in services.items():
         service_name = str(service_name)
-        if not _SERVICE_NAME.match(service_name):
+        if not _SERVICE_NAME.fullmatch(service_name):
             raise recipe_error(name, f"service name {service_name!r} is not a plain name")
         if not isinstance(service, dict):
             raise recipe_error(name, f"service {service_name} must be a mapping")
@@ -323,7 +323,7 @@ def validate_compose(
                 "volumes": [
                     volume
                     for volume in service.get("volumes") or ()
-                    if not _PATH_VOLUME.match(str(volume))
+                    if not _PATH_VOLUME.fullmatch(str(volume))
                 ],
             }
             for key, service in services.items()
@@ -369,7 +369,7 @@ def _top_level_volumes(name: str, raw: Any) -> set[str]:
     if not isinstance(raw, dict):
         raise recipe_error(name, "volumes must be a mapping of names")
     for volume, config in raw.items():
-        if not re.match(r"^[a-z][a-z0-9_-]*$", str(volume)):
+        if not re.fullmatch(r"^[a-z][a-z0-9_-]*$", str(volume)):
             raise recipe_error(name, f"volume {volume!r} is not a plain name")
         if config not in (None, {}):
             raise recipe_error(
@@ -431,11 +431,11 @@ def _check_volumes(
     for entry in data.get("volumes") or ():
         if not isinstance(entry, str):
             raise recipe_error(name, f"service {service}: write volumes as 'name:/path'")
-        from_variable = _PATH_VOLUME.match(entry)
+        from_variable = _PATH_VOLUME.fullmatch(entry)
         if from_variable is not None:
             path_variables.add(from_variable.group("variable"))
             continue
-        named = _NAMED_VOLUME.match(entry)
+        named = _NAMED_VOLUME.fullmatch(entry)
         if named is not None:
             if named.group("name") not in declared:
                 raise recipe_error(
@@ -444,7 +444,7 @@ def _check_volumes(
                 )
             used.add(named.group("name"))
             continue
-        shipped = _FILE_VOLUME.match(entry)
+        shipped = _FILE_VOLUME.fullmatch(entry)
         if shipped is not None:
             source = PurePosixPath(shipped.group("source")).as_posix().removeprefix("./")
             if ".." in source.split("/") or not any(
@@ -491,15 +491,15 @@ def _check_ports(
     for entry in data.get("ports") or ():
         if not isinstance(entry, str):
             raise recipe_error(name, f"service {service}: write ports as 'host:container' strings")
-        web_match = _WEB_PORT.match(entry)
+        web_match = _WEB_PORT.fullmatch(entry)
         if web_match is not None:
             web.append((service, int(web_match.group("container"))))
             continue
-        local_match = _LOCAL_PORT.match(entry)
+        local_match = _LOCAL_PORT.fullmatch(entry)
         if local_match is not None and local_match.group("variable") != "PORT":
             local_variables.add(local_match.group("variable"))
             continue
-        public_match = _PUBLIC_PORT.match(entry)
+        public_match = _PUBLIC_PORT.fullmatch(entry)
         if public_match is not None and public_match.group("host") == public_match.group(
             "container"
         ):

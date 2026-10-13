@@ -93,12 +93,23 @@ def _print_report(logger: Logger, report: HealthReport) -> None:
     logger.info("Checking system resources...")
     _print_check(logger, report.memory)
 
-    if report.builds is not None or report.audit is not None or report.updates is not None:
+    if (
+        report.builds is not None
+        or report.audit is not None
+        or report.updates is not None
+        or report.accounts is not None
+    ):
         logger.blank()
-        logger.info("Checking builds, updates and the audit trail...")
+        logger.info("Checking builds, accounts, updates and the audit trail...")
         _print_check(logger, report.builds)
+        _print_check(logger, report.accounts)
         _print_check(logger, report.updates)
         _print_check(logger, report.audit)
+
+    if report.security is not None:
+        logger.blank()
+        logger.info("Checking the server's security posture...")
+        _print_check(logger, report.security)
 
     if report.hardening is not None:
         logger.blank()

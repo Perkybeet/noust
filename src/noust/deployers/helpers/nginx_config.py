@@ -36,6 +36,7 @@ import yaml
 from noust.core import paths
 from noust.core.exceptions import ValidationError
 from noust.core.logger import Logger
+from noust.core.utils import nginx_zone_name as _zone_name
 
 #: Keys a noust.nginx.yaml may have at the top level.
 TOP_LEVEL_KEYS = frozenset(
@@ -190,16 +191,16 @@ def unsafe_values(config: "NginxAdvancedConfig") -> list[str]:
         headers = {}
     for header, value in headers.items():
         text = str(value)
-        if not _HEADER_NAME.match(str(header)):
+        if not _HEADER_NAME.fullmatch(str(header)):
             problems.append(f"security_headers: {header!r} is not a header name")
         if any(char in text for char in '"\\\n\r'):
             problems.append(
                 f"security_headers.{header}: the value may not hold quotes or new lines"
             )
     for index, route in enumerate(config.routes):
-        if route.upstream_name and not _ROUTE_NAME.match(route.upstream_name):
+        if route.upstream_name and not _ROUTE_NAME.fullmatch(route.upstream_name):
             problems.append(f"routes[{index}].name {route.upstream_name!r} is not a name")
-        if route.buffer_size and not _BODY_SIZE.match(route.buffer_size):
+        if route.buffer_size and not _BODY_SIZE.fullmatch(route.buffer_size):
             problems.append(f"routes[{index}].buffer_size {route.buffer_size!r} is not a size")
         burst = route.rate_limit_burst
         if isinstance(burst, bool) or not isinstance(burst, int) or not 0 <= burst <= 100000:
@@ -606,11 +607,11 @@ class NginxConfigBuilder:
                     )
 
         # Validate rate limit format (e.g., "100r/s", "10r/m")
-        if config.global_rate_limit and not _RATE.match(config.global_rate_limit):
+        if config.global_rate_limit and not _RATE.fullmatch(config.global_rate_limit):
             errors.append(
                 f"Invalid rate limit format: {config.global_rate_limit} (expected: NNr/s or NNr/m)"
             )
-        if config.max_body_size and not _BODY_SIZE.match(config.max_body_size):
+        if config.max_body_size and not _BODY_SIZE.fullmatch(config.max_body_size):
             errors.append(f"max_body_size {config.max_body_size!r} is not a size such as 20m or 1g")
 
         return errors
@@ -628,14 +629,14 @@ class NginxConfigBuilder:
             One message per problem.
         """
         errors = []
-        if not _DIRECTIVE_SAFE.match(route.path) or not route.path.startswith("/"):
+        if not _DIRECTIVE_SAFE.fullmatch(route.path) or not route.path.startswith("/"):
             errors.append(f"{where}.path {route.path!r} is not a location path")
         if route.proxies and not (proxy_mode and route.path == "/"):
             if not isinstance(route.upstream_port, int) or not (1 <= route.upstream_port <= 65535):
                 errors.append(f"Invalid port {route.upstream_port} for path {route.path}")
-        if route.rate_limit and not _RATE.match(route.rate_limit):
+        if route.rate_limit and not _RATE.fullmatch(route.rate_limit):
             errors.append(f"Invalid rate limit format for {route.path}: {route.rate_limit}")
-        if route.max_body_size and not _BODY_SIZE.match(route.max_body_size):
+        if route.max_body_size and not _BODY_SIZE.fullmatch(route.max_body_size):
             errors.append(
                 f"{where}.max_body_size {route.max_body_size!r} is not a size such as 20m"
             )
@@ -654,13 +655,13 @@ class NginxConfigBuilder:
             if (
                 relative.is_absolute()
                 or ".." in relative.parts
-                or not _DIRECTIVE_SAFE.match(route.static)
+                or not _DIRECTIVE_SAFE.fullmatch(route.static)
             ):
                 errors.append(
                     f"{where}.static {route.static!r} must be a directory inside the application, "
                     "relative to its root, without '..'"
                 )
-        if route.cache and (not route.static or not _CACHE.match(route.cache)):
+        if route.cache and (not route.static or not _CACHE.fullmatch(route.cache)):
             errors.append(
                 f"{where}.cache {route.cache!r} must be a time such as 1y or 30d, on a static route"
             )
@@ -671,7 +672,7 @@ class NginxConfigBuilder:
                     f"{where}.return code {code} is not a redirect "
                     f"({', '.join(map(str, sorted(_REDIRECT_CODES)))})"
                 )
-            if not target or not _DIRECTIVE_SAFE.match(target):
+            if not target or not _DIRECTIVE_SAFE.fullmatch(target):
                 errors.append(f"{where}.return to {target!r} is not a URL or a path")
         return errors
 
@@ -711,16 +712,3 @@ def _zone_prefix(domain: str) -> str:
         The domain with every character a zone name should not hold as ``_``.
     """
     return _zone_name(domain)
-
-
-def _zone_name(text: str) -> str:
-    """
-    Turn text into a zone name.
-
-    Args:
-        text: The text.
-
-    Returns:
-        Lower case, ``[a-z0-9_]`` only.
-    """
-    return re.sub(r"[^a-z0-9_]+", "_", text.lower()).strip("_") or "default"

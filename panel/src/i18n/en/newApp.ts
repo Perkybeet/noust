@@ -32,7 +32,7 @@ export const newApp = {
     github: "From GitHub",
     manual: "URL or path",
     image: "A Docker image",
-    compose: "A Compose file",
+    compose: "Compose",
     recipe: "From a recipe",
     import: "Import an application",
     adopt: "A running stack",

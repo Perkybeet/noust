@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { BookOpen, Boxes, X } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { appsQuery } from "../../api/queries/apps";
 import { CommandHint } from "../../components/page/CommandHint";
@@ -16,11 +16,14 @@ import { STATUS } from "../../components/ui/StatusPill";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { useOwnerScope } from "../teams/ownership";
+import { useOrganization } from "../teams/useOrganization";
 import { AppRowActions } from "./AppRowActions";
 import { AppsTable } from "./AppsTable";
+import { BulkAppsDialog } from "./BulkAppsDialog";
 import { latestDeployByDomain, recentDeploysQuery, useLatestMetrics, useTypeName } from "./data";
-import { STATE_FILTERS, appTypes, filterApps, isFiltered } from "./filters";
+import { STATE_FILTERS, appTagNames, appTypes, filterApps, isFiltered } from "./filters";
 import type { AppsSearch } from "./filters";
+import { UpdateTaggedApps } from "./UpdateTaggedApps";
 import { useStateTransitions } from "./useStateTransitions";
 
 const ALL = "all";
@@ -79,6 +82,10 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
   const deploys = useQuery(recentDeploysQuery());
   const metrics = useLatestMetrics();
   const typeName = useTypeName();
+  // The applications chosen for an action on several, in the order they were chosen.
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const [acting, setActing] = useState(false);
+  const canDeploy = useOrganization().can("apps.deploy");
 
   const all = useMemo(() => apps.data?.apps ?? [], [apps.data]);
   // The team the operator works in narrows the list, and the project and environment filters narrow it further.
@@ -87,6 +94,7 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
   const shown = useMemo(() => filterApps(owner.shown, search), [owner.shown, search]);
   const latest = useMemo(() => latestDeployByDomain(deploys.data?.items ?? []), [deploys.data]);
   const types = useMemo(() => appTypes(owner.inTeam), [owner.inTeam]);
+  const tags = useMemo(() => appTagNames(owner.inTeam), [owner.inTeam]);
   useStateTransitions(apps.data?.apps);
 
   const set = (patch: SearchPatch, replace = false): void => {
@@ -95,12 +103,19 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
     if (next.q) clean.q = next.q;
     if (next.state) clean.state = next.state;
     if (next.type) clean.type = next.type;
+    if (next.tag) clean.tag = next.tag;
     if (next.project) clean.project = next.project;
     if (next.environment) clean.environment = next.environment;
     onSearchChange(clean, { replace });
   };
   const clear = (): void => {
     onSearchChange({});
+  };
+
+  // A choice the filters have since hidden is not a choice any more.
+  const chosen = [...selected].flatMap((domain) => shown.filter((app) => app.domain === domain));
+  const selectAll = (): void => {
+    setSelected(new Set([...selected, ...shown.map((app) => app.domain)]));
   };
 
   const filtered = isFiltered(search);
@@ -116,7 +131,13 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
     title: t("apps.page.title"),
     description: t("apps.page.description"),
     server: node,
-    secondaryActions: <FromRecipeLink />,
+    secondaryActions: (
+      <>
+        {/* A bulk update is offered where the list is narrowed to one tag, and not before. */}
+        {search.tag !== undefined && shown.length > 0 && canDeploy ? <UpdateTaggedApps tag={search.tag} count={shown.length} /> : null}
+        <FromRecipeLink />
+      </>
+    ),
     primaryAction: <NewAppLink />,
   };
 
@@ -174,16 +195,55 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
                 options={[{ value: ALL, label: t("apps.page.everyType") }, ...types.map((type) => ({ value: type, label: typeName(type) ?? type }))]}
                 className="min-w-36"
               />
+              {tags.length > 0 || search.tag !== undefined ? (
+                <Select
+                  aria-label={t("appTags.filter.label")}
+                  value={search.tag ?? ALL}
+                  onValueChange={(value) => set({ tag: value === ALL ? undefined : value })}
+                  options={[{ value: ALL, label: t("appTags.filter.every") }, ...tags.map((tag) => ({ value: tag, label: tag }))]}
+                  className="min-w-36"
+                />
+              ) : null}
               {owner.filters(search, (patch) => set({ project: patch.project, environment: patch.environment }))}
             </>
           }
           count={count}
-          {...(filtered
+          {...(filtered || chosen.length > 0
             ? {
                 actions: (
-                  <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={clear}>
-                    {t("apps.page.clearFilters")}
-                  </Button>
+                  <>
+                    {chosen.length > 0 ? (
+                      <>
+                        {chosen.length < shown.length ? (
+                          <Button variant="ghost" onClick={selectAll}>
+                            {t("apps.bulk.selectAll", { count: shown.length })}
+                          </Button>
+                        ) : null}
+                        <Button
+                          variant="ghost"
+                          icon={<X aria-hidden="true" />}
+                          onClick={() => {
+                            setSelected(new Set());
+                          }}
+                        >
+                          {t("apps.bulk.clear")}
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          onClick={() => {
+                            setActing(true);
+                          }}
+                        >
+                          {t("apps.bulk.actOn", { count: chosen.length })}
+                        </Button>
+                      </>
+                    ) : null}
+                    {filtered ? (
+                      <Button variant="ghost" icon={<X aria-hidden="true" />} onClick={clear}>
+                        {t("apps.page.clearFilters")}
+                      </Button>
+                    ) : null}
+                  </>
                 ),
               }
             : {})}
@@ -202,6 +262,17 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
         loading={apps.isPending || orgLoading}
         skeletonRows={SKELETON_ROWS}
         rowActions={(app) => <AppRowActions app={app} />}
+        selection={{
+          selected,
+          onSelect: (domain, checked) => {
+            setSelected((current) => {
+              const next = new Set(current);
+              if (checked) next.add(domain);
+              else next.delete(domain);
+              return next;
+            });
+          },
+        }}
         empty={
           <EmptyState
             variant="inline"
@@ -214,6 +285,14 @@ export function AppsPage({ search, onSearchChange }: AppsPageProps) {
           />
         }
       />
+      {acting && chosen.length > 0 ? (
+        <BulkAppsDialog
+          apps={chosen}
+          onClose={() => {
+            setActing(false);
+          }}
+        />
+      ) : null}
     </ListPage>
   );
 }

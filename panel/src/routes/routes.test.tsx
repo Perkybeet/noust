@@ -44,6 +44,8 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/settings", "Settings", "This server"],
   ["/settings/security", "Settings", "Two-factor authentication"],
   ["/settings/notifications", "Settings", "Channels"],
+  ["/settings/variables", "Settings", "Server variables"],
+  ["/settings/secret-managers", "Settings", "Secret managers"],
   ["/settings/tokens", "Settings", "Issued tokens"],
   ["/settings/accounts", "Settings", "Accounts"],
   ["/settings/approvals", "Settings", "Requests"],
@@ -52,6 +54,7 @@ const PAGES: [path: string, heading: string, content: string][] = [
   ["/settings/about", "Settings", "Version"],
   ["/settings/integrations", "Settings", "GitHub"],
   ["/settings/servers", "Settings", "Servers"],
+  ["/settings/cloud", "Settings", "Provider accounts"],
   ["/fleet", "Fleet", "No servers in this fleet yet"],
 ];
 
@@ -100,6 +103,15 @@ describe("the route tree", () => {
     fakeBackend(signedInRoutes());
     renderConsole("/integrations/github/callback");
     expect(await screen.findByRole("heading", { level: 1, name: "Connecting GitHub" })).toBeInTheDocument();
+    expect(await screen.findByText("Nothing to finish here")).toBeInTheDocument();
+  });
+
+  it("/integrations/gitlab/callback is where GitLab sends the browser back", async () => {
+    // The OAuth application's redirect URI (CALLBACK_PATH): opened without what GitLab adds to it,
+    // it says there is nothing to finish rather than showing a blank page.
+    fakeBackend(signedInRoutes());
+    renderConsole("/integrations/gitlab/callback");
+    expect(await screen.findByRole("heading", { level: 1, name: "GitLab" })).toBeInTheDocument();
     expect(await screen.findByText("Nothing to finish here")).toBeInTheDocument();
   });
 

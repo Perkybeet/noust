@@ -1,0 +1,43 @@
+{#
+    What the site's policy says in the server block that serves the application
+    (noust.managers.site_policy.policy_context): the real client address behind
+    a CDN, who may reach it, and how fast. Renders nothing for a site without one.
+#}
+{% set rules = policy | default({}) %}
+{% if rules.real_ip %}
+
+    # Client address: believed from these networks only
+{% for network in rules.real_ip.proxies %}
+    set_real_ip_from {{ network }};
+{% endfor %}
+    real_ip_header {{ rules.real_ip.header }};
+{% if rules.real_ip.recursive %}
+    real_ip_recursive on;
+{% endif %}
+{% endif %}
+{% if rules.auth or rules.ip_rules %}
+
+    # Who may reach the site
+{% if rules.auth and rules.ip_rules %}
+    satisfy {{ rules.auth.satisfy }};
+{% endif %}
+{% for rule in rules.ip_rules | default([]) %}
+    {{ rule }};
+{% endfor %}
+{% if rules.auth %}
+    auth_basic "{{ rules.auth.realm }}";
+    auth_basic_user_file {{ rules.auth.file }};
+{% endif %}
+{% endif %}
+{% if rules.rate or rules.conn %}
+
+    # Limits per client address
+{% if rules.rate %}
+    limit_req_status 429;
+    limit_req zone={{ rules.rate.zone }} burst={{ rules.rate.burst }} nodelay;
+{% endif %}
+{% if rules.conn %}
+    limit_conn_status 429;
+    limit_conn {{ rules.conn.zone }} {{ rules.conn.limit }};
+{% endif %}
+{% endif %}

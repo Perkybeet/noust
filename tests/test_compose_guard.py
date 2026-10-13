@@ -68,20 +68,106 @@ class TestInspect:
                 cap_add=["SYS_ADMIN"],
                 devices=["/dev/kvm"],
                 security_opt=["apparmor:unconfined"],
-                volumes=["/etc:/host-etc:ro", f"{APP}/uploads:/uploads", "./ok:/ok"],
+                volumes=["/etc/letsencrypt:/certs:ro", f"{APP}/uploads:/uploads", "./ok:/ok"],
             ),
             APP,
         )
 
         assert findings.refused == []
         assert findings.warned == [
-            "service web mounts /etc from this server, outside the application",
+            "service web mounts /etc/letsencrypt from this server, outside the application",
             "service web shares the host's pid",
             "service web shares the host's network_mode",
             "service web adds capabilities: SYS_ADMIN",
             "service web is given host devices",
             "service web turns its confinement off (apparmor:unconfined)",
         ]
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "/etc/noust",
+            "/etc/noust/web-secret",
+            "/var/lib/noust",
+            "/var/backups/noust",
+            "/etc/wasm",
+            # What contains Noust's state exposes it as surely as naming it.
+            "/",
+            "/etc",
+            "/var",
+            "/var/lib",
+        ],
+    )
+    def test_noust_own_state_is_refused_named_or_contained(self, source: str) -> None:
+        findings = inspect_compose(stack(volumes=[f"{source}:/host:ro"]), APP)
+
+        assert len(findings.refused) == 1, findings
+        assert f"mounts {source}" in findings.refused[0]
+        assert "configuration and secrets" in findings.refused[0]
+        assert findings.warned == []
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "/var/www/apps",
+            "/var/www",
+            "/var/www/apps/other-example-com",
+            "/var/www/apps/other-example-com/shared",
+            # `..` is resolved before the mount is judged: this is the other app.
+            "/var/www/apps/stack-example-com/../other-example-com",
+            "../other-example-com",
+            "./../../apps/other-example-com/.env",
+        ],
+    )
+    def test_another_applications_files_are_refused(self, source: str) -> None:
+        findings = inspect_compose(stack(volumes=[f"{source}:/x"]), APP)
+
+        assert len(findings.refused) == 1, findings
+        assert "other application" in findings.refused[0]
+
+    @pytest.mark.parametrize(
+        "volume",
+        [
+            "./data:/data",
+            "../stack-example-com/data:/data",
+            f"{APP}:/app",
+            f"{APP}/data/../uploads:/uploads",
+            {"type": "bind", "source": "./data", "target": "/data"},
+        ],
+    )
+    def test_the_applications_own_tree_stays_allowed_however_it_is_spelled(
+        self, volume: object
+    ) -> None:
+        assert not inspect_compose(stack(volumes=[volume]), APP)
+
+    def test_a_relative_path_that_climbs_out_is_outside(self) -> None:
+        findings = inspect_compose(stack(volumes=["../../../tmp/x:/x"]), APP)
+
+        assert findings.refused == []
+        assert findings.warned == [
+            "service web mounts ../../../tmp/x from this server, outside the application"
+        ]
+
+    def test_the_long_syntax_is_judged_like_the_short_one(self) -> None:
+        findings = inspect_compose(
+            stack(volumes=[{"type": "bind", "source": "/etc/noust", "target": "/n"}]), APP
+        )
+
+        assert len(findings.refused) == 1
+
+    def test_an_adopted_stack_outside_the_apps_directory_is_judged_by_where_it_lives(
+        self,
+    ) -> None:
+        adopted = Path("/opt/proggest")
+
+        allowed = inspect_compose(stack(volumes=["/opt/proggest/data:/data"]), adopted)
+        refused = inspect_compose(stack(volumes=["/var/www/apps/other-example-com:/x"]), adopted)
+
+        assert not allowed
+        assert len(refused.refused) == 1
+
+    def test_a_named_volume_is_never_a_bind(self) -> None:
+        assert not inspect_compose(stack(volumes=["etc:/etc", "noust:/var/lib/noust"]), APP)
 
     def test_something_that_is_not_a_compose_file_asks_for_nothing(self) -> None:
         assert not inspect_compose(None, APP)

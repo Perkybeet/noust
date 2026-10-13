@@ -27,10 +27,12 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from noust.core import webhook_deliveries
+from noust.core.config import Config
 from noust.core.exceptions import DeploymentError, NoustError
+from noust.core.github_host import GITHUB_COM, configured_host, integration_repository
 from noust.core.store import App, get_store
 from noust.core.webhook_deliveries import WebhookDelivery
-from noust.validators.source import github_repository
+from noust.validators.source import github_repository, parse_ssh_remote
 
 logger = logging.getLogger(__name__)
 
@@ -71,6 +73,11 @@ class HooksInfo:
         hook_url_public: Whether ``hook_url`` is one a forge can reach.
         content_type: What the forge must send.
         events: The events to enable at the forge.
+        deploy_url: Where a pipeline deploys the application with a ``deploy``
+            token and no code host: ``POST /api/apps/{domain}/deploy``. The
+            console's public address when it has one, else the caller's own.
+        deploy_url_public: Whether ``deploy_url`` is a public address, one a
+            CI runner on another network can reach.
     """
 
     exposed: bool
@@ -79,6 +86,8 @@ class HooksInfo:
     hook_url_public: bool
     content_type: str = CONTENT_TYPE
     events: list[str] = field(default_factory=lambda: list(EVENTS))
+    deploy_url: str | None = None
+    deploy_url_public: bool = False
 
 
 @dataclass
@@ -289,19 +298,27 @@ def _forge_of(source: str | None) -> ForgeInfo:
         what the source names publicly: never the userinfo of its URL.
     """
     text = (source or "").strip()
-    repository = github_repository(text)
-    if repository is not None:
-        return ForgeInfo(
-            forge="github",
-            host="github.com",
-            repository=repository,
-            settings_url=f"https://github.com/{repository}/settings/hooks/new",
+    # The GitHub the App is on (github.com, or the configured Enterprise host) first, then
+    # github.com itself: a repository there is GitHub too, whichever host the App is on.
+    for host_name in (configured_host(), GITHUB_COM):
+        repository = (
+            integration_repository(text)
+            if host_name == configured_host()
+            else github_repository(text)
         )
+        if repository is not None:
+            return ForgeInfo(
+                forge="github",
+                host=host_name,
+                repository=repository,
+                settings_url=f"https://{host_name}/{repository}/settings/hooks/new",
+            )
 
     host: str | None = None
     path = ""
-    if text.startswith("git@") and ":" in text:
-        host, _, path = text[len("git@") :].partition(":")
+    remote = parse_ssh_remote(text)
+    if remote is not None:
+        host, path = remote.host, remote.path
     else:
         parts = urlsplit(text.split("#", 1)[0])
         if parts.scheme in ("http", "https", "ssh", "git") and parts.hostname:
@@ -427,6 +444,12 @@ def status(app: App, *, fallback_base: str | None = None) -> WebhookStatus:
     public = public_hooks_url()
     base = public or (fallback_base.rstrip("/") if fallback_base else None)
     forge = _forge_of(app.source)
+    console_url = Config().get("web.public_url")
+    api_base = (
+        str(console_url).rstrip("/")
+        if console_url
+        else (fallback_base.rstrip("/").removesuffix("/hooks") if fallback_base else None)
+    )
     hooks = HooksInfo(
         exposed=public is not None,
         base_url=public,
@@ -435,6 +458,8 @@ def status(app: App, *, fallback_base: str | None = None) -> WebhookStatus:
         events=_events_for(
             forge.forge, previews=store.get_preview_settings(app.domain) is not None
         ),
+        deploy_url=f"{api_base}/api/apps/{app.domain}/deploy" if api_base else None,
+        deploy_url_public=bool(console_url),
     )
 
     pinned = bool(app.branch)

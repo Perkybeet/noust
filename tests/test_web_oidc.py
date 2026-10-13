@@ -162,17 +162,26 @@ class TestTheButton:
         response = browser(app).get("/api/auth/oidc/providers")
 
         assert response.status_code == 200
-        assert response.json() == {"providers": [{"name": "corp", "label": "Acme SSO"}]}
+        assert response.json() == {
+            "providers": [{"name": "corp", "label": "Acme SSO"}],
+            "local_login": True,
+        }
         assert "no-store" in response.headers["cache-control"]
         assert idp.issuer not in response.text and idp.client_id not in response.text
 
     def test_no_providers_is_an_empty_list(self, app: Any) -> None:
-        assert browser(app).get("/api/auth/oidc/providers").json() == {"providers": []}
+        assert browser(app).get("/api/auth/oidc/providers").json() == {
+            "providers": [],
+            "local_login": True,
+        }
 
     def test_a_disabled_provider_is_not_offered(self, app: Any, idp: FakeIdP) -> None:
         make_account("root-admin", "admin")
         configure(idp, enabled=False)
-        assert browser(app).get("/api/auth/oidc/providers").json() == {"providers": []}
+        assert browser(app).get("/api/auth/oidc/providers").json() == {
+            "providers": [],
+            "local_login": True,
+        }
 
 
 class TestStart:

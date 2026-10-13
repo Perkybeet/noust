@@ -61,15 +61,73 @@ const SMTP_SET = {
   password_set: true,
 };
 
+const CHANNEL_TYPES = ["webhook", "slack", "discord", "telegram", "email", "pushover", "ntfy", "gotify", "teams"];
+
+interface ChannelView {
+  name: string;
+  type: string;
+  enabled: boolean;
+  configured: boolean;
+  default: boolean;
+  settings: Record<string, unknown>;
+  events: Record<string, boolean>;
+  route: Record<string, unknown>;
+  quiet: Record<string, unknown> | null;
+}
+
+function channelView(name: string, extra: Partial<ChannelView> = {}): ChannelView {
+  return { name, type: name, enabled: true, configured: false, default: true, settings: {}, events: {}, route: {}, quiet: null, ...extra };
+}
+
+/** GET /api/notifications/channels: the nine defaults (Slack, Webhook and Telegram set up), then whatever else is given. */
+function channelsBody(extra: ChannelView[] = [], overrides: Record<string, Partial<ChannelView>> = {}) {
+  const defaults = CHANNEL_TYPES.map((type) => channelView(type, { configured: ["webhook", "slack", "telegram"].includes(type), ...overrides[type] }));
+  return { items: [...defaults, ...extra], types: CHANNEL_TYPES.map((name) => ({ name, keys: [] })), enabled: false };
+}
+
+const NO_DELIVERIES = { items: [], counts: {} };
+
 function notificationsBackend(
-  options: { smtp?: typeof SMTP_UNSET | typeof SMTP_SET; config?: ReturnType<typeof configBody>; routes?: Parameters<typeof fakeBackend>[0] } = {},
+  options: {
+    smtp?: typeof SMTP_UNSET | typeof SMTP_SET;
+    config?: ReturnType<typeof configBody>;
+    routes?: Parameters<typeof fakeBackend>[0];
+    channels?: ReturnType<typeof channelsBody>;
+    deliveries?: unknown;
+  } = {},
 ) {
   let elevated = false;
   const needsElevation = () => (elevated ? null : problem(403, "elevation_required", "Confirm it's you to continue."));
+  // The channels as the server holds them, changed by the PUTs of the page.
+  const base = options.channels ?? channelsBody();
+  const held = new Map(base.items.map((channel) => [channel.name, channel]));
+  const putChannel = (name: string): [string, (call: { body: unknown }) => Response] => [
+    `PUT /api/notifications/channels/${name}`,
+    (call) => {
+      const refused = needsElevation();
+      if (refused !== null) return refused;
+      const body = call.body as { type?: string; settings?: Record<string, unknown>; events?: Record<string, boolean>; route?: Record<string, unknown>; quiet?: Record<string, unknown> };
+      const current = held.get(name) ?? channelView(name, { type: body.type ?? name, default: false });
+      const settings = { ...current.settings, ...body.settings };
+      const next: ChannelView = {
+        ...current,
+        settings,
+        configured: Object.values(settings).some((value) => value !== "" && value !== null),
+        events: body.events ?? current.events,
+        route: body.route ?? current.route,
+        quiet: body.quiet === undefined ? current.quiet : Object.keys(body.quiet).length === 0 ? null : body.quiet,
+      };
+      held.set(name, next);
+      return json(200, next);
+    },
+  ];
   return fakeBackend({
     ...signedInRoutes(),
     "GET /api/config": () => json(200, options.config ?? configBody()),
     "GET /api/config/smtp": () => json(200, options.smtp ?? SMTP_UNSET),
+    "GET /api/notifications/channels": () => json(200, { ...base, items: [...held.values()] }),
+    "GET /api/notifications/deliveries": () => json(200, options.deliveries ?? NO_DELIVERIES),
+    ...Object.fromEntries([...CHANNEL_TYPES, "slack-staging", "oncall"].map(putChannel)),
     "PUT /api/config/smtp": () => needsElevation() ?? json(200, { message: "SMTP configuration updated" }),
     "PUT /api/config/notifications/telegram": () => needsElevation() ?? json(200, { message: "Telegram configuration updated" }),
     "POST /api/auth/elevate": () => {
@@ -133,9 +191,13 @@ describe("Settings > Notifications", () => {
     // Every event, by area, each group saying how many of its events are sent.
     expect(screen.getByText("Deploys", { selector: "summary *" })).toBeInTheDocument();
     // Deploys: deploy_hook_failed is missing from the file, so it is sent (on by default). Backups
-    // lists the two events 3.4 added, which are on by default as well.
+    // lists the events 3.4 added, which are on by default as well: deploy_started and
+    // backup_success ship off, everything else is on.
     expect(screen.getAllByText("4 of 5 sent")).toHaveLength(1);
     expect(screen.getAllByText("5 of 6 sent")).toHaveLength(1);
+    // The alerts and jobs: only the heartbeat of a cron job that ended well ships off.
+    expect(screen.getAllByText("3 of 4 sent")).toHaveLength(1);
+    expect(screen.getByText("Alerts and scheduled jobs", { selector: "summary *" })).toBeInTheDocument();
     expect(screen.getByText("Servers you manage", { selector: "summary *" })).toBeInTheDocument();
     // One save bar for the form, and nothing to save yet.
     expect(within(saveBar()).getByText("No unsaved changes")).toBeInTheDocument();
@@ -304,8 +366,145 @@ describe("Settings > Notifications", () => {
     });
     const events = written("notifications.events")?.body as { path: string; value: Record<string, boolean> };
     expect(events.value).toMatchObject({ backup_success: true, deploy_started: false, restore_failed: true });
-    expect(Object.keys(events.value)).toHaveLength(23);
+    expect(Object.keys(events.value)).toHaveLength(29);
     expect(written("notifications.language")?.body).toEqual({ path: "notifications.language", value: "es" });
+  });
+
+  it("sets up Pushover with both of its keys, and a device that is plain text", { timeout: 20_000 }, async () => {
+    const backend = notificationsBackend();
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    expect(within(row("Pushover")).getByText("Off")).toBeInTheDocument();
+    await user.click(within(row("Pushover")).getByRole("button", { name: "Set up Pushover" }));
+    const drawer = await screen.findByRole("dialog", { name: "Pushover" });
+    await user.type(within(drawer).getByLabelText("User key"), "u".repeat(30));
+    await user.type(within(drawer).getByLabelText("Application token"), "a".repeat(30));
+    // A plain field shows what is typed; only the keys are masked.
+    await user.type(within(drawer).getByLabelText(/Device/), "phone");
+    expect(within(drawer).getByLabelText(/Device/)).toHaveValue("phone");
+    await user.click(within(drawer).getByRole("button", { name: "Save" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(backend.callsTo("PATCH /api/config")).toHaveLength(2);
+    });
+    expect(backend.callsTo("PATCH /api/config").at(-1)?.body).toEqual({
+      path: "notifications.channels.pushover",
+      value: { user_key: "u".repeat(30), app_token: "a".repeat(30), device: "phone" },
+    });
+  });
+
+  it("limits a channel to some applications and hours from its Routing drawer, and says so under its row", { timeout: 30_000 }, async () => {
+    const backend = notificationsBackend();
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    // A channel with nowhere to send has no routing to set.
+    expect(within(row("Pushover")).queryByRole("button", { name: "Routing for Pushover" })).toBeNull();
+    await user.click(within(row("Slack")).getByRole("button", { name: "Routing for Slack" }));
+    const drawer = await screen.findByRole("dialog", { name: "Routing for Slack" });
+    await user.type(within(drawer).getByRole("textbox", { name: /^Applications/ }), "shop.example.com, *.staging.example.com");
+    await user.click(within(drawer).getByRole("switch", { name: "Hold messages during quiet hours" }));
+    await user.click(within(drawer).getByRole("button", { name: "Save" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(backend.callsTo("PUT /api/notifications/channels/slack")).toHaveLength(2);
+    });
+    expect(backend.callsTo("PUT /api/notifications/channels/slack").at(-1)?.body).toMatchObject({
+      events: {},
+      route: { apps: ["shop.example.com", "*.staging.example.com"] },
+      quiet: { start: "22:00", end: "07:00", allow: "failed", digest: true },
+    });
+    // Closed, the page behind it can be read again.
+    await user.click(within(drawer).getByRole("button", { name: "Done" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Routing for Slack" })).toBeNull();
+    });
+    expect(await within(row("Slack")).findByText("Applications: shop.example.com, *.staging.example.com")).toBeInTheDocument();
+    expect(within(row("Slack")).getByText("Quiet from 22:00 to 07:00")).toBeInTheDocument();
+  });
+
+  it("gives a channel its own events instead of the server's, all written at once", { timeout: 30_000 }, async () => {
+    const backend = notificationsBackend();
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    await user.click(within(row("Slack")).getByRole("button", { name: "Routing for Slack" }));
+    const drawer = await screen.findByRole("dialog", { name: "Routing for Slack" });
+    expect(within(drawer).getByText("It hears every event switched on under What is sent.")).toBeInTheDocument();
+    await user.click(within(drawer).getByRole("radio", { name: "Choose here" }));
+    await user.click(within(drawer).getByRole("checkbox", { name: "Deploy failed" }));
+    await user.click(within(drawer).getByRole("checkbox", { name: "Deploy started" }));
+    await user.click(within(drawer).getByRole("button", { name: "Save" }));
+    await confirmItsYou(user);
+    await waitFor(() => {
+      expect(backend.callsTo("PUT /api/notifications/channels/slack")).toHaveLength(2);
+    });
+    const events = (backend.callsTo("PUT /api/notifications/channels/slack").at(-1)?.body as { events: Record<string, boolean> }).events;
+    expect(Object.keys(events)).toHaveLength(29);
+    expect(events).toMatchObject({ deploy_failed: false, deploy_started: true, deploy_success: true });
+    await user.click(within(drawer).getByRole("button", { name: "Done" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog", { name: "Routing for Slack" })).toBeNull();
+    });
+    expect(await within(row("Slack")).findByText("Own switches for 29 events")).toBeInTheDocument();
+  });
+
+  it("adds a channel by name and type, then asks for its destination in the drawer it opens", { timeout: 30_000 }, async () => {
+    const backend = notificationsBackend();
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    expect(screen.getByText("No more channels. Add one to send some events somewhere else.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add a channel" }));
+    const add = await screen.findByRole("dialog", { name: "Add a channel" });
+    // A name the server would refuse is not sent.
+    await user.type(within(add).getByLabelText("Name"), "Bad Name");
+    expect(within(add).getByRole("button", { name: "Add channel" })).toBeDisabled();
+    await user.clear(within(add).getByLabelText("Name"));
+    await user.type(within(add).getByLabelText("Name"), "slack-staging");
+    await user.click(within(add).getByRole("button", { name: "Add channel" }));
+    await confirmItsYou(user);
+    const drawer = await screen.findByRole("dialog", { name: "slack-staging" });
+    expect(backend.callsTo("PUT /api/notifications/channels/slack-staging").at(-1)?.body).toEqual({ type: "slack" });
+    // The new channel is asked for what its type needs, with nothing yet to send to.
+    expect(within(drawer).getByLabelText("Incoming webhook URL")).toHaveValue("");
+    await user.click(within(drawer).getByRole("button", { name: "Done" }));
+    const list = await screen.findByRole("list", { name: "More notification channels" });
+    expect(within(list).getByText("Slack channel")).toBeInTheDocument();
+    expect(within(list).getByText("Off")).toBeInTheDocument();
+  });
+
+  it("lists what became of each notification, in the destination's own words, and sends a waiting one now", { timeout: 20_000 }, async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const failing = {
+      id: 7,
+      notification_id: "n-7",
+      kind: "deploy_failed",
+      code: "deploy.failed",
+      subject: "shop.example.com",
+      channel: "slack",
+      channel_type: "slack",
+      state: "retrying",
+      attempts: 2,
+      created_at: now - 120,
+      updated_at: now - 60,
+      next_attempt_at: now + 300,
+      last_error: "HTTP 502 Bad Gateway",
+      can_retry: true,
+    };
+    const backend = notificationsBackend({
+      deliveries: { items: [failing, { ...failing, id: 6, state: "sent", attempts: 1, last_error: null, can_retry: false, next_attempt_at: null }], counts: { retrying: 1, sent: 1 } },
+      routes: { "POST /api/notifications/deliveries/7/retry": () => json(200, { ...failing, state: "sent", can_retry: false }) },
+    });
+    const { user } = renderConsole("/settings/notifications");
+    await screen.findByRole("switch", { name: /Send notifications/ });
+    const list = await screen.findByRole("list", { name: "Recent deliveries" });
+    expect(screen.getByText("1 waiting to be tried again")).toBeInTheDocument();
+    const [waiting] = within(list).getAllByRole("listitem");
+    if (waiting === undefined) throw new Error("no delivery listed");
+    expect(within(waiting).getByText("Trying again")).toBeInTheDocument();
+    expect(within(waiting).getByText("HTTP 502 Bad Gateway")).toBeInTheDocument();
+    await user.click(within(waiting).getByRole("button", { name: "Send shop.example.com to slack now" }));
+    await waitFor(() => {
+      expect(backend.callsTo("POST /api/notifications/deliveries/7/retry")).toHaveLength(1);
+    });
   });
 
   it("reads in Spanish, with no accessibility violations", { timeout: 20_000 }, async () => {

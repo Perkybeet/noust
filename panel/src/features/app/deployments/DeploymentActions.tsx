@@ -98,6 +98,11 @@ export function rebuildWords(t: T, layout: string, commit: string, branch: strin
 export function rollbackWords(t: T, layout: string, deployment: Deployment): string {
   const id = String(deployment.id);
   if (layout === "releases") return t("appPages.deployments.actions.rollbackReleasesWords", { id: deployment.release_id ?? "" });
+  // A stack that kept the images that deployment ran swaps them; one that did not builds the commit again.
+  if (deployment.rollback_method === "instant") return t("runtime.rollback.instantWords", { id });
+  if (deployment.rollback_method === "rebuild" && deployment.git_commit) {
+    return t("runtime.rollback.rebuildWords", { commit: shortCommit(deployment.git_commit) ?? deployment.git_commit });
+  }
   return t("appPages.deployments.actions.rollbackInPlaceWords", { snapshot: deployment.snapshot_backup ?? "", id });
 }
 

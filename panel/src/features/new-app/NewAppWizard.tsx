@@ -8,6 +8,7 @@ import { importApp } from "../../api/queries/appImport";
 import type { ImportAppBody } from "../../api/queries/appImport";
 import { appKeys, appsQuery, appTypesQuery } from "../../api/queries/apps";
 import { githubStatusQuery } from "../../api/queries/github";
+import { gitlabStatusQuery } from "../../api/queries/gitlab";
 import { webserverQuery } from "../../api/queries/config";
 import { isJobFinished, jobKeys, useFollowedJob } from "../../api/queries/jobs";
 import type { Job } from "../../api/queries/jobs";
@@ -209,6 +210,8 @@ export function NewAppWizard() {
   const followedJob = useFollowedJob();
   // Only decides whether "From GitHub" is offered: a failure leaves the typed source, as before.
   const github = useQuery({ ...githubStatusQuery(), retry: false });
+  // Likewise for "From GitLab": offered where a connection exists.
+  const gitlab = useQuery({ ...gitlabStatusQuery(), retry: false });
 
   // On a fleet the wizard asks on which server first (ServerStep.tsx).
   const serverStep = useServerStep({
@@ -427,6 +430,20 @@ export function NewAppWizard() {
   const addressDomain = kind === "recipe" ? (recipeForm?.domain ?? "") : kind === "import" ? (importForm?.domain ?? "") : (review?.domain ?? "");
   const dns = useDomainDnsCheck(addressDomain);
 
+  // An export, from a file or from another platform's server: checked the same way, then reviewed.
+  const acceptExport = (name: string, text: string): void => {
+    const read = readExport(text);
+    if ("problem" in read) {
+      setLoaded(null);
+      setImportProblem(read.problem);
+      return;
+    }
+    setLoaded({ fileName: name, document: read.document });
+    setImportProblem(null);
+    setImportForm(initialImportForm(read.document));
+    setImportErrors({});
+  };
+
   const readFile = (file: File): void => {
     const tooLarge = exportFileProblem(file);
     if (tooLarge !== null) {
@@ -436,16 +453,7 @@ export function NewAppWizard() {
     }
     readText(file).then(
       (text) => {
-        const read = readExport(text);
-        if ("problem" in read) {
-          setLoaded(null);
-          setImportProblem(read.problem);
-          return;
-        }
-        setLoaded({ fileName: file.name, document: read.document });
-        setImportProblem(null);
-        setImportForm(initialImportForm(read.document));
-        setImportErrors({});
+        acceptExport(file.name, text);
       },
       () => {
         setLoaded(null);
@@ -603,7 +611,9 @@ export function NewAppWizard() {
     const found: SourceErrors =
       sourceMode === "github" && githubStatus?.configured === true && source.installationId === undefined
         ? { source: t("newApp.source.chooseRepository") }
-        : sourceProblems(source);
+        : sourceMode === "gitlab" && source.source.trim() === ""
+          ? { source: t("gitlab.picker.chooseProject") }
+          : sourceProblems(source);
     const missing = found.source ?? found.branch;
     const ready = inspected !== null && sameSource(inspected.for, source) && review !== null;
     return {
@@ -666,6 +676,7 @@ export function NewAppWizard() {
                 else actions.next.onClick();
               }}
               github={githubStatus}
+              gitlab={gitlab.data ?? null}
               mode={sourceMode}
               onModeChange={(mode) => {
                 setChosenMode(mode);
@@ -713,7 +724,7 @@ export function NewAppWizard() {
                   }}
                 />
               }
-              importer={<ImportFile loaded={loaded} problem={importProblem} types={typeList} onFile={readFile} />}
+              importer={<ImportFile loaded={loaded} problem={importProblem} types={typeList} onFile={readFile} onRemote={acceptExport} />}
               composer={composeDoc.content}
               adopter={adoption.content}
             />

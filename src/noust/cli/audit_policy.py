@@ -37,6 +37,14 @@ passes a predicate over its parsed parameters (:data:`ReadOnlyWhen`), so the
 form that reads needs no reason and the form that changes still does.
 Anything not declared is audited: the policy fails closed. A rehearsal (``--dry-run``) changes nothing, so it records nothing
 and needs no reason either.
+
+**When the trail cannot be written** (``audit.on_failure: refuse``, always
+under the ENS profile; :mod:`noust.core.audit.failclosed`) a command that
+changes something is refused before it does anything, unless it is one that
+repairs the trail (:data:`~noust.core.audit.failclosed.REPAIR_COMMANDS`) or one
+a unit, a timer or a package script runs: a scheduled backup that did not run
+is worse than one whose line was not written, and that failure keeps shouting
+in the console and ``noust health``.
 """
 
 from __future__ import annotations
@@ -51,6 +59,7 @@ from typing import Any
 import click
 
 from noust.core import audit
+from noust.core.audit import failclosed
 from noust.core.audit.ledger import install_ledger
 from noust.core.audit.sanitize import clean_details, secret_name
 from noust.core.config import REDACTED
@@ -319,6 +328,8 @@ class AuditedInvocation(AbstractContextManager["AuditedInvocation"]):
         Raises:
             click.UsageError: The ENS profile is on and no ``--reason`` was
                 given (exit 2, before the command does anything).
+            NoustError: The trail cannot be written and the policy is to
+                refuse changes then (exit 1, before the command does anything).
         """
         if is_read_only(self.command, self.path, self.ctx.params):
             return self
@@ -330,6 +341,14 @@ class AuditedInvocation(AbstractContextManager["AuditedInvocation"]):
             state.reason if state is not None else None
         )
         entry_point = self.path in SYSTEM_ENTRY_POINTS
+        if not entry_point and self.path.split(" ", 1)[0] not in failclosed.REPAIR_COMMANDS:
+            why = failclosed.refusal()
+            if why is not None:
+                raise NoustError(
+                    f"'noust {self.path}' changes this server and the audit trail cannot be "
+                    f"written: {why}.",
+                    details=failclosed.HINT,
+                )
         if (
             not self._reason
             and not entry_point

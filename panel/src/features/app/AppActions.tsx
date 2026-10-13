@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
-import { CircleArrowUp, History, Play, RotateCw, Square, SquareTerminal, Stethoscope } from "lucide-react";
+import { ArrowRightLeft, CircleArrowUp, Copy, FolderOpen, Hammer, History, Play, RotateCw, Square, SquareTerminal, Stethoscope } from "lucide-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
 
@@ -16,6 +16,7 @@ import { SM_UP, useMediaQuery } from "../../components/ui/useMediaQuery";
 import { useT } from "../../i18n";
 import { useNode } from "../../nodes/useNode";
 import { hasUnit } from "../apps/AppRowActions";
+import { useCloneApp, usePromoteApp } from "../promotion/useAppTransfers";
 import { NothingNewDialog } from "../apps/NothingNewDialog";
 import { reportActionError, useAppActions } from "../apps/useAppActions";
 import { DeleteAppDialog } from "./DeleteAppDialog";
@@ -75,7 +76,7 @@ export function useAppHeaderActions(
   const t = useT();
   const { node } = useNode();
   const wide = useMediaQuery(SM_UP);
-  const { restart, start, stop, update, rebuildAnyway, nothingNew, dismissNothingNew } = useAppActions(domain, { onJobQueued });
+  const { restart, start, stop, update, rebuildAnyway, rebuildFresh, nothingNew, dismissNothingNew } = useAppActions(domain, { onJobQueued });
   const confirmItsYou = useConfirmItsYou();
   const navigate = useNavigate();
   const [confirmStop, setConfirmStop] = useState(false);
@@ -83,6 +84,8 @@ export function useAppHeaderActions(
   const [deleteOpen, setDeleteOpen] = useState(false);
   // The terminal is offered to whoever may open it; the server decides again when it is asked.
   const canOpenTerminal = useHasPermission("apps.terminal") === true;
+  const promote = usePromoteApp(app);
+  const clone = useCloneApp(app);
 
   // Nothing to act on until the app is read: the header keeps its place meanwhile.
   if (app === undefined) return {};
@@ -116,9 +119,28 @@ export function useAppHeaderActions(
       <MenuItem icon={<Stethoscope />} onClick={() => void navigate({ to: "/apps/$domain/diagnose", params: { domain } })}>
         {t("appPages.actions.diagnose")}
       </MenuItem>
+      <MenuItem icon={<Hammer />} onClick={() => rebuildFresh.mutate()}>
+        {t("appPages.actions.rebuildFresh")}
+      </MenuItem>
       {canOpenTerminal ? (
         <MenuItem icon={<SquareTerminal />} onClick={() => void navigate({ to: "/apps/$domain/terminal", params: { domain } })}>
           {t("appPages.actions.terminal")}
+        </MenuItem>
+      ) : null}
+      {/* The files are what a shell as the application is: the same permission. */}
+      {canOpenTerminal && unit ? (
+        <MenuItem icon={<FolderOpen />} onClick={() => void navigate({ to: "/apps/$domain/files", params: { domain } })}>
+          {t("runtime.files.title")}
+        </MenuItem>
+      ) : null}
+      {promote.available ? (
+        <MenuItem icon={<ArrowRightLeft />} description={t("promotion.promote.menuDescription")} onClick={promote.open}>
+          {t("promotion.promote.menu")}
+        </MenuItem>
+      ) : null}
+      {clone.available ? (
+        <MenuItem icon={<Copy />} description={t("promotion.clone.menuDescription")} onClick={clone.open}>
+          {t("promotion.clone.menu")}
         </MenuItem>
       ) : null}
       <MenuSeparator />
@@ -172,6 +194,8 @@ export function useAppHeaderActions(
       />
       <RollbackDialog domain={domain} layout={app.layout} open={rollbackOpen} onOpenChange={setRollbackOpen} onJobQueued={onJobQueued} />
       <DeleteAppDialog app={app} open={deleteOpen} onOpenChange={setDeleteOpen} />
+      {promote.dialog}
+      {clone.dialog}
     </>
   );
 

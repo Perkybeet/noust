@@ -28,6 +28,7 @@ from urllib.parse import urlencode
 
 from noust import __version__
 from noust.core.exceptions import IntegrationError
+from noust.core.github_host import api_url, configured_host, require_reachable
 
 #: GitHub's REST API.
 API_URL = "https://api.github.com"
@@ -126,7 +127,8 @@ class GitHubClient:
     JSON over HTTPS to one GitHub API host.
 
     Args:
-        base_url: The API root. Always :data:`API_URL` in Noust; tests pass a
+        base_url: The API root: :data:`API_URL`, or the configured Enterprise
+            host's (:func:`noust.core.github_host.api_url`); tests pass a
             loopback server.
         timeout: Seconds per request.
         opener: Replacement for :func:`urllib.request.urlopen`.
@@ -301,19 +303,34 @@ class GitHubClient:
 
 _lock = threading.Lock()
 _client: GitHubClient | None = None
+#: Whether the client was given (a test's fake GitHub) rather than built from the configuration.
+_client_pinned = False
 
 
 def get_client() -> GitHubClient:
     """
-    Return the process-wide client.
+    Return the process-wide client, for the GitHub this server is configured for.
+
+    The API root follows ``github.host`` (:mod:`noust.core.github_host`): github.com's, or a
+    GitHub Enterprise host's, which must pass the guard every address an operator types passes.
+    A client set with :func:`set_client` is returned as it is.
 
     Returns:
         The client every GitHub call in Noust goes through.
+
+    Raises:
+        ConfigError: The configured host resolves inside this machine's own networks and is
+            not allowed (``notifications.allow_private_hosts``).
     """
     global _client
     with _lock:
-        if _client is None:
-            _client = GitHubClient()
+        if _client is not None and _client_pinned:
+            return _client
+        host = configured_host()
+        wanted = api_url(host)
+        if _client is None or _client.base_url != wanted:
+            require_reachable(host)
+            _client = GitHubClient(wanted)
         return _client
 
 
@@ -324,6 +341,7 @@ def set_client(client: GitHubClient | None) -> None:
     Args:
         client: The client, or None for the real one on next use.
     """
-    global _client
+    global _client, _client_pinned
     with _lock:
         _client = client
+        _client_pinned = client is not None

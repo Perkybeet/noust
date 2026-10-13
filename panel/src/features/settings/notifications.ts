@@ -18,7 +18,7 @@ import type { Locale, T } from "../../i18n";
 /** What the server sends in place of a secret, and accepts back as "keep the stored one". */
 export const REDACTED = "***";
 
-export type ChannelId = "webhook" | "slack" | "discord" | "telegram" | "email";
+export type ChannelId = "webhook" | "slack" | "discord" | "telegram" | "email" | "pushover" | "ntfy" | "gotify" | "teams";
 
 export interface ChannelField {
   /** The key under `notifications.channels.<channel>`. */
@@ -59,7 +59,7 @@ export interface ChannelSpec {
 }
 
 /** The channel ids and their field keys, in the notifier's delivery order (noust.core.notifier.CHANNELS). */
-export const CHANNEL_IDS: readonly ChannelId[] = ["webhook", "slack", "discord", "telegram", "email"];
+export const CHANNEL_IDS: readonly ChannelId[] = ["webhook", "slack", "discord", "telegram", "email", "pushover", "ntfy", "gotify", "teams"];
 
 const CHANNEL_FIELD_KEYS: Readonly<Record<ChannelId, readonly string[]>> = {
   webhook: ["webhook_url", "secret"],
@@ -67,6 +67,10 @@ const CHANNEL_FIELD_KEYS: Readonly<Record<ChannelId, readonly string[]>> = {
   discord: ["webhook_url"],
   telegram: ["bot_token", "chat_id"],
   email: [],
+  pushover: ["user_key", "app_token", "device"],
+  ntfy: ["webhook_url", "token"],
+  gotify: ["webhook_url", "token"],
+  teams: ["webhook_url"],
 };
 
 /** The channels, translated, in the notifier's delivery order. */
@@ -154,6 +158,98 @@ export function channels(t: T): readonly ChannelSpec[] {
       description: t("settings.notifications.email.description"),
       fields: [],
     },
+    {
+      id: "pushover",
+      label: t("settings.notifications.channels.pushover.label"),
+      description: t("settings.notifications.channels.pushover.description"),
+      fields: [
+        {
+          key: "user_key",
+          label: t("settings.notifications.channels.pushover.userKeyLabel"),
+          secret: true,
+          destination: true,
+          placeholder: "uQiRzpo4DXghDmr9QzzfQu27cmVRsG",
+          description: t("settings.notifications.channels.pushover.userKeyDescription"),
+        },
+        {
+          key: "app_token",
+          label: t("settings.notifications.channels.pushover.appTokenLabel"),
+          secret: true,
+          destination: true,
+          placeholder: "azGDORePK8gMaC0QOYAMyEEuzJnyUi",
+          description: t("settings.notifications.channels.pushover.appTokenDescription"),
+        },
+        {
+          key: "device",
+          label: t("settings.notifications.channels.pushover.deviceLabel"),
+          secret: false,
+          optional: true,
+          placeholder: "",
+          description: t("settings.notifications.channels.pushover.deviceDescription"),
+        },
+      ],
+    },
+    {
+      id: "ntfy",
+      label: t("settings.notifications.channels.ntfy.label"),
+      description: t("settings.notifications.channels.ntfy.description"),
+      fields: [
+        {
+          key: "webhook_url",
+          label: t("settings.notifications.channels.ntfy.topicUrlLabel"),
+          secret: true,
+          destination: true,
+          placeholder: "https://ntfy.sh/your-topic",
+          description: t("settings.notifications.channels.ntfy.topicUrlDescription"),
+        },
+        {
+          key: "token",
+          label: t("settings.notifications.channels.ntfy.tokenLabel"),
+          secret: true,
+          optional: true,
+          placeholder: "tk_…",
+          description: t("settings.notifications.channels.ntfy.tokenDescription"),
+        },
+      ],
+    },
+    {
+      id: "gotify",
+      label: t("settings.notifications.channels.gotify.label"),
+      description: t("settings.notifications.channels.gotify.description"),
+      fields: [
+        {
+          key: "webhook_url",
+          label: t("settings.notifications.channels.gotify.serverUrlLabel"),
+          secret: true,
+          destination: true,
+          placeholder: "https://gotify.example.com",
+          description: t("settings.notifications.channels.gotify.serverUrlDescription"),
+        },
+        {
+          key: "token",
+          label: t("settings.notifications.channels.gotify.tokenLabel"),
+          secret: true,
+          destination: true,
+          placeholder: "",
+          description: t("settings.notifications.channels.gotify.tokenDescription"),
+        },
+      ],
+    },
+    {
+      id: "teams",
+      label: t("settings.notifications.channels.teams.label"),
+      description: t("settings.notifications.channels.teams.description"),
+      fields: [
+        {
+          key: "webhook_url",
+          label: t("settings.notifications.channels.teams.webhookUrlLabel"),
+          secret: true,
+          destination: true,
+          placeholder: "https://prod-00.westeurope.logic.azure.com/workflows/…",
+          description: t("settings.notifications.channels.teams.webhookUrlDescription"),
+        },
+      ],
+    },
   ];
 }
 
@@ -181,7 +277,6 @@ export const EVENT_KINDS: readonly string[] = [
   "disk_threshold",
   "backup_failed",
   "backup_success",
-  "backup_missing",
   "destination_unreachable",
   "node_unreachable",
   "node_recovered",
@@ -190,6 +285,13 @@ export const EVENT_KINDS: readonly string[] = [
   "server_back",
   "approval_requested",
   "approval_decided",
+  "alert_firing",
+  "alert_resolved",
+  "backup_missing",
+  "cron_failed",
+  "cron_success",
+  "os_patches",
+  "token_expiring",
 ];
 
 /**
@@ -197,9 +299,9 @@ export const EVENT_KINDS: readonly string[] = [
  * daily heartbeat for every backup that went right. The notifier reads a missing kind as on,
  * except these (noust.core.notifier, `default = kind not in OFF_BY_DEFAULT`).
  */
-export const OFF_BY_DEFAULT: ReadonlySet<string> = new Set(["deploy_started", "backup_success"]);
+export const OFF_BY_DEFAULT: ReadonlySet<string> = new Set(["deploy_started", "backup_success", "cron_success"]);
 
-export type EventGroupId = "deploys" | "backups" | "server" | "fleet" | "approvals";
+export type EventGroupId = "deploys" | "backups" | "server" | "alerts" | "fleet" | "approvals";
 
 /** The events by what they are about, in the order an operator looks for them. */
 export const EVENT_GROUPS: readonly { id: EventGroupId; kinds: readonly string[] }[] = [
@@ -207,8 +309,9 @@ export const EVENT_GROUPS: readonly { id: EventGroupId; kinds: readonly string[]
   { id: "backups", kinds: ["backup_failed", "backup_missing", "destination_unreachable", "restore_failed", "restore_success", "backup_success"] },
   {
     id: "server",
-    kinds: ["unit_failed", "app_unreachable", "app_recovered", "disk_threshold", "cert_expiring", "server_rebooted", "server_back"],
+    kinds: ["unit_failed", "app_unreachable", "app_recovered", "disk_threshold", "cert_expiring", "os_patches", "token_expiring", "server_rebooted", "server_back"],
   },
+  { id: "alerts", kinds: ["alert_firing", "alert_resolved", "cron_failed", "cron_success"] },
   { id: "fleet", kinds: ["node_unreachable", "node_host_key_changed", "node_recovered"] },
   { id: "approvals", kinds: ["approval_requested", "approval_decided"] },
 ];
@@ -244,7 +347,6 @@ type EventCatalogKey =
   | "diskThreshold"
   | "backupFailed"
   | "backupSuccess"
-  | "backupMissing"
   | "destinationUnreachable"
   | "nodeUnreachable"
   | "nodeRecovered"
@@ -252,7 +354,14 @@ type EventCatalogKey =
   | "serverRebooted"
   | "serverBack"
   | "approvalRequested"
-  | "approvalDecided";
+  | "approvalDecided"
+  | "alertFiring"
+  | "alertResolved"
+  | "backupMissing"
+  | "cronFailed"
+  | "cronSuccess"
+  | "osPatches"
+  | "tokenExpiring";
 
 /** The events, translated, in the notifier's order. */
 export function events(t: T): readonly EventSpec[] {
@@ -338,7 +447,9 @@ export function readNotificationSettings(config: ConsoleConfig["config"]): Notif
 
 /** Whether a channel has somewhere to send: its destination is stored ("***" for a secret one). */
 export function isChannelConfigured(spec: ChannelSpec, stored: Readonly<Record<string, string>>): boolean {
-  return spec.fields.some((field) => field.destination === true && (field.secret ? stored[field.key] === REDACTED : (stored[field.key] ?? "") !== ""));
+  // Every field the channel cannot send without (Pushover needs its two keys, Gotify its URL and token).
+  const required = spec.fields.filter((field) => field.destination === true);
+  return required.length > 0 && required.every((field) => (field.secret ? stored[field.key] === REDACTED : (stored[field.key] ?? "") !== ""));
 }
 
 /**

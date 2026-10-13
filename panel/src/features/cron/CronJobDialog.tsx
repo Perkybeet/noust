@@ -19,6 +19,17 @@ import type { CreateCronJobBody } from "./useCronActions";
 import { useCronActions } from "./useCronActions";
 import { useCronPreview } from "./useCronPreview";
 
+/** The longest a task may run, in seconds: the API's own bound. */
+const TIMEOUT_MAX = 86_400;
+
+/** Why a time limit is not one the API takes, or null when it is, or is left blank. */
+function timeoutProblem(text: string, message: string): string | null {
+  const trimmed = text.trim();
+  if (trimmed === "") return null;
+  const seconds = /^\d+$/.test(trimmed) ? Number.parseInt(trimmed, 10) : Number.NaN;
+  return seconds >= 1 && seconds <= TIMEOUT_MAX ? null : message;
+}
+
 export interface CronJobDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -126,6 +137,8 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
   const [calendar, setCalendar] = useState(job?.on_calendar ?? "");
   const [user, setUser] = useState(job?.user ?? "");
   const [workingDirectory, setWorkingDirectory] = useState(job?.working_directory ?? "");
+  const [timeout, setTimeoutText] = useState(job?.timeout == null ? "" : String(job.timeout));
+  const [service, setService] = useState(job?.service ?? "");
   const [submitted, setSubmitted] = useState(false);
   const formId = useId();
 
@@ -142,8 +155,9 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
     name: name.trim() === "" ? t("cron.fields.nameMissing") : null,
     command: command.trim() === "" ? t("cron.fields.commandMissing") : null,
     calendar: preset === "custom" && schedule === "" ? t("cron.fields.calendarMissing") : null,
+    timeout: timeoutProblem(timeout, t("cron.fields.timeoutRange")),
   };
-  const valid = missing.name === null && missing.command === null && missing.calendar === null;
+  const valid = missing.name === null && missing.command === null && missing.calendar === null && missing.timeout === null;
   const serverError = (field: string): string | undefined => (isApiError(create.error) ? create.error.fields?.[field] : undefined);
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
@@ -156,6 +170,8 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
       schedule,
       ...(user.trim() !== "" ? { user: user.trim() } : {}),
       ...(workingDirectory.trim() !== "" ? { working_directory: workingDirectory.trim() } : {}),
+      ...(timeout.trim() !== "" ? { timeout: Number.parseInt(timeout.trim(), 10) } : {}),
+      ...(service.trim() !== "" ? { service: service.trim() } : {}),
       // Saving an existing job rewrites it: without its application it would lose the link
       // (and the working directory default that follows the app's layout).
       ...(job?.app_domain ? { app_domain: job.app_domain } : {}),
@@ -204,6 +220,23 @@ export function CronJobDialog({ open, onOpenChange, job }: CronJobDialogProps) {
           <Field label={t("cron.fields.workingDirectory")} name="working_directory" optional description={t("cron.fields.workingDirectoryDescription")}>
             <Input value={workingDirectory} onValueChange={setWorkingDirectory} mono autoComplete="off" spellCheck={false} />
           </Field>
+        </div>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <Field
+            label={t("cron.fields.timeout")}
+            name="timeout"
+            optional
+            description={t("cron.fields.timeoutDescription")}
+            error={(submitted ? missing.timeout : null) ?? serverError("timeout")}
+          >
+            <Input value={timeout} onValueChange={setTimeoutText} mono inputMode="numeric" suffix="s" autoComplete="off" spellCheck={false} />
+          </Field>
+          {/* Only a job of an application can run in a service of its stack. */}
+          {job?.app_domain ? (
+            <Field label={t("cron.fields.service")} name="service" optional description={t("cron.fields.serviceDescription")} error={serverError("service")}>
+              <Input value={service} onValueChange={setService} mono placeholder="web" autoComplete="off" spellCheck={false} />
+            </Field>
+          ) : null}
         </div>
         {create.isError ? (
           <ErrorBlock live compact error={create.error} title={editing ? t("cron.dialog.errorSave") : t("cron.dialog.errorCreate")} />

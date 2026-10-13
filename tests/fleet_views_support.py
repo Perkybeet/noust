@@ -34,6 +34,7 @@ SCHEMA_31: dict[str, dict[str, Any]] = {
     "/api/system/version": {"get": {}},
     "/api/system/update": {"get": {}, "post": {"x-noust-requires-elevation": True}},
     "/api/server/updates/apply": {"post": {"x-noust-requires-elevation": True}},
+    "/api/server/updates/refresh": {"post": {"x-noust-requires-elevation": True}},
 }
 
 #: What a 3.0 node offers of the same: no self-update, no server area.

@@ -692,44 +692,6 @@
       ]
     }
   },
-  "backup.missing": {
-    "chat_id": "-1001234567890",
-    "text": "▲ <b>Backup missing</b> · postgresql/shop\nNo successful backup has been taken in the time its schedule allows.\n\n<b>Server:</b> web-1\n<b>Last good backup:</b> 2026-10-10 03:00 UTC\n<b>Take one now with:</b> <code>noust db backup-run shop -e postgresql</code>",
-    "link_preview_options": {
-      "is_disabled": true
-    },
-    "disable_notification": false,
-    "parse_mode": "HTML",
-    "reply_markup": {
-      "inline_keyboard": [
-        [
-          {
-            "text": "Open in the console",
-            "url": "https://console.example.com/n/web-1/backups"
-          }
-        ]
-      ]
-    }
-  },
-  "backup.recovered": {
-    "chat_id": "-1001234567890",
-    "text": "● <b>Backup back on schedule</b> · postgresql/shop\nA successful backup was taken again.\n\n<b>Server:</b> web-1",
-    "link_preview_options": {
-      "is_disabled": true
-    },
-    "disable_notification": true,
-    "parse_mode": "HTML",
-    "reply_markup": {
-      "inline_keyboard": [
-        [
-          {
-            "text": "Open in the console",
-            "url": "https://console.example.com/n/web-1/backups"
-          }
-        ]
-      ]
-    }
-  },
   "drill.failed": {
     "chat_id": "-1001234567890",
     "text": "✕ <b>Restore drill failed</b> · shop.example.com\nThe newest backup could not be shown to restore: do not count on it.\n\n<b>Server:</b> web-1\n<b>Backup:</b> <code>shop-example-com_20261010_030000</code>\n<b>Diagnose with:</b> <code>noust backup drill shop.example.com</code>\n\n<i>What the system reported</i>\n<pre>Archive cannot be restored: refusing a link to /etc/passwd\nnothing was changed</pre>",
@@ -1099,6 +1061,262 @@
         ]
       ]
     }
+  },
+  "alert.above": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Alert firing</b> · cpu-high\nCPU of the server has stayed above 90% for 15 min.\n\n<b>Server:</b> web-1\n<b>Rule:</b> cpu-high\n<b>Now:</b> 93.4%\n<b>Limit:</b> 90%\n<b>Unreachable since:</b> 2026-10-12 09:30 UTC",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "alert.below": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Alert firing</b> · shop.example.com\nFree memory of shop.example.com has stayed below 256 MB for 5 min.\n\n<b>Server:</b> web-1\n<b>Rule:</b> memory-free\n<b>Now:</b> 112 MB\n<b>Limit:</b> 256 MB\n<b>Unreachable since:</b> 2026-10-12 09:30 UTC",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/apps/shop.example.com"
+          }
+        ]
+      ]
+    }
+  },
+  "alert.resolved": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Alert resolved</b> · cpu-high\nCPU of the server is back to 41.0%, inside the 90% limit.\n\n<b>Server:</b> web-1\n<b>Rule:</b> cpu-high\n<b>Now:</b> 41.0%\n<b>Firing for:</b> 45 min 12 s",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "backup.missing": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>No recent backup</b> · shop.example.com\nNo backup of this application was made in the last 3 days, although a backup schedule is set. Nothing failed: nothing ran.\n\n<b>Server:</b> web-1\n<b>Last backup:</b> 9 Oct 2026\n<b>Schedule:</b> <code>daily</code>\n<b>Back it up now:</b> <code>noust backup create shop.example.com</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
+  "backup.never": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Never backed up</b> · blog.example.com\nA backup schedule is set, but not one backup of this application exists. Nothing failed: nothing ran.\n\n<b>Server:</b> web-1\n<b>Schedule:</b> <code>daily</code>\n<b>Back it up now:</b> <code>noust backup create blog.example.com</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/backups"
+          }
+        ]
+      ]
+    }
+  },
+  "cron.failed": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>Scheduled task failed</b> · shop-sync\nThe task ended with an error, so whatever it does was not done.\n\n<b>Server:</b> web-1\n<b>Ran:</b> 2026-10-13 03:00 UTC\n<b>Exit status:</b> 1\n<b>Result:</b> exit-code\n<b>See the runs:</b> <code>noust cron runs shop-sync</code>\n\n<i>Last lines of the output of shop-sync</i>\n<pre>Traceback (most recent call last):\n  File \"sync.py\", line 9\nKeyError: 'sku'</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/cron"
+          }
+        ]
+      ]
+    }
+  },
+  "cron.succeeded": {
+    "chat_id": "-1001234567890",
+    "text": "● <b>Scheduled task ran</b> · shop-sync\nThe task ran and ended without an error.\n\n<b>Server:</b> web-1\n<b>Ran:</b> 2026-10-13 03:00 UTC\n<b>Exit status:</b> 0",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/cron"
+          }
+        ]
+      ]
+    }
+  },
+  "patches.available": {
+    "chat_id": "-1001234567890",
+    "text": "○ <b>Updates available</b>\n5 updates waiting to be installed.\n\n<b>Server:</b> web-1\n<b>Updates:</b> 5\n<b>Detail:</b> openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4\n<b>List them:</b> <code>noust server updates list</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": true,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "patches.security": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Security updates available</b>\n3 of the 12 updates waiting are security updates.\n\n<b>Server:</b> web-1\n<b>Updates:</b> 12\n<b>Security:</b> 3\n<b>Detail:</b> openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4\n<b>Reboot:</b> Pending, after the updates\n<b>List them:</b> <code>noust server updates list</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "patches.check_failed": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Update check failed</b>\nNoust could not list the updates this server is waiting for.\n\n<b>Server:</b> web-1\n<b>List them:</b> <code>noust server updates list</code>\n\n<pre>E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)</pre>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/server"
+          }
+        ]
+      ]
+    }
+  },
+  "token.expiring": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>API token expiring</b> · ci-deploy\nThe token stops working in 7 days. Whatever uses it will be refused.\n\n<b>Server:</b> web-1\n<b>Expires:</b> 20 Oct 2026\n<b>Owner:</b> alice\n<b>Replace it:</b> <code>noust token create</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/settings/tokens"
+          }
+        ]
+      ]
+    }
+  },
+  "token.today": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>API token expires today</b> · ci-deploy\nThe token stops working today. Whatever uses it will be refused.\n\n<b>Server:</b> web-1\n<b>Expires:</b> 13 Oct 2026\n<b>Owner:</b> alice\n<b>Replace it:</b> <code>noust token create</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/settings/tokens"
+          }
+        ]
+      ]
+    }
+  },
+  "token.expired": {
+    "chat_id": "-1001234567890",
+    "text": "✕ <b>API token expired</b> · ci-deploy\nThe token has expired. Whatever still uses it is being refused.\n\n<b>Server:</b> web-1\n<b>Expires:</b> 1 Oct 2026\n<b>Owner:</b> alice\n<b>Replace it:</b> <code>noust token create</code>",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML",
+    "reply_markup": {
+      "inline_keyboard": [
+        [
+          {
+            "text": "Open in the console",
+            "url": "https://console.example.com/n/web-1/settings/tokens"
+          }
+        ]
+      ]
+    }
+  },
+  "digest.held": {
+    "chat_id": "-1001234567890",
+    "text": "▲ <b>Held notifications</b>\n3 notifications arrived while this channel was quiet.\n\n<b>Server:</b> web-1\n<b>Notifications:</b> 3\n<b>Between:</b> 2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC\n\n<b>Disk almost full · /</b>\n<b>When:</b> 2026-09-29 10:45 UTC\n<b>Detail:</b> It is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.\n\n<b>Certificate expiring · shop.example.com</b>\n<b>When:</b> 2026-09-29 11:05 UTC\n<b>Detail:</b> Expires in 7 days (6 Oct 2026).\n\n<b>Backup completed · shop.example.com</b>\n<b>When:</b> 2026-09-29 11:25 UTC\n<b>Detail:</b> A new copy of the application was saved.",
+    "link_preview_options": {
+      "is_disabled": true
+    },
+    "disable_notification": false,
+    "parse_mode": "HTML"
   },
   "hostile.deploy_failed": {
     "chat_id": "-1001234567890",

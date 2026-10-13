@@ -67,6 +67,7 @@ from noust.web.jobs import (
     delete_app_job,
     restore_backup_job,
 )
+from tests.network_tables import NetworkTables
 
 
 @pytest.fixture
@@ -294,7 +295,7 @@ class TestSiteDeleteWalksBothEnginesAndTheCertificate:
         assert calls == ["example.com"]
 
 
-class _FakeStore:
+class _FakeStore(NetworkTables):
     """A store stand-in the sandboxed managers register sites with, and forget."""
 
     def get_app(self, domain: str) -> None:

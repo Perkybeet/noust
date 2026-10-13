@@ -11,6 +11,11 @@ rule with two answers - so the gate is one class both
 :class:`~noust.deployers.base.BaseDeployer` and
 :func:`~noust.deployers.lifecycle.activate_release` build.
 
+The processes an application runs beside its web process (a queue worker, a
+scheduler) are judged with it (checklist B-67): they are restarted together with
+the unit and must stay up for a few seconds once it answers, so a release that
+breaks only its worker is put back exactly like one that breaks its web process.
+
 What it does not decide is what happens next: the caller re-activates the
 release that was serving and says so, because only the caller knows which one
 that was.
@@ -18,6 +23,10 @@ that was.
 What it asks is the application's own :class:`HealthCheck`: the path, the
 statuses that mean up and how long to wait, as the operator set them with
 ``noust app health`` or the console, and 2.0's rule for whatever they did not.
+Since 3.4 the check may also name the method, scheme, host name and port of the
+request, how often to ask, how many times, and a start period during which a
+failure does not count; or be a command run as the application instead of a
+request (checklist B-12).
 """
 
 from __future__ import annotations
@@ -28,9 +37,15 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
+from noust.core import app_health_store
+from noust.core.app_health_store import HealthExtras
 from noust.core.exceptions import NoustError
 from noust.core.logger import Logger
-from noust.deployers.helpers.health import answers, wait_until_healthy
+from noust.deployers.helpers.health import (
+    answers,
+    wait_until_command_succeeds,
+    wait_until_healthy,
+)
 from noust.validators.health import parse_health_expect
 
 if TYPE_CHECKING:
@@ -63,6 +78,10 @@ _ATTEMPT = re.compile(r"^Health check attempt (\d+) failed: (.*)$", re.DOTALL)
 #: The probe's signature: :func:`~noust.deployers.helpers.health.wait_until_healthy`.
 Probe = Callable[..., bool]
 
+#: Runs a command check once: given the seconds it may take, whether it exited
+#: 0 and what it said. Injectable because no test may run a process.
+CommandRun = Callable[[float], tuple[bool, str]]
+
 
 @dataclass(frozen=True)
 class HealthCheck:
@@ -78,16 +97,44 @@ class HealthCheck:
             any status below 500.
         timeout: Seconds the application gets to answer, or None for
             :data:`DEFAULT_HEALTH_TIMEOUT`.
+        kind: ``http`` (a request) or ``command`` (a program run as the
+            application, up when it exits 0).
+        method: The request method.
+        scheme: ``http`` or ``https``. The connection is to 127.0.0.1 either
+            way, and an ``https`` probe does not verify the certificate: it
+            could not, an address is not what the certificate names.
+        host: The ``Host:`` header the request carries, for an application
+            that answers one name and refuses the address.
+        port: The port to connect to when it is not the application's own.
+        command: The command line of a command check.
+        service: The Compose service a command check runs in.
+        interval: Seconds between two probes, or None for
+            :data:`HEALTH_GATE_DELAY`.
+        retries: The most probes after the start period, or None for as many
+            as fit in the wait.
+        start_period: Seconds during which a failed probe does not count.
+        domain: The application, which a command check runs in.
     """
 
     path: str = DEFAULT_HEALTH_PATH
     expect: str | None = None
     timeout: int | None = None
+    kind: str = "http"
+    method: str = "GET"
+    scheme: str = "http"
+    host: str | None = None
+    port: int | None = None
+    command: str | None = None
+    service: str | None = None
+    interval: int | None = None
+    retries: int | None = None
+    start_period: int = 0
+    domain: str | None = None
 
     @classmethod
     def for_app(cls, app: App | None, *, default_path: str = DEFAULT_HEALTH_PATH) -> HealthCheck:
         """
-        Read an application's health check off its row.
+        Read an application's health check off its row and its extras.
 
         Args:
             app: The row, or None for an application not registered yet.
@@ -99,24 +146,42 @@ class HealthCheck:
         """
         if app is None:
             return cls(path=default_path)
+        extras = app_health_store.get_extras(app.domain) if app.id is not None else HealthExtras()
         return cls(
             path=app.health_path or default_path,
             expect=app.health_expect,
             timeout=app.health_timeout,
+            kind=extras.kind,
+            method=extras.method or "GET",
+            scheme=extras.scheme or "http",
+            host=extras.host,
+            port=extras.port,
+            command=extras.command,
+            service=extras.service,
+            interval=extras.interval,
+            retries=extras.retries,
+            start_period=extras.start_period or 0,
+            domain=app.domain,
         )
+
+    @property
+    def is_command(self) -> bool:
+        """Whether the check runs a command instead of making a request."""
+        return self.kind == "command" and bool(self.command)
 
     def url(self, port: int | None) -> str:
         """
         Say what to request.
 
         Args:
-            port: The port the application listens on.
+            port: The port the application listens on, unless the check names
+                another.
 
         Returns:
-            ``http://127.0.0.1:<port><path>``: always the application itself,
-            never a name that could resolve elsewhere.
+            ``<scheme>://127.0.0.1:<port><path>``: always the application
+            itself, never a name that could resolve elsewhere.
         """
-        return f"http://127.0.0.1:{port}{self.path}"
+        return f"{self.scheme}://127.0.0.1:{self.port or port}{self.path}"
 
     def accepts(self, status: int) -> bool:
         """
@@ -134,30 +199,115 @@ class HealthCheck:
 
     @property
     def seconds(self) -> int:
-        """Seconds the application gets to answer."""
+        """Seconds the application gets to answer, not counting the start period."""
         return self.timeout if self.timeout is not None else DEFAULT_HEALTH_TIMEOUT
+
+    @property
+    def wall_clock(self) -> float:
+        """Seconds the whole wait may take: the start period and the wait."""
+        return float(self.seconds + self.start_period)
+
+    @property
+    def delay(self) -> float:
+        """Seconds between two probes."""
+        return float(self.interval) if self.interval is not None else HEALTH_GATE_DELAY
 
     def attempts(self, delay: float) -> int:
         """
         Turn the wait into probes.
 
         The most probes the gate makes; the wait itself is bounded by
-        :attr:`seconds` of wall-clock time, whichever comes first.
+        :attr:`wall_clock` of wall-clock time, whichever comes first. Probes
+        during the start period do not count against ``retries``.
 
         Args:
             delay: Seconds between probes.
 
         Returns:
             As many probes as fit in :attr:`seconds`, at least one; exactly
-            :data:`HEALTH_GATE_ATTEMPTS` without a timeout of its own.
+            :data:`HEALTH_GATE_ATTEMPTS` without a timeout of its own. With
+            ``retries``, that many, and the probes the start period holds.
         """
+        grace = math.ceil(self.start_period / delay) if self.start_period else 0
+        if self.retries is not None:
+            return self.retries + grace
         if self.timeout is None:
-            return HEALTH_GATE_ATTEMPTS
-        return max(1, math.ceil(self.timeout / delay))
+            return HEALTH_GATE_ATTEMPTS + grace
+        return max(1, math.ceil(self.timeout / delay)) + grace
 
     def describe_expect(self) -> str:
         """Say which statuses count, as an operator reads it."""
         return self.expect if self.expect is not None else DEFAULT_EXPECT_DESCRIPTION
+
+    def describe(self, port: int | None = None) -> str:
+        """
+        Say what the gate asks, in one line.
+
+        Args:
+            port: The application's port, when the caller knows it. Without
+                it (and without one of the check's own) the line says
+                ``<port>``.
+
+        Returns:
+            ``GET http://127.0.0.1:3000/healthz``, or the command.
+        """
+        if self.is_command:
+            return f"command: {self.command}"
+        host = f" (Host: {self.host})" if self.host else ""
+        where = self.url(port).replace(":None", ":<port>")
+        return f"{self.method} {where}{host}"
+
+    def command_run(self) -> CommandRun:
+        """
+        Build what runs a command check once: the command, as the application.
+
+        Returns:
+            A callable taking the seconds it may take.
+
+        Raises:
+            NoustError: The check is not a command check of an application.
+        """
+        from noust.deployers.helpers.health_command import run_health_command
+
+        domain, command = self.domain, self.command
+        if domain is None or command is None:
+            raise NoustError(
+                "A command health check needs the application it runs in",
+                details="This is a fault of Noust, not of the check: report it.",
+            )
+
+        def run(timeout: float) -> tuple[bool, str]:
+            return run_health_command(domain, command, service=self.service, timeout=timeout)
+
+        return run
+
+    def public_url(self, port: int) -> str:
+        """
+        Say what to request through the web server instead of the application.
+
+        Args:
+            port: The web server's port.
+
+        Returns:
+            ``http://127.0.0.1:<port><path>``: the check's own port and scheme
+            are the application's, not the web server's.
+        """
+        return f"http://127.0.0.1:{port}{self.path}"
+
+    def probe_options(self) -> dict[str, object]:
+        """
+        Name what a request needs beyond the default GET.
+
+        Returns:
+            Keyword arguments for the probe, empty for a plain GET so a probe
+            written before they existed is still called as it was.
+        """
+        options: dict[str, object] = {}
+        if self.method != "GET":
+            options["method"] = self.method
+        if self.host is not None:
+            options["host"] = self.host
+        return options
 
 
 class UnitControl(Protocol):
@@ -192,7 +342,8 @@ class HealthGate:
         files_check: Callable[[], bool] | None = None,
         check: HealthCheck | None = None,
         attempts: int | None = None,
-        delay: float = HEALTH_GATE_DELAY,
+        delay: float | None = None,
+        command_run: CommandRun | None = None,
     ) -> None:
         """
         Initialize the gate.
@@ -214,7 +365,10 @@ class HealthGate:
                 path. None is the 2.0 rule: below 500, for 30 seconds.
             attempts: How many probes before giving up. None derives them
                 from the check's timeout.
-            delay: Seconds between probes.
+            delay: Seconds between probes. None is the check's interval, or
+                :data:`HEALTH_GATE_DELAY` without one.
+            command_run: Runs a command check once. None runs it as the
+                application (:func:`~noust.deployers.helpers.health_command.run_health_command`).
         """
         self.unit = unit
         self.url = url
@@ -224,12 +378,14 @@ class HealthGate:
         self._restart = restart
         self._files_check = files_check
         self.check = check
+        resolved = delay if delay is not None else (check or HealthCheck()).delay
         self._attempts = (
-            attempts if attempts is not None else (check or HealthCheck()).attempts(delay)
+            attempts if attempts is not None else (check or HealthCheck()).attempts(resolved)
         )
         self._accept: Callable[[int], bool] = check.accepts if check is not None else answers
-        self._within = float((check or HealthCheck()).seconds)
-        self._delay = delay
+        self._within = (check or HealthCheck()).wall_clock
+        self._delay = resolved
+        self._command_run = command_run
         self._failures: list[str] = []
 
     def restart_and_probe(self) -> tuple[bool, str]:
@@ -241,20 +397,28 @@ class HealthGate:
             failed probes and the unit's journal, verbatim.
         """
         self._failures = []
+        companions = self._companion_units()
         try:
             if self._restart is not None:
                 self._restart()
             elif self.unit:
                 self._services.restart(self.unit)
+            for companion in companions:
+                self._services.restart(companion)
         except NoustError as exc:
             # str() of a NoustError carries its details: systemctl's own output.
             return False, self.evidence(str(exc))
 
+        if self.check is not None and self.check.is_command:
+            healthy, evidence = self._restart_and_run_command(self.check)
+            return self._with_companions(healthy, evidence, companions)
+
         if self.url is None:
             if self._files_check is None or self._files_check():
-                return True, ""
+                return self._with_companions(True, "", companions)
             return False, self.evidence("The release has nothing to serve.")
 
+        options = self.check.probe_options() if self.check is not None else {}
         self._logger.substep(f"Checking: {self.url}")
         healthy = self._probe(
             self.url,
@@ -266,10 +430,93 @@ class HealthGate:
             # their own five seconds must not stretch it (and the lock the
             # caller holds) to several times what the operator set.
             within=self._within,
+            **options,
+        )
+        if healthy:
+            return self._with_companions(True, "", companions)
+        return False, self.evidence("The application did not answer the health check.")
+
+    def _companion_units(self) -> list[str]:
+        """
+        Name the processes that restart with the unit and are judged with it.
+
+        Returns:
+            The copies of the application's processes. None when the gate is of
+            an instance of a blue/green template (the engine moves the processes
+            itself, before the traffic), or has no application to ask about.
+        """
+        check = self.check
+        if check is None or check.domain is None:
+            return []
+        if self.unit and "@" in self.unit:
+            return []
+        from noust.managers.app_processes import ProcessManager
+        from noust.managers.app_replicas import ReplicaManager
+
+        replicas = ReplicaManager(services=self._services)
+        # The copies of the web process run the unit's command: it is written again from
+        # the unit first, so a start command an update changed reaches them.
+        replicas.prepare(check.domain)
+        return [
+            *ProcessManager(services=self._services).units_for(check.domain),
+            *replicas.units_for(check.domain),
+        ]
+
+    def _with_companions(
+        self, healthy: bool, evidence: str, companions: Sequence[str]
+    ) -> tuple[bool, str]:
+        """
+        Add the processes' verdict to the web process's.
+
+        Args:
+            healthy: Whether the web process passed.
+            evidence: Its evidence, when it did not.
+            companions: The processes restarted with it.
+
+        Returns:
+            Whether everything passed, and the evidence of whatever did not.
+        """
+        if not healthy or not companions:
+            return healthy, evidence
+        from noust.managers.app_processes import ProcessManager
+
+        manager = ProcessManager(services=self._services)
+        settled = manager.settle(companions)
+        if not settled.ok:
+            return False, self.evidence(manager.evidence(settled, companions))
+        if self.check is not None and self.check.domain is not None:
+            from noust.managers.app_replicas import ReplicaManager
+
+            # Staying up is not answering: each copy of the web process is asked on its own port.
+            silent = ReplicaManager(services=self._services).unanswered(
+                self.check.domain, self.check
+            )
+            if silent is not None:
+                return False, self.evidence(silent)
+        return True, ""
+
+    def _restart_and_run_command(self, check: HealthCheck) -> tuple[bool, str]:
+        """
+        Ask a command check, after the restart, until it exits 0 or time is up.
+
+        Args:
+            check: A check for which :attr:`HealthCheck.is_command` holds.
+
+        Returns:
+            Whether it passed, and the evidence when it did not.
+        """
+        run = self._command_run or check.command_run()
+        self._logger.substep(f"Checking: {check.describe()}")
+        healthy = wait_until_command_succeeds(
+            run,
+            retries=self._attempts,
+            delay=self._delay,
+            on_attempt=self._note_attempt,
+            within=self._within,
         )
         if healthy:
             return True, ""
-        return False, self.evidence("The application did not answer the health check.")
+        return False, self.evidence("The application did not pass the health check command.")
 
     def evidence(self, summary: str) -> str:
         """

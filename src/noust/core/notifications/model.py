@@ -33,9 +33,11 @@ from __future__ import annotations
 
 import re
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
+from typing import Any
 
 from noust.core.messages import Locale
 
@@ -64,7 +66,6 @@ EVENT_KINDS: tuple[str, ...] = (
     "disk_threshold",
     "backup_failed",
     "backup_success",
-    "backup_missing",
     "destination_unreachable",
     "node_unreachable",
     "node_recovered",
@@ -73,12 +74,21 @@ EVENT_KINDS: tuple[str, ...] = (
     "server_back",
     "approval_requested",
     "approval_decided",
+    # 3.4: what the monitor now watches beyond units, certificates and disks.
+    "alert_firing",
+    "alert_resolved",
+    "backup_missing",
+    "cron_failed",
+    "cron_success",
+    "os_patches",
+    "token_expiring",
 )
 
 #: Kinds that ship switched off: ``deploy_started`` fires once per attempt with
-#: no outcome to report, and ``backup_success`` is a daily heartbeat only an
-#: operator who wants one should receive.
-OFF_BY_DEFAULT: tuple[str, ...] = ("deploy_started", "backup_success")
+#: no outcome to report, ``backup_success`` is a daily heartbeat only an
+#: operator who wants one should receive, and ``cron_success`` would be one
+#: message per run of every scheduled task.
+OFF_BY_DEFAULT: tuple[str, ...] = ("deploy_started", "backup_success", "cron_success")
 
 #: The kind the settings page's "send a test" button sends. Always accepted and
 #: never filtered, so the button works before anything is enabled.
@@ -89,8 +99,12 @@ TEST_KIND = "test"
 #: :data:`EVENT_KINDS`.
 REPORT_KIND = "report"
 
+#: The kind of the message that stands for what a channel's quiet hours held.
+#: It has no switch of its own: whoever turned the events on asked for it.
+DIGEST_KIND = "digest"
+
 #: Every kind a :class:`Notification` may carry.
-ALL_KINDS: tuple[str, ...] = (*EVENT_KINDS, TEST_KIND, REPORT_KIND)
+ALL_KINDS: tuple[str, ...] = (*EVENT_KINDS, TEST_KIND, REPORT_KIND, DIGEST_KIND)
 
 
 class State(str, Enum):
@@ -398,3 +412,138 @@ class Notification:
     def console_link(self) -> Link | None:
         """The link to the console, when there is one."""
         return next((link for link in self.links if link.rel == "console"), None)
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Write the notification down as plain JSON-compatible data.
+
+        The delivery ledger keeps a notification that is waiting to be tried
+        again or held until the quiet hours end; this is its stored form, and
+        :meth:`from_dict` is the way back. Nothing is lost on the way: a fact,
+        a line of the excerpt, the section of a report and the time it
+        happened all come back equal.
+
+        Returns:
+            A mapping of strings, numbers, booleans, lists and mappings.
+        """
+        return {
+            "kind": self.kind,
+            "code": self.code,
+            "state": self.state.value,
+            "locale": self.locale,
+            "title": self.title,
+            "subject": self.subject,
+            "summary": self.summary,
+            "server": self.server,
+            "facts": [_fact_to_dict(fact) for fact in self.facts],
+            "command": _fact_to_dict(self.command) if self.command is not None else None,
+            "excerpt": (
+                {
+                    "label": self.excerpt.label,
+                    "lines": list(self.excerpt.lines),
+                    "omitted": self.excerpt.omitted,
+                    "pinned": self.excerpt.pinned,
+                }
+                if self.excerpt is not None
+                else None
+            ),
+            "links": [
+                {"rel": link.rel, "label": link.label, "url": link.url} for link in self.links
+            ],
+            "sections": [
+                {
+                    "heading": section.heading,
+                    "rows": [_fact_to_dict(fact) for fact in section.rows],
+                    "state": section.state.value if section.state is not None else None,
+                }
+                for section in self.sections
+            ],
+            "domain": self.domain,
+            "ts": self.ts.isoformat(),
+            "id": self.id,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> Notification:
+        """
+        Read back a notification written by :meth:`to_dict`.
+
+        Args:
+            data: The stored mapping.
+
+        Returns:
+            The notification.
+
+        Raises:
+            ValueError: When the data is not a notification: not a mapping, a
+                field missing or of the wrong type, an unknown kind or state.
+        """
+        if not isinstance(data, Mapping):
+            raise ValueError("A stored notification must be a mapping")
+        try:
+            excerpt = data.get("excerpt")
+            command = data.get("command")
+            state = State(str(data["state"]))
+            return cls(
+                kind=str(data["kind"]),
+                code=str(data["code"]),
+                state=state,
+                locale="es" if data.get("locale") == "es" else "en",
+                title=str(data["title"]),
+                subject=str(data.get("subject") or ""),
+                summary=str(data.get("summary") or ""),
+                server=str(data.get("server") or ""),
+                facts=tuple(_fact_from_dict(item) for item in data.get("facts") or ()),
+                command=_fact_from_dict(command) if command else None,
+                excerpt=(
+                    Excerpt(
+                        label=str(excerpt.get("label") or ""),
+                        lines=tuple(str(line) for line in excerpt.get("lines") or ()),
+                        omitted=int(excerpt.get("omitted") or 0),
+                        pinned=int(excerpt.get("pinned") or 0),
+                    )
+                    if excerpt
+                    else None
+                ),
+                links=tuple(
+                    Link(str(item["rel"]), str(item["label"]), str(item["url"]))
+                    for item in data.get("links") or ()
+                ),
+                sections=tuple(
+                    Section(
+                        heading=str(item["heading"]),
+                        rows=tuple(_fact_from_dict(row) for row in item.get("rows") or ()),
+                        state=State(str(item["state"])) if item.get("state") else None,
+                    )
+                    for item in data.get("sections") or ()
+                ),
+                domain=str(data["domain"]) if data.get("domain") else None,
+                ts=datetime.fromisoformat(str(data["ts"])),
+                id=str(data["id"]),
+            )
+        except (KeyError, TypeError, AttributeError) as exc:
+            raise ValueError(f"Not a stored notification: {exc!r}") from exc
+
+
+def _fact_to_dict(fact: Fact) -> dict[str, Any]:
+    """
+    Args:
+        fact: A fact.
+
+    Returns:
+        It as plain data.
+    """
+    return {"key": fact.key, "label": fact.label, "value": fact.value, "mono": fact.mono}
+
+
+def _fact_from_dict(data: Mapping[str, Any]) -> Fact:
+    """
+    Args:
+        data: A fact as :func:`_fact_to_dict` wrote it.
+
+    Returns:
+        The fact.
+    """
+    return Fact(
+        str(data["key"]), str(data["label"]), str(data["value"]), bool(data.get("mono", False))
+    )

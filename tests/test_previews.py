@@ -25,8 +25,9 @@ from noust.core.exceptions import DeploymentError, IntegrationError, ServiceErro
 from noust.core.forge_events import Forge, PullRequestAction, PullRequestEvent
 from noust.core.runner import FakeRunner
 from noust.core.store import App, NoustStore, PreviewRecord, PreviewSettings
+from noust.deployers.helpers.env_variables import AppEnvironment
 from noust.integrations.github import comments
-from noust.managers import previews
+from noust.managers import preview_env, previews
 from noust.web.jobs import JobType
 
 PARENT = "shop.example.com"
@@ -338,7 +339,7 @@ class TestSettings:
         store.create_app(
             App(
                 domain="stack.example.com",
-                app_type="docker-compose",
+                app_type="monorepo",
                 source="https://github.com/acme/stack",
             )
         )
@@ -397,6 +398,32 @@ class TestOpened:
         assert record.head_sha == "b" * 40
         assert record.expires_at == (clock[0] + timedelta(hours=168)).isoformat(timespec="seconds")
         assert [job["job_type"] for job in jobs] == [JobType.DEPLOY, JobType.UPDATE]
+
+    def test_a_pipeline_can_rebuild_a_preview_by_its_pull_request_number(
+        self, store: NoustStore, jobs: list[dict[str, Any]]
+    ) -> None:
+        enable(store)
+        previews.handle_pull_request(event())
+        deployed_child(store)
+
+        job = previews.rebuild_preview(PARENT, 7, actor="ci")
+
+        assert job.id == "job-2"
+        assert jobs[-1]["job_type"] == JobType.UPDATE
+        assert jobs[-1]["kwargs"] == {"parent_domain": PARENT, "number": 7}
+        assert jobs[-1]["actor"] == "ci"
+        assert jobs[-1]["metadata"]["trigger"] == "api"
+        record = store.get_preview(PARENT, 7)
+        assert record is not None and record.status == "pending"
+
+    def test_a_pull_request_without_a_preview_cannot_be_rebuilt(
+        self, store: NoustStore, jobs: list[dict[str, Any]]
+    ) -> None:
+        enable(store)
+
+        with pytest.raises(ValidationError, match="no preview of pull request #9"):
+            previews.rebuild_preview(PARENT, 9, actor="ci")
+        assert jobs == []
 
     def test_nothing_previews_a_repository_without_previews_on(
         self, store: NoustStore, jobs: list[dict[str, Any]]
@@ -710,9 +737,9 @@ class TestDeploy:
             lambda start, end: next(p for p in range(start, end) if p >= 4000),
         )
         monkeypatch.setattr(
-            previews,
-            "_inherited_env",
-            lambda parent, exclude=(): {"API_KEY": "k", "DATABASE_URL": "postgres://db"},
+            preview_env,
+            "read_environment_of",
+            lambda app: AppEnvironment({"API_KEY": "k", "DATABASE_URL": "postgres://db"}),
         )
         called: dict[str, Any] = {}
 
@@ -725,7 +752,9 @@ class TestDeploy:
         assert parent is not None
         record = stored_preview(store)
 
-        previews._deploy(parent, record, FakeContext())
+        previews._deploy(
+            parent, record, FakeContext(), previews.enable_previews(PARENT, BASE, inherit_env="all")
+        )
 
         assert called["domain"] == child_domain()
         assert called["source"] == parent.source
@@ -743,15 +772,17 @@ class TestDeploy:
     def test_the_parent_environment_is_copied_without_what_the_unit_sets(
         self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from noust.deployers.helpers import app_env
-
         monkeypatch.setattr(
-            app_env, "read_app_env", lambda app: {"PORT": "3000", "NODE_ENV": "x", "A": "1"}
+            preview_env,
+            "read_environment_of",
+            lambda app: AppEnvironment({"PORT": "3000", "NODE_ENV": "x", "A": "1"}),
         )
         parent = store.get_app(PARENT)
         assert parent is not None
 
-        assert previews._inherited_env(parent) == {"A": "1"}
+        # Previews turned on before 3.4 copy every variable but the ones the unit sets.
+        settings = previews.enable_previews(PARENT, BASE, inherit_env="all")
+        assert preview_env.compose(parent, settings).values == {"A": "1"}
 
 
 # ---------------------------------------------------------------------------
@@ -1112,27 +1143,33 @@ class TestExcludedVariables:
     def test_excluded_variables_and_their_marks_are_not_copied(
         self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        from noust.deployers.helpers import app_env
-
         monkeypatch.setattr(
-            app_env, "read_app_env", lambda app: {"STRIPE_KEY": "sk", "PUBLIC_URL": "u", "A": "1"}
+            preview_env,
+            "read_environment_of",
+            lambda app: AppEnvironment({"STRIPE_KEY": "sk", "PUBLIC_URL": "u", "A": "1"}),
         )
         store.set_env_secret_marks(PARENT, {"STRIPE_KEY": True, "PUBLIC_URL": True, "A": False})
         parent = store.get_app(PARENT)
         assert parent is not None
+        settings = previews.enable_previews(
+            PARENT, BASE, exclude_env=["STRIPE_KEY"], inherit_env="all"
+        )
 
-        assert previews._inherited_env(parent, ["STRIPE_KEY"]) == {"PUBLIC_URL": "u", "A": "1"}
-        assert previews._inherited_marks(parent, ["STRIPE_KEY"]) == {
-            "PUBLIC_URL": True,
-            "A": False,
-        }
+        composed = preview_env.compose(parent, settings)
+
+        assert composed.values == {"PUBLIC_URL": "u", "A": "1"}
+        assert composed.marks == {"PUBLIC_URL": True, "A": False}
 
     def test_the_first_deploy_starts_with_the_parents_marks(
         self, store: NoustStore, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         from noust.web import jobs as jobs_module
 
-        monkeypatch.setattr(previews, "_inherited_env", lambda parent, exclude=(): {})
+        monkeypatch.setattr(
+            preview_env,
+            "read_environment_of",
+            lambda app: AppEnvironment({"PUBLIC_URL": "u", "STRIPE_KEY": "sk"}),
+        )
         store.set_env_secret_marks(PARENT, {"PUBLIC_URL": True, "STRIPE_KEY": True})
         called: dict[str, Any] = {}
         monkeypatch.setattr(
@@ -1141,7 +1178,10 @@ class TestExcludedVariables:
         parent = store.get_app(PARENT)
         assert parent is not None
 
-        previews._deploy(parent, stored_preview(store), FakeContext(), ["STRIPE_KEY"])
+        settings = previews.enable_previews(
+            PARENT, BASE, exclude_env=["STRIPE_KEY"], inherit_env="all"
+        )
+        previews._deploy(parent, stored_preview(store), FakeContext(), settings)
 
         assert called["preview_parent"] == PARENT
         assert called["env_secret_marks"] == {"PUBLIC_URL": True}
@@ -1151,14 +1191,14 @@ class TestExcludedVariables:
     ) -> None:
         from noust.deployers.helpers import app_env
 
-        previews.enable_previews(PARENT, BASE, exclude_env=["STRIPE_KEY"])
+        previews.enable_previews(PARENT, BASE, exclude_env=["STRIPE_KEY"], inherit_env="all")
         store.set_env_secret_marks(PARENT, {"PUBLIC_URL": True, "STRIPE_KEY": True})
         stored_preview(store, status="pending")
         deployed_child(store)
         written: list[dict[str, str]] = []
-        monkeypatch.setattr(
-            app_env, "read_app_env", lambda app: {"STRIPE_KEY": "sk", "PUBLIC_URL": "u"}
-        )
+        both = AppEnvironment({"STRIPE_KEY": "sk", "PUBLIC_URL": "u"})
+        monkeypatch.setattr(preview_env, "read_environment_of", lambda app: both)
+        monkeypatch.setattr(app_env, "read_environment_of", lambda app: both)
         monkeypatch.setattr(
             app_env, "write_app_env", lambda app, values, **_: written.append(dict(values))
         )

@@ -98,6 +98,13 @@ more than the owner's permissions, whatever its scope; if the owner's role chang
 is disabled, the token follows at its next request. Under the `ens-medium` profile every token
 expires within `auth.tokens.max_days` (90).
 
+`team`, `project` and `environment` (slugs) bind the token to one of them: it sees that and nothing
+else of the server, even when its owner is an administrator, and never reaches the machine. A bound
+token must belong to an account. `GET /api/auth/tokens` says where each one reaches (`bound`) and when it
+expires (`expires_at`). Every counted answer carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and
+`X-RateLimit-Reset` (the UNIX time at which the budget is whole again), so a pipeline can wait exactly as
+long as it has to.
+
 Tokens issued before the server had accounts keep their 3.0 scope and are never asked for sudo
 mode. The first `admin` account adopts them. The master access token is also accepted as a
 bearer credential: the whole console while no account exists, break-glass afterwards (see
@@ -184,6 +191,13 @@ gets `404` (the same body as for one that does not exist, before anything else i
 and one that sees it but holds the permission only in another team gets `403`. A route about the
 whole server answers `403` with `"error": "instance_scope_required"` to an account that does not see
 every team. `GET /api/teams/mine` says which teams the caller sees and which one it works in.
+
+A role can be held at a scope narrower than the server (an environment, a project, a team), and
+the permission of a route about a resource is then the union of what the caller holds on the
+environment, the project and the team that contain it. `GET|POST /api/access/bindings` and
+`DELETE /api/access/bindings/{id}` give and take a role at a scope, and `GET|POST /api/access/roles`,
+`GET|PATCH|DELETE /api/access/roles/{role}` define roles of your own (see
+[teams.md](teams.md#roles-where-they-are-needed)).
 
 A credential without the permission gets `403` with `"error": "permission_denied"` and a
 detail naming the permission. A 3.0 scope maps onto permissions: `read` is a viewer, `deploy` a
@@ -345,6 +359,18 @@ restore the database from the backup taken before the first of them. See
   (at most 500). There is no `offset` or `page` parameter anywhere.
 - **Logs** take a tail: `GET /api/apps/{domain}/logs?lines=N` (at most 1000),
   `GET /api/jobs/{id}/log?tail=N` (lines), `GET /api/deployments/{id}/log?tail=N` (bytes).
+
+## Driving a server from elsewhere
+
+The API is the whole product: the command line can drive another server through it, with a context
+(a URL and where to read a token from) and no SSH. See [remote.md](remote.md). A manifest of a
+server's applications is planned and applied through it (`POST /api/manifest/plan` previews one;
+[manifest.md](manifest.md)), `POST /api/jobs/update-many` updates every application of a team, a
+project or an environment in one call, and `POST /api/mcp` speaks the Model Context Protocol for clients
+that inspect, deploy and control with an API token ([mcp.md](mcp.md)).
+
+The console lists every route with the permission it needs and can try a read: Settings > API reference.
+The same document is `GET /api/openapi.json`.
 
 ## Realtime
 
@@ -816,6 +842,7 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}` | GET `apps.read`; DELETE `apps.manage`, sudo | Delete (job). An adopted stack's directory, outside the apps directory, is kept unless `remove_adopted_directory` names it |
 | `/api/apps/{domain}/backup-before-update` | PATCH `apps.manage`, sudo | `{enabled}`: whether an update of a Compose stack dumps its databases first |
 | `/api/apps/{domain}/branch` | PATCH `apps.manage`, sudo | Pin the branch it deploys from, or unpin it |
+| `/api/apps/{domain}/clone` | POST `apps.manage`, sudo | `{domain, team, project, environment, database, source}`: another app with this one's settings, variables, hooks, tags and previews, deployed from the same source (job). `database` is `empty` or `share` and is required when the app has one ([teams.md](teams.md)) |
 | `/api/apps/{domain}/databases` | GET `databases.read`; POST `databases.write` |  |
 | `/api/apps/{domain}/databases/link` | POST `databases.write` |  |
 | `/api/apps/{domain}/databases/{engine}/{name}` | DELETE `databases.manage` |  |
@@ -828,6 +855,7 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}/domains/{name}/dns` | GET `apps.read` |  |
 | `/api/apps/{domain}/env` | GET `apps.read`; PUT `apps.manage`, sudo | `.env`, redacted (`?unmask=true` needs `secrets.reveal` and sudo mode); replace it |
 | `/api/apps/{domain}/env/marks` | PUT `apps.manage`, sudo |  |
+| `/api/apps/{domain}/env/resolve` | POST `apps.manage`, sudo | Resolve the `{{...}}` references of its variables again without a deploy; answers which variables changed |
 | `/api/apps/{domain}/export` | GET `secrets.reveal` |  |
 | `/api/apps/{domain}/follow-tags` | PATCH `apps.manage`, sudo | `{pattern}`: deploy the newest git tag that matches a glob (`v*`) instead of a branch; null follows a branch again |
 | `/api/apps/{domain}/headless` | GET `apps.read`; POST `apps.manage`, sudo | Whether a Compose stack publishes no port; record it as a worker (`{remove_site}` also retires the site Noust wrote) |
@@ -860,9 +888,18 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}/metrics` | GET `apps.read` |  |
 | `/api/apps/{domain}/migrate` | POST `apps.manage`, sudo |  |
 | `/api/apps/{domain}/migrate/plan` | GET `apps.read` |  |
-| `/api/apps/{domain}/previews` | GET `apps.read` |  |
-| `/api/apps/{domain}/previews/settings` | PUT `apps.manage`, sudo; DELETE `apps.manage`, sudo |  |
-| `/api/apps/{domain}/previews/{number}` | DELETE `apps.manage`, sudo |  |
+| `/api/apps/{domain}/previews` | GET `apps.read`; POST `apps.deploy`, sudo | The settings and the previews (`has_database` says whether there is a database to isolate); make one by hand from exactly one of `{pull_request}`, `{branch}` or `{tag}` (`allow_fork` for a pull request from a fork). 202 with the preview and its job ([previews.md](previews.md)) |
+| `/api/apps/{domain}/previews/pull-requests` | GET `apps.read` | The open pull requests of the repository, each with the preview it has. Needs the GitHub App; `502` says how to go on without it |
+| `/api/apps/{domain}/previews/settings` | PUT `apps.manage`, sudo; DELETE `apps.manage`, sudo | `inherit_env` (`allowlist` or `all`), `allow_env`, `exclude_env` and `data_mode` (`empty` or `shared`) say what a preview is given |
+| `/api/apps/{domain}/previews/variables` | GET `apps.read` (`?unmask=true`: `admin`, sudo, audited) | The variables defined for previews alone, secrets masked |
+| `/api/apps/{domain}/previews/variables/{name}` | PUT `apps.manage`, sudo; DELETE `apps.manage`, sudo | `{value, secret, audience}` |
+| `/api/apps/{domain}/previews/{number}` | GET `apps.read`; DELETE `apps.manage`, sudo | One preview, whether its unit runs and its last deployment; remove it with its application, volumes and databases (job) |
+| `/api/apps/{domain}/previews/{number}/logs` | GET `apps.read` | The journal's tail and the log of its last build, verbatim |
+| `/api/apps/{domain}/previews/{number}/redeploy` | POST `apps.deploy`, sudo | Build it again from its branch as it is now (job) |
+| `/api/apps/{domain}/previews/{number}/start` | POST `apps.operate`, sudo | Start a stopped preview |
+| `/api/apps/{domain}/previews/{number}/stop` | POST `apps.operate`, sudo | Stop it without removing it; it still counts toward the limit |
+| `/api/apps/{domain}/promote` | POST `apps.deploy`, sudo | `{target, release, schema_changed_ok}`: put a release on the same app in another environment of its project, without building it again (job) ([teams.md](teams.md)) |
+| `/api/apps/{domain}/promotion` | GET `apps.read` | The release that serves, and the apps it can be promoted to |
 | `/api/apps/{domain}/releases` | GET `apps.read` |  |
 | `/api/apps/{domain}/releases/retention` | PATCH `apps.manage`, sudo | `{keep}`, 1 to 50; prunes now |
 | `/api/apps/{domain}/releases/{release_id}/activate` | POST `apps.deploy` | Instant rollback or roll forward, behind the health gate. `409 schema_changed` unless `?schema_changed_ok=true` |
@@ -873,14 +910,53 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/apps/{domain}/sandbox/disable` | POST `root_equivalent`, sudo, four-eyes |  |
 | `/api/apps/{domain}/sandbox/enable` | POST `apps.manage` |  |
 | `/api/apps/{domain}/sandbox/test` | POST `apps.deploy` | Build the live commit in the sandbox, activating nothing (job) |
+| `/api/apps/{domain}/site-logs` | GET `apps.read` | The end of the web server's access or error log for the site (`kind`, `lines`, `contains`), secrets masked; nothing written yet answers `available: false` with the path it looked for |
 | `/api/apps/{domain}/start` | POST `apps.operate` |  |
 | `/api/apps/{domain}/stop` | POST `apps.operate` |  |
+| `/api/apps/{domain}/tags` | GET `apps.read`; PUT `apps.manage` | The tags it carries (`{tags}`, at most 16); replace them |
 | `/api/apps/{domain}/webhook` | GET `apps.read` | How far the deploy webhook is set up |
 | `/api/apps/{domain}/webhook-secret` | POST `apps.manage`, sudo; DELETE `apps.manage`, sudo | Create or rotate the secret (shown once); disable the webhook |
 | `/api/apps/{domain}/webhook/deliveries` | GET `apps.read` | Deployments webhooks triggered |
 | `/api/apps/{domain}/webhook/received` | GET `apps.read` | Every delivery received, ignored and refused ones included |
 | `/api/apps/{domain}/webhook/reveal` | POST `secrets.reveal`, sudo |  |
 | `/api/apps/{domain}/zero-downtime` | GET `apps.read`; PUT `apps.manage`, sudo | `{enabled, drain_seconds}`; a Docker Compose stack is accepted since 3.2, updated behind relays |
+
+### Sources, builds and imports
+
+Added in 3.4. Each is documented where its feature is: [sources.md](sources.md), [ci.md](ci.md),
+[build.md](build.md), [declarative.md](declarative.md), [workspaces.md](workspaces.md),
+[containers.md](containers.md#registry-accounts) and [compose.md](compose.md).
+
+| Endpoint | Method, permission | |
+|---|---|---|
+| `/api/deploy` | POST `apps.deploy` | Deploy up to 20 applications with one call (a pipeline's token); `{apps, force, no_cache}` |
+| `/api/apps/{domain}/deploy` | POST `apps.deploy` | Deploy one: `{force, no_cache, commit, tag, image_tag, pull_request}`; `queued`, `joined`, `nothing_new` or `429` when the queue is full |
+| `/api/apps/{domain}/source-options` | GET `apps.read`; PUT, DELETE `apps.manage` | Submodules, Git LFS, shallow clone, watch paths and skip markers |
+| `/api/apps/{domain}/build-cache` | GET `apps.read`; DELETE `apps.deploy` | Size of the build cache; empty it |
+| `/api/apps/{domain}/process-types` | GET `apps.read` | The process types the code declares and which a deployment uses |
+| `/api/apps/{domain}/compose` | GET `apps.read`; PUT, DELETE `apps.manage`, sudo | A Compose stack's file, profiles and extra `build` / `up` arguments |
+| `/api/apps/{domain}/declaration` | GET `secrets.reveal` | The application as a `noust.yaml` declaration (no secret variables) |
+| `/api/apps/{domain}/apply` | POST `root_equivalent`, sudo | `{declaration, check, confirm, prune}`: the plan, and what was applied |
+| `/api/apps/{domain}/registry-logins` | GET `apps.read`; PUT `apps.manage`, sudo | The registry accounts an application pulls and builds with |
+| `/api/registries` | GET `apps.read`; POST `apps.manage`, sudo | Registry accounts (Docker Hub, GHCR, GitLab, ECR, ACR, Artifact Registry, any host); the password is never returned |
+| `/api/registries/{name}` | GET `apps.read`; PATCH, DELETE `apps.manage`, sudo | |
+| `/api/registries/{name}/test` | POST `apps.manage`, sudo | Try the account in a private Docker configuration |
+| `/api/import/applications` | POST `apps.manage`, sudo | List the applications of a Coolify or Dokploy server, read with a token |
+| `/api/import/proposal` | POST `apps.manage`, sudo | One of them as an export document, ready for `POST /api/apps/import` |
+| `/api/workspaces/inspect` | POST `apps.manage` | The workspaces of a monorepo and which are applications |
+| `/api/workspaces/deploy` | POST `apps.manage`, sudo | One application per workspace named, each a job |
+| `/api/integrations/github/host` | PUT `apps.manage`, sudo | The GitHub the App talks to (github.com or an Enterprise host) |
+| `/api/integrations/gitlab` | GET `apps.read` | GitLab connections, OAuth applications, and the redirect URI |
+| `/api/integrations/gitlab/connections` | POST `apps.manage`, sudo | Add a connection with an access token (checked first, never returned) |
+| `/api/integrations/gitlab/connections/{name}` | DELETE `apps.manage`, sudo | |
+| `/api/integrations/gitlab/connections/{name}/test` | POST `apps.deploy` | Ask GitLab who it is |
+| `/api/integrations/gitlab/connections/{name}/groups` | GET `apps.read` | The picker: groups |
+| `/api/integrations/gitlab/connections/{name}/projects` | GET `apps.read` | The picker: projects, `?group=&search=` |
+| `/api/integrations/gitlab/connections/{name}/projects/{project}/branches` | GET `apps.read` | The picker: branches of a project |
+| `/api/integrations/gitlab/oauth-apps` | PUT `apps.manage`, sudo | Record the OAuth application registered in GitLab |
+| `/api/integrations/gitlab/oauth-apps/{host}` | DELETE `apps.manage`, sudo | |
+| `/api/integrations/gitlab/oauth/authorize` | POST `apps.manage`, sudo | Begin signing in: the URL to send the browser to |
+| `/api/integrations/gitlab/oauth/callback` | POST `apps.manage`, sudo | Finish: `{code, state}` |
 
 ### Teams, projects and environments
 
@@ -897,6 +973,15 @@ at `/ws/nodes/{node}/...`; the node applies its own permissions and its ceiling 
 | `/api/teams/{team}/projects/{project}` | DELETE `teams.manage`, sudo | Only an empty one |
 | `/api/teams/{team}/projects/{project}/environments` | GET `teams.read`; POST `teams.manage` |  |
 | `/api/teams/{team}/projects/{project}/environments/{environment}` | DELETE `teams.manage`, sudo | Not the last of its project |
+| `/api/teams/{team}/variables` | GET `apps.read` (`?unmask=true`: `admin`, sudo, audited); POST `apps.manage`, sudo | A team's shared variables, secrets masked; create or change several (`{variables: {NAME: {value, secret, audience}}}`) ([variables.md](variables.md)) |
+| `/api/teams/{team}/variables/{name}` | PUT `apps.manage`, sudo; DELETE `apps.manage`, sudo | `{value, secret, audience}`; the delete names the applications that still refer to it |
+| `/api/teams/{team}/variables/{name}/usage` | GET `apps.read` | The applications you see whose variables refer to it |
+| `/api/teams/{team}/projects/{project}/variables` | GET `apps.read`; POST `apps.manage`, sudo | The same, for a project |
+| `/api/teams/{team}/projects/{project}/variables/{name}` | PUT `apps.manage`, sudo; DELETE `apps.manage`, sudo |  |
+| `/api/teams/{team}/projects/{project}/variables/{name}/usage` | GET `apps.read` |  |
+| `/api/teams/{team}/projects/{project}/environments/{environment}/variables` | GET `apps.read`; POST `apps.manage`, sudo | The same, for an environment |
+| `/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}` | PUT `apps.manage`, sudo; DELETE `apps.manage`, sudo |  |
+| `/api/teams/{team}/projects/{project}/environments/{environment}/variables/{name}/usage` | GET `apps.read` |  |
 | `/api/projects` | GET `teams.read` | Every project you see; `?team=` |
 | `/api/environments` | GET `teams.read` | Every environment you see; `?team=&project=` |
 | `/api/apps/{domain}/move` | POST `apps.manage`, sudo | `{team, project, environment}`: with its sites, databases and backup schedule. Needs `apps.manage` in the team it goes to as well |
@@ -1056,8 +1141,21 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 
 | Endpoint | Method, permission | |
 |---|---|---|
+| `/api/alerts/rules` | GET `server.read` | The alert rules, where each subject of each one stands (`firing` or `ok`), and the metrics a rule may watch |
+| `/api/alerts/rules/{name}` | PUT `server.manage`; DELETE `server.manage` | Create or replace a rule (a limit as a number or as text such as `90%` or `512MB`); replacing it forgets what the old limit had decided |
+| `/api/alerts/rules/{name}/disable` | POST `server.manage` |  |
+| `/api/alerts/rules/{name}/enable` | POST `server.manage` |  |
 | `/api/console/exposure` | GET `server.read`; POST `server.host_access`, sudo, four-eyes; DELETE `server.host_access`, sudo | Whether the console is published on a name of its own over TLS; publish it, or take it off (each a job: the nginx site, the certificate, the console's trusted proxy and its restart, undone exactly). Refused for want of a second factor on every account, and under the ENS profile unless forced |
 | `/api/console/exposure/preview` | POST `server.host_access` | The same checks, and the steps it would take, changing nothing |
+| `/api/secret-providers` | GET `settings.read` | The secret managers variables can refer to (Vault, Doppler, Infisical); a token is never in the answer ([variables.md](variables.md)) |
+| `/api/secret-providers/kinds` | GET `settings.read` | The kinds and the settings each takes |
+| `/api/secret-providers/{name}` | PUT `settings.manage`, sudo; DELETE `settings.manage`, sudo | `{kind, address, settings, token, team}`; without a `token` the stored one stays |
+| `/api/secret-providers/{name}/test` | POST `settings.manage`, sudo | Prove it answers and accepts its token |
+| `/api/tags` | GET `apps.read` | The tags your applications carry, with those applications |
+| `/api/tags/{tag}/deploy` | POST `apps.deploy` | Update every app that carries a tag, each as a job; `{force}` rebuilds those with nothing new. A pipeline's token calls this to redeploy a group |
+| `/api/variables/server` | GET `settings.read` (`?unmask=true`: `admin`, sudo, audited); POST `settings.manage`, sudo | The server's shared variables, which every application can refer to |
+| `/api/variables/server/{name}` | PUT `settings.manage`, sudo; DELETE `settings.manage`, sudo |  |
+| `/api/variables/server/{name}/usage` | GET `settings.read` |  |
 | `/api/metrics` | GET `server.read` |  |
 | `/api/metrics/query` | GET `server.read` | Several series in one request, at the resolution the window needs |
 | `/api/metrics/{metric}` | GET `server.read` |  |
@@ -1115,6 +1213,9 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/server/storage/cleanup` | POST `server.manage`, sudo |  |
 | `/api/server/storage/cleanup/plan` | GET `server.read` |  |
 | `/api/server/storage/docker/images` | GET `server.read` |  |
+| `/api/server/storage/history` | GET `server.read` | Every cleanup that ran, by hand or by the timer: when, what started it, how full the fullest disk was before and after, what each action freed or removed and why one failed |
+| `/api/server/storage/schedule` | GET `server.read`; PUT `server.manage`, sudo | The cleanup policy (schedule, threshold, actions) and its timer; setting it writes or removes the timer |
+| `/api/server/storage/schedule/run` | POST `server.manage`, sudo | Run the policy now, as a job, whatever state the disks are in |
 | `/api/server/summary` | GET `server.read` | What `noust server status` prints |
 | `/api/server/swap` | GET `server.read`; POST `server.manage`, sudo; DELETE `server.manage`, sudo |  |
 | `/api/server/swap/swappiness` | PUT `server.manage`, sudo |  |
@@ -1150,11 +1251,27 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/fleet/apps` | GET `fleet.read` |  |
 | `/api/fleet/backups` | GET `fleet.read` |  |
 | `/api/fleet/certificates` | GET `fleet.read` |  |
+| `/api/fleet/cloud/accounts` | GET `fleet.manage`; POST `fleet.manage`, sudo, four-eyes | The provider accounts (Hetzner, DigitalOcean, Vultr) this central creates servers with; adding one checks its token with the provider and keeps it as a secret. The token is left out of the approval's fingerprint and of every response (only its last four characters are shown) |
+| `/api/fleet/cloud/accounts/{name}` | DELETE `fleet.manage`, sudo | Remove an account and its token (`force` when servers made with it are still on record) |
+| `/api/fleet/cloud/accounts/{name}/catalog` | GET `fleet.manage` | What the account can create now, asked of the provider: locations, sizes (with processor and monthly price), images, SSH keys, firewalls, networks |
+| `/api/fleet/cloud/accounts/{name}/token` | PUT `fleet.manage`, sudo, four-eyes | Replace an account's token, checked with the provider first |
+| `/api/fleet/cloud/accounts/{name}/verify` | POST `fleet.manage` | Ask the provider whether it still accepts the token |
+| `/api/fleet/cloud/providers` | GET `fleet.manage` | The providers Noust can create servers at, with where their tokens are made |
+| `/api/fleet/cloud/scripts` | GET `fleet.manage` | The cloud-init library a new server can boot with (three come with Noust) |
+| `/api/fleet/cloud/scripts/preview` | POST `fleet.manage` | The whole document a server would boot with, with its SSH host key withheld |
+| `/api/fleet/cloud/scripts/{name}` | GET `fleet.manage`; PUT `fleet.manage`, sudo, four-eyes; DELETE `fleet.manage`, sudo | One library entry; saving checks it (what Noust owns cannot be overridden, a script says what runs it, nothing may carry a credential) |
+| `/api/fleet/cloud/servers` | GET `fleet.manage`; POST `fleet.manage`, sudo, four-eyes | The machines this central created; create one (a job: the machine is made, waited for, Noust installed and the server joined; it costs money until deleted) |
+| `/api/fleet/cloud/servers/{node}` | GET `fleet.manage`; DELETE `fleet.manage`, sudo, four-eyes | One machine (`live` asks the provider); delete it at the provider (`confirm` is its name) |
+| `/api/fleet/cloud/servers/{node}/power-on` | POST `fleet.manage`, sudo | Power a machine on at the provider |
 | `/api/fleet/enroll` | POST `fleet.manage`, sudo, four-eyes | Enroll a server with an address and a credential used once and never kept: a job that installs Noust there if it is missing, authorizes this central and joins it. The credential is left out of the approval's fingerprint |
 | `/api/fleet/enroll/host-key` | POST `fleet.manage` | Ask an address which ed25519 host key answers, for the operator to confirm before anything is sent |
 | `/api/fleet/jobs` | GET `fleet.read` |  |
 | `/api/fleet/jobs/{job_id}` | GET `fleet.read` |  |
 | `/api/fleet/jobs/{job_id}/retry` | POST `fleet.manage` |  |
+| `/api/fleet/link` | GET `fleet.manage` | Whether this central takes servers that dial in (behind NAT or a CGNAT), what it lacks and the command that fixes it, and which servers dial in or were invited |
+| `/api/fleet/link/accept` | POST `fleet.manage`, sudo, four-eyes | Register a server from the link code it printed, once it connects and answers with its token; nothing is kept otherwise |
+| `/api/fleet/link/invites` | POST `fleet.manage`, sudo | Invite a server to dial in: gives it a loopback port of this central and the command to run on it, with this central's SSH host key |
+| `/api/fleet/link/invites/{name}` | DELETE `fleet.manage`, sudo | Cancel an invitation nobody answered |
 | `/api/fleet/servers` | GET `fleet.read` |  |
 | `/api/fleet/servers/{node}/labels` | PUT `fleet.manage` |  |
 | `/api/fleet/summary` | GET `fleet.read` |  |
@@ -1162,6 +1279,7 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/nodes` | GET `fleet.read`; POST `fleet.manage`, sudo, four-eyes |  |
 | `/api/nodes/{node}` | GET `fleet.read`; DELETE `fleet.manage`, sudo, four-eyes |  |
 | `/api/nodes/{node}/key` | GET `fleet.manage` | The central's key for a new server and the command to run on it |
+| `/api/nodes/{node}/monitoring` | PUT `fleet.manage` | Pause a server's monitoring for maintenance, or resume it: a paused server is not asked, not counted as down and never announced |
 | `/api/nodes/{node}/test` | POST `fleet.read` |  |
 
 ### Configuration, integrations and recipes
@@ -1187,6 +1305,12 @@ Lists of applications, sites, databases and backup schedules take `team`, `proje
 | `/api/integrations/github/manifest/conversions` | POST `apps.manage`, sudo |  |
 | `/api/integrations/github/repositories` | GET `apps.read` |  |
 | `/api/integrations/github/repositories/{owner}/{repo}/branches` | GET `apps.read` |  |
+| `/api/notifications/channels` | GET `settings.read` | Every channel (the default of each type, then the operator's own) without a credential, and the types a new one may be |
+| `/api/notifications/channels/{name}` | PUT `settings.manage`, sudo; DELETE `settings.manage`, sudo | Create or change a channel: its settings, its own switch per event, its route (applications, projects, environments, tags, lowest severity) and its quiet hours. A `***` in a credential keeps the stored one. Deleting a default channel empties it |
+| `/api/notifications/deliveries` | GET `settings.read` | The record of deliveries, newest first, and how many are in each state |
+| `/api/notifications/deliveries/sweep` | POST `settings.manage` | Try what is due now |
+| `/api/notifications/deliveries/{delivery_id}/retry` | POST `settings.manage` | Send a failed, waiting or held delivery again now |
+| `/api/notifications/events` | GET `settings.read` | Every event kind, whether it is on by default and whether it is on now |
 | `/api/recipes` | GET `apps.read` |  |
 | `/api/recipes/{name}` | GET `apps.read` |  |
 

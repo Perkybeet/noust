@@ -223,7 +223,7 @@ def cancel_command(ctx: Context, target: str, also_waiting: bool, wait_seconds: 
     terminal.
     """
     actor = cli_actor().label
-    if _JOB_ID.match(target) and get_store().get_job(target) is not None:
+    if _JOB_ID.fullmatch(target) and get_store().get_job(target) is not None:
         _cancel_job(ctx, target, actor, wait_seconds)
         return
     try:

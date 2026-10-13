@@ -27,6 +27,7 @@ from typing import Any
 from urllib.parse import urlencode, urlsplit
 
 from noust.core.exceptions import IntegrationError, ValidationError
+from noust.core.github_host import web_url
 from noust.core.secrets import SecretStore
 from noust.core.store import GitHubAppRecord, get_store
 from noust.integrations.github.app import (
@@ -36,7 +37,7 @@ from noust.integrations.github.app import (
     forget_tokens,
     write_meta,
 )
-from noust.integrations.github.client import WEB_URL, get_client, json_object
+from noust.integrations.github.client import get_client, json_object
 
 #: GitHub's limit on an App's name.
 MAX_APP_NAME = 34
@@ -245,7 +246,7 @@ def start(origin: str, *, hooks_url: str | None, organization: str | None = None
         ValidationError: The origin or organisation is malformed.
     """
     checked = console_origin(origin)
-    if organization is not None and not _ORGANIZATION.match(organization):
+    if organization is not None and not _ORGANIZATION.fullmatch(organization):
         raise ValidationError(
             f"Not a GitHub organisation name: {organization!r}",
             details="An organisation's login: letters, digits and single hyphens.",
@@ -253,9 +254,9 @@ def start(origin: str, *, hooks_url: str | None, organization: str | None = None
         )
     state = states.issue(hooks_url)
     base = (
-        f"{WEB_URL}/organizations/{organization}/settings/apps/new"
+        f"{web_url()}/organizations/{organization}/settings/apps/new"
         if organization
-        else f"{WEB_URL}/settings/apps/new"
+        else f"{web_url()}/settings/apps/new"
     )
     return ManifestStart(
         manifest=build_manifest(checked, hooks_url=hooks_url),
@@ -289,7 +290,7 @@ def convert(code: str, state: str) -> GitHubAppRecord:
             "and its callback can be used once.",
             field="state",
         )
-    if not _CODE.match(code):
+    if not _CODE.fullmatch(code):
         raise ValidationError("Not a manifest code", field="code")
 
     answer = get_client().request("POST", f"/app-manifests/{code}/conversions")

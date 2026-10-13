@@ -115,7 +115,7 @@ describe("an application's Domains tab", () => {
 
     await user.click(within(dialog).getByRole("button", { name: "Add anyway" }));
     await waitFor(() => {
-      expect(backend.callsTo(`POST /api/apps/${APP}/domains`)[0]?.body).toEqual({ domain: `blog.${APP}`, kind: "redirect" });
+      expect(backend.callsTo(`POST /api/apps/${APP}/domains`)[0]?.body).toEqual({ domain: `blog.${APP}`, kind: "redirect", force: false, dns: true });
     });
     expect(await screen.findByText(`Extending the certificate to blog.${APP}`)).toBeInTheDocument();
     // The page behind the dialog is hidden from assistive technology until the dialog has closed.

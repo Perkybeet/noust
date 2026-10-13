@@ -20,6 +20,7 @@ const CREATED: GitHubStatus = {
   installations: [],
   hooks_url: "https://hooks.example.com/hooks/github",
   hooks_active: true,
+  host: "github.com",
 };
 
 const INSTALLATION = {

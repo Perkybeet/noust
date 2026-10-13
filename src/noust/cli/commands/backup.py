@@ -417,7 +417,8 @@ def _add_destination(
         from_stdin: Read the backend's secret field from standard input.
         from_prompt: Prompt for the backend's secret field.
         encrypted: Wrap the remote in an rclone crypt backend; None when
-            nothing was said, which means the default (encrypted).
+            nothing was said, which means the default (encrypted, unless the
+            destination is a local disk).
         key_stdin: Read an existing encryption key from standard input, in
             the format ``show-key`` prints, instead of generating one.
             Implies ``encrypted``.
@@ -450,7 +451,7 @@ def _add_destination(
             name,
             backend,
             fields,
-            encrypted=resolve_encryption(encrypted, key_given=key_stdin),
+            encrypted=resolve_encryption(encrypted, backend=backend, key_given=key_stdin),
             crypt_key=crypt_key,
         )
     except NoustError as exc:
@@ -459,6 +460,12 @@ def _add_destination(
 
     logger.success(f"Backup destination created: {destination.name}")
     logger.info(f"  Backend: {destination.backend}")
+    if not destination.encrypted and destination.backend != "local":
+        logger.warning(
+            f"{destination.name} sends backups unencrypted: they hold the .env and the database "
+            "dumps of every application. Turn encryption on with "
+            f"'noust backup destination update {destination.name} --encrypt'."
+        )
     if destination.encrypted and key_stdin:
         logger.info(
             "  Encrypted with the key you gave: backups already there encrypted with it can be "
@@ -1997,8 +2004,10 @@ def backup_destination() -> None:
     "--encrypt/--no-encrypt",
     "encrypt",
     default=None,
-    help="Wrap the remote in an rclone crypt backend. On unless backup.encrypt_new_destinations "
-    "is false; run 'show-key' once to keep a copy of the key.",
+    help="Wrap the remote in an rclone crypt backend; run 'show-key' once to keep a copy. "
+    "On unless the backend is 'local' or backup.encrypt_new_destinations is false: a backup "
+    "holds the .env and the database dumps, so it leaves this server encrypted unless you say "
+    "--no-encrypt.",
 )
 @click.option(
     "--key-stdin",
@@ -2020,10 +2029,11 @@ def destination_add(
     """
     Create a backup destination.
 
-    Encrypted unless you say --no-encrypt: what leaves this server is readable
-    only with the key, which is generated here and printed once by 'show-key'.
-    Keep a copy; without it the backups on the destination cannot be read by
-    anyone, this server included.
+    A remote destination is encrypted unless you pass --no-encrypt: what leaves
+    this server is readable only with the key, which is generated here and
+    printed by 'show-key'. Keep a copy; without it the backups on the
+    destination cannot be read by anyone, this server included. A 'local'
+    destination (a disk this server mounts) is not encrypted unless you ask.
 
     Non-secret fields (host, user, port, region, path...) are given with
     repeated --field KEY=VALUE. The backend's one secret field (a password,
@@ -2038,6 +2048,10 @@ def destination_add(
     the old one's 'show-key' printed: without it, encrypted backups already
     there cannot be read.
     """
+    if key_stdin and encrypt is False:
+        raise click.UsageError(
+            "--key-stdin encrypts with the key it reads; it cannot go with --no-encrypt."
+        )
     _finish(
         _add_destination(
             logger=state.logger,

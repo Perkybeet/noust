@@ -231,6 +231,101 @@ CREATE TABLE IF NOT EXISTS deploy_key_repositories (
 );
 CREATE INDEX IF NOT EXISTS idx_deploy_key_repositories_key ON deploy_key_repositories(key_id);
 """
+SOURCES_SQL += """
+-- app_source: how an application's repository is fetched and when a push deploys it
+-- (noust.core.app_source_store is its only reader and writer). One row per application, in
+-- a table of its own so a redeploy's full-row write of ``apps`` cannot put back what an
+-- operator changed meanwhile. No row means the defaults. submodules: initialise and export
+-- the submodules. lfs: auto (when the repository tracks files with Git LFS), on, or off.
+-- shallow: fetch only the latest commit. watch_paths: JSON list of globs a push must touch.
+-- skip_markers: honour [skip ci] / [skip cd] in commit messages.
+CREATE TABLE IF NOT EXISTS app_source (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    submodules INTEGER NOT NULL DEFAULT 1,
+    lfs TEXT NOT NULL DEFAULT 'auto' CHECK (lfs IN ('auto', 'on', 'off')),
+    shallow INTEGER NOT NULL DEFAULT 1,
+    watch_paths TEXT NOT NULL DEFAULT '[]',
+    skip_markers INTEGER NOT NULL DEFAULT 1,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+"""
+SOURCES_SQL += """
+-- registry_logins: the accounts Noust logs in to a container registry with (Docker Hub,
+-- GHCR, GitLab, ECR, ACR, Artifact Registry or any other), kept apart from the applications that
+-- use them. noust.core.registry_store is its only reader and writer. The password is never
+-- a column: it is the secret named by secret_name. kind says how a login is made (ecr
+-- trades an access key for a token that expires). last_status is ok or failed after the
+-- last test.
+CREATE TABLE IF NOT EXISTS registry_logins (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    kind TEXT NOT NULL CHECK (kind IN ('dockerhub', 'ghcr', 'gitlab', 'ecr', 'acr', 'gar', 'custom')),
+    server TEXT NOT NULL,
+    username TEXT NOT NULL,
+    secret_name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL,
+    last_tested_at TEXT,
+    last_status TEXT,
+    last_error TEXT
+);
+-- app_registry_logins: which logins an application pulls and builds with. Both sides cascade.
+CREATE TABLE IF NOT EXISTS app_registry_logins (
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    login_id INTEGER NOT NULL REFERENCES registry_logins(id) ON DELETE CASCADE,
+    assigned_at TEXT NOT NULL,
+    assigned_by TEXT,
+    PRIMARY KEY (app_id, login_id)
+);
+"""
+SOURCES_SQL += """
+-- app_compose: which compose file, profiles and extra arguments a Compose stack is run with
+-- (noust.core.app_compose_store is its only reader and writer). One row per stack, in a table
+-- of its own so a redeploy's full-row write of apps cannot put back what an operator changed.
+-- The lists are JSON. No row means the stack's unit records the file and the defaults apply.
+CREATE TABLE IF NOT EXISTS app_compose (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    compose_file TEXT,
+    profiles TEXT NOT NULL DEFAULT '[]',
+    build_args TEXT NOT NULL DEFAULT '[]',
+    up_args TEXT NOT NULL DEFAULT '[]',
+    services TEXT NOT NULL DEFAULT '[]',
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+"""
+SOURCES_SQL += """
+-- gitlab_connections: the GitLab accounts Noust lists projects and clones private ones with, one
+-- per GitLab user and host (noust.core.gitlab_store is its only reader and writer). The
+-- credentials are never a column: they are the secret named by secret_name. kind says how the
+-- connection signs in (a pasted access token, or the tokens an OAuth sign-in handed back).
+-- last_status is ok or failed after the last time GitLab was asked who it is.
+CREATE TABLE IF NOT EXISTS gitlab_connections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    host TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('token', 'oauth')),
+    username TEXT,
+    secret_name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL,
+    last_checked_at TEXT,
+    last_status TEXT,
+    last_error TEXT
+);
+-- gitlab_oauth_apps: the application an operator registered in GitLab so that people can connect
+-- without pasting a token. One per host, and the client secret is the secret named by secret_name.
+CREATE TABLE IF NOT EXISTS gitlab_oauth_apps (
+    host TEXT PRIMARY KEY,
+    client_id TEXT NOT NULL,
+    secret_name TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT
+);
+"""
 SOURCES_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the databases lane: database exposure and the choice of engine.
@@ -356,9 +451,6 @@ DBINSTANCES_COLUMNS: list[tuple[str, str, str]] = [
 #   or collections), as a JSON object.
 # restore_drills: one row per rehearsal of restoring an application's newest
 #   backup (noust.managers.restore_drill): what it found, step by step, as JSON.
-# backup_alerts: what the monitor has announced and not closed (a backup that
-#   stopped, a destination that does not answer), so a restart does not say it
-#   twice (noust.managers.backup_watch).
 # app_update_policy: whether an application's update is refused when its backup
 #   fails (noust.core.update_policy_store). No row means the default: required
 #   for an application with a database.
@@ -410,12 +502,6 @@ CREATE TABLE IF NOT EXISTS restore_drills (
     report TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_restore_drills_app ON restore_drills(app_domain, id DESC);
-CREATE TABLE IF NOT EXISTS backup_alerts (
-    alert_key TEXT PRIMARY KEY,
-    kind TEXT NOT NULL,
-    since TEXT NOT NULL,
-    notified_at TEXT
-);
 CREATE TABLE IF NOT EXISTS app_update_policy (
     app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
     backup_required INTEGER NOT NULL CHECK (backup_required IN (0, 1)),
@@ -457,8 +543,231 @@ CREATE TABLE IF NOT EXISTS console_exposure (
 """
 ACCESS_COLUMNS: list[tuple[str, str, str]] = []
 
-# Owned by the notifications lane: notification channels.
-NOTIFY_SQL = ""
+# Owned by the networking lane: what a site answers with, how it is trusted, and
+# the DNS, tunnel and port exposure that reach it (noust.core.site_policy_store,
+# certificate_store, dns_store, stream_store and tunnel_store are the only
+# readers and writers; the managers in noust.managers say what the values mean).
+#
+# site_policies: one JSON document per application, keyed by its primary domain:
+#   basic authentication, IP lists, the real client address behind a CDN, rate
+#   limits, response headers, and which of www or the bare name is canonical. A
+#   table of its own, not columns of ``apps`` or ``sites``, so the full-row write
+#   of a redeploy cannot put back what an operator changed while it ran, and the
+#   site is rendered from it every time, whichever deployer renders it.
+# site_auth_users: the accounts of an application's basic authentication. Only the
+#   salted hash is kept (the password is never stored); the htpasswd file the web
+#   server reads is derived from these rows each time the site is written.
+# custom_certificates: a certificate and key the operator uploaded; the files live
+#   in Noust's certificates directory (the key 0600), the row keeps what is safe to list.
+# certificate_settings: how an application's certificate comes to be. ``acme`` is the
+#   lineage Let's Encrypt (or another CA) keeps under the application's own name, ordered
+#   with the HTTP-01 challenge or with DNS-01 through a DNS provider; ``custom`` is an
+#   uploaded certificate; ``lineage`` is another lineage that already covers the name
+#   (a wildcard), served instead of ordering one.
+# dns_providers: an account at a DNS provider. Its token is a secret file, never a
+#   column; ``settings`` holds what is not secret (an account id).
+# dns_records: a record Noust manages at a provider, and whether Noust created it
+#   (``owned``) or adopted one that was already there; dns_record_refs: which
+#   applications use it, so a name shared by two is deleted when the last lets go.
+# stream_exposures: a TCP or UDP port nginx's ``stream`` module publishes in front of
+#   a backend. ``firewall`` is what Noust opened for it (and so what it closes);
+#   ``state`` says how far an opening or a closing got, so an interrupted one is
+#   finished from the row. A port is held by one exposure per protocol.
+# tunnels: a Cloudflare Tunnel Noust created through a DNS account, and the unit that
+#   runs its connector; tunnel_hostnames: the public names it carries, each to a local
+#   service. The connector's token is a secret file, never a column.
+NETWORK_SQL = """
+CREATE TABLE IF NOT EXISTS site_policies (
+    domain TEXT PRIMARY KEY,
+    document TEXT NOT NULL,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS site_auth_users (
+    domain TEXT NOT NULL,
+    username TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    created_by TEXT,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (domain, username)
+);
+CREATE TABLE IF NOT EXISTS custom_certificates (
+    name TEXT PRIMARY KEY,
+    names TEXT NOT NULL DEFAULT '[]',
+    subject TEXT,
+    issuer TEXT,
+    key_type TEXT,
+    fingerprint TEXT NOT NULL,
+    not_before TEXT,
+    not_after TEXT,
+    uploaded_by TEXT,
+    uploaded_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS certificate_settings (
+    domain TEXT PRIMARY KEY,
+    source TEXT NOT NULL DEFAULT 'acme' CHECK (source IN ('acme', 'custom', 'lineage')),
+    name TEXT,
+    challenge TEXT NOT NULL DEFAULT 'http-01' CHECK (challenge IN ('http-01', 'dns-01')),
+    dns_provider TEXT,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS dns_providers (
+    name TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    automatic INTEGER NOT NULL DEFAULT 0,
+    settings TEXT NOT NULL DEFAULT '{}',
+    verified_at TEXT,
+    last_error TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT
+);
+CREATE TABLE IF NOT EXISTS dns_records (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    uuid TEXT NOT NULL UNIQUE,
+    provider TEXT NOT NULL REFERENCES dns_providers(name) ON DELETE CASCADE,
+    zone_id TEXT NOT NULL,
+    zone_name TEXT NOT NULL,
+    hostname TEXT NOT NULL,
+    record_type TEXT NOT NULL,
+    content TEXT NOT NULL,
+    remote_id TEXT,
+    owned INTEGER NOT NULL DEFAULT 1,
+    proxied INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    unreferenced_since TEXT,
+    UNIQUE (provider, hostname, record_type)
+);
+CREATE TABLE IF NOT EXISTS dns_record_refs (
+    record_id INTEGER NOT NULL REFERENCES dns_records(id) ON DELETE CASCADE,
+    app_domain TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (record_id, app_domain)
+);
+CREATE TABLE IF NOT EXISTS stream_exposures (
+    name TEXT PRIMARY KEY,
+    app_domain TEXT,
+    protocol TEXT NOT NULL CHECK (protocol IN ('tcp', 'udp')),
+    listen_port INTEGER NOT NULL,
+    target_host TEXT NOT NULL,
+    target_port INTEGER NOT NULL,
+    sources TEXT NOT NULL DEFAULT '[]',
+    timeout_seconds INTEGER NOT NULL DEFAULT 3600,
+    firewall TEXT NOT NULL DEFAULT '{}',
+    state TEXT NOT NULL CHECK (state IN ('opening', 'open', 'closing')),
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    UNIQUE (protocol, listen_port)
+);
+CREATE TABLE IF NOT EXISTS tunnels (
+    name TEXT PRIMARY KEY,
+    provider TEXT NOT NULL REFERENCES dns_providers(name) ON DELETE CASCADE,
+    account_id TEXT NOT NULL,
+    tunnel_id TEXT NOT NULL,
+    unit TEXT NOT NULL,
+    state TEXT NOT NULL CHECK (state IN ('creating', 'ready', 'removing')),
+    created_at TEXT NOT NULL,
+    created_by TEXT
+);
+CREATE TABLE IF NOT EXISTS tunnel_hostnames (
+    tunnel TEXT NOT NULL REFERENCES tunnels(name) ON DELETE CASCADE,
+    hostname TEXT NOT NULL UNIQUE,
+    app_domain TEXT,
+    service TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (tunnel, hostname)
+);
+"""
+# The port an alias is proxied to, when it is not the application's own: a name
+# answered by another listener of the same application (an admin interface).
+# NULL is the application's port.
+NETWORK_COLUMNS: list[tuple[str, str, str]] = [
+    ("domains", "port", "INTEGER"),
+]
+
+# Owned by the notifications lane (noust.core.notification_ledger and
+# noust.core.alerts): the record of every delivery, the user-defined alert rules
+# and what the monitor remembers between two scans.
+#
+# notification_deliveries: one row per notification and channel instance.
+#   state is ``retrying`` (failed, waiting for next_attempt_at), ``held`` (quiet
+#   hours: delivered at next_attempt_at),
+#   ``sent`` or ``failed`` (gave up, or could never succeed). payload is the
+#   notification as JSON for as long as it may still be delivered or retried by
+#   hand; a row that was sent keeps only the facts that identify it. last_error is
+#   the destination's own words, already scrubbed of the channel's credentials.
+# alert_rules: what the operator asked to be told about: a metric, a comparator
+#   and a threshold that must hold for duration_s seconds, cleared once back
+#   inside it by hysteresis, announced at most once per cooldown_s. app_domain
+#   NULL is the server for a server metric and every application for an
+#   application one.
+# alert_states: where each (rule, subject) is. ``firing`` while the limit is
+#   breached and ``ok`` once it cleared; the row stays so the cooldown
+#   (announced_at, the last time a firing message went out) survives a clear.
+#   ``announced`` says whether the current firing was told: one that fired
+#   inside the cooldown is silent, and so is its end.
+# notification_state: small facts a check of the monitor must keep between scans
+#   (the last cron invocation seen, when a missing backup was last announced).
+NOTIFY_SQL = """
+CREATE TABLE IF NOT EXISTS notification_deliveries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    notification_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    code TEXT NOT NULL,
+    subject TEXT NOT NULL DEFAULT '',
+    channel TEXT NOT NULL,
+    channel_type TEXT NOT NULL,
+    state TEXT NOT NULL
+        CHECK (state IN ('retrying', 'held', 'sent', 'failed')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    next_attempt_at REAL,
+    last_error TEXT,
+    payload TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_due
+    ON notification_deliveries(state, next_attempt_at);
+CREATE INDEX IF NOT EXISTS idx_notification_deliveries_created
+    ON notification_deliveries(created_at);
+CREATE TABLE IF NOT EXISTS alert_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    metric TEXT NOT NULL,
+    app_domain TEXT,
+    comparator TEXT NOT NULL CHECK (comparator IN ('>', '>=', '<', '<=')),
+    threshold REAL NOT NULL,
+    duration_s INTEGER NOT NULL DEFAULT 300,
+    hysteresis REAL NOT NULL DEFAULT 0,
+    cooldown_s INTEGER NOT NULL DEFAULT 3600,
+    severity TEXT NOT NULL DEFAULT 'warning' CHECK (severity IN ('warning', 'failed')),
+    enabled INTEGER NOT NULL DEFAULT 1,
+    remind INTEGER NOT NULL DEFAULT 0,
+    note TEXT,
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    updated_at REAL NOT NULL,
+    updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS alert_states (
+    rule_id INTEGER NOT NULL REFERENCES alert_rules(id) ON DELETE CASCADE,
+    subject TEXT NOT NULL DEFAULT '',
+    state TEXT NOT NULL CHECK (state IN ('ok', 'firing')),
+    since REAL NOT NULL,
+    last_value REAL,
+    announced INTEGER NOT NULL DEFAULT 0,
+    announced_at REAL,
+    PRIMARY KEY (rule_id, subject)
+);
+CREATE TABLE IF NOT EXISTS notification_state (
+    scope TEXT NOT NULL,
+    item TEXT NOT NULL,
+    value TEXT NOT NULL,
+    updated_at REAL NOT NULL,
+    PRIMARY KEY (scope, item)
+);
+"""
 NOTIFY_COLUMNS: list[tuple[str, str, str]] = []
 
 # Owned by the single sign-on lane (noust.core.accounts.oidc_store).
@@ -557,6 +866,442 @@ CREATE INDEX IF NOT EXISTS idx_oidc_tickets_expires ON oidc_tickets(expires_at);
 """
 SSO_COLUMNS: list[tuple[str, str, str]] = []
 
+# Owned by the servers lane (noust.fleet.cloud): the cloud accounts a central
+# creates servers with, the cloud-init scripts it keeps for them, and the
+# machines it created, how long each server has been silent and whether its monitoring is
+# paused (node_liveness; no row means it answers), and the scheduled cleanup of a server's disk with the history of
+# every cleanup that ran (storage_cleanup_*; one row per run, the actions it took in
+# a JSON list, the newest 200 kept). Nothing secret is stored here: an account's API token
+# lives in the secret store (``cloud-accounts/<name>``), sealed with the rest on
+# a sealed central, and the row keeps only its last four characters so the
+# operator can tell two tokens apart.
+#
+# No CHECK on a provider or a state: SQLite cannot alter one, and a provider
+# added later must not need a table rebuild. The code validates both.
+#
+# cloud_servers keeps a machine after its server is removed from the fleet (state
+# ``deleted``), so the history of what was created and when survives. ``node`` is
+# the name the server has on this central.
+#
+# node_links: a server that dials this central, instead of the other way round (it
+# is behind NAT or a CGNAT, with no SSH port anyone can reach). ``port`` is the
+# loopback port of this machine its link listens on, one per server and never
+# shared; ``state`` is ``invited`` until the server's code is accepted and
+# ``active`` after; ``nonce`` ties the code to the invitation it answers;
+# ``link_key`` is the public half of the key the server dials in with. Nothing
+# secret is stored: the server's fleet token is in the secret store like every
+# node's.
+FLEET_SQL = """
+CREATE TABLE IF NOT EXISTS cloud_accounts (
+    name TEXT PRIMARY KEY,
+    provider TEXT NOT NULL,
+    token_tail TEXT NOT NULL,
+    note TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    verified_at TEXT,
+    last_used_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS cloud_init_scripts (
+    name TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    description TEXT,
+    content TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cloud_servers (
+    node TEXT PRIMARY KEY,
+    account TEXT NOT NULL,
+    provider TEXT NOT NULL,
+    provider_id TEXT NOT NULL,
+    address TEXT,
+    location TEXT,
+    plan TEXT,
+    image TEXT,
+    state TEXT NOT NULL,
+    error TEXT,
+    job_id TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS node_liveness (
+    node TEXT PRIMARY KEY,
+    failures INTEGER NOT NULL DEFAULT 0,
+    down_since REAL,
+    announced INTEGER NOT NULL DEFAULT 0,
+    next_probe_at REAL,
+    last_counted_at REAL,
+    last_error TEXT,
+    paused INTEGER NOT NULL DEFAULT 0,
+    paused_reason TEXT,
+    paused_by TEXT,
+    paused_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS storage_cleanup_policy (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    document TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    updated_by TEXT
+);
+
+CREATE TABLE IF NOT EXISTS storage_cleanup_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trigger TEXT NOT NULL,
+    status TEXT NOT NULL,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    mount TEXT,
+    percent_before REAL,
+    percent_after REAL,
+    freed_bytes INTEGER,
+    actions TEXT NOT NULL,
+    reason TEXT,
+    actor TEXT
+);
+
+CREATE TABLE IF NOT EXISTS node_links (
+    node TEXT PRIMARY KEY,
+    port INTEGER NOT NULL UNIQUE,
+    state TEXT NOT NULL,
+    nonce TEXT NOT NULL,
+    central_host TEXT NOT NULL,
+    central_port INTEGER NOT NULL,
+    link_key TEXT,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    activated_at TEXT
+);
+"""
+FLEET_COLUMNS: list[tuple[str, str, str]] = []
+
+
+# Owned by the runtime lane: how an application runs and is operated.
+#
+# app_health: what the health gate asks beyond the path, the statuses and the
+#   wait that live on ``apps`` since v9: the kind (a request, or a command run as
+#   the application), the method, scheme, host name and port of the request, the
+#   command and the Compose service it runs in, the seconds between probes, the
+#   most probes and the start period. A table of its own so a redeploy's
+#   full-row write of ``apps`` cannot put back what an operator changed while it
+#   ran. NULL is the gate's own default.
+#
+# app_applied_config: what an application's configuration was when it was last
+#   put to work (noust.core.applied_config_store is its only reader and writer):
+#   one JSON document, one section per area (environment, limits, health, hooks,
+#   build, container, sandbox...), taken when a deployment succeeds and refreshed,
+#   for the areas a restart applies, when the application restarts. The pending
+#   changes of an application are what differs between it and the configuration
+#   now (noust.deployers.pending_changes). Values are never stored, only their
+#   salted hashes: the document answers "did it change", never "to what".
+#
+# app_processes: the processes an application runs beside its web process (a
+#   queue worker, a scheduler), each a unit of its own from the same release
+#   (noust.core.app_process_store is its only reader and writer). ``instances``
+#   is how many copies run (0 keeps the definition and stops them); the limits are
+#   the process's own. ``source`` says where the definition came from: the
+#   operator's wins over the repository's, which is synchronised at every deploy.
+#
+# app_mounts: the files and directories an application is given beyond its repository
+#   (noust.core.app_mount_store is its only reader and writer). A ``file`` is a
+#   configuration file Noust keeps for the application and links into every
+#   release (``target`` is its path in the application; on a container
+#   application, where it is mounted in the container); its content is the file on
+#   disk, never a column. A ``path`` is a directory or file of the server bound
+#   into a container application (``source`` on the host, ``target`` in the
+#   container), read-only unless asked.
+#
+# log_drains: where the logs of applications are shipped to besides the journal
+#   (noust.core.log_drain_store is its only reader and writer): a Loki, an Axiom
+#   dataset, an HTTP endpoint (Fluent Bit, Vector, Logstash), an OTLP collector or
+#   a remote syslog. One row per destination, server-wide; ``apps`` narrows it to
+#   some applications (empty is every one). ``settings`` holds what is not secret
+#   (URL, labels, transport); the token or password is in the secret store under
+#   ``log-drains/<name>``. ``cursors`` is how far each source was shipped (the
+#   journal's cursor, a stack's last timestamp), so a destination that was down
+#   receives what it missed when it is back.
+#
+# app_hardening: how much of systemd's sandbox an application's unit runs in
+#   (noust.core.unit_hardening_store is its only reader and writer): ``off``,
+#   ``default`` or ``strict``, and the extra directories the unit may write to
+#   (a JSON list). No row means the application predates hardening and its unit
+#   is as it always was: a redeploy never hardens it by itself, an operator
+#   does, behind the health gate.
+#
+# app_replicas: the extra copies of an application's web process (noust.core.app_replica_store
+#   is its only reader and writer): the ports reserved for them, in order, and how many run.
+#   No row means one copy, the application's own unit. nginx balances over the unit and the
+#   copies through the upstream file; the ports count as the application's for whoever picks one.
+#
+# compose_release_images: the images a Compose stack keeps for each release it served
+#   (noust.core.compose_release_store is its only reader and writer), so going back
+#   to it recreates the containers from them instead of building again. The release
+#   itself is a row of ``releases``, as a container application's is; this says which
+#   image each service ran (``reference`` is the name the compose file looks it up by,
+#   ``tag`` the name the release keeps it under, ``image_id`` its immutable id).
+RUNTIME_SQL = """
+CREATE TABLE IF NOT EXISTS app_health (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL DEFAULT 'http' CHECK (kind IN ('http', 'command')),
+    method TEXT,
+    scheme TEXT,
+    host TEXT,
+    port INTEGER,
+    command TEXT,
+    service TEXT,
+    interval_seconds INTEGER,
+    retries INTEGER,
+    start_period INTEGER,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_applied_config (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    deployment_id INTEGER,
+    document TEXT NOT NULL,
+    taken_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_processes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    command TEXT NOT NULL,
+    instances INTEGER NOT NULL DEFAULT 1 CHECK (instances BETWEEN 0 AND 32),
+    memory_max_mb INTEGER,
+    cpu_quota_percent INTEGER,
+    tasks_max INTEGER,
+    source TEXT NOT NULL DEFAULT 'operator' CHECK (source IN ('operator', 'repository')),
+    updated_by TEXT,
+    updated_at TEXT NOT NULL,
+    UNIQUE (app_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS app_mounts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('file', 'path')),
+    target TEXT NOT NULL,
+    source TEXT,
+    mode INTEGER NOT NULL DEFAULT 384,
+    read_only INTEGER NOT NULL DEFAULT 1,
+    updated_by TEXT,
+    updated_at TEXT NOT NULL,
+    UNIQUE (app_id, target)
+);
+
+CREATE TABLE IF NOT EXISTS log_drains (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    kind TEXT NOT NULL CHECK (kind IN ('loki', 'axiom', 'http', 'otlp', 'syslog')),
+    settings TEXT NOT NULL DEFAULT '{}',
+    apps TEXT NOT NULL DEFAULT '[]',
+    enabled INTEGER NOT NULL DEFAULT 1,
+    cursors TEXT NOT NULL DEFAULT '{}',
+    last_ok_at TEXT,
+    last_error TEXT,
+    last_error_at TEXT,
+    shipped INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_hardening (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    profile TEXT NOT NULL CHECK (profile IN ('off', 'default', 'strict')),
+    writable_paths TEXT NOT NULL DEFAULT '[]',
+    changed_by TEXT,
+    changed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_replicas (
+    app_id INTEGER PRIMARY KEY REFERENCES apps(id) ON DELETE CASCADE,
+    ports TEXT NOT NULL DEFAULT '[]',
+    running INTEGER NOT NULL DEFAULT 0,
+    changed_by TEXT,
+    changed_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS compose_release_images (
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    release_id TEXT NOT NULL,
+    service TEXT NOT NULL,
+    reference TEXT NOT NULL,
+    image_id TEXT NOT NULL,
+    tag TEXT NOT NULL,
+    PRIMARY KEY (app_id, release_id, service)
+);
+"""
+RUNTIME_COLUMNS: list[tuple[str, str, str]] = []
+# Owned by the access-control lane (noust.core.access is its only reader and writer).
+#
+# custom_roles: a role an administrator defines as a set of the permissions that
+#   exist (I-07). ``name`` is a slug that never equals a built-in role's;
+#   ``permissions`` is a JSON list. Nothing here decides what the permissions
+#   mean: noust.web.permissions.access validates a set (separation of duties,
+#   the permissions a team can own) before it is written.
+# access_bindings: a role given to an account at a scope (I-03): the whole
+#   server (``instance``, which adds to the account's own role), a ``team``,
+#   a ``project`` or an ``environment``. ``scope_id`` is the row's id in its
+#   table (0 for the server). The role is a built-in team role or a custom
+#   role's name; a team's own built-in roles stay in team_members, so a
+#   binding at team scope is a custom role added to a membership. One binding
+#   per account and scope: changing the role replaces it.
+RBAC_SQL = """
+CREATE TABLE IF NOT EXISTS custom_roles (
+    name TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    permissions TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    updated_at REAL NOT NULL,
+    updated_by TEXT
+);
+CREATE TABLE IF NOT EXISTS access_bindings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+    scope_kind TEXT NOT NULL CHECK (scope_kind IN ('instance', 'team', 'project', 'environment')),
+    scope_id INTEGER NOT NULL DEFAULT 0,
+    role TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    created_by TEXT,
+    UNIQUE (account_id, scope_kind, scope_id)
+);
+CREATE INDEX IF NOT EXISTS idx_access_bindings_account ON access_bindings(account_id);
+CREATE INDEX IF NOT EXISTS idx_access_bindings_scope ON access_bindings(scope_kind, scope_id);
+"""
+RBAC_COLUMNS: list[tuple[str, str, str]] = []
+
+
+# Owned by the environments lane (noust.core.variables, noust.core.app_tags,
+# noust.core.preview_store): the variables an application is given besides its
+# own file, the tags it carries, and what its previews are made from.
+#
+# shared_variables: a variable defined once for a scope and used by reference
+#   (``{{project.NAME}}``) from the variables of an application. ``scope`` says
+#   whose it is: the whole server, a team, a project, an environment, or the
+#   set the previews of one application are given (``preview``). Exactly one of
+#   the four owner columns is set, the one the scope names, and ``owner`` repeats
+#   its id (0 for the server) so one unique index covers every scope. The owner
+#   columns cascade: deleting a project or an application takes its variables
+#   with it, and a row can never name an owner that is gone. ``secret`` is the
+#   operator's mark (NULL: the one classifier decides); ``audience`` says whether
+#   an application that uses the variable hands it to its build, its runtime or
+#   both.
+# app_env_variables: what the store knows of one variable of an application
+#   beyond the ``.env`` file, which holds the resolved runtime value. The
+#   ``expression`` is the text the value is made from when it has references in
+#   it (re-resolved at every deploy, so a rotated secret reaches the next
+#   release); ``audience`` keeps a build-only variable out of the unit's
+#   environment file and a runtime-only one out of the build; ``build_value`` is
+#   where a build-only variable's value lives, since it is in no ``.env``.
+# app_tags: the free labels an application carries, to find it and to deploy a
+#   group of them. Lower case, like a node's labels, so ``Prod`` and ``prod`` are
+#   never two groups.
+# secret_providers: the secret managers Noust resolves references against. A
+#   provider's token is never a column: it lives in the secret store under
+#   ``secret-providers/<name>``. ``team_id`` restricts who may reference it (NULL
+#   is the whole server).
+# preview_options / preview_origins: what 3.4 adds to previews without touching
+#   the 2.2 tables. ``inherit_env`` is ``all`` (the 2.2 behaviour, minus
+#   ``exclude_env``) or ``allowlist`` (only ``allow_env``, the default for
+#   previews turned on from 3.4); ``data_mode`` says whether a preview shares its
+#   application's databases (``shared``, the 2.2 behaviour) or gets its own.
+#   ``preview_origins`` says what a preview was made from (a pull request, or a
+#   branch or a tag an operator named), which variables the policy gave it and
+#   which were made for it alone (``given_env``, ``owned_env``: a later change
+#   of the policy takes back exactly the first, and never the second), and the
+#   databases made for it (``engine/name``), dropped with it.
+ENVIRONMENTS_SQL = """
+CREATE TABLE IF NOT EXISTS shared_variables (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    scope TEXT NOT NULL CHECK (scope IN ('server', 'team', 'project', 'environment', 'preview')),
+    owner INTEGER NOT NULL,
+    team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
+    project_id INTEGER REFERENCES projects(id) ON DELETE CASCADE,
+    environment_id INTEGER REFERENCES environments(id) ON DELETE CASCADE,
+    app_id INTEGER REFERENCES apps(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    value TEXT NOT NULL,
+    secret INTEGER,
+    audience TEXT NOT NULL DEFAULT 'both' CHECK (audience IN ('both', 'build', 'runtime')),
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL,
+    updated_by TEXT,
+    UNIQUE (scope, owner, name),
+    CHECK (
+        (scope = 'server' AND team_id IS NULL AND project_id IS NULL
+            AND environment_id IS NULL AND app_id IS NULL)
+        OR (scope = 'team' AND team_id IS NOT NULL AND project_id IS NULL
+            AND environment_id IS NULL AND app_id IS NULL)
+        OR (scope = 'project' AND project_id IS NOT NULL AND team_id IS NULL
+            AND environment_id IS NULL AND app_id IS NULL)
+        OR (scope = 'environment' AND environment_id IS NOT NULL AND team_id IS NULL
+            AND project_id IS NULL AND app_id IS NULL)
+        OR (scope = 'preview' AND app_id IS NOT NULL AND team_id IS NULL
+            AND project_id IS NULL AND environment_id IS NULL)
+    )
+);
+
+CREATE TABLE IF NOT EXISTS app_env_variables (
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    audience TEXT NOT NULL DEFAULT 'both' CHECK (audience IN ('both', 'build', 'runtime')),
+    expression TEXT,
+    build_value TEXT,
+    PRIMARY KEY (app_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS app_tags (
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    tag TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY (app_id, tag)
+);
+CREATE INDEX IF NOT EXISTS idx_app_tags_tag ON app_tags(tag);
+
+CREATE TABLE IF NOT EXISTS secret_providers (
+    name TEXT PRIMARY KEY,
+    kind TEXT NOT NULL,
+    address TEXT,
+    settings TEXT NOT NULL DEFAULT '{}',
+    team_id INTEGER REFERENCES teams(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    created_by TEXT,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS preview_options (
+    app_domain TEXT PRIMARY KEY,
+    inherit_env TEXT NOT NULL DEFAULT 'all' CHECK (inherit_env IN ('all', 'allowlist')),
+    allow_env TEXT NOT NULL DEFAULT '[]',
+    data_mode TEXT NOT NULL DEFAULT 'shared' CHECK (data_mode IN ('shared', 'empty')),
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS preview_origins (
+    domain TEXT PRIMARY KEY,
+    kind TEXT NOT NULL DEFAULT 'pr' CHECK (kind IN ('pr', 'branch', 'tag')),
+    ref TEXT,
+    created_by TEXT,
+    created_at TEXT NOT NULL,
+    given_env TEXT NOT NULL DEFAULT '[]',
+    owned_env TEXT NOT NULL DEFAULT '[]',
+    databases TEXT NOT NULL DEFAULT '[]'
+);
+"""
+ENVIRONMENTS_COLUMNS: list[tuple[str, str, str]] = []
+
 
 def _fragments() -> list[str]:
     return [
@@ -570,8 +1315,13 @@ def _fragments() -> list[str]:
         DBINSTANCES_SQL,
         BACKUPS_SQL,
         ACCESS_SQL,
+        NETWORK_SQL,
         NOTIFY_SQL,
         SSO_SQL,
+        FLEET_SQL,
+        RUNTIME_SQL,
+        RBAC_SQL,
+        ENVIRONMENTS_SQL,
     ]
 
 
@@ -587,8 +1337,13 @@ def _columns() -> list[tuple[str, str, str]]:
         *DBINSTANCES_COLUMNS,
         *BACKUPS_COLUMNS,
         *ACCESS_COLUMNS,
+        *NETWORK_COLUMNS,
         *NOTIFY_COLUMNS,
         *SSO_COLUMNS,
+        *FLEET_COLUMNS,
+        *RUNTIME_COLUMNS,
+        *RBAC_COLUMNS,
+        *ENVIRONMENTS_COLUMNS,
     ]
 
 

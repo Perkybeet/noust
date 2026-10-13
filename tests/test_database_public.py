@@ -38,6 +38,7 @@ from noust.core.exceptions import (
 from noust.core.runner import set_runner
 from noust.core.secrets import SecretStore
 from noust.core.store import NoustStore
+from noust.core.stream_store import StreamExposure, StreamStore
 from noust.managers.database import public_access
 from noust.managers.database.base import BaseDatabaseManager
 from noust.managers.database.public_access import PublicAccess, remote_user_name
@@ -255,6 +256,19 @@ class TestThePlan:
         world.engine.dbs["second"] = {"owner": "x", "size": None}
         with pytest.raises(ValidationError, match="already the public port of postgresql/appdb"):
             world.access.plan(ENGINE, "second", port=6000)
+
+    def test_a_port_published_as_a_tcp_or_udp_stream_is_refused(self, world: World) -> None:
+        StreamStore(world.access.exposures.store).create(
+            StreamExposure(
+                name="game",
+                protocol="udp",
+                listen_port=6100,
+                target_host="127.0.0.1",
+                target_port=19132,
+            )
+        )
+        with pytest.raises(ValidationError, match="Port 6100 is taken"):
+            world.access.plan(ENGINE, DATABASE, port=6100)
 
     def test_the_next_suggestion_skips_what_is_open(self, world: World) -> None:
         open_it(world)

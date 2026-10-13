@@ -153,6 +153,31 @@ hooks:
 `noust app hooks show proggest.es` says which hooks the next deployment runs and where they
 come from, and the deployment's page in the console lists what each one printed.
 
+## File, profiles and extra arguments
+
+A stack is created with a compose file and profiles (`noust create --compose-file
+--compose-profile`) and keeps them in its unit. They, and a few arguments of `docker compose build`
+and `up`, can be changed afterwards:
+
+```bash
+noust app compose show shop.example.com
+noust app compose set shop.example.com --file deploy/compose.prod.yml --profile web --profile jobs
+noust app compose set shop.example.com --build-args '--pull --build-arg VERSION=1.2' --up-args '--wait'
+noust app compose set shop.example.com --service web --service worker   # build and start only these
+noust app compose reset shop.example.com
+```
+
+The same is `GET|PUT|DELETE /api/apps/{domain}/compose` (changing them needs sudo mode). A new
+file must be in the checkout (it is refused otherwise, with nothing changed) and, with new
+profiles, is written to the unit too, so a start at boot brings up the same stack. The arguments
+are a **closed list**, never a shell line: for `build`, `--pull`, `--no-cache`, `--quiet`,
+`--with-dependencies`, `--build-arg KEY=VALUE`, `--progress auto|plain|tty|quiet`; for `up`,
+`--wait`, `--wait-timeout N`, `--timeout N`, `--force-recreate`, `--no-deps`,
+`--renew-anon-volumes`, `--always-recreate-deps`, `--scale SERVICE=N` (at most 50) and `--pull
+always|missing|never`. `--build` and `--no-build` are not on it: Noust decides when to build.
+An update used to ignore the profiles in the unit, so a service under a profile was left out of
+every rebuild; it reads them now.
+
 ## Operator hooks
 
 The server can declare hooks of its own for an application, without a commit: for a repository
@@ -689,6 +714,27 @@ own. `GET /api/apps/{domain}/headless` (`apps.read`) says whether the stack is a
 port recorded and whether its site can go; `POST` (`apps.manage`, sudo) does it, with
 `{"remove_site": true}` to remove the site.
 
+## Scheduled tasks of a stack
+
+A cron job associated with a stack can run **in one of its services** instead of on the server:
+
+```bash
+noust cron create nightly-report "php artisan reports:send" --schedule daily \
+  --app shop.example.com --service app --timeout 600
+```
+
+The command runs by `docker compose exec -T` in the container of that service, as an argument
+vector like any other task: nothing is put behind `sh -c`, so a container without a shell runs a
+task as well as one with. The program is the container's, not the server's, so it is not looked up
+on the server. `--timeout SECONDS` (1 to 86400) is the longest the command may run; past it the
+command is stopped and the run counts as failed, which the job's history shows. Over the API,
+`POST /api/cron` takes `timeout` and `service`, and the console's job dialog has both fields
+(the service only for a job of an application).
+
+When the client is stopped, Docker leaves the process it started inside the container running:
+the timeout ends the run Noust waits for, not necessarily the process in the container, so give a
+task that can hang its own deadline as well.
+
 ## Which service gets the root route
 
 With several services that publish a port and no `noust.nginx.yaml`, `/` goes to the **service
@@ -793,6 +839,9 @@ routes:
 - **Deleting an adopted application keeps its directory** (see [above](#deleting-an-adopted-stack)).
 - **Ignored webhook deliveries** carry the `ignored_tag` reason for applications that follow
   tags.
+- **Images of the releases are kept**, so going back to one is instant instead of a rebuild
+  (`noust releases list|rollback|keep` work on a stack): see
+  [releases.md](releases.md#kept-images-and-instant-rollback).
 
 See also: [releases.md](releases.md) for releases, the health gate and rolling back,
 [domains.md](domains.md) for domains and certificates, [console.md](console.md) for the console,

@@ -99,6 +99,18 @@ class TestDockerfileBuilds:
         # BuildKit, which is what secrets and the cache mounts need.
         assert runner.envs[0] == {"DOCKER_BUILDKIT": "1"}
 
+    def test_a_build_without_the_cache_ignores_the_layers_and_pulls_the_base_again(
+        self, tree, secrets, tmp_path
+    ):
+        runner = FakeRunner()
+
+        builder(runner, tree, secrets, tmp_path).build(ContainerSettings(), TAG, no_cache=True)
+
+        (call,) = runner.calls
+        assert call[:2] == ("docker", "build")
+        assert "--no-cache" in call and "--pull" in call
+        assert call[-1] == str(tree)
+
     def test_a_dockerfile_elsewhere_with_a_context_a_stage_and_arguments(
         self, tree, secrets, tmp_path
     ):
@@ -384,6 +396,37 @@ class TestTheRegistryAccount:
         build = next(i for i, call in enumerate(runner.calls) if call[:2] == ("docker", "build"))
         assert "DOCKER_CONFIG" in runner.envs[build]
         assert runner.envs[build]["DOCKER_BUILDKIT"] == "1"
+
+    def test_an_attached_registry_login_is_used_when_the_application_has_none_of_its_own(
+        self, tree, secrets, tmp_path
+    ):
+        from noust.core.fs import RealFileSystem
+        from noust.core.registry_store import RegistryStore
+        from noust.core.store import App, get_store
+        from noust.managers.registry_logins import RegistryManager
+
+        get_store().create_app(
+            App(domain="shop.example.com", app_type="container", source="x", app_path=str(tree))
+        )
+        runner = pulling()
+        registries = RegistryManager(
+            store=RegistryStore(), secrets=secrets, runner=runner, fs=RealFileSystem()
+        )
+        registries.add("ghcr-acme", "ghcr", "bot", PASSWORD)
+        registries.attach("shop.example.com", ["ghcr-acme"])
+        try:
+            builder(runner, tree, secrets, tmp_path).pull(
+                ContainerSettings(method="image", image="ghcr.io/acme/app:1"), TAG
+            )
+        finally:
+            # The store outlives the test: leave nobody attached to the other tests' domain.
+            registries.remove("ghcr-acme")
+            get_store().delete_app("shop.example.com")
+
+        assert runner.calls[0][:3] == ("docker", "login", "ghcr.io")
+        pull = next(i for i, call in enumerate(runner.calls) if call[:2] == ("docker", "pull"))
+        assert "DOCKER_CONFIG" in runner.envs[pull]
+        assert PASSWORD not in " ".join(c for call in runner.calls for c in call)
 
     def test_without_an_account_nothing_is_logged_into(self, tree, secrets, tmp_path):
         runner = pulling()

@@ -1,0 +1,18 @@
+{
+  "about": "Written by scripts/docs_screens.py. The release is the one the pictures show.",
+  "release": "3.1",
+  "images": {
+    "app-deployment.png": "9cc5b3546aeab2a257321b7c5cef8be70a0061ed41c3e6de1fd5586de5d7e8a6",
+    "app-deployments.png": "4aa46805d7c4d36cb8a43b09865b66102339fde494e1178abd329a1d0366e4eb",
+    "app-diagnose.png": "fff45a06396ad16e53f8bf109d0fba16adb35ffb57637084e324d2d105c7a5fb",
+    "app-overview.png": "da9c92d648f26ebd9d6ee9991ba456d6106ac974f69eb3e9bf5c8b2eea1afc29",
+    "apps-new.png": "fc40868fde9404a0abe3a53d55a123012359d7c9a584c8279690e8ac4b5f4ce8",
+    "apps.png": "891d8c530520c6109d771398e148f0d9a369a775d7cd1fba39c4eb178cca1952",
+    "domains.png": "92e36ecc3dc97c6fd300016ead428183cef6750f43a345b06dbd3bb25fd08c4e",
+    "fleet.png": "ad4b984da4bc10134a31a32c2d61e21b3f81eb9d2d51a8a04f0b07c445b44692",
+    "login.png": "532aac67430f8a3a6f1df01c9a66944f59ec954c8567d3657d39042149693c32",
+    "node-apps.png": "b45723200e23658612a7b663b51b0ac972f11b51e32350037e587bceb91a782c",
+    "overview.png": "215018da8ea9b5aed71c877fe052be8d3bf94ef59d4cc72ab059ef97d5214ee5",
+    "settings-servers.png": "ce054bbabf5578ff73438c9248dda7c6bcc281b980ed010aa3146bfd9faa5b6c"
+  }
+}

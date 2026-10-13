@@ -2294,111 +2294,6 @@
       }
     ]
   },
-  "backup.missing": {
-    "attachments": [
-      {
-        "color": "#e3a73c",
-        "fallback": "▲ Falta una copia de seguridad · postgresql/shop",
-        "blocks": [
-          {
-            "type": "header",
-            "text": {
-              "type": "plain_text",
-              "text": "▲ Falta una copia de seguridad · postgresql/shop",
-              "emoji": false
-            }
-          },
-          {
-            "type": "section",
-            "text": {
-              "type": "mrkdwn",
-              "text": "No se ha hecho ninguna copia correcta en el tiempo que permite su programación."
-            }
-          },
-          {
-            "type": "section",
-            "fields": [
-              {
-                "type": "mrkdwn",
-                "text": "*Servidor*\nweb-1"
-              },
-              {
-                "type": "mrkdwn",
-                "text": "*Última copia correcta*\n2026-10-10 03:00 UTC"
-              }
-            ]
-          },
-          {
-            "type": "section",
-            "text": {
-              "type": "mrkdwn",
-              "text": "*Haz una ahora con:* `noust db backup-run shop -e postgresql`"
-            }
-          },
-          {
-            "type": "context",
-            "elements": [
-              {
-                "type": "mrkdwn",
-                "text": "<https://console.example.com/n/web-1/backups|Abrir en la consola>"
-              },
-              {
-                "type": "mrkdwn",
-                "text": "Noust · web-1"
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  "backup.recovered": {
-    "attachments": [
-      {
-        "color": "#4dc47e",
-        "fallback": "● Copia de seguridad al día · postgresql/shop",
-        "blocks": [
-          {
-            "type": "header",
-            "text": {
-              "type": "plain_text",
-              "text": "● Copia de seguridad al día · postgresql/shop",
-              "emoji": false
-            }
-          },
-          {
-            "type": "section",
-            "text": {
-              "type": "mrkdwn",
-              "text": "Se ha vuelto a hacer una copia correcta."
-            }
-          },
-          {
-            "type": "section",
-            "fields": [
-              {
-                "type": "mrkdwn",
-                "text": "*Servidor*\nweb-1"
-              }
-            ]
-          },
-          {
-            "type": "context",
-            "elements": [
-              {
-                "type": "mrkdwn",
-                "text": "<https://console.example.com/n/web-1/backups|Abrir en la consola>"
-              },
-              {
-                "type": "mrkdwn",
-                "text": "Noust · web-1"
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  },
   "drill.failed": {
     "attachments": [
       {
@@ -3623,6 +3518,929 @@
                 "type": "mrkdwn",
                 "text": "<https://console.example.com/n/web-1/apps/shop.example.com|Abrir en la consola>"
               },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "alert.above": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Alerta activa · cpu-high",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Alerta activa · cpu-high",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "CPU del servidor lleva por encima de 90% durante 15 min."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Regla*\ncpu-high"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Ahora*\n93.4%"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Límite*\n90%"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Inaccesible desde*\n2026-10-12 09:30 UTC"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "alert.below": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Alerta activa · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Alerta activa · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Memoria libre de shop.example.com lleva por debajo de 256 MB durante 5 min."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Regla*\nmemory-free"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Ahora*\n112 MB"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Límite*\n256 MB"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Inaccesible desde*\n2026-10-12 09:30 UTC"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/apps/shop.example.com|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "alert.resolved": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Alerta resuelta · cpu-high",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Alerta resuelta · cpu-high",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "CPU del servidor ha vuelto a 41.0%, dentro del límite de 90%."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Regla*\ncpu-high"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Ahora*\n41.0%"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Activa desde hace*\n45 min 12 s"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "backup.missing": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Sin copia reciente · shop.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Sin copia reciente · shop.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "No se ha hecho ninguna copia de esta aplicación en los últimos 3 días, aunque hay una programación de copias. Nada ha fallado: nada se ha ejecutado."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Última copia*\n9 oct 2026"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Programación*\n`daily`"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Copiarla ahora:* `noust backup create shop.example.com`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "backup.never": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Aún sin copias · blog.example.com",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Aún sin copias · blog.example.com",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Hay una programación de copias, pero no existe ninguna de esta aplicación. Nada ha fallado: nada se ha ejecutado."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Programación*\n`daily`"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Copiarla ahora:* `noust backup create blog.example.com`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/backups|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cron.failed": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Tarea programada fallida · shop-sync",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Tarea programada fallida · shop-sync",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La tarea ha terminado con un error, así que lo que hace no se ha hecho."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Ejecutada*\n2026-10-13 03:00 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Código de salida*\n1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Resultado*\nexit-code"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Ver las ejecuciones:* `noust cron runs shop-sync`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "_Últimas líneas de la salida de shop-sync_\n```Traceback (most recent call last):\n  File \"sync.py\", line 9\nKeyError: 'sku'```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/cron|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cron.succeeded": {
+    "attachments": [
+      {
+        "color": "#4dc47e",
+        "fallback": "● Tarea programada ejecutada · shop-sync",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "● Tarea programada ejecutada · shop-sync",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "La tarea se ha ejecutado y ha terminado sin error."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Ejecutada*\n2026-10-13 03:00 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Código de salida*\n0"
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/cron|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "patches.available": {
+    "attachments": [
+      {
+        "color": "#9e9e9e",
+        "fallback": "○ Actualizaciones disponibles",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "○ Actualizaciones disponibles",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "5 actualizaciones esperando a instalarse."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Actualizaciones*\n5"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detalle*\nopenssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Verlas:* `noust server updates list`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "patches.security": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Actualizaciones de seguridad disponibles",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Actualizaciones de seguridad disponibles",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "3 de las 12 actualizaciones pendientes son de seguridad."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Actualizaciones*\n12"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Seguridad*\n3"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detalle*\nopenssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Reinicio*\nPendiente, tras las actualizaciones"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Verlas:* `noust server updates list`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "patches.check_failed": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Fallo al comprobar las actualizaciones",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Fallo al comprobar las actualizaciones",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Noust no ha podido listar las actualizaciones que espera este servidor."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Verlas:* `noust server updates list`"
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "```E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)```"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/server|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "token.expiring": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Token de API a punto de caducar · ci-deploy",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Token de API a punto de caducar · ci-deploy",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El token dejará de funcionar dentro de 7 días. Lo que lo use será rechazado."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Caduca*\n20 oct 2026"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Propietario*\nalice"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Sustituirlo:* `noust token create`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/settings/tokens|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "token.today": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ El token de API caduca hoy · ci-deploy",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ El token de API caduca hoy · ci-deploy",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El token deja de funcionar hoy. Lo que lo use será rechazado."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Caduca*\n13 oct 2026"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Propietario*\nalice"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Sustituirlo:* `noust token create`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/settings/tokens|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "token.expired": {
+    "attachments": [
+      {
+        "color": "#cf3a30",
+        "fallback": "✕ Token de API caducado · ci-deploy",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "✕ Token de API caducado · ci-deploy",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "El token ha caducado. Lo que todavía lo use está siendo rechazado."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Caduca*\n1 oct 2026"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Propietario*\nalice"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Sustituirlo:* `noust token create`"
+            }
+          },
+          {
+            "type": "context",
+            "elements": [
+              {
+                "type": "mrkdwn",
+                "text": "<https://console.example.com/n/web-1/settings/tokens|Abrir en la consola>"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "Noust · web-1"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "digest.held": {
+    "attachments": [
+      {
+        "color": "#e3a73c",
+        "fallback": "▲ Avisos retenidos",
+        "blocks": [
+          {
+            "type": "header",
+            "text": {
+              "type": "plain_text",
+              "text": "▲ Avisos retenidos",
+              "emoji": false
+            }
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "Han llegado 3 avisos mientras este canal estaba en silencio."
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Servidor*\nweb-1"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Avisos*\n3"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Entre*\n2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC"
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Disco casi lleno · /*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Cuándo*\n2026-09-29 10:45 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detalle*\nHa superado el umbral de aviso del 90%, y un disco lleno detiene los despliegues, los registros y las bases de datos de este servidor."
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Certificado a punto de caducar · shop.example.com*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Cuándo*\n2026-09-29 11:05 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detalle*\nCaduca en 7 días (6 oct 2026)."
+              }
+            ]
+          },
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "*Copia completada · shop.example.com*"
+            }
+          },
+          {
+            "type": "section",
+            "fields": [
+              {
+                "type": "mrkdwn",
+                "text": "*Cuándo*\n2026-09-29 11:25 UTC"
+              },
+              {
+                "type": "mrkdwn",
+                "text": "*Detalle*\nSe ha guardado una copia nueva de la aplicación."
+              }
+            ]
+          },
+          {
+            "type": "context",
+            "elements": [
               {
                 "type": "mrkdwn",
                 "text": "Noust · web-1"

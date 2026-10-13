@@ -181,6 +181,11 @@ export const overview = {
     description: "This server runs nothing yet. These steps take a few minutes and leave it ready for real work.",
     listLabel: "First steps",
     done: "Done",
+    check: {
+      title: "Check the server",
+      description: "What a deployment needs (a web server, git, Node.js, certbot) and the command that fixes what is missing.",
+      action: "Installation check",
+    },
     deploy: {
       title: "Deploy your first application",
       description: "Point Noust at a Git repository or a directory: it detects the stack, builds it and serves it with a certificate.",
@@ -190,6 +195,11 @@ export const overview = {
       title: "Schedule backups",
       description: "A nightly copy of each application's files and databases, kept here or on another server.",
       action: "Backups",
+    },
+    destination: {
+      title: "Keep a copy off this server",
+      description: "A backup on the same disk is gone with the disk. Point Noust at an SFTP server, an S3 bucket or a cloud drive.",
+      action: "Destinations",
     },
     notifications: {
       title: "Turn on notifications",

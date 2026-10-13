@@ -135,6 +135,10 @@ class JobType(str, Enum):
     SANDBOX_TEST = "sandbox_test"
     # Moving an application to its own system account (3.2).
     IDENTITY_MIGRATE = "identity_migrate"
+    # Changing how hardened an application's unit is (3.4).
+    HARDENING = "hardening"
+    # Running an application as several copies of its web process (3.4).
+    REPLICAS = "replicas"
     # The server itself (backlog 29): package lists, updates, cleanup, swap.
     OS_REFRESH = "os_refresh"
     OS_UPDATE = "os_update"
@@ -149,6 +153,8 @@ class JobType(str, Enum):
     # A server enrolled from the console: Noust installed on it, this central
     # authorized there and the join completed (noust.fleet.enroll).
     NODE_ENROLL = "node_enroll"
+    # A server created at a cloud provider and enrolled (noust.fleet.cloud.provision).
+    NODE_PROVISION = "node_provision"
     # Noust updating itself (noust.managers.self_update).
     SELF_UPDATE = "self_update"
     # A command run once in an application, as its own account (noust.terminal.execution).
@@ -1943,6 +1949,8 @@ def deploy_app_job(
     health_timeout: int | None = None,
     database: dict[str, Any] | None = None,
     container: dict[str, Any] | None = None,
+    build_document: str | None = None,
+    env_audience: dict[str, str] | None = None,
     job_context: JobContext | None = None,
 ) -> dict[str, Any]:
     """
@@ -2014,6 +2022,9 @@ def deploy_app_job(
         container: A container application's settings (see
             :class:`~noust.core.container_store.ContainerSettings`), whose
             secrets are already in the secret store.
+        env_audience: Name to ``build`` or ``runtime`` for the variables that
+            are not for both the build and the running application; a
+            ``build`` one is written to no file the unit loads.
         job_context: Injected by the job manager.
 
     Returns:
@@ -2091,7 +2102,12 @@ def deploy_app_job(
 
     deployer = get_deployer(app_type, verbose=False)
     # Passed only when given, so every other type is configured as it always was.
-    container_options: dict[str, Any] = {} if container is None else {"container": container}
+    extra_options: dict[str, Any] = {} if container is None else {"container": container}
+    if build_document is not None:
+        # The operator's build block the application is created with (an import's).
+        extra_options["build_document"] = build_document
+    if env_audience:
+        extra_options["env_audience"] = env_audience
     deployer.configure(
         domain=domain,
         port=port,
@@ -2112,7 +2128,7 @@ def deploy_app_job(
         resource_limits_given=True,
         package_manager=package_manager or "auto",
         preview_parent=preview_parent,
-        **container_options,
+        **extra_options,
         **database_options,
     )
 
@@ -2162,11 +2178,64 @@ def deploy_app_job(
     return result
 
 
+def promote_app_job(
+    domain: str,
+    target: str,
+    release: str | None = None,
+    schema_changed_ok: bool = False,
+    job_context: JobContext | None = None,
+) -> dict[str, Any]:
+    """
+    Put a release of one application on another and activate it there.
+
+    Args:
+        domain: The application the release is of.
+        target: The application it goes to.
+        release: The release; the one that serves when None.
+        schema_changed_ok: Confirm going back past a deployment of the target
+            that changed its database's schema.
+        job_context: Injected by the job manager.
+
+    Returns:
+        Summary of the promotion.
+
+    Raises:
+        NoustError: When the promotion is refused or a step fails.
+    """
+    from noust.deployers.promote import promote
+
+    context = _require_context(job_context)
+    context.set_metadata("domain", target)
+    context.set_metadata("source", domain)
+    outcome = promote(
+        domain,
+        target,
+        release_id=release,
+        schema_changed_ok=schema_changed_ok,
+        trigger="panel",
+        job_id=context.job_id,
+        on_phase=lambda index, total, message: context.update(message, 100 * (index - 1) // total),
+    )
+    for warning in outcome.warnings:
+        context.log(warning, "warning")
+    context.update("Promotion complete", 100)
+    return {
+        "domain": target,
+        "source": domain,
+        "status": "promoted",
+        "release": outcome.release,
+        "commit": outcome.commit,
+        "deployment_id": outcome.deployment_id,
+        "warnings": list(outcome.warnings),
+    }
+
+
 def update_app_job(
     domain: str,
     commit: str | None = None,
     job_context: JobContext | None = None,
     tag: str | None = None,
+    no_cache: bool = False,
 ) -> dict[str, Any]:
     """
     Update a deployed application.
@@ -2177,6 +2246,7 @@ def update_app_job(
             console's "rebuild this deployment".
         job_context: Injected by the job manager.
         tag: Deploy the commit this tag points at.
+        no_cache: Build from scratch: the console's "Rebuild without cache".
 
     Returns:
         Summary of the update.
@@ -2184,7 +2254,14 @@ def update_app_job(
     Raises:
         NoustError: When the application is unknown or a step fails.
     """
-    return run_update(domain, trigger="panel", job_context=job_context, commit=commit, tag=tag)
+    return run_update(
+        domain,
+        trigger="panel",
+        job_context=job_context,
+        commit=commit,
+        tag=tag,
+        no_cache=no_cache,
+    )
 
 
 def run_update(
@@ -2194,6 +2271,7 @@ def run_update(
     job_context: JobContext | None,
     commit: str | None = None,
     tag: str | None = None,
+    no_cache: bool = False,
 ) -> dict[str, Any]:
     """
     Run the shared update sequence as a job, reporting its phases as progress.
@@ -2211,6 +2289,7 @@ def run_update(
         commit: Deploy this commit instead of the head of the branch.
         tag: Deploy the commit this tag points at: what a webhook announcing a
             release or a tag push asks for.
+        no_cache: Build from scratch.
 
     Returns:
         Summary of the update.
@@ -2237,6 +2316,7 @@ def run_update(
         on_phase=lambda index, total, message: context.update(message, 100 * (index - 1) // total),
         on_step=context.log,
         job_id=context.job_id,
+        no_cache=no_cache,
     )
 
     if outcome.restarted and not outcome.active:

@@ -127,7 +127,7 @@ class CreateDestinationRequest(BaseModel):
     encrypted: bool | None = Field(
         default=None,
         description="Wrap the remote in an rclone crypt backend. Omitted: encrypted, unless "
-        "backup.encrypt_new_destinations is false",
+        "the backend is 'local' or backup.encrypt_new_destinations is false",
     )
     encryption_key: EncryptionKey | None = Field(
         default=None,
@@ -309,7 +309,9 @@ def create_destination(
         name,
         data.backend,
         data.fields,
-        encrypted=resolve_encryption(data.encrypted, key_given=crypt_key is not None),
+        encrypted=resolve_encryption(
+            data.encrypted, backend=data.backend, key_given=crypt_key is not None
+        ),
         crypt_key=crypt_key,
     )
     return DestinationActionResponse(

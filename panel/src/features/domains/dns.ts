@@ -4,11 +4,24 @@
 
 import type { DnsCheck } from "../../api/queries/domains";
 
-export type DnsVerdictKind = "here" | "elsewhere" | "missing";
+export type DnsVerdictKind = "here" | "cdn" | "unknown" | "elsewhere" | "missing";
 
-export function dnsVerdict(check: Pick<DnsCheck, "points_here" | "resolved_addresses">): DnsVerdictKind {
+/**
+ * What a check says, in the server's own terms: `cdn` when every address is a CDN's proxy (which
+ * reaches this server by itself) and `unknown` when this server only sees private addresses and
+ * cannot say what its public one is. An older server sends neither, and the check is read from
+ * what it resolves to.
+ */
+export function dnsVerdict(check: Pick<DnsCheck, "points_here" | "resolved_addresses"> & { verdict?: string | undefined }): DnsVerdictKind {
+  if (check.verdict === "cdn") return "cdn";
+  if (check.verdict === "unknown") return "unknown";
   if (check.points_here) return "here";
   return check.resolved_addresses.length === 0 ? "missing" : "elsewhere";
+}
+
+/** Whether a verdict means visitors and the certificate authority can reach the server. */
+export function reachesServer(verdict: DnsVerdictKind): boolean {
+  return verdict === "here" || verdict === "cdn";
 }
 
 /** IPv4 private ranges (RFC 1918) and carrier-grade NAT: addresses no public record points at. */

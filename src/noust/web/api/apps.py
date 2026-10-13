@@ -31,9 +31,13 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from noust.core import app_state
+from noust.core.app_health_store import HealthExtras
+from noust.core.app_health_store import get_extras as get_health_extras
 from noust.core.app_state import AppState, resolve_state_with_status, resolve_states_with_status
+from noust.core.app_tags import AppTags, validate_tag
 from noust.core.config import REDACTED
 from noust.core.exceptions import DeploymentError, NoustError, SourceError, ValidationError
+from noust.core.redact import scrubber_for
 from noust.core.runner import CommandCancelled
 from noust.core.secret_detection import Secrecy, classify
 from noust.core.store import (
@@ -43,14 +47,22 @@ from noust.core.store import (
     DeploymentTrigger,
     Service,
     get_store,
+    is_compose_backed,
 )
 from noust.core.teams import TeamStore, scoped_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.base import BaseDeployer
 from noust.deployers.compose_paste import analyze_document, write_document
-from noust.deployers.helpers.app_env import read_app_env, write_app_env
+from noust.deployers.helpers.app_env import (
+    check_app_env,
+    read_app_env,
+    read_environment_of,
+    refresh_app_env,
+    write_app_env,
+)
 from noust.deployers.helpers.build_config import describe_build
 from noust.deployers.helpers.env_manager import redact_url_credentials
+from noust.deployers.helpers.env_variables import predefined_for
 from noust.deployers.helpers.health_gate import HealthCheck
 from noust.deployers.helpers.layout import RELEASES, app_root
 from noust.deployers.helpers.package_manager import SUPPORTED_PACKAGE_MANAGERS
@@ -70,11 +82,14 @@ from noust.deployers.migrate import MigrationPlan, plan_migration
 from noust.deployers.php_fpm import control_pool
 from noust.deployers.registry import DeployerRegistry, available_types
 from noust.deployers.releases import is_release_id
+from noust.managers.app_processes import ProcessManager
+from noust.managers.app_replicas import ReplicaManager
 from noust.managers.backup_manager import RollbackManager
 from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.service_manager import ResourceLimits, ServiceManager
 from noust.recipes import RecipeError, get_recipe
 from noust.recipes.deploy import refuse_conflicts
+from noust.terminal.targets import validate_service
 from noust.validators.environment import EnvironmentValidationError
 from noust.validators.port import find_available_port, validate_port
 from noust.validators.source import validate_source
@@ -222,6 +237,7 @@ class AppInfo(BaseModel):
         project: The slug of its project.
         environment: The slug of its environment. Change them with
             ``POST /api/apps/{domain}/move``.
+        tags: The free labels it carries (``PUT /api/apps/{domain}/tags``).
     """
 
     name: str
@@ -257,6 +273,7 @@ class AppInfo(BaseModel):
     team: str | None = None
     project: str | None = None
     environment: str | None = None
+    tags: list[str] = Field(default_factory=list)
 
 
 class AppListResponse(BaseModel):
@@ -450,11 +467,24 @@ class AppActionResponse(BaseModel):
 
 
 class AppLogsResponse(BaseModel):
-    """Response carrying journal output for an application."""
+    """
+    Response carrying the output of an application.
+
+    Attributes:
+        domain: The application.
+        logs: The output: the unit's journal, or for a Docker Compose stack
+            what its containers printed.
+        lines: How many lines were asked for.
+        service: The Compose service the output is of, None for the whole stack.
+        services: The services of a Compose stack, to choose one from; empty for
+            any other application and for a stack Compose could not read.
+    """
 
     domain: str
     logs: str
     lines: int
+    service: str | None = None
+    services: list[str] = Field(default_factory=list)
 
 
 class EnvSecrecyOut(BaseModel):
@@ -504,14 +534,37 @@ class AppEnvResponse(BaseModel):
     variables: dict[str, str]
     unmasked: bool
     secrets: dict[str, EnvSecrecyOut] = Field(default_factory=dict)
+    audience: dict[str, str] = Field(
+        default_factory=dict,
+        description="Variables that are not for both the build and the running application: "
+        "'build' (in no .env, only the install and the build see it) or 'runtime' (the "
+        "build does not see it)",
+    )
+    references: dict[str, str] = Field(
+        default_factory=dict,
+        description="Variables whose value is made of {{...}} references, with the text that "
+        "is resolved again at every deploy; 'variables' holds what it resolved to",
+    )
+    predefined: dict[str, str] = Field(
+        default_factory=dict,
+        description="What Noust itself gives the application about its deployment "
+        "(NOUST_URL, NOUST_BRANCH...); read-only, and not part of 'variables'",
+    )
 
 
 class UpdateAppEnvRequest(BaseModel):
-    """Request to replace an application's ``.env`` file wholesale."""
+    """Request to replace an application's variables wholesale."""
 
     variables: dict[str, str] = Field(
         default_factory=dict,
-        description="The complete name to value mapping the .env file should hold",
+        description="The complete name to value mapping the application should have. A "
+        "value with {{...}} references is resolved here and again at every deploy; the "
+        "value of a variable that resolved before, sent back unchanged, keeps its references",
+    )
+    audience: dict[str, str] | None = Field(
+        default=None,
+        description="Name to 'both', 'build' or 'runtime' for the variables whose audience "
+        "changes; a name left out keeps the one it has",
     )
 
 
@@ -695,6 +748,7 @@ def _to_app_info(
     webhook_enabled: bool,
     last_deployment: DeploymentRecord | None,
     owner: tuple[str | None, str | None, str | None] = (None, None, None),
+    tags: list[str] | None = None,
 ) -> AppInfo:
     """
     Combine a stored application with its resolved state and live status.
@@ -709,6 +763,7 @@ def _to_app_info(
         webhook_enabled: Whether a webhook secret is set for it.
         last_deployment: Its most recent deployment history row, if any.
         owner: Its team, project and environment slugs, when they are known.
+        tags: The tags it carries.
 
     Returns:
         The API representation.
@@ -747,6 +802,7 @@ def _to_app_info(
         team=owner[0],
         project=owner[1],
         environment=owner[2],
+        tags=list(tags or []),
     )
 
 
@@ -919,6 +975,7 @@ def list_apps(
     environment: Annotated[
         str | None, Query(description="Only this environment's applications")
     ] = None,
+    tag: Annotated[str | None, Query(description="Only the applications with this tag")] = None,
 ) -> AppListResponse:
     """
     List the deployed applications the caller sees.
@@ -934,6 +991,7 @@ def list_apps(
         team: Only this team's applications.
         project: Only the projects with this slug.
         environment: Only the environments with this slug.
+        tag: Only the applications that carry this tag.
 
     Returns:
         The applications, each with the live state of its service. A team
@@ -944,6 +1002,10 @@ def list_apps(
     manager = ServiceManager(verbose=False)
 
     apps = scoped.list_apps(project=project, environment=environment, team=team)
+    tags_of = AppTags(store).by_application()
+    if tag is not None:
+        wanted = validate_tag(tag)
+        apps = [app for app in apps if wanted in tags_of.get(app.domain, [])]
     domains = [app.domain for app in apps]
     labels = TeamStore(store).owner_labels()
 
@@ -967,6 +1029,7 @@ def list_apps(
                 webhook_enabled=webhook_flags.get(app.domain, False),
                 last_deployment=last_deployments.get(app.domain),
                 owner=labels.of(app.project_id, app.environment_id),
+                tags=tags_of.get(app.domain, []),
             )
         )
 
@@ -1581,6 +1644,7 @@ def get_app(domain: str, session: Annotated[dict, Depends(get_current_session)])
         webhook_enabled=store.get_webhook_secret(app.domain) is not None,
         last_deployment=recent[0] if recent else None,
         owner=TeamStore(store).owner_labels().of(app.project_id, app.environment_id),
+        tags=AppTags(store).of(app.domain),
     )
     # Only the detail view pays for this: one deployer instantiation, not one
     # per application in the list.
@@ -1623,6 +1687,9 @@ def _service_action(domain: str, action: str, past_tense: str) -> AppActionRespo
         raise HTTPException(status_code=404, detail=f"Application not found: {validated}")
 
     getattr(manager, action)(app_name)
+    # The processes that belong to it (a queue worker, a scheduler) go with it.
+    ProcessManager(services=manager).control(validated, action)
+    ReplicaManager(services=manager).control(validated, action)
 
     return AppActionResponse(
         success=True, message=f"Application {past_tense}: {validated}", domain=validated
@@ -1685,33 +1752,58 @@ def get_app_logs(
     domain: str,
     session: Annotated[dict, Depends(get_current_session)],
     lines: Annotated[int, Query(ge=1, le=1000)] = 100,
+    service: Annotated[
+        str | None,
+        Query(max_length=64, description="Only this service of a Docker Compose stack"),
+    ] = None,
 ) -> AppLogsResponse:
     """
-    Read journal output for an application.
+    Read the output of an application.
 
     Args:
         domain: Domain of the application.
         lines: How many lines to return.
+        service: Only this service's containers, for a Docker Compose stack.
         session: The authenticated session.
 
     Returns:
-        The log output.
+        The log output, and for a stack the services it can be read by.
+
+    Raises:
+        ValidationError: 400, the service is not a name Compose would accept.
+        HTTPException: 404 when a stack has no such service.
     """
     validated = strict_domain(domain)
     app_name = domain_to_app_name(validated)
     app = scoped_store().get_app(validated)
+    chosen = validate_service(service)
 
-    if app is not None and app.app_type == "container":
-        # What the container printed, with its secrets masked: the unit only
-        # ran 'docker compose up' once and says nothing of the application.
+    if app is not None and is_compose_backed(app.app_type):
+        # What the containers printed, with their secrets masked: the unit only
+        # ran 'docker compose up -d' once and says nothing of the application.
         from noust.deployers.docker_compose import stack_deployer
 
-        output = stack_deployer(app).logs(lines=lines)
-        return AppLogsResponse(domain=validated, logs=output or "No logs available", lines=lines)
+        deployer = stack_deployer(app)
+        services = deployer.service_names()
+        if chosen is not None and services and chosen not in services:
+            raise HTTPException(
+                status_code=404,
+                detail=f"{validated} has no service named {chosen}; it has: {', '.join(services)}",
+            )
+        output = deployer.logs(service=chosen, lines=lines)
+        return AppLogsResponse(
+            domain=validated,
+            logs=output or "No logs available",
+            lines=lines,
+            service=chosen,
+            services=services,
+        )
 
     logs = ServiceManager(verbose=False).logs(app_name, lines=lines) or "No logs available"
 
-    return AppLogsResponse(domain=validated, logs=logs, lines=lines)
+    # The application's own output is whatever it printed: a token in a debug
+    # line is as readable here as in any file (checklist G-12).
+    return AppLogsResponse(domain=validated, logs=scrubber_for(validated).scrub(logs), lines=lines)
 
 
 @router.get("/{domain}/env", response_model=AppEnvResponse)
@@ -1751,13 +1843,19 @@ def get_app_env(
         ensure_elevated(request, session)
 
     app = _env_app(domain)
-    values = read_app_env(app)
+    environment = read_environment_of(app)
+    values = environment.values
     marks = app.env_secret_marks
     # A read-scope token can reach this endpoint (GET only ever needs
     # "read") and, unmasked or not, must not learn which vendor a secret's
     # shape matched - that is information about the value itself.
     admin = scope_satisfies(str(session.get("scope") or "read"), "admin")
     secrets = _secrets_map(values, marks, reveal_kind=admin)
+    extras: dict[str, Any] = {
+        "audience": dict(environment.audience),
+        "references": dict(environment.expressions),
+        "predefined": predefined_for(app),
+    }
 
     if unmask:
         audit = get_audit_logger()
@@ -1771,11 +1869,15 @@ def get_app_env(
                 detail=f"revealed {len(values)} variable(s) in clear",
             )
         return AppEnvResponse(
-            domain=app.domain, variables=dict(values), unmasked=True, secrets=secrets
+            domain=app.domain, variables=dict(values), unmasked=True, secrets=secrets, **extras
         )
 
     return AppEnvResponse(
-        domain=app.domain, variables=_redact_env(values, marks), unmasked=False, secrets=secrets
+        domain=app.domain,
+        variables=_redact_env(values, marks),
+        unmasked=False,
+        secrets=secrets,
+        **extras,
     )
 
 
@@ -1820,7 +1922,7 @@ def update_app_env(
     before = read_app_env(app)
 
     try:
-        write_app_env(app, body.variables)
+        write_app_env(app, body.variables, audience=body.audience)
     except EnvironmentValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -1838,6 +1940,103 @@ def update_app_env(
         )
 
     return AppEnvUpdateResponse(domain=app.domain, restart_required=True)
+
+
+class MergeAppEnvRequest(BaseModel):
+    """
+    Request to set and unset some of an application's variables, leaving the rest.
+
+    Attributes:
+        set: Variables to give a value, added or replaced.
+        unset: Variables to remove.
+        dry_run: Say which variables would change and write nothing.
+    """
+
+    set: dict[str, str] = Field(default_factory=dict, description="Variables to set")
+    unset: list[str] = Field(default_factory=list, description="Variables to remove")
+    dry_run: bool = Field(default=False, description="Only say what would change")
+
+
+class MergeAppEnvResponse(BaseModel):
+    """
+    What a merge changed, or would change.
+
+    Attributes:
+        domain: Domain of the application.
+        changed: The names whose value was added, replaced or removed. Never a
+            value.
+        restart_required: Whether the running process needs a restart to pick
+            the change up.
+        dry_run: Whether nothing was written.
+    """
+
+    domain: str
+    changed: list[str]
+    restart_required: bool
+    dry_run: bool
+
+
+@router.patch("/{domain}/env", response_model=MergeAppEnvResponse)
+def merge_app_env(
+    domain: str,
+    body: MergeAppEnvRequest,
+    request: Request,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> MergeAppEnvResponse:
+    """
+    Set and unset some variables of an application, keeping the others.
+
+    ``PUT`` replaces the whole file, so a caller that only knows some variables
+    would drop the rest; this is what a manifest or a script that owns a few
+    variables uses. It says which names changed and never what their values are,
+    so with ``dry_run`` it is also the way to ask whether the variables a
+    manifest holds are already in place without reading them: that comparison is
+    made on the server and needs the same sudo mode a write does, because an
+    answer that says "same" or "different" about a secret is a way to guess it.
+
+    Args:
+        domain: Domain of the application.
+        body: The variables to set and to unset, and whether to only look.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The names that changed.
+
+    Raises:
+        HTTPException: 404 when the application is unknown, 422 when a name
+            or a value is not safe to write into a systemd unit, or when the
+            request tries to set PORT or NODE_ENV.
+    """
+    app = _env_app(domain)
+    before = read_app_env(app)
+    merged = {name: value for name, value in before.items() if name not in set(body.unset)}
+    merged.update(body.set)
+    changed = sorted(key for key in set(before) | set(merged) if before.get(key) != merged.get(key))
+    try:
+        if body.dry_run:
+            check_app_env(app, merged)
+        elif changed:
+            write_app_env(app, merged)
+    except EnvironmentValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if changed and not body.dry_run:
+        audit = get_audit_logger()
+        if audit:
+            audit.record(
+                action="apps.env.update",
+                result="success",
+                client_ip=get_client_ip(request),
+                actor=actor_label(session),
+                resource=f"/api/apps/{app.domain}/env",
+                detail=f"changed keys: {', '.join(changed)}",
+            )
+    return MergeAppEnvResponse(
+        domain=app.domain,
+        changed=changed,
+        restart_required=bool(changed) and not body.dry_run,
+        dry_run=body.dry_run,
+    )
 
 
 @router.put("/{domain}/env/marks", response_model=AppEnvSecretsResponse)
@@ -1897,6 +2096,68 @@ def update_app_env_marks(
 
     values = read_app_env(app)
     return AppEnvSecretsResponse(domain=app.domain, secrets=_secrets_map(values, marks))
+
+
+class ResolveEnvResponse(BaseModel):
+    """
+    What resolving an application's references again changed.
+
+    Attributes:
+        domain: The application.
+        changed: The variables whose value is new. Their values are not
+            returned: read them with the environment, which masks secrets.
+        restart_required: Whether the running process still has the old values.
+    """
+
+    domain: str
+    changed: list[str]
+    restart_required: bool
+
+
+@router.post("/{domain}/env/resolve", response_model=ResolveEnvResponse)
+def resolve_app_env(
+    domain: str,
+    request: Request,
+    session: Annotated[dict, Depends(require_elevated)],
+) -> ResolveEnvResponse:
+    """
+    Resolve an application's ``{{...}}`` references again, without a deploy.
+
+    A deploy does this before it builds; this is for a changed shared variable
+    or a rotated secret that should reach the ``.env`` now. The process keeps
+    the values it started with until it is restarted.
+
+    Args:
+        domain: Domain of the application.
+        request: The incoming request, for the audit record.
+        session: The authenticated, elevated session.
+
+    Returns:
+        The variables that changed.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+        UnresolvedReferenceError: A reference no longer resolves (422); nothing
+            is written.
+        SecretProviderError: A secret manager could not give a value (502).
+    """
+    app = _env_app(domain)
+    plan = refresh_app_env(app)
+    audit = get_audit_logger()
+    if audit:
+        audit.record(
+            action="apps.env.resolve",
+            result="success",
+            client_ip=get_client_ip(request),
+            actor=actor_label(session),
+            resource=f"/api/apps/{app.domain}/env/resolve",
+            detail=f"changed keys: {', '.join(plan.changed)}"
+            if plan.changed
+            else "nothing changed",
+        )
+    return ResolveEnvResponse(
+        domain=app.domain, changed=list(plan.changed), restart_required=bool(plan.changed)
+    )
 
 
 @router.delete("/{domain}", response_model=JobAcceptedResponse, status_code=202)
@@ -2501,7 +2762,7 @@ class UpdateHealthRequest(BaseModel):
     """
     What the health gate must ask of an application.
 
-    The three are set together, like the limits: a field left out or null
+    All of it is set together, like the limits: a field left out or null
     goes back to its default.
     """
 
@@ -2516,6 +2777,63 @@ class UpdateHealthRequest(BaseModel):
     timeout: int | None = Field(
         default=None, description="Seconds it gets to answer, 5 to 600. Null: 30"
     )
+    kind: str = Field(
+        default="http",
+        description="http: a request to the application. command: a program run as the "
+        "application, which is up when it exits 0",
+    )
+    method: str | None = Field(
+        default=None, description="Request method: GET, HEAD, OPTIONS or POST. Null: GET"
+    )
+    scheme: str | None = Field(
+        default=None,
+        description="http or https. The check connects to 127.0.0.1 either way. Null: http",
+    )
+    host: str | None = Field(
+        default=None,
+        description="The Host header to present, for an application that refuses the "
+        "address. Null: none",
+    )
+    port: int | None = Field(
+        default=None,
+        description="A port on 127.0.0.1 to probe instead of the application's own",
+    )
+    command: str | None = Field(
+        default=None,
+        description="For a command check: the program and its arguments, run without a shell",
+    )
+    service: str | None = Field(
+        default=None, description="For a command check of a Compose stack: the service to run it in"
+    )
+    interval: int | None = Field(
+        default=None, description="Seconds between two probes, 1 to 60. Null: 2"
+    )
+    retries: int | None = Field(
+        default=None,
+        description="The most probes after the start period, 1 to 100. Null: as many as fit",
+    )
+    start_period: int | None = Field(
+        default=None,
+        description="Seconds during which a failed probe does not count, 0 to 600. Null: 0",
+    )
+
+    def extras(self) -> HealthExtras:
+        """
+        Returns:
+            The part of the request that is not the path, the statuses or the wait.
+        """
+        return HealthExtras(
+            kind=self.kind,
+            method=self.method,
+            scheme=self.scheme,
+            host=self.host,
+            port=self.port,
+            command=self.command,
+            service=self.service,
+            interval=self.interval,
+            retries=self.retries,
+            start_period=self.start_period,
+        )
 
 
 class HealthCheckResponse(BaseModel):
@@ -2527,19 +2845,95 @@ class HealthCheckResponse(BaseModel):
         path: The path it set, or None for the default.
         expect: The statuses it set, or None for the default.
         timeout: The seconds it set, or None for the default.
+        kind: ``http`` or ``command``.
+        method: The method it set, or None for GET.
+        scheme: The scheme it set, or None for http.
+        host: The Host header it set, or None.
+        port: The port it set, or None for the application's own.
+        command: The command of a command check.
+        service: The Compose service of a command check.
+        interval: The seconds between probes it set, or None for the default.
+        retries: The most probes it set, or None for as many as fit.
+        start_period: The start period it set, or None for none.
         effective_path: The path the gate requests.
         effective_expect: The statuses the gate accepts, as an operator
             reads them: the list, or "any status below 500".
         effective_timeout: The seconds the gate waits.
+        effective_summary: What the gate asks, in one line.
     """
 
     domain: str
     path: str | None = None
     expect: str | None = None
     timeout: int | None = None
+    kind: str = "http"
+    method: str | None = None
+    scheme: str | None = None
+    host: str | None = None
+    port: int | None = None
+    command: str | None = None
+    service: str | None = None
+    interval: int | None = None
+    retries: int | None = None
+    start_period: int | None = None
     effective_path: str
     effective_expect: str
     effective_timeout: int
+    effective_summary: str = ""
+
+
+def _health_response(app: Any) -> HealthCheckResponse:
+    """
+    Describe an application's health check as the API returns it.
+
+    Args:
+        app: The application's row.
+
+    Returns:
+        The stored values and what the gate asks.
+    """
+    check = HealthCheck.for_app(app)
+    extras = get_health_extras(app.domain)
+    return HealthCheckResponse(
+        domain=app.domain,
+        path=app.health_path,
+        expect=app.health_expect,
+        timeout=app.health_timeout,
+        kind=extras.kind,
+        method=extras.method,
+        scheme=extras.scheme,
+        host=extras.host,
+        port=extras.port,
+        command=extras.command,
+        service=extras.service,
+        interval=extras.interval,
+        retries=extras.retries,
+        start_period=extras.start_period,
+        effective_path=check.path,
+        effective_expect=check.describe_expect(),
+        effective_timeout=check.seconds,
+        effective_summary=check.describe(),
+    )
+
+
+@router.get("/{domain}/health", response_model=HealthCheckResponse)
+def get_app_health(
+    domain: str, session: Annotated[dict, Depends(get_current_session)]
+) -> HealthCheckResponse:
+    """
+    Show what the health gate asks of an application. Changes nothing.
+
+    Args:
+        domain: Domain of the application.
+        session: The authenticated session.
+
+    Returns:
+        The settings the application has, and what the gate asks.
+
+    Raises:
+        HTTPException: 404 when the application is unknown.
+    """
+    return _health_response(_env_app(domain))
 
 
 @router.patch("/{domain}/health", response_model=HealthCheckResponse)
@@ -2549,7 +2943,8 @@ def update_app_health(
     session: Annotated[dict, Depends(require_elevated)],
 ) -> HealthCheckResponse:
     """
-    Set the path, the accepted statuses and the timeout of an application's health check.
+    Set what an application's health check asks: the request or command, the
+    statuses, and how often and how long to ask.
 
     The health gate decides which release may serve, so changing what it
     asks needs sudo mode, like the limits. The values are validated where
@@ -2557,7 +2952,7 @@ def update_app_health(
 
     Args:
         domain: Domain of the application.
-        body: The three settings.
+        body: The settings.
         session: The authenticated, elevated session.
 
     Returns:
@@ -2569,17 +2964,15 @@ def update_app_health(
         DeploymentError: It is a static site, checked by its files.
     """
     app = _env_app(domain)
-    app = set_health_check(app.domain, path=body.path, expect=body.expect, timeout=body.timeout)
-    check = HealthCheck.for_app(app)
-    return HealthCheckResponse(
-        domain=app.domain,
-        path=app.health_path,
-        expect=app.health_expect,
-        timeout=app.health_timeout,
-        effective_path=check.path,
-        effective_expect=check.describe_expect(),
-        effective_timeout=check.seconds,
+    app = set_health_check(
+        app.domain,
+        path=body.path,
+        expect=body.expect,
+        timeout=body.timeout,
+        extras=body.extras(),
+        updated_by=actor_label(session),
     )
+    return _health_response(app)
 
 
 # ---------------------------------------------------------------------------

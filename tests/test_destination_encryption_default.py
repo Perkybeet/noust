@@ -49,6 +49,12 @@ class TestTheDecision:
     def test_nothing_said_is_encrypted(self) -> None:
         assert resolve_encryption(None) is True and encrypt_new_destinations() is True
 
+    def test_a_disk_this_server_mounts_is_plain_unless_asked(self) -> None:
+        assert resolve_encryption(None, backend="local") is False
+        assert resolve_encryption(True, backend="local") is True
+        assert resolve_encryption(None, backend="local", key_given=True) is True
+        assert resolve_encryption(None, backend="sftp") is True
+
     def test_the_default_can_be_turned_off_in_the_config(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -113,4 +119,6 @@ class TestTheCommandLine:
         result = invoke(["backup", "destination", "add", "--help"])
 
         assert "--encrypt / --no-encrypt" in result.output or "--no-encrypt" in result.output
-        assert "Encrypted unless you say --no-encrypt" in " ".join(result.output.split())
+        text = " ".join(result.output.split())
+        assert "encrypted unless you pass --no-encrypt" in text
+        assert "A 'local' destination" in text

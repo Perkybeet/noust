@@ -53,6 +53,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
+from noust.core.accounts.local_login import refuse_to_lose_a_way_in
 from noust.core.accounts.manager import AccountManager
 from noust.core.accounts.model import (
     ROLE_ADMIN,
@@ -374,6 +375,12 @@ class OidcManager:
         provider = self._apply(base, changes)
         provider = replace(provider, updated_at=now, updated_by=actor)
         self._check_teams(provider)
+        if existing is not None and existing.enabled and not provider.enabled:
+            refuse_to_lose_a_way_in(
+                self.accounts.store,
+                without_provider=existing.name,
+                action=f"Disabling the provider {existing.name!r}",
+            )
         self.data.save_provider(provider)
         if client_secret:
             self.data.write_secret(key, client_secret)
@@ -498,6 +505,11 @@ class OidcManager:
             ConfigError: When none has that name.
         """
         found = self.require_provider(name)
+        refuse_to_lose_a_way_in(
+            self.accounts.store,
+            without_provider=found.name,
+            action=f"Removing the provider {found.name!r}",
+        )
         self.data.delete_provider(found.name)
         return found
 
@@ -1312,6 +1324,12 @@ class OidcManager:
         Raises:
             OidcError: ``no_identity`` when there is no such identity.
         """
+        if self.data.get_identity(identity_id) is not None:
+            refuse_to_lose_a_way_in(
+                self.accounts.store,
+                without_identity=identity_id,
+                action="Cutting this link",
+            )
         found = self.data.unlink_identity(identity_id)
         if found is None:
             raise OidcError(

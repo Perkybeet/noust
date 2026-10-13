@@ -27,6 +27,9 @@ import { isHttpUrl } from "../../lib/url";
 import { useNode } from "../../nodes/useNode";
 import { reportActionError } from "../apps/useAppActions";
 import { installMethodWords, readServerIdentity, selfUpdateQuery } from "./GeneralSettings.model";
+import { InstallCheck } from "./InstallCheck";
+import { SupportReport } from "./SupportReport";
+import { UpdateNotes, WhatsNew } from "./WhatsNew";
 
 type UpdateInfo = ResponseOf<"/api/system/version", "get">;
 
@@ -37,6 +40,7 @@ function links(t: T): readonly { label: string; href: string; description: strin
     { label: t("settings.about.links.documentation.label"), href: `${REPOSITORY}#readme`, description: t("settings.about.links.documentation.description") },
     { label: t("settings.about.links.releaseNotes.label"), href: `${REPOSITORY}/releases`, description: t("settings.about.links.releaseNotes.description") },
     { label: t("settings.about.links.reportProblem.label"), href: `${REPOSITORY}/issues`, description: t("settings.about.links.reportProblem.description") },
+    { label: t("settings.about.links.getHelp.label"), href: `${REPOSITORY}/blob/main/docs/SUPPORT.md`, description: t("settings.about.links.getHelp.description") },
     { label: t("settings.about.links.source.label"), href: REPOSITORY, description: t("settings.about.links.source.description") },
   ];
 }
@@ -106,6 +110,7 @@ function IndexBehind({ info, version }: { info: UpdateInfo; version: string }): 
         <ReleaseNotesLink url={info.release_url} version={version} />
       </div>
       {failed ? <ErrorBlock live compact error={{ detail: job.error ?? "" }} title={t("settings.about.version.refreshFailed")} /> : null}
+      <UpdateNotes version={version} />
       {info.refresh_command ? <CommandHint label={t("settings.about.version.refreshFromTerminal")} command={info.refresh_command} /> : null}
     </StateLine>
   );
@@ -143,6 +148,7 @@ function UpdateState({ info }: { info: UpdateInfo }): ReactNode {
       <StateLine icon={<CircleDashed aria-hidden="true" className={`${icon} text-warn`} />} title={t("settings.about.version.onTheWay", { version: info.published_version })}>
         <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("settings.about.version.onTheWayDescription")}</p>
         <ReleaseNotesLink url={info.release_url} version={info.published_version} />
+        <UpdateNotes version={info.published_version} />
       </StateLine>
     );
   }
@@ -151,6 +157,7 @@ function UpdateState({ info }: { info: UpdateInfo }): ReactNode {
       <StateLine icon={<CircleArrowUp aria-hidden="true" className={icon} />} title={t("settings.about.version.available", { version: info.latest_version })}>
         {info.update_command ? <CommandHint label={t("settings.about.version.updateFromTerminal")} command={info.update_command} /> : null}
         <ReleaseNotesLink url={info.release_url} version={info.latest_version} />
+        <UpdateNotes version={info.latest_version} />
       </StateLine>
     );
   }
@@ -160,6 +167,24 @@ function UpdateState({ info }: { info: UpdateInfo }): ReactNode {
   return (
     <StateLine icon={<CircleHelp aria-hidden="true" className={`${icon} text-fg-muted`} />} title={t("settings.about.version.unknown")}>
       <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("settings.about.version.unknownHint")}</p>
+    </StateLine>
+  );
+}
+
+/**
+ * A release newer than the running one fixes a vulnerability: said apart from the update, which
+ * is still offered below with its command. The advisory link is only a link when it is http(s).
+ */
+function SecurityRelease({ info }: { info: UpdateInfo }): ReactNode {
+  const t = useT();
+  if (!info.security_update || !info.security_version) return null;
+  const version = info.security_version;
+  return (
+    <StateLine icon={<ICONS.warning aria-hidden="true" className="size-icon-md shrink-0 text-warn" />} title={t("settings.about.version.securityRelease", { version })}>
+      <p className="max-w-measure text-13 text-pretty text-fg-muted">{t("settings.about.version.securityReleaseDescription")}</p>
+      {info.advisory_url && isHttpUrl(info.advisory_url) ? (
+        <ExternalLink href={info.advisory_url}>{t("settings.about.version.whatItFixes", { version })}</ExternalLink>
+      ) : null}
     </StateLine>
   );
 }
@@ -192,7 +217,10 @@ function VersionSection() {
           </div>
           <div aria-live="polite" className="flex min-w-0 flex-1 items-center sm:border-l sm:border-border sm:pl-10">
             {version.data !== undefined ? (
-              <UpdateState info={version.data} />
+              <div className="flex min-w-0 flex-col gap-5">
+                <SecurityRelease info={version.data} />
+                <UpdateState info={version.data} />
+              </div>
             ) : version.isError ? (
               <ErrorBlock compact error={version.error} title={t("settings.about.version.checkFailed")} className="w-full" />
             ) : (
@@ -298,7 +326,10 @@ export function AboutSettings() {
   return (
     <Sections>
       <VersionSection />
+      <WhatsNew />
       <InstallationSection />
+      <InstallCheck />
+      <SupportReport />
       <ProjectSection />
     </Sections>
   );

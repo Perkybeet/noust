@@ -8,6 +8,9 @@
 {% if app_domain %}
 # Application: {{ esc.line(app_domain) }}
 {% endif %}
+{% if service | default("") %}
+# Service: {{ esc.line(service) }}
+{% endif %}
 
 [Unit]
 Description=Noust cron job {{ esc.line(name) }}
@@ -18,10 +21,18 @@ User={{ esc.line(user) }}
 {% if working_directory %}
 WorkingDirectory={{ esc.line(working_directory) }}
 {% endif %}
+{% for key, value in (environment | default({})).items() %}
+Environment="{{ esc.env_value(key) }}={{ esc.env_value(value) }}"
+{% endfor %}
 {# exec_start is built by CronManager.build_exec_start from a shlex-parsed
    argv: bare tokens or double-quoted systemd tokens, '%' always doubled.
    There is no shell anywhere in this line. #}
 ExecStart={{ esc.line(exec_start) }}
+{% if timeout | default("") %}
+{# A oneshot unit is "activating" while its command runs, which is the state
+   TimeoutStartSec bounds; RuntimeMaxSec does not apply to this type. #}
+TimeoutStartSec={{ esc.line(timeout) }}
+{% endif %}
 
 StandardOutput=journal
 StandardError=journal

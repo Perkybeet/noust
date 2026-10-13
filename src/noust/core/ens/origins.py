@@ -111,7 +111,12 @@ def describe_origin(source: str, kind: str | None = None) -> Origin:
     if kind == "git":
         parsed = parse_git_url(text)
         host = str(parsed.get("host") or "")
-        segments = tuple(part for part in (parsed.get("owner"), parsed.get("repo")) if part)
+        # The owner of a GitLab subgroup is several segments (group/sub).
+        segments = tuple(
+            part
+            for part in (*str(parsed.get("owner") or "").split("/"), parsed.get("repo"))
+            if part
+        )
     if not host:
         split = urlsplit(text)
         host = split.hostname or ""

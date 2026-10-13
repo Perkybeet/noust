@@ -323,7 +323,11 @@ def _print_plan(ctx: Context, the_plan: Plan) -> None:
                 "run" if node.state == "queued" else node.state,
                 node.step or ""
                 if node.state != "queued"
-                else ("needs sudo mode" if node.requires_elevation else ""),
+                else "; ".join(
+                    part
+                    for part in (node.step, "needs sudo mode" if node.requires_elevation else "")
+                    if part
+                ),
             ]
             for node in the_plan.nodes
         ],
@@ -458,6 +462,7 @@ def _options(pairs: tuple[str, ...]) -> dict[str, Any]:
             "apps_update",
             "apps_restart",
             "noust_update",
+            "index_refresh",
             "os_updates",
         ]
     ),
@@ -482,6 +487,14 @@ def _options(pairs: tuple[str, ...]) -> dict[str, Any]:
     help="Only these applications (comma-separated), for app and backup actions.",
 )
 @click.option(
+    "--target-version",
+    default=None,
+    metavar="X.Y.Z",
+    help="For noust_update: update to this Noust version. A server already on it or newer is "
+    "skipped, one whose package source does not offer it yet is skipped with the reason, and "
+    "each server that is updated must end up on it.",
+)
+@click.option(
     "--option",
     "option_pairs",
     multiple=True,
@@ -500,6 +513,7 @@ def run_command(
     max_failures: int | None,
     canary: str | None,
     domains: str | None,
+    target_version: str | None,
     option_pairs: tuple[str, ...],
     plan_only: bool,
     assume_yes: bool,
@@ -508,13 +522,17 @@ def run_command(
     Run ACTION on several nodes: renew certificates, back up, update, restart, update Noust or the OS.
 
     Nodes are chosen by name (--nodes) or by label (--label env=prod). The plan
-    is shown first; nodes that cannot run it (too old, not allowed, nothing to
-    do) are skipped with the reason. The exit status is 1 when any node failed.
+    is shown first, with the version each server would run; nodes that cannot
+    run it (too old, not allowed, nothing to do, a release its package source
+    has not built yet) are skipped with the reason. The exit status is 1 when
+    any node failed.
     """
     from noust.fleet.labels import parse_selector
     from noust.web.fleet_jobs import FleetRequest
 
     options = _options(option_pairs)
+    if target_version is not None:
+        options["target_version"] = target_version
     if domains:
         options["domains"] = [domain.strip() for domain in domains.split(",") if domain.strip()]
     fleet_request = FleetRequest(

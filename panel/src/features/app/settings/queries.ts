@@ -15,6 +15,9 @@ export type AppHooks = ResponseOf<"/api/apps/{domain}/hooks", "get">;
 export type Identity = ResponseOf<"/api/apps/{domain}/identity", "get">;
 export type AppBuild = ResponseOf<"/api/apps/{domain}/build", "get">;
 export type BackupRequired = ResponseOf<"/api/apps/{domain}/backup-required", "get">;
+export type BuildCache = ResponseOf<"/api/apps/{domain}/build-cache", "get">;
+export type ProcessTypes = ResponseOf<"/api/apps/{domain}/process-types", "get">;
+export type ComposeSettings = ResponseOf<"/api/apps/{domain}/compose", "get">;
 
 /** How many deliveries "Pushes received" lists: the newest, enough to see a pattern. */
 export const RECEIVED_SHOWN = 8;
@@ -33,6 +36,9 @@ export const settingsKeys = {
   container: (domain: string) => ["app", domain, "container"] as const,
   build: (domain: string) => ["app", domain, "build"] as const,
   backupRequired: (domain: string) => ["app", domain, "backup-required"] as const,
+  buildCache: (domain: string) => ["app", domain, "build-cache"] as const,
+  processTypes: (domain: string) => ["app", domain, "process-types"] as const,
+  compose: (domain: string) => ["app", domain, "compose"] as const,
 };
 
 /** Read again every few seconds while the setup waits for the forge's first delivery. */
@@ -145,3 +151,24 @@ export class JobFailedError extends Error {
     this.detail = detail;
   }
 }
+
+/** How much the package managers keep between this application's builds. */
+export const buildCacheQuery = (domain: string) =>
+  queryOptions({
+    queryKey: settingsKeys.buildCache(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/build-cache", { params: { domain }, signal }),
+  });
+
+/** The process types the code declares, and which of them a deployment uses. */
+export const processTypesQuery = (domain: string) =>
+  queryOptions({
+    queryKey: settingsKeys.processTypes(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/process-types", { params: { domain }, signal }),
+  });
+
+/** A Compose stack's file, profiles and extra arguments, and the flags the arguments may use. */
+export const composeSettingsQuery = (domain: string) =>
+  queryOptions({
+    queryKey: settingsKeys.compose(domain),
+    queryFn: ({ signal }) => request("get", "/api/apps/{domain}/compose", { params: { domain }, signal }),
+  });

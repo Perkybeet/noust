@@ -211,6 +211,35 @@ def check_image_reference(reference: str) -> str:
     return reference
 
 
+def with_tag(reference: str, tag: str) -> str:
+    """
+    Name the same image at another tag.
+
+    A CI step that pushed ``ghcr.io/acme/app:1.4.2`` asks for exactly that tag;
+    a digest the reference pinned is dropped, because it would win over the tag.
+
+    Args:
+        reference: A valid image reference.
+        tag: The tag to deploy.
+
+    Returns:
+        ``name:tag``.
+
+    Raises:
+        ValidationError: The reference or the tag is not valid.
+    """
+    check_image_reference(reference)
+    match = _REFERENCE.fullmatch(reference)
+    if match is None or re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag or "") is None:
+        raise ValidationError(
+            f"{tag!r} is not an image tag",
+            details="A tag is letters, digits, '_', '.' and '-', at most 128, and does not "
+            "start with '.' or '-'.",
+            field="image_tag",
+        )
+    return check_image_reference(f"{match['name']}:{tag}")
+
+
 def registry_of(reference: str) -> str:
     """
     Name the registry an image is pulled from.

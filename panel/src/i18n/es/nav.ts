@@ -25,6 +25,8 @@ export const nav: Catalog<typeof en> = {
     nodeNoteCommands: "En {node}",
   },
   failed: { one: "{count} con fallo", other: "{count} con fallos" },
+  /** Tras el nombre de Actividad, para tecnologías de apoyo: "Actividad 2 en curso". */
+  running: { one: "{count} en curso", other: "{count} en curso" },
   overview: { label: "Resumen", keywords: "inicio panel salud home dashboard health", goTo: "Ir al resumen" },
   projects: {
     label: "Proyectos",
@@ -77,6 +79,11 @@ export const nav: Catalog<typeof en> = {
       label: "Notificaciones",
       keywords: "alertas correo slack webhook canales notifications",
       command: "Ajustes de notificaciones",
+    },
+    alerts: {
+      label: "Alertas",
+      keywords: "reglas de alerta umbral cpu memoria disco activa monitor alerts",
+      command: "Ajustes de alertas",
     },
     integrations: {
       label: "Integraciones",

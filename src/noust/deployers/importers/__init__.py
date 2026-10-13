@@ -17,12 +17,13 @@ from pathlib import Path
 from types import ModuleType
 
 from noust.core.exceptions import ValidationError
-from noust.deployers.importers import heroku, railway, render, vercel
+from noust.deployers.importers import coolify, dokploy, heroku, railway, render, vercel
 from noust.deployers.importers.base import Proposal, ProposedEnv
 
 __all__ = [
     "PLATFORMS",
     "PLATFORM_FILES",
+    "REMOTE_PLATFORMS",
     "UNSUPPORTED_PLATFORMS",
     "Proposal",
     "ProposedEnv",
@@ -34,23 +35,23 @@ __all__ = [
 #: Every platform, in the order a repository carrying several is read.
 _MODULES: tuple[ModuleType, ...] = (vercel, railway, render, heroku)
 
-#: Platform names ``--from`` accepts.
+#: Platform names ``--from`` accepts for a repository's files.
 PLATFORMS: tuple[str, ...] = tuple(module.PLATFORM for module in _MODULES)
+
+#: Platforms that keep an application's configuration in their own database and
+#: are read through their API (:mod:`noust.deployers.importers.remote`), with a
+#: server's address and a read-only token instead of a repository.
+REMOTE_PLATFORMS: dict[str, ModuleType] = {
+    coolify.PLATFORM: coolify,
+    dokploy.PLATFORM: dokploy,
+}
 
 #: Every file an importer reads, relative to the repository.
 PLATFORM_FILES: tuple[str, ...] = tuple(name for module in _MODULES for name in module.FILES)
 
 #: Platforms asked for often enough to deserve an answer, and why there is
 #: nothing to read.
-UNSUPPORTED_PLATFORMS: dict[str, str] = {
-    "coolify": (
-        "Coolify keeps an application's configuration in its own database, not in the "
-        "repository, so there is nothing here to read. Deploy the repository with "
-        "'noust create' (the wizard detects the type), copy the variables from Coolify's "
-        "environment page to a file for --env-file, and add the domains with "
-        "'noust domain add'. An importer can follow once Coolify has an export to read."
-    ),
-}
+UNSUPPORTED_PLATFORMS: dict[str, str] = {}
 
 
 def _module(platform: str) -> ModuleType:
@@ -70,6 +71,12 @@ def _module(platform: str) -> ModuleType:
     for module in _MODULES:
         if module.PLATFORM == platform:
             return module
+    if platform in REMOTE_PLATFORMS:
+        raise ValidationError(
+            f"{platform.capitalize()} is read through its API, not from a repository",
+            details=f"Give the server's address and a read-only token: noust import --from "
+            f"{platform} --url https://{platform}.example.com --token-file FILE.",
+        )
     if platform in UNSUPPORTED_PLATFORMS:
         raise ValidationError(
             f"Noust cannot import from {platform.capitalize()}",

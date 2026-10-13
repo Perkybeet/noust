@@ -268,7 +268,8 @@ def test_no_app_means_no_change(store: NoustStore, runner: FakeRunner, tmp_path:
     SourceManager(runner=runner).clone_git("https://github.com/you/app.git", tmp_path / "c")
     ((argv, env),) = [c for c in git_calls(runner) if "clone" in c[0]]
     assert "GIT_CONFIG_COUNT" not in env
-    assert [c[0][5] for c in git_calls(runner)] == ["clone"]
+    # ``grep`` is the local look at .gitattributes that decides whether Git LFS applies.
+    assert [c[0][5] for c in git_calls(runner) if c[0][5] != "grep"] == ["clone"]
 
 
 def test_the_explicit_installation_is_used(

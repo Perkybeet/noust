@@ -66,6 +66,9 @@ class CronJobInfo(BaseModel):
         last_exit_code: Exit code of the last run, or None when the job never
             ran.
         last_result: Systemd's ``Result`` for the last run, or ``never ran``.
+        timeout: Seconds the command may run before it is stopped, or None.
+        service: The Compose service the command runs in, empty when it runs
+            on this server.
     """
 
     name: str
@@ -80,6 +83,8 @@ class CronJobInfo(BaseModel):
     last_run: str
     last_exit_code: int | None
     last_result: str
+    timeout: int | None = None
+    service: str = ""
 
 
 class CronJobListResponse(BaseModel):
@@ -109,6 +114,16 @@ class CreateCronJobRequest(BaseModel):
     app_domain: str | None = Field(
         default=None,
         description="Associate with a deployed app; its directory becomes the default",
+    )
+    timeout: int | None = Field(
+        default=None,
+        description="Seconds the command may run before it is stopped, 1 to 86400. "
+        "Omitted: as long as it takes",
+    )
+    service: str | None = Field(
+        default=None,
+        description="Run the command in this service of the application's Compose stack "
+        "(docker compose exec) instead of on this server",
     )
 
     @field_validator("schedule")
@@ -238,6 +253,8 @@ def _to_info(entry: dict[str, Any]) -> CronJobInfo:
         last_run=entry.get("last_run", "never"),
         last_exit_code=entry.get("last_exit_code"),
         last_result=entry.get("last_result", "never ran"),
+        timeout=entry.get("timeout"),
+        service=entry.get("service", ""),
     )
 
 
@@ -293,6 +310,8 @@ def create_job(
             user=data.user,
             working_directory=data.working_directory,
             app_domain=data.app_domain,
+            timeout=data.timeout,
+            service=data.service,
         )
     )
     entry = manager.get_job(created.name)

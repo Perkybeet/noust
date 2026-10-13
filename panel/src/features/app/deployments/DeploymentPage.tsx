@@ -34,6 +34,7 @@ import { hasUnit } from "../../apps/AppRowActions";
 import { buildLogEvents, jobEvents, logClockText, logSpan, mergeEvents, useLogLines } from "./buildLog";
 import { useDeploymentActions } from "./DeploymentActions";
 import { PhaseTimeline, phaseDoing } from "./PhaseTimeline";
+import { ShareLog } from "./ShareLog";
 import { currentPhase, logClockOffset, outcomeOf, timeline } from "./phases";
 import type { PhaseKey, PhaseView } from "./phases";
 import { useDeploymentJob } from "./useDeploymentJob";
@@ -228,6 +229,7 @@ function LogSection({
 }) {
   const running = RUNNING.has(deployment.status);
   const missing = log.data?.missing_reason ?? null;
+  // The level and the times are the viewer's chips and toggle: this holds every line.
   const shown = lines.length > 0 ? lines : fallback;
   // Rows of 20px, the toolbar and the padding: a finished log shorter than the usual frame
   // gets a frame its own height (never under 12rem), instead of a well of empty space.
@@ -246,6 +248,7 @@ function LogSection({
         ) : undefined
       }
     >
+      {log.data !== undefined && shown.length > 0 ? <ShareLog deploymentId={deployment.id} /> : null}
       {log.data?.truncated ? (
         <p className="text-12 text-fg-muted">{t("appPages.deployments.page.logTruncated", { size: formatBytes(DEFAULT_TAIL, t.locale) })}</p>
       ) : null}

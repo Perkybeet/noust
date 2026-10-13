@@ -53,6 +53,10 @@ const KEYS_BY_TYPE: Readonly<Record<string, { keys: readonly BuildKey[]; languag
   static: { keys: ["base_directory", "install", "build", "publish_directory", "runtime"], languages: ["node", "python"] },
   python: { keys: ["base_directory", "install", "build", "start", "runtime"], languages: ["python"] },
   "php-fpm": { keys: ["install", "build", "runtime"], languages: ["php"] },
+  // Built with the server's own toolchain: no runtime to pin, and nothing to publish.
+  go: { keys: ["base_directory", "install", "build", "start"], languages: [] },
+  rust: { keys: ["base_directory", "install", "build", "start"], languages: [] },
+  ruby: { keys: ["base_directory", "install", "build", "start"], languages: [] },
 };
 
 /** Types whose build is not a block's to shape: they are built by their own configuration. */

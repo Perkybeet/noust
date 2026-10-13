@@ -10,6 +10,10 @@ come from; this module reads them, tick after tick:
   like it leaks), and CPU as the delta of ``cpu.stat``'s ``usage_usec`` over
   the elapsed time. CPU is a percentage of *one* CPU, so a busy multi-threaded
   application can pass 100.
+- **disk and network traffic** (:mod:`noust.monitor.appio`): the bytes a cgroup
+  read and wrote (``io.stat``) and, for a container, what its network namespace
+  moved; for a unit, what systemd's IP accounting counted. Cumulative counters
+  turned into bytes per second.
 - **PHP-FPM pools**: the worker processes of the application's pool. FPM puts
   every pool's workers in one service cgroup, so the pool is told from the
   title FPM gives each worker (``php-fpm: pool <name>``), which is the only
@@ -31,6 +35,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from noust.monitor.appio import UnitNetwork, read_container_network, read_io_bytes
 from noust.monitor.plan import SOURCE_FPM, SamplingPlan
 from noust.monitor.timeseries import MetricsStore
 from noust.monitor.traffic import TrafficSampler
@@ -52,6 +57,37 @@ FPM_TITLE_PREFIX = "php-fpm: pool "
 _PROCESS_ERRORS: tuple[type[Exception], ...] = (
     (psutil.Error, OSError) if psutil is not None else (OSError,)
 )
+
+
+#: A unit's network rate is repeated on the ticks between two questions to
+#: systemd for this long (seconds); older, and the series has a gap rather than
+#: a rate nobody measured.
+UNIT_RATE_TTL = 45.0
+
+
+def _rates(
+    previous: tuple[int, int] | None, current: tuple[int, int], elapsed: float | None
+) -> tuple[float, float] | None:
+    """
+    Turn two readings of a pair of cumulative counters into rates.
+
+    Args:
+        previous: The reading before, or None on the first.
+        current: The reading now.
+        elapsed: Seconds between them, or None when unknown.
+
+    Returns:
+        ``(first per second, second per second)``; None on the first reading,
+        when the time is unknown or when a counter went backwards (the cgroup
+        was recreated): a rate invented from a negative delta is a spike that
+        never happened.
+    """
+    if previous is None or elapsed is None or elapsed <= 0:
+        return None
+    first, second = current[0] - previous[0], current[1] - previous[1]
+    if first < 0 or second < 0:
+        return None
+    return first / elapsed, second / elapsed
 
 
 def read_cpu_usec(cpu_stat: Path) -> int | None:
@@ -110,11 +146,21 @@ class AppSampler:
     Reads every planned application, keeping the counters a rate needs.
     """
 
-    def __init__(self, store: MetricsStore) -> None:
+    def __init__(self, store: MetricsStore, *, unit_network: UnitNetwork | None = None) -> None:
         """
         Args:
             store: Where the access log cursors are kept.
+            unit_network: Asks systemd for the IP counters of the units. None
+                (the default) leaves the network traffic of units unmeasured:
+                the collector the monitor runs is built with one, a test's is
+                not, so no test starts a process by accident.
         """
+        self._last_io: dict[str, tuple[int, int]] = {}
+        self._last_container_net: dict[str, tuple[int, int]] = {}
+        self._unit_network = unit_network
+        self._unit_counters: tuple[float, dict[str, tuple[int, int]]] | None = None
+        self._unit_rates: dict[str, tuple[float, float]] = {}
+        self._unit_rates_at: float | None = None
         self._last_cpu_usec: dict[str, int] = {}
         self._pid_cpu: dict[int, float] = {}
         self._pid_pool: dict[tuple[int, float], str | None] = {}
@@ -142,6 +188,7 @@ class AppSampler:
         pairs: list[tuple[str, float]] = []
         fpm_seen: set[str] = set()
         fpm_usage: dict[str, dict[str, tuple[int, float]]] = {}
+        self._refresh_unit_network(plans, now)
 
         for plan in plans.values():
             if not plan.measures_resources:
@@ -149,7 +196,7 @@ class AppSampler:
             if plan.source == SOURCE_FPM:
                 pairs.extend(self._sample_fpm(plan, elapsed, fpm_usage, fpm_seen))
                 continue
-            pairs.extend(self._sample_cgroups(plan, elapsed))
+            pairs.extend(self._sample_cgroups(plan, elapsed, now))
 
         self._forget_stale(plans, fpm_seen)
         self._fpm_primed = self._fpm_primed or bool(fpm_usage)
@@ -158,20 +205,25 @@ class AppSampler:
 
     # ---------------------------------------------------------------- cgroups
 
-    def _sample_cgroups(self, plan: SamplingPlan, elapsed: float | None) -> list[tuple[str, float]]:
+    def _sample_cgroups(
+        self, plan: SamplingPlan, elapsed: float | None, now: float = 0.0
+    ) -> list[tuple[str, float]]:
         """
-        Sum the working set and the CPU rate of a plan's cgroups.
+        Sum the working set, the CPU rate and the traffic of a plan's cgroups.
 
         Args:
             plan: An application whose CPU and memory come from cgroups.
             elapsed: Seconds since the previous tick, or None.
+            now: The current monotonic time.
 
         Returns:
-            The application's two series, each present only when at least one
-            of its cgroups could be read for it.
+            The application's series, each present only when at least one of
+            its cgroups could be read for it: memory, CPU, disk read and write
+            rates and network receive and send rates.
         """
         memory_total: int | None = None
         cpu_total: float | None = None
+        traffic: dict[str, float] = {}
         for target in plan.targets:
             if target.cgroup is None:
                 continue
@@ -181,13 +233,106 @@ class AppSampler:
             cpu = self._cpu_percent(target.cgroup, elapsed)
             if cpu is not None:
                 cpu_total = (cpu_total or 0.0) + cpu
+            self._add_traffic(traffic, target.cgroup, target.kind, target.name, elapsed, now)
 
         pairs: list[tuple[str, float]] = []
         if memory_total is not None:
             pairs.append((f"app.{plan.domain}.mem.bytes", float(memory_total)))
         if cpu_total is not None:
             pairs.append((f"app.{plan.domain}.cpu.percent", cpu_total))
+        for suffix in ("io.read_bytes_s", "io.write_bytes_s", "net.rx_bytes_s", "net.tx_bytes_s"):
+            if suffix in traffic:
+                pairs.append((f"app.{plan.domain}.{suffix}", traffic[suffix]))
         return pairs
+
+    def _add_traffic(
+        self,
+        traffic: dict[str, float],
+        cgroup: Path,
+        kind: str,
+        name: str,
+        elapsed: float | None,
+        now: float,
+    ) -> None:
+        """
+        Add one cgroup's disk and network rates to an application's.
+
+        Args:
+            traffic: The application's rates so far, by series suffix.
+            cgroup: The cgroup.
+            kind: ``unit`` or ``container``.
+            name: The unit's or the container's name.
+            elapsed: Seconds since the previous tick, or None.
+            now: The current monotonic time.
+        """
+        key = str(cgroup)
+        counters = read_io_bytes(cgroup)
+        if counters is None:
+            self._last_io.pop(key, None)
+        else:
+            previous = self._last_io.get(key)
+            self._last_io[key] = counters
+            rates = _rates(previous, counters, elapsed)
+            if rates is not None:
+                for suffix, value in zip(
+                    ("io.read_bytes_s", "io.write_bytes_s"), rates, strict=True
+                ):
+                    traffic[suffix] = traffic.get(suffix, 0.0) + value
+        if kind == "container":
+            net = read_container_network(cgroup)
+            if net is None:
+                self._last_container_net.pop(key, None)
+            else:
+                previous = self._last_container_net.get(key)
+                self._last_container_net[key] = net
+                rates = _rates(previous, net, elapsed)
+                if rates is not None:
+                    for suffix, value in zip(
+                        ("net.rx_bytes_s", "net.tx_bytes_s"), rates, strict=True
+                    ):
+                        traffic[suffix] = traffic.get(suffix, 0.0) + value
+        elif self._unit_rates_at is not None and now - self._unit_rates_at <= UNIT_RATE_TTL:
+            unit_rates = self._unit_rates.get(name.removesuffix(".service"))
+            if unit_rates is not None:
+                for suffix, value in zip(
+                    ("net.rx_bytes_s", "net.tx_bytes_s"), unit_rates, strict=True
+                ):
+                    traffic[suffix] = traffic.get(suffix, 0.0) + value
+
+    def _refresh_unit_network(self, plans: Mapping[str, SamplingPlan], now: float) -> None:
+        """
+        Ask systemd for the IP counters of the units, when it is time, and turn
+        two answers into a rate per unit.
+
+        Args:
+            plans: This tick's plans.
+            now: The current monotonic time.
+        """
+        if self._unit_network is None:
+            return
+        units = sorted(
+            {
+                target.name
+                for plan in plans.values()
+                if plan.measures_resources
+                for target in plan.targets
+                if target.kind == "unit" and target.cgroup is not None
+            }
+        )
+        counters = self._unit_network.counters(units)
+        if not self._unit_network.fresh:
+            return
+        previous = self._unit_counters
+        self._unit_counters = (now, counters)
+        self._unit_rates_at = now
+        self._unit_rates = {}
+        if previous is None:
+            return
+        window = now - previous[0]
+        for unit, current in counters.items():
+            rates = _rates(previous[1].get(unit), current, window)
+            if rates is not None:
+                self._unit_rates[unit] = rates
 
     def _cpu_percent(self, cgroup: Path, elapsed: float | None) -> float | None:
         """
@@ -350,6 +495,9 @@ class AppSampler:
         }
         for key in set(self._last_cpu_usec) - live:
             del self._last_cpu_usec[key]
+        for counters in (self._last_io, self._last_container_net):
+            for key in set(counters) - live:
+                del counters[key]
         if self._pid_cpu:
             stale = {pid for pid in self._pid_cpu if str(pid) not in fpm_seen}
             for pid in stale:

@@ -36,6 +36,7 @@ from noust.cli.commands.app_container import changes_from_options, container_opt
 from noust.cli.commands.team_common import placed_in_a_project
 from noust.cli.panel_links import open_in_panel
 from noust.core.app_state import RUNNING, RUNNING_UNMANAGED, STATIC, resolve_states
+from noust.core.app_tags import AppTags, validate_tag
 from noust.core.config import Config
 from noust.core.container_store import forget_secrets
 from noust.core.dependencies import check_deployment_ready
@@ -75,6 +76,8 @@ from noust.deployers.monorepo import MonorepoDeployer
 from noust.deployers.php_fpm import control_pool
 from noust.deployers.registry import available_types
 from noust.managers.apache_manager import ApacheManager
+from noust.managers.app_processes import ProcessManager
+from noust.managers.app_replicas import ReplicaManager
 from noust.managers.database.service import OWN_DATABASE_TYPES, DatabaseService
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ResourceLimits, ServiceManager
@@ -226,6 +229,8 @@ def _create_app(
     container: dict[str, Any] | None = None,
     build_document: str | None = None,
     database_instance: str | None = None,
+    no_cache: bool = False,
+    registry_logins: tuple[str, ...] = (),
 ) -> int:
     """
     Deploy an application.
@@ -278,6 +283,11 @@ def _create_app(
             a repository with a Dockerfile as it is.
         build_document: The operator's build block, as YAML (``--build-file``):
             what the first deployment builds with, kept for every later one.
+        no_cache: Build the first deployment's images without their layer
+            cache (``--no-cache``).
+        registry_logins: Registry accounts (``noust registry add``) to log in
+            for the first deployment of a Docker Compose or container
+            application, and to attach to it once it exists (``--registry``).
 
     Returns:
         Exit code.
@@ -386,6 +396,10 @@ def _create_app(
     options = _import_options(env_secret_marks, limits, initial_health)
     if build_document is not None:
         options["build_document"] = build_document
+    if no_cache:
+        options["no_cache"] = True
+    if registry_logins:
+        options["registry_logins"] = list(registry_logins)
     databases = DatabaseService(logger=logger) if database is not None else None
     new_database = None
     if databases is not None and database is not None:
@@ -903,6 +917,7 @@ def _list_apps(
     team: str | None = None,
     project: str | None = None,
     environment: str | None = None,
+    tag: str | None = None,
 ) -> int:
     """
     Show every deployed application.
@@ -913,6 +928,7 @@ def _list_apps(
         team: Only this team's applications.
         project: Only the projects with this slug.
         environment: Only the environments with this slug.
+        tag: Only the applications that carry this tag.
 
     Returns:
         Exit code.
@@ -925,6 +941,10 @@ def _list_apps(
         )
     else:
         apps = store.list_apps()
+    if tag is not None:
+        wanted = validate_tag(tag)
+        tagged = AppTags(store).by_application()
+        apps = [app for app in apps if wanted in tagged.get(app.domain, [])]
     # Where each lives is shown once there is more than one place to live: a
     # server nobody organised in teams reads exactly as it did.
     owners = (
@@ -1214,6 +1234,12 @@ def _control_service(domain: str, action: str, logger: Logger) -> int:
 
     logger.info(f"{present} {domain}...")
     operations[action](app_name)
+    # The processes that belong to it (a queue worker, a scheduler) go with it.
+    for unit in [
+        *ProcessManager(services=service_manager).control(domain, action),
+        *ReplicaManager(services=service_manager).control(domain, action),
+    ]:
+        logger.substep(f"{past.capitalize()} {unit}")
     logger.success(f"Application {past}: {domain}")
 
     return 0
@@ -1240,6 +1266,7 @@ def _update_app(
     package_manager: str = "auto",
     force: bool = False,
     schema_changed_ok: bool = False,
+    no_cache: bool = False,
 ) -> int:
     """
     Rebuild a deployed application from its source, then restart it.
@@ -1263,6 +1290,9 @@ def _update_app(
         force: Rebuild without asking when there is nothing new.
         schema_changed_ok: Rebuild an earlier commit even past deployments
             that changed the database schema.
+        no_cache: Build from scratch: no package manager cache, no
+            dependencies from the release that serves, no image layer cache.
+            It asks to rebuild what is live, so it is never "nothing new".
 
     Returns:
         Exit code.
@@ -1272,7 +1302,7 @@ def _update_app(
     """
     # A commit, a tag or a new source is explicit about what to build; only a
     # plain update can be "the same thing again".
-    if commit is None and source is None and tag is None:
+    if commit is None and source is None and tag is None and not no_cache:
         upstream = check_upstream(domain, branch=branch, logger=logger)
         if upstream is not None and not upstream.has_new_commits:
             logger.info(upstream.summary)
@@ -1304,6 +1334,7 @@ def _update_app(
         logger=logger,
         verbose=logger.verbose,
         schema_changed_ok=schema_changed_ok,
+        no_cache=no_cache,
     )
     _report_hooks(logger, outcome)
 
@@ -1800,6 +1831,7 @@ def _handle_update(args: Namespace) -> int:
         tag=getattr(args, "tag", None),
         package_manager=getattr(args, "package_manager", "auto") or "auto",
         force=bool(getattr(args, "force", False)),
+        no_cache=bool(getattr(args, "no_cache", False)),
     )
 
 
@@ -2049,6 +2081,19 @@ def cli() -> None:
     "is brought up to date, keeping what git does not track (.env, data), and anything "
     "else is refused, never emptied; on releases a release is added beside them.",
 )
+@click.option(
+    "--no-cache",
+    is_flag=True,
+    help="Build the first deployment without any cache: images without their layer cache.",
+)
+@click.option(
+    "--registry",
+    "registry_logins",
+    multiple=True,
+    metavar="NAME",
+    help="A registry account (noust registry add) to pull private images with, for a Docker "
+    "Compose or container application. Repeat it for several.",
+)
 @container_options
 @placed_in_a_project
 @global_flags
@@ -2081,6 +2126,8 @@ def create(
     persist: tuple[str, ...],
     build_file: Path | None,
     force: bool,
+    no_cache: bool,
+    registry_logins: tuple[str, ...],
     **container_given: Any,
 ) -> None:
     """
@@ -2181,6 +2228,8 @@ def create(
             database_instance=database_instance,
             container=container or None,
             build_document=build_document,
+            no_cache=no_cache,
+            registry_logins=registry_logins,
         ),
     )
     # Reached only when the deploy succeeded: _exit leaves on a failure code.
@@ -2200,6 +2249,7 @@ def create(
     "--project", default=None, help="Only the applications of the projects with this name."
 )
 @click.option("--env", "environment", default=None, help="Only those in this environment.")
+@click.option("--tag", default=None, help="Only the applications that carry this tag.")
 @json_option("Print machine-readable JSON instead of a table.")
 @global_flags
 @pass_context
@@ -2209,6 +2259,7 @@ def list_apps(
     team: str | None,
     project: str | None,
     environment: str | None,
+    tag: str | None,
 ) -> None:
     """List the applications deployed on this server."""
     if ctx.json_output and open_panel:
@@ -2219,6 +2270,7 @@ def list_apps(
         team=team,
         project=project,
         environment=environment,
+        tag=tag,
     )
     if open_panel and code == 0:
         open_in_panel("/apps", logger=ctx.logger)
@@ -2309,6 +2361,14 @@ def restart(ctx: Context, domain: str) -> None:
     default=False,
     help="With --commit, go back even past deployments that changed the database schema.",
 )
+@click.option(
+    "--no-cache",
+    is_flag=True,
+    default=False,
+    help="Build from scratch: empty the build cache first, install the dependencies again "
+    "instead of taking them from the release that serves, and build images without their "
+    "layer cache. Rebuilds what is live even when there is nothing new.",
+)
 @global_flags
 @pass_context
 def update(
@@ -2321,6 +2381,7 @@ def update(
     package_manager: str,
     force: bool,
     schema_changed_ok: bool,
+    no_cache: bool,
 ) -> None:
     """
     Pull the latest code, rebuild and restart an application.
@@ -2354,6 +2415,7 @@ def update(
             package_manager=package_manager,
             force=force,
             schema_changed_ok=schema_changed_ok,
+            no_cache=no_cache,
         ),
     )
 

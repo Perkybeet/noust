@@ -1,0 +1,409 @@
+# Copyright (c) 2024-2026 Yago Lopez Prado
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+"""
+``noust setup doctor``, as data: what a deployment depends on, what is missing, how to fix it.
+
+The doctor used to print as it checked, so the console - where an operator who has just
+installed Noust is looking - could show none of it (checklist N-09). It now produces a
+:class:`DoctorReport`: sections of items, each with a status and, when something is wrong,
+the command that fixes it. The CLI draws it as it always did
+(:func:`noust.cli.commands.setup._run_doctor`) and ``GET /api/system/doctor`` serialises it,
+so both say the same thing (rule 3).
+
+What it asks of the machine arrives in a :class:`DoctorEnvironment`, so the CLI keeps handing it
+the names it always patched in tests, and the console builds the default from the real ones.
+Every probe only reads.
+"""
+
+from __future__ import annotations
+
+import logging
+import platform
+import sqlite3
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Literal
+
+from noust.core.config import DEFAULT_APPS_DIR, DEFAULT_CONFIG_PATH, DEFAULT_LOG_DIR
+from noust.core.exceptions import NoustError
+from noust.core.package_family import INSTALL_COMMANDS, detect_family
+from noust.core.runner import get_runner
+from noust.core.utils import command_exists, run_command
+from noust.managers.server import platforms
+
+logger = logging.getLogger(__name__)
+
+ItemStatus = Literal["ok", "info", "warn", "fail"]
+
+
+@dataclass(frozen=True)
+class DoctorItem:
+    """
+    One thing the doctor looked at.
+
+    Attributes:
+        status: ``ok``; ``info`` (optional or not applicable); ``warn`` (works, but something
+            will not); ``fail`` (deployments will not work).
+        text: What was found, in the doctor's words.
+        fix: The command that fixes it, when there is one.
+        notes: More lines to read under it (a URL, a reason).
+        counted: Whether a ``warn`` adds to the summary's count. The GitHub SSH line never
+            did and still does not: it says something about a place Noust does not need.
+    """
+
+    status: ItemStatus
+    text: str
+    fix: str | None = None
+    notes: tuple[str, ...] = ()
+    counted: bool = True
+
+
+@dataclass(frozen=True)
+class DoctorSection:
+    """
+    A group of items under one heading.
+
+    Attributes:
+        title: The heading (``Web Server``).
+        items: What was looked at.
+        explain: Whether the CLI should print a final explanation line for this section
+            when it has warnings (the platform section points at ``docs/PLATFORMS.md``).
+    """
+
+    title: str
+    items: tuple[DoctorItem, ...]
+    explain: str | None = None
+
+
+@dataclass(frozen=True)
+class DoctorReport:
+    """
+    Everything the doctor found.
+
+    Attributes:
+        sections: In the order the CLI prints them.
+    """
+
+    sections: tuple[DoctorSection, ...] = field(default_factory=tuple)
+
+    @property
+    def issues(self) -> int:
+        """How many items are ``fail``: what deployments need and is missing."""
+        return sum(1 for s in self.sections for i in s.items if i.status == "fail")
+
+    @property
+    def warnings(self) -> int:
+        """How many ``warn`` items count towards the summary."""
+        return sum(1 for s in self.sections for i in s.items if i.status == "warn" and i.counted)
+
+    @property
+    def ready(self) -> bool:
+        """True when nothing a deployment needs is missing."""
+        return self.issues == 0
+
+    def to_dict(self) -> dict[str, Any]:
+        """
+        Describe the report as JSON-ready data.
+
+        Returns:
+            ``ready``, ``issues``, ``warnings`` and ``sections`` (title, explain, items with
+            status, text, fix, notes).
+        """
+        return {
+            "ready": self.ready,
+            "issues": self.issues,
+            "warnings": self.warnings,
+            "sections": [
+                {
+                    "title": s.title,
+                    "explain": s.explain,
+                    "items": [
+                        {
+                            "status": i.status,
+                            "text": i.text,
+                            "fix": i.fix,
+                            "notes": list(i.notes),
+                        }
+                        for i in s.items
+                    ],
+                }
+                for s in self.sections
+            ],
+        }
+
+
+@dataclass(frozen=True)
+class DoctorEnvironment:
+    """
+    What the doctor asks of the machine, replaceable.
+
+    Attributes:
+        command_exists: Whether a program is on ``PATH``.
+        run: Runs a short read-only command and returns its outcome (``stdout``).
+        install_hint: What an operator types to install a package here, such as
+            ``apt install``; empty when no package manager is known.
+        apps_dir: The applications directory.
+        log_dir: The log directory.
+        config_path: The configuration file.
+        include_ssh: Whether to try the connection to GitHub. The console leaves it out: a
+            handshake with another host does not belong in a page load.
+    """
+
+    command_exists: Callable[[str], bool] = command_exists
+    run: Callable[[list[str]], Any] = run_command
+    install_hint: str = ""
+    apps_dir: Path = DEFAULT_APPS_DIR
+    log_dir: Path = DEFAULT_LOG_DIR
+    config_path: Path = DEFAULT_CONFIG_PATH
+    include_ssh: bool = True
+
+    @classmethod
+    def default(cls, *, include_ssh: bool = False) -> DoctorEnvironment:
+        """
+        The environment of the running machine.
+
+        Args:
+            include_ssh: Whether to try the connection to GitHub.
+
+        Returns:
+            An environment whose install hint is this machine's package manager.
+        """
+        family, _program = detect_family(get_runner())
+        return cls(install_hint=INSTALL_COMMANDS.get(family, ""), include_ssh=include_ssh)
+
+
+# -- sections
+
+
+def platform_section() -> DoctorSection:
+    """
+    Say where this machine stands against the platforms Noust declares.
+
+    A release outside the table is a warning, not a failure: a server that already runs Noust is
+    not made unusable by the table having no position on it, but nothing was tested there and
+    the operator should know before a deployment depends on it (``docs/PLATFORMS.md``).
+
+    Returns:
+        The ``Platform`` section.
+    """
+    verdict = platforms.assess_this_machine(platform.machine())
+    label = f"{verdict.pretty_name}, {verdict.arch}"
+    items: list[DoctorItem] = []
+    if verdict.status == platforms.SUPPORTED:
+        items.append(DoctorItem("ok", f"{label}: supported"))
+    elif verdict.status == platforms.PIP_ONLY:
+        items.append(DoctorItem("info", f"{label}: installed with pip, there is no package for it"))
+    elif verdict.status == platforms.BEST_EFFORT:
+        items.append(DoctorItem("warn", f"{label}: best effort, not a tested platform"))
+    else:
+        items.append(DoctorItem("warn", f"{label}: not a platform Noust declares support for"))
+    items += [DoctorItem("info", f"  {reason}") for reason in verdict.reasons]
+    eol = verdict.eol
+    if eol is not None and eol.status == "warn":
+        items.append(
+            DoctorItem(
+                "warn", f"{verdict.pretty_name} stops receiving security updates on {eol.end_date}"
+            )
+        )
+    warned = any(i.status == "warn" for i in items)
+    return DoctorSection(
+        "Platform",
+        tuple(items),
+        explain="The platforms Noust installs on are listed in docs/PLATFORMS.md"
+        if warned
+        else None,
+    )
+
+
+def _unit_item(env: DoctorEnvironment, unit: str) -> DoctorItem:
+    """
+    Say whether a systemd unit is running.
+
+    Args:
+        env: The environment.
+        unit: Systemd unit name.
+
+    Returns:
+        ``ok`` when active, otherwise a warning that says how to start it.
+    """
+    result = env.run(["systemctl", "is-active", unit])
+    if result.stdout.strip() == "active":
+        return DoctorItem("ok", f"  {unit} service: running")
+    return DoctorItem("warn", f"  {unit} service: not running", fix=f"sudo systemctl start {unit}")
+
+
+def _version(command: str, flag: str = "--version") -> str:
+    """
+    Args:
+        command: The program.
+        flag: The flag that makes it print its version.
+
+    Returns:
+        Its first output line, or ``OK`` when it prints nothing.
+    """
+    from noust.core.dependencies import DependencyChecker
+
+    return DependencyChecker(verbose=False).get_version(command, flag) or "OK"
+
+
+def collect(env: DoctorEnvironment | None = None) -> DoctorReport:
+    """
+    Check everything a deployment depends on.
+
+    Args:
+        env: What to ask of the machine; the running machine's by default (without the GitHub
+            connection test).
+
+    Returns:
+        The report: each section in the order the CLI prints it.
+    """
+    env = env or DoctorEnvironment.default()
+    hint = env.install_hint or "your package manager"
+    exists = env.command_exists
+    sections = [platform_section()]
+
+    core: list[DoctorItem] = []
+    for command in ("git", "curl"):
+        if exists(command):
+            core.append(DoctorItem("ok", f"{command}: {_version(command)}"))
+        else:
+            core.append(
+                DoctorItem("fail", f"{command}: not installed", fix=f"sudo {hint} {command}")
+            )
+    sections.append(DoctorSection("Core Dependencies", tuple(core)))
+
+    web: list[DoctorItem] = []
+    if exists("nginx"):
+        web.append(DoctorItem("ok", f"nginx: {_version('nginx', '-v')}"))
+        web.append(_unit_item(env, "nginx"))
+    elif exists("apache2") or exists("httpd"):
+        unit = "apache2" if exists("apache2") else "httpd"
+        web.append(DoctorItem("ok", f"{unit}: installed"))
+        web.append(_unit_item(env, unit))
+    else:
+        web.append(DoctorItem("fail", "Web server: not installed", fix=f"sudo {hint} nginx"))
+    sections.append(DoctorSection("Web Server", tuple(web)))
+
+    node: list[DoctorItem] = []
+    if exists("node"):
+        node.append(DoctorItem("ok", f"node: {_version('node')}"))
+        if exists("npm"):
+            node.append(DoctorItem("ok", f"npm: {_version('npm')}"))
+        else:
+            node.append(DoctorItem("fail", "npm: not installed, although it ships with Node.js"))
+        for manager in ("pnpm", "yarn", "bun"):
+            if exists(manager):
+                node.append(DoctorItem("ok", f"{manager}: {_version(manager)}"))
+            else:
+                node.append(DoctorItem("info", f"{manager}: not installed (optional)"))
+    else:
+        node.append(DoctorItem("fail", "node: not installed", fix="sudo noust setup init"))
+    sections.append(DoctorSection("Node.js Environment", tuple(node)))
+
+    py: list[DoctorItem] = []
+    if exists("python3"):
+        py.append(DoctorItem("ok", f"python3: {_version('python3')}"))
+        if exists("pip3"):
+            py.append(DoctorItem("ok", f"pip3: {_version('pip3')}"))
+        else:
+            py.append(DoctorItem("warn", "pip3: not installed", fix=f"sudo {hint} python3-pip"))
+    else:
+        py.append(DoctorItem("warn", "python3: not installed, needed for Python apps"))
+    sections.append(DoctorSection("Python Environment", tuple(py)))
+
+    if exists("certbot"):
+        tls = DoctorItem("ok", f"certbot: {_version('certbot')}")
+    else:
+        tls = DoctorItem("warn", "certbot: not installed", fix=f"sudo {hint} certbot")
+    sections.append(DoctorSection("SSL/TLS (Certbot)", (tls,)))
+
+    config: list[DoctorItem] = []
+    for label, path in (("Apps directory", env.apps_dir), ("Log directory", env.log_dir)):
+        if path.exists():
+            config.append(DoctorItem("ok", f"{label}: {path}"))
+        else:
+            config.append(
+                DoctorItem("fail", f"{label}: {path} not found", fix="sudo noust setup init")
+            )
+    if env.config_path.exists():
+        config.append(DoctorItem("ok", f"Config file: {env.config_path}"))
+    else:
+        config.append(
+            DoctorItem(
+                "warn", f"Config file: {env.config_path} not found", fix="sudo noust setup init"
+            )
+        )
+    sections.append(DoctorSection("Noust Configuration", tuple(config)))
+
+    sections.append(_ssh_section(env))
+
+    relays = _relays_section()
+    if relays is not None:
+        sections.append(relays)
+    return DoctorReport(tuple(sections))
+
+
+def _ssh_section(env: DoctorEnvironment) -> DoctorSection:
+    """
+    Say whether a key exists for private repositories, and whether GitHub accepts it.
+
+    Args:
+        env: The environment.
+
+    Returns:
+        The ``SSH Configuration`` section.
+    """
+    from noust.validators.ssh import ssh_key_exists, test_ssh_connection
+
+    key_exists, key_path = ssh_key_exists()
+    if not key_exists:
+        return DoctorSection(
+            "SSH Configuration",
+            (DoctorItem("warn", "SSH key: not found", fix="noust setup ssh --generate"),),
+        )
+    items = [DoctorItem("ok", f"SSH key: {key_path}")]
+    if env.include_ssh:
+        success, _ = test_ssh_connection("github.com")
+        if success:
+            items.append(DoctorItem("ok", "GitHub SSH: connected"))
+        else:
+            items.append(
+                DoctorItem(
+                    "warn",
+                    "GitHub SSH: not configured",
+                    notes=("Add your key to GitHub: https://github.com/settings/keys",),
+                    counted=False,
+                )
+            )
+    else:
+        items.append(
+            DoctorItem(
+                "info", "GitHub SSH: not tested here", fix="noust setup ssh --test github.com"
+            )
+        )
+    return DoctorSection("SSH Configuration", tuple(items))
+
+
+def _relays_section() -> DoctorSection | None:
+    """
+    Name the Compose stacks an interrupted update left served by a relay.
+
+    Returns:
+        The section, or None when there is none to name. A machine without a store, or one the
+        doctor may not read, gives a section saying the check did not run: the other checks
+        still stand.
+    """
+    from noust.deployers import compose_relay
+
+    try:
+        found = compose_relay.leftover_relays()
+    except (NoustError, OSError, sqlite3.Error) as exc:
+        return DoctorSection("Docker Compose relays", (DoctorItem("info", f"Not checked: {exc}"),))
+    if not found:
+        return None
+    return DoctorSection(
+        "Docker Compose relays",
+        tuple(DoctorItem("warn", f"{left.domain}: {left.what}", fix=left.fix) for left in found),
+    )

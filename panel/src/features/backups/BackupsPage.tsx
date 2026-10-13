@@ -15,6 +15,7 @@ import { EmptyState } from "../../components/ui/EmptyState";
 import { FeatureState } from "../../components/ui/FeatureState";
 import { Select } from "../../components/ui/Select";
 import { useT } from "../../i18n";
+import { useOnArrival } from "../../lib/useArrival";
 import { BackupHistoryDrawer } from "./BackupHistoryDrawer";
 import { BackupsListPage } from "./BackupsListPage";
 import type { BackupRow } from "./BackupsTable";
@@ -84,6 +85,14 @@ export function BackupsPage({ search, onSearchChange }: BackupsPageProps) {
     onSearchChange(clean, { replace });
   };
   const openRow = (row: CoverageRow): void => set({ domain: row.domain }, false);
+
+  // Arriving with `?new` (the palette's "New backup"): once the applications are known the dialog
+  // opens, and the link is spent. With no application there is nothing to back up: it is spent too.
+  const opening = search.new === true;
+  useOnArrival(opening && !apps.isPending, () => {
+    if (hasApps) setOpen({ kind: "create" });
+    set({});
+  });
   const openSchedule = (row: CoverageRow): void => setOpen({ kind: "schedule", domain: row.domain, existing: row.schedule });
   const close = (): void => setOpen(null);
 

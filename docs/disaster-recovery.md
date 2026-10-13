@@ -183,10 +183,10 @@ default. The `ens-medium` profile refuses an upload to an unencrypted destinatio
 
 The monitor announces a backup that was never taken, which fails nothing, and a destination that went
 away, which fails only the next upload: `backup_missing` when no successful run of a schedule, a
-database's policy, an application's data policy or Noust's own backup is newer than twice its period (at
-least three hours; `backup.missing_days` sets one number of days for every policy, `0` turns it off),
-once, then every day while it stays true, and a note when it is back; and `destination_unreachable` when
-a destination some policy sends to does not answer (asked every six hours, as `noust backup destination
+database's policy, an application's data policy or Noust's own backup is newer than
+`monitor.backup_missing_days` (2; a weekly or monthly schedule is given its period and a day; `0` turns it
+off), once, then every day while it stays true; and `destination_unreachable` when a destination some
+policy sends to does not answer (asked every `monitor.backup_check_hours`, as `noust backup destination
 test` asks), once per outage with rclone's own words, and again when it answers. Both are switches under
 `notifications.events`.
 

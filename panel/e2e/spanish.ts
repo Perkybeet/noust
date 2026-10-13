@@ -63,6 +63,8 @@ const CANDIDATES = englishLeftoverCandidates();
 const SERVER_TEXT: readonly { page: string; text: RegExp; origin: string }[] = [
   // managers/health.py: the names and verdicts of the server-wide health report.
   { page: "server", text: /^(Applications|Memory|Running|Not installed)$/, origin: "managers/health.py" },
+  // The summaries of the routes in the server's own OpenAPI document, which the API reference shows as written.
+  { page: "settings-api", text: /^(Update|Delete) (Role|App)$/, origin: "the route summaries of /api/openapi.json" },
   // A job's description, recorded with the job by whoever queued it.
   { page: "activity", text: /^Deploying \S+$/, origin: "the job's description" },
   // managers/diagnose.py: the evidence heading of the journal it read.
@@ -77,7 +79,7 @@ const SERVER_TEXT: readonly { page: string; text: RegExp; origin: string }[] = [
   { page: "container settings", text: /^Container$/, origin: "deployers/container.py DISPLAY_NAME" },
   // core/teams: the default team, project and environment are named "Default" and "default",
   // and the pages of teams and projects show names as the operator (or the server) gave them.
-  ...["projects", "project", "teams", "team", "team-members", "team-settings"].map((page) => ({
+  ...["projects", "project", "teams", "team", "team-members", "team-settings", "team-variables"].map((page) => ({
     page,
     text: /^[Dd]efault$/,
     origin: "the name of the default team and project",

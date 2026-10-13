@@ -158,6 +158,7 @@ class TestApi:
             "settings": None,
             "previews": [],
             "total": 0,
+            "has_database": False,
         }
 
     def test_listing_shows_settings_and_previews(
@@ -427,7 +428,9 @@ def handled(monkeypatch: pytest.MonkeyPatch) -> list[tuple[PullRequestEvent, str
     """Capture what reaches the previews manager."""
     calls: list[tuple[PullRequestEvent, str | None]] = []
 
-    def handle(event: PullRequestEvent, *, app_domain: str | None = None) -> list[str]:
+    def handle(
+        event: PullRequestEvent, *, app_domain: str | None = None, declined: list[str] | None = None
+    ) -> list[str]:
         calls.append((event, app_domain))
         return ["job-p"]
 

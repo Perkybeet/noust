@@ -230,7 +230,7 @@ def _time(value: str, name: str) -> str:
     Raises:
         ValidationError: It is not a date, a date and time, ``-30min`` or ``@<epoch>``.
     """
-    if not (_ABSOLUTE.match(value) or _RELATIVE.match(value) or _EPOCH.match(value)):
+    if not (_ABSOLUTE.fullmatch(value) or _RELATIVE.fullmatch(value) or _EPOCH.fullmatch(value)):
         raise ValidationError(
             f"'{name}' is not a time Noust reads: {value!r}",
             "Use 2026-09-29, 2026-09-29 10:30 or a relative time such as -30min, -2h or -7d.",
@@ -290,7 +290,7 @@ class JournalReader:
         # One more than asked for: whether it comes back is how truncation is known.
         argv = ["journalctl", "--no-pager", "--output=json", f"--lines={lines + 1}"]
         if unit is not None:
-            if not isinstance(unit, str) or not _UNIT.match(unit):
+            if not isinstance(unit, str) or not _UNIT.fullmatch(unit):
                 raise ValidationError(
                     f"Not a unit name: {unit!r}",
                     "Use the name systemd shows, such as nginx or nginx.service.",

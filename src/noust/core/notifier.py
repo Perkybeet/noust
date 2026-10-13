@@ -13,7 +13,19 @@ their own delivery code; a pure renderer per channel
 page configures the channels. The per-channel "send a test" button is
 :meth:`Notifier.test_channel`.
 
-Channels and what each one receives:
+Channels are *instances* of a type (``notifications.channels.<name>``, see
+:mod:`noust.core.notifications.instances`): there can be a Slack for production
+and another for staging, each with its own event switches, route (by
+application, project, environment or tag) and quiet hours
+(:mod:`noust.core.notifications.routing`). A name that is a type's own
+(``slack``) is that type's default instance, as it always was.
+
+Every delivery is recorded in the ledger (:mod:`noust.core.notification_ledger`)
+and one that failed for a reason that may pass is tried again by
+:meth:`Notifier.deliver_due` with a wait that grows; a failure to notify never
+reaches the caller, and one that cannot be fixed by waiting is an audit event.
+
+The types and what each one receives:
 
 - **webhook** - the operator's own endpoint. POST JSON, ``version: 1``: the
   keys it always had (``event``, ``title``, ``body``, ``domain``, ``ts``) and
@@ -28,10 +40,15 @@ Channels and what each one receives:
   is sent once more as plain text.
 - **telegram** - Bot API ``sendMessage`` in HTML, the console link as a button,
   silent unless it needs attention; retried once as plain text if Telegram
-  refuses the markup.
+  refuses the markup. A forum supergroup's topic (``thread_id``, or one per
+  event in ``threads``) keeps deploys, backups and alerts apart.
 - **email** - delegates to :class:`noust.monitor.email_notifier.EmailNotifier`,
   so there is exactly one SMTP implementation and one email layout (the
   monitor's observation report uses it too).
+- **pushover**, **ntfy**, **gotify**, **teams** - push services and Microsoft
+  Teams (a Workflows webhook): one POST each, built in
+  :mod:`noust.core.notifier_requests`, with the credentials in a form field or
+  a header and never in the URL.
 
 Four rules hold everywhere:
 
@@ -77,13 +94,13 @@ to the network.
 
 from __future__ import annotations
 
-import ipaddress
 import json
 import logging
 import re
-import socket
+import sqlite3
+import time
 import urllib.request
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from http.client import HTTPException
@@ -92,14 +109,23 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse
 from urllib.request import Request
 
-from noust import __version__
+from noust.core import audit, outbound
 from noust.core.background import BackgroundQueue
 from noust.core.config import Config
 from noust.core.exceptions import NoustError
 from noust.core.messages import Locale
+from noust.core.notification_ledger import Delivery, DeliveryLedger, backoff
+from noust.core.notification_placement import store_placement
 from noust.core.notifications.composers import compose_test, server_fact
+from noust.core.notifications.composers_ops import compose_digest
 from noust.core.notifications.context import NotificationContext
 from noust.core.notifications.excerpt import make_excerpt
+from noust.core.notifications.instances import (
+    TYPE_NAMES,
+    TYPES,
+    ChannelInstance,
+    resolve_instances,
+)
 from noust.core.notifications.model import (
     EVENT_KINDS,
     OFF_BY_DEFAULT,
@@ -108,6 +134,17 @@ from noust.core.notifications.model import (
     State,
 )
 from noust.core.notifications.render import discord, slack, telegram, webhook
+from noust.core.notifications.routing import Placement, decide
+from noust.core.notifier_requests import (
+    USER_AGENT,
+    gotify_request,
+    json_request,
+    ntfy_request,
+    post,
+    pushover_request,
+    require_http_url,
+    teams_request,
+)
 from noust.validators.discord import validate_discord_id
 from noust.validators.telegram import validate_telegram_chat_id
 
@@ -121,8 +158,15 @@ logger = logging.getLogger(__name__)
 #: side, and the caller's work must not wait on it.
 NOTIFY_TIMEOUT = 10
 
-#: Identifies Noust to the receiving endpoint.
-USER_AGENT = f"noust-notifier/{__version__}"
+#: Held notifications released together are sent as one digest from this many.
+DIGEST_MINIMUM = 4
+
+#: The ledger is tidied at most this often (seconds).
+PURGE_EVERY_SECONDS = 3_600
+
+#: What a ledger write can raise. A notification is never lost to a record that
+#: cannot be written: the notifier logs this and delivers anyway.
+_LEDGER_ERRORS = (sqlite3.Error, OSError, NoustError)
 
 #: The kinds an operator can switch off under ``notifications.events`` live in
 #: :mod:`noust.core.notifications.model` (:data:`EVENT_KINDS`, imported above and
@@ -140,8 +184,10 @@ __all__ = [
     "USER_AGENT",
     "NotificationEvent",
     "Notifier",
+    "SweepReport",
     "TelegramChat",
     "fresh_config",
+    "is_transient",
     "legacy_notification",
     "notify_composed",
     "notify_in_background",
@@ -149,8 +195,10 @@ __all__ = [
     "validate_telegram_bot_token",
 ]
 
-#: Delivery order. Every name is a key under ``notifications.channels``.
-CHANNELS: tuple[str, ...] = ("webhook", "slack", "discord", "telegram", "email")
+#: The channel types, in delivery order. Each is also the name of that type's
+#: default instance under ``notifications.channels``; any other name there is a
+#: further instance of one of them (see :mod:`noust.core.notifications.instances`).
+CHANNELS: tuple[str, ...] = TYPE_NAMES
 
 #: ``<bot id>:<secret>``, the only shape the Bot API issues. The token becomes
 #: part of the request path, so anything else is refused before it can reshape
@@ -197,14 +245,134 @@ _REDACTED = "***"
 #: is the email transport reporting a delivery problem.
 _DELIVERY_ERRORS = (OSError, ValueError, HTTPException, NoustError)
 
-#: The setting the test-button error names when a channel is not configured.
-_SETTING_HINTS = {
-    "webhook": "notifications.channels.webhook.webhook_url",
-    "slack": "notifications.channels.slack.webhook_url",
-    "discord": "notifications.channels.discord.webhook_url",
-    "telegram": "notifications.channels.telegram.bot_token and chat_id",
-    "email": "notifications.channels.email.enabled and monitor.smtp.*",
-}
+
+def is_transient(error: BaseException) -> bool:
+    """
+    Say whether a delivery that failed may work if tried again later.
+
+    A destination that is down, slow or momentarily unresolvable will come
+    back; one that answered 4xx (the token is wrong, the webhook was deleted),
+    that is forbidden by the SSRF guard or whose configured URL is malformed
+    will not, and trying again would only repeat the refusal.
+
+    Args:
+        error: What delivery raised.
+
+    Returns:
+        True for a timeout, a connection problem, a 408, 425, 429 or 5xx
+        answer, a broken HTTP exchange, an unresolvable name or an email
+        transport failure; False for anything else.
+    """
+    if isinstance(error, HTTPError):
+        return error.code in (408, 425, 429) or error.code >= 500
+    if isinstance(error, _Unresolvable):
+        return True
+    if isinstance(error, ValueError):
+        return False
+    return isinstance(error, (OSError, HTTPException, NoustError))
+
+
+@dataclass
+class SweepReport:
+    """
+    What one pass over the ledger's due deliveries did.
+
+    Attributes:
+        delivered: Deliveries that went out.
+        retried: Deliveries that failed again and wait for a later attempt.
+        failed: Deliveries given up on.
+        digests: Digest messages sent for notifications the quiet hours held.
+    """
+
+    delivered: int = 0
+    retried: int = 0
+    failed: int = 0
+    digests: int = 0
+
+    def to_dict(self) -> dict[str, int]:
+        """Returns: the counts, for the CLI and the API."""
+        return {
+            "delivered": self.delivered,
+            "retried": self.retried,
+            "failed": self.failed,
+            "digests": self.digests,
+        }
+
+
+def _on_by_default(kind: str) -> bool:
+    """
+    Args:
+        kind: An event kind.
+
+    Returns:
+        Whether it is on when no switch names it.
+    """
+    return kind not in OFF_BY_DEFAULT
+
+
+def _recipients(value: Any) -> list[str]:
+    """
+    Args:
+        value: An email channel's ``recipients``: a list or a comma-separated string.
+
+    Returns:
+        The addresses, without blanks.
+    """
+    if isinstance(value, str):
+        value = value.split(",")
+    if not isinstance(value, (list, tuple)):
+        return []
+    return [str(item).strip() for item in value if str(item).strip()]
+
+
+def _telegram_thread(settings: Mapping[str, Any], kind: str) -> int | None:
+    """
+    Pick the forum topic a Telegram message is posted in.
+
+    Args:
+        settings: The Telegram channel's settings.
+        kind: The event kind being sent.
+
+    Returns:
+        The topic of that event (``threads``), else the channel's ``thread_id``,
+        else None (the chat's general thread). A value that is not a topic
+        number (a hand edit) is ignored: the alert matters more than its place.
+    """
+    threads = settings.get("threads")
+    for candidate in (
+        threads.get(kind) if isinstance(threads, Mapping) else None,
+        settings.get("thread_id"),
+    ):
+        if candidate in (None, ""):
+            continue
+        try:
+            number = int(str(candidate).strip())
+        except ValueError:
+            continue
+        if number > 0:
+            return number
+    return None
+
+
+def _setting_hint(instance: ChannelInstance) -> str:
+    """
+    Name the settings the test-button error asks for when a channel is not configured.
+
+    Args:
+        instance: The channel.
+
+    Returns:
+        ``notifications.channels.telegram.bot_token and chat_id``: the keys the
+        type needs, under the instance's own name.
+    """
+    prefix = f"notifications.channels.{instance.name}"
+    if instance.type == "email":
+        return f"{prefix}.enabled and monitor.smtp.*"
+    keys = [field.key for field in TYPES[instance.type].fields if field.required]
+    if not keys:
+        return prefix
+    return f"{prefix}.{keys[0]}" + "".join(f" and {key}" for key in keys[1:])
+
 
 #: Anything with urlopen's calling convention: ``opener(request, timeout=...)``
 #: returning a closeable response. Tests inject one; the suite never opens a
@@ -212,129 +380,50 @@ _SETTING_HINTS = {
 Opener = Callable[..., Any]
 
 #: Address family alias, matching noust.core.net's.
-_IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
+_IPAddress = outbound.IPAddress
 
-#: Networks a notification destination must not resolve into, unless the host
-#: is explicitly trusted through ``notifications.allow_private_hosts``. Not
-#: the full IANA special-purpose registry - just the ranges that turn a
-#: notification into a way to reach the panel's own network: this machine
-#: (loopback), private networks (RFC 1918), carrier-grade NAT (RFC 6598,
-#: what a cloud metadata endpoint typically sits behind), link-local (which
-#: is also where 169.254.169.254, the cloud metadata address itself, lives),
-#: "this network" (0.0.0.0/8), IPv6's loopback, unique-local and link-local
-#: equivalents, and the unspecified address (``::``), which Linux treats as
-#: the local host on connect. This list only covers addresses in their own,
-#: native form: an address that reaches one of these IPv4 ranges wrapped in
-#: an IPv4-mapped, NAT64 or 6to4 IPv6 form is caught separately, by
-#: :func:`_embedded_ipv4`, because none of these entries matches the wrapper.
-_FORBIDDEN_NETWORKS: tuple[ipaddress.IPv4Network | ipaddress.IPv6Network, ...] = tuple(
-    ipaddress.ip_network(cidr)
-    for cidr in (
-        "0.0.0.0/8",
-        "10.0.0.0/8",
-        "100.64.0.0/10",
-        "127.0.0.0/8",
-        "169.254.0.0/16",
-        "172.16.0.0/12",
-        "192.168.0.0/16",
-        "::/128",
-        "::1/128",
-        "fc00::/7",
-        "fe80::/10",
-    )
-)
+#: The forbidden networks, the resolver and the address judgement are
+#: :mod:`noust.core.outbound`'s: the one guard every feature that sends a
+#: request to a configured host shares. These names stay because the notifier
+#: is where the guard was written and its tests read them here. The resolver is
+#: looked up through the other module on every call, so replacing
+#: ``outbound.resolve_host`` or this module's ``_resolve_host`` both work.
+_FORBIDDEN_NETWORKS = outbound.FORBIDDEN_NETWORKS
+_NAT64_PREFIX = outbound.NAT64_PREFIX
+_embedded_ipv4 = outbound.embedded_ipv4
+_is_forbidden = outbound.is_forbidden
 
-#: RFC 6052's "well-known prefix": an address in this /96 carries an IPv4
-#: address in its low 32 bits, so a request to it is a request to that IPv4
-#: address, wrapper aside. ``ipaddress`` has no built-in accessor for this
-#: one, unlike ``ipv4_mapped`` and ``sixtofour`` below.
-_NAT64_PREFIX = ipaddress.ip_network("64:ff9b::/96")
+
+class _Unresolvable(ValueError):
+    """
+    A destination whose name could not be resolved.
+
+    A ``ValueError`` like every other reason a destination is refused, so the
+    callers that already catch it keep working; a subclass so the ledger can
+    tell a name server having a bad minute (try again) from a destination that
+    is forbidden or malformed (never will work).
+    """
 
 
 def _resolve_host(host: str) -> tuple[str, ...]:
     """
     Resolve a destination host to the literal addresses it points at.
 
-    A module-level function rather than a method, so a test can replace it
-    with :func:`pytest.MonkeyPatch.setattr` instead of opening a real socket:
-    DNS is nondeterministic, reaches outside the sandbox, and would make this
-    guard's own tests as slow and flaky as the network they exist to avoid a
-    dependency on.
-
     Args:
         host: Hostname or address literal from the destination URL.
 
     Returns:
-        Every address the name resolves to. A literal address resolves to
-        itself without a lookup.
+        Every address the name resolves to.
 
     Raises:
         OSError: When the name cannot be resolved.
     """
-    try:
-        return (str(ipaddress.ip_address(host)),)
-    except ValueError:
-        pass
-    infos = socket.getaddrinfo(host, None)
-    # A link-local sockaddr carries a %scope suffix ipaddress refuses.
-    return tuple(sorted({str(info[4][0]).split("%", 1)[0] for info in infos}))
+    return outbound.resolve_host(host)
 
 
-def _embedded_ipv4(address: _IPAddress) -> ipaddress.IPv4Address | None:
-    """
-    Extract the IPv4 address an IPv6 address maps or tunnels, if any.
-
-    Three IPv6 forms carry an IPv4 address that a network stack dials
-    exactly as if it had been given directly: IPv4-mapped
-    (``::ffff:0:0/96``), NAT64 (``64:ff9b::/96``, RFC 6052) and 6to4
-    (``2002::/16``). Each is a second route to an address
-    :data:`_FORBIDDEN_NETWORKS` would otherwise catch, so :func:`_is_forbidden`
-    checks the embedded address too instead of trusting the IPv6 wrapper to
-    be exempt.
-
-    Args:
-        address: A resolved destination address.
-
-    Returns:
-        The embedded IPv4 address, or None when ``address`` is already IPv4
-        or carries no embedded address.
-    """
-    if not isinstance(address, ipaddress.IPv6Address):
-        return None
-    if address.ipv4_mapped is not None:
-        return address.ipv4_mapped
-    if address.sixtofour is not None:
-        return address.sixtofour
-    if address in _NAT64_PREFIX:
-        return ipaddress.IPv4Address(int(address) & 0xFFFFFFFF)
-    return None
-
-
-def _is_forbidden(address: _IPAddress) -> bool:
-    """
-    Report whether an address falls inside :data:`_FORBIDDEN_NETWORKS`.
-
-    Also follows IPv4-mapped, NAT64 and 6to4 IPv6 addresses to the IPv4
-    address they embed (see :func:`_embedded_ipv4`): those forms would
-    otherwise reach a forbidden address through a wrapper none of this
-    tuple's entries matches.
-
-    Args:
-        address: A resolved destination address.
-
-    Returns:
-        True when the address, or the IPv4 address it embeds, is not one a
-        notification may be sent to.
-    """
-    if any(
-        address.version == network.version and address in network for network in _FORBIDDEN_NETWORKS
-    ):
-        return True
-    embedded = _embedded_ipv4(address)
-    return embedded is not None and _is_forbidden(embedded)
-
-
-def _require_public_destination(url: str, config: Config) -> None:
+def _require_public_destination(
+    url: str, config: Config, purpose: str = "notification destination"
+) -> None:
     """
     Refuse a destination that resolves inside the machine's own networks.
 
@@ -348,6 +437,8 @@ def _require_public_destination(url: str, config: Config) -> None:
         url: The destination URL, already scheme-checked.
         config: Configuration to read ``notifications.allow_private_hosts``
             from.
+        purpose: What the server is contacting, for the message: a webhook's
+            destination by default, or a code host or another platform's API.
 
     Raises:
         ValueError: When the URL carries no host, the host cannot be
@@ -360,24 +451,20 @@ def _require_public_destination(url: str, config: Config) -> None:
 
     allowed = {
         str(entry).lower() for entry in (config.get("notifications.allow_private_hosts") or [])
-    }
-    if host.lower() in allowed:
-        return
-
+    } | set(outbound.trusted_hosts(config))
     try:
-        addresses = _resolve_host(host)
-    except OSError as exc:
-        raise ValueError(f"Could not resolve notification destination {host!r}: {exc}") from exc
-    if not addresses:
-        raise ValueError(f"Notification destination {host!r} did not resolve to any address")
-
-    for raw in addresses:
-        address = ipaddress.ip_address(raw)
-        if _is_forbidden(address):
-            raise ValueError(
-                f"Refusing to notify {host!r}: resolves to {address}, inside a private or "
-                "internal network. List it under notifications.allow_private_hosts to allow it."
-            )
+        outbound.require_public_host(host, allowed=allowed, resolver=_resolve_host)
+    except outbound.DestinationRefused as exc:
+        if exc.reason == "unresolved":
+            # A name that does not resolve now may resolve later: the ledger retries it.
+            raise _Unresolvable(f"Could not resolve {purpose} {host!r}: {exc.__cause__}") from exc
+        if exc.reason == "no_address":
+            raise ValueError(f"The {purpose} {host!r} did not resolve to any address") from exc
+        verb = "notify" if purpose == "notification destination" else "contact"
+        raise ValueError(
+            f"Refusing to {verb} {host!r}: resolves to {exc.address}, inside a private or "
+            "internal network. List it under notifications.allow_private_hosts to allow it."
+        ) from exc
 
 
 class _SafeRedirectHandler(urllib.request.HTTPRedirectHandler):
@@ -538,59 +625,10 @@ class TelegramChat:
     username: str | None = None
 
 
-def _require_http_url(url: str, setting: str) -> str:
-    """
-    Refuse a URL whose scheme is not plain HTTP(S).
-
-    ``urlopen`` also follows ``file://`` and ``ftp://``; a configuration value
-    must not be able to turn a notification into a local file read. Bandit's
-    S310 is ignored project-wide on the promise that every call site validates
-    the scheme, and this is this module's validation.
-
-    Args:
-        url: The configured URL.
-        setting: Dotted configuration path, for the error message.
-
-    Returns:
-        The URL, unchanged.
-
-    Raises:
-        ValueError: When the scheme is anything but http or https.
-    """
-    if urlparse(url).scheme.lower() not in ("http", "https"):
-        raise ValueError(f"{setting} must be an http:// or https:// URL")
-    return url
-
-
-def _post(url: str, body: bytes, extra_headers: dict[str, str] | None = None) -> Request:
-    """
-    Build a JSON POST with this module's identity.
-
-    Args:
-        url: Destination URL, already validated.
-        body: The exact JSON bytes to send.
-        extra_headers: Headers to add (a delivery id, a signature).
-
-    Returns:
-        The request, ready for the opener.
-    """
-    headers = {"Content-Type": "application/json", "User-Agent": USER_AGENT}
-    headers.update(extra_headers or {})
-    return Request(url, data=body, headers=headers, method="POST")
-
-
-def _json_request(url: str, payload: dict[str, Any]) -> Request:
-    """
-    Build a JSON POST from a payload.
-
-    Args:
-        url: Destination URL, already validated.
-        payload: JSON-serialisable body.
-
-    Returns:
-        The request, ready for the opener.
-    """
-    return _post(url, json.dumps(payload).encode("utf-8"))
+#: These three used to live here; the push channels' requests share them.
+_require_http_url = require_http_url
+_post = post
+_json_request = json_request
 
 
 def _webhook_request(url: str, notification: Notification, secret: str = "") -> Request:
@@ -635,7 +673,7 @@ def _slack_request(url: str, notification: Notification) -> Request:
     return _json_request(url, slack.render(notification))
 
 
-def _discord_mention(channel: dict[str, Any]) -> discord.Mention | None:
+def _discord_mention(channel: Mapping[str, Any]) -> discord.Mention | None:
     """
     Read whom Discord pings from the channel's settings.
 
@@ -694,7 +732,12 @@ def _discord_request(
 
 
 def _telegram_request(
-    bot_token: str, chat_id: str, notification: Notification, *, plain: bool = False
+    bot_token: str,
+    chat_id: str,
+    notification: Notification,
+    *,
+    plain: bool = False,
+    thread_id: int | None = None,
 ) -> Request:
     """
     Build the Bot API ``sendMessage`` POST.
@@ -704,6 +747,7 @@ def _telegram_request(
         chat_id: Destination chat, travels in the JSON body.
         notification: The notification to deliver.
         plain: Send without markup, for the retry after Telegram refused it.
+        thread_id: The forum topic to post in; the chat's general one when None.
 
     Returns:
         The request.
@@ -716,7 +760,9 @@ def _telegram_request(
     validate_telegram_bot_token(bot_token)
     chat_id = validate_telegram_chat_id(chat_id)
     url = f"{_TELEGRAM_API}/bot{bot_token}/sendMessage"
-    return _json_request(url, telegram.render(notification, chat_id, plain=plain))
+    return _json_request(
+        url, telegram.render(notification, chat_id, plain=plain, thread_id=thread_id)
+    )
 
 
 def _describe_error(exc: BaseException, *, include_body: bool = True) -> str:
@@ -864,6 +910,12 @@ class Notifier:
 
     Reads ``notifications.*`` from the configuration on every call, so a
     settings change in the panel applies to the next event without a restart.
+    Each *channel instance* (see :mod:`noust.core.notifications.instances`)
+    decides for itself, from its own event switches, route and quiet hours,
+    whether it hears an event (:func:`noust.core.notifications.routing.decide`),
+    and every delivery is written to the ledger
+    (:mod:`noust.core.notification_ledger`) so a failure that may pass is tried
+    again by :meth:`deliver_due` and one that cannot is on record.
     """
 
     def __init__(
@@ -872,6 +924,10 @@ class Notifier:
         *,
         opener: Opener | None = None,
         email_notifier: EmailNotifier | None = None,
+        ledger: DeliveryLedger | None = None,
+        record: bool = True,
+        clock: Callable[[], datetime] | None = None,
+        placement: Callable[[str], Placement | None] | None = None,
     ) -> None:
         """
         Args:
@@ -881,6 +937,13 @@ class Notifier:
                 inject one so the suite never opens a socket.
             email_notifier: Replacement email transport. Defaults to the
                 monitor's :class:`EmailNotifier`, created on first use.
+            ledger: Where deliveries are recorded. The store's, opened when
+                first needed, when None.
+            record: False to deliver without a record at all (a one-shot
+                caller that has no store).
+            clock: The current moment, timezone-aware, for the quiet hours.
+            placement: Where an application lives (its project, environment
+                and tags), for routes that ask. The store's by default.
         """
         self._config = config or Config()
         # The default opener carries its own redirect handler, so a
@@ -891,14 +954,22 @@ class Notifier:
             opener or urllib.request.build_opener(_SafeRedirectHandler(self._config)).open
         )
         self._email_notifier = email_notifier
+        self._ledger = ledger
+        self._record = record
+        self._clock = clock or (lambda: datetime.now(timezone.utc))
+        self._placement_of = placement or store_placement
+        self._last_purge = 0.0
+
+    # -- publishing -----------------------------------------------------------
 
     def notify(self, event: Notification | NotificationEvent) -> None:
         """
-        Publish a notification to every channel enabled for its kind.
+        Publish a notification to every channel that wants it.
 
-        Never raises for a delivery problem: a dead channel is logged and the
-        remaining channels still get it, because the caller is a deploy or the
-        monitor loop and its work matters more than the announcement of it.
+        Never raises for a delivery problem: a dead channel is logged, put in
+        the ledger to be tried again, and the remaining channels still get it,
+        because the caller is a deploy or the monitor loop and its work matters
+        more than the announcement of it.
 
         Args:
             event: What happened. A pre-3.1 :class:`NotificationEvent` is
@@ -908,24 +979,38 @@ class Notifier:
         if not settings.get("enabled", False):
             return
         notification = self._structured(event)
-        events = settings.get("events") or {}
-        default = notification.kind not in OFF_BY_DEFAULT
-        if notification.kind != TEST_KIND and not events.get(notification.kind, default):
-            return
-
+        switches = settings.get("events") or {}
         channels: dict[str, Any] = settings.get("channels") or {}
-        for name in CHANNELS:
-            try:
-                self._dispatch(name, notification, channels)
-            except _DELIVERY_ERRORS as exc:
-                # The request URL never reaches the log: urllib quotes it in
-                # some errors, and the Telegram one embeds the bot token.
-                logger.warning(
-                    "Notification channel %s failed for event %s: %s",
-                    name,
+        now = self._clock()
+        placements: dict[str, Placement | None] = {}
+
+        def placement(domain: str) -> Placement | None:
+            if domain not in placements:
+                placements[domain] = self._placement_of(domain)
+            return placements[domain]
+
+        for instance in resolve_instances(channels):
+            if not instance.enabled or not instance.configured:
+                continue
+            decision = decide(
+                instance.routing,
+                notification,
+                now=now,
+                server_events=switches,
+                default_on=_on_by_default,
+                placement_of=placement,
+            )
+            if decision.action == "skip":
+                logger.debug(
+                    "Notification %s not sent to %s: %s",
                     notification.kind,
-                    _scrub(_describe_error(exc), channels),
+                    instance.name,
+                    decision.reason,
                 )
+                continue
+            if decision.action == "hold" and self._hold(instance, notification, decision):
+                continue
+            self._deliver(instance, notification, channels)
 
     def test_channel(self, name: str) -> str | None:
         """
@@ -933,25 +1018,28 @@ class Notifier:
 
         The settings-page button exists to try a channel before the operator
         enables notifications, so neither ``notifications.enabled`` nor the
-        per-kind filter applies here.
+        per-kind filter applies here. A test is not recorded in the ledger:
+        its answer is the answer.
 
         Args:
-            name: Channel name, one of :data:`CHANNELS`.
+            name: A channel instance's name (``slack``, ``slack-staging``).
 
         Returns:
             None when the channel accepted the message, otherwise the failure
             in the server's own words, with configured secrets scrubbed.
         """
-        if name not in CHANNELS:
-            known = ", ".join(CHANNELS)
+        channels: dict[str, Any] = self._settings().get("channels") or {}
+        instances = {instance.name: instance for instance in resolve_instances(channels)}
+        if name not in instances:
+            known = ", ".join(instances)
             return f"Unknown notification channel {name!r}; expected one of: {known}"
 
-        channels: dict[str, Any] = self._settings().get("channels") or {}
-        notification = compose_test(name, self._context())
+        instance = instances[name]
+        notification = compose_test(instance.type, self._context(), instance=instance.name)
         try:
-            sent = self._dispatch(name, notification, channels)
+            sent = self._dispatch(instance, notification)
         except _DELIVERY_ERRORS as exc:
-            if name == "telegram" and isinstance(exc, HTTPError):
+            if instance.type == "telegram" and isinstance(exc, HTTPError):
                 description = _telegram_error_description(exc)
                 if description:
                     return _scrub(f"HTTP {exc.code} {exc.reason}: {description}", channels)
@@ -961,12 +1049,12 @@ class Notifier:
             # redirect.
             return _scrub(_describe_error(exc, include_body=False), channels)
         if not sent:
-            return f"Channel {name} is not configured; set {_SETTING_HINTS[name]} first."
+            return f"Channel {name} is not configured; set {_setting_hint(instance)} first."
         return None
 
-    def list_telegram_chats(self) -> list[TelegramChat]:
+    def list_telegram_chats(self, name: str = "telegram") -> list[TelegramChat]:
         """
-        List the chats the configured Telegram bot has seen.
+        List the chats a configured Telegram bot has seen.
 
         Finding a chat id today means opening the Bot API's ``getUpdates`` URL
         by hand and reading raw JSON. This is that lookup, using the bot token
@@ -981,6 +1069,9 @@ class Notifier:
         message, or the bot has been added to it, since the last time this
         was called (or the token's webhook, if any, last polled it).
 
+        Args:
+            name: The Telegram channel instance whose bot is asked.
+
         Returns:
             Every chat found, deduplicated by chat id.
 
@@ -991,10 +1082,10 @@ class Notifier:
                 an HTTP error.
         """
         channels: dict[str, Any] = self._settings().get("channels") or {}
-        telegram: dict[str, Any] = channels.get("telegram") or {}
+        telegram: dict[str, Any] = channels.get(name) or {}
         bot_token = str(telegram.get("bot_token") or "")
         if not bot_token:
-            raise ValueError(_SETTING_HINTS["telegram"] + " must be set first.")
+            raise ValueError(f"notifications.channels.{name}.bot_token must be set first.")
         validate_telegram_bot_token(bot_token)
 
         url = f"{_TELEGRAM_API}/bot{bot_token}/getUpdates"
@@ -1005,6 +1096,344 @@ class Notifier:
 
         payload = json.loads(body.decode("utf-8", "replace"))
         return _parse_telegram_chats(payload)
+
+    # -- retries and the quiet hours' end ------------------------------------
+
+    def deliver_due(self) -> SweepReport:
+        """
+        Try again what failed for a reason that may pass, and release what the
+        quiet hours held.
+
+        Run by the monitor on every scan and by ``noust notify retry``. A
+        delivery whose channel is gone, off or no longer configured is given
+        up on with that said; one that fails again waits longer
+        (:data:`~noust.core.notification_ledger.RETRY_DELAYS`) until the
+        attempts run out, and then it is a failed delivery on record and an
+        audit event.
+
+        Returns:
+            What was done.
+        """
+        ledger = self._open_ledger()
+        if ledger is None:
+            return SweepReport()
+        try:
+            due = ledger.due()
+        except _LEDGER_ERRORS as exc:
+            logger.warning("The delivery ledger could not be read: %s", exc)
+            return SweepReport()
+        channels: dict[str, Any] = self._settings().get("channels") or {}
+        instances = {instance.name: instance for instance in resolve_instances(channels)}
+
+        report = SweepReport()
+        held: dict[str, list[Delivery]] = {}
+        for delivery in due:
+            instance = instances.get(delivery.channel)
+            if instance is None or not instance.enabled or not instance.configured:
+                self._ledger_do(
+                    ledger.failed,
+                    delivery.id,
+                    "The channel is no longer configured",
+                    delivery.attempts,
+                )
+                report.failed += 1
+                continue
+            if delivery.state == "held":
+                held.setdefault(delivery.channel, []).append(delivery)
+                continue
+            self._retry(ledger, instance, delivery, channels, report)
+        for name, items in held.items():
+            self._release(ledger, instances[name], items, channels, report)
+        self._purge(ledger)
+        return report
+
+    def _retry(
+        self,
+        ledger: DeliveryLedger,
+        instance: ChannelInstance,
+        delivery: Delivery,
+        channels: dict[str, Any],
+        report: SweepReport,
+    ) -> None:
+        """
+        Try a failed delivery once more.
+
+        Args:
+            ledger: The ledger the delivery is on.
+            instance: The channel it goes to.
+            delivery: The delivery.
+            channels: The ``notifications.channels`` block, for scrubbing.
+            report: Filled with the outcome.
+        """
+        try:
+            notification = delivery.notification()
+        except ValueError as exc:
+            self._ledger_do(ledger.failed, delivery.id, str(exc), delivery.attempts)
+            report.failed += 1
+            return
+        attempts = delivery.attempts + 1
+        try:
+            sent = self._dispatch(instance, notification)
+        except _DELIVERY_ERRORS as exc:
+            error = _scrub(_describe_error(exc), channels)
+            wait = backoff(attempts) if is_transient(exc) else None
+            logger.warning(
+                "Notification channel %s failed again for event %s (attempt %d): %s",
+                instance.name,
+                notification.kind,
+                attempts,
+                error,
+            )
+            if wait is None:
+                self._ledger_do(ledger.failed, delivery.id, error, attempts)
+                self._audit_failure(instance, notification, error, attempts)
+                report.failed += 1
+            else:
+                self._ledger_do(ledger.retry_later, delivery.id, error, attempts, wait)
+                report.retried += 1
+            return
+        if sent:
+            self._ledger_do(ledger.sent, delivery.id)
+            report.delivered += 1
+        else:
+            self._ledger_do(ledger.failed, delivery.id, "The channel is not configured", attempts)
+            report.failed += 1
+
+    def _release(
+        self,
+        ledger: DeliveryLedger,
+        instance: ChannelInstance,
+        items: list[Delivery],
+        channels: dict[str, Any],
+        report: SweepReport,
+    ) -> None:
+        """
+        Deliver what a channel's quiet hours held, now that they ended.
+
+        More than a few are sent as one digest when the channel's quiet hours
+        say so; fewer one by one. If the quiet hours are on again (the window
+        was edited while these waited) they wait for the new end.
+
+        Args:
+            ledger: The ledger the deliveries are on.
+            instance: The channel.
+            items: Its held deliveries, oldest first.
+            channels: The ``notifications.channels`` block, for scrubbing.
+            report: Filled with the outcome.
+        """
+        quiet = instance.routing.quiet
+        now = self._clock()
+        if quiet is not None and quiet.active(now):
+            until = quiet.ends_at(now).timestamp()
+            for item in items:
+                self._ledger_do(ledger.reschedule, item.id, until)
+            return
+        notifications: list[tuple[Delivery, Notification]] = []
+        for item in items:
+            try:
+                notifications.append((item, item.notification()))
+            except ValueError as exc:
+                self._ledger_do(ledger.failed, item.id, str(exc), item.attempts)
+                report.failed += 1
+        digest = quiet is not None and quiet.digest and len(notifications) >= DIGEST_MINIMUM
+        if digest:
+            self._release_digest(ledger, instance, notifications, channels, report)
+            return
+        for item, _held in notifications:
+            self._retry(ledger, instance, item, channels, report)
+
+    def _release_digest(
+        self,
+        ledger: DeliveryLedger,
+        instance: ChannelInstance,
+        notifications: list[tuple[Delivery, Notification]],
+        channels: dict[str, Any],
+        report: SweepReport,
+    ) -> None:
+        """
+        Send what was held as one message.
+
+        Args:
+            ledger: The ledger the deliveries are on.
+            instance: The channel.
+            notifications: The held deliveries and what each one says.
+            channels: The ``notifications.channels`` block, for scrubbing.
+            report: Filled with the outcome.
+        """
+        digest = compose_digest([n for _item, n in notifications], self._context())
+        try:
+            sent = self._dispatch(instance, digest)
+        except _DELIVERY_ERRORS as exc:
+            error = _scrub(_describe_error(exc), channels)
+            logger.warning(
+                "Notification channel %s failed for the digest of %d held events: %s",
+                instance.name,
+                len(notifications),
+                error,
+            )
+            for item, _n in notifications:
+                attempts = item.attempts + 1
+                wait = backoff(attempts) if is_transient(exc) else None
+                if wait is None:
+                    self._ledger_do(ledger.failed, item.id, error, attempts)
+                    report.failed += 1
+                else:
+                    self._ledger_do(ledger.retry_later, item.id, error, attempts, wait)
+                    report.retried += 1
+            return
+        for item, _n in notifications:
+            if sent:
+                self._ledger_do(ledger.sent, item.id)
+                report.delivered += 1
+            else:
+                self._ledger_do(ledger.failed, item.id, "The channel is not configured", 1)
+                report.failed += 1
+        if sent:
+            report.digests += 1
+
+    # -- the ledger -------------------------------------------------------------
+
+    def _open_ledger(self) -> DeliveryLedger | None:
+        """
+        Returns:
+            The ledger deliveries are recorded in, or None when this notifier
+            records nothing or the store cannot be opened (then delivery goes
+            on without a record).
+        """
+        if not self._record:
+            return None
+        if self._ledger is None:
+            self._ledger = DeliveryLedger()
+        return self._ledger
+
+    def _ledger_do(self, action: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+        """
+        Run a ledger write; a ledger that cannot be written never costs the delivery.
+
+        Args:
+            action: The ledger method.
+            args: Its positional arguments.
+            kwargs: Its keyword arguments.
+
+        Returns:
+            Its result, or None when it failed (and was logged).
+        """
+        try:
+            return action(*args, **kwargs)
+        except _LEDGER_ERRORS as exc:
+            logger.warning("The delivery ledger could not be written: %s", exc)
+            return None
+
+    def _purge(self, ledger: DeliveryLedger) -> None:
+        """
+        Forget old deliveries, at most once an hour.
+
+        Args:
+            ledger: The ledger.
+        """
+        now = time.monotonic()
+        if self._last_purge and now - self._last_purge < PURGE_EVERY_SECONDS:
+            return
+        self._last_purge = now
+        self._ledger_do(ledger.purge)
+
+    def _hold(self, instance: ChannelInstance, notification: Notification, decision: Any) -> bool:
+        """
+        Keep a notification until a channel's quiet hours end.
+
+        Args:
+            instance: The channel.
+            notification: What is held.
+            decision: The routing decision, with the moment to release.
+
+        Returns:
+            True when it was recorded; False when there is no ledger to hold
+            it in, and the caller must deliver it now (a notification is
+            never lost to a record that could not be written).
+        """
+        ledger = self._open_ledger()
+        if ledger is None or decision.release_at is None:
+            return False
+        held = self._ledger_do(
+            ledger.hold,
+            notification,
+            instance.name,
+            instance.type,
+            decision.release_at.timestamp(),
+        )
+        return held is not None
+
+    def _deliver(
+        self, instance: ChannelInstance, notification: Notification, channels: dict[str, Any]
+    ) -> bool:
+        """
+        Deliver one notification through one channel and record the outcome.
+
+        Args:
+            instance: The channel.
+            notification: What to deliver.
+            channels: The ``notifications.channels`` block, for scrubbing.
+
+        Returns:
+            True when a message went out.
+        """
+        ledger = self._open_ledger()
+        try:
+            sent = self._dispatch(instance, notification)
+        except _DELIVERY_ERRORS as exc:
+            # The request URL never reaches the log: urllib quotes it in
+            # some errors, and the Telegram one embeds the bot token.
+            error = _scrub(_describe_error(exc), channels)
+            logger.warning(
+                "Notification channel %s failed for event %s: %s",
+                instance.name,
+                notification.kind,
+                error,
+            )
+            wait = backoff(1) if is_transient(exc) else None
+            if ledger is not None:
+                self._ledger_do(
+                    ledger.record_failure,
+                    notification,
+                    instance.name,
+                    instance.type,
+                    error,
+                    retry_in=wait,
+                )
+            if wait is None:
+                self._audit_failure(instance, notification, error, 1)
+            return False
+        if sent and ledger is not None:
+            self._ledger_do(ledger.record_sent, notification, instance.name, instance.type)
+        return sent
+
+    @staticmethod
+    def _audit_failure(
+        instance: ChannelInstance, notification: Notification, error: str, attempts: int
+    ) -> None:
+        """
+        Put a delivery that will not be tried again on the audit trail.
+
+        Args:
+            instance: The channel.
+            notification: What could not be delivered.
+            error: Why, scrubbed of credentials.
+            attempts: Tries made.
+        """
+        audit.record(
+            "notify.delivery_failed",
+            target=f"channel:{instance.name}",
+            outcome="failure",
+            details={
+                "event": notification.kind,
+                "code": notification.code,
+                "subject": notification.subject,
+                "attempts": attempts,
+                "error": error,
+            },
+        )
+
+    # -- reading the configuration -------------------------------------------
 
     def _settings(self) -> dict[str, Any]:
         """
@@ -1051,14 +1480,15 @@ class Notifier:
             return event
         return legacy_notification(event, self._context())
 
-    def _dispatch(self, name: str, notification: Notification, channels: dict[str, Any]) -> bool:
+    # -- delivery ------------------------------------------------------------
+
+    def _dispatch(self, instance: ChannelInstance, notification: Notification) -> bool:
         """
-        Deliver one notification through one channel.
+        Deliver one notification through one channel instance.
 
         Args:
-            name: Channel name, one of :data:`CHANNELS`.
+            instance: The channel.
             notification: The notification to deliver.
-            channels: The ``notifications.channels`` block.
 
         Returns:
             True when a message went out, False when the channel is not
@@ -1070,16 +1500,16 @@ class Notifier:
                 destination resolves inside a forbidden network.
             NoustError: When the email transport reports a problem.
         """
-        if name == "email":
-            return self._send_email(notification, channels.get("email") or {})
+        if instance.type == "email":
+            return self._send_email(notification, instance)
 
-        request = self._request_for(name, notification, channels)
+        request = self._request_for(instance, notification)
         if request is None:
             return False
         try:
             self._send(request)
         except HTTPError as exc:
-            retry = self._plain_retry(name, exc, notification, channels)
+            retry = self._plain_retry(instance, exc, notification)
             if retry is None:
                 raise
             self._send(retry)
@@ -1107,10 +1537,9 @@ class Notifier:
 
     def _plain_retry(
         self,
-        name: str,
+        instance: ChannelInstance,
         error: HTTPError,
         notification: Notification,
-        channels: dict[str, Any],
     ) -> Request | None:
         """
         Build the one retry a chat deserves when it refuses the formatting.
@@ -1121,45 +1550,41 @@ class Notifier:
         quirk, so it is sent once more, as plain text.
 
         Args:
-            name: The channel that failed.
+            instance: The channel that failed.
             error: What it answered.
             notification: What was being delivered.
-            channels: The ``notifications.channels`` block.
 
         Returns:
             The plain-text request, or None when this failure is not that one.
         """
-        if name == "discord" and error.code == 400:
-            channel: dict[str, Any] = channels.get("discord") or {}
+        settings = instance.settings
+        if instance.type == "discord" and error.code == 400:
             return _discord_request(
-                str(channel.get("webhook_url") or ""),
+                str(settings.get("webhook_url") or ""),
                 notification,
-                _discord_mention(channel),
+                _discord_mention(settings),
                 plain=True,
             )
-        if name != "telegram" or error.code != 400:
+        if instance.type != "telegram" or error.code != 400:
             return None
         description = _telegram_error_description(error) or ""
         if "can't parse entities" not in description.lower():
             return None
-        telegram_settings: dict[str, Any] = channels.get("telegram") or {}
         return _telegram_request(
-            str(telegram_settings.get("bot_token") or ""),
-            str(telegram_settings.get("chat_id") or ""),
+            str(settings.get("bot_token") or ""),
+            str(settings.get("chat_id") or ""),
             notification,
             plain=True,
+            thread_id=_telegram_thread(settings, notification.kind),
         )
 
-    def _request_for(
-        self, name: str, notification: Notification, channels: dict[str, Any]
-    ) -> Request | None:
+    def _request_for(self, instance: ChannelInstance, notification: Notification) -> Request | None:
         """
         Build the request one HTTP channel would send, if it is configured.
 
         Args:
-            name: Channel name, every one of :data:`CHANNELS` except email.
+            instance: The channel; any type but email.
             notification: The notification to deliver.
-            channels: The ``notifications.channels`` block.
 
         Returns:
             The request, or None when the channel is not configured.
@@ -1167,30 +1592,52 @@ class Notifier:
         Raises:
             ValueError: When the configured URL or token is malformed.
         """
-        channel: dict[str, Any] = channels.get(name) or {}
-        if name == "telegram":
-            bot_token = str(channel.get("bot_token") or "")
-            chat_id = str(channel.get("chat_id") or "")
+        settings = instance.settings
+        kind = instance.type
+        if kind == "telegram":
+            bot_token = str(settings.get("bot_token") or "")
+            chat_id = str(settings.get("chat_id") or "")
             if not bot_token or not chat_id:
                 return None
-            return _telegram_request(bot_token, chat_id, notification)
+            return _telegram_request(
+                bot_token,
+                chat_id,
+                notification,
+                thread_id=_telegram_thread(settings, notification.kind),
+            )
+        if kind == "pushover":
+            user_key = str(settings.get("user_key") or "")
+            app_token = str(settings.get("app_token") or "")
+            if not user_key or not app_token:
+                return None
+            return pushover_request(
+                user_key, app_token, notification, str(settings.get("device") or "")
+            )
 
-        url = str(channel.get("webhook_url") or "")
+        url = str(settings.get("webhook_url") or "")
         if not url:
             return None
-        if name == "webhook":
-            return _webhook_request(url, notification, str(channel.get("secret") or ""))
-        if name == "discord":
-            return _discord_request(url, notification, _discord_mention(channel))
+        token = str(settings.get("token") or "")
+        if kind == "webhook":
+            return _webhook_request(url, notification, str(settings.get("secret") or ""))
+        if kind == "discord":
+            return _discord_request(url, notification, _discord_mention(settings))
+        if kind == "ntfy":
+            return ntfy_request(url, notification, token)
+        if kind == "gotify":
+            return gotify_request(url, notification, token) if token else None
+        if kind == "teams":
+            return teams_request(url, notification)
         return _slack_request(url, notification)
 
-    def _send_email(self, notification: Notification, channel: dict[str, Any]) -> bool:
+    def _send_email(self, notification: Notification, instance: ChannelInstance) -> bool:
         """
         Deliver through the monitor's SMTP implementation.
 
         Args:
             notification: The notification to deliver.
-            channel: The ``notifications.channels.email`` block.
+            instance: The email channel; its ``recipients`` replace
+                ``monitor.email_recipients`` when it names some.
 
         Returns:
             True when a message was handed to the server, False when the
@@ -1200,15 +1647,18 @@ class Notifier:
             NoustError: When the transport refuses the settings or delivery
                 fails.
         """
-        if not channel.get("enabled", False):
+        if not instance.enabled:
             return False
 
         # Deferred import: the monitor publishes events to this module, so a
         # module-level import in both directions would be a cycle.
         from noust.monitor.email_notifier import EmailNotifier
 
+        recipients = _recipients(instance.settings.get("recipients"))
         notifier = self._email_notifier
-        if notifier is None:
+        if recipients:
+            notifier = EmailNotifier(recipients=recipients)
+        elif notifier is None:
             notifier = self._email_notifier = EmailNotifier()
         if not notifier.is_configured:
             return False
@@ -1243,16 +1693,15 @@ def _channel_secrets(channels: dict[str, Any]) -> tuple[str, ...]:
         channels: The ``notifications.channels`` block.
 
     Returns:
-        The non-empty secrets: the Telegram bot token, every webhook URL (Slack
-        and Discord embed theirs in the path) and the webhook's signing secret.
+        The non-empty credentials of every channel instance: the Telegram bot
+        token, every webhook URL (Slack and Discord embed theirs in the path),
+        the webhook's signing secret, Pushover's keys and the push services'
+        tokens.
     """
-    telegram_settings: dict[str, Any] = channels.get("telegram") or {}
-    candidates = [str(telegram_settings.get("bot_token") or "")]
-    for name in ("webhook", "slack", "discord"):
-        channel: dict[str, Any] = channels.get(name) or {}
-        candidates.append(str(channel.get("webhook_url") or ""))
-    candidates.append(str((channels.get("webhook") or {}).get("secret") or ""))
-    return tuple(value for value in candidates if value)
+    found: list[str] = []
+    for instance in resolve_instances(channels):
+        found.extend(instance.secrets)
+    return tuple(dict.fromkeys(found))
 
 
 #: The one worker every notification of this process is delivered on, first
@@ -1328,3 +1777,23 @@ def fresh_config() -> Config:
     except (OSError, NoustError) as exc:
         logger.warning("Configuration could not be re-read for a notification: %s", exc)
         return Config()
+
+
+def require_public_destination(url: str, purpose: str = "server") -> None:
+    """
+    Refuse to contact a server that resolves inside the machine's own networks.
+
+    The one SSRF guard (see the module docstring), for every outbound request
+    whose address an operator typed: a code host's API, another platform's.
+    A private host the operator trusts is listed under
+    ``notifications.allow_private_hosts``, the same allowlist.
+
+    Args:
+        url: The address about to be requested.
+        purpose: What it is, for the message ("GitHub Enterprise server").
+
+    Raises:
+        ValueError: The URL has no host, cannot be resolved, or resolves to a
+            private or internal address that is not allowed.
+    """
+    _require_public_destination(url, Config(), purpose)

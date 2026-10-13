@@ -146,7 +146,7 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
   // The refusal that asks "rebuild anyway?", kept apart from the mutations' own errors so the
   // question stays open while the forced retry is in flight.
   const [nothingNew, setNothingNew] = useState<ApiError | null>(null);
-  const callUpdate = (force: boolean) => request("post", "/api/jobs/update", { body: { domain, force } });
+  const callUpdate = (force: boolean, noCache = false) => request("post", "/api/jobs/update", { body: { domain, force, ...(noCache ? { no_cache: true } : {}) } });
   const update = useMutation({
     mutationFn: () => callUpdate(false),
     onSuccess: (result) => {
@@ -170,6 +170,19 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
     },
     onError: (error) => {
       setNothingNew(null);
+      reportActionError(t("apps.actions.updateCouldNotQueue", { domain }), error);
+    },
+  });
+
+  // The commit that is live, built from nothing: no package manager cache, dependencies installed
+  // again, images without their layer cache. Asked for on purpose, so nothing_new is not asked.
+  const rebuildFresh = useMutation({
+    mutationFn: () => callUpdate(true, true),
+    onSuccess: (result) => {
+      setNothingNew(null);
+      queued(result.job, "update");
+    },
+    onError: (error) => {
       reportActionError(t("apps.actions.updateCouldNotQueue", { domain }), error);
     },
   });
@@ -209,6 +222,7 @@ export function useAppActions(domain: string, { onJobQueued }: AppActionOptions 
     stop,
     update,
     rebuildAnyway,
+    rebuildFresh,
     /** The update's `nothing_new` refusal, while its question is open (see NothingNewDialog). */
     nothingNew,
     dismissNothingNew: () => {

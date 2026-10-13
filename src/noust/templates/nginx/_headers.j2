@@ -1,0 +1,18 @@
+{#
+    The response headers a site sends: the security defaults, an operator's
+    overrides, HSTS and noindex, all worked out by the web server manager
+    (noust.managers.site_policy.response_headers). Rendered on its own, without
+    the manager, a template falls back to the defaults.
+#}
+{% if response_headers is defined %}
+{% for name, value in response_headers %}
+    add_header {{ name }} "{{ value }}" always;
+{% endfor %}
+{% else %}
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+{% if ssl and hsts %}
+    add_header Strict-Transport-Security "{{ hsts }}" always;
+{% endif %}
+{% endif %}

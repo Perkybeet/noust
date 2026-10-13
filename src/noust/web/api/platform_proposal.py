@@ -34,10 +34,18 @@ class ProposedEnvResponse(BaseModel):
     note: str | None = Field(default=None, description="Where the value came from there")
 
 
+class ProposedCronResponse(BaseModel):
+    """A scheduled task of the other platform."""
+
+    name: str
+    schedule: str = Field(description="A cron expression")
+    command: str
+
+
 class PlatformProposalResponse(BaseModel):
     """What another platform's configuration says, in Noust's terms."""
 
-    platform: str = Field(description="vercel, railway, render or heroku")
+    platform: str = Field(description="vercel, railway, render, heroku, coolify or dokploy")
     files: list[str] = Field(default_factory=list, description="The files read")
     app_type: str | None = Field(default=None, description="Null: detection decides")
     install_command: str | None = None
@@ -53,6 +61,24 @@ class PlatformProposalResponse(BaseModel):
     persistent_paths: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(
         default_factory=list, description="What has no equivalent, and what to do instead"
+    )
+    name: str | None = Field(default=None, description="What the platform calls it (API imports)")
+    source: str | None = Field(
+        default=None, description="The repository it was pulled from, when the platform says"
+    )
+    branch: str | None = None
+    base_directory: str | None = Field(
+        default=None, description="The subdirectory of the repository the project lives in"
+    )
+    watch_paths: list[str] = Field(default_factory=list)
+    image: str | None = Field(default=None, description="A registry image it ran instead")
+    memory_max_mb: int | None = None
+    cpu_quota_percent: int | None = None
+    cron: list[ProposedCronResponse] = Field(default_factory=list)
+    equivalent: str | None = Field(
+        default=None,
+        description="The noust command that creates what a proposal cannot deploy "
+        "(an image, a Dockerfile, a Compose file)",
     )
 
 
@@ -94,4 +120,17 @@ def platform_proposal_response(proposal: Proposal | None) -> PlatformProposalRes
         domains=list(proposal.domains),
         persistent_paths=list(proposal.persistent_paths),
         warnings=list(proposal.warnings),
+        name=proposal.name,
+        source=proposal.source,
+        branch=proposal.branch,
+        base_directory=proposal.base_directory,
+        watch_paths=list(proposal.watch_paths),
+        image=proposal.image,
+        memory_max_mb=proposal.memory_max_mb,
+        cpu_quota_percent=proposal.cpu_quota_percent,
+        cron=[
+            ProposedCronResponse(name=job.name, schedule=job.schedule, command=job.command)
+            for job in proposal.cron
+        ],
+        equivalent=proposal.equivalent,
     )

@@ -117,6 +117,9 @@ class ProfileDefaults:
             typed before it is ended (op.acc.6.4): a terminal left open is a
             session at a prompt.
         terminal_max_minutes: The most a console terminal may last in all.
+        audit_fail_closed: Whether a change is refused while the audit trail
+            cannot be written (op.exp.8): under the profile no change goes
+            unaudited (see :mod:`noust.core.audit.failclosed`).
         server_terminal: Whether Noust may open a root shell on the server in
             the browser (``terminal.server.enabled``). Under the profile it is
             refused unless the operator forces it in so many words
@@ -153,6 +156,7 @@ class ProfileDefaults:
     terminal_idle_minutes: int = 120
     terminal_max_minutes: int = 720
     server_terminal: bool = True
+    audit_fail_closed: bool = False
 
     @property
     def ens(self) -> bool:
@@ -231,6 +235,7 @@ ENS_MEDIUM = ProfileDefaults(
     terminal_idle_minutes=10,
     terminal_max_minutes=60,
     server_terminal=False,
+    audit_fail_closed=True,
 )
 
 

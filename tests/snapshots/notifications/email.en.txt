@@ -964,48 +964,6 @@ Sent by Noust · web-1 · 2026-09-29 10:45 UTC
 Change what you receive in Settings > Notifications
 
 ========================================================================
-### backup.missing
-Subject: [Noust] Backup missing: postgresql/shop (web-1)
-Auto-Submitted: auto-generated
-X-Auto-Response-Suppress: All
-X-Noust-Event: backup_missing
-X-Noust-Code: backup.missing
-X-Noust-Server: web-1
-
-▲ Backup missing · postgresql/shop
-No successful backup has been taken in the time its schedule allows.
-
-Server: web-1
-Last good backup: 2026-10-10 03:00 UTC
-Take one now with: noust db backup-run shop -e postgresql
-
-Open in the console: https://console.example.com/n/web-1/backups
-
--- 
-Sent by Noust · web-1 · 2026-09-29 10:45 UTC
-Change what you receive in Settings > Notifications
-
-========================================================================
-### backup.recovered
-Subject: [Noust] Backup back on schedule: postgresql/shop (web-1)
-Auto-Submitted: auto-generated
-X-Auto-Response-Suppress: All
-X-Noust-Event: backup_missing
-X-Noust-Code: backup.recovered
-X-Noust-Server: web-1
-
-● Backup back on schedule · postgresql/shop
-A successful backup was taken again.
-
-Server: web-1
-
-Open in the console: https://console.example.com/n/web-1/backups
-
--- 
-Sent by Noust · web-1 · 2026-09-29 10:45 UTC
-Change what you receive in Settings > Notifications
-
-========================================================================
 ### drill.failed
 Subject: [Noust] Restore drill failed: shop.example.com (web-1)
 Auto-Submitted: auto-generated
@@ -1480,6 +1438,345 @@ Containers: shop-example-com-web-1, shop-example-com-db-1
 Hand it back with: noust app reclaim shop.example.com
 
 Open in the console: https://console.example.com/n/web-1/apps/shop.example.com
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### alert.above
+Subject: [Noust] Alert firing: cpu-high (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: alert_firing
+X-Noust-Code: alert.above
+X-Noust-Server: web-1
+
+▲ Alert firing · cpu-high
+CPU of the server has stayed above 90% for 15 min.
+
+Server: web-1
+Rule: cpu-high
+Now: 93.4%
+Limit: 90%
+Unreachable since: 2026-10-12 09:30 UTC
+
+Open in the console: https://console.example.com/n/web-1/server
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### alert.below
+Subject: [Noust] Alert firing: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: alert_firing
+X-Noust-Code: alert.below
+X-Noust-Server: web-1
+
+✕ Alert firing · shop.example.com
+Free memory of shop.example.com has stayed below 256 MB for 5 min.
+
+Server: web-1
+Rule: memory-free
+Now: 112 MB
+Limit: 256 MB
+Unreachable since: 2026-10-12 09:30 UTC
+
+Open in the console: https://console.example.com/n/web-1/apps/shop.example.com
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### alert.resolved
+Subject: [Noust] Alert resolved: cpu-high (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: alert_resolved
+X-Noust-Code: alert.resolved
+X-Noust-Server: web-1
+
+● Alert resolved · cpu-high
+CPU of the server is back to 41.0%, inside the 90% limit.
+
+Server: web-1
+Rule: cpu-high
+Now: 41.0%
+Firing for: 45 min 12 s
+
+Open in the console: https://console.example.com/n/web-1/server
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### backup.missing
+Subject: [Noust] No recent backup: shop.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_missing
+X-Noust-Code: backup.missing
+X-Noust-Server: web-1
+
+▲ No recent backup · shop.example.com
+No backup of this application was made in the last 3 days, although a backup schedule is set. Nothing failed: nothing ran.
+
+Server: web-1
+Last backup: 9 Oct 2026
+Schedule: daily
+Back it up now: noust backup create shop.example.com
+
+Open in the console: https://console.example.com/n/web-1/backups
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### backup.never
+Subject: [Noust] Never backed up: blog.example.com (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: backup_missing
+X-Noust-Code: backup.never
+X-Noust-Server: web-1
+
+▲ Never backed up · blog.example.com
+A backup schedule is set, but not one backup of this application exists. Nothing failed: nothing ran.
+
+Server: web-1
+Schedule: daily
+Back it up now: noust backup create blog.example.com
+
+Open in the console: https://console.example.com/n/web-1/backups
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### cron.failed
+Subject: [Noust] Scheduled task failed: shop-sync (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cron_failed
+X-Noust-Code: cron.failed
+X-Noust-Server: web-1
+
+✕ Scheduled task failed · shop-sync
+The task ended with an error, so whatever it does was not done.
+
+Server: web-1
+Ran: 2026-10-13 03:00 UTC
+Exit status: 1
+Result: exit-code
+See the runs: noust cron runs shop-sync
+
+Last lines of the output of shop-sync:
+  Traceback (most recent call last):
+    File "sync.py", line 9
+  KeyError: 'sku'
+
+Open in the console: https://console.example.com/n/web-1/cron
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### cron.succeeded
+Subject: [Noust] Scheduled task ran: shop-sync (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: cron_success
+X-Noust-Code: cron.succeeded
+X-Noust-Server: web-1
+
+● Scheduled task ran · shop-sync
+The task ran and ended without an error.
+
+Server: web-1
+Ran: 2026-10-13 03:00 UTC
+Exit status: 0
+
+Open in the console: https://console.example.com/n/web-1/cron
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### patches.available
+Subject: [Noust] Updates available (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: os_patches
+X-Noust-Code: patches.available
+X-Noust-Server: web-1
+
+○ Updates available
+5 updates waiting to be installed.
+
+Server: web-1
+Updates: 5
+Detail: openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4
+List them: noust server updates list
+
+Open in the console: https://console.example.com/n/web-1/server
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### patches.security
+Subject: [Noust] Security updates available (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: os_patches
+X-Noust-Code: patches.security
+X-Noust-Server: web-1
+
+▲ Security updates available
+3 of the 12 updates waiting are security updates.
+
+Server: web-1
+Updates: 12
+Security: 3
+Detail: openssl, libssl3, linux-image-6.1.0-26-amd64, curl, libcurl4
+Reboot: Pending, after the updates
+List them: noust server updates list
+
+Open in the console: https://console.example.com/n/web-1/server
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### patches.check_failed
+Subject: [Noust] Update check failed (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: os_patches
+X-Noust-Code: patches.check_failed
+X-Noust-Server: web-1
+
+▲ Update check failed
+Noust could not list the updates this server is waiting for.
+
+Server: web-1
+List them: noust server updates list
+
+  E: Could not get lock /var/lib/dpkg/lock-frontend. It is held by process 2211 (apt-get)
+
+Open in the console: https://console.example.com/n/web-1/server
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### token.expiring
+Subject: [Noust] API token expiring: ci-deploy (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: token_expiring
+X-Noust-Code: token.expiring
+X-Noust-Server: web-1
+
+▲ API token expiring · ci-deploy
+The token stops working in 7 days. Whatever uses it will be refused.
+
+Server: web-1
+Expires: 20 Oct 2026
+Owner: alice
+Replace it: noust token create
+
+Open in the console: https://console.example.com/n/web-1/settings/tokens
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### token.today
+Subject: [Noust] API token expires today: ci-deploy (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: token_expiring
+X-Noust-Code: token.today
+X-Noust-Server: web-1
+
+▲ API token expires today · ci-deploy
+The token stops working today. Whatever uses it will be refused.
+
+Server: web-1
+Expires: 13 Oct 2026
+Owner: alice
+Replace it: noust token create
+
+Open in the console: https://console.example.com/n/web-1/settings/tokens
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### token.expired
+Subject: [Noust] API token expired: ci-deploy (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: token_expiring
+X-Noust-Code: token.expired
+X-Noust-Server: web-1
+
+✕ API token expired · ci-deploy
+The token has expired. Whatever still uses it is being refused.
+
+Server: web-1
+Expires: 1 Oct 2026
+Owner: alice
+Replace it: noust token create
+
+Open in the console: https://console.example.com/n/web-1/settings/tokens
+
+-- 
+Sent by Noust · web-1 · 2026-09-29 10:45 UTC
+Change what you receive in Settings > Notifications
+
+========================================================================
+### digest.held
+Subject: [Noust] Held notifications (web-1)
+Auto-Submitted: auto-generated
+X-Auto-Response-Suppress: All
+X-Noust-Event: digest
+X-Noust-Code: digest.held
+X-Noust-Server: web-1
+
+▲ Held notifications
+3 notifications arrived while this channel was quiet.
+
+Server: web-1
+Notifications: 3
+Between: 2026-09-29 10:45 UTC - 2026-09-29 11:25 UTC
+
+Disk almost full · /
+  When: 2026-09-29 10:45 UTC
+  Detail: It is past the 90% alert threshold, and a full disk stops deployments, logs and databases on this server.
+
+Certificate expiring · shop.example.com
+  When: 2026-09-29 11:05 UTC
+  Detail: Expires in 7 days (6 Oct 2026).
+
+Backup completed · shop.example.com
+  When: 2026-09-29 11:25 UTC
+  Detail: A new copy of the application was saved.
 
 -- 
 Sent by Noust · web-1 · 2026-09-29 10:45 UTC

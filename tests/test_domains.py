@@ -416,9 +416,25 @@ def test_compose_and_monorepo_take_aliases_and_a_failed_render_leaves_nothing(
 # ---------------------------------------------------------------------------
 
 
-def test_removing_an_alias_stops_serving_it_and_revokes_nothing(machine: Machine) -> None:
+def test_removing_an_alias_stops_serving_it_drops_it_from_the_certificate_and_revokes_nothing(
+    machine: Machine,
+) -> None:
+    """
+    A certificate renews with every name it has: one that stayed on it after the domain
+    was removed fails the renewal of the others the day it stops pointing here.
+    """
     machine.deploy(tls=True)
     domains.add_domain("example.com", "shop.example.com")
+    machine.runner.script(
+        ["certbot", "certificates"],
+        stdout=(
+            "  Certificate Name: example.com\n"
+            "    Domains: example.com shop.example.com\n"
+            "    Expiry Date: 2026-11-30 12:00:00+00:00 (VALID: 60 days)\n"
+            "    Certificate Path: /etc/letsencrypt/live/example.com/fullchain.pem\n"
+            "    Private Key Path: /etc/letsencrypt/live/example.com/privkey.pem\n"
+        ),
+    )
     machine.runner.calls.clear()
 
     change = domains.remove_domain("example.com", "shop.example.com")
@@ -426,9 +442,62 @@ def test_removing_an_alias_stops_serving_it_and_revokes_nothing(machine: Machine
     assert machine.domains() == [("example.com", "primary")]
     assert "shop.example.com" not in machine.config()
     assert machine.reloaded()
-    assert [call for call in machine.runner.calls if call and call[0] == "certbot"] == []
+    (order,) = machine.certbot_orders()
+    assert requested_names(order) == ["example.com"]
+    assert "--expand" not in order
+    assert not [call for call in machine.runner.calls if call[:2] == ("certbot", "revoke")]
     assert (machine.certs.LIVE_DIR / "example.com/fullchain.pem").exists()
     assert change.tls is True
+    assert change.certificate_reduced is True
+
+
+def test_removing_an_alias_orders_nothing_when_the_certificate_never_had_it(
+    machine: Machine,
+) -> None:
+    machine.deploy(tls=True)
+    domains.add_domain("example.com", "shop.example.com", issue_cert=False)
+    machine.runner.script(
+        ["certbot", "certificates"],
+        stdout=(
+            "  Certificate Name: example.com\n"
+            "    Domains: example.com\n"
+            "    Expiry Date: 2026-11-30 12:00:00+00:00 (VALID: 60 days)\n"
+            "    Certificate Path: /etc/letsencrypt/live/example.com/fullchain.pem\n"
+            "    Private Key Path: /etc/letsencrypt/live/example.com/privkey.pem\n"
+        ),
+    )
+    machine.runner.calls.clear()
+
+    change = domains.remove_domain("example.com", "shop.example.com")
+
+    assert machine.certbot_orders() == []
+    assert change.certificate_reduced is False
+
+
+def test_a_certificate_that_cannot_be_reduced_leaves_the_removal_done(
+    machine: Machine,
+) -> None:
+    """The name is gone from the site either way; the old certificate keeps serving."""
+    machine.deploy(tls=True)
+    domains.add_domain("example.com", "shop.example.com")
+    machine.runner.script(
+        ["certbot", "certificates"],
+        stdout=(
+            "  Certificate Name: example.com\n"
+            "    Domains: example.com shop.example.com\n"
+            "    Expiry Date: 2026-11-30 12:00:00+00:00 (VALID: 60 days)\n"
+            "    Certificate Path: /etc/letsencrypt/live/example.com/fullchain.pem\n"
+            "    Private Key Path: /etc/letsencrypt/live/example.com/privkey.pem\n"
+        ),
+    )
+    machine.runner.script(["certbot", "certonly"], stderr="Too many requests\n", exit_code=1)
+
+    change = domains.remove_domain("example.com", "shop.example.com")
+
+    assert machine.domains() == [("example.com", "primary")]
+    assert change.certificate_reduced is False
+    assert change.certificate_error is not None and "Too many requests" in change.certificate_error
+    assert "listen 443 ssl http2;" in machine.config()
 
 
 def test_the_primary_cannot_be_removed(machine: Machine) -> None:

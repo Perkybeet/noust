@@ -80,7 +80,7 @@ describe("the new-app wizard in Spanish", () => {
     const modes = screen.getByRole("radiogroup", { name: "Dónde está el código" });
     expect(within(modes).getByRole("radio", { name: "URL o ruta" })).toBeChecked();
     expect(within(modes).getByRole("radio", { name: "Desde una receta" })).toBeInTheDocument();
-    expect(within(modes).getByRole("radio", { name: "Importar una aplicación" })).toBeInTheDocument();
+    expect(within(modes).getByRole("radio", { name: "Importar aplicación" })).toBeInTheDocument();
     const steps = screen.getByRole("list", { name: "Pasos" });
     expect(within(steps).getByText("Configuración: sin empezar")).toBeInTheDocument();
 
@@ -153,7 +153,7 @@ describe("the new-app wizard in Spanish", () => {
     const { harness } = wizard();
     const { user } = harness;
     await screen.findByRole("heading", { level: 1, name: "Nueva aplicación" });
-    await user.click(screen.getByRole("radio", { name: "Importar una aplicación" }));
+    await user.click(screen.getByRole("radio", { name: "Importar aplicación" }));
     await user.upload(screen.getByLabelText("Fichero de exportación"), new File(["{"], "x.json", { type: "application/json" }));
     expect(await screen.findByText(/^Este fichero no es JSON\./)).toBeInTheDocument();
 

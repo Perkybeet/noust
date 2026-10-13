@@ -25,6 +25,8 @@ ROUTES: dict[tuple[str, str], str] = {
     ("PUT", "/api/auth/oidc/config/{provider}"): Permission.ACCOUNTS_MANAGE,
     ("DELETE", "/api/auth/oidc/config/{provider}"): Permission.ACCOUNTS_MANAGE,
     ("POST", "/api/auth/oidc/config/{provider}/test"): Permission.ACCOUNTS_MANAGE,
+    ("GET", "/api/auth/oidc/local-login"): Permission.ACCOUNTS_READ,
+    ("PUT", "/api/auth/oidc/local-login"): Permission.ACCOUNTS_MANAGE,
     ("GET", "/api/auth/oidc/identities"): Permission.ACCOUNTS_READ,
     ("POST", "/api/auth/oidc/identities"): Permission.ACCOUNTS_MANAGE,
     ("DELETE", "/api/auth/oidc/identities/{identity_id}"): Permission.ACCOUNTS_MANAGE,

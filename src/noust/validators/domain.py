@@ -36,7 +36,7 @@ def is_valid_domain(domain: str) -> tuple[bool, str]:
         return False, "Domain name too long (max 253 characters)"
 
     # Check for valid characters
-    if not DOMAIN_PATTERN.match(domain):
+    if not DOMAIN_PATTERN.fullmatch(domain):
         return False, "Invalid domain name format"
 
     # Check each label (part between dots)
@@ -52,6 +52,74 @@ def is_valid_domain(domain: str) -> tuple[bool, str]:
         return False, "Domain cannot contain consecutive dots"
 
     return True, ""
+
+
+#: What a wildcard name starts with.
+WILDCARD_PREFIX = "*."
+
+
+def is_wildcard(name: str) -> bool:
+    """
+    Tell whether a name is a wildcard such as ``*.example.com``.
+
+    Args:
+        name: A name.
+
+    Returns:
+        True when it is ``*.`` followed by a valid domain.
+    """
+    candidate = name.lower().strip()
+    return candidate.startswith(WILDCARD_PREFIX) and is_valid_domain(candidate[2:])[0]
+
+
+def wildcard_base(name: str) -> str:
+    """
+    Args:
+        name: A wildcard name, ``*.example.com``.
+
+    Returns:
+        The name it is a wildcard of, ``example.com``.
+    """
+    return name.lower().strip().removeprefix(WILDCARD_PREFIX)
+
+
+def wildcard_covers(wildcard: str, name: str) -> bool:
+    """
+    Tell whether a wildcard certificate name covers a host.
+
+    A wildcard covers exactly one label: ``*.example.com`` covers
+    ``shop.example.com`` and not ``example.com`` or ``a.b.example.com``.
+
+    Args:
+        wildcard: ``*.example.com``.
+        name: The host.
+
+    Returns:
+        True when the host is one label below the wildcard's base.
+    """
+    if not is_wildcard(wildcard):
+        return False
+    host = name.lower().strip()
+    base = wildcard_base(wildcard)
+    if not host.endswith(f".{base}"):
+        return False
+    label = host[: -len(base) - 1]
+    return bool(label) and "." not in label and is_valid_domain(host)[0]
+
+
+def is_valid_server_name(name: str) -> tuple[bool, str]:
+    """
+    Check a name a site may answer on: a domain, or a wildcard of one.
+
+    Args:
+        name: The name.
+
+    Returns:
+        ``(valid, why not)``, like :func:`is_valid_domain`.
+    """
+    if is_wildcard(name):
+        return True, ""
+    return is_valid_domain(name)
 
 
 def check_domain(domain: str) -> bool:
@@ -81,7 +149,7 @@ def validate_domain(domain: str) -> str:
     Raises:
         DomainError: If domain is invalid.
     """
-    if not domain:
+    if not domain or not isinstance(domain, str):
         raise DomainError("Domain name is required")
 
     # Normalize
@@ -102,12 +170,41 @@ def validate_domain(domain: str) -> str:
     if ":" in domain:
         domain = domain.split(":")[0]
 
+    # What is left is what is checked and what is returned: is_valid_domain strips
+    # before it judges, so "example.com\n/x" was judged as "example.com" and
+    # returned as "example.com\n".
+    domain = domain.strip()
+
     # Validate format
     is_valid, error = is_valid_domain(domain)
     if not is_valid:
         raise DomainError(f"Invalid domain '{domain}': {error}")
 
     return domain
+
+
+def validate_server_name(name: str) -> str:
+    """
+    Validate a name a site may answer on - a domain, or a wildcard of one - and normalise it.
+
+    Args:
+        name: The name, ``shop.example.com`` or ``*.example.com``.
+
+    Returns:
+        The normalised name.
+
+    Raises:
+        DomainError: If it is neither a domain nor a wildcard of one.
+    """
+    candidate = (name or "").lower().strip()
+    if candidate.startswith(WILDCARD_PREFIX):
+        if not is_wildcard(candidate):
+            raise DomainError(
+                f"Invalid wildcard '{name}'",
+                details="A wildcard is *. followed by a domain, such as *.example.com.",
+            )
+        return candidate
+    return validate_domain(candidate)
 
 
 def get_domain_parts(domain: str) -> dict:

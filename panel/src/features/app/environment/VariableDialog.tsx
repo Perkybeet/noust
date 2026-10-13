@@ -1,29 +1,39 @@
 import { useId, useState } from "react";
 import type { SyntheticEvent } from "react";
 
+import { AUDIENCES } from "../../../api/queries/variables";
+import type { VariableAudience } from "../../../api/queries/variables";
 import { Button } from "../../../components/ui/Button";
 import { Dialog } from "../../../components/ui/Dialog";
 import { Field } from "../../../components/ui/Field";
 import { Input } from "../../../components/ui/Input";
+import { Mono } from "../../../components/ui/Mono";
+import { Select } from "../../../components/ui/Select";
 import { useT } from "../../../i18n";
+import { audienceHelp, audienceLabel } from "./audience";
 import { nameProblem, valueProblem } from "./dotenv";
 
-export type VariableTarget = { mode: "add" } | { mode: "edit"; name: string; value: string };
+export type VariableTarget = { mode: "add" } | { mode: "edit"; name: string; value: string; audience: VariableAudience };
 
 export interface VariableDialogProps {
   target: VariableTarget | null;
   /** Names the file has or the draft adds, for the duplicate check when adding. */
   existing: ReadonlySet<string>;
   onClose: () => void;
-  onSubmit: (name: string, value: string) => void;
+  onSubmit: (name: string, value: string, audience: VariableAudience) => void;
 }
 
 interface FormProps {
   formId: string;
   target: VariableTarget;
   existing: ReadonlySet<string>;
-  onSubmit: (name: string, value: string) => void;
+  onSubmit: (name: string, value: string, audience: VariableAudience) => void;
 }
+
+/** The references a value can hold, as the server reads them: a syntax, never translated. */
+const SCOPES_SYNTAX = "{{team.NAME}}, {{project.NAME}}, {{environment.NAME}}, {{server.NAME}}";
+const DEPLOYMENT_SYNTAX = "{{app.URL}}";
+const SECRET_SYNTAX = "{{secret:vault/path#key}}";
 
 /** Mounted fresh for every opening, so it starts from the target's values. */
 function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
@@ -31,6 +41,7 @@ function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
   const editing = target.mode === "edit";
   const [name, setName] = useState(editing ? target.name : "");
   const [value, setValue] = useState(editing ? target.value : "");
+  const [audience, setAudience] = useState<VariableAudience>(editing ? target.audience : "both");
   const [submitted, setSubmitted] = useState(false);
 
   const trimmedName = name.trim();
@@ -42,7 +53,7 @@ function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
     event.preventDefault();
     setSubmitted(true);
     if (nameProblem(trimmedName, t.locale) !== null || duplicate !== null || valueError !== null) return;
-    onSubmit(trimmedName, value);
+    onSubmit(trimmedName, value, audience);
   };
 
   return (
@@ -65,7 +76,20 @@ function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
           }}
         />
       </Field>
-      <Field label={t("environment.variableDialog.valueLabel")} error={valueError} description={t("environment.variableDialog.valueDescription")}>
+      <Field
+        label={t("environment.variableDialog.valueLabel")}
+        error={valueError}
+        description={
+          <>
+            {t("environment.variableDialog.valueDescription")}{" "}
+            {t.rich("variables.dialog.referenceHelp", {
+              scopes: <Mono>{SCOPES_SYNTAX}</Mono>,
+              deployment: <Mono>{DEPLOYMENT_SYNTAX}</Mono>,
+              secret: <Mono>{SECRET_SYNTAX}</Mono>,
+            })}
+          </>
+        }
+      >
         <Input
           mono
           autoComplete="off"
@@ -77,13 +101,23 @@ function VariableForm({ formId, target, existing, onSubmit }: FormProps) {
           }}
         />
       </Field>
+      <Field label={t("variables.audience.label")} description={`${t("variables.dialog.audienceDescription")} ${audienceHelp(audience, t.locale)}`} nativeLabel={false}>
+        <Select
+          aria-label={t("variables.audience.label")}
+          value={audience}
+          options={AUDIENCES.map((option) => ({ value: option, label: audienceLabel(option, t.locale) }))}
+          onValueChange={setAudience}
+        />
+      </Field>
     </form>
   );
 }
 
 /**
  * Adds a variable or changes one, as a change saved later with the others. Checked against
- * what the API accepts before it is staged, so a draft can always be saved.
+ * what the API accepts before it is staged, so a draft can always be saved. A value may refer
+ * to a shared variable, to the deployment or to a secret manager; the server resolves those at
+ * every deploy.
  */
 export function VariableDialog({ target, existing, onClose, onSubmit }: VariableDialogProps) {
   const t = useT();

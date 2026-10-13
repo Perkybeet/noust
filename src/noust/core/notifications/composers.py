@@ -622,70 +622,6 @@ def compose_drill_passed(domain: str, backup_id: str, ctx: NotificationContext) 
     )
 
 
-def compose_backup_missing(
-    kind: str,
-    subject: str,
-    last_success: datetime | None,
-    command: str,
-    ctx: NotificationContext,
-) -> Notification:
-    """
-    Compose the notification for a backup that should have been taken and was not.
-
-    Args:
-        kind: ``application``, ``database``, ``data`` or ``noust``.
-        subject: What it is about (a domain, ``postgresql/shop``).
-        last_success: When a backup last succeeded; None when none ever did.
-        command: What to run to take one now.
-        ctx: The context.
-
-    Returns:
-        The notification, a warning: the data may be fine, but nothing proves it
-        can be got back.
-    """
-    code = "backup.missing"
-    last = (
-        last_success.strftime("%Y-%m-%d %H:%M UTC")
-        if last_success is not None
-        else message("fact.never", ctx.locale)
-    )
-    return build(
-        ctx,
-        kind="backup_missing",
-        code=code,
-        state=State.WARNING,
-        subject=subject,
-        summary=message(f"summary.{code}", ctx.locale),
-        facts=[_fact("last_backup", last, ctx)],
-        command=_fact("run_now", command, ctx, mono=True),
-        path="/backups",
-        domain=subject if kind in ("application", "data") else None,
-    )
-
-
-def compose_backup_recovered(subject: str, ctx: NotificationContext) -> Notification:
-    """
-    Compose the notification that closes a missing-backup alert.
-
-    Args:
-        subject: What it was about.
-        ctx: The context.
-
-    Returns:
-        The notification, under the ``backup_missing`` switch.
-    """
-    code = "backup.recovered"
-    return build(
-        ctx,
-        kind="backup_missing",
-        code=code,
-        state=State.OK,
-        subject=subject,
-        summary=message(f"summary.{code}", ctx.locale),
-        path="/backups",
-    )
-
-
 def compose_destination_unreachable(
     name: str, error: str | None, ctx: NotificationContext
 ) -> Notification:
@@ -1214,14 +1150,18 @@ def compose_observations(
 # -- the settings page's test button ------------------------------------------
 
 
-def compose_test(channel: str, ctx: NotificationContext) -> Notification:
+def compose_test(
+    channel: str, ctx: NotificationContext, *, instance: str | None = None
+) -> Notification:
     """
     Compose the message the "send a test" button sends.
 
     Args:
-        channel: The channel's name (``telegram``); its display name comes
+        channel: The channel's type (``telegram``); its display name comes
             from the catalog, with its own capitals.
         ctx: The context.
+        instance: The channel instance's own name when it is not the type's
+            (``slack-staging``), so a test of one of two Slacks says which.
 
     Returns:
         The notification. Never filtered by an event switch.
@@ -1230,6 +1170,8 @@ def compose_test(channel: str, ctx: NotificationContext) -> Notification:
         name = message(f"channel.{channel}", ctx.locale)
     except KeyError:
         name = channel
+    if instance and instance != channel:
+        name = f"{name} ({instance})"
     return build(
         ctx,
         kind=TEST_KIND,

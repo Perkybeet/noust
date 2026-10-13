@@ -17,5 +17,6 @@ ROUTES: dict[tuple[str, str], str] = {
     ("POST", "/api/integrations/github/installations/sync"): Permission.APPS_MANAGE,
     ("GET", "/api/integrations/github/repositories"): Permission.APPS_READ,
     ("GET", "/api/integrations/github/repositories/{owner}/{repo}/branches"): Permission.APPS_READ,
+    ("PUT", "/api/integrations/github/host"): Permission.APPS_MANAGE,
     ("DELETE", "/api/integrations/github"): Permission.APPS_MANAGE,
 }

@@ -37,7 +37,8 @@ import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
-from noust.core.exceptions import NodeError, NodeRefusedError, ValidationError
+from noust.core import audit
+from noust.core.exceptions import NodeError, NodeRefusedError, NodeUnreachableError, ValidationError
 from noust.core.runner import CommandRunner
 from noust.core.secrets import SecretStore
 from noust.core.store import NodeRecord, NoustStore, get_store
@@ -47,9 +48,18 @@ from noust.fleet.joincode import JoinCode
 if TYPE_CHECKING:
     import httpx
 from noust.fleet.keys import KNOWN_HOSTS, TOKEN, NodeKeys, known_hosts_line, secret_name
-from noust.fleet.models import PublicKey, central_name, parse_ssh_target, validate_node_name
+from noust.fleet.link.central import DEFAULT_WAIT, LinkManager
+from noust.fleet.link.listener import LINK_USER
+from noust.fleet.liveness import Liveness
+from noust.fleet.models import (
+    PublicKey,
+    central_name,
+    parse_public_key,
+    parse_ssh_target,
+    validate_node_name,
+)
 from noust.fleet.policy import FleetAccess, node_registration_blockers
-from noust.fleet.tunnels import TunnelManager, get_tunnels
+from noust.fleet.tunnels import LOOPBACK, TunnelManager, get_tunnels
 
 #: What a node answers to prove the token works, and says its version with.
 VERSION_PATH = "/api/system/version"
@@ -91,6 +101,8 @@ class NodeManager:
         tunnels: The tunnel manager; the process-wide one by default.
         blockers: The registration policy; :func:`node_registration_blockers`.
         transport: An httpx transport for :class:`NodeClient` (tests).
+        links: The servers that dial in; one over the same store by default.
+        sleep: Pauses between looks while a server's link comes up.
     """
 
     def __init__(
@@ -102,7 +114,11 @@ class NodeManager:
         tunnels: TunnelManager | None = None,
         blockers: Callable[[], builtins.list[str]] = node_registration_blockers,
         transport: httpx.BaseTransport | None = None,
+        links: LinkManager | None = None,
+        sleep: Callable[[float], None] = time.sleep,
     ) -> None:
+        self._links = links
+        self._sleep = sleep
         self._store = store
         self._secrets = secrets or SecretStore()
         self._keys = NodeKeys(self._secrets, runner)
@@ -124,6 +140,11 @@ class NodeManager:
     def tunnels(self) -> TunnelManager:
         """The tunnel manager."""
         return self._tunnels or get_tunnels()
+
+    @property
+    def links(self) -> LinkManager:
+        """The servers that dial in to this central."""
+        return self._links or LinkManager(store=self._store)
 
     def client(
         self, name: str, *, timeout: float = 30.0, retry_refused: bool = False
@@ -178,6 +199,32 @@ class NodeManager:
             raise NodeError(
                 f"No node named {name} is registered on this central",
                 details="List them with 'noust node list'.",
+            )
+        return record
+
+    def _get_over_ssh(self, name: str) -> NodeRecord:
+        """
+        Read a node this central reaches over SSH.
+
+        Args:
+            name: The node's name.
+
+        Returns:
+            The node.
+
+        Raises:
+            NodeError: When no node has that name, or it dials in: it has no
+                SSH key of the central's to rotate and no account to move.
+        """
+        record = self.get(name)
+        if self.links.records.get(name) is not None:
+            raise NodeError(
+                f"{name} dials in to this central: it has no SSH key of this central's here",
+                details=(
+                    f"To change how it is linked, run 'noust fleet unlink --name "
+                    f"{central_name()}' on it, remove it here (noust node remove {name}) and "
+                    f"invite it again (noust node link invite {name})."
+                ),
             )
         return record
 
@@ -321,6 +368,128 @@ class NodeManager:
         self.refresh_access(name, actor=actor)
         return self.get(name)
 
+    def add_linked(
+        self,
+        name: str,
+        *,
+        link_code: str,
+        actor: str | None = None,
+        wait: float = DEFAULT_WAIT,
+    ) -> NodeRecord:
+        """
+        Register a server that dials in, from the link code it printed.
+
+        The server was invited first (:meth:`LinkManager.invite`). Its key is
+        installed so it may listen on its one port, its token is kept like any
+        node's, and nothing is kept unless the server connects and answers
+        with the token within ``wait`` seconds.
+
+        Args:
+            name: The server's name, as it was invited.
+            link_code: The line ``noust fleet link`` printed on the server.
+            actor: Who registers it, for the node's audit log; :func:`cli_actor` when None.
+            wait: How long the server may take to connect.
+
+        Returns:
+            The registered node, ``reachable``, with the version it reported.
+
+        Raises:
+            NodeError: When the central may not register nodes yet (the
+                policy's sentences are the details), the name is taken or was
+                never invited, or the code is not the invitation's. Nothing is
+                written in any of these cases.
+            NodeUnreachableError: When the server does not connect in time.
+                The key is taken out again and the invitation stays: the same
+                code can be pasted again.
+            NodeRefusedError: When the server refuses the token. Undone too.
+        """
+        name = validate_node_name(name)
+        if self.store.get_node(name) is not None:
+            raise NodeError(
+                f"A node named {name} is already registered",
+                details=f"Pick another name, or remove it first: noust node remove {name}",
+                field="name",
+            )
+        blockers = self._blockers()
+        if blockers:
+            raise NodeError("This central may not register nodes yet", details="\n".join(blockers))
+        links = self.links
+        code, invitation = links.check_code(name, link_code)
+        record = NodeRecord(
+            name=name,
+            ssh_host=LOOPBACK,
+            ssh_port=invitation.port,
+            ssh_user=LINK_USER,
+            host_key="",
+            console_port=code.console_port,
+            version=code.noust_version,
+        )
+        registered = False
+        try:
+            links.install_key(name, code, invitation)
+            self._secrets.write(secret_name(name, TOKEN), code.token)
+            self.store.save_node(record)
+            self._wait_for_link(name, wait)
+            info = self.client(name, retry_refused=True).get_json(
+                VERSION_PATH, actor=actor or cli_actor(), actor_scope="read"
+            )
+            version = info.get("current_version") if isinstance(info, dict) else None
+            self.store.set_node_status(
+                name, "reachable", version=version if isinstance(version, str) else None
+            )
+            registered = True
+        finally:
+            if not registered:
+                self._undo_add_linked(name)
+        audit.record(
+            "fleet.link.accept",
+            target=f"node:{name}",
+            details={"port": invitation.port, "key": parse_public_key(code.link_key).fingerprint},
+        )
+        self.refresh_access(name, actor=actor)
+        return self.get(name)
+
+    def _wait_for_link(self, name: str, wait: float) -> None:
+        """
+        Wait for a server's link to come up.
+
+        Args:
+            name: The server's name.
+            wait: Seconds to wait at most.
+
+        Raises:
+            NodeUnreachableError: When it is not connected by then.
+        """
+        deadline = time.monotonic() + max(wait, 0.0)
+        while True:
+            try:
+                self.tunnels.endpoint(name)
+                return
+            except NodeUnreachableError as exc:
+                if time.monotonic() >= deadline:
+                    raise NodeUnreachableError(
+                        f"{name} did not connect within {int(wait)}s",
+                        details=(
+                            f"{exc.details} The key is not kept: paste the same link code again "
+                            "once the server shows it is dialling."
+                        ).strip(),
+                    ) from exc
+                self._sleep(1.0)
+
+    def _undo_add_linked(self, name: str) -> None:
+        """
+        Remove what a failed :meth:`add_linked` wrote; the invitation stays answerable.
+
+        Args:
+            name: The server's name.
+        """
+        self.tunnels.close(name)
+        self.store.delete_node(name)
+        self._secrets.delete(secret_name(name, TOKEN))
+        links = self.links
+        links.uninstall_key(name)
+        links.records.deactivate(name)
+
     def _undo_add(self, name: str) -> None:
         """
         Remove what a failed :meth:`add` wrote; the key pair predates it and stays.
@@ -354,8 +523,12 @@ class NodeManager:
         """
         record = self.get(name)
         warnings: builtins.list[str] = []
+        linked = self.links.records.get(name) is not None
         deauthorize = (
-            f"On the node, 'noust fleet deauthorize --name {central_name()}' removes this "
+            f"On the node, 'noust fleet unlink --name {central_name()}' stops its link and "
+            "revokes any token left."
+            if linked
+            else f"On the node, 'noust fleet deauthorize --name {central_name()}' removes this "
             f"central's key from {record.ssh_user}'s authorized_keys and revokes any token left."
         )
         if revoke:
@@ -364,8 +537,10 @@ class NodeManager:
             warnings.append(f"The fleet token was left valid on {name}.")
         warnings.append(deauthorize)
         self.tunnels.close(name)
+        warnings += self.links.forget(name)
         self._keys.forget(name)
         self.store.delete_node(name)
+        Liveness(self.store).forget(name)
         return warnings
 
     def _revoke(self, name: str, actor: str) -> builtins.list[str]:
@@ -522,7 +697,7 @@ class NodeManager:
         Raises:
             NodeError: When the node is not registered, or ssh-keygen fails.
         """
-        self.get(name)
+        self._get_over_ssh(name)
         return _authorize_line(self._keys.ensure_pending_keypair(name, central_name()).line())
 
     def rekey(self, name: str, *, join_code: str, actor: str | None = None) -> NodeRecord:
@@ -546,7 +721,7 @@ class NodeManager:
             NodeError: When no rotation is under way, the code is for another
                 key or another server, or the node does not answer.
         """
-        record = self.get(name)
+        record = self._get_over_ssh(name)
         code = JoinCode.decode(join_code)
         pending = self._keys.pending_public_key(name)
         current = self._keys.public_key(name)
@@ -592,7 +767,7 @@ class NodeManager:
         Raises:
             NodeError: When the node is not registered or has no key here.
         """
-        self.get(name)
+        self._get_over_ssh(name)
         current = self._keys.public_key(name)
         if current is None:
             raise NodeError(
@@ -617,7 +792,7 @@ class NodeManager:
             NodeError: When the code is for root, another key or another
                 server, or the node does not answer (the central is put back).
         """
-        record = self.get(name)
+        record = self._get_over_ssh(name)
         code = JoinCode.decode(join_code)
         current = self._keys.public_key(name)
         if current is None or code.central_key_fp != current.fingerprint:

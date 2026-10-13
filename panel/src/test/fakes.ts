@@ -172,6 +172,7 @@ export const CRON_JOBS: CronJobList["jobs"] = [
     user: "wasm",
     working_directory: "/var/www/shop",
     app_domain: "shop.example.com",
+    service: "",
     schedule: "daily",
     on_calendar: "*-*-* 02:00:00",
     enabled: true,

@@ -67,11 +67,14 @@ def test_every_platform_and_file_is_listed() -> None:
         assert name in PLATFORM_FILES
 
 
-def test_coolify_is_refused_with_the_reason(tmp_path: Path) -> None:
-    with pytest.raises(ValidationError) as caught:
-        read_platform("coolify", tmp_path)
-    assert "Coolify" in caught.value.message
-    assert "database" in caught.value.details
+def test_coolify_and_dokploy_are_read_through_their_api_not_a_repository(
+    tmp_path: Path,
+) -> None:
+    for platform in ("coolify", "dokploy"):
+        with pytest.raises(ValidationError) as caught:
+            read_platform(platform, tmp_path)
+        assert platform.capitalize() in caught.value.message
+        assert "--url" in caught.value.details
 
 
 def test_an_unknown_platform_names_the_known_ones(tmp_path: Path) -> None:

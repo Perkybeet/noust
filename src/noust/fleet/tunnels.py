@@ -54,6 +54,13 @@ from noust.core.exceptions import NodeError, NodeRefusedError, NodeUnreachableEr
 from noust.core.runner import CommandRunner, ProcessHandle, get_runner
 from noust.core.store import NodeRecord, NoustStore, get_store
 from noust.fleet.keys import NODES_NAMESPACE, PRIVATE_KEY, NodeKeys, host_key_alias
+from noust.fleet.link.listener import (
+    PROC_NET,
+    link_account_uids,
+    listener_uids,
+    require_trusted_listener,
+)
+from noust.fleet.link.records import ACTIVE, LinkRecord, LinkRecords
 from noust.fleet.models import parse_public_key, validate_node_name
 
 logger = logging.getLogger(__name__)
@@ -243,28 +250,98 @@ def ssh_argv(
     Returns:
         The argv.
     """
+    return ssh_forward_argv(
+        direction="-L",
+        spec=f"{LOOPBACK}:{local_port}:{LOOPBACK}:{record.console_port}",
+        identity=identity,
+        port=record.ssh_port,
+        user=record.ssh_user,
+        host=record.ssh_host,
+        options=ssh_options(
+            known_hosts, host_key_alias=host_key_alias(record.name), algorithms=algorithms
+        ),
+    )
+
+
+def ssh_options(
+    known_hosts: Path,
+    *,
+    host_key_alias: str | None = None,
+    algorithms: dict[str, str] | None = None,
+) -> dict[str, str]:
+    """
+    List the ``-o`` options every Noust ssh connection carries.
+
+    The central's tunnels to its nodes and the link a server keeps to its
+    central (:mod:`noust.fleet.link.node`) are the same kind of connection and
+    are hardened the same way: nothing but what is said here decides how ssh
+    behaves.
+
+    Args:
+        known_hosts: The pinned ``known_hosts`` file.
+        host_key_alias: The name the host key is pinned under, when it is not
+            the host's own.
+        algorithms: :func:`ssh_algorithms`' choice; every pinned one when None.
+
+    Returns:
+        The options, in the order they are passed.
+    """
     options = {
         "BatchMode": "yes",
         "StrictHostKeyChecking": "yes",
         "UserKnownHostsFile": str(known_hosts),
         "GlobalKnownHostsFile": "/dev/null",
-        "HostKeyAlias": host_key_alias(record.name),
-        "CheckHostIP": "no",
-        "UpdateHostKeys": "no",
-        "IdentitiesOnly": "yes",
-        "IdentityAgent": "none",
-        "PasswordAuthentication": "no",
-        "KbdInteractiveAuthentication": "no",
-        "ExitOnForwardFailure": "yes",
-        "ServerAliveInterval": str(SERVER_ALIVE_INTERVAL),
-        "ServerAliveCountMax": str(SERVER_ALIVE_COUNT),
-        "ConnectTimeout": str(CONNECT_TIMEOUT),
-        "ForwardAgent": "no",
-        "ForwardX11": "no",
-        "PermitLocalCommand": "no",
-        "LogLevel": "ERROR",
-        **(algorithms if algorithms is not None else _default_algorithms()),
     }
+    if host_key_alias is not None:
+        options["HostKeyAlias"] = host_key_alias
+    options.update(
+        {
+            "CheckHostIP": "no",
+            "UpdateHostKeys": "no",
+            "IdentitiesOnly": "yes",
+            "IdentityAgent": "none",
+            "PasswordAuthentication": "no",
+            "KbdInteractiveAuthentication": "no",
+            "ExitOnForwardFailure": "yes",
+            "ServerAliveInterval": str(SERVER_ALIVE_INTERVAL),
+            "ServerAliveCountMax": str(SERVER_ALIVE_COUNT),
+            "ConnectTimeout": str(CONNECT_TIMEOUT),
+            "ForwardAgent": "no",
+            "ForwardX11": "no",
+            "PermitLocalCommand": "no",
+            "LogLevel": "ERROR",
+            **(algorithms if algorithms is not None else _default_algorithms()),
+        }
+    )
+    return options
+
+
+def ssh_forward_argv(
+    *,
+    direction: str,
+    spec: str,
+    identity: Path,
+    port: int,
+    user: str,
+    host: str,
+    options: dict[str, str],
+) -> list[str]:
+    """
+    Build the command line of an ssh that only forwards one port.
+
+    Args:
+        direction: ``-L`` (a node's console, from the central) or ``-R`` (a
+            central's loopback, from a server that dials in).
+        spec: The forward, ``<listen host>:<port>:<host>:<port>``.
+        identity: The private key file.
+        port: The SSH port.
+        user: The account to log in as.
+        host: The host.
+        options: :func:`ssh_options`' output.
+
+    Returns:
+        The argv: no shell, no config file (``-F /dev/null``), no terminal.
+    """
     argv = [
         "ssh",
         "-N",
@@ -274,15 +351,15 @@ def ssh_argv(
         "-i",
         str(identity),
         "-p",
-        str(record.ssh_port),
+        str(port),
         "-l",
-        record.ssh_user,
-        "-L",
-        f"{LOOPBACK}:{local_port}:{LOOPBACK}:{record.console_port}",
+        user,
+        direction,
+        spec,
     ]
     for name, value in options.items():
         argv += ["-o", f"{name}={value}"]
-    return [*argv, "--", record.ssh_host]
+    return [*argv, "--", host]
 
 
 def explain_ssh_failure(stderr: str, record: NodeRecord, exit_code: int | None) -> str:
@@ -448,6 +525,9 @@ class TunnelManager:
         sleep: Pause between readiness probes.
         probe: Whether a local port accepts connections.
         free_port: Picks the local port of a new tunnel.
+        link_owners: The accounts whose listener on a link's port is a link's
+            (:func:`~noust.fleet.link.listener.link_account_uids`).
+        proc_net: The kernel's socket tables, where a link's listener is looked up.
     """
 
     def __init__(
@@ -462,6 +542,8 @@ class TunnelManager:
         sleep: Callable[[float], None] = time.sleep,
         probe: Callable[[int], bool] = port_accepts,
         free_port: Callable[[], int] = pick_free_port,
+        link_owners: Callable[[], frozenset[int]] = link_account_uids,
+        proc_net: Path = PROC_NET,
     ) -> None:
         self._runner = runner
         self._store = store
@@ -472,6 +554,8 @@ class TunnelManager:
         self._sleep = sleep
         self._probe = probe
         self._free_port = free_port
+        self._link_owners = link_owners
+        self._proc_net = proc_net
         self._lock = threading.Lock()
         self._tunnels: dict[str, _Tunnel] = {}
         self._reaper: threading.Thread | None = None
@@ -538,6 +622,9 @@ class TunnelManager:
         override = _LOOPBACK_OVERRIDE.get(node)
         if override is not None:
             return LOOPBACK, override
+        link = self._link_of(node)
+        if link is not None:
+            return self._link_endpoint(node, link)
         tunnel = self._entry(node)
         with tunnel.lock:
             if tunnel.handle is not None and tunnel.handle.is_alive():
@@ -559,6 +646,55 @@ class TunnelManager:
                     details=tunnel.last_error or "",
                 )
             return self._open(node, tunnel)
+
+    def _link_of(self, node: str) -> LinkRecord | None:
+        """
+        Find the link of a server that dials in to this central.
+
+        Args:
+            node: The node's name.
+
+        Returns:
+            Its accepted link, or None for a node this central reaches over SSH.
+        """
+        link = LinkRecords(self.store).get(node)
+        return link if link is not None and link.state == ACTIVE else None
+
+    def _link_endpoint(self, node: str, link: LinkRecord) -> tuple[str, int]:
+        """
+        Return where a server that dials in answers, after checking who is listening.
+
+        There is no ssh to start: the server keeps its own forward open, and
+        what it leaves is a listener on a loopback port of this machine. The
+        fleet token is sent to whatever answers there, so the listener must be
+        the link account's (:func:`~noust.fleet.link.listener.require_trusted_listener`).
+
+        Args:
+            node: The node's name.
+            link: Its link.
+
+        Returns:
+            ``("127.0.0.1", port)``.
+
+        Raises:
+            NodeUnreachableError: When the server is not connected, or something
+                else holds its port.
+        """
+        tunnel = self._entry(node)
+        with tunnel.lock:
+            try:
+                require_trusted_listener(
+                    node, link.port, self._link_owners(), proc_net=self._proc_net
+                )
+            except NodeUnreachableError as exc:
+                tunnel.last_error = exc.details or exc.message
+                tunnel.failures += 1
+                raise
+            tunnel.local_port = link.port
+            tunnel.last_used = self._clock()
+            tunnel.failures = 0
+            tunnel.last_error = None
+            return LOOPBACK, link.port
 
     def _require_unlocked(self) -> None:
         """
@@ -866,6 +1002,20 @@ class TunnelManager:
             ``open``, ``local_port``, ``since`` (ISO 8601 UTC), ``last_error``
             (ssh's stderr, verbatim) and ``failures``.
         """
+        link = self._link_of(node)
+        if link is not None:
+            owners = listener_uids(link.port, self._proc_net)
+            connected = bool(owners) and owners <= self._link_owners()
+            with self._lock:
+                entry = self._tunnels.get(node)
+            return {
+                "open": connected,
+                "local_port": link.port if connected else None,
+                "since": None,
+                "last_error": entry.last_error if entry is not None else None,
+                "failures": entry.failures if entry is not None else 0,
+                "transport": "link",
+            }
         with self._lock:
             tunnel = self._tunnels.get(node)
         if tunnel is None:

@@ -186,7 +186,7 @@ def trusted_keys() -> dict[str, bytes]:
         return keys
     for line in text.splitlines():
         words = line.split("#", 1)[0].split()
-        if len(words) == 2 and _HEX_KEY.match(words[1]) and NAME_PATTERN.match(words[0]):
+        if len(words) == 2 and _HEX_KEY.fullmatch(words[1]) and NAME_PATTERN.match(words[0]):
             keys[words[0]] = bytes.fromhex(words[1])
     return keys
 
@@ -202,7 +202,7 @@ def trust_key(name: str, public_key_hex: str) -> None:
     Raises:
         RecipeError: The name or the key is not valid.
     """
-    if not NAME_PATTERN.match(name) or not _HEX_KEY.match(public_key_hex):
+    if not NAME_PATTERN.match(name) or not _HEX_KEY.fullmatch(public_key_hex):
         raise RecipeError(
             "A trusted key is a name and a 64-digit hexadecimal Ed25519 public key",
             details="The name is lower case letters, digits and dashes.",

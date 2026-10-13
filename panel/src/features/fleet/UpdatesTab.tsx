@@ -1,4 +1,4 @@
-import { Play } from "lucide-react";
+import { Play, RotateCw } from "lucide-react";
 
 import { CommandHint } from "../../components/page/CommandHint";
 import { FilterBar } from "../../components/page/FilterBar";
@@ -8,6 +8,9 @@ import { DataTable } from "../../components/ui/DataTable";
 import type { Column } from "../../components/ui/DataTable";
 import { EmptyCell } from "../../components/ui/EmptyCell";
 import { EmptyState } from "../../components/ui/EmptyState";
+import { IconButton } from "../../components/ui/IconButton";
+import { ICONS } from "../../components/ui/icons";
+import { Menu, MenuItem } from "../../components/ui/Menu";
 import { Mono } from "../../components/ui/Mono";
 import { Notice } from "../../components/ui/Notice";
 import { StatusGlyph, StatusPill, stateTextClass } from "../../components/ui/StatusPill";
@@ -17,6 +20,7 @@ import type { PlainKey, T } from "../../i18n";
 import { cx } from "../../lib/cx";
 import { useFleetActions } from "./BulkActionDialog";
 import { noustOf, noustUpdatable, originOf, osUpdatesOf } from "./data";
+import { fleetTarget } from "./target";
 import type { FleetRow, NodeOutcome, NoustUpdateState } from "./data";
 import { isFiltered, matchesQuery, patchSearch } from "./filters";
 import type { FleetSearch, FleetSearchPatch } from "./filters";
@@ -37,6 +41,25 @@ function needs(row: FleetRow, what: (typeof UPDATE_STATES)[number]): boolean {
   const os = osUpdatesOf(row);
   if (what === "os") return (os?.pending ?? 0) > 0;
   return os?.reboot === true;
+}
+
+/** A server's own menu: renewing its package lists, which is what a release that is behind waits for. */
+function RowActions({ t, row, onRefresh }: { t: T; row: FleetRow; onRefresh: (node: string) => void }) {
+  const origin = originOf(row);
+  if (origin.local) return null;
+  const behind = noustOf(row).state === "index_behind";
+  return (
+    <Menu align="end" trigger={<IconButton label={t("fleet.updates.actionsFor", { name: origin.node })} icon={<ICONS.more />} size="sm" tooltip={false} />}>
+      <MenuItem
+        icon={<RotateCw />}
+        onClick={() => {
+          onRefresh(origin.node);
+        }}
+      >
+        {behind ? t("fleet.updates.refreshBehind") : t("fleet.updates.refreshLists")}
+      </MenuItem>
+    </Menu>
+  );
 }
 
 function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>): Column<FleetRow>[] {
@@ -60,7 +83,7 @@ function columns(t: T, outcomes: ReadonlyMap<string, NodeOutcome>): Column<Fleet
             <StatusPill state={view.state} label={t(view.label)} appearance="inline" size="sm" />
             {noust.current !== null ? (
               <Mono tone="muted" className="text-12">
-                {noustUpdatable(noust.state) && noust.latest !== null
+                {noust.state !== "up_to_date" && noust.state !== "unknown" && noust.latest !== null && noust.latest !== noust.current
                   ? t("fleet.updates.noust.fromTo", { current: noust.current, latest: noust.latest })
                   : noust.current}
               </Mono>
@@ -142,6 +165,7 @@ export function UpdatesTab({ search, onSearchChange }: UpdatesTabProps) {
     if (search.state !== undefined && !UPDATE_STATES.some((what) => what === search.state && needs(row, what))) return false;
     return matchesQuery([originOf(row).node, noustOf(row).current], search.q);
   });
+  const target = fleetTarget(rows);
   const central = rows.find((row) => originOf(row).local);
   const centralNoust = central === undefined ? null : noustOf(central);
   const nodesFor = (what: (typeof UPDATE_STATES)[number]): string[] => rows.filter((row) => !originOf(row).local && needs(row, what)).map((row) => originOf(row).node);
@@ -164,6 +188,14 @@ export function UpdatesTab({ search, onSearchChange }: UpdatesTabProps) {
             <CommandHint label={t("fleet.updates.central.command")} command={centralNoust.command} />
           </div>
         </Notice>
+      ) : null}
+      {target !== null ? (
+        <div role="group" aria-label={t("fleet.updates.target.label")} className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-13 text-fg-muted">
+          <Mono className="font-medium text-fg">{t("fleet.updates.target.version", { version: target.version })}</Mono>
+          <span>{t("fleet.updates.target.onIt", { count: target.onTarget, total: target.total })}</span>
+          {target.updatable > 0 ? <span>{t("fleet.updates.target.updatable", { count: target.updatable })}</span> : null}
+          {target.onTheWay > 0 ? <span>{t("fleet.updates.target.onTheWay", { count: target.onTheWay })}</span> : null}
+        </div>
       ) : null}
       <FilterBar
         label={t("fleet.updates.filterLabel")}
@@ -213,6 +245,15 @@ export function UpdatesTab({ search, onSearchChange }: UpdatesTabProps) {
         loading={view.isPending}
         skeletonRows={3}
         mobile="cards"
+        rowActions={(row) => (
+          <RowActions
+            t={t}
+            row={row}
+            onRefresh={(node) => {
+              actions.open({ action: "index_refresh", nodes: [node] });
+            }}
+          />
+        )}
         pagination="fleet-updates"
         empty={
           <EmptyState

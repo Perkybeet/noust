@@ -126,7 +126,7 @@ def parse_size(text: str) -> int:
     Raises:
         click.BadParameter: It is not a size.
     """
-    match = _SIZE.match(text.strip())
+    match = _SIZE.fullmatch(text.strip())
     if not match:
         raise click.BadParameter(f"{text!r} is not a size: use 2G or 512M")
     unit = match.group(2).upper() or "M"
@@ -155,13 +155,13 @@ def parse_delay(delay: str | None, at: str | None, now: bool) -> int:
     if now:
         return 0
     if delay is not None:
-        match = _MINUTES.match(delay.strip())
+        match = _MINUTES.fullmatch(delay.strip())
         if not match:
             raise click.UsageError(f"--in {delay!r} is not a delay: use 5, 5m or 2h")
         amount = int(match.group(1)) * (60 if (match.group(2) or "m").lower() == "h" else 1)
         return resolve_delay(in_minutes=amount)
     if at is not None:
-        clock = _CLOCK.match(at.strip())
+        clock = _CLOCK.fullmatch(at.strip())
         moment: datetime
         if clock:
             current = datetime.now().astimezone()
@@ -953,7 +953,7 @@ def cleanup_command(
     that removes every unused image, which would take the way back of each
     Compose application.
     """
-    params = {
+    params: dict[str, Any] = {
         key: value
         for key, value in (("size_mb", size_mb), ("days", days), ("target", target))
         if value is not None
@@ -981,6 +981,185 @@ def cleanup_command(
         return
     freed = f", {format_bytes(result.freed_bytes)} freed" if result.freed_bytes else ""
     logger.success(f"{action} done{freed}")
+
+
+@cli.group("cleanup-schedule", cls=NoustGroup, invoke_without_command=True)
+@click.pass_context
+def cleanup_schedule_group(click_ctx: click.Context) -> None:
+    """Clean the disk by itself: when, how full it must be, what is run, and what ran."""
+    if click_ctx.invoked_subcommand is None:
+        click_ctx.invoke(cleanup_schedule_show)
+
+
+@cleanup_schedule_group.command("show", read_only=True)
+@json_option("Print the policy as JSON.")
+@pass_context
+def cleanup_schedule_show(ctx: Context) -> None:
+    """Show the cleanup policy and its timer."""
+    from noust.managers.server.storage_policy import DOCKER_ACTIONS, SCHEDULABLE
+
+    schedule = build_context().storage_schedule
+    policy = schedule.policy()
+    timer = schedule.timer_state()
+    if ctx.json_output:
+        _json(
+            {
+                "policy": policy.to_dict(),
+                "timer": timer,
+                "schedulable": list(SCHEDULABLE),
+                "docker_actions": sorted(DOCKER_ACTIONS),
+            }
+        )
+        return
+    logger = ctx.logger
+    if not policy.enabled:
+        logger.info("The server does not clean its disk by itself. Switch it on with:")
+        logger.list_item("noust server cleanup-schedule set --enable")
+    else:
+        logger.info(
+            f"Cleaning {', '.join(policy.actions)} {policy.schedule}, "
+            + (
+                f"when the fullest disk is {policy.threshold_percent}% full"
+                if policy.threshold_percent
+                else "every time"
+            )
+        )
+        if timer.get("next_run"):
+            logger.info(f"Next run: {timer['next_run']}")
+
+
+@cleanup_schedule_group.command("set")
+@click.option("--enable/--disable", "enabled", default=None, help="Switch the timer on or off.")
+@click.option(
+    "--schedule", default=None, help="daily, weekly, monthly, hourly or a systemd calendar."
+)
+@click.option(
+    "--threshold",
+    type=click.IntRange(0, 99),
+    default=None,
+    help="Run only when the fullest disk is this percent full (0: always).",
+)
+@click.option(
+    "--action",
+    "actions",
+    multiple=True,
+    type=click.Choice(
+        [action for action in CLEANUP_ACTIONS if action != "docker-image"],
+    ),
+    help="What to run, in order (repeat). Default: journal, pkg-cache, releases.",
+)
+@click.option(
+    "--journal-mb",
+    type=click.IntRange(16, 65536),
+    default=None,
+    help="Vacuum the journal to this size.",
+)
+@click.option(
+    "--allow-docker/--no-docker",
+    default=None,
+    help="Accept that the Docker actions delete build cache and images with no name.",
+)
+@json_option("Print the policy as JSON.")
+@pass_context
+def cleanup_schedule_set(
+    ctx: Context,
+    enabled: bool | None,
+    schedule: str | None,
+    threshold: int | None,
+    actions: tuple[str, ...],
+    journal_mb: int | None,
+    allow_docker: bool | None,
+) -> None:
+    """Change the cleanup policy; what is not given stays as it was."""
+    from noust.managers.server.storage_policy import CleanupPolicy
+
+    manager = build_context().storage_schedule
+    current = manager.policy().to_dict()
+    changes: dict[str, Any] = {
+        "enabled": enabled,
+        "schedule": schedule,
+        "threshold_percent": threshold,
+        "actions": list(actions) or None,
+        "journal_mb": journal_mb,
+        "allow_docker": allow_docker,
+    }
+    current.update({key: value for key, value in changes.items() if value is not None})
+    policy = CleanupPolicy.from_dict(current)
+    _require_root(ctx, "server cleanup-schedule set")
+    manager.set_policy(policy, actor=_actor())
+    if ctx.json_output:
+        _json(policy.to_dict())
+        return
+    ctx.logger.success(
+        "The disk is cleaned by itself " + policy.schedule
+        if policy.enabled
+        else "The disk is not cleaned by itself"
+    )
+
+
+@cleanup_schedule_group.command("run")
+@click.option(
+    "--scheduled",
+    is_flag=True,
+    help="Run as the timer does: only when the disk is as full as the policy asks.",
+)
+@json_option("Print the run as JSON.")
+@pass_context
+def cleanup_schedule_run(ctx: Context, scheduled: bool) -> None:
+    """Run the cleanup policy now (the timer's own command is --scheduled)."""
+    _require_root(ctx, "server cleanup-schedule run")
+    run = build_context().storage_schedule.run(
+        trigger="schedule" if scheduled else "policy",
+        force=not scheduled,
+        actor=None if scheduled else _actor(),
+        on_line=None if ctx.json_output else ctx.logger.info,
+    )
+    if ctx.json_output:
+        _json(run.to_dict())
+        return
+    if run.status == "skipped":
+        ctx.logger.info(f"Nothing to do: {run.reason}")
+        return
+    freed = f", {format_bytes(run.freed_bytes)} freed" if run.freed_bytes else ""
+    (ctx.logger.success if run.status == "ok" else ctx.logger.warning)(
+        f"Cleanup {run.status}{freed}"
+    )
+    for action in run.actions:
+        if action.status != "ok":
+            ctx.logger.warning(f"{action.action}: {action.error}")
+
+
+@cleanup_schedule_group.command("history", read_only=True)
+@click.option("--limit", type=click.IntRange(1, 200), default=20, help="How many runs.")
+@json_option("Print the runs as JSON.")
+@pass_context
+def cleanup_schedule_history(ctx: Context, limit: int) -> None:
+    """List the cleanups that ran, the newest first: scheduled ones and by hand."""
+    runs = build_context().storage_schedule.history.list(limit)
+    if ctx.json_output:
+        _json([run.to_dict() for run in runs])
+        return
+    if not runs:
+        ctx.logger.info("No cleanup has run yet.")
+        return
+    ctx.logger.table(
+        ["When", "Trigger", "Status", "Disk", "Freed", "What"],
+        [
+            [
+                run.started_at[:19].replace("T", " "),
+                run.trigger,
+                run.status,
+                (
+                    f"{run.percent_before:g}% -> {run.percent_after:g}%"
+                    if run.percent_before is not None and run.percent_after is not None
+                    else (f"{run.percent_before:g}%" if run.percent_before is not None else "-")
+                ),
+                format_bytes(run.freed_bytes) if run.freed_bytes else "-",
+                ", ".join(a.action for a in run.actions) or (run.reason or "-"),
+            ]
+            for run in runs
+        ],
+    )
 
 
 # -- swap --------------------------------------------------------------------------

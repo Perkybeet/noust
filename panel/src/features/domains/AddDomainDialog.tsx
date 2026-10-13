@@ -7,6 +7,8 @@ import { isApiError, request } from "../../api/client";
 import { dnsCheckQuery } from "../../api/queries/domains";
 import type { AppDomainChange } from "../../api/queries/domains";
 import { ErrorBlock } from "../../components/page/QueryState";
+import { Checkbox } from "../../components/ui/Checkbox";
+import { Notice } from "../../components/ui/Notice";
 import { Button } from "../../components/ui/Button";
 import { ChoiceCards } from "../../components/ui/ChoiceCards";
 import { Dialog } from "../../components/ui/Dialog";
@@ -16,8 +18,8 @@ import { Skeleton } from "../../components/ui/Skeleton";
 import { useT } from "../../i18n";
 import type { T } from "../../i18n";
 import { DnsVerdict } from "./DnsVerdict";
-import { dnsVerdict } from "./dns";
-import { domainProblem, normalizeDomain } from "./names";
+import { dnsVerdict, reachesServer } from "./dns";
+import { domainProblem, isWildcard, normalizeDomain } from "./names";
 
 type AddableKind = "alias" | "redirect";
 
@@ -75,20 +77,35 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
   const [kind, setKind] = useState<AddableKind>("alias");
   const [checked, setChecked] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [port, setPort] = useState("");
+  const [pointDns, setPointDns] = useState(true);
 
   const dns = useQuery({ ...dnsCheckQuery(app, checked ?? ""), enabled: open && checked !== null });
   const add = useMutation({
-    mutationFn: (domain: string) =>
-      request("post", "/api/apps/{domain}/domains", { params: { domain: app }, body: { domain, kind } }),
-    onSuccess: (change, domain) => {
+    mutationFn: ({ domain, force }: { domain: string; force: boolean }) =>
+      request("post", "/api/apps/{domain}/domains", {
+        params: { domain: app },
+        body: {
+          domain,
+          kind,
+          force,
+          dns: pointDns,
+          ...(kind === "alias" && port.trim() !== "" ? { port: Number(port) } : {}),
+        },
+      }),
+    onSuccess: (change, { domain }) => {
       onAdded(change, domain);
       close(false, true);
     },
   });
 
   const normalized = normalizeDomain(name);
-  const isChecked = checked !== null && checked === normalized;
+  const wildcard = isWildcard(normalized);
+  // A wildcard has no address to ask DNS about: its certificate is proven with a DNS record.
+  const isChecked = wildcard || (checked !== null && checked === normalized);
   const verdict = isChecked && dns.data ? dnsVerdict(dns.data) : null;
+  // Another site of the web server answers on the name: the operator decides, with its words in front.
+  const overlap = add.error && isApiError(add.error) && add.error.error === "domain_overlap" ? add.error : null;
 
   // `settled` closes it from the mutation's own success callback, which runs while the
   // mutation still reads as pending.
@@ -100,13 +117,15 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
       setKind("alias");
       setChecked(null);
       setProblem(null);
+      setPort("");
+      setPointDns(true);
       add.reset();
     }
   }
 
   const submit = (event: SyntheticEvent<HTMLFormElement>): void => {
     event.preventDefault();
-    const invalid = domainProblem(name, t.locale);
+    const invalid = domainProblem(name, t.locale, { wildcard: true });
     if (invalid !== null) {
       setProblem(invalid);
       return;
@@ -115,17 +134,27 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
       setProblem(t("domains.addDomainDialog.alreadyPrimaryError", { app }));
       return;
     }
+    if (port.trim() !== "" && (!/^\d+$/.test(port.trim()) || Number(port) < 1 || Number(port) > 65535)) {
+      setProblem(t("network.port.invalid"));
+      return;
+    }
     setProblem(null);
     if (!isChecked) {
       setChecked(normalized);
       return;
     }
-    if (dns.isPending) return;
-    add.mutate(normalized);
+    if (!wildcard && dns.isPending) return;
+    add.mutate({ domain: normalized, force: overlap !== null });
   };
 
   const fieldError = problem ?? (add.error && isApiError(add.error) ? (add.error.fields?.["domain"] ?? null) : null);
-  const primaryLabel = !isChecked ? t("domains.checkDns") : verdict === null || verdict === "here" ? t("domains.addDomain") : t("domains.addDomainDialog.addAnyway");
+  const primaryLabel = overlap !== null
+    ? t("network.addDomain.addAnyway")
+    : !isChecked
+      ? t("domains.checkDns")
+      : verdict === null || reachesServer(verdict) || verdict === "unknown"
+        ? t("domains.addDomain")
+        : t("domains.addDomainDialog.addAnyway");
   const formId = useId();
 
   return (
@@ -143,7 +172,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
             type="submit"
             form={formId}
             variant="primary"
-            loading={add.isPending || (isChecked && dns.isFetching && dns.data === undefined)}
+            loading={add.isPending || (isChecked && !wildcard && dns.isFetching && dns.data === undefined)}
           >
             {primaryLabel}
           </Button>
@@ -167,8 +196,15 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
           />
         </Field>
         <KindChoice app={app} value={kind} onChange={setKind} />
+        {kind === "alias" ? (
+          <Field label={t("network.addDomain.portLabel")} description={t("network.addDomain.portHelp", { app })} optional>
+            <Input mono inputMode="numeric" value={port} onValueChange={setPort} autoComplete="off" />
+          </Field>
+        ) : null}
+        <Checkbox label={t("network.addDomain.dnsLabel")} description={t("network.addDomain.dnsHelp")} checked={pointDns} onCheckedChange={setPointDns} />
+        {wildcard ? <Notice title={t("network.addDomain.wildcardTitle")}>{t("network.addDomain.wildcardNote")}</Notice> : null}
 
-        {isChecked ? (
+        {isChecked && !wildcard ? (
           <div className="flex flex-col gap-2" aria-live="polite">
             {dns.data ? (
               <DnsVerdict check={dns.data} />
@@ -180,7 +216,7 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
             {dns.data || dns.isError ? (
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-12 text-pretty text-fg-muted">
-                  {verdict === "here" ? t("domains.addDomainDialog.addingExtendsCertHint") : t("domains.addDomainDialog.addedNowHint")}
+                  {verdict !== null && reachesServer(verdict) ? t("domains.addDomainDialog.addingExtendsCertHint") : t("domains.addDomainDialog.addedNowHint")}
                 </p>
                 <Button
                   size="sm"
@@ -196,7 +232,13 @@ export function AddDomainDialog({ app, open, onOpenChange, onAdded }: AddDomainD
           </div>
         ) : null}
 
-        {add.isError && fieldError === null ? (
+        {overlap !== null ? (
+          <Notice tone="warning" live title={t("network.addDomain.overlapTitle", { name: normalized })}>
+            <span className="block">{overlap.detail}</span>
+            {overlap.hint ? <span className="mt-1 block text-fg-muted">{overlap.hint}</span> : null}
+          </Notice>
+        ) : null}
+        {add.isError && fieldError === null && overlap === null ? (
           <ErrorBlock live compact error={add.error} title={t("domains.addDomainDialog.notAddedError", { name: normalized })} />
         ) : null}
       </form>

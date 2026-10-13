@@ -95,6 +95,8 @@ export interface CoverageSearch {
   show?: CoverageFilter;
   /** The application whose backups are open in the drawer. */
   domain?: string;
+  /** Arriving with `?new` (the palette's "New backup"): the dialog opens, and the link is spent. */
+  new?: true;
 }
 
 function text(value: unknown): string | undefined {
@@ -115,6 +117,7 @@ export function validateCoverageSearch(search: Record<string, unknown>): Coverag
     ...(q !== undefined ? { q } : {}),
     ...(search["show"] === "attention" ? { show: "attention" as const } : {}),
     ...(domain !== undefined ? { domain } : {}),
+    ...(search["new"] === true || search["new"] === "true" || search["new"] === 1 ? { new: true as const } : {}),
   };
 }
 

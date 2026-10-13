@@ -198,6 +198,7 @@ function Steps({
           copy: false as const,
         },
     { label: t("appSettings.webhook.contentTypeLabel"), value: hooks.content_type },
+    ...(status.enabled && hooks.deploy_url ? [{ label: t("sourceOptions.deployUrl.label"), value: hooks.deploy_url }] : []),
     { label: t("appSettings.webhook.eventsLabel"), value: words.events, mono: false, copy: false as const },
   ];
 

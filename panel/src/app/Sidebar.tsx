@@ -5,6 +5,7 @@ import { useId } from "react";
 import type { ReactNode } from "react";
 
 import { sessionQuery } from "../api/queries/auth";
+import { activeJobsQuery } from "../api/queries/jobs";
 import { machineQuery } from "../api/queries/system";
 import { Logo } from "../components/brand/Logo";
 import { Mono } from "../components/ui/Mono";
@@ -26,6 +27,16 @@ function useFailureCounts(enabled: boolean): Partial<Record<ConsolePath, number>
   return { "/apps": data.apps.failed, "/server": data.units.failed };
 }
 
+/**
+ * What is running now (a deploy, a backup, an update): the jobs the server has queued or is running,
+ * read once and kept current by the `job` events, so the count is true from any page (checklist
+ * M-28). Shown beside Activity, where each of them can be followed.
+ */
+function useRunningJobs(enabled: boolean): number {
+  const { data } = useQuery({ ...activeJobsQuery(), enabled, retry: false });
+  return enabled && data !== undefined ? data.jobs.length : 0;
+}
+
 const LINK = cx(
   "group relative flex h-control-md items-center gap-2.5 rounded-control px-2 text-13 text-fg-muted",
   "transition-colors duration-(--duration-fast) ease-out",
@@ -37,6 +48,8 @@ const LINK = cx(
 interface NavLinkProps {
   item: NavItem;
   failed?: number | undefined;
+  /** Jobs running now, for the destination where they are followed. */
+  running?: number | undefined;
   onNavigate?: (() => void) | undefined;
   /**
    * The server the link opens, when it is not the one on screen: from the fleet's or the
@@ -46,7 +59,7 @@ interface NavLinkProps {
   node?: string | null | undefined;
 }
 
-function NavLink({ item, failed, onNavigate, node }: NavLinkProps) {
+function NavLink({ item, failed, running, onNavigate, node }: NavLinkProps) {
   const t = useT();
   const Icon = item.icon;
   return (
@@ -75,6 +88,16 @@ function NavLink({ item, failed, onNavigate, node }: NavLinkProps) {
                 {failed}
               </span>
               <span className="sr-only">{t("nav.failed", { count: failed })}</span>
+            </span>
+          ) : null}
+          {running !== undefined && running > 0 ? " " : null}
+          {running !== undefined && running > 0 ? (
+            <span className="inline-flex items-center gap-1 text-12 font-medium text-warn">
+              <StatusGlyph state="deploying" size={10} />
+              <span aria-hidden="true" className="tabular-nums">
+                {running}
+              </span>
+              <span className="sr-only">{t("nav.running", { count: running })}</span>
             </span>
           ) : null}
         </>
@@ -136,6 +159,7 @@ export function SidebarNav({ onNavigate, className }: { onNavigate?: () => void;
   const onServer = context.kind === "server";
   const target = onServer ? { node: context.node, name: context.node ?? servers.hostname ?? "" } : back;
   const failures = useFailureCounts(onServer);
+  const running = useRunningJobs(onServer);
   // A hub deploys nothing of its own: its overview and deployment pages only redirect to the
   // fleet, so they are not offered for it. A node's pages (/n/<server>/) are that node's.
   const groupsFor = (withOrganised: boolean) =>
@@ -194,7 +218,7 @@ export function SidebarNav({ onNavigate, className }: { onNavigate?: () => void;
               <ul key={group[0]?.to} {...(hasFleet ? { "aria-labelledby": serverId } : {})} className="flex flex-col gap-px">
                 {group.map((item) => (
                   <li key={item.to}>
-                    <NavLink item={item} failed={failures[item.to]} onNavigate={onNavigate} node={linkNode} />
+                    <NavLink item={item} failed={failures[item.to]} running={item.to === "/activity" ? running : undefined} onNavigate={onNavigate} node={linkNode} />
                   </li>
                 ))}
               </ul>

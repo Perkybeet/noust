@@ -126,6 +126,13 @@ _DEBIAN_VERSION = re.compile(r"^\d+\.\d+$")
 _POOL_PATH = re.compile(r"^/[A-Za-z0-9._/-]+$")
 _NGINX_USER = re.compile(r"^\s*user\s+([A-Za-z0-9_.-]+)(?:\s+([A-Za-z0-9_.-]+))?\s*;", re.M)
 
+#: Debian's ``/etc/apache2/envvars`` (``export APACHE_RUN_GROUP=www-data``) and the
+#: ``Group`` directive of the Red Hat family's ``httpd.conf``.
+_APACHE_ENVVAR_GROUP = re.compile(
+    r"^\s*(?:export\s+)?APACHE_RUN_GROUP=['\"]?([A-Za-z0-9_.-]+)", re.M
+)
+_APACHE_GROUP = re.compile(r"^\s*Group\s+([A-Za-z0-9_.-]+)\s*$", re.M)
+
 
 @dataclass(frozen=True)
 class FpmInstallation:
@@ -430,6 +437,68 @@ def nginx_worker_group(default: str, root: Path = Path("/")) -> str:
     return match.group(2) or match.group(1)
 
 
+def apache_worker_group(default: str, root: Path = Path("/")) -> str:
+    """
+    Name the group Apache's workers run as, which must be able to open a pool's socket.
+
+    Read from ``/etc/apache2/envvars`` on Debian (``APACHE_RUN_GROUP``, ``www-data``
+    unless changed) and from the ``Group`` directive of ``/etc/httpd/conf/httpd.conf`` on
+    Fedora and openSUSE (``apache``).
+
+    Args:
+        default: What to answer when neither file says.
+        root: The filesystem root, for tests.
+
+    Returns:
+        The group name.
+    """
+    for relative, pattern in (
+        ("etc/apache2/envvars", _APACHE_ENVVAR_GROUP),
+        ("etc/httpd/conf/httpd.conf", _APACHE_GROUP),
+        ("etc/apache2/httpd.conf", _APACHE_GROUP),
+    ):
+        try:
+            text = (root / relative).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        match = pattern.search(text)
+        if match is not None:
+            return match.group(1)
+    return default
+
+
+def web_worker_group(default: str, webserver: str, root: Path = Path("/")) -> str:
+    """
+    Name the group the web server's workers run as, whichever web server it is.
+
+    Args:
+        default: What to answer when the web server's configuration does not say.
+        webserver: ``nginx`` or ``apache``.
+        root: The filesystem root, for tests.
+
+    Returns:
+        The group name.
+    """
+    if webserver == "apache":
+        return apache_worker_group(default, root=root)
+    return nginx_worker_group(default, root=root)
+
+
+def size_in_bytes(value: str) -> int:
+    """
+    Turn a size :func:`validate_size` accepted into a number of bytes.
+
+    Args:
+        value: A validated size such as ``64m``.
+
+    Returns:
+        The size in bytes.
+    """
+    lowered = value.lower()
+    unit = lowered[-1] if lowered[-1] in _SIZE_UNITS else ""
+    return int(lowered[: -1 if unit else None]) * _SIZE_UNITS[unit]
+
+
 # Pool rendering -----------------------------------------------------------
 
 
@@ -562,7 +631,7 @@ def validate_size(value: str, *, field_name: str) -> str:
         ValidationError: When it is not a plain number with an optional unit,
             or is larger than :data:`MAX_SIZE_BYTES`.
     """
-    if not SIZE_PATTERN.match(value or ""):
+    if not SIZE_PATTERN.fullmatch(value or ""):
         raise ValidationError(
             f"Invalid {field_name}: {value!r}",
             details="Use a number with an optional unit k, m or g, such as 64m.",
@@ -1138,9 +1207,10 @@ def fastcgi_params(
     path: str,
     domain: str,
     https: bool,
+    method: str = "GET",
 ) -> dict[str, str]:
     """
-    Build the CGI variables nginx would send for a GET of ``path``.
+    Build the CGI variables nginx would send for a request of ``path``.
 
     The script is chosen as the site's front controller does: a path that
     names a ``.php`` file runs that file, anything else runs ``index.php``.
@@ -1150,8 +1220,9 @@ def fastcgi_params(
     Args:
         document_root: The directory the site serves.
         path: The health path, with its query string if any.
-        domain: The primary domain, as the Host header.
+        domain: The host name sent as the Host header.
         https: Whether the site is served over TLS.
+        method: The request method.
 
     Returns:
         The variables.
@@ -1162,7 +1233,7 @@ def fastcgi_params(
     return {
         "GATEWAY_INTERFACE": "CGI/1.1",
         "SERVER_SOFTWARE": "wasm-health-check",
-        "REQUEST_METHOD": "GET",
+        "REQUEST_METHOD": method,
         "REQUEST_URI": path,
         "DOCUMENT_URI": script,
         "SCRIPT_NAME": script,
@@ -1221,6 +1292,10 @@ def fastcgi_probe(
         on_attempt: Callable[[str], None] | None = None,
         accept: Callable[[int], bool] | None = None,
         within: float | None = None,
+        # Already in the CGI variables params() builds; accepted so the gate
+        # can pass a request check's options to any probe alike.
+        method: str = "GET",
+        host: str | None = None,
     ) -> bool:
         deadline = clock() + within if within is not None else None
         for attempt in range(retries):

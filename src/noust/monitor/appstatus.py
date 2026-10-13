@@ -86,13 +86,21 @@ def series_names(plan: SamplingPlan) -> dict[str, str]:
 
     Returns:
         Role to metric name: ``cpu`` and ``memory`` for anything with a
-        process, ``requests`` and ``errors_5xx`` for the sites whose traffic is
-        counted from the access log.
+        process, ``disk_read``, ``disk_write``, ``net_rx`` and ``net_tx`` for
+        what has a cgroup of its own, ``requests`` and ``errors_5xx`` for the
+        sites whose traffic is counted from the access log.
     """
     names: dict[str, str] = {}
     if plan.kind != KIND_STATIC:
         names["cpu"] = f"app.{plan.domain}.cpu.percent"
         names["memory"] = f"app.{plan.domain}.mem.bytes"
+    if plan.kind not in (KIND_STATIC, KIND_PHP_FPM):
+        # A PHP-FPM pool shares one cgroup with every other pool: there is no
+        # disk or network traffic that is one application's.
+        names["disk_read"] = f"app.{plan.domain}.io.read_bytes_s"
+        names["disk_write"] = f"app.{plan.domain}.io.write_bytes_s"
+        names["net_rx"] = f"app.{plan.domain}.net.rx_bytes_s"
+        names["net_tx"] = f"app.{plan.domain}.net.tx_bytes_s"
     if plan.kind in (KIND_STATIC, KIND_PHP_FPM):
         requests, errors = traffic_metric_names(plan.domain)
         names["requests"] = requests

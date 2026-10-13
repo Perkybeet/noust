@@ -58,7 +58,7 @@ type User = ReturnType<typeof renderConsole>["user"];
 
 async function openComposeMode(user: User) {
   await screen.findByRole("heading", { level: 1, name: "New application" });
-  await user.click(await screen.findByRole("radio", { name: "A Compose file" }));
+  await user.click(await screen.findByRole("radio", { name: "Compose" }));
   return screen.findByRole("textbox", { name: /Compose file/ });
 }
 

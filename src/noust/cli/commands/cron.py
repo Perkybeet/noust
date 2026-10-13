@@ -94,6 +94,8 @@ def _job_as_dict(entry: dict[str, Any]) -> dict[str, Any]:
         "last_run": entry.get("last_run", "never"),
         "last_exit_code": entry.get("last_exit_code"),
         "last_result": entry.get("last_result", "never ran"),
+        "timeout": entry.get("timeout"),
+        "service": entry.get("service", ""),
     }
 
 
@@ -151,6 +153,8 @@ def _create(
     user: str | None,
     working_directory: str | None,
     app_domain: str | None,
+    timeout: int | None = None,
+    service: str | None = None,
     logger: Logger,
 ) -> int:
     """
@@ -164,6 +168,8 @@ def _create(
         user: Unix user to run as. The configured ``service_user`` by default.
         working_directory: Absolute directory to run in.
         app_domain: Associate the job with a deployed application.
+        timeout: Seconds the command may run before it is stopped.
+        service: The Compose service of the application's stack to run it in.
         logger: Logger for progress and errors.
 
     Returns:
@@ -178,6 +184,8 @@ def _create(
                 user=user,
                 working_directory=working_directory,
                 app_domain=app_domain,
+                timeout=timeout,
+                service=service,
             )
         )
     except ServiceError as e:
@@ -189,6 +197,10 @@ def _create(
     logger.key_value("Command", command)
     if created.app_domain:
         logger.key_value("Application", created.app_domain)
+    if created.service:
+        logger.key_value("Runs in", f"the {created.service} service of its stack")
+    if created.timeout:
+        logger.key_value("Stopped after", f"{created.timeout} s")
     return 0
 
 
@@ -385,6 +397,18 @@ def list_jobs(ctx: Context) -> None:
         "(current/ for a releases application) becomes the default."
     ),
 )
+@click.option(
+    "--timeout",
+    type=int,
+    metavar="SECONDS",
+    help="Stop the command after this many seconds (1 to 86400); the run counts as failed.",
+)
+@click.option(
+    "--service",
+    metavar="SERVICE",
+    help="Run the command in this service of the --app application's Compose stack "
+    "(docker compose exec) instead of on this server.",
+)
 @pass_context
 def create(
     ctx: Context,
@@ -394,6 +418,8 @@ def create(
     user: str | None,
     working_directory: str | None,
     app_domain: str | None,
+    timeout: int | None,
+    service: str | None,
 ) -> None:
     """
     Create a cron job as a systemd timer, or rewrite one Noust already owns.
@@ -410,6 +436,8 @@ def create(
             user=user,
             working_directory=working_directory,
             app_domain=app_domain,
+            timeout=timeout,
+            service=service,
             logger=ctx.logger,
         )
     )

@@ -88,6 +88,11 @@ SyslogIdentifier=shop-example-com
 # systemd counts; a distribution may ship with that off.
 MemoryAccounting=yes
 CPUAccounting=yes
+# Disk and network traffic of the application (the metrics tab's I/O charts):
+# io.stat exists while the io controller is on for the cgroup, and the IP
+# counters while systemd counts the bytes its sockets move.
+IOAccounting=yes
+IPAccounting=yes
 LimitNOFILE=65535
 MemoryMax=512M
 CPUQuota=50%

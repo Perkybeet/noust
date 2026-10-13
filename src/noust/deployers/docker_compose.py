@@ -23,15 +23,17 @@ import json
 import re
 import sqlite3
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 import yaml
 
 from noust.central import require_server_role
-from noust.core import audit
+from noust.core import app_compose_store, audit, compose_release_store
 from noust.core.applock import app_lock
 from noust.core.config import Config
 from noust.core.exceptions import (
@@ -46,14 +48,24 @@ from noust.core.exceptions import (
 from noust.core.fs import DryRunFileSystem, FileSystem
 from noust.core.logger import Logger
 from noust.core.runner import CommandResult, CommandRunner, get_runner
-from noust.core.store import App, AppStatus, AppType, DeploymentTrigger, get_store
+from noust.core.store import (
+    App,
+    AppStatus,
+    AppType,
+    DeploymentTrigger,
+    ReleaseRecord,
+    ReleaseStatus,
+    get_store,
+)
 from noust.core.utils import domain_to_app_name
+from noust.deployers.helpers import compose_preview, compose_retention
 from noust.deployers.helpers.build_config import refuse_unsupported, resolve_build
 from noust.deployers.helpers.compose_ports import (
     is_headless_stack,
     published_port,
     web_root_service,
 )
+from noust.deployers.helpers.compose_retention import ImageRelease
 from noust.deployers.helpers.health import wait_until_healthy
 from noust.deployers.helpers.health_gate import HealthCheck, HealthGate
 from noust.deployers.helpers.hooks import (
@@ -71,6 +83,7 @@ from noust.deployers.helpers.site import (
 )
 from noust.deployers.helpers.site import has_certificate as certificate_on_disk
 from noust.deployers.helpers.site import obtain_certificate as obtain_app_certificate
+from noust.deployers.helpers.site import reduce_certificate as reduce_app_certificate
 from noust.deployers.helpers.target import (
     DeployTarget,
     claim_deploy_target,
@@ -86,7 +99,7 @@ from noust.deployers.recorder import (
     recording,
 )
 from noust.deployers.registry import DeployerRegistry
-from noust.deployers.releases import persistent_path
+from noust.deployers.releases import ReleaseManager, persistent_path, release_order_key
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
 from noust.managers.service_manager import ServiceManager
@@ -130,9 +143,6 @@ _INSPECT_FORMAT = (
 
 #: A container id as ``docker compose ps -q`` prints it.
 _CONTAINER_ID = re.compile(r"^[0-9a-f]{12,64}$")
-
-#: Characters an image repository name cannot hold.
-_IMAGE_NAME_INVALID = re.compile(r"[^a-z0-9._-]+")
 
 # Compose file priority order
 COMPOSE_FILE_PRIORITY = [
@@ -288,6 +298,11 @@ _UNIT_COMPOSE_FILE = re.compile(
 )
 
 
+_UNIT_COMPOSE_PROFILES = re.compile(
+    r'^Environment="COMPOSE_PROFILES=((?:[^"\\]|\\.)*)"[ \t]*(?:\r?\n|\Z)', re.MULTILINE
+)
+
+
 def compose_file_from_unit(unit_text: str | None) -> str | None:
     """
     Read back the compose file a Compose application's unit names.
@@ -384,6 +399,22 @@ class ServingState:
     images: tuple[ServingImage, ...]
 
 
+@dataclass(frozen=True)
+class RunningImages:
+    """
+    What a stack runs now, as Docker reports it.
+
+    Attributes:
+        project: The Compose project the containers belong to, when any run.
+        images: The image of each service with a running container.
+        running: Whether any container runs at all.
+    """
+
+    project: str | None
+    images: dict[str, ServingImage]
+    running: bool
+
+
 def parse_compose_ps(stdout: str) -> list[dict[str, Any]]:
     """
     Read what ``docker compose ps --format json`` printed, in any Compose v2 format.
@@ -459,8 +490,7 @@ def keep_tag(project: str, service: str) -> str:
         ``<project>-<service>:wasm-previous``, restricted to what an image
         name may hold.
     """
-    name = _IMAGE_NAME_INVALID.sub("-", f"{project}-{service}".lower()).strip("._-")
-    return f"{name or 'wasm'}:{PREVIOUS_TAG}"
+    return f"{compose_retention.repository_name(project, service)}:{PREVIOUS_TAG}"
 
 
 @dataclass
@@ -577,6 +607,18 @@ class DockerComposeDeployer(AppDeployer):
         self.trigger: str = DeploymentTrigger.CLI.value
         self._is_new_deployment = True
         self.replace_existing = False
+        #: Whether this one build ignores the image layer cache.
+        self.no_cache = False
+        #: Extra arguments of ``docker compose build`` and ``up``, and the services
+        #: they address (noust app compose); empty is plain Compose.
+        self.compose_build_args: tuple[str, ...] = ()
+        self.compose_up_args: tuple[str, ...] = ()
+        self.compose_services: tuple[str, ...] = ()
+        #: The registry accounts this deployment logs in (noust create --registry),
+        #: before the application exists to have any attached; None uses the attached.
+        self.registry_logins: list[str] | None = None
+        #: The environment docker commands run with while a registry session is open.
+        self._registry_env: dict[str, str] = {}
 
         # Deployment state
         self.domain = ""
@@ -590,6 +632,10 @@ class DockerComposeDeployer(AppDeployer):
         self.compose_file: str | None = None
         self.compose_profiles: list[str] = []
         self.port: int | None = None
+        # The application this stack is a preview of: it is then run from a copy of
+        # its compose file that cannot collide with the original's.
+        self.preview_parent: str | None = None
+        self._env_secret_marks: dict[str, bool] = {}
         # The commit the tree was on before the update pulled, which only the
         # caller that pulled can know: what a failed update checks out again.
         self.previous_commit: str | None = None
@@ -604,6 +650,13 @@ class DockerComposeDeployer(AppDeployer):
         # before that has the pulled tree to put back, and nothing else.
         self._serving_recorded = False
 
+        # The release whose images now serve, once they are kept (B-16): what
+        # the deployment's history row names, so it can be gone back to.
+        self.release_id: str | None = None
+        # Whether the containers are recreated from images already on the host
+        # (going back to a release): nothing is built then.
+        self._reuse_images = False
+
         # Parsed state
         self.services: list[DockerComposeService] = []
         self.compose_path: Path | None = None
@@ -614,6 +667,10 @@ class DockerComposeDeployer(AppDeployer):
         # What this deployment's hooks ran, for its history row.
         self._recording: DeploymentRecorder | None = None
         self._hooks = DeploymentHooks()
+
+    #: Whether each release that passes the gate keeps the images it ran, so going
+    #: back to it is instant. A container application keeps its own.
+    RETAINS_RELEASES: ClassVar[bool] = True
 
     # Framework config files that indicate docker-compose.yml is likely
     # just for local development (databases, caches, etc.)
@@ -727,7 +784,12 @@ class DockerComposeDeployer(AppDeployer):
             **options: ``compose_file`` selects a specific compose file,
                 ``compose_profiles`` activates Docker Compose profiles,
                 ``job_id`` is the background job driving this deployment, when
-                there is one, and ``memory_max_mb``, ``cpu_quota_percent`` and
+                there is one, ``preview_parent`` names the application this
+                stack is a preview of (see
+                :mod:`noust.deployers.helpers.compose_preview`),
+                ``env_secret_marks`` are the secret marks a new row starts
+                with, ``database_env`` the variables of a database made for the
+                stack, and ``memory_max_mb``, ``cpu_quota_percent`` and
                 ``tasks_max`` are refused rather than accepted (see raises).
 
         Raises:
@@ -768,7 +830,10 @@ class DockerComposeDeployer(AppDeployer):
         self.webserver = webserver
         self.ssl = ssl
         self.branch = branch
-        self.env_vars = env_vars or {}
+        # A database made for the stack is a variable of it like any other.
+        self.env_vars = {**(env_vars or {}), **(options.get("database_env") or {})}
+        self.preview_parent = options.get("preview_parent")
+        self._env_secret_marks = dict(options.get("env_secret_marks") or {})
         compose_file = options.get("compose_file")
         # Checked here, before anything is fetched, because configure() is the
         # one call the CLI, the API's deploy job and the auto deployer share.
@@ -778,7 +843,27 @@ class DockerComposeDeployer(AppDeployer):
         # A directory that already holds files - bind-mounted data among
         # them - is only deployed into when asked for (noust create --force).
         self.replace_existing = bool(options.get("replace_existing", False))
+        self.no_cache = bool(options.get("no_cache", False))
+        given = options.get("registry_logins")
+        self.registry_logins = [str(name) for name in given] if given else None
         self.deploy_target = None
+
+    def profiles_from_unit(self, unit_text: str | None) -> None:
+        """
+        Read back the profiles a Compose application's unit activates.
+
+        An update used to run without them: only the unit's own start had
+        ``COMPOSE_PROFILES`` in its environment, so a service under a profile
+        was left out of the build and the recreate.
+
+        Args:
+            unit_text: The unit file's content, or None when there is no unit.
+        """
+        match = _UNIT_COMPOSE_PROFILES.search(unit_text or "")
+        if match is None:
+            return
+        value = re.sub(r"\\(.)", r"\1", match.group(1).replace("%%", "%"))
+        self.compose_profiles = [name for name in value.split(",") if name]
 
     def _compose(self, *args: str, project: str | None = None) -> list[str]:
         """
@@ -846,11 +931,14 @@ class DockerComposeDeployer(AppDeployer):
         Returns:
             The command outcome.
         """
+        # Set while a registry session is open (see _registry_session); docker reads
+        # the account from the configuration directory it names.
+        env = self._registry_env or None
         if stream:
             return self.runner.stream(
-                command, on_line=self.logger.debug, cwd=self.app_path, timeout=timeout
+                command, on_line=self.logger.debug, cwd=self.app_path, timeout=timeout, env=env
             )
-        result = self.runner.run(command, cwd=self.app_path, timeout=timeout)
+        result = self.runner.run(command, cwd=self.app_path, timeout=timeout, env=env)
         # Printed only with --verbose, captured into the deployment log always.
         self.logger.command_output(result.stdout, result.stderr)
         return result
@@ -927,7 +1015,48 @@ class DockerComposeDeployer(AppDeployer):
         """
         return next((svc.name for svc in self.services if svc.build), None)
 
+    @contextmanager
+    def _registry_session(self) -> Iterator[None]:
+        """
+        Log in the registry accounts of this stack for the length of an operation.
+
+        The accounts are those attached to the application, or the ones named for
+        a first deployment, which has none attached yet and gets them attached
+        once it exists. They are logged in to a configuration directory of the
+        operation's own, which is removed afterwards.
+
+        Yields:
+            Nothing; ``docker`` commands run through :meth:`_run` see the login.
+        """
+        from noust.managers.registry_logins import RegistryManager
+
+        manager = RegistryManager(runner=self.runner, fs=self._fs)
+        names = self.registry_logins
+        if names is None:
+            names = [login.name for login in manager.accounts.assigned_to(self.domain)]
+        if not names:
+            yield
+            return
+        with manager.session_for(self.domain, names) as env:
+            self._registry_env = env
+            try:
+                yield
+            finally:
+                self._registry_env = {}
+        if self.registry_logins and self.store.get_app(self.domain) is not None:
+            manager.attach(self.domain, self.registry_logins, actor=self.trigger)
+
     def deploy(self) -> bool:
+        """
+        Deploy the stack, with the registry accounts it uses logged in.
+
+        Returns:
+            True when the stack ended up deployed.
+        """
+        with self._registry_session():
+            return self._deploy_stack()
+
+    def _deploy_stack(self) -> bool:
         """
         Execute the full deployment workflow.
 
@@ -1014,7 +1143,7 @@ class DockerComposeDeployer(AppDeployer):
             self._configure_environment()
 
             self.logger.step(5, total_steps, "Building Docker images")
-            self._build_images()
+            self._build_images(no_cache=self.no_cache)
             # Nothing serves yet on a first deploy, so the hooks' services may
             # bring up what they depend on (the database a migration needs).
             self._run_pre_deploy(with_dependencies=self._is_new_deployment)
@@ -1040,6 +1169,7 @@ class DockerComposeDeployer(AppDeployer):
 
             # Register in store
             self._register_app()
+            self._retain_release()
             self._run_post_deploy()
 
             self.logger.success(f"Docker Compose application deployed: {self.domain}")
@@ -1101,7 +1231,7 @@ class DockerComposeDeployer(AppDeployer):
         holds_files = self.app_path.is_dir() and any(self.app_path.iterdir())
         fetch_into_target(
             DeployTarget(path=self.app_path, existed=self.app_path.exists(), had_files=holds_files),
-            SourceManager(verbose=self.verbose, fs=self._fs),
+            SourceManager(verbose=self.verbose, fs=self._fs, domain=self.domain or None),
             self.source,
             branch=self.branch,
             domain=self.domain,
@@ -1113,27 +1243,162 @@ class DockerComposeDeployer(AppDeployer):
         """
         Find the compose file to use, inside the application directory.
 
+        A preview does not run the repository's file but a copy of it that
+        cannot collide with the original stack's (see :meth:`_isolated_for_preview`).
+
+        Raises:
+            DeploymentError: When the named file is missing, when no default
+                name is present, or when the file found resolves outside the
+                application through a symlink, or the stack cannot run beside
+                its original.
+        """
+        if self.preview_parent is not None:
+            self.compose_path = self._isolated_for_preview(self._find_compose_file())
+            return
+        self.compose_path = self._find_compose_file()
+
+    def _find_compose_file(self) -> Path:
+        """
+        Locate the repository's compose file.
+
+        Returns:
+            Its path inside the application directory.
+
         Raises:
             DeploymentError: When the named file is missing, when no default
                 name is present, or when the file found resolves outside the
                 application through a symlink.
         """
         if self.compose_file:
-            self.compose_path = compose_file_in(self.app_path, self.compose_file)
+            if self.preview_parent is not None and compose_preview.is_derived(self.compose_file):
+                # The unit names the copy a preview runs; the original is what it says it is.
+                return self._original_of_derived(self.compose_file)
+            path = compose_file_in(self.app_path, self.compose_file)
             self.logger.substep(f"Using specified: {self.compose_file}")
-            return
+            return path
 
         for filename in COMPOSE_FILE_PRIORITY:
             if (self.app_path / filename).exists():
                 # A default name is as much repository content as a named one.
-                self.compose_path = compose_file_in(self.app_path, filename)
+                path = compose_file_in(self.app_path, filename)
                 self.logger.substep(f"Found: {filename}")
-                return
+                return path
 
         raise DeploymentError(
             "No Docker Compose file found",
             "Expected one of: " + ", ".join(COMPOSE_FILE_PRIORITY),
         )
+
+    def _original_of_derived(self, derived: str) -> Path:
+        """
+        Find the repository's file a preview's copy was made from.
+
+        Args:
+            derived: The copy's path relative to the application, as the unit names it.
+
+        Returns:
+            The original's path.
+
+        Raises:
+            DeploymentError: Neither the marker in the copy nor the copy's name
+                leads to a file in the repository.
+        """
+        copy_path = self.app_path / derived
+        named: list[str] = []
+        try:
+            marked = compose_preview.original_of(copy_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError):
+            marked = None
+        if marked:
+            named.append(marked)
+        stem = derived[: -len(compose_preview.DERIVED_SUFFIX)]
+        named.extend(f"{stem}{extension}" for extension in (".yml", ".yaml"))
+        for candidate in named:
+            try:
+                return compose_file_in(self.app_path, compose_file_option(candidate))
+            except DeploymentError:
+                continue
+        raise DeploymentError(
+            f"The compose file {derived!r} was made from a file that is not there",
+            details="A preview runs a copy of the repository's compose file. Check that the "
+            "branch the preview follows still has it, then redeploy the preview.",
+        )
+
+    def _isolated_for_preview(self, original: Path) -> Path:
+        """
+        Write the copy of the compose file a preview runs, and return its path.
+
+        The copy is made again at every deploy and update, from the original as
+        the branch has it now, so a push that changes the compose file reaches
+        the preview. It sits beside the original, because the paths in a
+        compose file are relative to the file. A file by that name that is not
+        ours, or a link, is the repository's and is never written over.
+
+        Args:
+            original: The repository's compose file.
+
+        Returns:
+            The path of the copy.
+
+        Raises:
+            DeploymentError: The stack cannot run beside its original, no port
+                was given to publish it on, or the name of the copy is taken.
+        """
+        if self.port is None:
+            app = self.store.get_app(self.domain)
+            self.port = app.port if app is not None else None
+        if self.port is None:
+            raise DeploymentError(
+                "A preview needs a port to publish the stack on",
+                details="Previews are given one when they are created; this one has none "
+                "recorded. Remove it and make it again.",
+            )
+        document = self._load_compose_document_at(original)
+        isolated = compose_preview.isolate(
+            document,
+            port=self.port,
+            app_path=self.app_path,
+            compose_dir=original.parent,
+        )
+        relative = original.relative_to(self.app_path).as_posix()
+        target = self.app_path / compose_preview.derived_name(relative)
+        if target.is_symlink() or (
+            target.exists()
+            and compose_preview.original_of(target.read_text(encoding="utf-8", errors="replace"))
+            is None
+        ):
+            raise DeploymentError(
+                f"{target.name} is in the repository, so a preview cannot write its own compose file",
+                details="Noust writes the compose file a preview runs beside the original, with "
+                "this name. Rename or remove the file in the repository.",
+            )
+        self.fs.write_text(
+            target, compose_preview.render(isolated, domain=self.domain, original=relative)
+        )
+        self.logger.substep(f"Preview of {self.preview_parent}: running {target.name}")
+        for change in isolated.changes:
+            self.logger.substep(f"  {change}")
+        for warning in isolated.warnings:
+            self.logger.warning(f"Compose: {warning}")
+        return compose_file_in(self.app_path, target.relative_to(self.app_path).as_posix())
+
+    def _load_compose_document_at(self, path: Path) -> Any:
+        """
+        Read a compose file that must be valid.
+
+        Args:
+            path: The file.
+
+        Returns:
+            The parsed document.
+
+        Raises:
+            DeploymentError: The file is not YAML.
+        """
+        try:
+            return yaml.safe_load(path.read_text(encoding="utf-8"))
+        except yaml.YAMLError as exc:
+            raise DeploymentError(f"Invalid compose file: {exc}") from exc
 
     def _parse_compose_services(self, *, guard: bool = True) -> None:
         """
@@ -1325,7 +1590,12 @@ class DockerComposeDeployer(AppDeployer):
         Raises:
             DockerError: When the build fails.
         """
-        cmd = self._compose("build", "--no-cache") if no_cache else self._compose("build")
+        extra = tuple(
+            arg for arg in self.compose_build_args if not (no_cache and arg == "--no-cache")
+        )
+        cmd = self._compose(
+            "build", *(("--no-cache",) if no_cache else ()), *extra, *self.compose_services
+        )
 
         # Streamed: an image build is minutes of silence otherwise.
         result = self._run(cmd, timeout=BUILD_TIMEOUT, stream=True)
@@ -1419,7 +1689,9 @@ class DockerComposeDeployer(AppDeployer):
         from noust.deployers.helpers.nginx_config import NginxConfigBuilder
 
         builder = NginxConfigBuilder(verbose=self.verbose)
-        config_path = builder.detect(self.app_path)
+        # A preview publishes its web root alone: the routes a repository names are
+        # to the ports of the stack it is a preview of.
+        config_path = None if self.preview_parent is not None else builder.detect(self.app_path)
         if config_path is not None:
             try:
                 config = builder.parse(config_path)
@@ -1516,14 +1788,36 @@ class DockerComposeDeployer(AppDeployer):
         """
         return certificate_on_disk(self.cert_manager, self.domain)
 
-    def obtain_certificate(self) -> None:
+    def obtain_certificate(self, *, force: bool = False) -> None:
         """
         Order a certificate covering every name the stack answers on, redirects included.
+
+        Args:
+            force: Order again although the certificate covers every name already.
 
         Raises:
             CertificateError: When certbot fails, with its output.
         """
         obtain_app_certificate(
+            self.cert_manager,
+            self.store,
+            self.domain,
+            webserver="nginx",
+            logger=self.logger,
+            force=force,
+        )
+
+    def reduce_certificate(self) -> bool:
+        """
+        Order the certificate again with only the names the stack answers on.
+
+        Returns:
+            True when it was ordered again.
+
+        Raises:
+            CertificateError: When certbot fails, with its output.
+        """
+        return reduce_app_certificate(
             self.cert_manager, self.store, self.domain, webserver="nginx", logger=self.logger
         )
 
@@ -1689,7 +1983,13 @@ class DockerComposeDeployer(AppDeployer):
                 status=AppStatus.RUNNING.value,
                 is_static=False,
                 env_vars=self.env_vars,
+                preview_parent=self.preview_parent,
+                env_secret_marks=self._env_secret_marks,
             )
+            if self.preview_parent is not None and self._is_new_deployment:
+                # A preview's data is disposable: dumping its databases before every push would
+                # fill the backup directory with copies of what is thrown away with it.
+                self.store.set_app_backup_before_update(self.domain, False)
         except (NoustError, sqlite3.Error) as e:
             self.logger.warning(f"Could not register app in store: {e}")
 
@@ -1700,7 +2000,7 @@ class DockerComposeDeployer(AppDeployer):
         Returns:
             A recorder, built where every deployer's is.
         """
-        return recorder_for(self, git_info=self._git_info())
+        return recorder_for(self, git_info=self._git_info(), release_id=lambda: self.release_id)
 
     def _source_manager(self) -> SourceManager:
         """
@@ -1709,7 +2009,9 @@ class DockerComposeDeployer(AppDeployer):
         Returns:
             The manager.
         """
-        return SourceManager(verbose=self.verbose, runner=self._runner, fs=self._fs)
+        return SourceManager(
+            verbose=self.verbose, runner=self._runner, fs=self._fs, domain=self.domain or None
+        )
 
     def _git_info(self) -> GitInfo:
         """
@@ -1807,6 +2109,34 @@ class DockerComposeDeployer(AppDeployer):
         """
         return self.container_logs(lines, service=service)[1]
 
+    def service_names(self) -> list[str]:
+        """
+        List the services of this stack, as Compose reads them from its file.
+
+        The list comes from the file, not from the containers that exist: the
+        service that crashed, or never started, is the one whose log is worth
+        reading, and it has no running container to be found by.
+
+        Returns:
+            The service names in the file's order; empty when Compose could not
+            read the stack. A name Compose would not accept as one (and that
+            could not be passed on to it) is left out.
+        """
+        from noust.terminal.targets import validate_service
+
+        result = self._run(self._compose("config", "--services"))
+        if not result.success:
+            return []
+        names: list[str] = []
+        for line in result.stdout.splitlines():
+            try:
+                name = validate_service(line.strip())
+            except ValidationError:
+                continue
+            if name is not None:
+                names.append(name)
+        return names
+
     def container_logs(self, lines: int, *, service: str | None = None) -> tuple[bool, str]:
         """
         Read the last lines the stack's containers printed, with their secrets masked.
@@ -1872,6 +2202,19 @@ class DockerComposeDeployer(AppDeployer):
         }
 
     def update(self, on_step: StepReporter | None = None) -> UpdateResult:
+        """
+        Update the stack, with the registry accounts it uses logged in.
+
+        Args:
+            on_step: Called as each step begins.
+
+        Returns:
+            What was done, for the caller to present.
+        """
+        with self._registry_session():
+            return self._update_stack(on_step)
+
+    def _update_stack(self, on_step: StepReporter | None = None) -> UpdateResult:
         """
         Rebuild the images of this stack and recreate its containers, behind the health gate.
 
@@ -1950,7 +2293,7 @@ class DockerComposeDeployer(AppDeployer):
 
         report("Rebuilding Docker images")
         try:
-            self._build_images()
+            self._build_images(no_cache=self.no_cache)
         except DockerError as exc:
             if not serving.images:
                 raise
@@ -1986,6 +2329,7 @@ class DockerComposeDeployer(AppDeployer):
             raise self._go_back(serving, evidence)
 
         self.store.update_app_status(self.domain, AppStatus.RUNNING.value)
+        self._retain_release()
         if hooks.post_deploy:
             report("Running post_deploy hooks")
         self._run_post_deploy()
@@ -2011,37 +2355,35 @@ class DockerComposeDeployer(AppDeployer):
         """
         return isinstance(self.fs, DryRunFileSystem)
 
-    def _record_serving(self) -> ServingState:
+    def _running_images(self) -> RunningImages:
         """
-        Record what the stack serves now, and keep its images from being pruned.
+        Read the image each service of the stack runs now.
 
         Returns:
-            The project, the commit the caller read before pulling, and the
-            image of every service with a running container. Nothing is
-            recorded when Docker cannot say, which is reported: that update
-            has nothing to go back to.
+            The project, and the image of every service with a running container
+            (a digest names one image for ever, so a service pinned to one has no
+            name to move back and is left out). ``running`` is False when no
+            container runs at all.
+
+        Raises:
+            DockerError: Docker could not list the containers or read their images.
         """
-        self._serving_recorded = True
         listed = self._run(self._compose("ps", "-q"))
         if not listed.success:
-            self.logger.warning(
-                "Could not list the running containers; a failed update cannot put them back: "
-                + (listed.stderr.strip() or listed.stdout.strip())
+            raise DockerError(
+                "Could not list the running containers",
+                listed.stderr.strip() or listed.stdout.strip(),
             )
-            return ServingState(project=None, commit=self.previous_commit, images=())
         ids = [line.strip() for line in listed.stdout.splitlines()]
         ids = [cid for cid in ids if _CONTAINER_ID.match(cid)]
         if not ids:
-            self.logger.substep("No containers are running: there is nothing to go back to")
-            return ServingState(project=None, commit=self.previous_commit, images=())
+            return RunningImages(project=None, images={}, running=False)
 
         inspected = self._run(["docker", "inspect", "--format", _INSPECT_FORMAT, *ids])
         if not inspected.success:
-            self.logger.warning(
-                "Could not read the images of the running containers; a failed update cannot "
-                f"put them back: {inspected.stderr.strip()}"
+            raise DockerError(
+                "Could not read the images of the running containers", inspected.stderr.strip()
             )
-            return ServingState(project=None, commit=self.previous_commit, images=())
 
         project: str | None = None
         images: dict[str, ServingImage] = {}
@@ -2054,7 +2396,31 @@ class DockerComposeDeployer(AppDeployer):
             # A digest names one image for ever; there is no name to move back.
             if "@" not in reference:
                 images.setdefault(service, ServingImage(service, reference, image_id))
+        return RunningImages(project=project, images=images, running=True)
 
+    def _record_serving(self) -> ServingState:
+        """
+        Record what the stack serves now, and keep its images from being pruned.
+
+        Returns:
+            The project, the commit the caller read before pulling, and the
+            image of every service with a running container. Nothing is
+            recorded when Docker cannot say, which is reported: that update
+            has nothing to go back to.
+        """
+        self._serving_recorded = True
+        try:
+            running = self._running_images()
+        except DockerError as exc:
+            self.logger.warning(
+                f"{exc.message}; a failed update cannot put them back: {exc.details}"
+            )
+            return ServingState(project=None, commit=self.previous_commit, images=())
+        if not running.running:
+            self.logger.substep("No containers are running: there is nothing to go back to")
+            return ServingState(project=None, commit=self.previous_commit, images=())
+
+        project, images = running.project, running.images
         for image in images.values():
             tag = keep_tag(project or self.app_name, image.service)
             kept = self._run(["docker", "image", "tag", image.image_id, tag])
@@ -2070,6 +2436,281 @@ class DockerComposeDeployer(AppDeployer):
         return ServingState(
             project=project, commit=self.previous_commit, images=tuple(images.values())
         )
+
+    # -- Releases (B-16) ------------------------------------------------------------------
+
+    def _retain_release(self) -> None:
+        """
+        Keep the images that serve now as a release, so going back to it is instant.
+
+        A failure to keep them is a warning, never a failed deployment: the stack
+        serves, and the commit can still be built again.
+        """
+        if not self.RETAINS_RELEASES or self._rehearsing():
+            return
+        try:
+            self._keep_release()
+        except (NoustError, sqlite3.Error, OSError) as exc:
+            self.logger.warning(
+                "The images of this release were not kept, so it cannot be gone back to "
+                f"without building it again: {exc}"
+            )
+
+    def _keep_release(self) -> None:
+        """
+        Name the running images after a new release and record it.
+
+        Raises:
+            NoustError: Docker could not say what runs, or the release could not be named.
+            sqlite3.Error: The store refused the record.
+        """
+        app = self.store.get_app(self.domain)
+        if app is None or app.id is None:
+            return
+        if not (self.app_path / ".git").exists():
+            self.logger.debug("Not a git checkout: there is no commit to go back to")
+            return
+        commit = self._source_manager().get_repo_info(self.app_path).get("commit")
+        if not commit:
+            return
+        running = self._running_images()
+        if not running.images:
+            return
+        existing = {row.id for row in self.store.list_releases(app.id)}
+        release_id = ReleaseManager(
+            self.app_path, fs=self._fs, runner=self._runner, logger=self.logger
+        ).next_release_id(str(commit), existing)
+        kept, problems = compose_retention.retain(
+            self.runner,
+            running.project or self.app_name,
+            [(i.service, i.reference, i.image_id) for i in running.images.values()],
+            release_id,
+        )
+        if problems:
+            # A release with an image missing cannot be gone back to whole.
+            compose_retention.remove(self.runner, [image.tag for image in kept])
+            self.logger.warning(
+                "The images of this release were not all kept: " + "; ".join(problems)
+            )
+            return
+        self.store.record_release(
+            ReleaseRecord(
+                id=release_id,
+                app_id=app.id,
+                git_commit=str(commit)[:7],
+                created_at=datetime.now(timezone.utc).isoformat(),
+                status=ReleaseStatus.BUILT.value,
+                path=str(self.app_path),
+            )
+        )
+        compose_release_store.put_images(app.id, release_id, kept, store=self.store)
+        self.store.mark_release_active(app.id, release_id)
+        self.release_id = release_id
+        self.logger.substep(f"Release {release_id} kept: its images can be gone back to")
+        self._prune_releases(app)
+
+    def _prune_releases(self, app: App) -> list[str]:
+        """
+        Remove the images (and the records) of releases past the retention.
+
+        The release that serves and the one a rollback goes to are kept whatever
+        the retention is.
+
+        Args:
+            app: The application's row.
+
+        Returns:
+            The ids of the releases forgotten.
+        """
+        if app.id is None:
+            return []
+        rows = sorted(
+            self.store.list_releases(app.id),
+            key=lambda row: release_order_key(row.id),
+            reverse=True,
+        )
+        ordered = [row.id for row in rows]
+        active = next((row.id for row in rows if row.status == ReleaseStatus.ACTIVE.value), None)
+        keep = set(ordered[: max(app.keep_releases, 2)])
+        if active is not None:
+            keep.add(active)
+            older = ordered[ordered.index(active) + 1 :]
+            target = next(
+                (
+                    row.id
+                    for row in rows
+                    if row.id in older and row.status != ReleaseStatus.FAILED.value
+                ),
+                None,
+            )
+            if target is not None:
+                keep.add(target)
+        forgotten = [release for release in ordered if release not in keep]
+        if not forgotten or self._rehearsing():
+            return []
+        kept_images = compose_release_store.images_by_release(app.id, store=self.store)
+        tags = [image.tag for release in forgotten for image in kept_images.get(release, ())]
+        for failure in compose_retention.remove(self.runner, tags):
+            self.logger.warning(f"An old image was not removed: {failure}")
+        compose_release_store.delete_images(app.id, forgotten, store=self.store)
+        self.store.delete_releases(app.id, forgotten)
+        return forgotten
+
+    def prune_releases(self) -> list[str]:
+        """
+        Remove the images and the records of the releases past the retention.
+
+        What ``noust releases keep`` does after it sets the number.
+
+        Returns:
+            The ids of the releases forgotten.
+
+        Raises:
+            DeploymentError: The application is not deployed.
+        """
+        app = self.store.get_app(self.domain)
+        if app is None:
+            raise DeploymentError(f"{self.domain} is not deployed")
+        return self._prune_releases(app)
+
+    def release_images(self) -> list[ImageRelease]:
+        """
+        List the releases of the stack, newest first.
+
+        Returns:
+            One entry per release the store remembers, saying whether every image
+            of it is still on this host (only then can it be activated).
+
+        Raises:
+            DeploymentError: The application is not deployed.
+            DockerError: Docker could not list its images.
+        """
+        app = self.store.get_app(self.domain)
+        if app is None or app.id is None:
+            raise DeploymentError(f"{self.domain} is not deployed")
+        present = compose_retention.kept_tags(self.runner)
+        if present is None:
+            raise DockerError("Docker could not list the images of this application")
+        images = compose_release_store.images_by_release(app.id, store=self.store)
+        rows = sorted(
+            self.store.list_releases(app.id),
+            key=lambda row: release_order_key(row.id),
+            reverse=True,
+        )
+        return [
+            ImageRelease(
+                id=row.id,
+                commit=row.git_commit,
+                created_at=row.created_at or "",
+                activated_at=row.activated_at,
+                status=row.status,
+                active=row.status == ReleaseStatus.ACTIVE.value,
+                present=bool(images.get(row.id))
+                and all(image.tag in present for image in images[row.id]),
+            )
+            for row in rows
+        ]
+
+    def activate_release(self, release_id: str, *, went_back: bool) -> None:
+        """
+        Make a kept release the one that serves: its commit, and its images, unbuilt.
+
+        The tree is put on the release's commit (its compose file and its
+        ``noust.yaml``), the images are named as that file looks them up, and the
+        containers are recreated from them without building. They pass the health
+        gate like any activation; ones that do not are replaced by the ones that
+        served, and the release is recorded as failed.
+
+        Args:
+            release_id: The release to activate.
+            went_back: The release is older than the one it replaces, so the
+                one it replaces is recorded as rolled back.
+
+        Raises:
+            DeploymentError: The release is unknown, its images were pruned, it
+                has no commit to put the tree on, or it did not pass the gate
+                (what served is back by then, and a
+                :class:`~noust.core.exceptions.RolledBackError` says so).
+            DockerError: Docker could not name an image or recreate the containers.
+        """
+        app = self.store.get_app(self.domain)
+        if app is None or app.id is None:
+            raise DeploymentError(f"{self.domain} is not deployed")
+        record = self.store.get_release(app.id, release_id)
+        images = compose_release_store.images_by_release(app.id, store=self.store).get(
+            release_id, ()
+        )
+        if record is None or not images:
+            raise DeploymentError(
+                f"Release {release_id!r} has no kept images",
+                details="Releases made before images were kept cannot be activated: rebuild "
+                f"the commit instead (noust update {self.domain} --commit COMMIT).",
+            )
+        present = compose_retention.kept_tags(self.runner)
+        if present is None:
+            raise DockerError("Docker could not list the images of this application")
+        if any(image.tag not in present for image in images):
+            raise DeploymentError(
+                f"The images of release {release_id} are no longer on this server",
+                details="They were pruned: rebuild its commit instead "
+                f"(noust update {self.domain} --commit COMMIT).",
+            )
+        if not record.git_commit or not (self.app_path / ".git").exists():
+            raise DeploymentError(
+                f"Release {release_id} cannot put the compose file back",
+                details="Its commit is not known, or the tree is not a git checkout.",
+            )
+
+        previous = next(
+            (
+                row.id
+                for row in self.store.list_releases(app.id)
+                if row.status == ReleaseStatus.ACTIVE.value
+            ),
+            None,
+        )
+        source = self._source_manager()
+        self.previous_commit = source.get_repo_info(self.app_path).get("commit") or None
+        self._hooks = DeploymentHooks()
+        serving = self._record_serving()
+        self.logger.substep(
+            f"Activating release {release_id}" + (f" (was {previous})" if previous else "")
+        )
+        full = source.checkout_commit(self.app_path, record.git_commit)
+        self.logger.substep(f"Tree on commit {full[:7]}")
+        try:
+            self.compose_path = None
+            self._discover_compose_file()
+            document = self._load_compose_document()
+            self._check_update_privileges(document)
+            self.services = parse_services(document)
+        except NoustError:
+            # Nothing was recreated: the tree goes back to what serves.
+            self._put_back_files(serving)
+            raise
+        problems = compose_retention.restore(self.runner, images)
+        if problems:
+            self._put_back_files(serving)
+            raise DockerError(
+                f"The images of release {release_id} could not be named as the compose file "
+                "looks them up",
+                "\n".join(problems),
+            )
+
+        self.release_id = release_id
+        self._reuse_images = True
+        try:
+            healthy, evidence = self._activate(self._recreate)
+        finally:
+            self._reuse_images = False
+        if healthy:
+            self.store.update_app_status(self.domain, AppStatus.RUNNING.value)
+            self.store.mark_release_active(app.id, release_id)
+            if went_back and previous is not None:
+                self.store.set_release_status(app.id, previous, ReleaseStatus.ROLLED_BACK.value)
+            return
+        self.store.set_release_status(app.id, release_id, ReleaseStatus.FAILED.value)
+        raise self._go_back(serving, evidence)
 
     def _relay(self) -> "ComposeRelay":
         """
@@ -2137,7 +2778,11 @@ class DockerComposeDeployer(AppDeployer):
                 )
         # Services that name an image instead of building one pull it here,
         # which is a download, not a local recreate.
-        result = self._run(self._compose("up", "-d", "--remove-orphans"), timeout=BUILD_TIMEOUT)
+        flags = ["--no-build", "--remove-orphans"] if self._reuse_images else ["--remove-orphans"]
+        result = self._run(
+            self._compose("up", "-d", *flags, *self.compose_up_args, *self.compose_services),
+            timeout=BUILD_TIMEOUT,
+        )
         if not result.success:
             raise DockerError("Failed to update containers", result.stderr)
 
@@ -2430,6 +3075,10 @@ class DockerComposeDeployer(AppDeployer):
             DeploymentError: No compose file is left to read the services from.
             DockerError: Docker could not list or remove them, with its output.
         """
+        # The images of the releases kept (B-16) first: they are named by the
+        # store, not by the compose file, so a tree that is already gone has them too.
+        released_failures: list[str] = []
+        released = self._remove_release_images(released_failures)
         if self.compose_path is None:
             self._discover_compose_file()
         compose_path = self._compose_file_path()
@@ -2456,7 +3105,12 @@ class DockerComposeDeployer(AppDeployer):
         }
         wanted = {keep_tag(project, service) for project in projects for service in names}
         if not wanted:
-            return []
+            if released_failures:
+                raise DockerError(
+                    "Some images kept for going back were not removed",
+                    "\n".join(released_failures),
+                )
+            return released
 
         listed = self._run(
             [
@@ -2481,11 +3135,32 @@ class DockerComposeDeployer(AppDeployer):
                 removed.append(tag)
             else:
                 failures.append(f"{tag}: {(result.stderr or result.stdout).strip()}")
+        failures = [*released_failures, *failures]
         if failures:
             raise DockerError(
                 "Some images kept for going back were not removed", "\n".join(failures)
             )
-        return removed
+        return [*released, *removed]
+
+    def _remove_release_images(self, failures: list[str]) -> list[str]:
+        """
+        Remove the images kept for the releases of this stack.
+
+        Args:
+            failures: Where a tag that could not be removed is reported.
+
+        Returns:
+            The tags removed.
+        """
+        app = self.store.get_app(self.domain)
+        if app is None or app.id is None:
+            return []
+        kept = compose_release_store.images_by_release(app.id, store=self.store)
+        tags = [image.tag for images in kept.values() for image in images]
+        failed = compose_retention.remove(self.runner, tags)
+        failures.extend(failed)
+        compose_release_store.delete_images(app.id, kept, store=self.store)
+        return [tag for tag in tags if not any(line.startswith(f"{tag}:") for line in failed)]
 
     def delete(self, remove_volumes: bool = False) -> None:
         """
@@ -2593,6 +3268,20 @@ def stack_deployer(
     named = compose_file_from_unit(unit)
     if named:
         deployer.compose_file = str(compose_file_option(named))
+    deployer.profiles_from_unit(unit)
+    # What the operator chose (noust app compose) wins over what the unit recorded.
+    chosen = app_compose_store.get_options(app.domain)
+    if chosen.compose_file:
+        deployer.compose_file = chosen.compose_file
+    if chosen.profiles:
+        deployer.compose_profiles = list(chosen.profiles)
+    deployer.compose_build_args = chosen.build_args
+    deployer.compose_up_args = chosen.up_args
+    deployer.compose_services = chosen.services
+    if app.preview_parent and app.app_type == AppType.DOCKER_COMPOSE.value:
+        # A preview runs the copy of the compose file made for it, on the port it was given.
+        deployer.preview_parent = app.preview_parent
+        deployer.port = app.port
     return deployer
 
 

@@ -104,14 +104,6 @@ MESSAGES: dict[str, dict[Locale, str]] = {
         "en": "Restore drill passed",
         "es": "Simulacro de restauración superado",
     },
-    "title.backup.missing": {
-        "en": "Backup missing",
-        "es": "Falta una copia de seguridad",
-    },
-    "title.backup.recovered": {
-        "en": "Backup back on schedule",
-        "es": "Copia de seguridad al día",
-    },
     "title.destination.unreachable": {
         "en": "Backup destination unreachable",
         "es": "Destino de copias inaccesible",
@@ -293,14 +285,6 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     "summary.drill.passed": {
         "en": "The newest backup unpacked and its databases loaded into temporary ones.",
         "es": "La última copia se descomprimió y sus bases se cargaron en otras temporales.",
-    },
-    "summary.backup.missing": {
-        "en": "No successful backup has been taken in the time its schedule allows.",
-        "es": "No se ha hecho ninguna copia correcta en el tiempo que permite su programación.",
-    },
-    "summary.backup.recovered": {
-        "en": "A successful backup was taken again.",
-        "es": "Se ha vuelto a hacer una copia correcta.",
     },
     "summary.destination.unreachable": {
         "en": "Backups cannot be sent to it until it answers again; they stay on this server.",
@@ -508,8 +492,6 @@ MESSAGES: dict[str, dict[Locale, str]] = {
     "fact.preview": {"en": "Preview of", "es": "Vista previa de"},
     "fact.backup": {"en": "Backup", "es": "Copia"},
     "fact.destination": {"en": "Destination", "es": "Destino"},
-    "fact.last_backup": {"en": "Last good backup", "es": "Última copia correcta"},
-    "fact.never": {"en": "None yet", "es": "Ninguna todavía"},
     "fact.run_now": {"en": "Take one now with", "es": "Haz una ahora con"},
     "fact.size": {"en": "Size", "es": "Tamaño"},
     "fact.destinations": {"en": "Uploaded to", "es": "Subida a"},
@@ -596,6 +578,14 @@ _PLURAL_FORMS: dict[str, dict[Locale, tuple[str, str]]] = {
     "time": {"en": ("time", "times"), "es": ("vez", "veces")},
     "process": {"en": ("process", "processes"), "es": ("proceso", "procesos")},
 }
+
+# The words of the 3.4 monitor's new notifications are their own table, merged
+# here so there is one catalog (and one test of it). Imported after the
+# definitions above because that module only borrows this one's types.
+from noust.core.messages_ops import OPS_MESSAGES, OPS_PLURALS  # noqa: E402
+
+MESSAGES.update(OPS_MESSAGES)
+_PLURAL_FORMS.update(OPS_PLURALS)
 
 #: Abbreviated month names, for the dates a notification spells out. Not
 #: sentences, so not in :data:`MESSAGES`.

@@ -24,6 +24,8 @@ export const nav = {
   },
   /** After a destination's name, for assistive technology: "Services 1 failed". */
   failed: { one: "{count} failed", other: "{count} failed" },
+  /** After Activity's name, for assistive technology: "Activity 2 running". */
+  running: { one: "{count} running", other: "{count} running" },
   overview: { label: "Overview", keywords: "home dashboard health", goTo: "Go to overview" },
   projects: { label: "Projects", keywords: "teams environments production staging organise group workspace", goTo: "Go to projects" },
   apps: { label: "Applications", keywords: "apps sites deploy", goTo: "Go to applications" },
@@ -57,6 +59,11 @@ export const nav = {
       label: "Notifications",
       keywords: "alerts email slack webhook channels",
       command: "Notifications settings",
+    },
+    alerts: {
+      label: "Alerts",
+      keywords: "alert rules threshold cpu memory disk firing monitor",
+      command: "Alerts settings",
     },
     integrations: {
       label: "Integrations",

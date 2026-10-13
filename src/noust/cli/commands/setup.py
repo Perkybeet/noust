@@ -32,9 +32,9 @@ version told:
 from __future__ import annotations
 
 import os
-import platform
 import sys
 from argparse import Namespace
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn
@@ -56,6 +56,7 @@ from noust.core.logger import Logger
 from noust.core.package_family import FAMILY_PROGRAMS, detect_family
 from noust.core.runner import get_runner
 from noust.core.utils import command_exists, run_command, run_trusted_installer
+from noust.managers import setup_doctor
 
 if TYPE_CHECKING:
     from noust.core.dependencies import DependencyChecker, SetupSummary
@@ -1227,9 +1228,65 @@ def _run_ssh(
 # ---------------------------------------------------------------------------
 
 
+def _doctor_environment() -> setup_doctor.DoctorEnvironment:
+    """
+    Describe this machine to the doctor with the names this module is tested through.
+
+    Returns:
+        The environment: the install command of the package manager found here, and the
+        directories and programs as this module sees them.
+    """
+    manager = detect_package_manager()
+    return setup_doctor.DoctorEnvironment(
+        command_exists=command_exists,
+        run=run_command,
+        install_hint=" ".join(manager.install) if manager else "",
+        apps_dir=DEFAULT_APPS_DIR,
+        log_dir=DEFAULT_LOG_DIR,
+        config_path=DEFAULT_CONFIG_PATH,
+        include_ssh=True,
+    )
+
+
+def _print_doctor_section(logger: Logger, section: setup_doctor.DoctorSection) -> int:
+    """
+    Draw one section of the doctor's report.
+
+    Args:
+        logger: Logger used to report progress.
+        section: The section.
+
+    Returns:
+        How many of its items are warnings that count towards the summary.
+    """
+    logger.section(section.title)
+    writers: dict[str, Callable[[str], None]] = {
+        "ok": logger.success,
+        "info": logger.info,
+        "warn": logger.warning,
+        "fail": logger.error,
+    }
+    counted = 0
+    for item in section.items:
+        writers[item.status](item.text)
+        if item.status == "warn" and item.counted:
+            counted += 1
+        if item.fix:
+            logger.info(f"  Fix: {item.fix}")
+        for note in item.notes:
+            logger.info(f"  {note}")
+    if section.explain and any(item.status == "warn" for item in section.items):
+        logger.info(f"  {section.explain}")
+    logger.blank()
+    return counted
+
+
 def _run_doctor(logger: Logger) -> int:
     """
     Check everything a deployment depends on and say how to fix what is broken.
+
+    The checks are :func:`noust.managers.setup_doctor.collect`, which the console shows too;
+    this only draws them.
 
     Args:
         logger: Logger used to report progress.
@@ -1240,120 +1297,11 @@ def _run_doctor(logger: Logger) -> int:
     logger.header("Noust System Diagnostics")
     logger.blank()
 
-    from noust.core.dependencies import DependencyChecker
+    report = setup_doctor.collect(_doctor_environment())
+    for section in report.sections:
+        _print_doctor_section(logger, section)
 
-    checker = DependencyChecker(verbose=logger.verbose)
-    manager = detect_package_manager()
-    install_hint = " ".join(manager.install) if manager else "your package manager"
-
-    issues = 0
-    warnings = 0
-
-    warnings += _report_platform(logger)
-
-    logger.section("Core Dependencies")
-    for command in ("git", "curl"):
-        if command_exists(command):
-            logger.success(f"{command}: {checker.get_version(command) or 'OK'}")
-        else:
-            logger.error(f"{command}: not installed")
-            logger.info(f"  Fix: sudo {install_hint} {command}")
-            issues += 1
-    logger.blank()
-
-    logger.section("Web Server")
-    if command_exists("nginx"):
-        logger.success(f"nginx: {checker.get_version('nginx', '-v')}")
-        warnings += _report_unit_state(logger, "nginx")
-    elif command_exists("apache2") or command_exists("httpd"):
-        unit = "apache2" if command_exists("apache2") else "httpd"
-        logger.success(f"{unit}: installed")
-        warnings += _report_unit_state(logger, unit)
-    else:
-        logger.error("Web server: not installed")
-        logger.info(f"  Fix: sudo {install_hint} nginx")
-        issues += 1
-    logger.blank()
-
-    logger.section("Node.js Environment")
-    if command_exists("node"):
-        logger.success(f"node: {checker.get_version('node')}")
-        if command_exists("npm"):
-            logger.success(f"npm: {checker.get_version('npm')}")
-        else:
-            logger.error("npm: not installed, although it ships with Node.js")
-            issues += 1
-        for pm in ("pnpm", "yarn", "bun"):
-            if command_exists(pm):
-                logger.success(f"{pm}: {checker.get_version(pm)}")
-            else:
-                logger.info(f"{pm}: not installed (optional)")
-    else:
-        logger.error("node: not installed")
-        logger.info("  Fix: sudo noust setup init")
-        issues += 1
-    logger.blank()
-
-    logger.section("Python Environment")
-    if command_exists("python3"):
-        logger.success(f"python3: {checker.get_version('python3')}")
-        if command_exists("pip3"):
-            logger.success(f"pip3: {checker.get_version('pip3')}")
-        else:
-            logger.warning("pip3: not installed")
-            logger.info(f"  Fix: sudo {install_hint} python3-pip")
-            warnings += 1
-    else:
-        logger.warning("python3: not installed, needed for Python apps")
-        warnings += 1
-    logger.blank()
-
-    logger.section("SSL/TLS (Certbot)")
-    if command_exists("certbot"):
-        logger.success(f"certbot: {checker.get_version('certbot')}")
-    else:
-        logger.warning("certbot: not installed")
-        logger.info(f"  Fix: sudo {install_hint} certbot")
-        warnings += 1
-    logger.blank()
-
-    logger.section("Noust Configuration")
-    for label, path in (("Apps directory", DEFAULT_APPS_DIR), ("Log directory", DEFAULT_LOG_DIR)):
-        if path.exists():
-            logger.success(f"{label}: {path}")
-        else:
-            logger.error(f"{label}: {path} not found")
-            logger.info("  Fix: sudo noust setup init")
-            issues += 1
-
-    if DEFAULT_CONFIG_PATH.exists():
-        logger.success(f"Config file: {DEFAULT_CONFIG_PATH}")
-    else:
-        logger.warning(f"Config file: {DEFAULT_CONFIG_PATH} not found")
-        logger.info("  Fix: sudo noust setup init")
-        warnings += 1
-    logger.blank()
-
-    logger.section("SSH Configuration")
-    from noust.validators.ssh import ssh_key_exists, test_ssh_connection
-
-    key_exists, key_path = ssh_key_exists()
-    if key_exists:
-        logger.success(f"SSH key: {key_path}")
-        success, _ = test_ssh_connection("github.com")
-        if success:
-            logger.success("GitHub SSH: connected")
-        else:
-            logger.warning("GitHub SSH: not configured")
-            logger.info("  Add your key to GitHub: https://github.com/settings/keys")
-    else:
-        logger.warning("SSH key: not found")
-        logger.info("  Fix: noust setup ssh --generate")
-        warnings += 1
-    logger.blank()
-
-    warnings += _report_leftover_relays(logger)
-
+    issues, warnings = report.issues, report.warnings
     logger.section("Summary")
     if not issues and not warnings:
         logger.success("All checks passed. This machine is ready for deployments.")
@@ -1382,85 +1330,7 @@ def _report_platform(logger: Logger) -> int:
     Returns:
         How many warnings it raised.
     """
-    from noust.managers.server import platforms
-
-    verdict = platforms.assess_this_machine(platform.machine())
-    logger.section("Platform")
-    label = f"{verdict.pretty_name}, {verdict.arch}"
-    warnings = 0
-    if verdict.status == platforms.SUPPORTED:
-        logger.success(f"{label}: supported")
-    elif verdict.status == platforms.PIP_ONLY:
-        logger.info(f"{label}: installed with pip, there is no package for it")
-    elif verdict.status == platforms.BEST_EFFORT:
-        logger.warning(f"{label}: best effort, not a tested platform")
-        warnings += 1
-    else:
-        logger.warning(f"{label}: not a platform Noust declares support for")
-        warnings += 1
-    for reason in verdict.reasons:
-        logger.info(f"  {reason}")
-    eol = verdict.eol
-    if eol is not None and eol.status == "warn":
-        logger.warning(f"{verdict.pretty_name} stops receiving security updates on {eol.end_date}")
-        warnings += 1
-    if warnings:
-        logger.info("  The platforms Noust installs on are listed in docs/PLATFORMS.md")
-    logger.blank()
-    return warnings
-
-
-def _report_leftover_relays(logger: Logger) -> int:
-    """
-    Say which Compose stacks an interrupted update left served by a relay, and how to resolve it.
-
-    Args:
-        logger: Logger used to report progress.
-
-    Returns:
-        How many were found, so the caller counts them as warnings.
-    """
-    import sqlite3
-
-    from noust.deployers import compose_relay
-
-    try:
-        found = compose_relay.leftover_relays()
-    except (NoustError, OSError, sqlite3.Error) as exc:
-        # A machine without a store, or one doctor may not read: the other
-        # checks still stand, and this one says why it did not run.
-        logger.section("Docker Compose relays")
-        logger.info(f"Not checked: {exc}")
-        logger.blank()
-        return 0
-    if not found:
-        return 0
-    logger.section("Docker Compose relays")
-    for leftover in found:
-        logger.warning(f"{leftover.domain}: {leftover.what}")
-        logger.info(f"  Fix: {leftover.fix}")
-    logger.blank()
-    return len(found)
-
-
-def _report_unit_state(logger: Logger, unit: str) -> int:
-    """
-    Say whether a systemd unit is running.
-
-    Args:
-        logger: Logger used to report progress.
-        unit: Systemd unit name.
-
-    Returns:
-        1 if the unit is not running, so the caller can count it as a warning.
-    """
-    result = run_command(["systemctl", "is-active", unit])
-    if result.stdout.strip() == "active":
-        logger.success(f"  {unit} service: running")
-        return 0
-    logger.warning(f"  {unit} service: not running")
-    logger.info(f"  Fix: sudo systemctl start {unit}")
-    return 1
+    return _print_doctor_section(logger, setup_doctor.platform_section())
 
 
 # ---------------------------------------------------------------------------

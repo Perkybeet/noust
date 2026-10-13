@@ -313,6 +313,16 @@ class DependencyError(NoustError):
     pass
 
 
+class PrerequisiteError(DependencyError):
+    """
+    Raised when the machine lacks something an operation needs and the operator can supply it.
+
+    A web server module, a package, a block in a configuration file. Its own class so the
+    API can answer 409 instead of the 500 a bug gets: the request was well formed and the
+    server is simply not ready for it, and the error says what to do about that.
+    """
+
+
 class PermissionError(NoustError):
     """Raised when there are insufficient permissions."""
 
@@ -338,6 +348,55 @@ class DomainConflictError(DomainError):
     Its own class so the API can answer 409 instead of the 400 a malformed
     domain gets: the request was well formed, the name is simply taken.
     """
+
+
+class DomainOverlapError(DomainConflictError):
+    """
+    Raised when another site of the web server already answers on a name.
+
+    Its own class so the API can say ``domain_overlap``: the console then offers to add the
+    name anyway, which is the operator's decision and not an accident.
+    """
+
+
+class RecordConflictError(DomainConflictError):
+    """
+    Raised when a DNS record with another value is at the name an operation wants.
+
+    The record and what it holds travel with the error (the API carries them in its body), so
+    the operator can confirm replacing exactly that one.
+
+    Attributes:
+        hostname: The name.
+        record_id: The provider's id of the record in the way.
+        current: What it holds.
+        wanted: What was asked for.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        details: str = "",
+        *,
+        hostname: str,
+        record_id: str,
+        current: str,
+        wanted: str,
+    ) -> None:
+        """
+        Args:
+            message: The sentence for the operator.
+            details: How to confirm the replacement.
+            hostname: The name.
+            record_id: The provider's id of the record in the way.
+            current: What it holds.
+            wanted: What was asked for.
+        """
+        self.hostname = hostname
+        self.record_id = record_id
+        self.current = current
+        self.wanted = wanted
+        super().__init__(message, details)
 
 
 class TemplateError(NoustError):
@@ -477,6 +536,42 @@ class IntegrationError(NoustError):
     """Raised when a code host (GitHub) refuses a request or cannot be reached."""
 
     pass
+
+
+class CloudProviderError(IntegrationError):
+    """
+    Raised when a cloud provider (Hetzner, DigitalOcean, Vultr) refuses a request or is unreachable.
+
+    Its own message stays verbatim in ``output``: an operator reading "server
+    type is not available in this location" knows what to change, and a
+    paraphrase would hide it.
+
+    Attributes:
+        status: The HTTP status the provider answered; None when it did not.
+        retry_after: Seconds the provider asked to wait before trying again,
+            when it said (a rate limit).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        details: str = "",
+        *,
+        output: str | None = None,
+        status: int | None = None,
+        retry_after: int | None = None,
+    ):
+        """
+        Args:
+            message: What failed.
+            details: How to fix it.
+            output: The provider's own words, verbatim.
+            status: The provider's HTTP status.
+            retry_after: Seconds to wait, when the provider asked.
+        """
+        super().__init__(message, details, output=output)
+        self.status = status
+        self.retry_after = retry_after
 
 
 class NodeError(NoustError):

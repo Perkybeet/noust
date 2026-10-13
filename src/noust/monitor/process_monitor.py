@@ -28,10 +28,12 @@ from typing import Any
 from urllib.parse import quote
 
 from noust.core import paths
+from noust.core.alerts.rules import AlertRules
 from noust.core.config import SYSTEMD_DIR, Config
 from noust.core.exceptions import MonitorError, NoustError
 from noust.core.fs import SECRET_MODE, get_fs
 from noust.core.logger import Logger
+from noust.core.notification_state import NotificationState
 from noust.core.notifications.composers import (
     compose_app_outside_unit,
     compose_app_recovered,
@@ -49,9 +51,9 @@ from noust.core.runner import CommandRunner, get_runner
 from noust.core.store import App, get_store
 from noust.core.utils import remove_file, write_file
 from noust.deployers.helpers.php_fpm import is_php_fpm
-from noust.managers.backup_watch import BackupWatch
 from noust.managers.cert_manager import CertManager
 from noust.managers.service_manager import ServiceManager
+from noust.monitor.alert_engine import AlertEngine
 from noust.monitor.collector import MetricsCollector, create_collector
 from noust.monitor.email_notifier import EmailNotifier
 from noust.monitor.metrics import (
@@ -76,6 +78,12 @@ from noust.monitor.reachability import (
 )
 from noust.monitor.signals import observe_processes
 from noust.monitor.timeseries import EVENT_UNIT_FAILED, EVENT_UNIT_RECOVERED
+from noust.monitor.watch_backups import BackupWatch
+from noust.monitor.watch_cron import CronWatch
+from noust.monitor.watch_destinations import DestinationWatch
+from noust.monitor.watch_patches import PatchWatch
+from noust.monitor.watch_tokens import TokenWatch
+from noust.monitor.watches import Watch, WatchServices, run_due
 
 #: Seconds between scans. A minute is enough for capacity planning and cheap
 #: enough to leave running on a small box.
@@ -114,9 +122,14 @@ PURGE_INTERVAL_SECONDS = 3_600
 #: every scan.
 SECURITY_RETRY_SECONDS = 300
 
-#: Filesystem usage from which a disk is called out in the log rather than left
-#: at debug level. Past this, a full disk is a matter of days.
+#: Filesystem usage from which a disk is called out when ``monitor.disk_threshold``
+#: does not say otherwise. Past this, a full disk is a matter of days.
 DISK_ALERT_PERCENT = 90.0
+
+#: Hours before a disk that stays over its threshold is announced again, when
+#: ``monitor.disk_renotify_hours`` does not say otherwise (0: never, a message
+#: per crossing, as before 3.4).
+DISK_RENOTIFY_HOURS = 0.0
 
 #: Lines of a failed unit's journal fetched for its notification; the renderers
 #: show fewer, the console shows all.
@@ -125,7 +138,8 @@ JOURNAL_EXCERPT_LINES = 20
 #: A certificate with fewer days than this left is worth an email; Let's
 #: Encrypt itself starts warning at 30 days and certbot's own renewal cron
 #: runs from 30 days out, so 14 catches a renewal that has been silently
-#: failing for two weeks while still leaving time to fix it by hand.
+#: failing for two weeks while still leaving time to fix it by hand. The
+#: operator's ``monitor.cert_warning_days`` replaces it.
 CERT_EXPIRY_WARNING_DAYS = 14
 
 #: Sidecar recording the last calendar day each certificate was warned about,
@@ -402,6 +416,9 @@ class ProcessMonitor:
         reachability_probe: Callable[[App], AppProbe | None] | None = None,
         reachability_state_path: Path | None = None,
         clock: Callable[[], float] = time.time,
+        watches: list[Watch] | None = None,
+        alert_engine: AlertEngine | None = None,
+        notification_state: NotificationState | None = None,
     ) -> None:
         """
         Args:
@@ -432,6 +449,13 @@ class ProcessMonitor:
                 the observation store.
             clock: Wall-clock seconds, which survive a restart where a
                 monotonic clock does not. Tests move it.
+            watches: The checks that run on a clock of their own (cron jobs,
+                backups that did not run, updates, tokens). The 3.4 set when
+                None; tests inject their own.
+            alert_engine: Judges the user-defined alert rules every scan.
+                Built over the metrics history when None.
+            notification_state: What the watches remember between scans. The
+                store's when None.
         """
         self.verbose = verbose
         self.logger = Logger(verbose=verbose)
@@ -451,20 +475,33 @@ class ProcessMonitor:
         self._reachability_state_path = reachability_state_path
         self._reachability: OutageTracker | None = None
         self._clock = clock
+        self._watches = (
+            watches
+            if watches is not None
+            else [CronWatch(), BackupWatch(), DestinationWatch(), PatchWatch(), TokenWatch()]
+        )
+        self._alert_engine = alert_engine
+        self._notification_state = notification_state
         self._running = False
         # Far enough in the past that the first loop iteration purges once.
         self._last_purge = float("-inf")
         # When this daemon last had systemd run the security checks.
         self._security_started = float("-inf")
+        # When this daemon last asked whether the network has upkeep to do.
+        self._network_checked = float("-inf")
         # Transition memory for the notifier: a disk over the threshold or a
         # unit down is one event when it crosses, not one per scan, or a
         # sixty second interval becomes a message a minute to every channel.
         self._alerted_disks: set[str] = set()
+        # When each disk over its threshold was last announced, for the
+        # operator who wants a reminder every so many hours.
+        self._disk_announced_at: dict[str, float] = {}
+        # When the disks were last looked at, for monitor.disk_check_seconds.
+        self._disks_checked_at = float("-inf")
         self._failed_units: set[str] = set()
         # NRestarts per unit at the previous scan: a crash loop is the count
         # growing, which one reading cannot show.
         self._restart_counts: dict[str, int] = {}
-        self._backup_watch: BackupWatch | None = None
 
     def _load_config(self) -> MonitorConfig:
         """
@@ -701,19 +738,63 @@ class ProcessMonitor:
             self.logger.debug(f"Resource metrics unavailable: {exc}")
             return
 
+        threshold = self._disk_threshold()
         disks = ", ".join(f"{d.mountpoint} {d.percent:.0f}%" for d in metrics.disks)
         summary = (
             f"CPU {metrics.cpu_percent:.1f}% | RAM {metrics.memory_percent:.1f}% | "
             f"procs {metrics.process_count} | disks: {disks or 'n/a'}"
         )
 
-        full_disks = [d for d in metrics.disks if d.percent >= DISK_ALERT_PERCENT]
+        full_disks = [d for d in metrics.disks if d.percent >= threshold]
         if full_disks or metrics.memory_percent >= self.config.memory_threshold:
             self.logger.warning(summary)
         else:
             self.logger.debug(summary)
 
-        self._notify_full_disks(full_disks, metrics.disks)
+        # The disks are judged no more often than monitor.disk_check_seconds:
+        # a slow check is a longer wait for the message, not a different one.
+        now = self._clock()
+        if now - self._disks_checked_at >= self._disk_check_seconds():
+            self._disks_checked_at = now
+            self._notify_full_disks(full_disks, metrics.disks)
+
+    def _disk_threshold(self) -> float:
+        """
+        Returns:
+            The percentage from which a disk is announced:
+            ``monitor.disk_threshold``, :data:`DISK_ALERT_PERCENT` when unset or
+            not a number.
+        """
+        try:
+            value = float(self.global_config.get("monitor.disk_threshold", DISK_ALERT_PERCENT))
+        except (TypeError, ValueError):
+            return DISK_ALERT_PERCENT
+        return value if 1 <= value <= 100 else DISK_ALERT_PERCENT
+
+    def _disk_check_seconds(self) -> float:
+        """
+        Returns:
+            The least seconds between two looks at the disks
+            (``monitor.disk_check_seconds``; 0, every scan, by default).
+        """
+        try:
+            return max(float(self.global_config.get("monitor.disk_check_seconds", 0) or 0), 0.0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _disk_renotify_seconds(self) -> float:
+        """
+        Returns:
+            Seconds before a disk that stays over its threshold is announced
+            again (``monitor.disk_renotify_hours``); 0 never reminds.
+        """
+        try:
+            hours = float(
+                self.global_config.get("monitor.disk_renotify_hours", DISK_RENOTIFY_HOURS) or 0
+            )
+        except (TypeError, ValueError):
+            return 0.0
+        return max(hours, 0.0) * 3600
 
     def _notify_full_disks(
         self, full_disks: Sequence[Any], all_disks: Sequence[Any] | None = None
@@ -731,15 +812,21 @@ class ProcessMonitor:
             all_disks: Every disk the scan read, to tell a disk that dropped
                 back under the line from one that is no longer mounted.
         """
+        threshold = self._disk_threshold()
+        reminder = self._disk_renotify_seconds()
+        now = self._clock()
         for disk in full_disks:
             if disk.mountpoint in self._alerted_disks:
-                continue
+                announced = self._disk_announced_at.get(disk.mountpoint, now)
+                if not reminder or now - announced < reminder:
+                    continue
+            self._disk_announced_at[disk.mountpoint] = now
             self._publish(
                 partial(
                     compose_disk,
                     disk.mountpoint,
                     disk.percent,
-                    DISK_ALERT_PERCENT,
+                    threshold,
                     used_bytes=disk.used_bytes,
                     total_bytes=disk.total_bytes,
                     free_bytes=disk.free_bytes,
@@ -750,6 +837,8 @@ class ProcessMonitor:
             if disk.mountpoint in self._alerted_disks and disk.mountpoint not in still_full:
                 self._publish(partial(compose_disk_recovered, disk.mountpoint, disk.percent))
         self._alerted_disks = still_full
+        for mountpoint in set(self._disk_announced_at) - still_full:
+            del self._disk_announced_at[mountpoint]
 
     def _cert_notification_state_path(self) -> Path:
         """
@@ -803,6 +892,21 @@ class ProcessMonitor:
         except OSError as exc:
             self.logger.warning(f"Could not persist certificate notification state {path}: {exc}")
 
+    def _cert_warning_days(self) -> int:
+        """
+        Returns:
+            The days left from which a certificate is announced
+            (``monitor.cert_warning_days``), :data:`CERT_EXPIRY_WARNING_DAYS`
+            when unset or not a number.
+        """
+        try:
+            value = int(
+                self.global_config.get("monitor.cert_warning_days", CERT_EXPIRY_WARNING_DAYS)
+            )
+        except (TypeError, ValueError):
+            return CERT_EXPIRY_WARNING_DAYS
+        return value if value >= 1 else CERT_EXPIRY_WARNING_DAYS
+
     def _check_certificates(self) -> None:
         """
         Publish ``cert_expiring`` for a certificate under the warning window.
@@ -824,10 +928,11 @@ class ProcessMonitor:
         today = date.today()
         state = self._read_cert_notification_state()
         changed = False
+        window = self._cert_warning_days()
 
         for cert in certificates:
             days_left = days_until_expiry(cert.expiry, today)
-            if days_left is None or days_left >= CERT_EXPIRY_WARNING_DAYS:
+            if days_left is None or days_left >= window:
                 continue
             if state.get(cert.name) == today.isoformat():
                 continue
@@ -847,23 +952,6 @@ class ProcessMonitor:
 
         if changed:
             self._write_cert_notification_state(state)
-
-    def _check_backups(self) -> None:
-        """
-        Announce a backup that stopped and a destination that stopped answering.
-
-        Hourly and every six hours at most (:class:`~noust.managers.backup_watch.BackupWatch`
-        keeps the time); what has been announced is remembered in the store, so a
-        restart does not announce it again. Best effort: a store or a remote that
-        cannot be read costs the alert, not the scan.
-        """
-        if self._backup_watch is None:
-            self._backup_watch = BackupWatch(self._publish)
-        try:
-            self._backup_watch.check_backups()
-            self._backup_watch.check_destinations()
-        except (NoustError, OSError, sqlite3.Error) as exc:
-            self.logger.warning(f"Could not check the backups: {exc}")
 
     def _report_services(self) -> None:
         """
@@ -1237,6 +1325,81 @@ class ProcessMonitor:
                 )
             )
 
+    def _watch_services(self) -> WatchServices:
+        """
+        Returns:
+            What the monitor lends the checks that run on a clock of their own.
+        """
+        if self._notification_state is None:
+            self._notification_state = NotificationState()
+        return WatchServices(
+            publish=self._publish,
+            state=self._notification_state,
+            runner=self.runner,
+            config=self.global_config,
+            clock=self._clock,
+        )
+
+    def _run_watches(self) -> None:
+        """
+        Run the checks whose time has come: cron jobs, backups that did not
+        run, updates waiting and tokens about to expire.
+
+        A watch that fails is logged and waits for its next turn; it never
+        stops the scan (:func:`~noust.monitor.watches.run_due`).
+        """
+        try:
+            ran = run_due(self._watches, self._watch_services())
+        except (sqlite3.Error, OSError, NoustError) as exc:
+            self.logger.warning(f"The monitor's checks could not run: {exc}")
+            return
+        if ran:
+            self.logger.debug(f"Ran the checks: {', '.join(ran)}")
+
+    def _evaluate_alerts(self) -> None:
+        """
+        Judge the user-defined alert rules against the recorded history.
+
+        Not asked while nothing records the history: the rules read it, and a
+        gap is not a calm.
+        """
+        try:
+            if self._alert_engine is None:
+                from noust.monitor.collector import open_store
+
+                metrics = self._metrics.store if self._metrics is not None else open_store()
+                self._alert_engine = AlertEngine(
+                    AlertRules(), metrics, self._publish, clock=self._clock
+                )
+            report = self._alert_engine.evaluate()
+        except (sqlite3.Error, OSError, NoustError) as exc:
+            self.logger.warning(f"The alert rules could not be evaluated: {exc}")
+            return
+        if report.fired or report.resolved:
+            self.logger.info(
+                f"Alert rules: {report.fired} fired, {report.resolved} cleared, "
+                f"{report.announced} announced"
+            )
+
+    def _deliver_due(self) -> None:
+        """
+        Try again the notifications that failed for a reason that may pass,
+        and release those the quiet hours held.
+        """
+        sweep = getattr(self.event_notifier, "deliver_due", None)
+        if sweep is None:
+            return
+        try:
+            self.global_config.reload()
+        except (NoustError, OSError) as exc:
+            self.logger.debug(f"Configuration reload before delivering failed: {exc}")
+        report = sweep()
+        if report.delivered or report.retried or report.failed:
+            self.logger.info(
+                f"Notifications: {report.delivered} delivered late, {report.retried} "
+                f"waiting, {report.failed} given up"
+            )
+
     def run(self) -> None:
         """
         Observe the machine until :meth:`stop` is called.
@@ -1265,8 +1428,11 @@ class ProcessMonitor:
                     self._report_services()
                     self._check_reachability()
                     self._check_certificates()
-                    self._check_backups()
+                    self._run_watches()
+                    self._evaluate_alerts()
+                    self._deliver_due()
                     self._refresh_security_report()
+                    self._run_network_maintenance()
                     self.scan_once()
                 except NoustError as exc:
                     self.logger.error(f"Scan failed: {exc}")
@@ -1359,6 +1525,30 @@ class ProcessMonitor:
         if not result.success:
             self.logger.warning(
                 "Could not start the security checks: "
+                + ((result.stderr or result.stdout).strip() or f"exit {result.exit_code}")
+            )
+
+    def _run_network_maintenance(self) -> None:
+        """
+        Have the network's hourly upkeep run when it has something to do.
+
+        The monitor is sandboxed read-only for the web server's files, so a transient
+        unit does the work (see :mod:`noust.managers.network_maintenance`). Asked once an
+        hour and only started when a record is waiting to be swept or Cloudflare's
+        ranges, which a site trusts, are a week old.
+        """
+        from noust.managers import network_maintenance
+
+        now = time.monotonic()
+        if now - self._network_checked < network_maintenance.CHECK_INTERVAL_SECONDS:
+            return
+        self._network_checked = now
+        if not network_maintenance.work_due():
+            return
+        result = self.runner.run(network_maintenance.refresh_command(), timeout=60)
+        if not result.success:
+            self.logger.warning(
+                "Could not start the network maintenance: "
                 + ((result.stderr or result.stdout).strip() or f"exit {result.exit_code}")
             )
 

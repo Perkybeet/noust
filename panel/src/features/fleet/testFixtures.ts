@@ -202,7 +202,7 @@ export const BACKUPS_VIEW = view("backups", [
 
 export const UPDATES_VIEW = view(
   "updates",
-  ["web-01", "web-2", "db-1", "old-1"].map((node) =>
+  ["web-01", "web-2", "db-1", "old-1", "pub-1"].map((node) =>
     server(
       node,
       node === "web-2"
@@ -210,7 +210,10 @@ export const UPDATES_VIEW = view(
         : node === "old-1"
           ? // Its package index has not seen the release yet: the fleet's update refreshes it first.
             { os: null, noust: { current_version: "1.8.0", latest_version: "2.1.0", update_state: "index_behind", update_command: null } }
-          : { os: null },
+          : node === "pub-1"
+            ? // Its distribution's package is still being built: the target is shown, nothing to do yet.
+              { os: null, noust: { current_version: "2.0.0", latest_version: null, published_version: "2.1.0", update_state: "on_the_way", update_command: null } }
+            : { os: null },
     ),
   ),
 );
@@ -225,6 +228,7 @@ export const ACTIONS = {
     { name: "certs_renew", title: "Renew certificates", operations: ["POST /api/certs/renew-all"], serial: 4, max_failures: null },
     { name: "apps_update", title: "Update applications", operations: ["GET /api/apps", "POST /api/jobs/update"], serial: 2, max_failures: 0 },
     { name: "noust_update", title: "Update Noust", operations: ["GET /api/system/update", "POST /api/system/update"], serial: 1, max_failures: 0 },
+    { name: "index_refresh", title: "Refresh package lists", operations: ["POST /api/server/updates/refresh"], serial: 4, max_failures: null },
   ],
 };
 

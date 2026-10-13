@@ -428,6 +428,9 @@ def test_the_state_carries_the_exact_public_payload_url(
         "hook_url_public": True,
         "content_type": "application/json",
         "events": ["push"],
+        # A pipeline deploys over the API, at the console's own address.
+        "deploy_url": f"http://testserver/api/apps/{DOMAIN}/deploy",
+        "deploy_url_public": False,
     }
     assert body["forge"] == {
         "forge": "github",
