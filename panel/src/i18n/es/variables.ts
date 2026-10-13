@@ -62,12 +62,14 @@ export const variables: Catalog<typeof en> = {
       documentTitle: "Variables - {team}",
     },
     title: {
+      preview: "Variables para vistas previas",
       server: "Variables del servidor",
       team: "Variables del equipo",
       project: "Variables del proyecto",
       environment: "Variables de {name}",
     },
     description: {
+      preview: "Se definen solo para las vistas previas. Prevalecen sobre una variable de la aplicación con el mismo nombre, y un valor puede referirse a {example} para la dirección de la propia vista previa.",
       server: "Toda aplicación de este servidor puede referirse a ellas como {syntax}.",
       team: "Toda aplicación del equipo puede referirse a ellas como {syntax}.",
       project: "Toda aplicación del proyecto puede referirse a ellas como {syntax}.",
@@ -78,6 +80,8 @@ export const variables: Catalog<typeof en> = {
       server: "este servidor",
     },
     tableCaption: "Variables compartidas de {scope}",
+    tableCaptionPreview: "Variables para las vistas previas de {scope}",
+    notePreview: "Una vista previa las recibe al compilarse, sea cual sea lo que copian los ajustes de la aplicación. Un cambio llega a las vistas previas que se compilen desde ahora; las que ya están en marcha conservan lo que tienen hasta que se recompilen.",
     nameHeader: "Nombre",
     valueHeader: "Valor",
     updatedHeader: "Cambio",
@@ -118,6 +122,7 @@ export const variables: Catalog<typeof en> = {
     delete: {
       title: "¿Eliminar {name}?",
       description: "Se elimina de {scope}. Las aplicaciones que se refieren a ella fallan en su próximo despliegue hasta que cambies la referencia.",
+      descriptionPreview: "Se elimina de {scope}. Las vistas previas que se compilen desde ahora no la reciben; las que están en marcha la conservan hasta que se recompilen.",
       descriptionUsed: {
         one: "Se elimina de {scope}. {count} aplicación se refiere a ella y falla en su próximo despliegue hasta que cambies la referencia: {list}.",
         other: "Se elimina de {scope}. {count} aplicaciones se refieren a ella y fallan en su próximo despliegue hasta que cambies la referencia: {list}.",

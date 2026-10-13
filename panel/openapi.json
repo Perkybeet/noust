@@ -19885,7 +19885,7 @@
         "type": "object"
       },
       "PreviewSettingsOut": {
-        "description": "The previews an application allows.\n\nAttributes:\n    base_domain: Previews answer at ``pr-<n>-<app>.<base_domain>``; a\n        wildcard record for it must point at this server.\n    max_previews: How many may exist at once (1 to 20).\n    ttl_hours: Hours a preview lives without a push (1 to 2160).\n    allow_bots: Whether pull requests from bot accounts (Dependabot,\n        Renovate) get a preview. A preview builds in the sandbox, as\n        ``noust-build`` and without a network while it compiles, but its\n        build and its unit get a copy of the application's secrets, so\n        this is off unless turned on.\n    exclude_env: Variables never copied to a preview when it is given all\n        of the application's.\n    inherit_env: ``allowlist`` (a preview is given only ``allow_env`` and\n        the set defined for previews) or ``all`` (every variable less\n        ``exclude_env``, as before 3.4).\n    allow_env: The variables an ``allowlist`` preview copies.\n    data_mode: ``shared`` (a preview uses the application's databases),\n        ``empty`` (a database of its own) or ``clone``.",
+        "description": "The previews an application allows.\n\nAttributes:\n    base_domain: Previews answer at ``pr-<n>-<app>.<base_domain>``; a\n        wildcard record for it must point at this server.\n    max_previews: How many may exist at once (1 to 20).\n    ttl_hours: Hours a preview lives without a push (1 to 2160).\n    allow_bots: Whether pull requests from bot accounts (Dependabot,\n        Renovate) get a preview. A preview builds in the sandbox, as\n        ``noust-build`` and without a network while it compiles, but its\n        build and its unit get a copy of the application's secrets, so\n        this is off unless turned on.\n    exclude_env: Variables never copied to a preview when it is given all\n        of the application's.\n    inherit_env: ``allowlist`` (a preview is given only ``allow_env`` and\n        the set defined for previews) or ``all`` (every variable less\n        ``exclude_env``, as before 3.4).\n    allow_env: The variables an ``allowlist`` preview copies.\n    data_mode: ``shared`` (a preview uses the application's databases) or\n        ``empty`` (a database of its own).",
         "properties": {
           "allow_bots": {
             "title": "Allow Bots",
@@ -19961,7 +19961,7 @@
         "type": "object"
       },
       "PreviewSettingsRequest": {
-        "description": "Turn previews on, or change their settings.\n\nAttributes:\n    base_domain: The domain a wildcard record points at this server\n        (``previews.example.com`` for ``*.previews.example.com``).\n    max_previews: How many at once, 1 to 20.\n    ttl_hours: Hours one lives without a push, 1 to 2160 (90 days).\n    allow_bots: Build previews of bot accounts' pull requests; null\n        keeps the current value (off for new settings).\n    exclude_env: Names of variables never copied to a preview (and taken\n        out of existing ones at their next build); null keeps the\n        current list (none for new settings).\n    inherit_env: ``allowlist`` or ``all``; null keeps the current way\n        (``allowlist`` for previews turned on now).\n    allow_env: The variables an ``allowlist`` preview copies; null keeps\n        the current list (none for previews turned on now).\n    data_mode: ``shared``, ``empty`` or ``clone``; null keeps the current\n        way (``empty`` for an application that has a database).",
+        "description": "Turn previews on, or change their settings.\n\nAttributes:\n    base_domain: The domain a wildcard record points at this server\n        (``previews.example.com`` for ``*.previews.example.com``).\n    max_previews: How many at once, 1 to 20.\n    ttl_hours: Hours one lives without a push, 1 to 2160 (90 days).\n    allow_bots: Build previews of bot accounts' pull requests; null\n        keeps the current value (off for new settings).\n    exclude_env: Names of variables never copied to a preview (and taken\n        out of existing ones at their next build); null keeps the\n        current list (none for new settings).\n    inherit_env: ``allowlist`` or ``all``; null keeps the current way\n        (``allowlist`` for previews turned on now).\n    allow_env: The variables an ``allowlist`` preview copies; null keeps\n        the current list (none for previews turned on now).\n    data_mode: ``shared`` or ``empty``; null keeps the current\n        way (``empty`` for an application that has a database).",
         "properties": {
           "allow_bots": {
             "anyOf": [
@@ -20046,12 +20046,17 @@
         "type": "object"
       },
       "PreviewVariableOut": {
-        "description": "One variable defined for the previews of an application.\n\nAttributes:\n    name: Its name.\n    value: Its value, masked when it is a secret.\n    secret: Whether Noust treats it as one.\n    audience: ``both``, ``build`` or ``runtime``.\n    updated_at: When it last changed.",
+        "description": "One variable defined for the previews of an application.\n\nAttributes:\n    name: Its name.\n    value: Its value, masked when it is a secret.\n    secret: Whether Noust treats it as one.\n    marked: Whether the operator said so (the classifier is not asked).\n    audience: ``both``, ``build`` or ``runtime``.\n    updated_at: When it last changed.",
         "properties": {
           "audience": {
             "default": "both",
             "title": "Audience",
             "type": "string"
+          },
+          "marked": {
+            "default": false,
+            "title": "Marked",
+            "type": "boolean"
           },
           "name": {
             "title": "Name",
@@ -20176,7 +20181,7 @@
         "type": "object"
       },
       "PreviewsResponse": {
-        "description": "An application's preview settings and previews.\n\nAttributes:\n    domain: The application.\n    enabled: Whether it allows previews.\n    settings: Its settings, when enabled.\n    previews: Its previews, oldest first. Some may remain after previews\n        were turned off, while their removal runs or when it failed.\n    total: How many.",
+        "description": "An application's preview settings and previews.\n\nAttributes:\n    domain: The application.\n    enabled: Whether it allows previews.\n    settings: Its settings, when enabled.\n    previews: Its previews, oldest first. Some may remain after previews\n        were turned off, while their removal runs or when it failed.\n    total: How many.\n    has_database: Whether Noust has a database recorded for the application,\n        which its previews share unless they are given one of their own.",
         "properties": {
           "domain": {
             "title": "Domain",
@@ -20184,6 +20189,11 @@
           },
           "enabled": {
             "title": "Enabled",
+            "type": "boolean"
+          },
+          "has_database": {
+            "default": false,
+            "title": "Has Database",
             "type": "boolean"
           },
           "previews": {
@@ -39933,7 +39943,7 @@
     },
     "/api/apps/{domain}/previews/variables": {
       "get": {
-        "description": "Read the variables defined for the previews of an application.\n\nArgs:\n    domain: The application.\n    session: The authenticated session.\n\nReturns:\n    Them, secrets masked.",
+        "description": "Read the variables defined for the previews of an application.\n\nArgs:\n    domain: The application.\n    request: The request, for the audit record.\n    session: The authenticated session.\n    unmask: Show values in clear (an administrator in sudo mode; audited).\n\nReturns:\n    Them, secrets masked unless asked for.",
         "operationId": "get_preview_variables_api_apps__domain__previews_variables_get",
         "parameters": [
           {
@@ -39943,6 +39953,16 @@
             "schema": {
               "title": "Domain",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "unmask",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Unmask",
+              "type": "boolean"
             }
           }
         ],

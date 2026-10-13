@@ -27,8 +27,14 @@ from noust.core.variables.store import VariableStore
 from noust.managers import previews
 from noust.managers.service_manager import ServiceManager
 from noust.web.api.auth import get_current_session
-from noust.web.api.deps import JobAcceptedResponse, NoustErrorRoute, require_elevated, strict_domain
-from noust.web.auth import actor_label, get_audit_logger, get_client_ip
+from noust.web.api.deps import (
+    JobAcceptedResponse,
+    NoustErrorRoute,
+    ensure_elevated,
+    require_elevated,
+    strict_domain,
+)
+from noust.web.auth import actor_label, ensure_scope, get_audit_logger, get_client_ip
 from noust.web.jobs import JobType, get_job_manager
 from noust.web.pydantic_compat import iso_offset_validator
 
@@ -55,8 +61,8 @@ class PreviewSettingsOut(BaseModel):
             the set defined for previews) or ``all`` (every variable less
             ``exclude_env``, as before 3.4).
         allow_env: The variables an ``allowlist`` preview copies.
-        data_mode: ``shared`` (a preview uses the application's databases),
-            ``empty`` (a database of its own) or ``clone``.
+        data_mode: ``shared`` (a preview uses the application's databases) or
+            ``empty`` (a database of its own).
     """
 
     base_domain: str
@@ -124,6 +130,8 @@ class PreviewsResponse(BaseModel):
         previews: Its previews, oldest first. Some may remain after previews
             were turned off, while their removal runs or when it failed.
         total: How many.
+        has_database: Whether Noust has a database recorded for the application,
+            which its previews share unless they are given one of their own.
     """
 
     domain: str
@@ -131,6 +139,7 @@ class PreviewsResponse(BaseModel):
     settings: PreviewSettingsOut | None = None
     previews: list[PreviewOut]
     total: int
+    has_database: bool = False
 
 
 class PreviewSettingsRequest(BaseModel):
@@ -151,7 +160,7 @@ class PreviewSettingsRequest(BaseModel):
             (``allowlist`` for previews turned on now).
         allow_env: The variables an ``allowlist`` preview copies; null keeps
             the current list (none for previews turned on now).
-        data_mode: ``shared``, ``empty`` or ``clone``; null keeps the current
+        data_mode: ``shared`` or ``empty``; null keeps the current
             way (``empty`` for an application that has a database).
     """
 
@@ -301,6 +310,7 @@ def list_previews(
         settings=_settings_out(settings) if settings else None,
         previews=items,
         total=len(items),
+        has_database=previews.has_database(validated),
     )
 
 
@@ -540,6 +550,7 @@ class PreviewVariableOut(BaseModel):
         name: Its name.
         value: Its value, masked when it is a secret.
         secret: Whether Noust treats it as one.
+        marked: Whether the operator said so (the classifier is not asked).
         audience: ``both``, ``build`` or ``runtime``.
         updated_at: When it last changed.
     """
@@ -547,6 +558,7 @@ class PreviewVariableOut(BaseModel):
     name: str
     value: str
     secret: bool
+    marked: bool = False
     audience: str = BOTH
     updated_at: str | None = None
 
@@ -590,6 +602,7 @@ def _variables_response(
                 name=v.name,
                 value=shown[v.name],
                 secret=classify(v.name, v.value, marks).secret,
+                marked=v.secret is not None,
                 audience=v.audience,
                 updated_at=v.updated_at,
             )
@@ -643,20 +656,34 @@ def list_pull_requests(
 
 @router.get("/{domain}/previews/variables", response_model=PreviewVariablesResponse)
 def get_preview_variables(
-    domain: str, session: Annotated[dict, Depends(get_current_session)]
+    domain: str,
+    request: Request,
+    session: Annotated[dict, Depends(get_current_session)],
+    unmask: Annotated[bool, Query()] = False,
 ) -> PreviewVariablesResponse:
     """
     Read the variables defined for the previews of an application.
 
     Args:
         domain: The application.
+        request: The request, for the audit record.
         session: The authenticated session.
+        unmask: Show values in clear (an administrator in sudo mode; audited).
 
     Returns:
-        Them, secrets masked.
+        Them, secrets masked unless asked for.
     """
     validated = _known_app(domain)
-    return _variables_response(validated, _app_id(validated))
+    if unmask:
+        ensure_scope(request, session, "admin")
+        ensure_elevated(request, session)
+        _audit(
+            request,
+            session,
+            "apps.env.reveal",
+            f"revealed the variables of the previews of {validated}",
+        )
+    return _variables_response(validated, _app_id(validated), reveal=unmask)
 
 
 @router.put("/{domain}/previews/variables/{name}", response_model=PreviewVariablesResponse)

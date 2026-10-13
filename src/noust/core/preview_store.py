@@ -12,8 +12,8 @@ harmless and visible):
 - ``preview_options``, one row per application that allows previews: which of
   its variables a preview is given (``inherit_env``: ``all`` as 2.2 did, minus
   ``exclude_env``, or ``allowlist``, only ``allow_env``) and whether a preview
-  shares its application's databases (``data_mode``: ``shared``, ``empty`` or
-  ``clone``). An application whose previews were turned on before 3.4 has no
+  shares its application's databases (``data_mode``: ``shared`` or ``empty``).
+  An application whose previews were turned on before 3.4 has no
   row and reads as the 2.2 behaviour; one turned on from 3.4 gets the safe one.
 - ``preview_origins``, one row per preview: what it was made from (a pull
   request, or a branch or a tag an operator named), which variables the policy
@@ -40,9 +40,7 @@ INHERIT_MODES: tuple[str, ...] = (INHERIT_ALL, INHERIT_ALLOWLIST)
 DATA_SHARED = "shared"
 #: A preview gets a database of its own, empty.
 DATA_EMPTY = "empty"
-#: A preview gets a database of its own holding a copy of its application's.
-DATA_CLONE = "clone"
-DATA_MODES: tuple[str, ...] = (DATA_SHARED, DATA_EMPTY, DATA_CLONE)
+DATA_MODES: tuple[str, ...] = (DATA_SHARED, DATA_EMPTY)
 
 #: A preview made from a pull request, a branch or a tag.
 KIND_PR = "pr"
@@ -64,7 +62,7 @@ class PreviewOptions:
         app_domain: The application previewed.
         inherit_env: ``all`` or ``allowlist``.
         allow_env: The variables an ``allowlist`` preview copies.
-        data_mode: ``shared``, ``empty`` or ``clone``.
+        data_mode: ``shared`` or ``empty``.
     """
 
     app_domain: str
@@ -132,8 +130,8 @@ def validate_data_mode(mode: str) -> str:
     if mode not in DATA_MODES:
         raise ValidationError(
             f"Unknown way to give previews data: {mode!r}",
-            details="Use 'empty' (a database of its own, empty), 'clone' (a database of its own "
-            "holding a copy of the application's) or 'shared' (the application's own databases).",
+            details="Use 'empty' (a database of its own, empty) or 'shared' (the application's "
+            "own databases).",
             field="data_mode",
         )
     return mode

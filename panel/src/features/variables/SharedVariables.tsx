@@ -34,13 +34,20 @@ import type { SharedVariableDraft, SharedVariableTarget } from "./SharedVariable
 
 /** How an application refers to a scope's variable, as the server reads it. */
 export function referenceSyntax(scope: VariableScope): string {
-  return `{{${scope.kind}.NAME}}`;
+  return scope.kind === "preview" ? "{{app.URL}}" : `{{${scope.kind}.NAME}}`;
 }
 
 /** The scope's own words: its section title, what it is for, and how it is named in a sentence. */
 function words(t: T, scope: VariableScope, name: string): { title: string; description: string; of: string; command: string } {
   const syntax = referenceSyntax(scope);
   switch (scope.kind) {
+    case "preview":
+      return {
+        title: t("variables.shared.title.preview"),
+        description: t("variables.shared.description.preview", { example: syntax }),
+        of: name,
+        command: `noust preview vars ${scope.domain}`,
+      };
     case "server":
       return { title: t("variables.shared.title.server"), description: t("variables.shared.description.server", { syntax }), of: t("variables.shared.scopeNames.server"), command: "noust variables list --scope server" };
     case "team":
@@ -290,9 +297,11 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
           {t("variables.shared.edit")}
         </MenuItem>
       ) : null}
-      <MenuItem icon={<Users />} onClick={() => setUsing(variable.name)}>
-        {t("variables.shared.usage")}
-      </MenuItem>
+      {scope.kind === "preview" ? null : (
+        <MenuItem icon={<Users />} onClick={() => setUsing(variable.name)}>
+          {t("variables.shared.usage")}
+        </MenuItem>
+      )}
       {canManage ? (
         <>
           <MenuSeparator />
@@ -310,7 +319,7 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
     </Button>
   ) : null;
 
-  const caption = t("variables.shared.tableCaption", { scope: text.of });
+  const caption = scope.kind === "preview" ? t("variables.shared.tableCaptionPreview", { scope: text.of }) : t("variables.shared.tableCaption", { scope: text.of });
 
   return (
     <Section title={text.title} description={text.description} level={level} {...(!primary && addButton !== null ? { actions: addButton } : {})}>
@@ -348,7 +357,7 @@ export function SharedVariables({ scope, name = "", canManage, primary = false, 
               mobile="cards"
               defaultSort={{ column: "name", direction: "ascending" }}
             />
-            <p className="max-w-measure text-12 text-pretty text-fg-muted">{t("variables.shared.note")}</p>
+            <p className="max-w-measure text-12 text-pretty text-fg-muted">{scope.kind === "preview" ? t("variables.shared.notePreview") : t("variables.shared.note")}</p>
           </>
         )}
       </QueryState>
@@ -387,7 +396,7 @@ function DeleteDialog({
   onDeleted: (name: string) => void;
 }) {
   const t = useT();
-  const usage = useQuery({ ...variableUsageQuery(scope, name ?? ""), enabled: name !== null });
+  const usage = useQuery({ ...variableUsageQuery(scope, name ?? ""), enabled: name !== null && scope.kind !== "preview" });
   const users = usage.data?.applications ?? [];
   const label = name ?? "";
   return (
@@ -400,9 +409,11 @@ function DeleteDialog({
       server={server}
       title={t("variables.shared.delete.title", { name: label })}
       description={
-        users.length === 0
-          ? t("variables.shared.delete.description", { scope: of })
-          : t("variables.shared.delete.descriptionUsed", { count: users.length, scope: of, list: users.join(", ") })
+        scope.kind === "preview"
+          ? t("variables.shared.delete.descriptionPreview", { scope: of })
+          : users.length === 0
+            ? t("variables.shared.delete.description", { scope: of })
+            : t("variables.shared.delete.descriptionUsed", { count: users.length, scope: of, list: users.join(", ") })
       }
       actionLabel={t("variables.shared.delete.action")}
       destructive

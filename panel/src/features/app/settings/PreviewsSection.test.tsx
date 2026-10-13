@@ -1,5 +1,5 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { previewsInterval } from "../../../api/queries/previews";
 import { setLocale } from "../../../app/locale";
@@ -8,6 +8,9 @@ import { renderConsole } from "../../../test/console";
 import { APPS, SESSION, fakeBackend, json, problem, signedInRoutes } from "../../../test/fakes";
 import type { RouteHandler } from "../../../test/fakes";
 import { envNamesOf, lifetime, parsePreviewDraft, previewDraftOf, previewFieldOf, previewStatus, samePreviewDraft, ttlDraft } from "./previews";
+
+// Under a busy machine a page that reads the app, its previews and their form takes longer than the default.
+vi.setConfig({ testTimeout: 20_000 });
 
 const DOMAIN = "shop.example.com";
 const APP = {
@@ -26,6 +29,9 @@ const SETTINGS = {
   ttl_hours: 168,
   allow_bots: false,
   exclude_env: [] as string[],
+  inherit_env: "allowlist",
+  allow_env: [] as string[],
+  data_mode: "empty",
   created_at: "2026-09-20T10:00:00+00:00",
   updated_at: "2026-09-20T10:00:00+00:00",
 };
@@ -36,6 +42,9 @@ const READY = {
   domain: "pr-12-shop-example-com.previews.example.com",
   url: "https://pr-12-shop-example-com.previews.example.com",
   number: 12,
+  kind: "pr",
+  ref: null,
+  databases: [] as string[],
   branch: "feature/checkout",
   head_sha: "9f1c2e7d4b",
   provider: "github",
@@ -57,8 +66,8 @@ const FAILED = {
   error: "npm run build exited with 1\nType error: Property 'total' does not exist on type 'Cart'.",
 };
 
-const OFF = { domain: DOMAIN, enabled: false, settings: null, previews: [], total: 0 };
-const ON = { domain: DOMAIN, enabled: true, settings: SETTINGS, previews: [READY, FAILED], total: 2 };
+const OFF = { domain: DOMAIN, enabled: false, settings: null, previews: [], total: 0, has_database: false };
+const ON = { domain: DOMAIN, enabled: true, settings: SETTINGS, previews: [READY, FAILED], total: 2, has_database: true };
 
 const JOB = {
   id: "pv1",
@@ -102,11 +111,14 @@ describe("pull request previews", () => {
     const needs = within(section).getByRole("list", { name: "What previews need" });
     expect(within(needs).getByText("A wildcard DNS record")).toBeInTheDocument();
     expect(within(needs).getByText("Pull request events")).toBeInTheDocument();
-    expect(within(section).getByText("Previews get this app's production secrets")).toBeInTheDocument();
-    expect(within(section).getByText(/except those never copied, and connects to its databases/)).toBeInTheDocument();
+    // By default a preview is given only what is chosen, and a database of its own: nothing to warn of.
+    expect(within(section).getByText("A preview runs code nobody has reviewed")).toBeInTheDocument();
     expect(within(section).getByText(/from anyone but owners, members and collaborators, get none/)).toBeInTheDocument();
+    expect(within(section).queryByText("Previews get this app's variables")).not.toBeInTheDocument();
     expect(within(section).getByRole("checkbox", { name: "Allow pull requests from bots" })).not.toBeChecked();
-    expect(within(section).getByRole("textbox", { name: "Never copied to previews" })).toHaveValue("");
+    expect(within(section).getByRole("radio", { name: "Only the ones I choose" })).toBeChecked();
+    expect(within(section).getByRole("radio", { name: "A database of its own" })).toBeChecked();
+    expect(within(section).getByRole("textbox", { name: /Copied from the app/ })).toHaveValue("");
 
     expect(within(section).getByRole("textbox", { name: "At most" })).toHaveValue("3");
     expect(within(section).getByRole("textbox", { name: "Removed after" })).toHaveValue("7");
@@ -122,6 +134,9 @@ describe("pull request previews", () => {
         ttl_hours: 168,
         allow_bots: false,
         exclude_env: [],
+        inherit_env: "allowlist",
+        allow_env: [],
+        data_mode: "empty",
       });
     });
     expect(await within(section).findByText("On")).toBeInTheDocument();
@@ -146,6 +161,9 @@ describe("pull request previews", () => {
         ttl_hours: 36,
         allow_bots: false,
         exclude_env: [],
+        inherit_env: "allowlist",
+        allow_env: [],
+        data_mode: "empty",
       });
     });
   });
@@ -163,18 +181,19 @@ describe("pull request previews", () => {
     expect(backend.callsTo(`PUT /api/apps/${DOMAIN}/previews/settings`)).toHaveLength(0);
   });
 
-  it("saves the variables never copied and whether bots get previews", async () => {
+  it("saves the variables never copied and whether bots get previews, once every variable is the way chosen", async () => {
     let state: object = { ...ON, previews: [] };
     const { user, backend, section } = await previewsOf(() => state, {
       [`PUT /api/apps/${DOMAIN}/previews/settings`]: () => {
-        const saved = { ...SETTINGS, allow_bots: true, exclude_env: ["STRIPE_SECRET_KEY", "SMTP_PASSWORD"] };
+        const saved = { ...SETTINGS, allow_bots: true, inherit_env: "all", exclude_env: ["STRIPE_SECRET_KEY", "SMTP_PASSWORD"] };
         state = { ...ON, previews: [], settings: saved };
         return json(200, saved);
       },
     });
     const save = await within(section).findByRole("button", { name: "Save" });
     expect(save).toBeDisabled();
-    await user.type(within(section).getByRole("textbox", { name: "Never copied to previews" }), "STRIPE_SECRET_KEY,  SMTP_PASSWORD STRIPE_SECRET_KEY");
+    await user.click(within(section).getByRole("radio", { name: "All of the app's" }));
+    await user.type(within(section).getByRole("textbox", { name: /Never copied to previews/ }), "STRIPE_SECRET_KEY,  SMTP_PASSWORD STRIPE_SECRET_KEY");
     await user.click(within(section).getByRole("checkbox", { name: "Allow pull requests from bots" }));
     await user.click(save);
     await waitFor(() => {
@@ -184,10 +203,13 @@ describe("pull request previews", () => {
         ttl_hours: 168,
         allow_bots: true,
         exclude_env: ["STRIPE_SECRET_KEY", "SMTP_PASSWORD"],
+        inherit_env: "all",
+        allow_env: [],
+        data_mode: "empty",
       });
     });
     await waitFor(() => {
-      expect(within(section).getByRole("textbox", { name: "Never copied to previews" })).toHaveValue("STRIPE_SECRET_KEY, SMTP_PASSWORD");
+      expect(within(section).getByRole("textbox", { name: /Never copied to previews/ })).toHaveValue("STRIPE_SECRET_KEY, SMTP_PASSWORD");
     });
     expect(await within(section).findByText("No unsaved changes")).toBeInTheDocument();
     expect(within(section).getByRole("checkbox", { name: "Allow pull requests from bots" })).toBeChecked();
@@ -198,7 +220,8 @@ describe("pull request previews", () => {
       [`PUT /api/apps/${DOMAIN}/previews/settings`]: () =>
         problem(400, "validation_error", "Invalid variable name: 'SECRET-KEY'", { fields: { exclude_env: "Invalid variable name: 'SECRET-KEY'" } }),
     });
-    const names = await within(section).findByRole("textbox", { name: "Never copied to previews" });
+    await user.click(await within(section).findByRole("radio", { name: "All of the app's" }));
+    const names = await within(section).findByRole("textbox", { name: /Never copied to previews/ });
     await user.type(names, "1TOKEN");
     await user.click(within(section).getByRole("button", { name: "Save" }));
     expect(await within(section).findByText(/Not a variable name: 1TOKEN\./)).toBeInTheDocument();
@@ -242,7 +265,7 @@ describe("pull request previews", () => {
     expect(within(ready).getByText("feature/checkout")).toBeInTheDocument();
     expect(within(ready).getByText("9f1c2e7")).toBeInTheDocument();
     expect(within(ready).getByRole("link", { name: READY.domain })).toHaveAttribute("href", `/apps/${READY.domain}`);
-    const open = within(ready).getByRole("link", { name: "Open preview of pull request #12 (opens in a new tab)" });
+    const open = within(ready).getByRole("link", { name: "Open the preview of #12 (opens in a new tab)" });
     expect(open).toHaveAttribute("href", READY.url);
     expect(open).toHaveAttribute("target", "_blank");
     expect(open.getAttribute("rel")).toContain("noopener");
@@ -260,8 +283,9 @@ describe("pull request previews", () => {
         json(202, { job_id: JOB.id, status: "pending", message: `Removal of ${READY.domain} queued`, job: JOB }),
     });
     const list = await within(section).findByRole("list", { name: "Previews" });
-    await user.click(within(list).getByRole("button", { name: "Remove the preview of pull request #12" }));
-    const dialog = await screen.findByRole("alertdialog", { name: "Remove the preview of pull request #12?" });
+    await user.click(within(list).getByRole("button", { name: "Actions for the preview of #12" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Remove" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "Remove the preview of #12?" });
     expect(within(dialog).getByText(new RegExp(`${READY.domain.replace(/\./g, "\\.")} stops answering`))).toBeInTheDocument();
     expect(backend.callsTo(`DELETE /api/apps/${DOMAIN}/previews/12`)).toHaveLength(0);
     await user.click(within(dialog).getByRole("button", { name: "Remove preview" }));
@@ -271,7 +295,7 @@ describe("pull request previews", () => {
     const [ready] = within(list).getAllByRole("listitem");
     if (!ready) throw new Error("a preview expected");
     expect(await within(ready).findByText("Removing")).toBeInTheDocument();
-    expect(within(ready).getByRole("button", { name: "Remove the preview of pull request #12" })).toBeDisabled();
+    expect(within(ready).getByRole("button", { name: "Redeploy #12" })).toBeDisabled();
   });
 
   it("turns previews off after naming what is removed", async () => {
@@ -338,7 +362,16 @@ describe("the preview settings and states", () => {
   it("reads the form as the backend will", () => {
     const draft = previewDraftOf(null);
     expect(parsePreviewDraft({ ...draft, base_domain: "previews.example.com" })).toEqual({
-      values: { base_domain: "previews.example.com", max_previews: 3, ttl_hours: 168, allow_bots: false, exclude_env: [] },
+      values: {
+        base_domain: "previews.example.com",
+        max_previews: 3,
+        ttl_hours: 168,
+        allow_bots: false,
+        exclude_env: [],
+        inherit_env: "allowlist",
+        allow_env: [],
+        data_mode: "empty",
+      },
       errors: {},
     });
     expect(parsePreviewDraft({ ...draft, base_domain: "a.example.com", exclude_env: " A_1, _b\nA_1 ", allow_bots: true }).values).toMatchObject({

@@ -69,12 +69,14 @@ export const variables = {
       documentTitle: "Variables - {team}",
     },
     title: {
+      preview: "Variables for previews",
       server: "Server variables",
       team: "Team variables",
       project: "Project variables",
       environment: "{name} variables",
     },
     description: {
+      preview: "Defined for previews alone. They win over a variable of the application with the same name, and a value can refer to {example} for the preview's own address.",
       server: "Every application on this server can refer to these as {syntax}.",
       team: "Every application of the team can refer to these as {syntax}.",
       project: "Every application of the project can refer to these as {syntax}.",
@@ -85,6 +87,8 @@ export const variables = {
       server: "this server",
     },
     tableCaption: "Shared variables of {scope}",
+    tableCaptionPreview: "Variables for the previews of {scope}",
+    notePreview: "A preview gets these when it is built, whatever the application's settings copy. A change reaches the previews built from now on; the ones running keep what they have until they are rebuilt.",
     nameHeader: "Name",
     valueHeader: "Value",
     updatedHeader: "Changed",
@@ -125,6 +129,7 @@ export const variables = {
     delete: {
       title: "Delete {name}?",
       description: "It is removed from {scope}. Applications that refer to it fail their next deploy until the reference is changed.",
+      descriptionPreview: "It is removed from {scope}. Previews built from now on do not get it; the ones running keep it until they are rebuilt.",
       descriptionUsed: {
         one: "It is removed from {scope}. {count} application refers to it and fails its next deploy until the reference is changed: {list}.",
         other: "It is removed from {scope}. {count} applications refer to it and fail their next deploy until the reference is changed: {list}.",

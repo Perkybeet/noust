@@ -581,7 +581,7 @@ CREATE TABLE IF NOT EXISTS preview_options (
     app_domain TEXT PRIMARY KEY,
     inherit_env TEXT NOT NULL DEFAULT 'all' CHECK (inherit_env IN ('all', 'allowlist')),
     allow_env TEXT NOT NULL DEFAULT '[]',
-    data_mode TEXT NOT NULL DEFAULT 'shared' CHECK (data_mode IN ('shared', 'empty', 'clone')),
+    data_mode TEXT NOT NULL DEFAULT 'shared' CHECK (data_mode IN ('shared', 'empty')),
     updated_at TEXT NOT NULL
 );
 

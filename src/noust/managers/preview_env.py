@@ -19,9 +19,8 @@ so ``NEXTAUTH_URL={{app.URL}}`` is the preview's own address.
 
 **Data.** ``data_mode`` says whether a preview shares its application's
 databases (``shared``, the 2.2 behaviour: a pull request can write into
-production's), or gets a database of its own (``empty``, or ``clone``, which
-starts from a copy of the application's). A preview that has a database of its
-own is given no variable that names the application's.
+production's), or gets an empty database of its own (``empty``). A preview that has a database
+of its own is given no variable that names the application's.
 """
 
 from __future__ import annotations

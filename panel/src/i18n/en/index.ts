@@ -33,6 +33,7 @@ export { newApp } from "./newApp";
 export { overview } from "./overview";
 export { queue } from "./queue";
 export { policyScope } from "./policyScope";
+export { previewHand } from "./previewHand";
 export { provisioning } from "./provisioning";
 export { publicAccess } from "./publicAccess";
 export { selfBackup } from "./selfBackup";

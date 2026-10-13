@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 
 from noust.cli.app import cli as root_cli
 from noust.core.preview_store import PreviewStore
-from noust.core.store import NoustStore
+from noust.core.store import Database, NoustStore
 from noust.integrations.github import pulls
 from noust.managers import previews
 from tests.test_previews_variables_data import open_pull
@@ -54,6 +54,17 @@ class TestHowTheyAreMade:
 
         assert (body["inherit_env"], body["allow_env"]) == ("allowlist", [])
         assert body["data_mode"] == "shared"  # the fixture application has no database
+
+    def test_the_listing_says_whether_the_application_has_a_database_to_isolate(
+        self, on: TestClient, store: NoustStore
+    ) -> None:
+        before = on.get(f"/api/apps/{PARENT}/previews").json()
+        app_row = store.get_app(PARENT)
+        assert app_row is not None
+        store.create_database(Database(app_id=app_row.id, name="shop", engine="postgresql"))
+        after = on.get(f"/api/apps/{PARENT}/previews").json()
+
+        assert (before["has_database"], after["has_database"]) == (False, True)
 
     def test_the_ways_round_trip(self, elevated: TestClient, store: NoustStore) -> None:
         response = elevated.put(
@@ -105,6 +116,25 @@ class TestTheVariablesPreviewsAreGiven:
         gone = on.delete(f"/api/apps/{PARENT}/previews/variables/API_URL")
         assert [v["name"] for v in gone.json()["variables"]] == ["SANDBOX_KEY"]
         assert on.delete(f"/api/apps/{PARENT}/previews/variables/API_URL").status_code == 404
+
+    def test_clear_values_are_read_in_sudo_mode(self, on: TestClient, store: NoustStore) -> None:
+        on.put(
+            f"/api/apps/{PARENT}/previews/variables/SANDBOX_KEY",
+            json={"value": "sk_test_abcdefghijklmnop"},
+        )
+
+        clear = on.get(f"/api/apps/{PARENT}/previews/variables", params={"unmask": "true"})
+
+        assert clear.status_code == 200, clear.text
+        assert clear.json()["variables"][0]["value"] == "sk_test_abcdefghijklmnop"
+
+    def test_clear_values_are_refused_outside_sudo_mode(
+        self, session: TestClient, store: NoustStore
+    ) -> None:
+        refused = session.get(f"/api/apps/{PARENT}/previews/variables", params={"unmask": "true"})
+
+        assert refused.status_code == 403
+        assert refused.json()["error"] == "elevation_required"
 
     def test_a_change_needs_sudo_mode(self, session: TestClient, store: NoustStore) -> None:
         response = session.put(f"/api/apps/{PARENT}/previews/variables/A", json={"value": "1"})

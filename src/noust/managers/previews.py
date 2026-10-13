@@ -574,7 +574,7 @@ def enable_previews(
         allow_env: The variables an ``allowlist`` preview copies; None keeps
             the current list (none when previews are being turned on).
         data_mode: ``shared`` (the application's databases), ``empty`` (a
-            database of its own) or ``clone``; None keeps the current way
+            database of its own); None keeps the current way
             (``empty`` when previews are being turned on for an application
             that has a database, ``shared`` otherwise).
 

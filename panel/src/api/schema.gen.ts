@@ -2156,10 +2156,12 @@ export interface paths {
          *
          *     Args:
          *         domain: The application.
+         *         request: The request, for the audit record.
          *         session: The authenticated session.
+         *         unmask: Show values in clear (an administrator in sudo mode; audited).
          *
          *     Returns:
-         *         Them, secrets masked.
+         *         Them, secrets masked unless asked for.
          */
         get: operations["get_preview_variables_api_apps__domain__previews_variables_get"];
         put?: never;
@@ -27282,8 +27284,8 @@ export interface components {
          *             the set defined for previews) or ``all`` (every variable less
          *             ``exclude_env``, as before 3.4).
          *         allow_env: The variables an ``allowlist`` preview copies.
-         *         data_mode: ``shared`` (a preview uses the application's databases),
-         *             ``empty`` (a database of its own) or ``clone``.
+         *         data_mode: ``shared`` (a preview uses the application's databases) or
+         *             ``empty`` (a database of its own).
          */
         PreviewSettingsOut: {
             /** Allow Bots */
@@ -27331,7 +27333,7 @@ export interface components {
          *             (``allowlist`` for previews turned on now).
          *         allow_env: The variables an ``allowlist`` preview copies; null keeps
          *             the current list (none for previews turned on now).
-         *         data_mode: ``shared``, ``empty`` or ``clone``; null keeps the current
+         *         data_mode: ``shared`` or ``empty``; null keeps the current
          *             way (``empty`` for an application that has a database).
          */
         PreviewSettingsRequest: {
@@ -27366,6 +27368,7 @@ export interface components {
          *         name: Its name.
          *         value: Its value, masked when it is a secret.
          *         secret: Whether Noust treats it as one.
+         *         marked: Whether the operator said so (the classifier is not asked).
          *         audience: ``both``, ``build`` or ``runtime``.
          *         updated_at: When it last changed.
          */
@@ -27375,6 +27378,11 @@ export interface components {
              * @default both
              */
             audience: string;
+            /**
+             * Marked
+             * @default false
+             */
+            marked: boolean;
             /** Name */
             name: string;
             /** Secret */
@@ -27453,12 +27461,19 @@ export interface components {
          *         previews: Its previews, oldest first. Some may remain after previews
          *             were turned off, while their removal runs or when it failed.
          *         total: How many.
+         *         has_database: Whether Noust has a database recorded for the application,
+         *             which its previews share unless they are given one of their own.
          */
         PreviewsResponse: {
             /** Domain */
             domain: string;
             /** Enabled */
             enabled: boolean;
+            /**
+             * Has Database
+             * @default false
+             */
+            has_database: boolean;
             /** Previews */
             previews: components["schemas"]["PreviewOut"][];
             settings?: components["schemas"]["PreviewSettingsOut"] | null;
@@ -38061,7 +38076,9 @@ export interface operations {
     };
     get_preview_variables_api_apps__domain__previews_variables_get: {
         parameters: {
-            query?: never;
+            query?: {
+                unmask?: boolean;
+            };
             header?: never;
             path: {
                 domain: string;

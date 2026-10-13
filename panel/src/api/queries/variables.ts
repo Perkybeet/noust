@@ -26,8 +26,13 @@ export type SecretProviderKinds = ResponseOf<"/api/secret-providers/kinds", "get
 export type SecretProviderKind = SecretProviderKinds["kinds"][number];
 export type SecretProviderBody = BodyOf<"/api/secret-providers/{name}", "put">;
 
-/** Whose variables: the server's, a team's, a project's or one of its environments'. */
+/**
+ * Whose variables: the server's, a team's, a project's, one of its environments', or the set
+ * an application defines for its previews alone (the same rows and the same dialog, at other
+ * URLs; it has no references to other scopes and nobody refers to it).
+ */
 export type VariableScope =
+  | { kind: "preview"; domain: string }
   | { kind: "server" }
   | { kind: "team"; team: string }
   | { kind: "project"; team: string; project: string }
@@ -59,6 +64,36 @@ export const variableKeys = {
  */
 export function variablesApi(scope: VariableScope) {
   switch (scope.kind) {
+    case "preview": {
+      const { domain } = scope;
+      const asShared = (answer: ResponseOf<"/api/apps/{domain}/previews/variables", "get">, unmasked: boolean): SharedVariables => ({
+        scope: "preview",
+        label: answer.domain,
+        unmasked,
+        syntax: "{{app.URL}}",
+        variables: answer.variables.map((variable) => ({
+          name: variable.name,
+          value: variable.value,
+          secrecy: { secret: variable.secret, marked: variable.marked ?? false, reason: "" },
+          audience: variable.audience,
+          references: [],
+          updated_at: variable.updated_at ?? "",
+          updated_by: null,
+        })),
+      });
+      return {
+        list: async (unmask: boolean, signal?: AbortSignal) =>
+          asShared(await request("get", "/api/apps/{domain}/previews/variables", { params: { domain }, query: { unmask }, ...(signal ? { signal } : {}) }), unmask),
+        set: async (name: string, body: SharedVariableBody) =>
+          asShared(await request("put", "/api/apps/{domain}/previews/variables/{name}", { params: { domain, name }, body }), false),
+        remove: async (name: string): Promise<VariableDeleted> => {
+          await request("delete", "/api/apps/{domain}/previews/variables/{name}", { params: { domain, name } });
+          return { name, applications: [] };
+        },
+        // Nobody refers to a preview's variable: they are copied, not referenced.
+        usage: async (name: string): Promise<VariableUsage> => ({ name, applications: [] }),
+      };
+    }
     case "server":
       return {
         list: (unmask: boolean, signal?: AbortSignal) => request("get", "/api/variables/server", { query: { unmask }, ...(signal ? { signal } : {}) }),
