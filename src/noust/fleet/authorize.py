@@ -86,6 +86,7 @@ from noust.fleet.models import (
     local_node_name,
     parse_public_key,
     validate_central_name,
+    validate_port,
     validate_ssh_user,
 )
 from noust.fleet.policy import DEFAULT_ACCESS, FleetAccess, current_access, set_access
@@ -497,7 +498,7 @@ def authorized_key_line(central: str, key: PublicKey, console_port: int) -> str:
         The line, without a newline.
     """
     options = (
-        f'restrict,port-forwarding,permitopen="127.0.0.1:{int(console_port)}",'
+        f'restrict,port-forwarding,permitopen="127.0.0.1:{validate_port(console_port, "console port")}",'
         f'permitlisten="{NO_LISTEN}",command="{FORCED_COMMAND}"'
     )
     return f"{options} {key.bare} {key_comment(central)}"
@@ -1230,7 +1231,7 @@ def tunnel_policy_block(user: str, console_port: int, keys_dir: Path = TUNNEL_KE
         "    DisableForwarding no",
         "    AllowTcpForwarding local",
         "    AllowStreamLocalForwarding no",
-        f"    PermitOpen 127.0.0.1:{int(console_port)}",
+        f"    PermitOpen 127.0.0.1:{validate_port(console_port, 'console port')}",
         "    PermitListen none",
         "    GatewayPorts no",
         "    PermitTunnel no",
