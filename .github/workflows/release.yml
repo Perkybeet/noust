@@ -73,6 +73,12 @@ jobs:
       - name: Check the completion scripts are current
         run: python scripts/generate_completions.py --check
 
+      # What the documentation shows is what the product is: the pictures of the console
+      # are the ones of this minor release, or the tag does not publish. Retake them with
+      # `cd panel && npm run docs:screens` (see CONTRIBUTING.md, Releasing).
+      - name: Check the documentation's pictures show this release
+        run: python scripts/docs_screens.py check --release
+
   quality:
     name: Lint and types before publishing
     runs-on: ubuntu-latest

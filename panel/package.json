@@ -17,7 +17,7 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "e2e:screens": "NOUST_SCREENS=1 playwright test",
-    "docs:screens": "NOUST_DOCS_SCREENS=1 playwright test docs.spec.ts",
+    "docs:screens": "NOUST_DOCS_SCREENS=1 playwright test docs.spec.ts && python3 ../scripts/docs_screens.py write",
     "gen:api": "openapi-typescript openapi.json -o src/api/schema.gen.ts",
     "check:api": "node scripts/check-api.mjs",
     "check:bundle": "node scripts/check-bundle-budget.mjs",

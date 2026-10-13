@@ -440,6 +440,11 @@ jobs:
       - name: Build the site and check every link
         run: python scripts/build_docs.py --out build/docs-site
 
+      # Every picture of the console is recorded with the release it shows and its hash. Pictures
+      # of an earlier minor release are a note here and a failure when a tag publishes.
+      - name: Check the documentation's pictures are recorded
+        run: python scripts/docs_screens.py check
+
       - uses: actions/upload-artifact@v7
         with:
           name: docs-site

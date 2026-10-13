@@ -470,6 +470,13 @@ transitional package) and only the `announce` job makes it the latest. Run
 Updates shows the target version and how many servers are there, and the self-update (the console's
 and the fleet's "Update Noust") upgrades the transitional package with `noust` when it is installed.
 
+The pictures of the console in the README and the guides (`docs/assets/console/`) are recorded in
+`SCREENS.json` with the release they show and a hash each, and `release.yml` refuses a tag whose
+pictures show an earlier minor release: before tagging a minor, run `cd panel && npm run docs:screens`
+(it retakes them from a seeded server and records them) and commit the folder. CI only notes the
+lag between releases, and fails on a picture changed by hand or one nobody recorded
+(`python scripts/docs_screens.py check`).
+
 Distribution names: `noust` on PyPI and OBS. The names WASM shipped under stay as
 transitional packages through 3.x, each one only depending on `noust`: `wasm-cli` on PyPI,
 `wasm` in the Debian build and `wasm-cli` in the RPM one (`noust` declares `Conflicts`, never
