@@ -849,6 +849,22 @@ has an on-disk queue and is retried; one that falls more than `audit.sink_lag_mi
 reported. `noust audit status` says whether the trail works and where it goes; a failing trail
 shows in the console and in `noust health`.
 
+**When the trail cannot be written** (the disk is full, the directory went read-only, the file
+cannot be opened) an action is never lost for it by default: `audit.on_failure: warn` makes the
+change and is loud, since the failure is kept as state, shown in the console and in `noust
+health`, and followed by an `audit.recovered` event when a write works again. Set
+`audit.on_failure: refuse` and, under `security.profile: ens-medium` always, no change goes
+unrecorded instead: while the trail cannot take an event, every change through the API (and its
+webhooks, `POST /hooks/...`) answers `503 audit_unavailable` with the reason and the way out, and
+every command that changes something exits 1 before doing anything. Reading, signing in and out,
+`noust audit`, `health`, `ens`, `config`, `setup`, `incident` and `web`, which are how the trail
+is put right, stay open, and so do the units and timers (a scheduled backup that did not run is
+worse than one whose line was not written; their failure keeps shouting). The server looks at
+the log's directory *before* the change (it exists, can be written to, has room) so the first
+change after the disk filled is the first one refused, not the last one made blind; a look is
+never a write. A refusal is itself an `audit.refused` event, and the write that records it
+working is also what shows the trail has recovered.
+
 **Retention and flooding.** The file is closed every day and when it reaches
 `audit.rotate_mb`. Closed files are deleted once older than `audit.retention_days` (365, at
 least 90) **and** received by every destination, and the deletion is itself an event that

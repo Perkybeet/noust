@@ -96,6 +96,7 @@ como `ens-medium` (falla hacia lo estricto). Cambiarlo queda en la auditoría.
 | Publicar la consola en un nombre público (`noust console expose`) | permitido, con segundo factor en todas las cuentas | rechazado salvo `--force-ens` con confirmación y una lista de IP (queda auditado) | mp.com.1, op.acc.4.5 |
 | Terminal de la consola (`terminal.idle_minutes`, `terminal.max_minutes`) | los valores configurados | 10 min sin teclear y 60 min en total como máximo; cada sesión queda grabada en la auditoría | op.acc.6.4, op.exp.8 |
 | Terminal root del servidor (`terminal.server.enabled`) | apagado hasta que se enciende | rechazado salvo `terminal.server.force_ens` además, y entonces queda auditado; con aprobación de cuatro ojos | op.acc.3, mp.eq.1 |
+| Fallo al escribir la auditoría (`audit.on_failure`) | `warn`: el cambio se hace y el fallo se muestra | `refuse` siempre: ningún cambio sin registro; la API contesta `503 audit_unavailable` y la línea de comandos sale con error antes de hacer nada (lectura, inicio de sesión y `noust audit` siguen abiertos) | op.exp.8 |
 
 Ajustes de seguridad relacionados que no dependen del perfil:
 

@@ -346,6 +346,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "enterprise_id": 32473,
         "checkpoint_minutes": 5,
         "sink_lag_minutes": 15,
+        # What a change does when the trail cannot be written (noust.core.audit.failclosed):
+        # warn makes it and is loud about the failure; refuse stops every change until the
+        # trail works. Always refuse under the ENS profile.
+        "on_failure": "warn",
     },
     "retention": {
         # How long Noust keeps its own records (ENS G19); the monitor's
@@ -1224,6 +1228,29 @@ def _validate_flag(label: str) -> Callable[[Any], bool]:
 MCP_GROUPS = ("inspect", "deploy", "control")
 
 
+def _validate_choice(label: str, choices: tuple[str, ...]) -> Callable[[Any], str]:
+    """
+    Build a validator for a setting that is one of a few words.
+
+    Args:
+        label: Name used in the error message.
+        choices: The words accepted.
+
+    Returns:
+        A function returning the word, lower-cased, and refusing anything else.
+    """
+
+    def validator(value: Any) -> str:
+        word = str(value).strip().lower()
+        if word not in choices:
+            raise ConfigError(
+                f"{label} must be one of: {', '.join(choices)}", details=f"Got {value!r}."
+            )
+        return word
+
+    return validator
+
+
 def _validate_mcp_groups(value: Any) -> list[str]:
     """
     Accept the groups of MCP tools on offer.
@@ -1382,6 +1409,7 @@ _KEY_VALIDATORS: dict[str, Callable[[Any], Any]] = {
     "auth.sudo.idle_minutes": _int_range_validator("auth.sudo.idle_minutes", *SUDO_IDLE_RANGE),
     "auth.sudo.max_minutes": _int_range_validator("auth.sudo.max_minutes", *SUDO_MAX_RANGE),
     "auth.sudo.require_password": _validate_flag("auth.sudo.require_password"),
+    "audit.on_failure": _validate_choice("audit.on_failure", ("warn", "refuse")),
     "mcp.enabled": _validate_flag("mcp.enabled"),
     "mcp.groups": _validate_mcp_groups,
     "auth.local_login.enabled": _validate_local_login_enabled,

@@ -663,7 +663,7 @@ def create_update_jobs(
         try:
             job, joined = _queue_update(domain, request.force, session)
         except HTTPException as exc:
-            detail = exc.detail if isinstance(exc.detail, dict) else {}
+            detail: dict[str, Any] = exc.detail if isinstance(exc.detail, dict) else {}
             if exc.status_code == 409 and detail.get("error") == "nothing_new":
                 items.append(
                     UpdateManyItem(

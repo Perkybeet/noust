@@ -50,6 +50,7 @@ from starlette.requests import HTTPConnection
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from noust.core.audit import bind as bind_audit_context
+from noust.core.audit import failclosed
 from noust.core.audit.context import request_correlation_id
 from noust.core.config import Config
 from noust.core.exceptions import FleetUnavailableError, SecurityError
@@ -1533,6 +1534,38 @@ class SecurityMiddleware:
                     hint="Send a smaller body. The limits are in docs/security.md.",
                 )
                 return
+
+        if (
+            scope["type"] == "http"
+            and str(scope.get("method", "")).upper() in _BODY_METHODS
+            and path.startswith(("/api/", HOOKS_PATH_PREFIX))
+            and path not in SIGN_IN_PATHS
+            and path != "/api/auth/logout"
+            and (why := failclosed.refusal()) is not None
+        ):
+            # A change that could not be recorded is not made (audit.on_failure, always under
+            # the ENS profile). Signing in stays open, or a server whose log is broken could
+            # not be mended from its console; reading is not a change.
+            if audit:
+                audit.record(
+                    action="audit.refused",
+                    result="denied",
+                    client_ip=client_ip,
+                    resource=path,
+                    detail=f"a change was refused because the audit trail cannot be written: {why}",
+                )
+            await self._deny(
+                scope,
+                receive,
+                send,
+                connection,
+                status_code=503,
+                ws_code=WS_CLOSE_FORBIDDEN,
+                detail=f"The audit trail cannot be written, so changes are refused: {why}.",
+                error="audit_unavailable",
+                hint=failclosed.HINT,
+            )
+            return
 
         if self._guards_credentials(scope, connection, path) and not (
             path in SIGN_IN_PATHS and shared_address(client_ip, config)

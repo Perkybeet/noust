@@ -133,6 +133,7 @@ used, with their default in the code, so a file that lacks them behaves as docum
 | `auth.tokens.max_days` | `90` | Longest life of an API token under the ENS profile, and its default. |
 | `auth.notice.text` | empty | Rights and obligations shown after sign-in and accepted on record. Editing it asks everybody to accept it again. |
 | `auth.login_label` | empty | Shown on the sign-in page instead of the host name, which is not shown before sign-in. |
+| `audit.on_failure` | `warn` | What a change does when the audit trail cannot be written: `warn` makes it and shows the failure (console, `noust health`); `refuse` stops every change - the API's and the command line's - until the trail works. Always `refuse` under the ENS profile. |
 | `audit.retention_days` | `365` | Days audit events are kept; 90 is the least accepted. Nothing is deleted before every destination received it. |
 | `audit.max_total_mb` | `2048` | Disk the audit trail may take. |
 | `audit.rotate_mb` | `64` | Size at which its file is rotated. |

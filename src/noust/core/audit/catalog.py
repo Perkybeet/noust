@@ -148,6 +148,7 @@ EVENTS: dict[str, EventSpec] = {
             "http.denied.approval": "A request needing approval was refused without it.",
             "apps.source.denied": "Code from an origin this server does not allow was refused.",
             "auth.lockdown.denied": "A sign-in was refused while the console is locked down.",
+            "audit.refused": "A change was refused because the audit trail could not take it.",
         },
     ),
     # Accounts and approvals.
