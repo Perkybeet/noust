@@ -85,6 +85,7 @@ from noust.core.notifications.composers import (
 )
 from noust.core.notifications.context import NotificationContext
 from noust.core.runner import CommandRunner, get_runner
+from noust.core.signal_guard import stop_as_exit
 from noust.core.store import App, NoustStore, get_store
 from noust.core.utils import domain_to_app_name
 from noust.deployers.helpers.layout import RELEASES, app_root
@@ -910,6 +911,32 @@ class VolumeBackupManager:
     def _quiesced(self, app: App, mode: str) -> Iterator[None]:
         """
         Keep an application still while its data is copied, and always let it go.
+
+        Also when the process is told to stop (systemd stopping the timer's unit,
+        a closed terminal): SIGTERM and SIGHUP raise ``SystemExit`` for the length
+        of the block, so the ``finally`` that starts or thaws the application runs.
+
+        Args:
+            app: The application.
+            mode: ``live``, ``pause`` or ``stop``.
+
+        Yields:
+            Nothing; the application is still for the duration of the block.
+
+        Raises:
+            BackupError: When it cannot be stilled (nothing is then copied), or
+                cannot be started or thawed again afterwards.
+        """
+        if mode == "live":
+            yield
+            return
+        with stop_as_exit(), self._still(app, mode):
+            yield
+
+    @contextmanager
+    def _still(self, app: App, mode: str) -> Iterator[None]:
+        """
+        Still an application and let it go again, whatever happens in between.
 
         Args:
             app: The application.
