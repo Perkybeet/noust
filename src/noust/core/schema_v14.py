@@ -498,6 +498,13 @@ SSO_COLUMNS: list[tuple[str, str, str]] = []
 #   now (noust.deployers.pending_changes). Values are never stored, only their
 #   salted hashes: the document answers "did it change", never "to what".
 #
+# app_processes: the processes an application runs beside its web process (a
+#   queue worker, a scheduler), each a unit of its own from the same release
+#   (noust.core.app_process_store is its only reader and writer). ``instances``
+#   is how many copies run (0 keeps the definition and stops them); the limits are
+#   the process's own. ``source`` says where the definition came from: the
+#   operator's wins over the repository's, which is synchronised at every deploy.
+#
 # app_hardening: how much of systemd's sandbox an application's unit runs in
 #   (noust.core.unit_hardening_store is its only reader and writer): ``off``,
 #   ``default`` or ``strict``, and the extra directories the unit may write to
@@ -526,6 +533,21 @@ CREATE TABLE IF NOT EXISTS app_applied_config (
     deployment_id INTEGER,
     document TEXT NOT NULL,
     taken_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_processes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    app_id INTEGER NOT NULL REFERENCES apps(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    command TEXT NOT NULL,
+    instances INTEGER NOT NULL DEFAULT 1 CHECK (instances BETWEEN 0 AND 32),
+    memory_max_mb INTEGER,
+    cpu_quota_percent INTEGER,
+    tasks_max INTEGER,
+    source TEXT NOT NULL DEFAULT 'operator' CHECK (source IN ('operator', 'repository')),
+    updated_by TEXT,
+    updated_at TEXT NOT NULL,
+    UNIQUE (app_id, name)
 );
 
 CREATE TABLE IF NOT EXISTS app_hardening (

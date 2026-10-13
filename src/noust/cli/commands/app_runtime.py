@@ -14,6 +14,7 @@ import click
 
 from noust.cli.commands.app_hardening import hardening_group
 from noust.cli.commands.app_pending import pending_command
+from noust.cli.commands.app_process import process_group
 
 #: Every command and group the area adds to ``noust app``.
-COMMANDS: tuple[click.Command, ...] = (hardening_group, pending_command)
+COMMANDS: tuple[click.Command, ...] = (hardening_group, pending_command, process_group)

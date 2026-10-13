@@ -11,6 +11,11 @@ rule with two answers - so the gate is one class both
 :class:`~noust.deployers.base.BaseDeployer` and
 :func:`~noust.deployers.lifecycle.activate_release` build.
 
+The processes an application runs beside its web process (a queue worker, a
+scheduler) are judged with it (checklist B-67): they are restarted together with
+the unit and must stay up for a few seconds once it answers, so a release that
+breaks only its worker is put back exactly like one that breaks its web process.
+
 What it does not decide is what happens next: the caller re-activates the
 release that was serving and says so, because only the caller knows which one
 that was.
@@ -392,21 +397,25 @@ class HealthGate:
             failed probes and the unit's journal, verbatim.
         """
         self._failures = []
+        companions = self._companion_units()
         try:
             if self._restart is not None:
                 self._restart()
             elif self.unit:
                 self._services.restart(self.unit)
+            for companion in companions:
+                self._services.restart(companion)
         except NoustError as exc:
             # str() of a NoustError carries its details: systemctl's own output.
             return False, self.evidence(str(exc))
 
         if self.check is not None and self.check.is_command:
-            return self._restart_and_run_command(self.check)
+            healthy, evidence = self._restart_and_run_command(self.check)
+            return self._with_companions(healthy, evidence, companions)
 
         if self.url is None:
             if self._files_check is None or self._files_check():
-                return True, ""
+                return self._with_companions(True, "", companions)
             return False, self.evidence("The release has nothing to serve.")
 
         options = self.check.probe_options() if self.check is not None else {}
@@ -424,8 +433,50 @@ class HealthGate:
             **options,
         )
         if healthy:
-            return True, ""
+            return self._with_companions(True, "", companions)
         return False, self.evidence("The application did not answer the health check.")
+
+    def _companion_units(self) -> list[str]:
+        """
+        Name the processes that restart with the unit and are judged with it.
+
+        Returns:
+            The copies of the application's processes. None when the gate is of
+            an instance of a blue/green template (the engine moves the processes
+            itself, before the traffic), or has no application to ask about.
+        """
+        check = self.check
+        if check is None or check.domain is None:
+            return []
+        if self.unit and "@" in self.unit:
+            return []
+        from noust.managers.app_processes import ProcessManager
+
+        return ProcessManager(services=self._services).units_for(check.domain)
+
+    def _with_companions(
+        self, healthy: bool, evidence: str, companions: Sequence[str]
+    ) -> tuple[bool, str]:
+        """
+        Add the processes' verdict to the web process's.
+
+        Args:
+            healthy: Whether the web process passed.
+            evidence: Its evidence, when it did not.
+            companions: The processes restarted with it.
+
+        Returns:
+            Whether everything passed, and the evidence of whatever did not.
+        """
+        if not healthy or not companions:
+            return healthy, evidence
+        from noust.managers.app_processes import ProcessManager
+
+        manager = ProcessManager(services=self._services)
+        settled = manager.settle(companions)
+        if settled.ok:
+            return True, ""
+        return False, self.evidence(manager.evidence(settled, companions))
 
     def _restart_and_run_command(self, check: HealthCheck) -> tuple[bool, str]:
         """

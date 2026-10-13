@@ -114,6 +114,7 @@ from noust.deployers.releases import (
     release_order_key,
 )
 from noust.managers.apache_manager import ApacheManager
+from noust.managers.app_processes import ProcessManager
 from noust.managers.backup_manager import BackupManager, RollbackManager
 from noust.managers.cert_manager import CertManager
 from noust.managers.nginx_manager import NginxManager
@@ -3839,6 +3840,13 @@ def _delete_app(
         # directory's name is the operator's, and may be a unit of theirs.
         units = [app_path.name if is_in_apps_directory(app_path) else domain_to_app_name(domain)]
     services = ServiceManager(verbose=log.verbose)
+    if app is not None and not is_rehearsal():
+        # The processes beside the web process, before the unit they depend on.
+        try:
+            for unit in ProcessManager(store=store, services=services, log=log).remove_all(domain):
+                log.substep(f"Removed {unit}")
+        except NoustError as exc:
+            failed("Its processes were not removed", exc)
     for unit in units:
         try:
             # Stops, disables and removes it, and tolerates one that is gone.

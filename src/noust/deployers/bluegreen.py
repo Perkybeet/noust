@@ -821,7 +821,15 @@ class BlueGreen:
                 serving,
             )
 
-        self._switch_upstream(target, unit, serving)
+        # The processes beside the web process run the release before the
+        # traffic does: a worker that breaks on it stops the switch.
+        put_workers_back = self._workers_follow(release, releases, unit, serving)
+        try:
+            self._switch_upstream(target, unit, serving)
+        except NoustError:
+            if put_workers_back is not None:
+                put_workers_back()
+            raise
         self._record_color(target)
         self._enable_for_boot(target, serving)
 
@@ -843,6 +851,67 @@ class BlueGreen:
             to_color=target,
             port=port,
         )
+
+    def _workers_follow(
+        self, release: Path, releases: ReleaseManager, unit: str, serving: str
+    ) -> Callable[[], None] | None:
+        """
+        Make the application's other processes run a release, and prove they stay up.
+
+        Args:
+            release: The release directory.
+            releases: The application's releases.
+            unit: The idle instance that already passed its gate; stopped when
+                a process does not stay up.
+            serving: The instance that serves, which keeps serving then.
+
+        Returns:
+            What puts the processes back on the release they ran, or None when
+            the application has none.
+
+        Raises:
+            RolledBackError: A process did not stay up on the release; the
+                instance that served still serves and the processes are back.
+            DeploymentError: The same, and the instance that served does not
+                answer either.
+        """
+        from noust.managers.app_processes import ProcessManager
+
+        manager = ProcessManager(services=self.services, store=self.store, log=self.log)
+        units = manager.units_for(self.app.domain)
+        if not units:
+            return None
+        previous = releases.point_workers(release)
+
+        def put_back() -> None:
+            if previous is not None:
+                releases.point_workers(previous)
+            try:
+                manager.restart(units)
+            except NoustError as exc:
+                self.log.warning(f"The processes could not be restarted as they were: {exc}")
+
+        self.log.substep(f"Restarting {len(units)} process(es) on release {release.name}")
+        try:
+            manager.restart(units)
+            settled = manager.settle(units)
+        except NoustError as exc:
+            put_back()
+            self._stop(unit)
+            raise self._kept_serving(
+                f"Release {release.name} could not restart its processes",
+                f"{exc.message}\n{exc.details}".strip(),
+                serving,
+            ) from exc
+        if not settled.ok:
+            put_back()
+            self._stop(unit)
+            raise self._kept_serving(
+                f"Release {release.name} answered, but its processes did not stay up",
+                manager.evidence(settled, units),
+                serving,
+            )
+        return put_back
 
     def _gate(self, color: str) -> HealthGate:
         """
