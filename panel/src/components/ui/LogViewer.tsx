@@ -1,9 +1,10 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { ArrowDown, ArrowDownToLine, ChevronDown, ChevronUp, Download, Search, WrapText } from "lucide-react";
+import { ArrowDown, ArrowDownToLine, Bug, ChevronDown, ChevronUp, Clock, Download, Info, Maximize2, Search, WrapText } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { KeyboardEvent, ReactNode } from "react";
 
 import { useT } from "../../i18n";
+import type { PlainKey } from "../../i18n";
 import type { AnsiSegment, AnsiStyle } from "../../lib/ansi";
 import { ansiClassName, parseAnsi } from "../../lib/ansi";
 import { downloadText } from "../../lib/clipboard";
@@ -14,6 +15,7 @@ import { IconButton } from "./IconButton";
 import { Input } from "./Input";
 import { Kbd } from "./Kbd";
 import { Skeleton } from "./Skeleton";
+import { StatusGlyph, stateTextClass } from "./StatusPill";
 
 export interface LogLine {
   id: number;
@@ -189,6 +191,39 @@ const LEVEL_RAIL: Record<Level, string> = {
   error: "shadow-[inset_2px_0_0_var(--fail)]",
 };
 
+/** The order the chips are offered in: what needs a look first. */
+const LEVELS: readonly Level[] = ["error", "warn", "info", "debug"];
+
+const LEVEL_WORD: Record<Level, PlainKey> = {
+  error: "common.logViewer.levels.error",
+  warn: "common.logViewer.levels.warn",
+  info: "common.logViewer.levels.info",
+  debug: "common.logViewer.levels.debug",
+};
+
+/** A line that says nothing about its level is information. */
+function levelOf(line: LogLine): Level {
+  return line.level ?? "info";
+}
+
+function countLevels(lines: readonly LogLine[]): Record<Level, number> {
+  const counts: Record<Level, number> = { error: 0, warn: 0, info: 0, debug: 0 };
+  for (const line of lines) counts[levelOf(line)] += 1;
+  return counts;
+}
+
+/**
+ * The shape of a level, so a chip never rests on its colour: the failure and the warning wear the
+ * glyphs they have everywhere else in the console, and the levels that are not a state wear a
+ * neutral one.
+ */
+function LevelGlyph({ level }: { level: Level }) {
+  if (level === "error") return <StatusGlyph state="failed" size={12} className={stateTextClass("failed")} />;
+  if (level === "warn") return <StatusGlyph state="warning" size={12} className={stateTextClass("warning")} />;
+  if (level === "info") return <Info aria-hidden="true" className="text-fg-muted" />;
+  return <Bug aria-hidden="true" className="text-fg-faint" />;
+}
+
 /**
  * Terminal output as real text: selectable, searchable and readable by assistive technology.
  * Only the rows in view are rendered, so a build log of a hundred thousand lines scrolls like
@@ -196,7 +231,7 @@ const LEVEL_RAIL: Record<Level, string> = {
  * line would drown a screen reader. State changes are announced elsewhere.
  */
 export function LogViewer({
-  lines,
+  lines: allLines,
   follow = true,
   height = 360,
   searchable = true,
@@ -210,11 +245,12 @@ export function LogViewer({
   className,
 }: LogViewerProps) {
   const t = useT();
+  const rootRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const lastTop = useRef(0);
   const loadRequested = useRef(false);
-  const firstId = useRef<number | undefined>(lines[0]?.id);
+  const firstId = useRef<number | undefined>(allLines[0]?.id);
   const fullLogHintId = useId();
 
   const [following, setFollowing] = useState(follow);
@@ -223,6 +259,45 @@ export function LogViewer({
   const [wrap, setWrap] = useState(() => initialWrap ?? prefersWrap());
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
+  const [chosen, setChosen] = useState<ReadonlySet<Level>>(() => new Set());
+  const [showTimes, setShowTimes] = useState(true);
+  const [fullScreen, setFullScreen] = useState(false);
+
+  // A level is offered only while the output has it, and the filter is only in force while its
+  // chips are on screen: a choice the output has since outgrown never hides everything behind it.
+  const counts = useMemo(() => countLevels(allLines), [allLines]);
+  const offered = LEVELS.filter((level) => counts[level] > 0);
+  const canFilter = offered.length > 1;
+  const keep = canFilter ? offered.filter((level) => chosen.has(level)).join(",") : "";
+  const lines = useMemo(
+    () => (keep === "" ? allLines : allLines.filter((line) => keep.split(",").includes(levelOf(line)))),
+    [allLines, keep],
+  );
+  // A line keeps the number it has in the whole output, so the filtered view still finds it there.
+  const numbers = useMemo(() => (keep === "" ? null : new Map(allLines.map((line, index) => [line, index + 1] as const))), [allLines, keep]);
+  const hasTimes = useMemo(() => allLines.some((line) => line.ts !== undefined), [allLines]);
+
+  const canFullScreen = typeof document !== "undefined" && document.fullscreenEnabled;
+  useEffect(() => {
+    const sync = (): void => setFullScreen(document.fullscreenElement === rootRef.current);
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+
+  const toggleLevel = (level: Level): void =>
+    setChosen((previous) => {
+      const next = new Set(previous);
+      if (next.has(level)) next.delete(level);
+      else next.add(level);
+      return next;
+    });
+
+  // The browser may refuse (a policy, a request that is not from a gesture): the viewer then stays
+  // as it was, and the button, which follows the browser's own state, with it.
+  const toggleFullScreen = (): void => {
+    const settled = fullScreen ? document.exitFullscreen() : rootRef.current?.requestFullscreen();
+    settled?.catch(() => undefined);
+  };
 
   // TanStack Virtual returns fresh functions each render; this component does not use the
   // React Compiler, so the library's memoisation caveat does not apply.
@@ -355,10 +430,12 @@ export function LogViewer({
     }
   };
 
-  // The same columns the viewer shows: the time when the line has one, never the line-number
-  // gutter (that is a position in this view, not part of the log).
+  // The same lines and columns the viewer shows: the time when it is shown and the line has one,
+  // never the line-number gutter (that is a position in the whole output, not part of the log).
   const plainText = (): string =>
-    lines.map((line) => (line.ts !== undefined ? `${line.ts} ${parsed(line).plain}` : parsed(line).plain)).join("\n");
+    lines
+      .map((line) => (showTimes && line.ts !== undefined ? `${line.ts} ${parsed(line).plain}` : parsed(line).plain))
+      .join("\n");
   const newLines = pausedAt !== null ? Math.max(0, lines.length - pausedAt) : 0;
   const showJump = !following && !atBottom && lines.length > 0;
 
@@ -366,13 +443,15 @@ export function LogViewer({
     // The key handler only redirects Ctrl/Cmd+F to the search box inside this viewer.
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions
     <div
+      ref={rootRef}
       onKeyDown={onRootKey}
       className={cx(
         "flex min-h-0 min-w-0 flex-col overflow-hidden rounded-card border border-border bg-bg-sunken",
-        height === "fill" && "h-full",
+        (height === "fill" || fullScreen) && "h-full",
         className,
       )}
-      style={height === "fill" ? undefined : { height }}
+      // On the whole screen the browser sizes it: a fixed height would keep it as short as it was.
+      style={height === "fill" || fullScreen ? undefined : { height }}
     >
       {/* Wraps onto a second row rather than clipping or overlapping: on a narrow viewport with
           an active search (counter plus step buttons), the single-row toolbar does not fit
@@ -429,6 +508,23 @@ export function LogViewer({
         ) : (
           <div className="flex-1" />
         )}
+        {canFilter ? (
+          <div role="group" aria-label={t("common.logViewer.filterLabel")} className="flex shrink-0 items-center gap-0.5">
+            {offered.map((level) => (
+              <Button
+                key={level}
+                size="sm"
+                variant="ghost"
+                icon={<LevelGlyph level={level} />}
+                aria-pressed={chosen.has(level)}
+                onClick={() => toggleLevel(level)}
+                className="aria-pressed:bg-surface-active aria-pressed:text-fg"
+              >
+                {t(LEVEL_WORD[level])} <span className="mono text-12 text-fg-muted">{counts[level]}</span>
+              </Button>
+            ))}
+          </div>
+        ) : null}
         <div className="flex shrink-0 items-center gap-0.5">
           <Button
             size="sm"
@@ -447,6 +543,24 @@ export function LogViewer({
             pressed={wrap}
             onClick={() => setWrap((v) => !v)}
           />
+          {hasTimes ? (
+            <IconButton
+              size="sm"
+              label={t("common.logViewer.showTimes")}
+              icon={<Clock />}
+              pressed={showTimes}
+              onClick={() => setShowTimes((v) => !v)}
+            />
+          ) : null}
+          {canFullScreen ? (
+            <IconButton
+              size="sm"
+              label={t("common.logViewer.fullScreen")}
+              icon={<Maximize2 />}
+              pressed={fullScreen}
+              onClick={toggleFullScreen}
+            />
+          ) : null}
           <CopyButton value={plainText} label={t("common.copyButton.copyOutput")} aria-describedby={fullLogHintId} />
           <IconButton
             size="sm"
@@ -460,7 +574,7 @@ export function LogViewer({
               reader reading the region finds just those, so it has to be told that Copy and
               Download act on the whole log, not only what happens to be rendered. */}
           <span id={fullLogHintId} className="sr-only">
-            {t("common.logViewer.fullLogHint")}
+            {keep === "" ? t("common.logViewer.fullLogHint") : t("common.logViewer.filteredLogHint")}
           </span>
         </div>
       </div>
@@ -509,9 +623,9 @@ export function LogViewer({
                         LEVEL_RAIL[line.level ?? "info"],
                       )}
                     >
-                      {item.index + 1}
+                      {numbers?.get(line) ?? item.index + 1}
                     </span>
-                    {line.ts !== undefined ? (
+                    {showTimes && line.ts !== undefined ? (
                       <span className="shrink-0 pr-3 text-fg-faint">{line.ts}</span>
                     ) : null}
                     <span className={wrap ? "min-w-0 flex-1 break-all whitespace-pre-wrap" : "whitespace-pre"}>

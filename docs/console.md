@@ -783,7 +783,10 @@ The console holds one Server-Sent Events stream for the machine strip, charts, a
 states, job progress and notifications, and opens a WebSocket for a log or a running job
 while you look at it. If the connection drops it reconnects with backoff and refreshes
 everything it shows. Log viewers render ANSI colours, search, follow the newest line (pausing
-when you scroll up, with a "Jump to latest" button), wrap, copy and download.
+when you scroll up, with a "Jump to latest" button), wrap, copy and download. When the output has
+levels, a chip for each (error, warning, info, debug, with its count) keeps only the levels you
+choose, the line numbers stay those of the whole output, and copy and download take what is shown;
+the time column can be hidden, and the viewer can take the whole screen.
 
 A job runs on a thread of the console, so a console that restarts ends the jobs it was running:
 they are marked "Interrupted by a panel restart". The exception is work that runs in a transient
