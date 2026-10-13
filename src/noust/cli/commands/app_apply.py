@@ -19,7 +19,7 @@ from pathlib import Path
 
 import click
 
-from noust.cli.app import Context, global_flags, json_option, pass_context
+from noust.cli.app import Context, NoustCommand, global_flags, json_option, pass_context
 from noust.core.exceptions import ValidationError
 from noust.deployers.project_apply import (
     ApplyPlan,
@@ -82,7 +82,8 @@ def _print_report(ctx: Context, report: ApplyReport) -> None:
         ctx.logger.list_item(f"{step.part}: {step.detail}")
 
 
-@click.command("apply")
+# Only --check reads; applying changes the application, so it is recorded like any other change.
+@click.command("apply", cls=NoustCommand, read_only=lambda params: bool(params["check"]))
 @click.argument("domain")
 @click.argument("file", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option(

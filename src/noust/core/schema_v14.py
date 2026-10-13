@@ -317,7 +317,7 @@ CREATE TABLE IF NOT EXISTS gitlab_connections (
     last_error TEXT
 );
 -- gitlab_oauth_apps: the application an operator registered in GitLab so that people can connect
--- without pasting a token. One per host; the client secret is the secret named by secret_name.
+-- without pasting a token. One per host, and the client secret is the secret named by secret_name.
 CREATE TABLE IF NOT EXISTS gitlab_oauth_apps (
     host TEXT PRIMARY KEY,
     client_id TEXT NOT NULL,

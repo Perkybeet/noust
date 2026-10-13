@@ -315,7 +315,7 @@ created with.
   (nginx proxies to `127.0.0.1`), no longer `0.0.0.0`: bound to every interface, the port
   answered the network too wherever the firewall did not close it.
 - **Workers**: `WEB_CONCURRENCY`, which Gunicorn reads when it is given no `-w`. The unit sets
-  it to 4; put another value in the application's `.env` (`noust env set`) and restart. With
+  it to 4; put another value in the application's `.env` (`noust env configure`) and restart. With
   your own `start`, workers are an argument of it.
 - **Servers**: Gunicorn (with Uvicorn workers for an ASGI application), or Hypercorn when the
   project depends on it and not on Gunicorn. Anything else is a `start` of your own, and then

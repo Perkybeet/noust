@@ -170,7 +170,10 @@ class TestTheCommands:
 
         assert refused.exit_code != 0
         assert refused.exception.field == "env.STRIPE_SECRET_KEY"
-        assert recorder.names() == []
+        # Nothing was written. The command itself is audited (it is a change), so the audit seam is
+        # not what is asserted empty.
+        assert "set_resource_limits" not in recorder.names()
+        assert "write_app_env" not in recorder.names()
 
 
 class TestTheApi:

@@ -113,6 +113,15 @@ FASTCGI = {
     "fastcgi_socket": "/run/php/noust-blog-example-com.sock",
 }
 
+#: What the deployer gives the Apache PHP template: the upload limit in bytes and the paths to
+#: deny already escaped for a regular expression (deployers/php_fpm.py).
+APACHE_FASTCGI = {
+    "document_root": "/var/www/apps/blog-example-com/current/public",
+    "max_upload_bytes": 67108864,
+    "deny_patterns": ["wp-config\\.php", "xmlrpc\\.php"],
+    "fastcgi_socket": "/run/php/noust-blog-example-com.sock",
+}
+
 #: (kind, template, variant, context): every Noust template, in the shapes it
 #: actually takes in production.
 TEMPLATE_CASES: list[tuple[str, str, str, dict[str, Any]]] = [
@@ -206,6 +215,8 @@ TEMPLATE_CASES: list[tuple[str, str, str, dict[str, Any]]] = [
             redirect_domains=["old-shop.example.com"],
         ),
     ),
+    ("apache", "fastcgi", "http", _context("blog.example.com", ssl=False, **APACHE_FASTCGI)),
+    ("apache", "fastcgi", "ssl", _context("blog.example.com", ssl=True, **APACHE_FASTCGI)),
     ("apache", "static", "http", _context("docs.example.com", ssl=False)),
     (
         "apache",

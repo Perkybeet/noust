@@ -1617,6 +1617,9 @@ EXEMPT_CALLS = {
     # A preview, not a deployment: the scratch checkout must be removed for
     # real even under --dry-run, and nothing in it is application state.
     ("inspect.py", "tempfile.TemporaryDirectory"),
+    # Reading a monorepo's workspaces is the same kind of preview: a scratch checkout of the
+    # configuration files, removed before the answer, never an application's state.
+    ("workspaces.py", "tempfile.TemporaryDirectory"),
     # The empty workspace directories a sparse checkout leaves out, created
     # inside that same scratch checkout so detection sees the tree it would.
     ("inspect.py", "os.makedirs"),

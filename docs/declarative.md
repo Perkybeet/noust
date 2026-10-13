@@ -36,7 +36,7 @@ noust app apply shop.example.com noust.yaml --prune     # also remove names and 
 - Only the **sections the file has** are touched, and only the parts of them that differ. A key
   left out is left alone, not reset.
 - **Variables are set, never removed**, and a secret in the file is refused naming it: set it on
-  the server with `noust env set`. Changing a variable does not restart the application.
+  the server with `noust env configure`. Changing a variable does not restart the application.
 - **Domains and tasks are added, not removed**, unless `--prune`, which removes the aliases,
   redirects and tasks of the application that the file does not list. A certificate is never
   revoked. A cron job with the name of one that is not this application's is refused.

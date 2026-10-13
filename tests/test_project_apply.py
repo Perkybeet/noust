@@ -248,7 +248,7 @@ class TestReading:
             parse_declaration("env:\n  STRIPE_SECRET_KEY: x\n")
 
         assert caught.value.field == "env.STRIPE_SECRET_KEY"
-        assert "noust env set" in (caught.value.details or "")
+        assert "noust env configure" in (caught.value.details or "")
 
     def test_a_value_that_looks_like_a_secret_is_refused_whatever_it_is_called(self) -> None:
         with pytest.raises(ValidationError):

@@ -395,7 +395,7 @@ def _env(value: object) -> dict[str, str]:
             raise _fail(
                 where,
                 "looks like a secret, and this file is meant to be committed",
-                f"Set it on the server: noust env set DOMAIN {name}=VALUE.",
+                "Set it on the server: noust env configure DOMAIN (or the console's Environment tab).",
             )
         out[name] = text
     validate_environment(out)
